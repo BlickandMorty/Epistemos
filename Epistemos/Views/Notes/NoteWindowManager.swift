@@ -1,6 +1,6 @@
 import AppKit
-import SwiftUI
 import SwiftData
+import SwiftUI
 import os
 
 // MARK: - Note Window Manager
@@ -29,7 +29,9 @@ final class NoteWindowManager {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
-        guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else { return }
+        guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else {
+            return
+        }
         bootstrap.notesUI.openPage(pageId)
         openWindow(for: page)
     }
@@ -128,6 +130,70 @@ final class NoteWindowManager {
         windows.removeValue(forKey: pageId)
     }
 
+    // MARK: - Version Tab (Read-Only)
+
+    /// Open a past version of a note as a read-only tab next to existing note tabs.
+    func openVersionTab(title: String, body: String, date: Date) {
+        guard let bootstrap = AppBootstrap.shared else { return }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        let dateStr = formatter.string(from: date)
+
+        let view = ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)
+            .environment(bootstrap.uiState)
+            .modelContainer(bootstrap.modelContainer)
+            .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
+
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        let windowTitle = title.isEmpty ? "Untitled" : title
+        window.title = "\(windowTitle) — \(dateStr)"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.contentView = hostingView
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 400, height: 300)
+
+        // Join the note tab group
+        window.tabbingMode = .preferred
+        window.tabbingIdentifier = "epistemos-note-tabs"
+
+        // Add as tab next to existing note windows
+        if let existingWindow = windows.values.first {
+            existingWindow.addTabbedWindow(window, ordered: .above)
+        }
+        window.makeKeyAndOrderFront(nil)
+
+        // Track with a unique key so it gets cleaned up
+        let key = "version-\(UUID().uuidString)"
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] notification in
+            guard let window = notification.object as? NSWindow else { return }
+            Task { @MainActor in
+                self?.handleWindowClose(window, pageId: key)
+            }
+        }
+        observers[key] = observer
+        windows[key] = window
+
+        Self.log.info(
+            "Opened version tab: \(windowTitle, privacy: .public) (\(dateStr, privacy: .public))")
+    }
+
     /// Sync appearance of all note windows to the current theme.
     func syncTheme(isDark: Bool) {
         let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
@@ -156,7 +222,7 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
 
     @MainActor func windowDidBecomeMain(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
-              let pageId = NoteWindowManager.shared.pageId(for: window)
+            let pageId = NoteWindowManager.shared.pageId(for: window)
         else { return }
         AppBootstrap.shared?.notesUI.openPage(pageId)
     }
@@ -173,6 +239,7 @@ private struct NoteTabView: View {
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
     @Query private var pages: [SDPage]
+    @State private var showDiffSheet = false
 
     init(pageId: String) {
         self.pageId = pageId
@@ -180,7 +247,7 @@ private struct NoteTabView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack {
             if let page = pages.first {
                 ProseEditorView(page: page)
                     .frame(minWidth: 400, minHeight: 300)
@@ -188,24 +255,75 @@ private struct NoteTabView: View {
                 ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
                     .frame(minWidth: 400, minHeight: 300)
             }
-
-            // Sidebar toggle — floats in the titlebar area
-            Button {
-                UtilityWindowManager.shared.show(.notes)
-            } label: {
-                Image(systemName: "sidebar.leading")
-                    .font(.epBody)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(NativeToolbarButtonStyle())
-            .help("Notes Sidebar (⌘2)")
-            .padding(.top, 6)
-            .padding(.trailing, 8)
         }
         .background(ui.theme.background)
+        .toolbarBackground(.hidden, for: .windowToolbar)
+        .toolbar {
+            // Note Title — pill bubble style
+            ToolbarItem(placement: .principal) {
+                if let page = pages.first {
+                    Text(page.title.isEmpty ? "Untitled" : page.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(ui.theme.foreground)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(ui.theme.glassBg)
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(ui.theme.glassBorder, lineWidth: 0.5)
+                        )
+                }
+            }
+
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    UtilityWindowManager.shared.show(.notes)
+                } label: {
+                    Image(systemName: "sidebar.leading")
+                        .font(.epBody)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
+                .help("Notes Sidebar (⌘2)")
+
+                Button {
+                    vaultSync.savePage(pageId: pageId)
+                } label: {
+                    Image(systemName: "square.and.arrow.down")
+                        .font(.epBody)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
+                .help("Save (⌘S)")
+
+                Button {
+                    showDiffSheet = true
+                } label: {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        .font(.epBody)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
+                .help("Diff (⌘D)")
+
+                Button {
+                    MiniChatWindowController.shared.toggle()
+                } label: {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.epBody)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
+                .help("Mini Chat")
+            }
+        }
         .background {
             // Hidden keyboard shortcut buttons
             Button("") { vaultSync.savePage(pageId: pageId) }
@@ -214,6 +332,14 @@ private struct NoteTabView: View {
             Button("") { vaultSync.saveAllDirtyPages() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
                 .hidden()
+            Button("") { showDiffSheet = true }
+                .keyboardShortcut("d", modifiers: .command)
+                .hidden()
+        }
+        .sheet(isPresented: $showDiffSheet) {
+            if let page = pages.first {
+                DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.body)
+            }
         }
     }
 }

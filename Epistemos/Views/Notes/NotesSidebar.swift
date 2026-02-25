@@ -28,11 +28,17 @@ private struct SidebarPageItem: Identifiable, Equatable {
     let subfolder: String?
 
     init(_ page: SDPage) {
-        id = page.id; title = page.title; emoji = page.emoji
-        isJournal = page.isJournal; isFavorite = page.isFavorite
-        isPinned = page.isPinned; isArchived = page.isArchived
-        isTemplate = page.isTemplate; journalDate = page.journalDate
-        tags = page.tags; folderId = page.folder?.id
+        id = page.id
+        title = page.title
+        emoji = page.emoji
+        isJournal = page.isJournal
+        isFavorite = page.isFavorite
+        isPinned = page.isPinned
+        isArchived = page.isArchived
+        isTemplate = page.isTemplate
+        journalDate = page.journalDate
+        tags = page.tags
+        folderId = page.folder?.id
         subfolder = page.subfolder
     }
 }
@@ -49,14 +55,23 @@ private struct SidebarFolderItem: Identifiable, Equatable {
     var childPages: [SidebarPageItem]
 
     init(_ folder: SDFolder) {
-        id = folder.id; name = folder.name
-        isCollection = folder.isCollection; sortOrder = folder.sortOrder
+        id = folder.id
+        name = folder.name
+        isCollection = folder.isCollection
+        sortOrder = folder.sortOrder
         parentId = folder.parent?.id
         childFolderIds = (folder.children ?? []).sorted { $0.sortOrder < $1.sortOrder }.map(\.id)
         relativePath = folder.relativePath
         // Primary: read directly from folder.pages (v3 pattern).
-        childPages = (folder.pages ?? []).filter { !$0.isArchived }
-            .sorted { $0.updatedAt > $1.updatedAt }.map(SidebarPageItem.init)
+        // Deduplicate by ID to prevent SwiftUI duplicate ID crashes.
+        let pages = (folder.pages ?? []).filter { !$0.isArchived }
+            .sorted { $0.updatedAt > $1.updatedAt }
+        var seenIds = Set<String>()
+        childPages = pages.compactMap { page in
+            guard !seenIds.contains(page.id) else { return nil }
+            seenIds.insert(page.id)
+            return SidebarPageItem(page)
+        }
     }
 }
 
@@ -155,7 +170,8 @@ struct NotesSidebar: View {
             }
         }
 
-        cachedFolderById = Dictionary(cachedFolderItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+        cachedFolderById = Dictionary(
+            cachedFolderItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
     }
 
     // MARK: - Alert bindings
@@ -198,7 +214,8 @@ struct NotesSidebar: View {
         }
         .onChange(of: allPages.count) { setNeedsRebuild() }
         .onChange(of: allFolders.count) { setNeedsRebuild() }
-        .onReceive(NotificationCenter.default.publisher(for: vaultFoldersRepairedNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: vaultFoldersRepairedNotification)) {
+            _ in
             // Delay to allow SwiftData's background-to-main context merge to complete.
             // The notification fires from VaultIndexActor (background ModelActor) — the main
             // context @Query results may not have updated yet when the notification arrives.
@@ -327,7 +344,8 @@ struct NotesSidebar: View {
         }
 
         // Journal folder — always after notebooks.
-        let journals = cachedPageItems.filter { $0.isJournal }
+        // Only show root-level journals (not inside folders) to avoid duplicates.
+        let journals = cachedPageItems.filter { $0.isJournal && $0.folderId == nil }
         if !journals.isEmpty {
             JournalFolderRow(
                 journals: journals,
@@ -402,44 +420,26 @@ struct NotesSidebar: View {
 
     private var bottomBar: some View {
         VStack(spacing: 0) {
-            // Editor actions — isolated View struct with its own @Query for
-            // dirty pages. Avoids registering @Observable trackers on sidebar body.
-            EditorActionsBar()
-            Divider().opacity(0.2)
-            // Creation actions — New Page, New Folder, etc.
-            creationActionsRow
+            // All actions on one row — editor + creation consolidated.
+            // EditorActionsBar is isolated (has its own @Query for dirty pages).
+            EditorActionsBar(
+                onNewPage: {
+                    Task {
+                        if let pageId = await vaultSync.createPage(title: "Untitled") {
+                            openInEditor(pageId)
+                        }
+                    }
+                },
+                onNewFolder: { createFolder(title: "Untitled Folder") },
+                onNewCollection: { createCollection(title: "Untitled Collection") },
+                onTodayJournal: { Task { await getOrCreateTodayJournal() } },
+                onOrganize: { showOrganizer = true }
+            )
         }
         .sheet(isPresented: $showOrganizer) {
             VaultOrganizerView(allPages: allPages, allFolders: allFolders)
                 .preferredColorScheme(ui.theme.colorScheme)
         }
-    }
-
-    private var creationActionsRow: some View {
-        HStack(spacing: 2) {
-            SidebarIconButton(icon: "square.and.pencil", tooltip: "New Page") {
-                Task {
-                    if let pageId = await vaultSync.createPage(title: "Untitled") {
-                        openInEditor(pageId)
-                    }
-                }
-            }
-            SidebarIconButton(icon: "folder.badge.plus", tooltip: "New Folder") {
-                createFolder(title: "Untitled Folder")
-            }
-            SidebarIconButton(icon: "tray.full", tooltip: "New Collection") {
-                createCollection(title: "Untitled Collection")
-            }
-            SidebarIconButton(icon: "calendar.badge.plus", tooltip: "Today") {
-                Task { await getOrCreateTodayJournal() }
-            }
-            Spacer()
-            SidebarIconButton(icon: "wand.and.stars", tooltip: "AI Organize") {
-                showOrganizer = true
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
     }
 
     // MARK: - Search
@@ -527,7 +527,9 @@ struct NotesSidebar: View {
                 sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
             )
             desc.fetchLimit = 3
-            guard let recentPages = try? modelContext.fetch(desc), !recentPages.isEmpty else { return }
+            guard let recentPages = try? modelContext.fetch(desc), !recentPages.isEmpty else {
+                return
+            }
             let ids = recentPages.map(\.id)
 
             // Step 2: read bodies on background actor (off MainActor)
@@ -617,7 +619,8 @@ struct NotesSidebar: View {
             Task {
                 if let pageId = await vaultSync.createPage(title: "Untitled") {
                     if let page = fetchPage(pageId),
-                       let folder = fetchFolder(folderId) {
+                        let folder = fetchFolder(folderId)
+                    {
                         page.folder = folder
                     }
                     openInEditor(pageId)
@@ -641,14 +644,16 @@ struct NotesSidebar: View {
 
         case .movePageToFolder(let pageId, let folderId):
             if let page = fetchPage(pageId),
-               let folder = fetchFolder(folderId) {
+                let folder = fetchFolder(folderId)
+            {
                 page.folder = folder
                 setNeedsRebuild()
             }
 
         case .moveFolderInto(let childId, let parentId):
             if let child = fetchFolder(childId),
-               let parent = fetchFolder(parentId) {
+                let parent = fetchFolder(parentId)
+            {
                 child.parent = parent
                 setNeedsRebuild()
             }
@@ -720,7 +725,7 @@ struct NotesSidebar: View {
 
     private var folderDeleteAlertMessage: String {
         guard let item = pendingDeleteFolder,
-              let folder = allFolders.first(where: { $0.id == item.id })
+            let folder = allFolders.first(where: { $0.id == item.id })
         else { return "This folder will be permanently deleted." }
 
         let (pages, folders) = Self.countContents(of: folder)
@@ -748,7 +753,7 @@ struct NotesSidebar: View {
 
     private func performFolderDelete() {
         guard let item = pendingDeleteFolder,
-              let folder = fetchFolder(item.id)
+            let folder = fetchFolder(item.id)
         else {
             pendingDeleteFolder = nil
             return
@@ -1317,6 +1322,12 @@ private struct EmptyTreeState: View {
 // result set changes, not on every VaultSyncService property mutation.
 
 private struct EditorActionsBar: View {
+    let onNewPage: () -> Void
+    let onNewFolder: () -> Void
+    let onNewCollection: () -> Void
+    let onTodayJournal: () -> Void
+    let onOrganize: () -> Void
+
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(UIState.self) private var ui
@@ -1329,6 +1340,25 @@ private struct EditorActionsBar: View {
 
     var body: some View {
         HStack(spacing: 2) {
+            SidebarIconButton(icon: "square.and.pencil", tooltip: "New Page") {
+                onNewPage()
+            }
+            SidebarIconButton(icon: "folder.badge.plus", tooltip: "New Folder") {
+                onNewFolder()
+            }
+            SidebarIconButton(icon: "tray.full", tooltip: "New Collection") {
+                onNewCollection()
+            }
+            SidebarIconButton(icon: "calendar.badge.plus", tooltip: "Today") {
+                onTodayJournal()
+            }
+
+            Spacer()
+
+            Divider()
+                .frame(height: 14)
+                .padding(.horizontal, 2)
+
             SidebarIconButton(icon: "square.and.arrow.down", tooltip: "Save (⌘S)") {
                 if let pageId = notesUI.activePageId {
                     vaultSync.savePage(pageId: pageId)
@@ -1362,7 +1392,13 @@ private struct EditorActionsBar: View {
                     .preferredColorScheme(ui.theme.colorScheme)
             }
 
-            Spacer()
+            Divider()
+                .frame(height: 14)
+                .padding(.horizontal, 2)
+
+            SidebarIconButton(icon: "wand.and.stars", tooltip: "AI Organize") {
+                onOrganize()
+            }
 
             SidebarIconButton(icon: "bubble.left.and.bubble.right", tooltip: "Mini Chat") {
                 MiniChatWindowController.shared.toggle()

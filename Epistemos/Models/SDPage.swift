@@ -25,8 +25,7 @@ final class SDPage {
     // MARK: - Content
     var title: String = ""
     var emoji: String = ""
-    @Attribute(.externalStorage)
-    var body: String = ""  // Full markdown content — external storage for lazy loading
+    var body: String = ""  // Full markdown content — stored inline in SQLite
     var summary: String = ""  // AI-generated summary (TriageService)
 
     // MARK: - Metadata

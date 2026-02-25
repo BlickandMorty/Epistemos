@@ -66,6 +66,14 @@ struct ProseEditorView: View {
             guard newValue != page.body else { return }
             debouncedSave(newValue)
         }
+        // Detect external body changes (restore-to-version, sync, etc.)
+        // page.body can change via DiffSheetView restore or VaultSync —
+        // update bodyText so the NSTextView picks it up in updateNSView.
+        .onChange(of: page.body) { _, newBody in
+            guard newBody != bodyText else { return }
+            saveTask?.cancel()
+            bodyText = newBody
+        }
         .onDisappear {
             flushIfNeeded()
         }

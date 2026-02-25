@@ -166,7 +166,7 @@ struct SearchJournalIntent: AppIntent {
 
 extension SDPage {
     func toJournalEntity() -> JournalEntity {
-        var entity = JournalEntity(
+        let entity = JournalEntity(
             id: UUID(uuidString: id) ?? UUID(),
             title: title.isEmpty ? "Journal Entry" : title
         )

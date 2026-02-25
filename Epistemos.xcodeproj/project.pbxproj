@@ -13,6 +13,8 @@
 		06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */; };
 		07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A4402EB228D73EF547EC7D /* FolderEntity.swift */; };
 		08857849A064CDE0E60185F4 /* VaultChangesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */; };
+		D1FF0001A000000000000001 /* LineDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1FF0002A000000000000001 /* LineDiff.swift */; };
+		D1FF0003A000000000000001 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1FF0004A000000000000001 /* DiffSheetView.swift */; };
 		09C925B05E89E8CE0FA4F249 /* ThreadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56735F8C49D2024C45FFE4F9 /* ThreadState.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
 		0B7C126DCCBA525A8899DADE /* ResearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B7FEDB6B8DBDF1868450FA /* ResearchView.swift */; };
@@ -144,6 +146,8 @@
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		22D0E1E91102579D7408FF8E /* SOARStudent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARStudent.swift; sourceTree = "<group>"; };
 		2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultChangesPanel.swift; sourceTree = "<group>"; };
+		D1FF0002A000000000000001 /* LineDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiff.swift; sourceTree = "<group>"; };
+		D1FF0004A000000000000001 /* DiffSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffSheetView.swift; sourceTree = "<group>"; };
 		25F1F01D145510F239B89497 /* TypewriterMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypewriterMarkdown.swift; sourceTree = "<group>"; };
 		26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosFont.swift; sourceTree = "<group>"; };
 		271CA2F1B0047DC529BB3E28 /* JournalIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalIntents.swift; sourceTree = "<group>"; };
@@ -399,6 +403,8 @@
 				ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */,
 				61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */,
 				3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */,
+				D1FF0004A000000000000001 /* DiffSheetView.swift */,
+				D1FF0002A000000000000001 /* LineDiff.swift */,
 				2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */,
 				344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */,
 			);
@@ -774,6 +780,8 @@
 				267DEABB4B7C729E69BBE2A4 /* UIState.swift in Sources */,
 				2960B4DE29B25115F4A2546D /* UtilityWindowManager.swift in Sources */,
 				08857849A064CDE0E60185F4 /* VaultChangesPanel.swift in Sources */,
+				D1FF0001A000000000000001 /* LineDiff.swift in Sources */,
+				D1FF0003A000000000000001 /* DiffSheetView.swift in Sources */,
 				A694D8A167BF8EABA794234F /* VaultIndexActor.swift in Sources */,
 				3317DC949FD0C3F292257011 /* VaultManifest.swift in Sources */,
 				8A47E20DFF8507D934770455 /* VaultOrganizerView.swift in Sources */,

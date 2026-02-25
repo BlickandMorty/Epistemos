@@ -9,6 +9,8 @@ struct VaultChangesPanel: View {
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
 
+    @State private var diffPageId: String?
+
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
@@ -47,10 +49,26 @@ struct VaultChangesPanel: View {
                     LazyVStack(spacing: 1) {
                         ForEach(dirtyPages, id: \.id) { page in
                             DirtyPageRow(page: page)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    diffPageId = page.id
+                                }
                         }
                     }
                     .padding(.vertical, 4)
                 }
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { diffPageId != nil },
+            set: { if !$0 { diffPageId = nil } }
+        )) {
+            if let page = dirtyPages.first(where: { $0.id == diffPageId }) {
+                DiffSheetView(
+                    pageId: page.id,
+                    currentTitle: page.title,
+                    currentBody: page.body
+                )
             }
         }
     }
@@ -84,6 +102,15 @@ private struct DirtyPageRow: View {
             }
 
             Spacer()
+
+            Button {
+                // Handled by parent onTapGesture
+            } label: {
+                Image(systemName: "chevron.left.forwardslash.chevron.right")
+                    .font(.system(size: 10))
+            }
+            .buttonStyle(.plain)
+            .help("View changes")
 
             Button {
                 vaultSync.savePage(pageId: page.id)

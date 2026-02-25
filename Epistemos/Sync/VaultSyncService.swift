@@ -41,6 +41,7 @@ final class VaultSyncService {
 
     private var importTask: Task<Void, Never>?
     private var autoSaveTask: Task<Void, Never>?
+    private var versionCaptureTask: Task<Void, Never>?
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
@@ -246,7 +247,9 @@ final class VaultSyncService {
 
 
         migrateToHybridSync()
+        migrateFromExternalStorage()
         restartAutoSaveTimer()
+        startVersionCaptureTimer()
         log.info("VaultSyncService started for: \(vaultURL.lastPathComponent, privacy: .public)")
     }
 
@@ -259,6 +262,8 @@ final class VaultSyncService {
         importTask = nil
         autoSaveTask?.cancel()
         autoSaveTask = nil
+        versionCaptureTask?.cancel()
+        versionCaptureTask = nil
         indexActor = nil
         searchService = nil
 
@@ -365,6 +370,26 @@ final class VaultSyncService {
         log.info("Hybrid sync migration: set hashes for \(migrated) existing pages")
     }
 
+    /// One-time migration: body moved from @Attribute(.externalStorage) to inline SQLite.
+    /// External storage data may be lost during schema migration, so force importVault
+    /// to re-read every .md file by resetting all page timestamps to .distantPast.
+    private func migrateFromExternalStorage() {
+        let migrationKey = "epistemos.inlineBodyMigrated"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>()
+        guard let pages = try? context.fetch(descriptor) else { return }
+
+        for page in pages {
+            page.updatedAt = .distantPast
+        }
+        try? context.save()
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
+        log.info("Inline body migration: reset \(pages.count) page timestamps for re-import")
+    }
+
     // MARK: - Sync from Vault
 
     /// Pull external .md changes from the vault folder.
@@ -410,6 +435,8 @@ final class VaultSyncService {
 
     /// Save a single page to its vault .md file and update sync tracking fields.
     func savePage(pageId: String) {
+        captureVersionIfNeeded(pageId: pageId)
+
         guard let vaultURL else {
             log.warning("Cannot save page: no vault URL")
             return
@@ -461,6 +488,12 @@ final class VaultSyncService {
         }
 
         let dirtyIds = dirtyPages.map(\.id)
+
+        // Capture versions before saving
+        for pageId in dirtyIds {
+            captureVersionIfNeeded(pageId: pageId)
+        }
+
         try? context.save()
 
         let actor = indexActor
@@ -513,6 +546,73 @@ final class VaultSyncService {
                 guard !Task.isCancelled, let self else { return }
                 self.saveAllDirtyPages()
             }
+        }
+    }
+
+    // MARK: - Version Capture
+
+    private static let maxVersionsPerPage = 50
+
+    /// Capture a snapshot of the current page body as a version, if it changed.
+    func captureVersionIfNeeded(pageId: String) {
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = try? context.fetch(descriptor).first, !page.body.isEmpty else { return }
+
+        // Check if body actually changed since last version
+        let pid = page.id
+        var versionDesc = FetchDescriptor<SDPageVersion>(
+            predicate: #Predicate<SDPageVersion> { $0.pageId == pid },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        versionDesc.fetchLimit = 1
+        if let latest = try? context.fetch(versionDesc).first, latest.body == page.body { return }
+
+        let version = SDPageVersion(pageId: pageId, title: page.title, body: page.body, wordCount: page.wordCount)
+        context.insert(version)
+        try? context.save()
+        log.info("Captured version for page \(pageId.prefix(8))")
+        pruneVersions(pageId: pageId)
+    }
+
+    /// Keep only the most recent N versions per page.
+    private func pruneVersions(pageId: String) {
+        let context = modelContainer.mainContext
+        var desc = FetchDescriptor<SDPageVersion>(
+            predicate: #Predicate<SDPageVersion> { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        desc.fetchOffset = Self.maxVersionsPerPage
+        guard let old = try? context.fetch(desc), !old.isEmpty else { return }
+        for version in old { context.delete(version) }
+        try? context.save()
+        log.info("Pruned \(old.count) old versions for page \(pageId.prefix(8))")
+    }
+
+    /// Start a 10-minute timer that captures versions for all dirty pages.
+    private func startVersionCaptureTimer() {
+        versionCaptureTask?.cancel()
+        versionCaptureTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(600))
+                guard !Task.isCancelled, let self else { return }
+                self.autoCaptureVersions()
+            }
+        }
+    }
+
+    /// Capture versions for all dirty pages (called by timer).
+    private func autoCaptureVersions() {
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>()
+        guard let allPages = try? context.fetch(descriptor) else { return }
+        let dirty = allPages.filter(\.isDirtyVault)
+        for page in dirty {
+            let pid = page.id
+            captureVersionIfNeeded(pageId: pid)
+        }
+        if !dirty.isEmpty {
+            log.info("Auto-captured versions for \(dirty.count) dirty pages")
         }
     }
 

@@ -100,6 +100,27 @@ final class ClickableTextView: NSTextView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
+        // Cmd+Z — Undo
+        // Handle directly because SwiftUI's NSHostingView can intercept
+        // the responder chain's undo: action, preventing it from reaching
+        // this NSTextView. Same pattern as Cmd+F below.
+        if flags == .command, event.charactersIgnoringModifiers == "z" {
+            if undoManager?.canUndo == true {
+                undoManager?.undo()
+                return true
+            }
+            return false
+        }
+
+        // Cmd+Shift+Z — Redo
+        if flags == [.command, .shift], event.charactersIgnoringModifiers == "Z" {
+            if undoManager?.canRedo == true {
+                undoManager?.redo()
+                return true
+            }
+            return false
+        }
+
         // Cmd+F — Show Find bar
         if flags == .command, event.charactersIgnoringModifiers == "f" {
             let item = NSMenuItem()

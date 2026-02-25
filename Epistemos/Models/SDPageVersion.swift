@@ -4,7 +4,7 @@ import SwiftData
 // MARK: - SDPageVersion
 // Lightweight snapshot of a note at a point in time.
 // Captured on meaningful saves (significant body changes) — not every keystroke.
-// Body uses external storage like SDPage so it doesn't bloat the main DB.
+// Body stored inline in SQLite (external storage silently returns partial data).
 // Versions are capped per page (max 50) to keep storage bounded.
 //
 // Design note: `pageId` is a denormalized string rather than a @Relationship to SDPage.
@@ -19,7 +19,6 @@ final class SDPageVersion {
     var id: String = UUID().uuidString
     var pageId: String = ""
     var title: String = ""
-    @Attribute(.externalStorage)
     var body: String = ""
     var wordCount: Int = 0
     var createdAt: Date = Date.now

@@ -78,12 +78,6 @@ struct LandingView: View {
 
             Spacer()
 
-            // Recent Chats — horizontal card strip
-            if !allChats.isEmpty {
-                recentChatsStrip
-                    .padding(.bottom, 28)
-            }
-
             // Daily Brief — branded wallpaper button
             DailyBriefButton {
                 dailyBrief.requestDailyBrief(prompt: buildDailyBriefPrompt())
@@ -238,68 +232,7 @@ struct LandingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Recent Chats Strip
-
-    private var recentChatsStrip: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Section header
-            HStack {
-                Text("Recent")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(theme.textTertiary.opacity(0.6))
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-
-                Spacer()
-            }
-            .padding(.horizontal, 4)
-
-            // Horizontal card strip — last 5 chats
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(allChats.prefix(5), id: \.id) { sdChat in
-                        RecentChatCard(sdChat: sdChat) {
-                            loadChatIntoSession(sdChat)
-                        }
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-        }
-        .frame(maxWidth: 760)
-        .padding(.horizontal, Spacing.xxl)
-    }
-
     // MARK: - Actions
-
-    private func loadChatIntoSession(_ sdChat: SDChat) {
-        let sorted = sdChat.sortedMessages
-        let messages = sorted.map { msg in
-            let dual = msg.dualMessageData.flatMap {
-                try? JSONDecoder().decode(DualMessage.self, from: $0)
-            }
-            let isResearch = dual?.laymanSummary != nil
-            return ChatMessage(
-                id: msg.id,
-                chatId: sdChat.id,
-                role: msg.role == "user" ? .user : .assistant,
-                content: msg.content,
-                dualMessage: dual,
-                truthAssessment: msg.truthAssessmentData.flatMap {
-                    try? JSONDecoder().decode(TruthAssessment.self, from: $0)
-                },
-                confidence: msg.confidenceScore,
-                evidenceGrade: msg.evidenceGrade.flatMap { EvidenceGrade(rawValue: $0) },
-                mode: msg.inferenceMode.flatMap { InferenceMode(rawValue: $0) },
-                createdAt: msg.createdAt,
-                isResearchResult: isResearch
-            )
-        }
-        chat.setCurrentChat(sdChat.id)
-        chat.chatTitle = sdChat.title
-        chat.loadMessages(messages)
-        ui.setActivePanel(.home)
-    }
 
     private func createAndOpenNote() {
         Task {
@@ -583,74 +516,5 @@ struct LandingCommandRow: View {
         .onHover { hovering in
             withAnimation(Motion.micro) { isHovered = hovering }
         }
-    }
-}
-
-// MARK: - Recent Chat Card
-// Compact card for the landing page's recent chats strip.
-// Glass-backed with title, preview, and relative timestamp.
-
-private struct RecentChatCard: View {
-    let sdChat: SDChat
-    let onSelect: () -> Void
-
-    @Environment(UIState.self) private var ui
-    private var theme: EpistemosTheme { ui.theme }
-
-    /// Last assistant message preview (truncated).
-    private var previewText: String {
-        let msgs = sdChat.sortedMessages
-        guard let last = msgs.last(where: { $0.role == "assistant" }) else {
-            // Fall back to last user message
-            if let userMsg = msgs.last(where: { $0.role == "user" }) {
-                let content = userMsg.content.trimmingCharacters(in: .whitespacesAndNewlines)
-                return content.count > 80 ? String(content.prefix(80)) + "…" : content
-            }
-            return "Empty conversation"
-        }
-        let content = last.content.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !content.isEmpty else { return "Empty response" }
-        return content.count > 80 ? String(content.prefix(80)) + "…" : content
-    }
-
-    var body: some View {
-        Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 6) {
-                // Title row
-                HStack(spacing: 4) {
-                    if sdChat.hasDeepResearch == true {
-                        Image(systemName: "flask")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(theme.accent.opacity(0.7))
-                    }
-                    Text(sdChat.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
-                        .lineLimit(1)
-                }
-
-                // Preview
-                Text(previewText)
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(theme.textTertiary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-
-                Spacer(minLength: 0)
-
-                // Timestamp
-                Text(sdChat.updatedAt.formatted(.relative(presentation: .named)))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(theme.textTertiary.opacity(0.5))
-            }
-            .padding(12)
-            .frame(width: 200, height: 96, alignment: .topLeading)
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .background(
-            theme.foreground.opacity(0.05),
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-        )
     }
 }

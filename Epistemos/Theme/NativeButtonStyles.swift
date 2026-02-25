@@ -25,6 +25,29 @@ struct NativeToolbarButtonStyle: ButtonStyle {
     }
 }
 
+/// Themed variant that uses EpistemosTheme colors.
+struct ThemedToolbarButtonStyle: ButtonStyle {
+    let theme: EpistemosTheme
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(
+                isHovered || configuration.isPressed ? theme.accent : theme.accent.opacity(0.7)
+            )
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isHovered ? theme.accent.opacity(0.1) : .clear)
+            )
+            .animation(Motion.micro, value: configuration.isPressed)
+            .animation(Motion.micro, value: isHovered)
+            .onHover { isHovered = $0 }
+            .opacity(isEnabled ? 1 : 0.4)
+    }
+}
+
 /// Capsule pill button. Outline at rest, filled when active or hovered.
 /// Used for: nav pills, filter chips, tag chips, toggle buttons.
 struct NativePillButtonStyle: ButtonStyle {
@@ -68,9 +91,10 @@ struct NativeCardButtonStyle: ButtonStyle {
         configuration.label
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(isHovered || configuration.isPressed
-                        ? Color.primary.opacity(configuration.isPressed ? 0.08 : 0.04)
-                        : .clear)
+                    .fill(
+                        isHovered || configuration.isPressed
+                            ? Color.primary.opacity(configuration.isPressed ? 0.08 : 0.04)
+                            : .clear)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(Motion.micro, value: configuration.isPressed)

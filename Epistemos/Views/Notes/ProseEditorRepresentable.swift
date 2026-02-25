@@ -291,6 +291,13 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             PageStoragePool.shared.invalidateExcept(activePageId: pageId)
         }
 
+        // Reset page swap flag BEFORE text sync so the sync can correct stale cache content.
+        // onChange(of: page.id) sets bodyText = page.body, making text == pageBody.
+        // Once that happens, the swap is complete and text sync should be active.
+        if coord.isSwappingPage && (text == pageBody || pageBody.isEmpty) {
+            coord.isSwappingPage = false
+        }
+
         // Text sync — only if text changed externally (not from user typing)
         // Replace through storage so processEditing() styles inline (no flash).
         // Guard against IME composition — replacing during marked text destroys composing state.
@@ -306,12 +313,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             storage.replaceCharacters(in: fullRange, with: text)
             let safeLoc = min(sel.location, tv.string.utf16.count)
             tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
-        }
-
-        // Reset page swap flag after @State bodyText catches up to the new page.
-        // onChange(of: page.id) sets bodyText = page.body, making text == pageBody.
-        if coord.isSwappingPage && (text == pageBody || pageBody.isEmpty) {
-            coord.isSwappingPage = false
         }
 
         // Focus management (Pitfall #4)

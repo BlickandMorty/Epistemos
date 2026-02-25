@@ -83,10 +83,19 @@ struct ChatView: View {
 
                 Button(action: exportChat) {
                     Image(systemName: "square.and.arrow.up")
-                        .frame(width: 34, height: 34)
-                        .contentShape(Rectangle())
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(theme.foreground)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Capsule()
+                                .fill(theme.glassBg)
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(theme.glassBorder, lineWidth: 0.5)
+                        )
                 }
-                .buttonStyle(NativeToolbarButtonStyle())
+                .buttonStyle(.plain)
                 .help("Export")
 
                 if chat.isResearchMode {
@@ -140,11 +149,19 @@ private struct ResearchHintButton: View {
     var body: some View {
         Button { showPopover.toggle() } label: {
             Image(systemName: "lightbulb.max")
-                .foregroundStyle(showPopover ? theme.accent : .secondary)
-                .frame(width: 34, height: 34)
-                .contentShape(Rectangle())
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(showPopover ? theme.accent : theme.foreground)
+                .frame(width: 32, height: 32)
+                .background(
+                    Capsule()
+                        .fill(theme.glassBg)
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(theme.glassBorder, lineWidth: 0.5)
+                )
         }
-        .buttonStyle(NativeToolbarButtonStyle())
+        .buttonStyle(.plain)
         .help("About Research Mode")
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 0) {

@@ -47,22 +47,23 @@ final class PageStoragePool {
             if existing.isDark != isDark {
                 slots.removeValue(forKey: pageId)
                 // Fall through to create new
-            } else if existing.storage.length < bodyText.count {
-                // Content grew — preWarm may have cached a truncated body.
-                // Update storage in-place so pre-styled content isn't wasted.
+            } else if existing.storage.string != bodyText {
+                // Content differs — update storage in-place so pre-styled
+                // line-level attributes (headings, lists) are preserved.
                 let oldLen = existing.storage.length
                 existing.storage.beginEditing()
                 existing.storage.replaceCharacters(
                     in: NSRange(location: 0, length: oldLen), with: bodyText
                 )
                 existing.storage.endEditing()
-                // Re-apply deferred inline styles for the full content
+                // Re-apply deferred inline styles for the full content.
+                // Use storage.length (UTF-16) not bodyText.count (grapheme clusters).
                 Self.chunkedInlineStyle(
-                    storage: existing.storage, offset: 0, totalLength: bodyText.count
+                    storage: existing.storage, offset: 0, totalLength: existing.storage.length
                 )
                 existing.lastAccessedAt = .now
                 slots[pageId] = existing
-                log.info("PageStoragePool: expanded slot for \(pageId.prefix(8)) (\(oldLen) → \(bodyText.count) chars)")
+                log.info("PageStoragePool: updated slot for \(pageId.prefix(8)) (\(oldLen) → \(existing.storage.length) chars)")
                 return existing
             } else {
                 existing.lastAccessedAt = .now
@@ -86,9 +87,9 @@ final class PageStoragePool {
         // Deferred inline styles — chunked across frames to avoid blocking scroll.
         // Each chunk styles ~5000 chars (~1ms). Visible content styles first frame,
         // rest fills in progressively. User never notices on typical documents.
-        let weakStorage = storage
-        let totalLen = bodyText.count
-        Self.chunkedInlineStyle(storage: weakStorage, offset: 0, totalLength: totalLen)
+        // Use storage.length (UTF-16 code units) — matches NSRange semantics used
+        // inside chunkedInlineStyle, not bodyText.count (grapheme clusters).
+        Self.chunkedInlineStyle(storage: storage, offset: 0, totalLength: storage.length)
 
         // Check DiskStyleCache for scroll position from previous session
         var scrollY: CGFloat = 0

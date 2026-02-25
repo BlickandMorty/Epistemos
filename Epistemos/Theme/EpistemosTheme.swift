@@ -72,7 +72,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .sunny:  Color(hex: 0xD4A843)
         case .tan:    Color(hex: 0x6B3E1C)
         case .sunset: Color(hex: 0xF5B84A)
-        case .oled:   Color(hex: 0x2B8FD4)
+        case .oled:   Color(hex: 0xFFFFFF)
         case .ember:  Color(hex: 0xE8A040)
         }
     }

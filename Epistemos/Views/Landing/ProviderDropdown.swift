@@ -52,16 +52,22 @@ struct ProviderDropdown: View {
         } label: {
             HStack(spacing: 4) {
                 Text(inference.activeModelDisplayName)
-                    .font(.system(size: 10, weight: .bold))
-                    .textCase(.uppercase)
+                    .font(.system(size: 11, weight: .semibold))
                     .tracking(0.3)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 8, weight: .semibold))
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Capsule().fill(provider.badgeColor.opacity(0.12)))
-            .foregroundStyle(provider.badgeColor)
+            .background(
+                Capsule()
+                    .fill(theme.glassBg)
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(theme.glassBorder, lineWidth: 0.5)
+            )
+            .foregroundStyle(theme.foreground)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
