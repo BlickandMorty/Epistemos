@@ -12,6 +12,9 @@ settings:
     SUPPORTED_PLATFORMS: macosx
     MACOSX_DEPLOYMENT_TARGET: "15.0"
     ENABLE_USER_SCRIPT_SANDBOXING: false
+  configs:
+    Debug:
+      ENABLE_TESTABILITY: true
 
 targets:
   Epistemos:
@@ -50,6 +53,25 @@ targets:
       - sdk: CryptoKit.framework
       - sdk: AppIntents.framework
       - sdk: CoreSpotlight.framework
+
+  EpistemosTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: EpistemosTests
+    dependencies:
+      - target: Epistemos
+    settings:
+      base:
+        PRODUCT_NAME: EpistemosTests
+        PRODUCT_MODULE_NAME: EpistemosTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.tests
+        GENERATE_INFOPLIST_FILE: true
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        CODE_SIGN_IDENTITY: "-"
+        ALWAYS_SEARCH_USER_PATHS: false
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Epistemos.app/Contents/MacOS/Epistemos"
+        BUNDLE_LOADER: "$(TEST_HOST)"
 
 packages:
   GRDB:
