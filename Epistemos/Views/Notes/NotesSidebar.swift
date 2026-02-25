@@ -266,6 +266,8 @@ struct NotesSidebar: View {
                         .foregroundStyle(theme.mutedForeground.opacity(0.4))
                 }
                 .buttonStyle(NativeToolbarButtonStyle())
+                .help("Clear search")
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, 12)
@@ -870,6 +872,7 @@ private struct VaultHeader: View {
                 }
                 .buttonStyle(NativeToolbarButtonStyle())
                 .help("Collapse all folders")
+                .accessibilityLabel("Collapse all folders")
             }
         }
         .padding(.horizontal, 14)

@@ -111,6 +111,7 @@ private struct DirtyPageRow: View {
             }
             .buttonStyle(.plain)
             .help("View changes")
+            .accessibilityLabel("View changes")
 
             Button {
                 vaultSync.savePage(pageId: page.id)
@@ -120,6 +121,7 @@ private struct DirtyPageRow: View {
             }
             .buttonStyle(.plain)
             .help("Save to vault")
+            .accessibilityLabel("Save to vault")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

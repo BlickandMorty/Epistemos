@@ -38,6 +38,8 @@ struct ProviderCapabilityBanner: View {
                         .foregroundStyle(theme.mutedForeground.opacity(0.5))
                 }
                 .buttonStyle(.plain)
+                .help("Dismiss")
+                .accessibilityLabel("Dismiss")
             }
             .padding(Spacing.md)
             .background(theme.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -1259,6 +1261,8 @@ struct SearchResultCard: View {
                         .foregroundStyle(isSaved ? theme.success : theme.accent)
                 }
                 .buttonStyle(.plain)
+                .help(isSaved ? "Saved" : "Save paper")
+                .accessibilityLabel(isSaved ? "Saved" : "Save paper")
             }
 
             if isExpanded, let abstract = paper.abstract, !abstract.isEmpty {

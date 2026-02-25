@@ -97,6 +97,7 @@ struct ChatView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Export")
+                .accessibilityLabel("Export")
 
                 if chat.isResearchMode {
                     ResearchHintButton()
@@ -163,6 +164,7 @@ private struct ResearchHintButton: View {
         }
         .buttonStyle(.plain)
         .help("About Research Mode")
+        .accessibilityLabel("About Research Mode")
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
                 // API cost breakdown

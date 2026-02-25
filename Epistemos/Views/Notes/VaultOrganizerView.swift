@@ -61,6 +61,8 @@ struct VaultOrganizerView: View {
                     .foregroundStyle(theme.mutedForeground.opacity(0.5))
             }
             .buttonStyle(.plain)
+            .help("Close")
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -464,6 +466,8 @@ private struct SuggestionCard: View {
                         .foregroundStyle(theme.mutedForeground.opacity(0.5))
                 }
                 .buttonStyle(.plain)
+                .help("Dismiss suggestion")
+                .accessibilityLabel("Dismiss suggestion")
                 Button { onApply() } label: {
                     Text("Apply")
                         .font(.system(size: 11, weight: .medium))

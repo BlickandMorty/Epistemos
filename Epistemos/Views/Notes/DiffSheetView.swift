@@ -142,6 +142,7 @@ struct DiffSheetView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Previous change (⌥↑)")
+                    .accessibilityLabel("Previous change")
 
                     Text("\(currentChunkIdx + 1)/\(chunkStarts.count)")
                         .font(.system(size: 10, design: .monospaced))
@@ -155,6 +156,7 @@ struct DiffSheetView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Next change (⌥↓)")
+                    .accessibilityLabel("Next change")
                 }
             }
 
@@ -178,6 +180,7 @@ struct DiffSheetView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Restore this version")
+                .accessibilityLabel("Restore this version")
             }
 
             // More menu
@@ -225,6 +228,7 @@ struct DiffSheetView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .frame(width: 28)
+                .accessibilityLabel("More actions")
             }
 
             // Close
@@ -234,6 +238,8 @@ struct DiffSheetView: View {
                     .foregroundStyle(theme.textSecondary)
             }
             .buttonStyle(.plain)
+            .help("Close")
+            .accessibilityLabel("Close")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -821,6 +827,7 @@ struct ReadOnlyVersionView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Copy version text")
+                .accessibilityLabel("Copy version text")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

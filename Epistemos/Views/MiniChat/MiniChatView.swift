@@ -142,6 +142,7 @@ private struct ThreadTab: View {
                     .foregroundStyle(theme.mutedForeground)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close tab")
             .opacity(isActive || isHovered ? 1 : 0)
             .animation(Motion.quick, value: isActive || isHovered)
         }

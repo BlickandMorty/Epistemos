@@ -97,6 +97,8 @@ struct ChatSidebarView: View {
                         .foregroundStyle(theme.textTertiary)
                 }
                 .buttonStyle(NativeToolbarButtonStyle())
+                .help("Clear search")
+                .accessibilityLabel("Clear search")
                 .transition(.scale.combined(with: .opacity))
             }
         }

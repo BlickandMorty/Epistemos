@@ -48,6 +48,8 @@ struct ToastOverlay: View {
                     .foregroundStyle(theme.textTertiary)
             }
             .buttonStyle(.plain)
+            .help("Dismiss")
+            .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

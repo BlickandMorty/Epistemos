@@ -80,6 +80,8 @@ struct CommandPaletteOverlay: View {
                         .foregroundStyle(theme.accent)
                 }
                 .buttonStyle(.plain)
+                .help("Send")
+                .accessibilityLabel("Send")
                 .transition(.scale.combined(with: .opacity))
             }
         }
@@ -103,6 +105,7 @@ struct CommandPaletteOverlay: View {
             }
             .buttonStyle(.plain)
             .help("Attach a file")
+            .accessibilityLabel("Attach a file")
 
             // Research mode toggle — oval pill button (can combine with Notes)
             Button {
@@ -151,6 +154,7 @@ struct CommandPaletteOverlay: View {
             }
             .buttonStyle(.plain)
             .help(chat.isIncognito ? "Incognito On" : "Enable Incognito")
+            .accessibilityLabel(chat.isIncognito ? "Incognito on" : "Incognito off")
 
             ProviderDropdown()
 

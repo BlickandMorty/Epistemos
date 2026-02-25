@@ -586,6 +586,7 @@ private struct SavedPaperCard: View {
                 }
                 .buttonStyle(.plain)
                 .help(paper.isFavorite ? "Unfavorite" : "Favorite")
+                .accessibilityLabel(paper.isFavorite ? "Unfavorite" : "Favorite")
 
                 // Remove
                 Button {
@@ -597,6 +598,7 @@ private struct SavedPaperCard: View {
                 }
                 .buttonStyle(.plain)
                 .help("Remove")
+                .accessibilityLabel("Remove")
             }
 
             HStack(spacing: 6) {

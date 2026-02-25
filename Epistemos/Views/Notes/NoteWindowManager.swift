@@ -289,6 +289,7 @@ private struct NoteTabView: View {
                 }
                 .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Notes Sidebar (⌘2)")
+                .accessibilityLabel("Notes Sidebar")
 
                 Button {
                     vaultSync.savePage(pageId: pageId)
@@ -300,6 +301,7 @@ private struct NoteTabView: View {
                 }
                 .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Save (⌘S)")
+                .accessibilityLabel("Save")
 
                 Button {
                     showDiffSheet = true
@@ -311,6 +313,7 @@ private struct NoteTabView: View {
                 }
                 .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Diff (⌘D)")
+                .accessibilityLabel("View diff")
 
                 Button {
                     MiniChatWindowController.shared.toggle()
@@ -322,6 +325,7 @@ private struct NoteTabView: View {
                 }
                 .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Mini Chat")
+                .accessibilityLabel("Mini Chat")
             }
         }
         .background {
