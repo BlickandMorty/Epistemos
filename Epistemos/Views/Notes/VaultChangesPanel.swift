@@ -2,19 +2,14 @@ import SwiftData
 import SwiftUI
 
 /// Panel showing pages with unsaved vault changes (dirty pages).
-/// Toggleable from the notes toolbar.
+/// Receives pre-filtered dirty pages from EditorActionsBar's @Query.
 struct VaultChangesPanel: View {
-    let allPages: [SDPage]
+    let dirtyPages: [SDPage]
 
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
 
     private var theme: EpistemosTheme { ui.theme }
-
-    private var dirtyPages: [SDPage] {
-        allPages.filter(\.isDirtyVault)
-            .sorted { $0.updatedAt > $1.updatedAt }
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

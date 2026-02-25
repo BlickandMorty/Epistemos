@@ -843,19 +843,21 @@ actor VaultIndexActor {
         )
     }
 
-    /// Fetch full bodies for specific notes by page ID (for @-mention resolution).
+    /// Fetch full bodies for specific notes by page ID (for @-mention resolution & preWarm).
     func fetchNoteBodies(ids: [String]) -> [VaultManifest.NoteBody] {
         guard !ids.isEmpty else { return [] }
+        // Individual fetches — SwiftData #Predicate can't reliably translate
+        // local array .contains() to SQL, causing runtime crashes.
+        // Batch sizes are small (3-6 IDs) so N fetches are fine.
         var results: [VaultManifest.NoteBody] = []
         for id in ids {
-            let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.id == id }
+            )
             if let page = try? modelContext.fetch(descriptor).first {
-                results.append(
-                    VaultManifest.NoteBody(
-                        pageId: page.id,
-                        title: page.title,
-                        body: String(page.body.prefix(3000))
-                    ))
+                results.append(VaultManifest.NoteBody(
+                    pageId: page.id, title: page.title, body: page.body
+                ))
             }
         }
         return results

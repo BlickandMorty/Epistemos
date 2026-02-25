@@ -1,6 +1,5 @@
 import Foundation
 import os
-import SwiftData
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -59,32 +58,6 @@ final class AppleIntelligenceService {
         #endif
     }
 
-    // MARK: - Notes Context Collection
-
-    /// Collect notes content from SwiftData as a single context string.
-    private func collectNotesContext(modelContext: ModelContext, targetPageIds: [String]?) -> String {
-        let pages: [SDPage]
-        do {
-            if let targets = targetPageIds {
-                let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { targets.contains($0.id) })
-                pages = try modelContext.fetch(descriptor)
-            } else {
-                var descriptor = FetchDescriptor<SDPage>()
-                descriptor.fetchLimit = 50
-                pages = try modelContext.fetch(descriptor)
-            }
-        } catch {
-            Log.notes.error("Failed to fetch notes for AI context: \(error.localizedDescription, privacy: .private)")
-            return "No notes available."
-        }
-
-        guard !pages.isEmpty else { return "No notes available." }
-
-        return pages.map { page in
-            "## \(page.title)\n\(page.body)"
-        }.joined(separator: "\n\n---\n\n")
-    }
-
     /// Check if Apple Intelligence is available on this device.
     func checkAvailability() -> (available: Bool, reason: String?) {
         if #available(macOS 26.0, *) {
@@ -122,4 +95,5 @@ enum AppleIntelligenceError: LocalizedError {
         }
     }
 }
+
 

@@ -32,6 +32,7 @@ final class PipelineState {
     // MARK: - Concepts
 
     var activeConcepts: [String] = []
+    var activeChordProduct: Double = 0
     var harmonyKeyDistance: Double = 0
 
     // MARK: - Tracking
@@ -71,6 +72,7 @@ final class PipelineState {
                 activeConcepts = Array(activeConcepts.suffix(16))
             }
         }
+        if let v = update.activeChordProduct { activeChordProduct = v }
         if let v = update.harmonyKeyDistance { harmonyKeyDistance = v }
         if let v = update.tda { tda = v }
 
@@ -108,6 +110,7 @@ final class PipelineState {
     /// Clears accumulated concepts (used by Fresh Start / chat wipe).
     func clearConcepts() {
         activeConcepts = []
+        activeChordProduct = 0
         harmonyKeyDistance = 0
     }
 

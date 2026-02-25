@@ -36,6 +36,12 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     /// Called when user clicks a [[wikilink]] in the editor.
     var onWikilinkClick: ((String) -> Void)?
 
+    /// Called during page swap — flush the old page's text to SwiftData.
+    /// Args: (oldPageId, currentText). Coordinator calls this so ALL page-swap
+    /// logic lives in one place (updateNSView) instead of being split across
+    /// updateNSView + SwiftUI onChange.
+    var onPageFlush: ((String, String) -> Void)?
+
     /// Max readable content width (Obsidian-style centered column).
     private static let maxReadableWidth: CGFloat = 720
     /// Minimum horizontal padding even at narrow widths.
@@ -215,8 +221,11 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         if coord.lastPageId != pageId {
             coord.isSwappingPage = true
 
-            // Save outgoing page state to pool + disk
+            // Save outgoing page — text to SwiftData + visual state to pool
             if let oldId = coord.lastPageId, !oldId.isEmpty {
+                // Flush text to SwiftData via callback (single source of truth for flush)
+                coord.parent.onPageFlush?(oldId, tv.string)
+
                 let scrollY = scrollView.contentView.bounds.origin.y
                 let selection = tv.selectedRange()
                 PageStoragePool.shared.saveState(

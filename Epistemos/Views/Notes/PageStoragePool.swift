@@ -47,6 +47,23 @@ final class PageStoragePool {
             if existing.isDark != isDark {
                 slots.removeValue(forKey: pageId)
                 // Fall through to create new
+            } else if existing.storage.length < bodyText.count {
+                // Content grew — preWarm may have cached a truncated body.
+                // Update storage in-place so pre-styled content isn't wasted.
+                let oldLen = existing.storage.length
+                existing.storage.beginEditing()
+                existing.storage.replaceCharacters(
+                    in: NSRange(location: 0, length: oldLen), with: bodyText
+                )
+                existing.storage.endEditing()
+                // Re-apply deferred inline styles for the full content
+                Self.chunkedInlineStyle(
+                    storage: existing.storage, offset: 0, totalLength: bodyText.count
+                )
+                existing.lastAccessedAt = .now
+                slots[pageId] = existing
+                log.info("PageStoragePool: expanded slot for \(pageId.prefix(8)) (\(oldLen) → \(bodyText.count) chars)")
+                return existing
             } else {
                 existing.lastAccessedAt = .now
                 slots[pageId] = existing

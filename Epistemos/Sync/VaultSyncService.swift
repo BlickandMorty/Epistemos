@@ -353,6 +353,7 @@ final class VaultSyncService {
         for page in pages where page.lastSyncedBodyHash == nil {
             page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
             page.lastSyncedAt = .now
+            page.needsVaultSync = false
             migrated += 1
         }
 
@@ -395,6 +396,7 @@ final class VaultSyncService {
         for page in updatedPages {
             page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
             page.lastSyncedAt = .now
+            page.needsVaultSync = false
         }
         try? context.save()
 
@@ -429,6 +431,7 @@ final class VaultSyncService {
                     if let page = try? context.fetch(desc).first {
                         page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
                         page.lastSyncedAt = .now
+                        page.needsVaultSync = false
                         try? context.save()
                         SpotlightIndexer.index(page)
                     }
@@ -476,6 +479,7 @@ final class VaultSyncService {
                     if let page = try? context.fetch(desc).first {
                         page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
                         page.lastSyncedAt = .now
+                        page.needsVaultSync = false
                         SpotlightIndexer.index(page)
                     }
                 }
@@ -484,14 +488,6 @@ final class VaultSyncService {
 
             log.info("Saved \(dirtyIds.count) dirty pages to vault")
         }
-    }
-
-    /// Number of pages with unsaved vault changes.
-    var dirtyPageCount: Int {
-        let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = try? context.fetch(descriptor) else { return 0 }
-        return pages.filter(\.isDirtyVault).count
     }
 
     /// Auto-save interval in seconds. 0 = disabled.
@@ -544,6 +540,7 @@ final class VaultSyncService {
         SpotlightIndexer.index(page)
         page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
         page.lastSyncedAt = .now
+        page.needsVaultSync = false
 
         // Export to disk in background
         let pageId = page.id

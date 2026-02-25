@@ -147,6 +147,12 @@ enum SignalGenerator {
             mode = .moderate
         }
 
+        // Chord product (decorative)
+        let primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37]
+        let chord = concepts.enumerated().reduce(1) { product, elem in
+            product * (primes[safe: elem.offset] ?? 41)
+        }
+
         return GeneratedSignals(
             confidence: clampedConf,
             entropy: max(0.01, min(steeredEntropy, 0.95)),
@@ -163,6 +169,7 @@ enum SignalGenerator {
             focusDepth: depth,
             temperatureScale: temp,
             concepts: concepts,
+            activeChordProduct: Double(chord),
             harmonyKeyDistance: min(steeredDissonance, 0.95),
             grade: grade,
             mode: mode
@@ -183,6 +190,7 @@ struct GeneratedSignals: Sendable {
     var focusDepth: Double
     var temperatureScale: Double
     var concepts: [String]
+    var activeChordProduct: Double
     var harmonyKeyDistance: Double
     var grade: EvidenceGrade
     var mode: AnalysisMode

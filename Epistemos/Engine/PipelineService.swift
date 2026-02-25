@@ -142,6 +142,7 @@ final class PipelineService {
                             focusDepth: signals.focusDepth,
                             temperatureScale: signals.temperatureScale,
                             concepts: signals.concepts,
+                            activeChordProduct: signals.activeChordProduct,
                             harmonyKeyDistance: signals.harmonyKeyDistance
                         ))
 
@@ -378,9 +379,12 @@ final class PipelineService {
                     let capturedLLM = llmService.enrichmentSnapshot()
 
                     // Early exit: if the enrichment snapshot has no usable API key
-                    // (and isn't Ollama/local), skip enrichment entirely to avoid
+                    // (and isn't a local provider), skip enrichment entirely to avoid
                     // 5 failing HTTP requests that all return fallback values anyway.
-                    let enrichmentKeyValid = !capturedLLM.apiKey.isEmpty || capturedLLM.provider == .ollama
+                    // Ollama and Apple Intelligence don't need API keys — they run locally.
+                    let enrichmentKeyValid = !capturedLLM.apiKey.isEmpty
+                        || capturedLLM.provider == .ollama
+                        || capturedLLM.provider == .appleIntelligence
                     if !enrichmentKeyValid {
                         Log.pipeline.info("🔬 Enrichment: SKIPPED (no API key for \(capturedLLM.provider.rawValue)) — yielding signal-derived fallback")
                         let fallbackArb = fallbackArbitration(signals: signals)

@@ -3,7 +3,7 @@ import Observation
 
 // MARK: - Notes UI State
 // Ephemeral notes UI state only — NO data arrays.
-// Persistent note data lives in SDPage/SDBlock/SDFolder via SwiftData.
+// Persistent note data lives in SDPage/SDFolder via SwiftData.
 
 @MainActor @Observable
 final class NotesUIState {

@@ -16,7 +16,8 @@ final class SDPage {
     // Every #Predicate query that filters these fields benefits from B-tree indexing.
     // Without this, SwiftData does full table scans on every fetch.
     #Index<SDPage>(
-        [\.id], [\.isJournal], [\.isArchived], [\.updatedAt], [\.filePath])
+        [\.id], [\.isJournal], [\.isArchived], [\.updatedAt], [\.filePath],
+        [\.isPinned], [\.subfolder], [\.templateId])
 
     // MARK: - Identity
     var id: String = UUID().uuidString
@@ -56,6 +57,9 @@ final class SDPage {
     // MARK: - Vault Sync State (Apple Notes Hybrid)
     var lastSyncedBodyHash: String?  // SHA256 prefix of body at last vault save
     var lastSyncedAt: Date?          // When this page was last written to / read from vault
+    /// Lightweight dirty flag — set true when body changes, cleared after vault export.
+    /// Avoids the O(n) SHA256 recompute of isDirtyVault across all pages.
+    var needsVaultSync: Bool = false
 
     // MARK: - Relationships
     // Note: .cascade delete rules work through SwiftData's managed context.
@@ -128,9 +132,12 @@ final class SDPage {
     }
 
     /// Whether this page has edits not yet saved to the vault .md file.
+    /// Fast path: uses the stored `needsVaultSync` flag (O(1), no disk I/O).
+    /// Fallback: computes SHA256 if never synced (first launch only).
     var isDirtyVault: Bool {
-        guard let hash = lastSyncedBodyHash else { return true }
-        return Self.bodyHash(body) != hash
+        if needsVaultSync { return true }
+        guard lastSyncedBodyHash != nil else { return true }
+        return false
     }
 
 }

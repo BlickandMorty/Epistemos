@@ -119,6 +119,7 @@ struct CreateJournalIntent: AppIntent {
         if let page = (try? context.fetch(descriptor))?.first {
             page.isJournal = true
             page.body = bodyText
+            page.needsVaultSync = true
             try? context.save()
         }
 

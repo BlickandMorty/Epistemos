@@ -5,7 +5,7 @@ import os
 
 // MARK: - Note Window Manager
 // Manages note editor windows as a native macOS tab group.
-// Every note opens as a tab using PopOutNoteView (fixed pageId, self-contained).
+// Every note opens as a tab using NoteTabView (fixed pageId, self-contained).
 // Single entry point: open(pageId:) — fetches page, highlights sidebar, opens tab.
 
 @MainActor
@@ -50,7 +50,7 @@ final class NoteWindowManager {
         }
 
         // Create hosting view with full environment injection
-        let editorView = PopOutNoteView(pageId: page.id)
+        let editorView = NoteTabView(pageId: page.id)
             .environment(bootstrap.uiState)
             .environment(bootstrap.chatState)
             .environment(bootstrap.pipelineState)
@@ -163,10 +163,11 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
 }
 
 // MARK: - Note Tab View
-// Clean note editor in a tab window — just the prose editor, no chrome.
-// Keyboard shortcuts: Cmd+S (save), Cmd+Shift+S (save all).
+// Self-contained note editor for each tab window.
+// Resolves pageId → SDPage via @Query, shows ProseEditorView,
+// adds sidebar toggle + Cmd+S / Cmd+Shift+S shortcuts.
 
-private struct PopOutNoteView: View {
+private struct NoteTabView: View {
     let pageId: String
 
     @Environment(UIState.self) private var ui

@@ -81,6 +81,17 @@ struct QueryAnalysis: Codable, Sendable {
     var isMetaAnalytical: Bool
     var hasSafetyKeywords: Bool
     var hasNormativeClaims: Bool
+    var keyTerms: [String]
+    var emotionalValence: EmotionalValence
+    var isFollowUp: Bool
+    var followUpFocus: String?
+}
+
+enum EmotionalValence: String, Codable, Sendable {
+    case positive
+    case negative
+    case mixed
+    case neutral
 }
 
 enum AnalysisDomain: String, Codable, Sendable {
@@ -210,6 +221,7 @@ struct SignalUpdate: Codable, Sendable {
     var focusDepth: Double?
     var temperatureScale: Double?
     var concepts: [String]?
+    var activeChordProduct: Double?
     var harmonyKeyDistance: Double?
 
     init(
@@ -223,6 +235,7 @@ struct SignalUpdate: Codable, Sendable {
         focusDepth: Double? = nil,
         temperatureScale: Double? = nil,
         concepts: [String]? = nil,
+        activeChordProduct: Double? = nil,
         harmonyKeyDistance: Double? = nil
     ) {
         self.confidence = confidence
@@ -235,6 +248,7 @@ struct SignalUpdate: Codable, Sendable {
         self.focusDepth = focusDepth
         self.temperatureScale = temperatureScale
         self.concepts = concepts
+        self.activeChordProduct = activeChordProduct
         self.harmonyKeyDistance = harmonyKeyDistance
     }
 }
@@ -324,15 +338,6 @@ enum InferenceMode: String, Codable, Sendable, CaseIterable {
     static var analytical: InferenceMode { .api }
 }
 
-// MARK: - Synthesis Report
-
-struct SynthesisReport: Codable, Sendable {
-    var plainSummary: String
-    var researchSummary: String
-    var suggestions: [String]
-    var timestamp: Date
-}
-
 // MARK: - File Attachments
 
 struct FileAttachment: Codable, Sendable, Identifiable {
@@ -396,50 +401,6 @@ enum RerouteType: String, Codable, Sendable, CaseIterable {
 struct RerouteInstruction: Codable, Sendable {
     var type: RerouteType
     var detail: String?
-}
-
-// MARK: - Steer Suggestions (Cognitive Hints)
-
-enum SteerHint: String, CaseIterable, Sendable {
-    case signal
-    case maths
-    case patterns
-    case cognition
-    case metrics
-    case creative
-
-    nonisolated var label: String {
-        switch self {
-        case .signal: "Signal"
-        case .maths: "Maths"
-        case .patterns: "Patterns"
-        case .cognition: "Cognition"
-        case .metrics: "Metrics"
-        case .creative: "Creative"
-        }
-    }
-
-    nonisolated var icon: String {
-        switch self {
-        case .signal: "waveform.path"
-        case .maths: "sum"
-        case .patterns: "waveform"
-        case .cognition: "brain.head.profile"
-        case .metrics: "chart.bar"
-        case .creative: "lightbulb"
-        }
-    }
-
-    nonisolated var detail: String {
-        switch self {
-        case .signal: "Adjust confidence signals and evidence weighting"
-        case .maths: "Apply more rigorous statistical reasoning"
-        case .patterns: "Look for recurring patterns in the data"
-        case .cognition: "Shift cognitive strategy or reasoning depth"
-        case .metrics: "Focus on quantitative metrics and effect sizes"
-        case .creative: "Try unconventional angles and lateral thinking"
-        }
-    }
 }
 
 // MARK: - Conversation Context

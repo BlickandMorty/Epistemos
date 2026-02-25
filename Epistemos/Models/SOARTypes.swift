@@ -16,7 +16,7 @@ struct SOARConfig: Codable, Sendable {
     var verbose: Bool
 
     static let `default` = SOARConfig(
-        enabled: true,
+        enabled: false,
         autoDetect: true,
         thresholds: LearnabilityThresholds.default,
         maxIterations: 3,
@@ -224,130 +224,6 @@ struct SOAREvent: Sendable {
     var iteration: Int
     var data: [String: AnySendable]
     var timestamp: Date
-}
-
-// MARK: - Learning Types (Notes learning)
-
-enum LearningStepType: String, Codable, Sendable {
-    case inventory
-    case gapAnalysis = "gap-analysis"
-    case deepDive = "deep-dive"
-    case crossReference = "cross-reference"
-    case synthesis
-    case questions
-    case iterate
-
-    var title: String {
-        switch self {
-        case .inventory: "Knowledge Inventory"
-        case .gapAnalysis: "Gap Analysis"
-        case .deepDive: "Deep Dive"
-        case .crossReference: "Cross-Reference"
-        case .synthesis: "Synthesis"
-        case .questions: "Question Generation"
-        case .iterate: "Iteration Check"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .inventory: "Scanning all notes to build a map of topics, concepts, and coverage density"
-        case .gapAnalysis: "Identifying topics mentioned but not elaborated, weak connections, and missing context"
-        case .deepDive: "Generating detailed explanatory content for the most significant knowledge gaps"
-        case .crossReference: "Finding hidden connections between disparate notes and creating [[page links]]"
-        case .synthesis: "Creating overview pages that tie related topics together into coherent narratives"
-        case .questions: "Generating thought-provoking questions that the current notes don't yet answer"
-        case .iterate: "Evaluating whether another learning pass would add value or if coverage is sufficient"
-        }
-    }
-}
-
-struct LearningSession: Identifiable, Codable, Sendable {
-    var id: String
-    var depth: Int
-    var maxIterations: Int
-    var currentIteration: Int
-    var steps: [LearningStep]
-    var status: LearningStatus
-    var targetPageIds: [String]?
-    var startedAt: Date
-    var completedAt: Date?
-    var lastIterateDecision: IterateDecision?
-    var iterationHistory: [IterationRecord] = []
-}
-
-struct LearningStep: Identifiable, Codable, Sendable {
-    var id: String
-    var type: LearningStepType
-    var status: LearningStepStatus
-    var title: String
-    var description: String
-    var startedAt: Date?
-    var completedAt: Date?
-    var output: String?
-    var insights: [String]
-    var pagesCreated: [String]
-    var blocksCreated: [String]
-    var error: String?
-}
-
-enum LearningStepStatus: String, Codable, Sendable {
-    case pending
-    case running
-    case completed
-    case skipped
-    case error
-}
-
-enum LearningStatus: String, Codable, Sendable {
-    case idle
-    case running
-    case paused
-    case completed
-    case failed
-}
-
-struct IterateDecision: Codable, Sendable {
-    var shouldContinue: Bool
-    var reason: String
-    var focusAreas: [String]
-}
-
-struct IterationRecord: Codable, Sendable {
-    var iteration: Int
-    var insights: Int
-    var pagesCreated: Int
-    var blocksCreated: Int
-    var completedAt: Date
-}
-
-struct LearningHistoryEntry: Identifiable, Codable, Sendable {
-    var id: String
-    var sessionId: String
-    var summary: String
-    var depth: Int
-    var iterations: Int
-    var completedAt: Date
-}
-
-struct SchedulerConfig: Codable, Sendable {
-    var enabled: Bool
-    var intervalMinutes: Int
-    var depth: String
-    var maxIterations: Int
-    var enableDailyBrief: Bool
-    var dailyBriefHour: Int
-    var maxDailyRuns: Int
-
-    static let defaults = SchedulerConfig(
-        enabled: false,
-        intervalMinutes: 60,
-        depth: "moderate",
-        maxIterations: 2,
-        enableDailyBrief: false,
-        dailyBriefHour: 9,
-        maxDailyRuns: 5
-    )
 }
 
 // MARK: - SOAR Limitations by Mode

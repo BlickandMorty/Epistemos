@@ -13,11 +13,10 @@ import SwiftUI
 //      Vault .md files are updated on explicit Save / Save All / auto-save interval.
 //
 // This view is the SwiftUI container that handles:
-// - SwiftData read/write
+// - SwiftData read/write (via onPageFlush callback to Coordinator)
 // - Debounced saves (coalesced to reduce UI churn)
-// - Word count updates
 // - Theme-aware dark mode
-// - Wikilink navigation (via NotesUIState)
+// - Wikilink navigation (via NoteWindowManager)
 
 struct ProseEditorView: View {
     let page: SDPage
@@ -38,33 +37,29 @@ struct ProseEditorView: View {
             pageBody: page.body,
             isFocused: isFocused,
             isDark: ui.theme.isDark,
-            onWikilinkClick: handleWikilinkClick
-        )
-        .onAppear {
-            bodyText = page.body
-        }
-        // Without .id(page.id), @State persists across page switches.
-        // CRITICAL: When onChange fires, `page` already points to the NEW page,
-        // but `bodyText` still holds the OLD page's content. We must flush
-        // unsaved edits to the OLD page (by ID), NOT the current `page`.
-        .onChange(of: page.id) { oldPageId, _ in
-            saveTask?.cancel()
-
-            // Flush unsaved edits to the OLD page — body only, no metadata.
-            // Word count / updatedAt / H1 extraction are deferred to avoid
-            // blocking MainActor during the page switch hot path.
-            if !oldPageId.isEmpty && !bodyText.isEmpty {
+            onWikilinkClick: handleWikilinkClick,
+            onPageFlush: { oldPageId, currentText in
+                // Flush unsaved edits to the OLD page — body only, no metadata.
+                // Called by Coordinator during page swap so all flush logic
+                // lives in one place (updateNSView).
+                guard !oldPageId.isEmpty, !currentText.isEmpty else { return }
                 let desc = FetchDescriptor<SDPage>(
                     predicate: #Predicate<SDPage> { $0.id == oldPageId }
                 )
                 if let oldPage = try? modelContext.fetch(desc).first,
-                    oldPage.body != bodyText
+                    oldPage.body != currentText
                 {
-                    oldPage.body = bodyText
+                    oldPage.body = currentText
+                    oldPage.needsVaultSync = true
                 }
             }
-
-            // Load new page content
+        )
+        .onAppear {
+            bodyText = page.body
+        }
+        // @State management only — text flush is handled by Coordinator's onPageFlush.
+        .onChange(of: page.id) { _, _ in
+            saveTask?.cancel()
             bodyText = page.body
         }
         .onChange(of: bodyText) { _, newValue in
@@ -85,6 +80,7 @@ struct ProseEditorView: View {
         saveTask?.cancel()
         if page.body != bodyText {
             page.body = bodyText
+            page.needsVaultSync = true
         }
     }
 
@@ -100,6 +96,9 @@ struct ProseEditorView: View {
 
     private func debouncedSave(_ newValue: String) {
         saveTask?.cancel()
+        // Set dirty flag immediately so isDirtyVault reflects the edit
+        // even before the 5s debounce flushes body to SwiftData.
+        page.needsVaultSync = true
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }

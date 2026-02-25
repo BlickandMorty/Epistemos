@@ -29,6 +29,7 @@ final class ChatState {
 
     // MARK: - In-memory messages (current session)
     var messages: [ChatMessage] = []
+    var hasMessages = false
 
     /// Controls whether the landing page or chat view is shown on the Home panel.
     /// `true` = landing page visible (even if messages exist in memory).
@@ -145,6 +146,7 @@ final class ChatState {
         pendingReasoningTokens = ""
 
         messages = []
+        hasMessages = false
         streamingText = ""
         isStreaming = false
         reasoningText = ""
@@ -187,6 +189,7 @@ final class ChatState {
             attachments: pendingAttachments
         )
         messages.append(userMessage)
+        hasMessages = true
 
         pendingAttachments = []
         streamingText = ""
@@ -408,6 +411,7 @@ final class ChatState {
 
     func loadMessages(_ msgs: [ChatMessage]) {
         messages = msgs
+        hasMessages = !msgs.isEmpty
         showLanding = msgs.isEmpty
     }
 
@@ -422,6 +426,7 @@ final class ChatState {
         pendingReasoningTokens = ""
 
         messages = []
+        hasMessages = false
         streamingText = ""
         isStreaming = false
         reasoningText = ""

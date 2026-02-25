@@ -23,6 +23,9 @@ private struct SidebarPageItem: Identifiable, Equatable {
     let journalDate: String?
     let tags: [String]
     let folderId: String?
+    /// Denormalized subfolder path from SDPage.subfolder — always a plain String,
+    /// never depends on relationship faulting. Used as fallback matching.
+    let subfolder: String?
 
     init(_ page: SDPage) {
         id = page.id; title = page.title; emoji = page.emoji
@@ -30,6 +33,7 @@ private struct SidebarPageItem: Identifiable, Equatable {
         isPinned = page.isPinned; isArchived = page.isArchived
         isTemplate = page.isTemplate; journalDate = page.journalDate
         tags = page.tags; folderId = page.folder?.id
+        subfolder = page.subfolder
     }
 }
 
@@ -40,15 +44,17 @@ private struct SidebarFolderItem: Identifiable, Equatable {
     let sortOrder: Int
     let parentId: String?
     let childFolderIds: [String]
-    /// Child pages as full value types — avoids lookup failures when @Query
-    /// fetchLimit excludes older pages that ARE in the folder relationship.
-    let childPages: [SidebarPageItem]
+    let relativePath: String
+    /// Child pages — populated from folder.pages (primary) or subfolder match (fallback).
+    var childPages: [SidebarPageItem]
 
     init(_ folder: SDFolder) {
         id = folder.id; name = folder.name
         isCollection = folder.isCollection; sortOrder = folder.sortOrder
         parentId = folder.parent?.id
         childFolderIds = (folder.children ?? []).sorted { $0.sortOrder < $1.sortOrder }.map(\.id)
+        relativePath = folder.relativePath
+        // Primary: read directly from folder.pages (v3 pattern).
         childPages = (folder.pages ?? []).filter { !$0.isArchived }
             .sorted { $0.updatedAt > $1.updatedAt }.map(SidebarPageItem.init)
     }
@@ -114,12 +120,41 @@ struct NotesSidebar: View {
     @State private var cachedPageItems: [SidebarPageItem] = []
     @State private var cachedFolderItems: [SidebarFolderItem] = []
     @State private var cachedFolderById: [String: SidebarFolderItem] = [:]
+    @State private var rebuildTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
+
+    /// Coalesces multiple `setNeedsRebuild()` calls into a single `rebuildCache()`
+    /// on the next run loop tick. Prevents 13+ redundant rebuilds per event cycle.
+    private func setNeedsRebuild() {
+        rebuildTask?.cancel()
+        rebuildTask = Task { @MainActor in
+            rebuildCache()
+        }
+    }
 
     private func rebuildCache() {
         cachedPageItems = allPages.map(SidebarPageItem.init)
         cachedFolderItems = allFolders.map(SidebarFolderItem.init)
+
+        // Fallback: if folder.pages returned [] (SwiftData inverse not merged yet),
+        // match pages to folders using the denormalized subfolder path → folder.relativePath.
+        // This catches the case where VaultIndexActor assigned page.folder on a background
+        // actor and the relationship hasn't faulted into the main context yet.
+        let anyFolderEmpty = cachedFolderItems.contains { $0.childPages.isEmpty }
+        if anyFolderEmpty {
+            let pagesBySubfolder = Dictionary(
+                grouping: cachedPageItems.filter { $0.subfolder != nil && !$0.isArchived },
+                by: { $0.subfolder! }
+            )
+            for i in cachedFolderItems.indices where cachedFolderItems[i].childPages.isEmpty {
+                let path = cachedFolderItems[i].relativePath
+                if let matched = pagesBySubfolder[path], !matched.isEmpty {
+                    cachedFolderItems[i].childPages = matched
+                }
+            }
+        }
+
         cachedFolderById = Dictionary(cachedFolderItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
     }
 
@@ -154,11 +189,23 @@ struct NotesSidebar: View {
         .onAppear {
             rebuildCache()
             preWarmRecentPages()
+            // Deferred rebuild: VaultIndexActor may still be wiring folder relationships
+            // when the sidebar first appears. Rebuild again after context merge settles.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(800))
+                rebuildCache()
+            }
         }
-        .onChange(of: allPages.count) { rebuildCache() }
-        .onChange(of: allFolders.count) { rebuildCache() }
+        .onChange(of: allPages.count) { setNeedsRebuild() }
+        .onChange(of: allFolders.count) { setNeedsRebuild() }
         .onReceive(NotificationCenter.default.publisher(for: vaultFoldersRepairedNotification)) { _ in
-            rebuildCache()
+            // Delay to allow SwiftData's background-to-main context merge to complete.
+            // The notification fires from VaultIndexActor (background ModelActor) — the main
+            // context @Query results may not have updated yet when the notification arrives.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(500))
+                rebuildCache()
+            }
         }
         .alert(pageDeleteAlertTitle, isPresented: showPageDeleteAlert) {
             Button("Delete", role: .destructive) { performPageDelete() }
@@ -355,10 +402,9 @@ struct NotesSidebar: View {
 
     private var bottomBar: some View {
         VStack(spacing: 0) {
-            // Editor actions — isolated View struct to avoid registering
-            // @Observable trackers (activePageId, dirtyPageCount) on the
-            // entire 5000+ row sidebar body.
-            EditorActionsBar(allPages: allPages)
+            // Editor actions — isolated View struct with its own @Query for
+            // dirty pages. Avoids registering @Observable trackers on sidebar body.
+            EditorActionsBar()
             Divider().opacity(0.2)
             // Creation actions — New Page, New Folder, etc.
             creationActionsRow
@@ -429,9 +475,13 @@ struct NotesSidebar: View {
                 bodySearchResults = []
                 return
             }
+            // Individual fetches — SwiftData #Predicate can't reliably translate
+            // local array .contains() to SQL, causing runtime crashes.
             var results: [SidebarPageItem] = []
             for id in matchedIds {
-                let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
+                let descriptor = FetchDescriptor<SDPage>(
+                    predicate: #Predicate { $0.id == id }
+                )
                 if let page = try? modelContext.fetch(descriptor).first {
                     results.append(SidebarPageItem(page))
                 }
@@ -468,22 +518,31 @@ struct NotesSidebar: View {
 
     /// On sidebar appear, pre-warm the 3 most recently updated pages.
     /// These are the notes the user is most likely to revisit.
+    /// Body reads happen on VaultIndexActor (background) to avoid blocking MainActor.
     private func preWarmRecentPages() {
         let isDark = ui.theme.isDark
         Task {
+            // Step 1: fetch IDs only on main thread (no .body access = no disk I/O)
             var desc = FetchDescriptor<SDPage>(
                 sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
             )
             desc.fetchLimit = 3
             guard let recentPages = try? modelContext.fetch(desc), !recentPages.isEmpty else { return }
-            let pages = recentPages.map { (id: $0.id, body: $0.body) }
+            let ids = recentPages.map(\.id)
+
+            // Step 2: read bodies on background actor (off MainActor)
+            let noteBodies = await vaultSync.fetchNoteBodies(ids: ids)
+            guard !noteBodies.isEmpty else { return }
+
+            // Step 3: feed to pool on MainActor
+            let pages = noteBodies.map { (id: $0.pageId, body: $0.body) }
             PageStoragePool.shared.preWarmRecent(pages: pages, isDark: isDark)
         }
     }
 
     /// When a folder is expanded, pre-warm storages for its child pages
     /// so clicking a note opens instantly (no cold-cache styling delay).
-    /// Fetches bodies from SwiftData (external storage) and hands them to the pool.
+    /// Body reads happen on VaultIndexActor (background) to avoid blocking MainActor.
     private func preWarmFolder(id: String) {
         guard let folder = cachedFolderById[id] else { return }
 
@@ -496,19 +555,14 @@ struct NotesSidebar: View {
         }
         guard !pageIds.isEmpty else { return }
 
-        // Fetch the 6 most recently edited pages in this folder.
-        // Sorting by updatedAt means the notes you're actively working on
-        // get pre-warmed first — stale notes at the bottom can stay cold.
         let isDark = ui.theme.isDark
-        let idArray = Array(pageIds)
+        let idArray = Array(pageIds.prefix(6))
         Task {
-            var desc = FetchDescriptor<SDPage>(
-                predicate: #Predicate<SDPage> { idArray.contains($0.id) },
-                sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-            )
-            desc.fetchLimit = 6
-            guard let fetched = try? modelContext.fetch(desc), !fetched.isEmpty else { return }
-            let pages = fetched.map { (id: $0.id, body: $0.body) }
+            // Read bodies on background actor (off MainActor)
+            let noteBodies = await vaultSync.fetchNoteBodies(ids: idArray)
+            guard !noteBodies.isEmpty else { return }
+
+            let pages = noteBodies.map { (id: $0.pageId, body: $0.body) }
             PageStoragePool.shared.preWarm(pages: pages, isDark: isDark)
         }
     }
@@ -529,7 +583,7 @@ struct NotesSidebar: View {
             if let page = fetchPage(id) {
                 page.title = VaultIndexActor.sanitizeTitle(newTitle)
                 page.updatedAt = .now
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .requestDeletePage(let item):
@@ -538,13 +592,13 @@ struct NotesSidebar: View {
         case .toggleFavorite(let id):
             if let page = fetchPage(id) {
                 page.isFavorite.toggle()
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .togglePin(let id):
             if let page = fetchPage(id) {
                 page.isPinned.toggle()
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .renameFolder(let id, let newName):
@@ -553,7 +607,7 @@ struct NotesSidebar: View {
                 folder.name = newName
                 let newPath = folder.relativePath
                 vaultSync.renameDirectory(from: oldPath, to: newPath)
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .requestDeleteFolder(let item):
@@ -582,33 +636,33 @@ struct NotesSidebar: View {
             if let folder = fetchFolder(folderId) {
                 folder.isCollection.toggle()
                 CollectionRegistry.shared.setCollection(folder.name, folder.isCollection)
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .movePageToFolder(let pageId, let folderId):
             if let page = fetchPage(pageId),
                let folder = fetchFolder(folderId) {
                 page.folder = folder
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .moveFolderInto(let childId, let parentId):
             if let child = fetchFolder(childId),
                let parent = fetchFolder(parentId) {
                 child.parent = parent
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .movePageToRoot(let pageId):
             if let page = fetchPage(pageId) {
                 page.folder = nil
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .moveFolderToRoot(let folderId):
             if let folder = fetchFolder(folderId) {
                 folder.parent = nil
-                rebuildCache()
+                setNeedsRebuild()
             }
 
         case .createNewPage:
@@ -689,7 +743,7 @@ struct NotesSidebar: View {
             modelContext.delete(page)
         }
         pendingDeletePage = nil
-        rebuildCache()
+        setNeedsRebuild()
     }
 
     private func performFolderDelete() {
@@ -704,7 +758,7 @@ struct NotesSidebar: View {
         vaultSync.deleteDirectory(relativePath: folder.relativePath)
         modelContext.delete(folder)
         pendingDeleteFolder = nil
-        rebuildCache()
+        setNeedsRebuild()
     }
 
     private func closeFolderTabs(_ folder: SDFolder) {
@@ -1258,18 +1312,20 @@ private struct EmptyTreeState: View {
 }
 
 // MARK: - Editor Actions Bar
-// ISOLATED View struct — reads notesUI.activePageId and vaultSync.dirtyPageCount
-// WITHOUT registering observations on the parent NotesSidebar body.
-// This prevents the 5000+ row sidebar from re-evaluating on every page switch
-// or save cycle.
+// ISOLATED View struct — uses @Query for dirty pages instead of reading
+// vaultSync.dirtyPageCount. SwiftData only re-evaluates when the filtered
+// result set changes, not on every VaultSyncService property mutation.
 
 private struct EditorActionsBar: View {
-    let allPages: [SDPage]
-
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(UIState.self) private var ui
     @State private var showChangesPopover = false
+
+    // PERF: Filtered @Query — SwiftData only notifies when this result set changes.
+    // Replaces vaultSync.dirtyPageCount which fetched ALL pages every evaluation.
+    @Query(filter: #Predicate<SDPage> { $0.needsVaultSync == true })
+    private var dirtyPages: [SDPage]
 
     var body: some View {
         HStack(spacing: 2) {
@@ -1283,9 +1339,8 @@ private struct EditorActionsBar: View {
                 vaultSync.saveAllDirtyPages()
             }
             .overlay(alignment: .topTrailing) {
-                let count = vaultSync.dirtyPageCount
-                if count > 0 {
-                    Text("\(count)")
+                if dirtyPages.count > 0 {
+                    Text("\(dirtyPages.count)")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 4)
@@ -1302,7 +1357,7 @@ private struct EditorActionsBar: View {
                 showChangesPopover.toggle()
             }
             .popover(isPresented: $showChangesPopover) {
-                VaultChangesPanel(allPages: allPages)
+                VaultChangesPanel(dirtyPages: dirtyPages)
                     .frame(width: 320, height: 400)
                     .preferredColorScheme(ui.theme.colorScheme)
             }
