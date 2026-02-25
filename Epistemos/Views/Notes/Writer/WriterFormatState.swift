@@ -56,21 +56,10 @@ final class WriterFormatState {
         didSet { markCustom() }
     }
 
-    var isBold: Bool = false {
-        didSet { markCustom() }
-    }
-
-    var isItalic: Bool = false {
-        didSet { markCustom() }
-    }
-
-    var isUnderline: Bool = false {
-        didSet { markCustom() }
-    }
-
-    var isStrikethrough: Bool = false {
-        didSet { markCustom() }
-    }
+    var isBold: Bool = false
+    var isItalic: Bool = false
+    var isUnderline: Bool = false
+    var isStrikethrough: Bool = false
 
     // MARK: - Paragraph
 
