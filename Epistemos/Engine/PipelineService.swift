@@ -63,74 +63,6 @@ final class PipelineService {
         self.soarService = soarService
     }
 
-    // MARK: - Audit Orchestration
-
-    /// Run a diagnostic audit on a specific note page.
-    /// Feeds the entire note body through the 6-pass enrichment pipeline.
-    /// Results are saved to a new SDAuditRecord.
-    func audit(page: SDPage) async throws -> SDAuditRecord? {
-        // 1. Prepare query from page content
-        let query = page.body.isEmpty ? "No content in note: \(page.title)" : page.body
-
-        // 2. Setup audit context
-        let mode: InferenceMode = .api  // Audits always use API for depth
-        let controls = PipelineControls.default
-
-        // 3. Run pipeline (skipping streaming, focused on enrichment)
-        var auditSignals: GeneratedSignals?
-        var auditDual: DualMessage?
-        var auditTruth: TruthAssessment?
-
-        // Since run() returns a stream but handles side effects,
-        // we consume it to wait for the .enriched/completed events.
-        let stream = run(
-            query: query,
-            mode: mode,
-            controls: controls,
-            skipEnrichment: false
-        )
-
-        // 4. Consume stream events
-        for try await event in stream {
-            switch event {
-            case .enriched(let dual, let truth):
-                auditDual = dual
-                auditTruth = truth
-            case .completed(let dual, let truth):
-                auditDual = dual
-                auditTruth = truth
-            case .error(let msg):
-                throw PipelineError.analysisFailure(msg)
-            default:
-                break
-            }
-        }
-
-        // 5. Generate and return record
-        let signals = pipelineState.signals
-        let record = SDAuditRecord(pageId: page.id, page: page)
-        record.signalsData = try? JSONEncoder().encode(signals)
-        record.truthAssessmentData = try? JSONEncoder().encode(auditTruth)
-        record.rawAnalysis = auditDual?.rawAnalysis ?? ""
-
-        // Populate meta-analytical recommendations
-        var coachSteps: [String] = []
-        if let truth = auditTruth {
-            coachSteps.append(contentsOf: truth.improvements)
-            coachSteps.append(contentsOf: truth.recommendedActions)
-        }
-        record.recommendations = Array(Set(coachSteps)).sorted()  // Deduplicate
-
-        // Extract concepts from key terms if available
-        record.concepts =
-            auditDual?.rawAnalysis.components(separatedBy: "[CONCEPTS:").last?
-            .components(separatedBy: "]").first?
-            .components(separatedBy: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? []
-
-        return record
-    }
-
     // MARK: - Active Tasks
     // Held so a new query (or stop button) can cancel the previous work.
     private var pipelineTask: Task<Void, Never>?
@@ -386,12 +318,12 @@ final class PipelineService {
                     // Replace placeholder concepts with real ones from the LLM's [CONCEPTS: ...] tag.
                     // If the LLM included the tag, parse it and strip it from displayed text.
                     // Fall back to regex heuristic extraction if no tag found.
-                    let (llmConcepts, cleanedAnswer) = Self.parseConceptsTag(from: rawAnswerBuffer)
+                    let (llmConcepts, cleanedAnswer) = EnrichmentController.parseConceptsTag(from: rawAnswerBuffer)
                     if !llmConcepts.isEmpty {
                         rawAnswerBuffer = cleanedAnswer
                         pipelineState.updateSignals(SignalUpdate(concepts: llmConcepts))
                     } else {
-                        let extractedConcepts = extractResponseConcepts(
+                        let extractedConcepts = EnrichmentController.extractResponseConcepts(
                             from: rawAnswerBuffer,
                             queryEntities: queryAnalysis.entities
                         )
@@ -406,7 +338,7 @@ final class PipelineService {
                     // the Lucid Lens panel showed a duplicate of the streaming answer.
                     let minimalDualMessage = DualMessage(
                         rawAnalysis: skipEnrichment ? rawAnswerBuffer : "",
-                        uncertaintyTags: extractUncertaintyTags(from: rawAnswerBuffer),
+                        uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: rawAnswerBuffer),
                         modelVsDataFlags: []
                     )
                     continuation.yield(.completed(minimalDualMessage, nil))
@@ -421,11 +353,11 @@ final class PipelineService {
                         )
                         // Regular mode: yield signal-derived arbitration + truth assessment
                         // so the user gets a ConsensusReportCard without extra API calls.
-                        let fallbackArb = fallbackArbitration(signals: signals)
-                        let fallbackTruth = fallbackTruthAssessment(signals: signals)
+                        let fallbackArb = EnrichmentController.fallbackArbitration(signals: signals)
+                        let fallbackTruth = EnrichmentController.fallbackTruthAssessment(signals: signals)
                         let regularDual = DualMessage(
                             rawAnalysis: rawAnswerBuffer,
-                            uncertaintyTags: extractUncertaintyTags(from: rawAnswerBuffer),
+                            uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: rawAnswerBuffer),
                             modelVsDataFlags: [],
                             arbitration: fallbackArb
                         )
@@ -458,15 +390,15 @@ final class PipelineService {
                         Log.pipeline.info(
                             "🔬 Enrichment: SKIPPED (no API key for \(capturedLLM.provider.rawValue)) — yielding signal-derived fallback"
                         )
-                        let fallbackArb = fallbackArbitration(signals: signals)
-                        let fallbackTruth = fallbackTruthAssessment(signals: signals)
+                        let fallbackArb = EnrichmentController.fallbackArbitration(signals: signals)
+                        let fallbackTruth = EnrichmentController.fallbackTruthAssessment(signals: signals)
                         let noKeyDual = DualMessage(
                             rawAnalysis: "",
-                            uncertaintyTags: extractUncertaintyTags(from: rawAnswerBuffer),
+                            uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: rawAnswerBuffer),
                             modelVsDataFlags: [],
-                            laymanSummary: fallbackLaymanSummary(
+                            laymanSummary: EnrichmentController.fallbackLaymanSummary(
                                 queryAnalysis: queryAnalysis, signals: signals),
-                            reflection: fallbackReflection(signals: signals),
+                            reflection: EnrichmentController.fallbackReflection(signals: signals),
                             arbitration: fallbackArb
                         )
                         continuation.yield(.enriched(noKeyDual, fallbackTruth))
@@ -476,7 +408,7 @@ final class PipelineService {
 
                     // Strong capture: PipelineService is held by AppBootstrap — no retain cycle.
                     // [weak self] caused silent enrichment death if momentary deallocation occurred.
-                    let enrichTask = Task.detached(priority: .userInitiated) { [self] in
+                    let enrichTask = Task.detached(priority: .userInitiated) {
                         // Prevent macOS App Nap from suspending in-process network requests
                         // while enrichment is running. Without this, switching away from the
                         // app mid-enrichment can throttle or cancel URLSession requests.
@@ -496,18 +428,18 @@ final class PipelineService {
                             )
                             let fallbackDual = DualMessage(
                                 rawAnalysis: "",
-                                uncertaintyTags: self.extractUncertaintyTags(
+                                uncertaintyTags: EnrichmentController.extractUncertaintyTags(
                                     from: capturedRawAnswerBuffer),
                                 modelVsDataFlags: [],
-                                laymanSummary: self.fallbackLaymanSummary(
+                                laymanSummary: EnrichmentController.fallbackLaymanSummary(
                                     queryAnalysis: capturedQueryAnalysis, signals: capturedSignals),
-                                reflection: self.fallbackReflection(signals: capturedSignals),
-                                arbitration: self.fallbackArbitration(signals: capturedSignals)
+                                reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
+                                arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
                             continuation.yield(
                                 .enriched(
                                     fallbackDual,
-                                    self.fallbackTruthAssessment(signals: capturedSignals)))
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
                             if finisher.tryFinish() { continuation.finish() }
                             return
                         }
@@ -529,18 +461,18 @@ final class PipelineService {
                             )
                             let timeoutDual = DualMessage(
                                 rawAnalysis: "",
-                                uncertaintyTags: self.extractUncertaintyTags(
+                                uncertaintyTags: EnrichmentController.extractUncertaintyTags(
                                     from: capturedRawAnswerBuffer),
                                 modelVsDataFlags: [],
-                                laymanSummary: self.fallbackLaymanSummary(
+                                laymanSummary: EnrichmentController.fallbackLaymanSummary(
                                     queryAnalysis: capturedQueryAnalysis, signals: capturedSignals),
-                                reflection: self.fallbackReflection(signals: capturedSignals),
-                                arbitration: self.fallbackArbitration(signals: capturedSignals)
+                                reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
+                                arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
                             continuation.yield(
                                 .enriched(
                                     timeoutDual,
-                                    self.fallbackTruthAssessment(signals: capturedSignals)))
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
                             if finisher.tryFinish() { continuation.finish() }
                         }
                         defer { timeoutTask.cancel() }
@@ -555,7 +487,7 @@ final class PipelineService {
 
                         // Pass 2: Deep research prose (always cloud API — no Apple Intelligence)
                         let pass2Start = CFAbsoluteTimeGetCurrent()
-                        let rawAnalysis = await self.generateRawAnalysisAsync(
+                        let rawAnalysis = await EnrichmentController.generateRawAnalysisAsync(
                             query: capturedQuery,
                             queryAnalysis: capturedQueryAnalysis,
                             signals: capturedSignals,
@@ -574,19 +506,19 @@ final class PipelineService {
                                 "Enrichment: cancelled after Pass 2 — yielding partial+fallback")
                             let fallbackDual = DualMessage(
                                 rawAnalysis: rawAnalysis,
-                                uncertaintyTags: self.extractUncertaintyTags(
+                                uncertaintyTags: EnrichmentController.extractUncertaintyTags(
                                     from: rawAnalysis.isEmpty
                                         ? capturedRawAnswerBuffer : rawAnalysis),
                                 modelVsDataFlags: [],
-                                laymanSummary: self.fallbackLaymanSummary(
+                                laymanSummary: EnrichmentController.fallbackLaymanSummary(
                                     queryAnalysis: capturedQueryAnalysis, signals: capturedSignals),
-                                reflection: self.fallbackReflection(signals: capturedSignals),
-                                arbitration: self.fallbackArbitration(signals: capturedSignals)
+                                reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
+                                arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
                             continuation.yield(
                                 .enriched(
                                     fallbackDual,
-                                    self.fallbackTruthAssessment(signals: capturedSignals)))
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
                             if finisher.tryFinish() { continuation.finish() }
                             return
                         }
@@ -611,7 +543,7 @@ final class PipelineService {
 
                         // Pass 3: Layman summary
                         let pass3Start = CFAbsoluteTimeGetCurrent()
-                        let laymanSummary = await self.generateLaymanSummary(
+                        let laymanSummary = await EnrichmentController.generateLaymanSummary(
                             query: capturedQuery,
                             rawAnalysis: analysisText,
                             queryAnalysis: capturedQueryAnalysis,
@@ -628,16 +560,16 @@ final class PipelineService {
                                 "Enrichment: cancelled after Pass 3 — yielding partial+fallback")
                             let cancelDual = DualMessage(
                                 rawAnalysis: rawAnalysis,
-                                uncertaintyTags: self.extractUncertaintyTags(from: analysisText),
+                                uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: analysisText),
                                 modelVsDataFlags: [],
                                 laymanSummary: laymanSummary,
-                                reflection: self.fallbackReflection(signals: capturedSignals),
-                                arbitration: self.fallbackArbitration(signals: capturedSignals)
+                                reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
+                                arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
                             continuation.yield(
                                 .enriched(
                                     cancelDual,
-                                    self.fallbackTruthAssessment(signals: capturedSignals)))
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
                             if finisher.tryFinish() { continuation.finish() }
                             return
                         }
@@ -661,14 +593,14 @@ final class PipelineService {
 
                         // Passes 4 + 5: Reflection and Arbitration in parallel
                         let pass45Start = CFAbsoluteTimeGetCurrent()
-                        async let reflectionTask = self.generateReflection(
+                        async let reflectionTask = EnrichmentController.generateReflection(
                             query: capturedQuery,
                             rawAnalysis: analysisText,
                             queryAnalysis: capturedQueryAnalysis,
                             signals: capturedSignals,
                             llm: capturedLLM
                         )
-                        async let arbitrationTask = self.generateArbitration(
+                        async let arbitrationTask = EnrichmentController.generateArbitration(
                             query: capturedQuery,
                             rawAnalysis: analysisText,
                             queryAnalysis: capturedQueryAnalysis,
@@ -685,7 +617,7 @@ final class PipelineService {
                             Log.pipeline.info("Enrichment: cancelled after Passes 4+5")
                             let cancelDual = DualMessage(
                                 rawAnalysis: rawAnalysis,
-                                uncertaintyTags: self.extractUncertaintyTags(from: analysisText),
+                                uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: analysisText),
                                 modelVsDataFlags: [],
                                 laymanSummary: laymanSummary,
                                 reflection: reflection,
@@ -694,7 +626,7 @@ final class PipelineService {
                             continuation.yield(
                                 .enriched(
                                     cancelDual,
-                                    self.fallbackTruthAssessment(signals: capturedSignals)))
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
                             if finisher.tryFinish() { continuation.finish() }
                             return
                         }
@@ -718,7 +650,7 @@ final class PipelineService {
 
                         // Pass 6: Truth assessment
                         let pass6Start = CFAbsoluteTimeGetCurrent()
-                        let truthAssessment = await self.generateTruthAssessment(
+                        let truthAssessment = await EnrichmentController.generateTruthAssessment(
                             query: capturedQuery,
                             rawAnalysis: analysisText,
                             signals: capturedSignals,
@@ -742,7 +674,7 @@ final class PipelineService {
                         // Pass 1 when Pass 2 is empty) is only used as input to downstream passes.
                         let enrichedDual = DualMessage(
                             rawAnalysis: rawAnalysis,
-                            uncertaintyTags: self.extractUncertaintyTags(from: analysisText),
+                            uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: analysisText),
                             modelVsDataFlags: [],
                             laymanSummary: laymanSummary,
                             reflection: reflection,

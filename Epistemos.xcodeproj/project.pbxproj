@@ -13,8 +13,6 @@
 		06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */; };
 		07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A4402EB228D73EF547EC7D /* FolderEntity.swift */; };
 		08857849A064CDE0E60185F4 /* VaultChangesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */; };
-		D1FF0001A000000000000001 /* LineDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1FF0002A000000000000001 /* LineDiff.swift */; };
-		D1FF0003A000000000000001 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1FF0004A000000000000001 /* DiffSheetView.swift */; };
 		09C925B05E89E8CE0FA4F249 /* ThreadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56735F8C49D2024C45FFE4F9 /* ThreadState.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
 		0B7C126DCCBA525A8899DADE /* ResearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B7FEDB6B8DBDF1868450FA /* ResearchView.swift */; };
@@ -38,6 +36,7 @@
 		2C81E243528DEC2064304515 /* EpistemosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF9DAAD25FDFF22798F254E /* EpistemosApp.swift */; };
 		2E44B50711B9A41F60520BC6 /* MiniChatWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEC6EE77D8EDFD4E19FA9DEA /* MiniChatWindowController.swift */; };
 		2E55344D0A116B5FB263D3E3 /* SystemSearchIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E423F3667C6824606063F3D /* SystemSearchIntent.swift */; };
+		2E84F2A08119FD3F976BEA80 /* EnrichmentController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 450AB4B544135429CAB76F99 /* EnrichmentController.swift */; };
 		2EA2110ADE899451EC0C98E9 /* SystemAppearanceObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF7D72EB1BE7CCEA442B57C /* SystemAppearanceObserver.swift */; };
 		2EDD6B28FDB5E43BEA63DCC0 /* BrandedTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF03138061D7396317DF9F6 /* BrandedTypes.swift */; };
 		31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEEF8225F9781F4C3647074 /* LandingView.swift */; };
@@ -55,6 +54,7 @@
 		4846AF9F6F5E9638C17DE5B0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93154842DAC1AF484D8456B6 /* SettingsView.swift */; };
 		4B547DF6F02B57485AE9BE59 /* NoteEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B18CC16F40A0517CFE19082 /* NoteEntity.swift */; };
 		4B8BB7B145E90FBE379CD619 /* PipelineProgressPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41E0418B49EC6B5741FE8DE8 /* PipelineProgressPopover.swift */; };
+		4D312CBE97338A6E1537A1F4 /* 2026-02-25-diff-view-design.md in Resources */ = {isa = PBXBuildFile; fileRef = 5116492FB4D7C3BCD5985A54 /* 2026-02-25-diff-view-design.md */; };
 		4DD31A1E409EFB92392BC50F /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8EB883CA519394AC49A9DB /* GlassModifiers.swift */; };
 		5432FF70B02C2F7DE287CCAB /* SDPage+Queries.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBD84760F9ECD2E997B4FAAD /* SDPage+Queries.swift */; };
 		58AB12AE13FF979F7E50CD20 /* SOARStudent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D0E1E91102579D7408FF8E /* SOARStudent.swift */; };
@@ -69,6 +69,7 @@
 		6EB84E426204D7F3CA21C1C4 /* ChatSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C18B630A648FA5BCE26D07 /* ChatSidebarView.swift */; };
 		6FA41C6D9F4B25AD89626DD6 /* ResearchIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 006D4AFC106E6BBA941CDBD4 /* ResearchIntents.swift */; };
 		709603D34C0C1AB5E3035898 /* AppBootstrap+ChatOrchestration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDB8F0790BC798EE63145524 /* AppBootstrap+ChatOrchestration.swift */; };
+		70FF71E217877FD681651188 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */; };
 		71B515B00D4223ADCB38F093 /* MiniChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01501774D229B160DB423DA /* MiniChatView.swift */; };
 		75C700C860CDA76BB99BCFC0 /* NoteWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */; };
 		76BFFBAC03BA72756E6A8313 /* PillNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EDAE57D8846BCCCDE876C09 /* PillNavBar.swift */; };
@@ -96,6 +97,7 @@
 		B6CD5A5B77290070D8B396A8 /* JournalIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271CA2F1B0047DC529BB3E28 /* JournalIntents.swift */; };
 		B9459F26DD021E7EF1A16BEE /* LiquidGreeting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834BA1C13F6D89591F703A0F /* LiquidGreeting.swift */; };
 		BA075081559C37B7734C6EAB /* TriageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35250427F5F701B31DF7B9B /* TriageService.swift */; };
+		C0750CB97D4CDF97A9A37A39 /* 2026-02-25-forge-production-audit.md in Resources */ = {isa = PBXBuildFile; fileRef = 1EDD1807C4EF2DDFFECDDD03 /* 2026-02-25-forge-production-audit.md */; };
 		C22D030F136F89C6F88D4157 /* NoteActionIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB2B8BB90B3F540234A8D4C6 /* NoteActionIntents.swift */; };
 		C324B4F406DFA6C4157BA803 /* EngineTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40F56D97B2215B542F50144 /* EngineTypes.swift */; };
 		C36BBEB08DF48D61FFADEA08 /* PromptComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3260DBD123A55AE26999EC3 /* PromptComposer.swift */; };
@@ -108,6 +110,7 @@
 		CD529C7FBC83864C3F7307C2 /* DailyBriefButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F8D250666419FAEFA838018 /* DailyBriefButton.swift */; };
 		CE13A63927F015AAEE1C3E62 /* PipelineState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5B216A72D52446F8223EE4 /* PipelineState.swift */; };
 		D0BE2F268FDB1F22A6735F95 /* LearningIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1002A7E01B0EC4FFB8A969A7 /* LearningIntents.swift */; };
+		D2FB41E55F2DEE0892E84085 /* LineDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = B980FE6E8ADB38B410D728FC /* LineDiff.swift */; };
 		D5D6F96C8C9DB4954F8EAD14 /* SOARService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBD4F31B576487CA28F2D7F4 /* SOARService.swift */; };
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
@@ -143,11 +146,10 @@
 		1B5B216A72D52446F8223EE4 /* PipelineState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineState.swift; sourceTree = "<group>"; };
 		1C52E5A635322119D9F376BC /* ChatState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatState.swift; sourceTree = "<group>"; };
 		1C9EDE6E0F0FCAECB658EEFF /* SearchIndexService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndexService.swift; sourceTree = "<group>"; };
+		1EDD1807C4EF2DDFFECDDD03 /* 2026-02-25-forge-production-audit.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-02-25-forge-production-audit.md"; sourceTree = "<group>"; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		22D0E1E91102579D7408FF8E /* SOARStudent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARStudent.swift; sourceTree = "<group>"; };
 		2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultChangesPanel.swift; sourceTree = "<group>"; };
-		D1FF0002A000000000000001 /* LineDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiff.swift; sourceTree = "<group>"; };
-		D1FF0004A000000000000001 /* DiffSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffSheetView.swift; sourceTree = "<group>"; };
 		25F1F01D145510F239B89497 /* TypewriterMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypewriterMarkdown.swift; sourceTree = "<group>"; };
 		26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosFont.swift; sourceTree = "<group>"; };
 		271CA2F1B0047DC529BB3E28 /* JournalIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalIntents.swift; sourceTree = "<group>"; };
@@ -165,13 +167,16 @@
 		3EDAE57D8846BCCCDE876C09 /* PillNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillNavBar.swift; sourceTree = "<group>"; };
 		41E0418B49EC6B5741FE8DE8 /* PipelineProgressPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineProgressPopover.swift; sourceTree = "<group>"; };
 		4416ACD2F97FC91209F93DEF /* ProviderDropdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderDropdown.swift; sourceTree = "<group>"; };
+		450AB4B544135429CAB76F99 /* EnrichmentController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnrichmentController.swift; sourceTree = "<group>"; };
 		4877EAD0B940B5E1B02C2AAE /* ResearchState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchState.swift; sourceTree = "<group>"; };
+		4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiffSheetView.swift; sourceTree = "<group>"; };
 		4C78E0A76E5ADE9584A68629 /* SOARReward.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARReward.swift; sourceTree = "<group>"; };
 		4D7C2939147CC8D7AA0B0C1F /* SpotlightIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightIndexer.swift; sourceTree = "<group>"; };
 		4E423F3667C6824606063F3D /* SystemSearchIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSearchIntent.swift; sourceTree = "<group>"; };
 		50604F1EB2DF6F05D43CD51C /* InferenceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceState.swift; sourceTree = "<group>"; };
 		5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTypes.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
+		5116492FB4D7C3BCD5985A54 /* 2026-02-25-diff-view-design.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-02-25-diff-view-design.md"; sourceTree = "<group>"; };
 		53D12B79B2E861637C19926D /* VaultManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManifest.swift; sourceTree = "<group>"; };
 		56735F8C49D2024C45FFE4F9 /* ThreadState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadState.swift; sourceTree = "<group>"; };
 		5880D446901522D47FA88B2C /* EpistemosTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosTheme.swift; sourceTree = "<group>"; };
@@ -214,6 +219,7 @@
 		B1218D87B98E8BF1435A65FB /* AppBootstrap+NotesContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppBootstrap+NotesContext.swift"; sourceTree = "<group>"; };
 		B39B3AA6F3003107096F4E6C /* NavigationIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationIntents.swift; sourceTree = "<group>"; };
 		B3BA326D9366793345355CDA /* SOARTeacher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTeacher.swift; sourceTree = "<group>"; };
+		B980FE6E8ADB38B410D728FC /* LineDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiff.swift; sourceTree = "<group>"; };
 		B9EF6E868A181F943681131F /* WordProcessorIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordProcessorIntents.swift; sourceTree = "<group>"; };
 		BB800E062B20DE10BB9FAE94 /* AnalysisResultEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisResultEntity.swift; sourceTree = "<group>"; };
 		BBF1DE0FF63B16FCB60201B9 /* SDChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDChat.swift; sourceTree = "<group>"; };
@@ -302,6 +308,14 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		123975AE61B0ED7B013373DD /* docs */ = {
+			isa = PBXGroup;
+			children = (
+				420B401C071E26458DC4BB2C /* plans */,
+			);
+			path = docs;
+			sourceTree = "<group>";
+		};
 		1563EAA97DA2887E2D907E00 /* SOAR */ = {
 			isa = PBXGroup;
 			children = (
@@ -354,6 +368,7 @@
 			isa = PBXGroup;
 			children = (
 				E84F81714131A6C713425FD5 /* App */,
+				123975AE61B0ED7B013373DD /* docs */,
 				F5DB1B3EF520523DDC7B03C1 /* Engine */,
 				039065FD6B7F3B62CF954B17 /* Intents */,
 				2694A659EB5423633BEF1F7B /* Models */,
@@ -372,6 +387,15 @@
 				3125BF94C0A9F8E7C6D2102E /* Fonts */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		420B401C071E26458DC4BB2C /* plans */ = {
+			isa = PBXGroup;
+			children = (
+				5116492FB4D7C3BCD5985A54 /* 2026-02-25-diff-view-design.md */,
+				1EDD1807C4EF2DDFFECDDD03 /* 2026-02-25-forge-production-audit.md */,
+			);
+			path = plans;
 			sourceTree = "<group>";
 		};
 		4504C9149AEDD3EA195AE595 /* State */ = {
@@ -395,6 +419,8 @@
 			isa = PBXGroup;
 			children = (
 				631B76DC8FFADF44A0EB0F6C /* ClickableTextView.swift */,
+				4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */,
+				B980FE6E8ADB38B410D728FC /* LineDiff.swift */,
 				9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */,
 				59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */,
 				3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */,
@@ -403,8 +429,6 @@
 				ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */,
 				61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */,
 				3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */,
-				D1FF0004A000000000000001 /* DiffSheetView.swift */,
-				D1FF0002A000000000000001 /* LineDiff.swift */,
 				2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */,
 				344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */,
 			);
@@ -585,6 +609,7 @@
 			isa = PBXGroup;
 			children = (
 				DB46C71388A5A3A35BA3D21C /* AppleIntelligenceService.swift */,
+				450AB4B544135429CAB76F99 /* EnrichmentController.swift */,
 				39BF697E1D7B96C4CCE733C3 /* Extensions.swift */,
 				BD9F8FAF8C937C445D7C2152 /* Keychain.swift */,
 				C55A4C135600B56A92857DEC /* LLMService.swift */,
@@ -666,6 +691,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D312CBE97338A6E1537A1F4 /* 2026-02-25-diff-view-design.md in Resources */,
+				C0750CB97D4CDF97A9A37A39 /* 2026-02-25-forge-production-audit.md in Resources */,
 				8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -696,7 +723,9 @@
 				66B72428D9FD8BC5D3FE2AA5 /* ConceptMiniMap.swift in Sources */,
 				CD529C7FBC83864C3F7307C2 /* DailyBriefButton.swift in Sources */,
 				139DACAE4ECA3C28086FD969 /* DailyBriefState.swift in Sources */,
+				70FF71E217877FD681651188 /* DiffSheetView.swift in Sources */,
 				C324B4F406DFA6C4157BA803 /* EngineTypes.swift in Sources */,
+				2E84F2A08119FD3F976BEA80 /* EnrichmentController.swift in Sources */,
 				2C81E243528DEC2064304515 /* EpistemosApp.swift in Sources */,
 				33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */,
 				C60743D68EAB469FDF082106 /* EpistemosShortcutsProvider.swift in Sources */,
@@ -712,6 +741,7 @@
 				31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */,
 				D0BE2F268FDB1F22A6735F95 /* LearningIntents.swift in Sources */,
 				1A35A483C814CA0D71DE5796 /* LibraryView.swift in Sources */,
+				D2FB41E55F2DEE0892E84085 /* LineDiff.swift in Sources */,
 				B9459F26DD021E7EF1A16BEE /* LiquidGreeting.swift in Sources */,
 				A2D85D5B84149A478F48C4AE /* Log.swift in Sources */,
 				37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */,
@@ -780,8 +810,6 @@
 				267DEABB4B7C729E69BBE2A4 /* UIState.swift in Sources */,
 				2960B4DE29B25115F4A2546D /* UtilityWindowManager.swift in Sources */,
 				08857849A064CDE0E60185F4 /* VaultChangesPanel.swift in Sources */,
-				D1FF0001A000000000000001 /* LineDiff.swift in Sources */,
-				D1FF0003A000000000000001 /* DiffSheetView.swift in Sources */,
 				A694D8A167BF8EABA794234F /* VaultIndexActor.swift in Sources */,
 				3317DC949FD0C3F292257011 /* VaultManifest.swift in Sources */,
 				8A47E20DFF8507D934770455 /* VaultOrganizerView.swift in Sources */,
