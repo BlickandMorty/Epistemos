@@ -9,7 +9,6 @@ struct ProviderDropdown: View {
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
 
-    private var theme: EpistemosTheme { ui.theme }
     private var provider: LLMProviderType { inference.apiProvider }
 
     var body: some View {
@@ -50,24 +49,7 @@ struct ProviderDropdown: View {
                 }
             }
         } label: {
-            HStack(spacing: 4) {
-                Text(inference.activeModelDisplayName)
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(0.3)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(theme.glassBg)
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(theme.glassBorder, lineWidth: 0.5)
-            )
-            .foregroundStyle(theme.foreground)
+            Label(inference.activeModelDisplayName, systemImage: "cpu")
         }
         .menuStyle(.borderlessButton)
         .fixedSize()

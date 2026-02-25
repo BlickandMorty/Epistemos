@@ -259,22 +259,27 @@ private struct NoteTabView: View {
         .background(ui.theme.background)
         .toolbarBackground(.hidden, for: .windowToolbar)
         .toolbar {
-            // Note Title — pill bubble style
+            // New Note — far left
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    Task {
+                        if let pageId = await vaultSync.createPage(title: "Untitled") {
+                            NoteWindowManager.shared.open(pageId: pageId)
+                        }
+                    }
+                } label: {
+                    Label("New Note", systemImage: "square.and.pencil")
+                }
+                .help("New Note (⌘N)")
+            }
+
+            // Note Title — retro font, centered
             ToolbarItem(placement: .principal) {
                 if let page = pages.first {
                     Text(page.title.isEmpty ? "Untitled" : page.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(ui.theme.foreground)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(ui.theme.glassBg)
-                        )
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(ui.theme.glassBorder, lineWidth: 0.5)
-                        )
+                        .font(.custom("RetroGaming", size: 13))
+                        .foregroundStyle(ui.theme.fontAccent)
+                        .lineLimit(1)
                 }
             }
 
@@ -282,54 +287,43 @@ private struct NoteTabView: View {
                 Button {
                     UtilityWindowManager.shared.show(.notes)
                 } label: {
-                    Image(systemName: "sidebar.leading")
-                        .font(.epBody)
-                        .frame(width: 34, height: 34)
-                        .contentShape(Rectangle())
+                    Label("Sidebar", systemImage: "sidebar.leading")
                 }
-                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Notes Sidebar (⌘2)")
-                .accessibilityLabel("Notes Sidebar")
 
                 Button {
                     vaultSync.savePage(pageId: pageId)
                 } label: {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.epBody)
-                        .frame(width: 34, height: 34)
-                        .contentShape(Rectangle())
+                    Label("Save", systemImage: "square.and.arrow.down")
                 }
-                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Save (⌘S)")
-                .accessibilityLabel("Save")
 
                 Button {
                     showDiffSheet = true
                 } label: {
-                    Image(systemName: "chevron.left.forwardslash.chevron.right")
-                        .font(.epBody)
-                        .frame(width: 34, height: 34)
-                        .contentShape(Rectangle())
+                    Label("Diff", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
-                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Diff (⌘D)")
-                .accessibilityLabel("View diff")
 
                 Button {
                     MiniChatWindowController.shared.toggle()
                 } label: {
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.epBody)
-                        .frame(width: 34, height: 34)
-                        .contentShape(Rectangle())
+                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
                 }
-                .buttonStyle(ThemedToolbarButtonStyle(theme: ui.theme))
                 .help("Mini Chat")
-                .accessibilityLabel("Mini Chat")
             }
         }
         .background {
             // Hidden keyboard shortcut buttons
+            Button("") {
+                Task {
+                    if let pageId = await vaultSync.createPage(title: "Untitled") {
+                        NoteWindowManager.shared.open(pageId: pageId)
+                    }
+                }
+            }
+            .keyboardShortcut("n", modifiers: .command)
+            .hidden()
             Button("") { vaultSync.savePage(pageId: pageId) }
                 .keyboardShortcut("s", modifiers: .command)
                 .hidden()

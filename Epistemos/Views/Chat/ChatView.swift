@@ -82,22 +82,9 @@ struct ChatView: View {
                 ProviderDropdown()
 
                 Button(action: exportChat) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(theme.foreground)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Capsule()
-                                .fill(theme.glassBg)
-                        )
-                        .overlay(
-                            Capsule()
-                                .strokeBorder(theme.glassBorder, lineWidth: 0.5)
-                        )
+                    Label("Export", systemImage: "square.and.arrow.up")
                 }
-                .buttonStyle(.plain)
-                .help("Export")
-                .accessibilityLabel("Export")
+                .help("Export Chat")
 
                 if chat.isResearchMode {
                     ResearchHintButton()
@@ -149,22 +136,9 @@ private struct ResearchHintButton: View {
 
     var body: some View {
         Button { showPopover.toggle() } label: {
-            Image(systemName: "lightbulb.max")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(showPopover ? theme.accent : theme.foreground)
-                .frame(width: 32, height: 32)
-                .background(
-                    Capsule()
-                        .fill(theme.glassBg)
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(theme.glassBorder, lineWidth: 0.5)
-                )
+            Label("Research", systemImage: "lightbulb.max")
         }
-        .buttonStyle(.plain)
         .help("About Research Mode")
-        .accessibilityLabel("About Research Mode")
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
                 // API cost breakdown

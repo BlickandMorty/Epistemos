@@ -49,13 +49,8 @@ struct RootView: View {
                     Button {
                         chat.goHome()
                     } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(ui.theme.foreground.opacity(0.6))
-                            .frame(width: 28, height: 28)
-                            .contentShape(Rectangle())
+                        Label("Back", systemImage: "chevron.left")
                     }
-                    .buttonStyle(.plain)
                     .help("Back to Home")
                 }
             }
@@ -66,17 +61,9 @@ struct RootView: View {
                     Button {
                         ui.toggleChatSidebar()
                     } label: {
-                        Image(systemName: "sidebar.left")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(
-                                ui.showChatSidebar
-                                    ? ui.theme.accent : ui.theme.foreground.opacity(0.5)
-                            )
-                            .frame(width: 32, height: 32)
-                            .contentShape(Rectangle())
+                        Label("History", systemImage: "sidebar.left")
                     }
-                    .buttonStyle(.plain)
-                    .help("Chat history (⇧⌘H)")
+                    .help("Chat History (⇧⌘H)")
                     .popover(isPresented: $ui.showChatSidebar) {
                         ChatSidebarView()
                             .frame(width: 300, height: 500)
@@ -514,54 +501,123 @@ enum BreatheReminder: String, CaseIterable, Identifiable, Codable {
 struct SetupView: View {
     @Environment(UIState.self) private var ui
 
-    @State private var opacity: Double = 0
+    @State private var overlayOpacity: Double = 0
+    @State private var displayText = ""
+    @State private var cursorVisible = true
+    @State private var typingDone = false
+    @State private var buttonOpacity: Double = 0
+
+    private var theme: EpistemosTheme { ui.theme }
+    private let fullText = "Welcome to Epistemos..."
+    private var retroFont: Font { .custom("RetroGaming", size: 38) }
 
     var body: some View {
         ZStack {
-            // Solid background — cover everything underneath
-            ui.theme.background
+            // Solid background
+            theme.background
                 .ignoresSafeArea()
 
-            VStack(spacing: 28) {
+            VStack(spacing: 0) {
                 Spacer()
 
-                // App icon
-                Image(systemName: "brain.head.profile.fill")
-                    .font(.system(size: 56, weight: .thin))
-                    .foregroundStyle(ui.theme.accent.gradient)
+                // Typewriter greeting — RetroGaming font, same style as LiquidGreeting
+                HStack(alignment: .center, spacing: 0) {
+                    Text(displayText)
+                        .font(retroFont)
+                        .foregroundStyle(theme.fontAccent)
+                        .fixedSize(horizontal: true, vertical: true)
 
-                Text("Welcome to Epistemos")
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
-                    .foregroundStyle(ui.theme.textPrimary)
+                    // Block cursor
+                    Rectangle()
+                        .fill(theme.fontAccent.opacity(0.85))
+                        .frame(width: 10, height: 32)
+                        .clipShape(RoundedRectangle(cornerRadius: 2))
+                        .opacity(cursorVisible ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: cursorVisible)
+                        .padding(.leading, 2)
+                }
+                .frame(minHeight: 80)
+                .shadow(color: theme.fontAccent.opacity(0.12), radius: 8)
 
-                Text("Your data has been reset.\nSet up your API keys in Settings to get started.")
-                    .font(.system(size: 14, weight: .regular, design: .rounded))
-                    .foregroundStyle(ui.theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
+                Spacer()
+                    .frame(height: 60)
 
+                // "press me to start" — fades in after typing completes
                 Button {
                     withAnimation(Motion.smooth) {
                         ui.needsSetup = false
                     }
                 } label: {
-                    Text("Get Started")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .frame(width: 160, height: 44)
+                    Text("press me to start")
+                        .font(.custom("RetroGaming", size: 14))
+                        .foregroundStyle(theme.fontAccent.opacity(0.7))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
                         .background(
-                            Capsule().fill(ui.theme.accent.gradient)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(theme.fontAccent.opacity(0.3), lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
+                .opacity(buttonOpacity)
 
                 Spacer()
+
+                // Subtitle at the bottom
+                Text("set up your API keys in Settings to get started")
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary)
+                    .opacity(buttonOpacity)
+                    .padding(.bottom, 40)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .opacity(opacity)
+        .opacity(overlayOpacity)
         .onAppear {
-            withAnimation(.easeIn(duration: 0.4)) { opacity = 1 }
+            withAnimation(.easeIn(duration: 0.4)) { overlayOpacity = 1 }
+        }
+        .task {
+            // Start cursor blink
+            let blinkTask = Task { @MainActor in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    guard !Task.isCancelled else { return }
+                    cursorVisible.toggle()
+                }
+            }
+
+            // Small initial delay
+            try? await Task.sleep(for: .milliseconds(600))
+
+            // Type out the full text — same natural timing as LiquidGreeting
+            for i in 1...fullText.count {
+                guard !Task.isCancelled else { break }
+                displayText = String(fullText.prefix(i))
+
+                let ch = displayText.last ?? " "
+                var delay: Double = Double.random(in: 50...80)
+
+                if ".!?".contains(ch) { delay += Double.random(in: 200...400) }
+                else if ",;:".contains(ch) { delay += Double.random(in: 80...160) }
+                else if ch == " " && Double.random(in: 0...1) < 0.08 { delay += Double.random(in: 60...120) }
+
+                // Natural stutter
+                if Double.random(in: 0...1) < 0.10 { delay += Double.random(in: 120...250) }
+                if Double.random(in: 0...1) < 0.03 { delay += Double.random(in: 350...600) }
+
+                if i <= 2 { delay += 100 }
+
+                try? await Task.sleep(for: .milliseconds(Int(delay)))
+            }
+
+            // Typing done — fade in the button
+            typingDone = true
+            try? await Task.sleep(for: .milliseconds(400))
+            withAnimation(.easeIn(duration: 0.8)) {
+                buttonOpacity = 1
+            }
+
+            _ = blinkTask // keep cursor blinking
         }
     }
 }
