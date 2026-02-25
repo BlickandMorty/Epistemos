@@ -104,7 +104,7 @@ enum SignalGenerator {
 
         // Concepts — seeded from query entities only; real concepts are
         // extracted from the LLM response after streaming completes
-        // (see PipelineService.extractResponseConcepts).
+        // (see EnrichmentController.extractResponseConcepts).
         let concepts: [String]
         if let llmConcepts = llmConcepts, !llmConcepts.isEmpty {
             concepts = llmConcepts

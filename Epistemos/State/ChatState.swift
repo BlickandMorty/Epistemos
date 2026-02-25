@@ -215,8 +215,8 @@ final class ChatState {
         flushStreamingTokens()
         flushReasoningTokens()
 
-        // Strip [CONCEPTS: ...] tag if the LLM included it (parsed by PipelineService)
-        let (_, cleaned) = PipelineService.parseConceptsTag(from: streamingText)
+        // Strip [CONCEPTS: ...] tag if the LLM included it (parsed by EnrichmentController)
+        let (_, cleaned) = EnrichmentController.parseConceptsTag(from: streamingText)
         let answerText = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // End reasoning if it's still active (model produced no streaming tokens)
