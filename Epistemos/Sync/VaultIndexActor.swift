@@ -3,6 +3,9 @@ import Foundation
 import SwiftData
 import os
 
+/// Posted when vault folder relationships are repaired, so sidebar can rebuild its cache.
+nonisolated let vaultFoldersRepairedNotification = Notification.Name("VaultFoldersRepaired")
+
 // MARK: - VaultIndexActor
 // Background actor for all SwiftData write operations that shouldn't block the main thread.
 // Handles vault imports, bulk operations, and re-indexing.
@@ -153,9 +156,14 @@ actor VaultIndexActor {
             try modelContext.save()
         }
 
-        // Synthesize folders from subfolder paths (only if we had changes)
+        // Synthesize folders from subfolder paths.
+        // Always run when there are inserts/deletes, OR when orphaned pages exist
+        // (pages with subfolder set but no folder relationship — can happen after
+        // DB migration, schema reset, or if synthesis failed on a prior run).
         if insertCount > 0 || deleteCount > 0 {
             try synthesizeFoldersFromSubfolders()
+        } else {
+            try repairOrphanedFolderRelationships(vaultURL: url)
         }
 
         log.info(
@@ -234,6 +242,76 @@ actor VaultIndexActor {
         log.info(
             "Synthesized \(foldersByPath.count) folders from \(uniquePaths.count) unique directory paths"
         )
+        NotificationCenter.default.post(name: vaultFoldersRepairedNotification, object: nil)
+    }
+
+    /// Lightweight repair: only runs when no files were inserted/deleted.
+    /// Two-phase fix:
+    /// 1. Derive missing `subfolder` from `filePath` for pages that have a file but no subfolder.
+    /// 2. Wire pages that have `subfolder` but no `folder` relationship to existing SDFolders.
+    /// If no orphans exist, this is a no-op.
+    private func repairOrphanedFolderRelationships(vaultURL: URL) throws {
+        let allPagesDescriptor = FetchDescriptor<SDPage>()
+        let allPages = try modelContext.fetch(allPagesDescriptor)
+
+        // Phase 1: Fix pages with filePath inside a subfolder but subfolder field is nil.
+        // This can happen if pages were imported by an older version or migrated from v3.
+        let vaultPath = vaultURL.path
+        var subfolderFixed = 0
+        for page in allPages where page.subfolder == nil && page.folder == nil {
+            guard let fp = page.filePath, fp.hasPrefix(vaultPath) else { continue }
+            let relativePath = URL(fileURLWithPath: fp).deletingLastPathComponent().path
+                .replacingOccurrences(of: vaultPath, with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if !relativePath.isEmpty {
+                page.subfolder = relativePath
+                subfolderFixed += 1
+            }
+        }
+
+        // Phase 2: Wire pages that have subfolder but no folder relationship.
+        let orphans = allPages.filter { $0.subfolder != nil && $0.folder == nil }
+        guard !orphans.isEmpty else {
+            if subfolderFixed > 0 {
+                try modelContext.save()
+                log.info("Repair: set subfolder on \(subfolderFixed) pages (no folder wiring needed)")
+            }
+            return
+        }
+
+        // Check if folders exist. If not, do full synthesis.
+        let folderDescriptor = FetchDescriptor<SDFolder>()
+        let existingFolders = try modelContext.fetch(folderDescriptor)
+
+        if existingFolders.isEmpty {
+            log.info("Repair: no folders exist, running full synthesis for \(orphans.count) orphaned pages")
+            try synthesizeFoldersFromSubfolders()
+            return
+        }
+
+        // Build folder lookup by relativePath
+        var foldersByPath: [String: SDFolder] = [:]
+        for folder in existingFolders {
+            let path = folder.relativePath
+            if !path.isEmpty {
+                foldersByPath[path] = folder
+            }
+        }
+
+        // Wire orphans to matching folders
+        var repaired = 0
+        for page in orphans {
+            if let sub = page.subfolder, let folder = foldersByPath[sub] {
+                page.folder = folder
+                repaired += 1
+            }
+        }
+
+        if repaired > 0 || subfolderFixed > 0 {
+            try modelContext.save()
+            log.info("Repair: fixed \(subfolderFixed) missing subfolders, wired \(repaired) orphaned pages to folders")
+            NotificationCenter.default.post(name: vaultFoldersRepairedNotification, object: nil)
+        }
     }
 
     // MARK: - Single File Re-index
@@ -379,6 +457,16 @@ actor VaultIndexActor {
                     page.parentPageId = newParentId
                 }
                 page.templateId = frontMatter["template"]
+
+                // Update subfolder if file moved to a different directory
+                let relativePath = fileURL.deletingLastPathComponent().path
+                    .replacingOccurrences(of: vaultURL.path, with: "")
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                let newSubfolder = relativePath.isEmpty ? nil : relativePath
+                if page.subfolder != newSubfolder {
+                    page.subfolder = newSubfolder
+                    // folder relationship will be re-wired by synthesis/repair
+                }
 
                 try? searchService?.upsert(
                     id: page.id, title: page.title, body: body,

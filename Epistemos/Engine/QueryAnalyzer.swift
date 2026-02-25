@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Query Analyzer
-// Classifies queries by domain, type, complexity, and emotional valence.
+// Classifies queries by domain, type, complexity, and key attributes.
 
 enum QueryAnalyzer {
 
@@ -144,22 +144,6 @@ enum QueryAnalyzer {
         let hasSafetyKeywords = analysisText.range(of: "\\b(harm|danger|weapon|toxic|exploit|kill|violence|suicide)\\b", options: .regularExpression) != nil
         let hasNormativeClaims = analysisText.range(of: "\\b(should|ought|right|wrong|blame|guilt|deserve|just|fair|moral)\\b", options: .regularExpression) != nil
 
-        let keyTerms = Array(entities.prefix(5))
-
-        let negativeWords = analysisText.range(of: "\\b(blame|imprison|bad|wrong|harm|suffering|pain|death|guilt|punish|crime|unjust|unfair)\\b", options: .regularExpression) != nil
-        let positiveWords = analysisText.range(of: "\\b(good|benefit|improve|help|hope|progress|heal|growth|love|justice|beneficial|advantage)\\b", options: .regularExpression) != nil
-
-        let emotionalValence: EmotionalValence
-        if negativeWords && positiveWords {
-            emotionalValence = .mixed
-        } else if negativeWords {
-            emotionalValence = .negative
-        } else if positiveWords {
-            emotionalValence = .positive
-        } else {
-            emotionalValence = .neutral
-        }
-
         return QueryAnalysis(
             domain: domain,
             questionType: questionType,
@@ -170,11 +154,7 @@ enum QueryAnalyzer {
             isPhilosophical: isPhilosophical,
             isMetaAnalytical: isMetaAnalytical,
             hasSafetyKeywords: hasSafetyKeywords,
-            hasNormativeClaims: hasNormativeClaims,
-            keyTerms: keyTerms,
-            emotionalValence: emotionalValence,
-            isFollowUp: isFollowUp,
-            followUpFocus: followUpFocus
+            hasNormativeClaims: hasNormativeClaims
         )
     }
 

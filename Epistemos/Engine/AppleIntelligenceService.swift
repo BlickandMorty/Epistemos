@@ -59,49 +59,7 @@ final class AppleIntelligenceService {
         #endif
     }
 
-    // MARK: - Notes-Aware Reasoning (v3: SwiftData)
-
-    /// Generate a response with notes context from SwiftData.
-    /// Apple Intelligence runs on-device, so all notes stay private.
-    func generateWithNotesContext(
-        prompt: String,
-        modelContext: ModelContext,
-        systemPrompt: String? = nil,
-        targetPageIds: [String]? = nil
-    ) async throws -> String {
-        let notesContext = collectNotesContext(modelContext: modelContext, targetPageIds: targetPageIds)
-        let enrichedPrompt = """
-        You have access to the user's personal knowledge base. Use it to provide deeper, more contextual reasoning.
-
-        <knowledge-base>
-        \(notesContext)
-        </knowledge-base>
-
-        User request: \(prompt)
-        """
-        return try await generate(prompt: enrichedPrompt, systemPrompt: systemPrompt)
-    }
-
-    /// Stream a response with notes context (on-device, private).
-    func streamWithNotesContext(
-        prompt: String,
-        modelContext: ModelContext,
-        llm: LLMService,
-        systemPrompt: String? = nil,
-        targetPageIds: [String]? = nil
-    ) -> AsyncThrowingStream<String, Error> {
-        let notesContext = collectNotesContext(modelContext: modelContext, targetPageIds: targetPageIds)
-        let enrichedPrompt = """
-        You have access to the user's personal knowledge base. Use it to provide deeper, more contextual reasoning.
-
-        <knowledge-base>
-        \(notesContext)
-        </knowledge-base>
-
-        User request: \(prompt)
-        """
-        return llm.stream(prompt: enrichedPrompt, systemPrompt: systemPrompt)
-    }
+    // MARK: - Notes Context Collection
 
     /// Collect notes content from SwiftData as a single context string.
     private func collectNotesContext(modelContext: ModelContext, targetPageIds: [String]?) -> String {
@@ -125,75 +83,6 @@ final class AppleIntelligenceService {
         return pages.map { page in
             "## \(page.title)\n\(page.body)"
         }.joined(separator: "\n\n---\n\n")
-    }
-
-    /// Analyze notes and generate insights using on-device AI.
-    func analyzeNotes(
-        modelContext: ModelContext,
-        question: String,
-        targetPageIds: [String]? = nil
-    ) async throws -> String {
-        let systemPrompt = """
-        You are a knowledge analyst with access to the user's personal note system. \
-        Analyze the notes deeply, finding patterns, connections, and insights that the user might not have noticed. \
-        Be specific and reference actual content from the notes.
-        """
-        return try await generateWithNotesContext(
-            prompt: question,
-            modelContext: modelContext,
-            systemPrompt: systemPrompt,
-            targetPageIds: targetPageIds
-        )
-    }
-
-    // MARK: - Structured Output via @Generable
-
-    @available(macOS 26.0, *)
-    func analyzeNoteStructured(
-        modelContext: ModelContext,
-        targetPageIds: [String]? = nil
-    ) async throws -> NoteAnalysisResult {
-        #if canImport(FoundationModels)
-        let model = SystemLanguageModel.default
-        guard model.isAvailable else {
-            throw AppleIntelligenceError.unavailable("Apple Intelligence is not available.")
-        }
-
-        let notesContext = collectNotesContext(modelContext: modelContext, targetPageIds: targetPageIds)
-        let instructions = """
-        You are a knowledge analyst. Analyze the user's notes and produce structured insights. \
-        Identify key themes, connections between notes, and suggested actions.
-        """
-        let session = LanguageModelSession(instructions: instructions)
-        let result = try await session.respond(to: notesContext, generating: NoteAnalysisResult.self)
-        return result.content
-        #else
-        throw AppleIntelligenceError.unavailable("FoundationModels not available on this build machine.")
-        #endif
-    }
-
-    @available(macOS 26.0, *)
-    func summarizeNoteStructured(
-        noteContent: String,
-        noteTitle: String
-    ) async throws -> NoteSummaryResult {
-        #if canImport(FoundationModels)
-        let model = SystemLanguageModel.default
-        guard model.isAvailable else {
-            throw AppleIntelligenceError.unavailable("Apple Intelligence is not available.")
-        }
-
-        let instructions = """
-        You are a note summarization expert. Given a note, produce a concise structured summary \
-        with key points, action items, and suggested tags.
-        """
-        let session = LanguageModelSession(instructions: instructions)
-        let prompt = "Summarize this note titled \"\(noteTitle)\":\n\n\(noteContent)"
-        let result = try await session.respond(to: prompt, generating: NoteSummaryResult.self)
-        return result.content
-        #else
-        throw AppleIntelligenceError.unavailable("FoundationModels not available on this build machine.")
-        #endif
     }
 
     /// Check if Apple Intelligence is available on this device.
@@ -234,56 +123,3 @@ enum AppleIntelligenceError: LocalizedError {
     }
 }
 
-// MARK: - @Generable Structured Output Types
-
-#if canImport(FoundationModels)
-import FoundationModels
-
-@available(macOS 26.0, *)
-@Generable
-struct NoteAnalysisResult: Sendable {
-    var themes: [String]
-    var connections: [NoteConnection]
-    var suggestedActions: [String]
-    var summary: String
-}
-
-@available(macOS 26.0, *)
-@Generable
-struct NoteConnection: Sendable {
-    var fromNote: String
-    var toNote: String
-    var relationship: String
-}
-
-@available(macOS 26.0, *)
-@Generable
-struct NoteSummaryResult: Sendable {
-    var summary: String
-    var keyPoints: [String]
-    var actionItems: [String]
-    var suggestedTags: [String]
-}
-
-#else
-
-struct NoteAnalysisResult: Sendable {
-    var themes: [String]
-    var connections: [NoteConnection]
-    var suggestedActions: [String]
-    var summary: String
-}
-
-struct NoteConnection: Sendable {
-    var fromNote: String
-    var toNote: String
-    var relationship: String
-}
-
-struct NoteSummaryResult: Sendable {
-    var summary: String
-    var keyPoints: [String]
-    var actionItems: [String]
-    var suggestedTags: [String]
-}
-#endif

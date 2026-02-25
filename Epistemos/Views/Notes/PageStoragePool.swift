@@ -146,9 +146,13 @@ final class PageStoragePool {
     /// Pre-warms storage slots for a batch of pages, spreading work across frames.
     /// Already-cached pages are skipped. Each page's styling runs on a separate
     /// main queue dispatch so the UI stays responsive during pre-warming.
+    /// Maximum page body size (chars) for pre-warming. Pages larger than this
+    /// are skipped — a 435K char page was being pre-warmed which is wasteful.
+    private static let maxPreWarmBodySize = 50_000
+
     func preWarm(pages: [(id: String, body: String)], isDark: Bool) {
-        // Filter to pages not already in the pool
-        let uncached = pages.filter { slots[$0.id] == nil }
+        // Filter to pages not already in the pool and skip oversized pages
+        let uncached = pages.filter { slots[$0.id] == nil && $0.body.count <= Self.maxPreWarmBodySize }
         guard !uncached.isEmpty else { return }
 
         let count = min(uncached.count, Self.maxPreWarmPerFolder)

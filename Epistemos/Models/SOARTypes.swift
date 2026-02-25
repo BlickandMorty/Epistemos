@@ -16,7 +16,7 @@ struct SOARConfig: Codable, Sendable {
     var verbose: Bool
 
     static let `default` = SOARConfig(
-        enabled: false,
+        enabled: true,
         autoDetect: true,
         thresholds: LearnabilityThresholds.default,
         maxIterations: 3,

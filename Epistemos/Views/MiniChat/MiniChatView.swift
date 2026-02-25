@@ -2,51 +2,31 @@ import SwiftData
 import SwiftUI
 
 // MARK: - MiniChat View
-// Multi-tab floating chat panel. Liquid Glass native revamp.
-// Panel modes: Chat / Notes. Chat has scrollable thread tabs + input.
+// Floating chat panel with thread tabs + input.
 
 struct MiniChatView: View {
     @Environment(UIState.self) private var ui
     @Environment(ThreadState.self) private var threadState
-    @Environment(TriageService.self) private var triage
 
     @State private var showRecentChats = false
-    @State private var panelMode: MiniChatPanelMode = .chat
 
     private var theme: EpistemosTheme { ui.theme }
 
-    enum MiniChatPanelMode: String, CaseIterable {
-        case chat = "Chat"
-        case notes = "Notes"
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            miniChatPanelSelector
-
+            MiniChatTabBar(showRecentChats: $showRecentChats)
             Divider().opacity(0.3)
-
-            switch panelMode {
-            case .chat:
-                VStack(spacing: 0) {
-                    MiniChatTabBar(showRecentChats: $showRecentChats)
-                    Divider().opacity(0.3)
-                    if showRecentChats {
-                        MiniChatRecentChats(showRecentChats: $showRecentChats)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
-                    } else {
-                        MiniChatThread()
-                            .transition(.opacity)
-                    }
-                    Divider().opacity(0.3)
-                    MiniChatInputBar()
-                }
-                .animation(Motion.snap, value: showRecentChats)
-
-            case .notes:
-                MiniChatNotesTab()
+            if showRecentChats {
+                MiniChatRecentChats(showRecentChats: $showRecentChats)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            } else {
+                MiniChatThread()
+                    .transition(.opacity)
             }
+            Divider().opacity(0.3)
+            MiniChatInputBar()
         }
+        .animation(Motion.snap, value: showRecentChats)
         .frame(width: 400, height: 520)
         .background {
             if theme.isDark {
@@ -65,39 +45,6 @@ struct MiniChatView: View {
                 threadState.createThread(label: "Chat 1")
             }
         }
-    }
-
-    // MARK: - Panel Selector
-
-    private var miniChatPanelSelector: some View {
-        HStack(spacing: 0) {
-            ForEach(MiniChatPanelMode.allCases, id: \.self) { mode in
-                Button {
-                    withAnimation(Motion.quick) { panelMode = mode }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: mode == .chat ? "bubble.left.fill" : "note.text")
-                            .font(.system(size: 11, weight: .medium))
-                        Text(mode.rawValue)
-                            .font(.system(size: 12, weight: panelMode == mode ? .semibold : .regular))
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
-                    .foregroundStyle(panelMode == mode ? theme.foreground : theme.mutedForeground)
-                    .background(
-                        panelMode == mode ? theme.foreground.opacity(0.08) : Color.clear,
-                        in: Capsule()
-                    )
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-
-            // Spacer already fills remaining width
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
     }
 }
 
@@ -647,9 +594,18 @@ private struct MiniChatInputBar: View {
                     folderNames = folders.map(\.name)
                 }
 
+                // Check if this is a multi-turn conversation
+                let hasHistory = {
+                    let thread = threadState.chatThreads.first { $0.id == threadState.activeThreadId }
+                    return (thread?.messages.count ?? 0) > 1
+                }()
+                let conversationNote = hasHistory
+                    ? " The user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
+                    : ""
+
                 let systemPrompt: String
                 if contextParts.isEmpty {
-                    systemPrompt = "You are Epistemos, a research assistant. Answer clearly and helpfully. Use markdown formatting."
+                    systemPrompt = "You are Epistemos, a research assistant. Answer clearly and helpfully. Use markdown formatting.\(conversationNote)"
                 } else {
                     let actionInstructions = page != nil ? """
 
@@ -666,17 +622,32 @@ private struct MiniChatInputBar: View {
                     You are Epistemos, a research assistant with access to the user's notes vault. \
                     Reference the user's notes naturally when relevant — quote specific content, \
                     connect ideas across notes, or point out things the user might not have noticed. \
-                    Answer clearly and helpfully. Use markdown formatting.\(actionInstructions)
+                    Answer clearly and helpfully. Use markdown formatting.\(conversationNote)\(actionInstructions)
 
                     \(contextParts.joined(separator: "\n\n"))
                     """
                 }
 
-                let contentLength = trimmed.count + contextParts.joined().count
+                // Build conversation-aware prompt from thread history
+                let activeThread = threadState.chatThreads.first { $0.id == threadState.activeThreadId }
+                let allMessages = activeThread?.messages ?? []
+
+                let conversationPrompt: String
+                if allMessages.count > 1 {
+                    let history = allMessages.dropLast().suffix(10)
+                    let historyText = history.map { msg in
+                        msg.role == .user ? "User: \(msg.content)" : "Assistant: \(msg.content)"
+                    }.joined(separator: "\n\n")
+                    conversationPrompt = "\(historyText)\n\nUser: \(trimmed)"
+                } else {
+                    conversationPrompt = trimmed
+                }
+
+                let contentLength = conversationPrompt.count + contextParts.joined().count
                 var accumulated = ""
 
                 for try await chunk in triage.streamGeneral(
-                    prompt: trimmed,
+                    prompt: conversationPrompt,
                     systemPrompt: systemPrompt,
                     operation: .chatResponse(query: trimmed),
                     contentLength: contentLength
@@ -1042,6 +1013,3 @@ private struct RecentChatRow: View {
         .onHover { isHovered = $0 }
     }
 }
-
-// MARK: - Notes Tab
-// Full implementation lives in MiniChatNotesTab.swift.

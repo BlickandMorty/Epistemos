@@ -157,6 +157,9 @@ struct NotesSidebar: View {
         }
         .onChange(of: allPages.count) { rebuildCache() }
         .onChange(of: allFolders.count) { rebuildCache() }
+        .onReceive(NotificationCenter.default.publisher(for: vaultFoldersRepairedNotification)) { _ in
+            rebuildCache()
+        }
         .alert(pageDeleteAlertTitle, isPresented: showPageDeleteAlert) {
             Button("Delete", role: .destructive) { performPageDelete() }
             Button("Cancel", role: .cancel) {}

@@ -103,12 +103,33 @@ extension AppBootstrap {
                     ? "Analyze my vault and provide a briefing: find cross-note connections, recurring themes, contradictions, topic gaps, stale notes worth revisiting, and notes that could be merged or split. Be specific — reference notes by title."
                     : resolvedQuery
 
+                // Build conversation history for multi-turn context.
+                // Prior messages = everything except the current user message (just appended).
+                let conversationHistory: String?
+                let priorMessages = chatState.messages.dropLast()
+                if !priorMessages.isEmpty && !isVaultBriefing {
+                    let recent = priorMessages.suffix(10) // Last 5 turns (user + assistant)
+                    var lines: [String] = []
+                    for msg in recent {
+                        let role: String = msg.role == .user ? "User" : "Assistant"
+                        let content: String = msg.content.count > 2000
+                            ? String(msg.content.prefix(2000)) + "…"
+                            : msg.content
+                        lines.append(role + ": " + content)
+                    }
+                    conversationHistory = lines.joined(separator: "\n\n")
+                } else {
+                    conversationHistory = nil
+                }
+
                 let stream = pipeline.run(
                     query: effectiveQuery,
                     mode: mode,
                     controls: .defaults,
+                    soarConfig: self.soarState.soarConfig,
                     notesContext: notesContext,
-                    skipEnrichment: !isResearch
+                    skipEnrichment: !isResearch,
+                    conversationHistory: conversationHistory
                 )
 
                 let capturedChatId = chatState.activeChatId

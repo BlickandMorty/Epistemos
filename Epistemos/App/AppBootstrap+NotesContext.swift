@@ -104,7 +104,7 @@ extension AppBootstrap {
                     if !newTags.isEmpty {
                         page.tags.append(contentsOf: newTags)
                         page.updatedAt = .now
-                        executed.append("Added tags [\(newTags.joined(separator: ", "))] to \(page.title)")
+                        executed.append("✅ Added tags [\(newTags.joined(separator: ", "))] to \(page.title)")
                     }
                 }
             }
@@ -126,7 +126,7 @@ extension AppBootstrap {
                 if let page = try? context.fetch(pageDesc).first {
                     page.folder = folder
                     page.updatedAt = .now
-                    executed.append("Moved \(page.title) to \(folder.name)")
+                    executed.append("✅ Moved \(page.title) to \(folder.name)")
                 }
             }
             cleaned = cleaned.replacingOccurrences(of: marker, with: "")
@@ -145,7 +145,7 @@ extension AppBootstrap {
                         // Note created — user can navigate to it from sidebar
                     }
                 }
-                executed.append("Created note: \(title)")
+                executed.append("✅ Created note: \(title)")
             }
             cleaned = cleaned.replacingOccurrences(of: marker, with: "")
         }

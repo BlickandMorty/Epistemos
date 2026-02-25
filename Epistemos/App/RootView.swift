@@ -45,7 +45,7 @@ struct RootView: View {
         .toolbar {
             // Back button — only during active chat
             ToolbarItem(placement: .navigation) {
-                if ui.activePanel == .home && chat.hasMessages && !chat.showLanding {
+                if ui.activePanel == .home && !chat.messages.isEmpty && !chat.showLanding {
                     Button {
                         chat.goHome()
                     } label: {
@@ -92,7 +92,7 @@ struct RootView: View {
             showToolbarGlass ? .automatic : .hidden,
             for: .windowToolbar
         )
-        .onChange(of: chat.hasMessages) { _, hasMessages in
+        .onChange(of: !chat.messages.isEmpty) { _, hasMessages in
             if hasMessages && !chat.showLanding {
                 // Delay showing glass until the transition animation completes
                 Task { @MainActor in
@@ -106,7 +106,7 @@ struct RootView: View {
         .onChange(of: chat.showLanding) { _, isLanding in
             if isLanding {
                 showToolbarGlass = false
-            } else if chat.hasMessages {
+            } else if !chat.messages.isEmpty {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(350))
                     showToolbarGlass = true
@@ -202,7 +202,7 @@ private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
 
     /// Show chat when messages exist AND user hasn't navigated to landing.
-    private var showChat: Bool { chat.hasMessages && !chat.showLanding }
+    private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
 
     var body: some View {
         ZStack {

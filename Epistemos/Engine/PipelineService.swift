@@ -72,6 +72,7 @@ final class PipelineService {
 
     /// Execute the full analytical pipeline for a user query.
     /// When `skipEnrichment` is true, Passes 2-6 are skipped entirely (no Lucid Lens API calls).
+    /// `conversationHistory` provides prior User/Assistant turns for multi-turn context.
     func run(
         query: String,
         mode: InferenceMode,
@@ -81,7 +82,8 @@ final class PipelineService {
         soarConfig: SOARConfig? = nil,
         reroute: RerouteInstruction? = nil,
         notesContext: String? = nil,
-        skipEnrichment: Bool = false
+        skipEnrichment: Bool = false,
+        conversationHistory: String? = nil
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         // Cancel any in-flight work from a previous query
         pipelineTask?.cancel()
@@ -140,7 +142,6 @@ final class PipelineService {
                             focusDepth: signals.focusDepth,
                             temperatureScale: signals.temperatureScale,
                             concepts: signals.concepts,
-                            activeChordProduct: signals.activeChordProduct,
                             harmonyKeyDistance: signals.harmonyKeyDistance
                         ))
 
@@ -230,7 +231,8 @@ final class PipelineService {
                         soarConfig: soarConfig,
                         reroute: reroute,
                         notesContext: notesContext,
-                        chatMode: skipEnrichment ? .plain : .research
+                        chatMode: skipEnrichment ? .plain : .research,
+                        conversationHistory: conversationHistory
                     )
                     var insideThinking = false
                     var thinkingBuffer = ""
@@ -345,7 +347,7 @@ final class PipelineService {
                     // Skip enrichment entirely when the user has toggled it off.
                     // This saves 5 API calls per query.
                     guard !skipEnrichment else {
-                        Log.pipeline.warning(
+                        Log.pipeline.info(
                             "🔬 Enrichment: SKIPPED (regular mode) — no Passes 2-6"
                         )
                         // Regular mode: yield signal-derived arbitration + truth assessment
@@ -375,6 +377,27 @@ final class PipelineService {
                     // the complex JSON passes (2–6). The chat provider is independent.
                     let capturedLLM = llmService.enrichmentSnapshot()
 
+                    // Early exit: if the enrichment snapshot has no usable API key
+                    // (and isn't Ollama/local), skip enrichment entirely to avoid
+                    // 5 failing HTTP requests that all return fallback values anyway.
+                    let enrichmentKeyValid = !capturedLLM.apiKey.isEmpty || capturedLLM.provider == .ollama
+                    if !enrichmentKeyValid {
+                        Log.pipeline.info("🔬 Enrichment: SKIPPED (no API key for \(capturedLLM.provider.rawValue)) — yielding signal-derived fallback")
+                        let fallbackArb = fallbackArbitration(signals: signals)
+                        let fallbackTruth = fallbackTruthAssessment(signals: signals)
+                        let noKeyDual = DualMessage(
+                            rawAnalysis: "",
+                            uncertaintyTags: extractUncertaintyTags(from: rawAnswerBuffer),
+                            modelVsDataFlags: [],
+                            laymanSummary: fallbackLaymanSummary(queryAnalysis: queryAnalysis, signals: signals),
+                            reflection: fallbackReflection(signals: signals),
+                            arbitration: fallbackArb
+                        )
+                        continuation.yield(.enriched(noKeyDual, fallbackTruth))
+                        if finisher.tryFinish() { continuation.finish() }
+                        return
+                    }
+
                     // Strong capture: PipelineService is held by AppBootstrap — no retain cycle.
                     // [weak self] caused silent enrichment death if momentary deallocation occurred.
                     let enrichTask = Task.detached(priority: .userInitiated) { [self] in
@@ -387,7 +410,7 @@ final class PipelineService {
                         )
                         defer { ProcessInfo.processInfo.endActivity(napActivity) }
 
-                        Log.pipeline.warning("🔬 Enrichment: STARTED — provider=\(capturedLLM.provider.rawValue) model=\(capturedLLM.model.prefix(30)) keyLen=\(capturedLLM.apiKey.count)")
+                        Log.pipeline.info("🔬 Enrichment: STARTED — provider=\(capturedLLM.provider.rawValue) model=\(capturedLLM.model.prefix(30)) keyLen=\(capturedLLM.apiKey.count)")
 
                         guard !Task.isCancelled else {
                             Log.pipeline.warning("Enrichment: CANCELLED before starting — yielding full fallback (this should not happen for a freshly created Task.detached)")
@@ -410,7 +433,7 @@ final class PipelineService {
                         }
 
                         let enrichmentStart = CFAbsoluteTimeGetCurrent()
-                        Log.pipeline.warning("🔬 Enrichment: starting Pass 2 (Epistemic Lens analysis)")
+                        Log.pipeline.info("🔬 Enrichment: starting Pass 2 (Epistemic Lens analysis)")
 
                         // Safety timeout: if enrichment takes > 600s (10 min), yield fallback and bail.
                         // Pass 2 = 600s timeout (heaviest — 6000 tokens).
@@ -421,7 +444,7 @@ final class PipelineService {
                             try await Task.sleep(for: .seconds(600))
                             guard !Task.isCancelled else { return }
                             let elapsed = CFAbsoluteTimeGetCurrent() - enrichmentStart
-                            Log.pipeline.warning(
+                            Log.pipeline.info(
                                 "🔬 Enrichment: 600s timeout exceeded (elapsed=\(String(format: "%.1f", elapsed))s), yielding full fallback")
                             let timeoutDual = DualMessage(
                                 rawAnalysis: "",
@@ -461,7 +484,7 @@ final class PipelineService {
                             llm: capturedLLM
                         )
                         let pass2Duration = CFAbsoluteTimeGetCurrent() - pass2Start
-                        Log.pipeline.warning("🔬 Pass 2 done in \(String(format: "%.1f", pass2Duration))s — \(rawAnalysis.isEmpty ? "EMPTY (failed)" : "\(rawAnalysis.count) chars")")
+                        Log.pipeline.info("🔬 Pass 2 done in \(String(format: "%.1f", pass2Duration))s — \(rawAnalysis.isEmpty ? "EMPTY (failed)" : "\(rawAnalysis.count) chars")")
 
                         guard !Task.isCancelled else {
                             Log.pipeline.info("Enrichment: cancelled after Pass 2 — yielding partial+fallback")
@@ -512,7 +535,7 @@ final class PipelineService {
                             llm: capturedLLM
                         )
                         let pass3Duration = CFAbsoluteTimeGetCurrent() - pass3Start
-                        Log.pipeline.warning("🔬 Pass 3 done in \(String(format: "%.1f", pass3Duration))s — whatWasTried=\(laymanSummary.whatWasTried.prefix(40))")
+                        Log.pipeline.info("🔬 Pass 3 done in \(String(format: "%.1f", pass3Duration))s — whatWasTried=\(laymanSummary.whatWasTried.prefix(40))")
 
                         guard !Task.isCancelled else {
                             Log.pipeline.info("Enrichment: cancelled after Pass 3 — yielding partial+fallback")
@@ -565,7 +588,7 @@ final class PipelineService {
                         )
                         let (reflection, arbitration) = await (reflectionTask, arbitrationTask)
                         let pass45Duration = CFAbsoluteTimeGetCurrent() - pass45Start
-                        Log.pipeline.warning("🔬 Passes 4+5 done in \(String(format: "%.1f", pass45Duration))s — reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v")
+                        Log.pipeline.info("🔬 Passes 4+5 done in \(String(format: "%.1f", pass45Duration))s — reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v")
 
                         guard !Task.isCancelled else {
                             Log.pipeline.info("Enrichment: cancelled after Passes 4+5")
@@ -611,7 +634,7 @@ final class PipelineService {
                             llm: capturedLLM
                         )
                         let pass6Duration = CFAbsoluteTimeGetCurrent() - pass6Start
-                        Log.pipeline.warning("🔬 Pass 6 done in \(String(format: "%.1f", pass6Duration))s — truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%")
+                        Log.pipeline.info("🔬 Pass 6 done in \(String(format: "%.1f", pass6Duration))s — truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%")
 
                         continuation.yield(
                             .stageAdvanced(
@@ -635,7 +658,7 @@ final class PipelineService {
                         // The finisher guard previously caused enrichment to be silently
                         // dropped if any cancellation path consumed it first.
                         let totalEnrichment = CFAbsoluteTimeGetCurrent() - enrichmentStart
-                        Log.pipeline.warning("🔬 Enrichment: ALL PASSES COMPLETE in \(String(format: "%.1f", totalEnrichment))s — rawLen=\(rawAnalysis.count) layman=\(laymanSummary.whatWasTried.prefix(40)) reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%")
+                        Log.pipeline.info("🔬 Enrichment: ALL PASSES COMPLETE in \(String(format: "%.1f", totalEnrichment))s — rawLen=\(rawAnalysis.count) layman=\(laymanSummary.whatWasTried.prefix(40)) reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%")
                         continuation.yield(.enriched(enrichedDual, truthAssessment))
                         let finished = finisher.tryFinish()
                         Log.pipeline.info("Enrichment: finisher.tryFinish()=\(finished)")
@@ -669,7 +692,8 @@ final class PipelineService {
         soarConfig: SOARConfig?,
         reroute: RerouteInstruction? = nil,
         notesContext: String? = nil,
-        chatMode: AnalyticalMode = .plain
+        chatMode: AnalyticalMode = .plain,
+        conversationHistory: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
         let directives = PromptComposer.compose(
             controls: controls,
@@ -700,7 +724,7 @@ final class PipelineService {
             notesSection = ""
         }
 
-        Log.pipeline.warning("🔬 generateDirectStream — chatMode=\(chatMode == .research ? "RESEARCH" : "PLAIN") queryLen=\(query.count)")
+        Log.pipeline.info("🔬 generateDirectStream — chatMode=\(chatMode == .research ? "RESEARCH" : "PLAIN") queryLen=\(query.count)")
 
         let systemPrompt: String
         switch chatMode {
@@ -741,13 +765,25 @@ final class PipelineService {
                 """
         }
 
-        Log.pipeline.warning("🔬 systemPrompt length=\(systemPrompt.count) chars (research ~2500+, plain ~300)")
+        // Inject conversation history for multi-turn context
+        let hasHistory = conversationHistory != nil && !conversationHistory!.isEmpty
+        let finalSystemPrompt: String
+        let finalPrompt: String
+        if hasHistory {
+            finalSystemPrompt = systemPrompt + "\n\nThe user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
+            finalPrompt = conversationHistory! + "\n\nUser: " + query
+        } else {
+            finalSystemPrompt = systemPrompt
+            finalPrompt = query
+        }
+
+        Log.pipeline.info("🔬 systemPrompt length=\(finalSystemPrompt.count) chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(hasHistory)")
 
         return triageService.streamGeneral(
-            prompt: query,
-            systemPrompt: systemPrompt,
+            prompt: finalPrompt,
+            systemPrompt: finalSystemPrompt,
             operation: .chatResponse(query: query),
-            contentLength: query.count
+            contentLength: finalPrompt.count
         )
     }
 
@@ -773,7 +809,7 @@ final class PipelineService {
                 llm: llm
             )
         } catch {
-            Log.pipeline.warning(
+            Log.pipeline.info(
                 "🔬 Pass 2 HTTP ERROR — \(error.localizedDescription, privacy: .public)")
             return ""
         }
@@ -1039,7 +1075,7 @@ final class PipelineService {
                 timeout: 270
             )
             guard let obj = extractJSON(from: raw) else {
-                Log.pipeline.warning("🔬 Pass 3 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
+                Log.pipeline.info("🔬 Pass 3 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
                 return fallbackLaymanSummary(queryAnalysis: queryAnalysis, signals: signals)
             }
             let fallback = fallbackLaymanSummary(queryAnalysis: queryAnalysis, signals: signals)
@@ -1056,7 +1092,7 @@ final class PipelineService {
                 )
             )
         } catch {
-            Log.pipeline.warning("🔬 Pass 3 HTTP ERROR — \(error.localizedDescription)")
+            Log.pipeline.info("🔬 Pass 3 HTTP ERROR — \(error.localizedDescription)")
             return fallbackLaymanSummary(queryAnalysis: queryAnalysis, signals: signals)
         }
     }
@@ -1121,7 +1157,7 @@ final class PipelineService {
                 timeout: 270
             )
             guard let obj = extractJSON(from: raw) else {
-                Log.pipeline.warning("🔬 Pass 4 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
+                Log.pipeline.info("🔬 Pass 4 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
                 return fallbackReflection(signals: signals)
             }
             let fallback = fallbackReflection(signals: signals)
@@ -1135,7 +1171,7 @@ final class PipelineService {
                     ?? fallback.precisionVsEvidenceCheck
             )
         } catch {
-            Log.pipeline.warning("🔬 Pass 4 HTTP ERROR — \(error.localizedDescription)")
+            Log.pipeline.info("🔬 Pass 4 HTTP ERROR — \(error.localizedDescription)")
             return fallbackReflection(signals: signals)
         }
     }
@@ -1208,7 +1244,7 @@ final class PipelineService {
             guard let obj = extractJSON(from: raw),
                 let votesRaw = obj["votes"] as? [[String: Any]]
             else {
-                Log.pipeline.warning("🔬 Pass 5 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
+                Log.pipeline.info("🔬 Pass 5 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
                 return fallbackArbitration(signals: signals)
             }
 
@@ -1233,7 +1269,7 @@ final class PipelineService {
                 resolution: obj["resolution"] as? String ?? fallback.resolution
             )
         } catch {
-            Log.pipeline.warning("🔬 Pass 5 HTTP ERROR — \(error.localizedDescription)")
+            Log.pipeline.info("🔬 Pass 5 HTTP ERROR — \(error.localizedDescription)")
             return fallbackArbitration(signals: signals)
         }
     }
@@ -1390,7 +1426,7 @@ final class PipelineService {
                 timeout: 270
             )
             guard let obj = extractJSON(from: raw) else {
-                Log.pipeline.warning("🔬 Pass 6 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
+                Log.pipeline.info("🔬 Pass 6 JSON PARSE FAILED — raw length=\(raw.count) first100=\(String(raw.prefix(100)))")
                 return fallbackTruthAssessment(signals: signals)
             }
 
@@ -1412,7 +1448,7 @@ final class PipelineService {
                     ?? fallback.recommendedActions
             )
         } catch {
-            Log.pipeline.warning("🔬 Pass 6 HTTP ERROR — \(error.localizedDescription)")
+            Log.pipeline.info("🔬 Pass 6 HTTP ERROR — \(error.localizedDescription)")
             return fallbackTruthAssessment(signals: signals)
         }
     }
@@ -1442,23 +1478,23 @@ final class PipelineService {
         guard let firstBrace = cleaned.firstIndex(of: "{"),
               let lastBrace = cleaned.lastIndex(of: "}")
         else {
-            Log.pipeline.warning("🔬 extractJSON: no braces in \(cleaned.count) chars — first80=\(String(cleaned.prefix(80)))")
+            Log.pipeline.info("🔬 extractJSON: no braces in \(cleaned.count) chars — first80=\(String(cleaned.prefix(80)))")
             return nil
         }
         let jsonStr = String(cleaned[firstBrace...lastBrace])
         guard let data = jsonStr.data(using: .utf8) else {
-            Log.pipeline.warning("🔬 extractJSON: UTF-8 encoding failed")
+            Log.pipeline.info("🔬 extractJSON: UTF-8 encoding failed")
             return nil
         }
         do {
             guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                Log.pipeline.warning("🔬 extractJSON: not [String:Any] — jsonLen=\(jsonStr.count)")
+                Log.pipeline.info("🔬 extractJSON: not [String:Any] — jsonLen=\(jsonStr.count)")
                 return nil
             }
             return obj
         } catch {
             // Log first 200 chars of the attempted JSON so we can see exactly what failed
-            Log.pipeline.warning(
+            Log.pipeline.info(
                 "🔬 extractJSON FAILED — \(error.localizedDescription, privacy: .public) jsonLen=\(jsonStr.count) first200=\(String(jsonStr.prefix(200)))")
             return nil
         }

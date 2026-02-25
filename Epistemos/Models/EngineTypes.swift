@@ -81,10 +81,6 @@ struct QueryAnalysis: Codable, Sendable {
     var isMetaAnalytical: Bool
     var hasSafetyKeywords: Bool
     var hasNormativeClaims: Bool
-    var keyTerms: [String]
-    var emotionalValence: EmotionalValence
-    var isFollowUp: Bool
-    var followUpFocus: String?
 }
 
 enum AnalysisDomain: String, Codable, Sendable {
@@ -108,13 +104,6 @@ enum QuestionType: String, Codable, Sendable {
     case metaAnalytical = "meta_analytical"
     case empirical
     case conceptual
-}
-
-enum EmotionalValence: String, Codable, Sendable {
-    case neutral
-    case positive
-    case negative
-    case mixed
 }
 
 // MARK: - Dual Message System
@@ -221,7 +210,6 @@ struct SignalUpdate: Codable, Sendable {
     var focusDepth: Double?
     var temperatureScale: Double?
     var concepts: [String]?
-    var activeChordProduct: Double?
     var harmonyKeyDistance: Double?
 
     init(
@@ -235,7 +223,6 @@ struct SignalUpdate: Codable, Sendable {
         focusDepth: Double? = nil,
         temperatureScale: Double? = nil,
         concepts: [String]? = nil,
-        activeChordProduct: Double? = nil,
         harmonyKeyDistance: Double? = nil
     ) {
         self.confidence = confidence
@@ -248,7 +235,6 @@ struct SignalUpdate: Codable, Sendable {
         self.focusDepth = focusDepth
         self.temperatureScale = temperatureScale
         self.concepts = concepts
-        self.activeChordProduct = activeChordProduct
         self.harmonyKeyDistance = harmonyKeyDistance
     }
 }
@@ -454,20 +440,6 @@ enum SteerHint: String, CaseIterable, Sendable {
         case .creative: "Try unconventional angles and lateral thinking"
         }
     }
-}
-
-// MARK: - Cortex
-
-struct CortexSnapshot: Identifiable, Codable, Sendable {
-    var id: String
-    var label: String
-    var timestamp: Date
-    var confidence: Double
-    var entropy: Double
-    var dissonance: Double
-    var healthScore: Double
-    var concepts: [String]
-    var queriesProcessed: Int
 }
 
 // MARK: - Conversation Context

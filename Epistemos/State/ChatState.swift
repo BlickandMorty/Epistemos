@@ -21,7 +21,7 @@ final class ChatState {
     var reasoningDuration: Double?
     var isReasoning = false
 
-    /// Tracks when a research query started — drives the elapsed timer in ResearchThinkingView.
+    /// Tracks when a research query started — drives the elapsed timer in ThinkingAccordion.
     var researchStartTime: Date?
 
     /// Tracks when reasoning started — used to calculate duration on completion.
@@ -29,7 +29,6 @@ final class ChatState {
 
     // MARK: - In-memory messages (current session)
     var messages: [ChatMessage] = []
-    var hasMessages = false
 
     /// Controls whether the landing page or chat view is shown on the Home panel.
     /// `true` = landing page visible (even if messages exist in memory).
@@ -146,7 +145,6 @@ final class ChatState {
         pendingReasoningTokens = ""
 
         messages = []
-        hasMessages = false
         streamingText = ""
         isStreaming = false
         reasoningText = ""
@@ -189,7 +187,6 @@ final class ChatState {
             attachments: pendingAttachments
         )
         messages.append(userMessage)
-        hasMessages = true
 
         pendingAttachments = []
         streamingText = ""
@@ -254,7 +251,7 @@ final class ChatState {
         streamingText = ""
         isStreaming = false
         // Note: researchStartTime is NOT cleared here — it persists until enrichment
-        // completes so the ResearchThinkingView on the message can keep ticking.
+        // completes so the ThinkingAccordion on the message can keep ticking.
         // Cleared in enrichLastMessage() or clearMessages().
         if !isResearchResult {
             researchStartTime = nil
@@ -411,7 +408,6 @@ final class ChatState {
 
     func loadMessages(_ msgs: [ChatMessage]) {
         messages = msgs
-        hasMessages = !msgs.isEmpty
         showLanding = msgs.isEmpty
     }
 
@@ -426,7 +422,6 @@ final class ChatState {
         pendingReasoningTokens = ""
 
         messages = []
-        hasMessages = false
         streamingText = ""
         isStreaming = false
         reasoningText = ""
