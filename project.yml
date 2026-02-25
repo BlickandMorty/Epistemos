@@ -1,0 +1,57 @@
+name: Epistemos
+options:
+  bundleIdPrefix: com.epistemos
+  deploymentTarget:
+    macOS: "26.0"
+  xcodeVersion: "16.0"
+  defaultConfig: Debug
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SUPPORTED_PLATFORMS: macosx
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: false
+
+targets:
+  Epistemos:
+    type: application
+    platform: macOS
+    sources:
+      - path: Epistemos
+        excludes:
+          - "**/.DS_Store"
+          - "Epistemos.entitlements"
+          - "PrivacyInfo.xcprivacy"
+    resources:
+      - path: Epistemos/Resources
+      - path: Epistemos/PrivacyInfo.xcprivacy
+    entitlements:
+      path: Epistemos/Epistemos.entitlements
+    settings:
+      base:
+        PRODUCT_NAME: Epistemos
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app
+        CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos.entitlements
+        INFOPLIST_FILE: Epistemos-Info.plist
+        GENERATE_INFOPLIST_FILE: false
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_EMIT_LOC_STRINGS: true
+        ENABLE_PREVIEWS: true
+    dependencies:
+      - package: GRDB
+      - sdk: AppKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: SwiftData.framework
+      - sdk: Foundation.framework
+      - sdk: CryptoKit.framework
+      - sdk: AppIntents.framework
+      - sdk: CoreSpotlight.framework
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    version: 7.10.0

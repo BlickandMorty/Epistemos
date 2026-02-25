@@ -1,0 +1,359 @@
+import SwiftUI
+
+// MARK: - MarkdownTextView
+// Renders markdown content as formatted SwiftUI Text for chat messages.
+// Uses SwiftUI's native AttributedString markdown parsing for inline styles
+// (bold, italic, code, links, strikethrough) and custom line-level parsing
+// for headings, lists, code blocks, blockquotes, and tables.
+//
+// Read-only — no editing. Used for AI assistant responses in chat bubbles.
+// For the editable notes editor, see MarkdownTextStorage + ProseEditorRepresentable.
+
+struct MarkdownTextView: View {
+    let content: String
+    let theme: EpistemosTheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            let blocks = mergeTableBlocks(parseBlocks(content))
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                renderBlock(block)
+            }
+        }
+        .textSelection(.enabled)
+    }
+
+    // MARK: - Block Types
+
+    private enum MarkdownBlock {
+        case heading(level: Int, text: String)
+        case paragraph(text: String)
+        case bulletItem(text: String)
+        case numberedItem(number: String, text: String)
+        case checkItem(checked: Bool, text: String)
+        case blockquote(text: String)
+        case codeBlock(language: String, code: String)
+        case horizontalRule
+        case tableLine(text: String)
+        case table(rows: [[String]], headerCount: Int)
+    }
+
+    // MARK: - Block Parsing
+
+    private func parseBlocks(_ text: String) -> [MarkdownBlock] {
+        var blocks: [MarkdownBlock] = []
+        let lines = text.components(separatedBy: "\n")
+        var i = 0
+
+        while i < lines.count {
+            let line = lines[i]
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            // Fenced code block
+            if trimmed.hasPrefix("```") {
+                let lang = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                var codeLines: [String] = []
+                i += 1
+                while i < lines.count {
+                    let codeLine = lines[i]
+                    if codeLine.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                        i += 1
+                        break
+                    }
+                    codeLines.append(codeLine)
+                    i += 1
+                }
+                blocks.append(.codeBlock(language: lang, code: codeLines.joined(separator: "\n")))
+                continue
+            }
+
+            // Headings
+            if trimmed.hasPrefix("##### ") {
+                blocks.append(.heading(level: 5, text: String(trimmed.dropFirst(6))))
+            } else if trimmed.hasPrefix("#### ") && !trimmed.hasPrefix("##### ") {
+                blocks.append(.heading(level: 4, text: String(trimmed.dropFirst(5))))
+            } else if trimmed.hasPrefix("### ") && !trimmed.hasPrefix("#### ") {
+                blocks.append(.heading(level: 3, text: String(trimmed.dropFirst(4))))
+            } else if trimmed.hasPrefix("## ") && !trimmed.hasPrefix("### ") {
+                blocks.append(.heading(level: 2, text: String(trimmed.dropFirst(3))))
+            } else if trimmed.hasPrefix("# ") && !trimmed.hasPrefix("## ") {
+                blocks.append(.heading(level: 1, text: String(trimmed.dropFirst(2))))
+            }
+            // Horizontal rule
+            else if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+                blocks.append(.horizontalRule)
+            }
+            // Checkbox
+            else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [ ] ") {
+                let checked = trimmed.hasPrefix("- [x] ")
+                blocks.append(.checkItem(checked: checked, text: String(trimmed.dropFirst(6))))
+            }
+            // Bullet list
+            else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
+                blocks.append(.bulletItem(text: String(trimmed.dropFirst(2))))
+            }
+            // Numbered list
+            else if let match = trimmed.range(of: #"^\d+\.\s"#, options: .regularExpression) {
+                let number = String(trimmed[trimmed.startIndex..<match.upperBound]).trimmingCharacters(in: .whitespaces)
+                let rest = String(trimmed[match.upperBound...])
+                blocks.append(.numberedItem(number: number, text: rest))
+            }
+            // Blockquote
+            else if trimmed.hasPrefix("> ") {
+                blocks.append(.blockquote(text: String(trimmed.dropFirst(2))))
+            }
+            // Table
+            else if trimmed.hasPrefix("|") && trimmed.hasSuffix("|") {
+                blocks.append(.tableLine(text: trimmed))
+            }
+            // Paragraph (skip empty lines)
+            else if !trimmed.isEmpty {
+                blocks.append(.paragraph(text: line))
+            }
+
+            i += 1
+        }
+
+        return blocks
+    }
+
+    // MARK: - Table Merging
+
+    /// Post-processes parsed blocks to merge consecutive `.tableLine` entries
+    /// into a single `.table` block with structured rows and header detection.
+    private func mergeTableBlocks(_ blocks: [MarkdownBlock]) -> [MarkdownBlock] {
+        var result: [MarkdownBlock] = []
+        var tableLines: [String] = []
+
+        func flushTable() {
+            guard !tableLines.isEmpty else { return }
+            var rows: [[String]] = []
+            var headerCount = 0
+            var foundSeparator = false
+
+            for line in tableLines {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                let cells = trimmed.dropFirst().dropLast()
+                    .split(separator: "|", omittingEmptySubsequences: false)
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+
+                let isSep = cells.allSatisfy { $0.allSatisfy { $0 == "-" || $0 == ":" } }
+                if isSep {
+                    if !foundSeparator { headerCount = rows.count }
+                    foundSeparator = true
+                    continue
+                }
+                rows.append(cells)
+            }
+
+            if !rows.isEmpty {
+                result.append(.table(rows: rows, headerCount: max(headerCount, 1)))
+            }
+            tableLines = []
+        }
+
+        for block in blocks {
+            if case .tableLine(let text) = block {
+                tableLines.append(text)
+            } else {
+                flushTable()
+                result.append(block)
+            }
+        }
+        flushTable()
+        return result
+    }
+
+    // MARK: - Block Rendering
+
+    @ViewBuilder
+    private func renderBlock(_ block: MarkdownBlock) -> some View {
+        switch block {
+        case .heading(let level, let text):
+            renderHeading(level: level, text: text)
+        case .paragraph(let text):
+            inlineMarkdown(text)
+                .font(.system(size: 15))
+                .foregroundStyle(theme.foreground)
+                .padding(.vertical, 2)
+        case .bulletItem(let text):
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\u{2022}")
+                    .foregroundStyle(theme.accent)
+                inlineMarkdown(text)
+                    .font(.system(size: 15))
+                    .foregroundStyle(theme.foreground)
+            }
+            .padding(.leading, 16)
+            .padding(.vertical, 1)
+        case .numberedItem(let number, let text):
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(number)
+                    .font(.system(size: 15).monospacedDigit())
+                    .foregroundStyle(theme.accent)
+                inlineMarkdown(text)
+                    .font(.system(size: 15))
+                    .foregroundStyle(theme.foreground)
+            }
+            .padding(.leading, 16)
+            .padding(.vertical, 1)
+        case .checkItem(let checked, let text):
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: checked ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 13))
+                    .foregroundStyle(checked ? theme.accent : theme.textTertiary)
+                inlineMarkdown(text)
+                    .font(.system(size: 15))
+                    .foregroundStyle(checked ? theme.textTertiary : theme.foreground)
+                    .strikethrough(checked)
+            }
+            .padding(.leading, 16)
+            .padding(.vertical, 1)
+        case .blockquote(let text):
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(theme.accent.opacity(0.5))
+                    .frame(width: 3)
+                inlineMarkdown(text)
+                    .font(.system(size: 15))
+                    .italic()
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.leading, 12)
+            }
+            .padding(.vertical, 4)
+        case .codeBlock(let language, let code):
+            VStack(alignment: .leading, spacing: 4) {
+                if !language.isEmpty {
+                    Text(language)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
+                }
+                Text(code)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(theme.isDark
+                        ? Color.white.opacity(0.75)
+                        : Color(red: 0.2, green: 0.2, blue: 0.2))
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, language.isEmpty ? 10 : 4)
+                    .padding(.bottom, language.isEmpty ? 0 : 6)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                theme.isDark
+                    ? Color.white.opacity(0.05)
+                    : Color.black.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .padding(.vertical, 4)
+        case .horizontalRule:
+            Divider()
+                .padding(.vertical, 8)
+        case .table(let rows, let headerCount):
+            renderTable(rows: rows, headerCount: headerCount)
+        case .tableLine:
+            EmptyView()
+        }
+    }
+
+    // MARK: - Heading Rendering
+
+    @ViewBuilder
+    private func renderHeading(level: Int, text: String) -> some View {
+        let font: Font = switch level {
+        case 1: .system(size: 26, weight: .semibold)
+        case 2: .system(size: 20, weight: .semibold)
+        case 3: .system(size: 16, weight: .medium)
+        case 4: .system(size: 15, weight: .medium)
+        default: .system(size: 14, weight: .medium)
+        }
+        let topPad: CGFloat = switch level {
+        case 1: 16
+        case 2: 12
+        case 3: 8
+        default: 6
+        }
+
+        inlineMarkdown(text)
+            .font(font)
+            .foregroundStyle(theme.foreground)
+            .padding(.top, topPad)
+            .padding(.bottom, 2)
+    }
+
+    // MARK: - Table Rendering
+
+    @ViewBuilder
+    private func renderTable(rows: [[String]], headerCount: Int) -> some View {
+        let borderColor = theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.12)
+        let headerBg = theme.isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04)
+        let altRowBg = theme.isDark ? Color.white.opacity(0.02) : Color.black.opacity(0.02)
+        let colCount = rows.map(\.count).max() ?? 1
+
+        VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { rowIdx, cells in
+                HStack(spacing: 0) {
+                    ForEach(0..<colCount, id: \.self) { colIdx in
+                        let cell = colIdx < cells.count ? cells[colIdx] : ""
+                        inlineMarkdown(cell)
+                            .font(.system(size: 13))
+                            .foregroundStyle(theme.foreground.opacity(rowIdx < headerCount ? 1.0 : 0.85))
+                            .fontWeight(rowIdx < headerCount ? .semibold : .regular)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .overlay(alignment: .trailing) {
+                                if colIdx < colCount - 1 {
+                                    Rectangle().fill(borderColor).frame(width: 1)
+                                }
+                            }
+                    }
+                }
+                .background(
+                    rowIdx < headerCount ? headerBg :
+                    rowIdx % 2 != 0 ? altRowBg : Color.clear
+                )
+
+                if rowIdx < rows.count - 1 {
+                    Rectangle()
+                        .fill(borderColor)
+                        .frame(height: rowIdx < headerCount ? 1.5 : 0.5)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(borderColor, lineWidth: 1)
+        )
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Inline Markdown -> SwiftUI Text
+
+    /// Regex to strip orphan bracketed uppercase terms (e.g. [CAUSAL INFERENCE]) that
+    /// `AttributedString(markdown:)` misinterprets as markdown link references.
+    /// Only matches [UPPERCASE WORDS] NOT followed by `(url)` to preserve real links.
+    // SAFETY: Hardcoded literal pattern — `try!` only fails on invalid regex syntax.
+    private static let orphanBracketRegex = try! NSRegularExpression(
+        pattern: "\\[[A-Z][A-Z ]+\\](?!\\()"
+    )
+
+    private func inlineMarkdown(_ text: String) -> Text {
+        // Strip orphan [UPPERCASE] brackets before markdown parsing to prevent
+        // them from rendering as blue link-reference text.
+        let cleaned = Self.orphanBracketRegex.stringByReplacingMatches(
+            in: text,
+            range: NSRange(location: 0, length: (text as NSString).length),
+            withTemplate: ""
+        )
+        if let attributed = try? AttributedString(markdown: cleaned,
+                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+            return Text(attributed)
+        } else {
+            return Text(cleaned)
+        }
+    }
+}

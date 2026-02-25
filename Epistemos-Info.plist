@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ATSApplicationFontsPath</key>
+	<string>Resources/Fonts</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Epistemos uses on-device speech recognition for voice-to-text.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Epistemos needs microphone access for dictation.</string>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>CreateNoteIntent</string>
+		<string>CreateJournalIntent</string>
+		<string>SearchJournalIntent</string>
+		<string>SystemSearchIntent</string>
+		<string>DeepAnalyzeIntent</string>
+		<string>RunAnalysisIntent</string>
+		<string>AskAboutNotesIntent</string>
+		<string>ResearchTopicIntent</string>
+		<string>FactCheckIntent</string>
+		<string>FindGapsIntent</string>
+		<string>ReviewPaperIntent</string>
+		<string>FindCitationsIntent</string>
+		<string>DailyBriefingIntent</string>
+		<string>FindConnectionsIntent</string>
+		<string>GenerateQuestionsIntent</string>
+		<string>QuickCaptureIntent</string>
+		<string>SummarizeNoteIntent</string>
+		<string>OpenVaultFileIntent</string>
+		<string>MoveNoteToFolderIntent</string>
+		<string>SearchDocumentsIntent</string>
+		<string>OpenPanelIntent</string>
+		<string>OpenMiniChatIntent</string>
+	</array>
+</dict>
+</plist>
