@@ -273,16 +273,6 @@ private struct NoteTabView: View {
                 .help("New Note (⌘N)")
             }
 
-            // Note Title — retro font, centered
-            ToolbarItem(placement: .principal) {
-                if let page = pages.first {
-                    Text(page.title.isEmpty ? "Untitled" : page.title)
-                        .font(.custom("RetroGaming", size: 13))
-                        .foregroundStyle(ui.theme.fontAccent)
-                        .lineLimit(1)
-                }
-            }
-
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     UtilityWindowManager.shared.show(.notes)
