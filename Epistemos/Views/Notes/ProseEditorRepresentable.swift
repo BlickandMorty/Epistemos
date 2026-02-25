@@ -235,7 +235,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
 
             if !pageId.isEmpty {
-                let layoutManager = tv.layoutManager!
+                guard let layoutManager = tv.layoutManager else { return }
 
                 // Get or create storage for incoming page
                 let slot = PageStoragePool.shared.getOrCreate(
