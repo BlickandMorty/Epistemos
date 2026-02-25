@@ -311,9 +311,12 @@ final class LLMService {
 
                     for try await line in bytes.lines {
                         guard !Task.isCancelled else { break }
-                        // SSE format: lines prefixed with "data: " contain JSON chunks
+                        // SSE: skip empty lines and comment lines (per spec)
+                        if line.isEmpty || line.hasPrefix(":") { continue }
                         guard line.hasPrefix("data: ") else { continue }
                         let json = String(line.dropFirst(6))
+                        // SSE: [DONE] sentinel signals end of stream
+                        if json.trimmingCharacters(in: .whitespaces) == "[DONE]" { break }
                         if let d = json.data(using: .utf8),
                            let chunk = try? JSONDecoder().decode(GeminiResponse.self, from: d),
                            let text = chunk.candidates.first?.content.parts.first?.text {
