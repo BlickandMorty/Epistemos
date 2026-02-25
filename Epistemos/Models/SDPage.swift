@@ -39,6 +39,7 @@ final class SDPage {
     var isPinned: Bool = false
     var isArchived: Bool = false
     var isFavorite: Bool = false
+    var isLocked: Bool = false
     var sortOrder: Int = 0
 
     // MARK: - File System (Hybrid Persistence)

@@ -20,6 +20,7 @@ import SwiftUI
 
 struct ProseEditorView: View {
     let page: SDPage
+    var isEditable: Bool = true
 
     @Environment(\.modelContext) private var modelContext
     @Environment(UIState.self) private var ui
@@ -37,6 +38,7 @@ struct ProseEditorView: View {
             pageBody: page.body,
             isFocused: isFocused,
             isDark: ui.theme.isDark,
+            isEditable: isEditable,
             onWikilinkClick: handleWikilinkClick,
             onPageFlush: { oldPageId, currentText in
                 // Flush unsaved edits to the OLD page — body only, no metadata.

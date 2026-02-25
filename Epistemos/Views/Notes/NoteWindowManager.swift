@@ -232,6 +232,7 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
 // Self-contained note editor for each tab window.
 // Resolves pageId → SDPage via @Query, shows ProseEditorView,
 // adds sidebar toggle + Cmd+S / Cmd+Shift+S shortcuts.
+// Toolbar (left → right): New Note | Pin, Favorite, Lock | Format, Preview, Info, Share | Sidebar, Save, Diff, Chat
 
 private struct NoteTabView: View {
     let pageId: String
@@ -240,6 +241,9 @@ private struct NoteTabView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
+    @State private var showInfoPopover = false
+    @State private var showPreview = false
+    @State private var showWriterMode = false
 
     init(pageId: String) {
         self.pageId = pageId
@@ -249,8 +253,16 @@ private struct NoteTabView: View {
     var body: some View {
         ZStack {
             if let page = pages.first {
-                ProseEditorView(page: page)
-                    .frame(minWidth: 400, minHeight: 300)
+                if showWriterMode {
+                    WriterModeView(page: page, isDark: ui.theme.isDark, isLocked: page.isLocked)
+                        .frame(minWidth: 400, minHeight: 300)
+                } else if showPreview {
+                    NotePreviewView(body: page.body, isDark: ui.theme.isDark)
+                        .frame(minWidth: 400, minHeight: 300)
+                } else {
+                    ProseEditorView(page: page, isEditable: !page.isLocked)
+                        .frame(minWidth: 400, minHeight: 300)
+                }
             } else {
                 ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
                     .frame(minWidth: 400, minHeight: 300)
@@ -273,6 +285,75 @@ private struct NoteTabView: View {
                 .help("New Note (⌘N)")
             }
 
+            // — Organization: Pin, Favorite, Lock —
+            ToolbarItemGroup(placement: .primaryAction) {
+                if let page = pages.first {
+                    Button {
+                        page.isPinned.toggle()
+                    } label: {
+                        Label("Pin", systemImage: page.isPinned ? "pin.fill" : "pin")
+                    }
+                    .help(page.isPinned ? "Unpin" : "Pin")
+
+                    Button {
+                        page.isFavorite.toggle()
+                    } label: {
+                        Label("Favorite", systemImage: page.isFavorite ? "star.fill" : "star")
+                    }
+                    .help(page.isFavorite ? "Unfavorite" : "Favorite")
+
+                    Button {
+                        page.isLocked.toggle()
+                    } label: {
+                        Label("Lock", systemImage: page.isLocked ? "lock.fill" : "lock.open")
+                    }
+                    .help(page.isLocked ? "Unlock" : "Lock")
+                }
+            }
+
+            // — Editor: Writer, Format, Preview, Info, Share —
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    showWriterMode.toggle()
+                    if showWriterMode { showPreview = false }
+                } label: {
+                    Label("Writer", systemImage: showWriterMode ? "doc.plaintext" : "doc.richtext")
+                }
+                .help("Writer Mode (⌘R)")
+
+                formatMenu
+
+                Button {
+                    showPreview.toggle()
+                    if showPreview { showWriterMode = false }
+                } label: {
+                    Label("Preview", systemImage: showPreview ? "eye.slash" : "eye")
+                }
+                .help("Preview (⌘E)")
+
+                Button {
+                    showInfoPopover.toggle()
+                } label: {
+                    Label("Info", systemImage: "info.circle")
+                }
+                .help("Info")
+                .popover(isPresented: $showInfoPopover) {
+                    if let page = pages.first {
+                        noteInfoPanel(page: page)
+                    }
+                }
+
+                Button {
+                    if let page = pages.first {
+                        shareNote(page)
+                    }
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .help("Share")
+            }
+
+            // — Window: Sidebar, Save, Diff, Chat —
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     UtilityWindowManager.shared.show(.notes)
@@ -323,11 +404,242 @@ private struct NoteTabView: View {
             Button("") { showDiffSheet = true }
                 .keyboardShortcut("d", modifiers: .command)
                 .hidden()
+            Button("") { showPreview.toggle() }
+                .keyboardShortcut("e", modifiers: .command)
+                .hidden()
+            Button("") {
+                showWriterMode.toggle()
+                if showWriterMode { showPreview = false }
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .hidden()
+            Button("") { insertMarkdown("**", "**") }
+                .keyboardShortcut("b", modifiers: .command)
+                .hidden()
+            Button("") { insertMarkdown("*", "*") }
+                .keyboardShortcut("i", modifiers: .command)
+                .hidden()
         }
         .sheet(isPresented: $showDiffSheet) {
             if let page = pages.first {
                 DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.body)
             }
+        }
+    }
+
+    // MARK: - Format Menu
+
+    private var formatMenu: some View {
+        Menu {
+            Button("Bold") { insertMarkdown("**", "**") }
+            Button("Italic") { insertMarkdown("*", "*") }
+            Menu("Heading") {
+                Button("Heading 1") { insertLinePrefix("# ") }
+                Button("Heading 2") { insertLinePrefix("## ") }
+                Button("Heading 3") { insertLinePrefix("### ") }
+                Button("Heading 4") { insertLinePrefix("#### ") }
+            }
+            Divider()
+            Button("Strikethrough") { insertMarkdown("~~", "~~") }
+            Button("Code") { insertMarkdown("`", "`") }
+            Button("Link") { insertMarkdown("[", "](url)") }
+        } label: {
+            Label("Format", systemImage: "textformat")
+        }
+        .help("Format")
+    }
+
+    /// Wraps the current selection (or inserts at cursor) with markdown syntax.
+    private func insertMarkdown(_ prefix: String, _ suffix: String) {
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        let range = tv.selectedRange()
+        let selected = (tv.string as NSString).substring(with: range)
+        tv.insertText("\(prefix)\(selected)\(suffix)", replacementRange: range)
+    }
+
+    /// Inserts a prefix at the start of the current line (for headings).
+    private func insertLinePrefix(_ prefix: String) {
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        let str = tv.string as NSString
+        let cursor = tv.selectedRange().location
+        let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
+        tv.insertText(prefix, replacementRange: NSRange(location: lineRange.location, length: 0))
+    }
+
+    // MARK: - Info Panel
+
+    private func noteInfoPanel(page: SDPage) -> some View {
+        let wordCount = page.body.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        let charCount = page.body.count
+        let readingTime = max(1, wordCount / 200)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Note Info").font(.headline)
+            Divider()
+            infoRow("Words", "\(wordCount)")
+            infoRow("Characters", "\(charCount)")
+            infoRow("Reading time", "~\(readingTime) min")
+            Divider()
+            infoRow("Created", page.createdAt.formatted(date: .abbreviated, time: .shortened))
+            infoRow("Modified", page.updatedAt.formatted(date: .abbreviated, time: .shortened))
+        }
+        .padding()
+        .frame(width: 220)
+    }
+
+    private func infoRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+        }
+        .font(.callout)
+    }
+
+    // MARK: - Share
+
+    private func shareNote(_ page: SDPage) {
+        let text = "# \(page.title)\n\n\(page.body)"
+        let picker = NSSharingServicePicker(items: [text])
+        // Present from the toolbar area of the key window
+        if let contentView = NSApp.keyWindow?.contentView {
+            let buttonRect = NSRect(x: contentView.bounds.midX, y: contentView.bounds.maxY - 40,
+                                    width: 1, height: 1)
+            picker.show(relativeTo: buttonRect, of: contentView, preferredEdge: .minY)
+        }
+    }
+}
+
+// MARK: - Note Preview View
+// Read-only rendered markdown preview using MarkdownTextStorage.
+// Reuses the same styling as the editor for visual consistency.
+
+private struct NotePreviewView: NSViewRepresentable {
+    let body: String
+    let isDark: Bool
+
+    private static let maxReadableWidth: CGFloat = 720
+    private static let minHorizontalInset: CGFloat = 60
+    private static let verticalInset: CGFloat = 54
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let storage = MarkdownTextStorage()
+        storage.isDark = isDark
+
+        let layoutManager = NSLayoutManager()
+        layoutManager.allowsNonContiguousLayout = true
+        layoutManager.backgroundLayoutEnabled = true
+        storage.addLayoutManager(layoutManager)
+
+        let container = NSTextContainer(
+            size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
+        container.widthTracksTextView = true
+        layoutManager.addTextContainer(container)
+
+        let tv = NSTextView(frame: .zero, textContainer: container)
+        tv.wantsLayer = true
+        tv.isEditable = false
+        tv.isSelectable = true
+        tv.isRichText = false
+        tv.usesFontPanel = false
+        tv.usesRuler = false
+        tv.drawsBackground = false
+        tv.backgroundColor = .clear
+        tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
+        tv.textContainer?.lineFragmentPadding = 0
+        tv.isVerticallyResizable = true
+        tv.isHorizontallyResizable = false
+        tv.autoresizingMask = [.width]
+        tv.minSize = NSSize(width: 0, height: 0)
+        tv.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+
+        // Set content
+        let fullRange = NSRange(location: 0, length: storage.length)
+        storage.replaceCharacters(in: fullRange, with: body)
+
+        let scrollView = NSScrollView()
+        scrollView.documentView = tv
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.backgroundColor = .clear
+        scrollView.wantsLayer = true
+        scrollView.automaticallyAdjustsContentInsets = false
+        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+
+        // Centering observer
+        scrollView.contentView.postsFrameChangedNotifications = true
+        context.coordinator.frameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak tv] _ in
+            guard let tv else { return }
+            MainActor.assumeIsolated {
+                Self.updateCenteringInsets(for: tv)
+            }
+        }
+        context.coordinator.storage = storage
+
+        DispatchQueue.main.async {
+            Self.updateCenteringInsets(for: tv)
+        }
+
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let storage = context.coordinator.storage else { return }
+
+        // Update theme
+        if context.coordinator.lastIsDark != isDark {
+            context.coordinator.lastIsDark = isDark
+            storage.isDark = isDark
+            if let tv = scrollView.documentView as? NSTextView {
+                let baseColor: NSColor =
+                    isDark ? .white.withAlphaComponent(0.88) : NSColor(white: 0.1, alpha: 1)
+                tv.textColor = baseColor
+            }
+            storage.reapplyAllStyles()
+        }
+
+        // Update content if changed
+        if storage.string != body {
+            let fullRange = NSRange(location: 0, length: storage.length)
+            storage.replaceCharacters(in: fullRange, with: body)
+        }
+
+        // Update centering
+        if let tv = scrollView.documentView as? NSTextView {
+            Self.updateCenteringInsets(for: tv)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var storage: MarkdownTextStorage?
+        var lastIsDark = true
+        nonisolated(unsafe) var frameObserver: (any NSObjectProtocol)?
+
+        deinit {
+            if let observer = frameObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+
+    private static func updateCenteringInsets(for tv: NSTextView) {
+        guard let scrollView = tv.enclosingScrollView else { return }
+        let availableWidth = scrollView.contentSize.width
+        let horizontalInset = max(minHorizontalInset, (availableWidth - maxReadableWidth) / 2)
+        let currentInset = tv.textContainerInset
+        if abs(currentInset.width - horizontalInset) > 0.5
+            || abs(currentInset.height - verticalInset) > 0.5
+        {
+            tv.textContainerInset = NSSize(width: horizontalInset, height: verticalInset)
         }
     }
 }

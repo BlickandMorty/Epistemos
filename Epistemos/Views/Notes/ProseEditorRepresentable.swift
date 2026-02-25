@@ -32,6 +32,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     let pageBody: String
     let isFocused: Bool
     let isDark: Bool
+    let isEditable: Bool
 
     /// Called when user clicks a [[wikilink]] in the editor.
     var onWikilinkClick: ((String) -> Void)?
@@ -81,7 +82,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         // Appearance
         tv.isRichText = false
-        tv.isEditable = true
+        tv.isEditable = isEditable
         tv.isSelectable = true
         tv.allowsUndo = true
         tv.usesFontPanel = false
@@ -289,6 +290,11 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             tv.typingAttributes[.foregroundColor] = baseColor
             Self.progressiveRestyle(coord.storage)
             PageStoragePool.shared.invalidateExcept(activePageId: pageId)
+        }
+
+        // Editable state — react to lock/preview toggles
+        if tv.isEditable != isEditable {
+            tv.isEditable = isEditable
         }
 
         // Reset page swap flag BEFORE text sync so the sync can correct stale cache content.

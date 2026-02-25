@@ -60,6 +60,7 @@ nonisolated(unsafe) final class WriterTextStorage: NSTextStorage {
     // MARK: - Formatting
 
     /// Applies uniform academic formatting (font, color, paragraph style) to the given range.
+    /// NSTextStorage is always called on the main thread, so MainActor.assumeIsolated is safe.
     func applyFormatting(range: NSRange) {
         guard range.location + range.length <= backing.length else { return }
 
@@ -67,14 +68,22 @@ nonisolated(unsafe) final class WriterTextStorage: NSTextStorage {
         let paragraphStyle: NSParagraphStyle
 
         if let state = formatState {
-            font = state.resolvedFont
-            paragraphStyle = state.resolvedParagraphStyle
+            // Snapshot the resolved values via nonisolated(unsafe) to avoid
+            // Sendable return-value diagnostics on NSFont / NSParagraphStyle.
+            nonisolated(unsafe) var f: NSFont = .systemFont(ofSize: 12)
+            nonisolated(unsafe) var ps: NSParagraphStyle = .default
+            MainActor.assumeIsolated {
+                f = state.resolvedFont
+                ps = state.resolvedParagraphStyle
+            }
+            font = f
+            paragraphStyle = ps
         } else {
             // Fallback defaults when no format state is set
             font = NSFont(name: "Times New Roman", size: 12) ?? NSFont.systemFont(ofSize: 12)
-            let ps = NSMutableParagraphStyle()
-            ps.lineSpacing = 4
-            paragraphStyle = ps.copy() as! NSParagraphStyle
+            let mps = NSMutableParagraphStyle()
+            mps.lineSpacing = 4
+            paragraphStyle = mps.copy() as! NSParagraphStyle
         }
 
         backing.setAttributes([
