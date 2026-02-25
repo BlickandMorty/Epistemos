@@ -447,15 +447,16 @@ final class PipelineService {
                         let enrichmentStart = CFAbsoluteTimeGetCurrent()
                         Log.pipeline.info("🔬 Enrichment: starting Pass 2 (Epistemic Lens analysis)")
 
-                        // Safety timeout: 300s global cutoff as a last resort.
-                        // Per-pass timeouts (90s + 60s + 60s + 60s = 270s theoretical max) handle
-                        // individual pass hangs. This global catch is only for unexpected scenarios.
+                        // Safety timeout: 600s (10 min) global cutoff as a last resort.
+                        // Research mode legitimately takes several minutes on complex queries.
+                        // Per-pass timeouts (180s/120s) catch individual hangs (dropped connections).
+                        // This global catch is for when multiple passes are slow but not hung.
                         let timeoutTask = Task {
-                            try await Task.sleep(for: .seconds(300))
+                            try await Task.sleep(for: .seconds(600))
                             guard !Task.isCancelled else { return }
                             let elapsed = CFAbsoluteTimeGetCurrent() - enrichmentStart
                             Log.pipeline.info(
-                                "🔬 Enrichment: 300s global timeout exceeded (elapsed=\(String(format: "%.1f", elapsed))s), yielding full fallback"
+                                "🔬 Enrichment: 600s global timeout exceeded (elapsed=\(String(format: "%.1f", elapsed))s), yielding full fallback"
                             )
                             let timeoutDual = DualMessage(
                                 rawAnalysis: "",
@@ -483,9 +484,10 @@ final class PipelineService {
                                     stage: .metaAnalysis, status: .running,
                                     detail: "Epistemic Lens analysis")))
 
-                        // Pass 2: Deep research prose (90s timeout — heaviest pass, ~6000 tokens)
+                        // Pass 2: Deep research prose (180s timeout — heaviest pass, ~6000 tokens)
+                        // This pass legitimately takes 30-120s on complex queries. 180s catches hangs.
                         let pass2Start = CFAbsoluteTimeGetCurrent()
-                        let rawAnalysis = await PipelineService.withTimeout(seconds: 90) {
+                        let rawAnalysis = await PipelineService.withTimeout(seconds: 180) {
                             await EnrichmentController.generateRawAnalysisAsync(
                                 query: capturedQuery,
                                 queryAnalysis: capturedQueryAnalysis,
@@ -541,9 +543,9 @@ final class PipelineService {
                                 StageResult(
                                     stage: .synthesis, status: .running, detail: "Layman summary")))
 
-                        // Pass 3: Layman summary (60s timeout)
+                        // Pass 3: Layman summary (120s hang detection)
                         let pass3Start = CFAbsoluteTimeGetCurrent()
-                        let laymanSummary = await PipelineService.withTimeout(seconds: 60) {
+                        let laymanSummary = await PipelineService.withTimeout(seconds: 120) {
                             await EnrichmentController.generateLaymanSummary(
                                 query: capturedQuery,
                                 rawAnalysis: analysisText,
@@ -593,9 +595,9 @@ final class PipelineService {
                                     stage: .adversarial, status: .running,
                                     detail: "Reflection + Arbitration")))
 
-                        // Passes 4 + 5: Reflection and Arbitration in parallel (60s each)
+                        // Passes 4 + 5: Reflection and Arbitration in parallel (120s hang detection each)
                         let pass45Start = CFAbsoluteTimeGetCurrent()
-                        async let reflectionTask = PipelineService.withTimeout(seconds: 60) {
+                        async let reflectionTask = PipelineService.withTimeout(seconds: 120) {
                             await EnrichmentController.generateReflection(
                                 query: capturedQuery,
                                 rawAnalysis: analysisText,
@@ -604,7 +606,7 @@ final class PipelineService {
                                 llm: capturedLLM
                             )
                         }
-                        async let arbitrationTask = PipelineService.withTimeout(seconds: 60) {
+                        async let arbitrationTask = PipelineService.withTimeout(seconds: 120) {
                             await EnrichmentController.generateArbitration(
                                 query: capturedQuery,
                                 rawAnalysis: analysisText,
@@ -655,9 +657,9 @@ final class PipelineService {
                                     stage: .calibration, status: .running,
                                     detail: "Truth assessment")))
 
-                        // Pass 6: Truth assessment (60s timeout)
+                        // Pass 6: Truth assessment (120s hang detection)
                         let pass6Start = CFAbsoluteTimeGetCurrent()
-                        let truthAssessment = await PipelineService.withTimeout(seconds: 60) {
+                        let truthAssessment = await PipelineService.withTimeout(seconds: 120) {
                             await EnrichmentController.generateTruthAssessment(
                                 query: capturedQuery,
                                 rawAnalysis: analysisText,
