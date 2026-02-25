@@ -152,7 +152,7 @@ final class PipelineService {
                             if finisher.tryFinish() { continuation.finish() }
                             return
                         }
-                        let detail = generateStageDetail(stage: stage, queryAnalysis: queryAnalysis)
+                        let detail = PromptComposer.generateStageDetail(stage: stage, queryAnalysis: queryAnalysis)
 
                         let startResult = StageResult(
                             stage: stage,
@@ -447,17 +447,15 @@ final class PipelineService {
                         let enrichmentStart = CFAbsoluteTimeGetCurrent()
                         Log.pipeline.info("🔬 Enrichment: starting Pass 2 (Epistemic Lens analysis)")
 
-                        // Safety timeout: if enrichment takes > 600s (10 min), yield fallback and bail.
-                        // Pass 2 = 600s timeout (heaviest — 6000 tokens).
-                        // Passes 3-6 = 270s each. With 4+5 parallel: 600 + 270 + 270 + 270 = 1410s theoretical max.
-                        // Safety at 600s is a hard cutoff — catches cases where any single pass hangs indefinitely.
-                        // Note: 4000-token cap previously caused mid-sentence cutoff; raised to 6000.
+                        // Safety timeout: 300s global cutoff as a last resort.
+                        // Per-pass timeouts (90s + 60s + 60s + 60s = 270s theoretical max) handle
+                        // individual pass hangs. This global catch is only for unexpected scenarios.
                         let timeoutTask = Task {
-                            try await Task.sleep(for: .seconds(600))
+                            try await Task.sleep(for: .seconds(300))
                             guard !Task.isCancelled else { return }
                             let elapsed = CFAbsoluteTimeGetCurrent() - enrichmentStart
                             Log.pipeline.info(
-                                "🔬 Enrichment: 600s timeout exceeded (elapsed=\(String(format: "%.1f", elapsed))s), yielding full fallback"
+                                "🔬 Enrichment: 300s global timeout exceeded (elapsed=\(String(format: "%.1f", elapsed))s), yielding full fallback"
                             )
                             let timeoutDual = DualMessage(
                                 rawAnalysis: "",
@@ -485,17 +483,19 @@ final class PipelineService {
                                     stage: .metaAnalysis, status: .running,
                                     detail: "Epistemic Lens analysis")))
 
-                        // Pass 2: Deep research prose (always cloud API — no Apple Intelligence)
+                        // Pass 2: Deep research prose (90s timeout — heaviest pass, ~6000 tokens)
                         let pass2Start = CFAbsoluteTimeGetCurrent()
-                        let rawAnalysis = await EnrichmentController.generateRawAnalysisAsync(
-                            query: capturedQuery,
-                            queryAnalysis: capturedQueryAnalysis,
-                            signals: capturedSignals,
-                            controls: capturedControls,
-                            steeringBias: capturedSteeringBias,
-                            soarConfig: capturedSoarConfig,
-                            llm: capturedLLM
-                        )
+                        let rawAnalysis = await PipelineService.withTimeout(seconds: 90) {
+                            await EnrichmentController.generateRawAnalysisAsync(
+                                query: capturedQuery,
+                                queryAnalysis: capturedQueryAnalysis,
+                                signals: capturedSignals,
+                                controls: capturedControls,
+                                steeringBias: capturedSteeringBias,
+                                soarConfig: capturedSoarConfig,
+                                llm: capturedLLM
+                            )
+                        } ?? ""
                         let pass2Duration = CFAbsoluteTimeGetCurrent() - pass2Start
                         Log.pipeline.info(
                             "🔬 Pass 2 done in \(String(format: "%.1f", pass2Duration))s — \(rawAnalysis.isEmpty ? "EMPTY (failed)" : "\(rawAnalysis.count) chars")"
@@ -541,15 +541,17 @@ final class PipelineService {
                                 StageResult(
                                     stage: .synthesis, status: .running, detail: "Layman summary")))
 
-                        // Pass 3: Layman summary
+                        // Pass 3: Layman summary (60s timeout)
                         let pass3Start = CFAbsoluteTimeGetCurrent()
-                        let laymanSummary = await EnrichmentController.generateLaymanSummary(
-                            query: capturedQuery,
-                            rawAnalysis: analysisText,
-                            queryAnalysis: capturedQueryAnalysis,
-                            signals: capturedSignals,
-                            llm: capturedLLM
-                        )
+                        let laymanSummary = await PipelineService.withTimeout(seconds: 60) {
+                            await EnrichmentController.generateLaymanSummary(
+                                query: capturedQuery,
+                                rawAnalysis: analysisText,
+                                queryAnalysis: capturedQueryAnalysis,
+                                signals: capturedSignals,
+                                llm: capturedLLM
+                            )
+                        } ?? EnrichmentController.fallbackLaymanSummary(queryAnalysis: capturedQueryAnalysis, signals: capturedSignals)
                         let pass3Duration = CFAbsoluteTimeGetCurrent() - pass3Start
                         Log.pipeline.info(
                             "🔬 Pass 3 done in \(String(format: "%.1f", pass3Duration))s — whatWasTried=\(laymanSummary.whatWasTried.prefix(40))"
@@ -591,23 +593,28 @@ final class PipelineService {
                                     stage: .adversarial, status: .running,
                                     detail: "Reflection + Arbitration")))
 
-                        // Passes 4 + 5: Reflection and Arbitration in parallel
+                        // Passes 4 + 5: Reflection and Arbitration in parallel (60s each)
                         let pass45Start = CFAbsoluteTimeGetCurrent()
-                        async let reflectionTask = EnrichmentController.generateReflection(
-                            query: capturedQuery,
-                            rawAnalysis: analysisText,
-                            queryAnalysis: capturedQueryAnalysis,
-                            signals: capturedSignals,
-                            llm: capturedLLM
-                        )
-                        async let arbitrationTask = EnrichmentController.generateArbitration(
-                            query: capturedQuery,
-                            rawAnalysis: analysisText,
-                            queryAnalysis: capturedQueryAnalysis,
-                            signals: capturedSignals,
-                            llm: capturedLLM
-                        )
-                        let (reflection, arbitration) = await (reflectionTask, arbitrationTask)
+                        async let reflectionTask = PipelineService.withTimeout(seconds: 60) {
+                            await EnrichmentController.generateReflection(
+                                query: capturedQuery,
+                                rawAnalysis: analysisText,
+                                queryAnalysis: capturedQueryAnalysis,
+                                signals: capturedSignals,
+                                llm: capturedLLM
+                            )
+                        }
+                        async let arbitrationTask = PipelineService.withTimeout(seconds: 60) {
+                            await EnrichmentController.generateArbitration(
+                                query: capturedQuery,
+                                rawAnalysis: analysisText,
+                                queryAnalysis: capturedQueryAnalysis,
+                                signals: capturedSignals,
+                                llm: capturedLLM
+                            )
+                        }
+                        let reflection = await reflectionTask ?? EnrichmentController.fallbackReflection(signals: capturedSignals)
+                        let arbitration = await arbitrationTask ?? EnrichmentController.fallbackArbitration(signals: capturedSignals)
                         let pass45Duration = CFAbsoluteTimeGetCurrent() - pass45Start
                         Log.pipeline.info(
                             "🔬 Passes 4+5 done in \(String(format: "%.1f", pass45Duration))s — reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v"
@@ -648,16 +655,18 @@ final class PipelineService {
                                     stage: .calibration, status: .running,
                                     detail: "Truth assessment")))
 
-                        // Pass 6: Truth assessment
+                        // Pass 6: Truth assessment (60s timeout)
                         let pass6Start = CFAbsoluteTimeGetCurrent()
-                        let truthAssessment = await EnrichmentController.generateTruthAssessment(
-                            query: capturedQuery,
-                            rawAnalysis: analysisText,
-                            signals: capturedSignals,
-                            reflection: reflection,
-                            arbitration: arbitration,
-                            llm: capturedLLM
-                        )
+                        let truthAssessment = await PipelineService.withTimeout(seconds: 60) {
+                            await EnrichmentController.generateTruthAssessment(
+                                query: capturedQuery,
+                                rawAnalysis: analysisText,
+                                signals: capturedSignals,
+                                reflection: reflection,
+                                arbitration: arbitration,
+                                llm: capturedLLM
+                            )
+                        } ?? EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)
                         let pass6Duration = CFAbsoluteTimeGetCurrent() - pass6Start
                         Log.pipeline.info(
                             "🔬 Pass 6 done in \(String(format: "%.1f", pass6Duration))s — truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%"
@@ -822,70 +831,22 @@ final class PipelineService {
         )
     }
 
-    // MARK: - Stage Detail Generation
+    // MARK: - Per-Pass Timeout
 
-    private func generateStageDetail(stage: PipelineStage, queryAnalysis: QueryAnalysis) -> String {
-        let c = queryAnalysis.complexity
-        let ef = min(1, Double(queryAnalysis.entities.count) / 8)
-        let topic = queryAnalysis.entities.prefix(3).joined(separator: ", ").ifEmpty(
-            "the query topic")
-
-        switch stage {
-        case .triage:
-            return queryAnalysis.isPhilosophical
-                ? "complexity score: \(String(format: "%.2f", 0.7 + c * 0.3)) — philosophical-conceptual routing"
-                : "complexity score: \(String(format: "%.2f", 0.3 + c * 0.6)) — \(c > 0.5 ? "executive" : "moderate-depth") analysis"
-
-        case .memory:
-            return "\(Int(2 + c * 8)) context fragments retrieved for \"\(topic)\""
-
-        case .routing:
-            if queryAnalysis.isPhilosophical {
-                return "philosophical-analytical mode — dialectical + ethical + epistemic engines"
-            } else if queryAnalysis.isMetaAnalytical {
-                return "meta-analytical mode — multi-study synthesis with heterogeneity assessment"
-            } else if queryAnalysis.questionType == .causal {
-                return "causal-inference mode — DAG construction + Bradford Hill scoring"
+    /// Run an async operation with a timeout. Returns nil if the timeout elapses.
+    nonisolated private static func withTimeout<T: Sendable>(
+        seconds: TimeInterval,
+        operation: @escaping @Sendable () async throws -> T
+    ) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask { try? await operation() }
+            group.addTask {
+                try? await Task.sleep(for: .seconds(seconds))
+                return nil
             }
-            return "executive mode — full reasoning pipeline"
-
-        case .statistical:
-            let d = String(format: "%.2f", 0.2 + c * 0.8 + ef * 0.2)
-            return
-                "Cohen's d = \(d) (\(Double(d) ?? 0 > 0.8 ? "large" : Double(d) ?? 0 > 0.5 ? "medium" : "small"))"
-
-        case .causal:
-            let hill = String(format: "%.2f", 0.4 + c * 0.35 + ef * 0.15)
-            return
-                "Bradford Hill score: \(hill) — \(Double(hill) ?? 0 > 0.7 ? "strong" : Double(hill) ?? 0 > 0.5 ? "moderate" : "weak") causal evidence"
-
-        case .metaAnalysis:
-            if queryAnalysis.isPhilosophical {
-                return
-                    "\(Int(3 + Double(queryAnalysis.entities.count) * 0.6)) traditions synthesized"
-            }
-            let iSq = Int(20 + c * 40 + ef * 20)
-            return
-                "\(Int(4 + c * 8 + ef * 4)) studies pooled, I\u{00B2} = \(iSq)% (\(iSq < 30 ? "low" : iSq < 60 ? "moderate" : "high") heterogeneity)"
-
-        case .bayesian:
-            let bf = String(format: "%.1f", 1.5 + c * 12 + ef * 6)
-            return
-                "BF\u{2081}\u{2080} = \(bf) (\(Double(bf) ?? 0 > 10 ? "strong" : Double(bf) ?? 0 > 3 ? "moderate" : "weak") evidence)"
-
-        case .synthesis:
-            return queryAnalysis.isPhilosophical
-                ? "synthesizing dialectical analysis across \(queryAnalysis.entities.count) concepts"
-                : "integrating evidence streams for structured response"
-
-        case .adversarial:
-            let challenges = max(1, Int(1 + c * 2 + ef))
-            return "\(challenges) weakness\(challenges > 1 ? "es" : "") identified"
-
-        case .calibration:
-            let conf = String(format: "%.2f", 0.3 + c * 0.35 + ef * 0.2)
-            let grade = Double(conf) ?? 0 > 0.75 ? "A" : Double(conf) ?? 0 > 0.55 ? "B" : "C"
-            return "final confidence: \(conf) (grade \(grade))"
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result
         }
     }
 
