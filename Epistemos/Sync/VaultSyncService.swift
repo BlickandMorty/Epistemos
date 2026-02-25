@@ -290,9 +290,9 @@ final class VaultSyncService {
             try context.delete(model: SDPage.self)
             try context.delete(model: SDFolder.self)
             try context.save()
-            log.info("Cleared all vault data from SwiftData")
+            Log.vault.info("Cleared all vault data from SwiftData")
         } catch {
-            log.error("Failed to clear vault data: \(error.localizedDescription, privacy: .public)")
+            Log.vault.error("Failed to clear vault data: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -363,7 +363,11 @@ final class VaultSyncService {
         }
 
         if migrated > 0 {
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Log.vault.error("Failed to save after hybrid sync migration: \(error.localizedDescription, privacy: .public)")
+            }
         }
 
         UserDefaults.standard.set(true, forKey: migrationKey)
@@ -384,7 +388,11 @@ final class VaultSyncService {
         for page in pages {
             page.updatedAt = .distantPast
         }
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save after external storage migration: \(error.localizedDescription, privacy: .public)")
+        }
 
         UserDefaults.standard.set(true, forKey: migrationKey)
         log.info("Inline body migration: reset \(pages.count) page timestamps for re-import")
@@ -398,7 +406,11 @@ final class VaultSyncService {
         guard let vaultURL, let actor = indexActor else { return [] }
 
         let context = modelContainer.mainContext
-        try? context.save()  // Persist latest state
+        do {
+            try context.save()  // Persist latest state
+        } catch {
+            Log.vault.error("Failed to save before sync-from-vault: \(error.localizedDescription, privacy: .public)")
+        }
 
         // Re-import vault (handles new files + updates)
         do {
@@ -423,7 +435,11 @@ final class VaultSyncService {
             page.lastSyncedAt = .now
             page.needsVaultSync = false
         }
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save after sync-from-vault hash update: \(error.localizedDescription, privacy: .public)")
+        }
 
         log.info("Sync from vault complete: \(updatedPages.count) pages")
         return []
@@ -446,7 +462,11 @@ final class VaultSyncService {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard (try? context.fetch(descriptor).first) != nil else { return }
 
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save before page export (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
+        }
 
         let actor = indexActor
         Task {
@@ -459,7 +479,11 @@ final class VaultSyncService {
                         page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
                         page.lastSyncedAt = .now
                         page.needsVaultSync = false
-                        try? context.save()
+                        do {
+                            try context.save()
+                        } catch {
+                            Log.vault.error("Failed to save sync tracking for page (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
+                        }
                         SpotlightIndexer.index(page)
                     }
                 }
@@ -494,7 +518,11 @@ final class VaultSyncService {
             captureVersionIfNeeded(pageId: pageId)
         }
 
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save before dirty pages export: \(error.localizedDescription, privacy: .public)")
+        }
 
         let actor = indexActor
         Task {
@@ -516,7 +544,11 @@ final class VaultSyncService {
                         SpotlightIndexer.index(page)
                     }
                 }
-                try? context.save()
+                do {
+                    try context.save()
+                } catch {
+                    Log.vault.error("Failed to save sync tracking after dirty pages export: \(error.localizedDescription, privacy: .public)")
+                }
             }
 
             log.info("Saved \(dirtyIds.count) dirty pages to vault")
@@ -570,7 +602,11 @@ final class VaultSyncService {
 
         let version = SDPageVersion(pageId: pageId, title: page.title, body: page.body, wordCount: page.wordCount)
         context.insert(version)
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save captured version for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
         log.info("Captured version for page \(pageId.prefix(8))")
         pruneVersions(pageId: pageId)
     }
@@ -585,7 +621,11 @@ final class VaultSyncService {
         desc.fetchOffset = Self.maxVersionsPerPage
         guard let old = try? context.fetch(desc), !old.isEmpty else { return }
         for version in old { context.delete(version) }
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save after pruning versions for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
         log.info("Pruned \(old.count) old versions for page \(pageId.prefix(8))")
     }
 
@@ -634,7 +674,11 @@ final class VaultSyncService {
         // Insert into main context (we're on MainActor)
         let context = modelContainer.mainContext
         context.insert(page)
-        try? context.save()  // Explicit save ensures the page is persisted before background export
+        do {
+            try context.save()  // Explicit save ensures the page is persisted before background export
+        } catch {
+            Log.vault.error("Failed to save new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+        }
 
         // Index in Spotlight
         SpotlightIndexer.index(page)

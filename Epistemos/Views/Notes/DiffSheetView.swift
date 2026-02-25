@@ -377,7 +377,11 @@ struct DiffSheetView: View {
         // Overwrite page body with the selected version
         page.body = version.body
         page.wordCount = version.body.split(separator: " ").count
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Log.db.error("Failed to save after version restore for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
 
         // Update live state
         liveBody = version.body
@@ -399,7 +403,11 @@ struct DiffSheetView: View {
 
         page.body = oldBody
         page.wordCount = oldBody.split(separator: " ").count
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Log.db.error("Failed to save after undo restore for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
 
         liveBody = oldBody
         preRestoreBody = nil
@@ -444,7 +452,11 @@ struct DiffSheetView: View {
     private func deleteSelectedVersion() {
         guard let version = selectedVersion else { return }
         modelContext.delete(version)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Log.db.error("Failed to save after deleting version: \(error.localizedDescription, privacy: .public)")
+        }
         loadVersions()
     }
 }
