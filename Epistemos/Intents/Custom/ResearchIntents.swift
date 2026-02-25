@@ -80,7 +80,7 @@ struct FactCheckIntent: AppIntent {
         let pattern = "\(field):\\s*(.+)"
         guard let range = text.range(of: pattern, options: .regularExpression) else { return nil }
         let match = text[range]
-        let colonIndex = match.firstIndex(of: ":")!
+        guard let colonIndex = match.firstIndex(of: ":") else { return nil }
         return String(match[match.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
     }
 }

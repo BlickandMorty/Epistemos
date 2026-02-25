@@ -651,9 +651,7 @@ private struct AuthorCard: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var yearRange: String {
-        guard !author.years.isEmpty else { return "" }
-        let mn = author.years.min()!
-        let mx = author.years.max()!
+        guard let mn = author.years.min(), let mx = author.years.max() else { return "" }
         return mn == mx ? "\(mn)" : "\(mn)–\(mx)"
     }
 
