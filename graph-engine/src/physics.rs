@@ -409,6 +409,32 @@ impl PhysicsState {
             self.positions[i] = next;
         }
 
+        // ── 7.5. Collision resolution — prevent visual overlap ──────────
+        // O(n²) pairwise check is fine for n < 500 (our target).
+        // Only run while simulation is active to avoid wasting cycles.
+        if alpha > 0.01 {
+            let min_gap = 4.0; // Minimum gap between node edges in world units
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    let diff = self.positions[j] - self.positions[i];
+                    let dist = diff.length();
+                    let min_dist = self.radii[i] + self.radii[j] + min_gap;
+                    if dist < min_dist {
+                        // For coincident nodes, pick an arbitrary separation direction
+                        let (direction, actual_dist) = if dist > 0.001 {
+                            (diff / dist, dist)
+                        } else {
+                            (Vec2::new(1.0, 0.0), 0.0)
+                        };
+                        let overlap = (min_dist - actual_dist) * 0.5;
+                        let push = direction * overlap;
+                        self.positions[i] -= push;
+                        self.positions[j] += push;
+                    }
+                }
+            }
+        }
+
         // ── 8. Apply drag constraint (after Verlet) ─────────────────────
         // Lerp dragged node toward cursor target. Setting prev_pos = pos
         // before the lerp zeros the Verlet inertia term so forces don't
@@ -635,6 +661,72 @@ mod tests {
             "Large-radius node should be pushed further: B.x={} should be < A.x={}",
             state_b.positions[0].x,
             state_a.positions[0].x,
+        );
+    }
+
+    #[test]
+    fn overlapping_nodes_separated() {
+        // Two nodes at the exact same position with radius 10 each.
+        // After one tick the collision pass should push them apart to
+        // at least radii[0] + radii[1] + min_gap = 10 + 10 + 4 = 24.
+        let mut state = make_verlet_state(vec![
+            Vec2::new(100.0, 100.0),
+            Vec2::new(100.0, 100.0), // same position → zero distance
+        ]);
+        state.radii = vec![10.0, 10.0];
+        // Disable everything except collision resolution
+        state.config.repulsion = 0.0;
+        state.config.center_strength = 0.0;
+        state.config.attraction = 0.0;
+        state.config.alpha = 1.0;
+        state.config.alpha_min = 0.0;
+        state.config.alpha_decay = 0.0; // Keep alpha constant
+
+        state.tick();
+
+        let dist = (state.positions[1] - state.positions[0]).length();
+        let min_expected = 10.0 + 10.0 + 4.0; // radii sum + min_gap
+        assert!(
+            dist >= min_expected,
+            "Overlapping nodes should be separated to at least {}, got {}",
+            min_expected, dist,
+        );
+    }
+
+    #[test]
+    fn non_overlapping_nodes_unchanged() {
+        // Two nodes 200 units apart with radius 8 each.
+        // min_dist = 8 + 8 + 4 = 20, which is far less than 200.
+        // Collision pass should not move them. With all other forces
+        // disabled, positions should remain essentially unchanged.
+        let mut state = make_verlet_state(vec![
+            Vec2::new(0.0, 0.0),
+            Vec2::new(200.0, 0.0),
+        ]);
+        state.radii = vec![8.0, 8.0];
+        state.config.repulsion = 0.0;
+        state.config.center_strength = 0.0;
+        state.config.attraction = 0.0;
+        state.config.alpha = 1.0;
+        state.config.alpha_min = 0.0;
+        state.config.alpha_decay = 0.0;
+
+        let pos0_before = state.positions[0];
+        let pos1_before = state.positions[1];
+
+        state.tick();
+
+        let drift0 = (state.positions[0] - pos0_before).length();
+        let drift1 = (state.positions[1] - pos1_before).length();
+        assert!(
+            drift0 < 1.0,
+            "Node 0 should barely move, drifted {}",
+            drift0,
+        );
+        assert!(
+            drift1 < 1.0,
+            "Node 1 should barely move, drifted {}",
+            drift1,
         );
     }
 
