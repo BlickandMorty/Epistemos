@@ -16,6 +16,8 @@ struct IdeasPortalView: View {
     @State private var viewMode: ViewMode = .byNote
     @State private var searchText = ""
     @State private var showCreateSheet = false
+    @State private var isLinkMode = false
+    @State private var linkSelection: [String] = []
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -52,6 +54,22 @@ struct IdeasPortalView: View {
                 .pickerStyle(.segmented)
 
                 Button {
+                    isLinkMode.toggle()
+                    linkSelection.removeAll()
+                } label: {
+                    Image(systemName: "link")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(isLinkMode ? theme.background : theme.accent)
+                        .frame(width: 24, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(isLinkMode ? theme.accent : theme.accent.opacity(0.1))
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(isLinkMode ? "Cancel linking" : "Link two ideas")
+
+                Button {
                     showCreateSheet = true
                 } label: {
                     Image(systemName: "plus")
@@ -65,6 +83,26 @@ struct IdeasPortalView: View {
                 }
                 .buttonStyle(.plain)
                 .help("New Idea")
+            }
+
+            if isLinkMode {
+                HStack(spacing: 6) {
+                    Image(systemName: "link")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.accent)
+                    Text(linkSelection.isEmpty
+                         ? "Select 2 ideas to link"
+                         : "Select 1 more idea (\(linkSelection.count)/2)")
+                        .font(.epCaption)
+                        .foregroundStyle(theme.accent)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(theme.accent.opacity(0.08))
+                )
             }
 
             if viewMode == .all {
@@ -262,7 +300,17 @@ struct IdeasPortalView: View {
 
     @ViewBuilder
     private func ideaRow(_ idea: NoteIdea, pageId: String) -> some View {
+        let isSelected = linkSelection.contains(idea.id)
+
         HStack(spacing: Spacing.sm) {
+            // Link-mode selection indicator
+            if isLinkMode {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(isSelected ? theme.accent : theme.textTertiary)
+                    .frame(width: 20)
+            }
+
             // Type icon
             Image(systemName: idea.type == .brainDump ? "brain" : "lightbulb")
                 .font(.system(size: 12))
@@ -286,33 +334,44 @@ struct IdeasPortalView: View {
 
             Spacer()
 
-            // Graph focus button
-            Button {
-                focusIdeaInGraph(idea)
-            } label: {
-                Image(systemName: "scope")
-                    .font(.system(size: 10))
-                    .foregroundStyle(theme.textTertiary)
-            }
-            .buttonStyle(.plain)
-            .help("Center in graph")
+            if !isLinkMode {
+                // Graph focus button
+                Button {
+                    focusIdeaInGraph(idea)
+                } label: {
+                    Image(systemName: "scope")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Center in graph")
 
-            // Delete button
-            Button {
-                deleteIdea(idea, fromPageId: pageId)
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 10))
-                    .foregroundStyle(theme.textTertiary)
+                // Delete button
+                Button {
+                    deleteIdea(idea, fromPageId: pageId)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Delete idea")
             }
-            .buttonStyle(.plain)
-            .help("Delete idea")
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 5)
+        .background(
+            isLinkMode && isSelected
+                ? theme.accent.opacity(0.08)
+                : Color.clear
+        )
         .contentShape(Rectangle())
         .onTapGesture {
-            NoteWindowManager.shared.open(pageId: pageId)
+            if isLinkMode {
+                toggleLinkSelection(idea)
+            } else {
+                NoteWindowManager.shared.open(pageId: pageId)
+            }
         }
     }
 
@@ -395,6 +454,62 @@ struct IdeasPortalView: View {
     }
 
     // MARK: - Actions
+
+    private func toggleLinkSelection(_ idea: NoteIdea) {
+        if let index = linkSelection.firstIndex(of: idea.id) {
+            linkSelection.remove(at: index)
+        } else {
+            guard linkSelection.count < 2 else { return }
+            linkSelection.append(idea.id)
+            if linkSelection.count == 2 {
+                linkSelectedIdeas()
+            }
+        }
+    }
+
+    private func linkSelectedIdeas() {
+        guard linkSelection.count == 2 else { return }
+
+        let idA = linkSelection[0]
+        let idB = linkSelection[1]
+
+        // Find graph nodes for both ideas (try .idea first, then .brainDump)
+        let nodeA = graphState.store.node(bySourceId: idA, type: .idea)
+            ?? graphState.store.node(bySourceId: idA, type: .brainDump)
+        let nodeB = graphState.store.node(bySourceId: idB, type: .idea)
+            ?? graphState.store.node(bySourceId: idB, type: .brainDump)
+
+        guard let nodeA, let nodeB else {
+            // Reset if nodes not found in graph
+            linkSelection.removeAll()
+            isLinkMode = false
+            return
+        }
+
+        // Persist the edge via SwiftData
+        let sdEdge = SDGraphEdge(
+            source: nodeA.id,
+            target: nodeB.id,
+            type: .ideaLink,
+            weight: 1.0
+        )
+        modelContext.insert(sdEdge)
+
+        // Add to in-memory graph store
+        let edgeRecord = GraphEdgeRecord(
+            id: sdEdge.id,
+            sourceNodeId: nodeA.id,
+            targetNodeId: nodeB.id,
+            type: .ideaLink,
+            weight: 1.0,
+            createdAt: sdEdge.createdAt
+        )
+        graphState.store.addEdge(edgeRecord)
+
+        // Reset link mode
+        linkSelection.removeAll()
+        isLinkMode = false
+    }
 
     private func focusIdeaInGraph(_ idea: NoteIdea) {
         let nodeType: GraphNodeType = idea.type == .brainDump ? .brainDump : .idea
