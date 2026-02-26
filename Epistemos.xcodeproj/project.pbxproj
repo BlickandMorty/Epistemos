@@ -74,6 +74,7 @@
 		709603D34C0C1AB5E3035898 /* AppBootstrap+ChatOrchestration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDB8F0790BC798EE63145524 /* AppBootstrap+ChatOrchestration.swift */; };
 		70FF71E217877FD681651188 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */; };
 		71B515B00D4223ADCB38F093 /* MiniChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01501774D229B160DB423DA /* MiniChatView.swift */; };
+		756748A11540A8BBE8873B31 /* MetalGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92BE69414B3450E913B45DF /* MetalGraphView.swift */; };
 		75C700C860CDA76BB99BCFC0 /* NoteWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */; };
 		76BFFBAC03BA72756E6A8313 /* PillNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EDAE57D8846BCCCDE876C09 /* PillNavBar.swift */; };
 		79E5F7F2472543C5B09FD2B4 /* VaultSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90360B15B11C41D8F944352 /* VaultSyncService.swift */; };
@@ -84,6 +85,7 @@
 		8D4055CB85E867D6E4737A36 /* SOAREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FE918724D095CA26CDE027 /* SOAREngine.swift */; };
 		8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 33119B911499635E646BB389 /* RetroGaming.ttf */; };
 		92522C81F8AB01E6993FB2B4 /* SOARTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */; };
+		9490E04A6F62C5038D94EA71 /* GraphWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1F60E14CA9A1F46C3B6E62 /* GraphWindowView.swift */; };
 		96FB7AD7B6833B867CC1B4B6 /* CommandPaletteOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */; };
 		986166A75033C3FF046A1B94 /* PageStoragePool.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */; };
 		9C63C274562EF873FCDF079C /* NotesUIState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04D63187FD2C7EC9B1445BB /* NotesUIState.swift */; };
@@ -238,6 +240,7 @@
 		A50B1590CC5E5BFACB7A3C31 /* SOARState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARState.swift; sourceTree = "<group>"; };
 		A8A4402EB228D73EF547EC7D /* FolderEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderEntity.swift; sourceTree = "<group>"; };
 		A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalGeneratorTests.swift; sourceTree = "<group>"; };
+		A92BE69414B3450E913B45DF /* MetalGraphView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MetalGraphView.swift; sourceTree = "<group>"; };
 		AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSpotlight.framework; path = System/Library/Frameworks/CoreSpotlight.framework; sourceTree = SDKROOT; };
 		ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageStoragePool.swift; sourceTree = "<group>"; };
 		ACAD000100000000EXPRT01 /* WriterExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterExportService.swift; sourceTree = "<group>"; };
@@ -284,6 +287,7 @@
 		E3260DBD123A55AE26999EC3 /* PromptComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptComposer.swift; sourceTree = "<group>"; };
 		E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTextView.swift; sourceTree = "<group>"; };
 		E9964F6D56D0A9A72ED41455 /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = System/Library/Frameworks/SwiftData.framework; sourceTree = SDKROOT; };
+		EA1F60E14CA9A1F46C3B6E62 /* GraphWindowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphWindowView.swift; sourceTree = "<group>"; };
 		EBD84760F9ECD2E997B4FAAD /* SDPage+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SDPage+Queries.swift"; sourceTree = "<group>"; };
 		ED8EB883CA519394AC49A9DB /* GlassModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassModifiers.swift; sourceTree = "<group>"; };
 		FB24375B0C39C436B8F01641 /* TaggedMarkdownTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaggedMarkdownTextView.swift; sourceTree = "<group>"; };
@@ -530,6 +534,7 @@
 				DFA393A1C65EF3ACD5057B0A /* Settings */,
 				05C4F6315798FDFD20DCEEE0 /* Shared */,
 				63EDB380878AC84C1E323CC2 /* Shell */,
+				ED4A0A7E9728EA29EA5A409D /* Graph */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -668,6 +673,16 @@
 				DBCE9BB3C0705F928987D1C4 /* UtilityWindowManager.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		ED4A0A7E9728EA29EA5A409D /* Graph */ = {
+			isa = PBXGroup;
+			children = (
+				A92BE69414B3450E913B45DF /* MetalGraphView.swift */,
+				EA1F60E14CA9A1F46C3B6E62 /* GraphWindowView.swift */,
+			);
+			name = Graph;
+			path = Graph;
 			sourceTree = "<group>";
 		};
 		F5DB1B3EF520523DDC7B03C1 /* Engine */ = {
@@ -938,6 +953,8 @@
 				8A47E20DFF8507D934770455 /* VaultOrganizerView.swift in Sources */,
 				79E5F7F2472543C5B09FD2B4 /* VaultSyncService.swift in Sources */,
 				3A108651CC3EAA7022379103 /* WordProcessorIntents.swift in Sources */,
+				756748A11540A8BBE8873B31 /* MetalGraphView.swift in Sources */,
+				9490E04A6F62C5038D94EA71 /* GraphWindowView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

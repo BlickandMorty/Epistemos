@@ -42,6 +42,12 @@ struct EpistemosApp: App {
                 ui: bootstrap.uiState, chat: bootstrap.chatState, notesUI: bootstrap.notesUI,
                 vaultSync: bootstrap.vaultSync)
         }
+
+        Window("Knowledge Graph", id: "graph") {
+            GraphWindowView()
+        }
+        .modelContainer(bootstrap.modelContainer)
+        .defaultSize(width: 1000, height: 700)
     }
 }
 
