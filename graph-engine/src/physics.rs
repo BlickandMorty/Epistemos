@@ -258,6 +258,16 @@ impl PhysicsState {
 
         self.config.alpha = 1.0;
         self.is_settled = false;
+
+        // Boost mass based on connectivity (hub nodes claim more space)
+        let mut degree = vec![0u32; self.positions.len()];
+        for &(src, tgt, _) in &self.edges {
+            degree[src as usize] += 1;
+            degree[tgt as usize] += 1;
+        }
+        for i in 0..self.masses.len() {
+            self.masses[i] *= 1.0 + (degree[i] as f32).sqrt() * 0.3;
+        }
     }
 
     /// Load physics state from graph, including only visible nodes.
@@ -293,6 +303,16 @@ impl PhysicsState {
 
         self.config.alpha = 0.3; // Gentle reheat on filter change
         self.is_settled = false;
+
+        // Boost mass based on connectivity (hub nodes claim more space)
+        let mut degree = vec![0u32; self.positions.len()];
+        for &(src, tgt, _) in &self.edges {
+            degree[src as usize] += 1;
+            degree[tgt as usize] += 1;
+        }
+        for i in 0..self.masses.len() {
+            self.masses[i] *= 1.0 + (degree[i] as f32).sqrt() * 0.3;
+        }
     }
 
     /// Run one tick of the force simulation using Verlet integration.
@@ -749,5 +769,137 @@ mod tests {
         assert_eq!(state.radii[0], 8.0, "weight 1 -> radius 8");
         assert_eq!(state.radii[1], 14.0, "weight 5 -> radius 14");
         assert_eq!(state.radii[2], 22.0, "weight 15 -> radius 22");
+    }
+
+    #[test]
+    fn hub_node_has_boosted_mass() {
+        use crate::types::Graph;
+
+        let mut graph = Graph::new();
+        // Node 0: the hub — will have 10 edges
+        graph.add_node("hub".into(), 0.0, 0.0, 0, 1.0, "Hub".into());
+        // Node 1: isolated — zero edges
+        graph.add_node("isolated".into(), 100.0, 0.0, 0, 1.0, "Isolated".into());
+        // Nodes 2..11: spokes connected to the hub
+        for i in 0..10 {
+            let name = format!("spoke_{}", i);
+            graph.add_node(name.clone(), (i as f32) * 20.0, 50.0, 0, 1.0, name.clone());
+        }
+
+        // Connect all 10 spokes to the hub
+        for i in 0..10 {
+            let spoke_name = format!("spoke_{}", i);
+            graph.add_edge("hub", &spoke_name, 0, 1.0);
+        }
+
+        let mut state = PhysicsState::new();
+        state.load_from_graph(&graph);
+
+        // Hub (index 0) has degree 10: mass = 1.0 * (1 + sqrt(10) * 0.3) ~= 1.949
+        // Isolated (index 1) has degree 0: mass = 1.0 * (1 + sqrt(0) * 0.3) = 1.0
+        assert!(
+            state.masses[0] > state.masses[1],
+            "Hub mass ({}) should be greater than isolated mass ({})",
+            state.masses[0],
+            state.masses[1],
+        );
+
+        // Verify the exact formula: hub degree = 10
+        let expected_hub_mass = 1.0 * (1.0 + (10.0_f32).sqrt() * 0.3);
+        assert!(
+            (state.masses[0] - expected_hub_mass).abs() < 0.001,
+            "Hub mass should be ~{}, got {}",
+            expected_hub_mass,
+            state.masses[0],
+        );
+
+        // Isolated node mass should remain 1.0 (no boost)
+        assert!(
+            (state.masses[1] - 1.0).abs() < 0.001,
+            "Isolated mass should be 1.0, got {}",
+            state.masses[1],
+        );
+    }
+
+    #[test]
+    fn degree_boost_increases_spacing() {
+        // Two identical layouts: a center node surrounded by 8 neighbors.
+        // Setup A: center node has degree-boosted mass (loaded from graph with edges).
+        // Setup B: center node has base mass (loaded from graph without edges).
+        // Both have attraction disabled so only repulsion acts.
+        // The boosted-mass center in setup A repels neighbors more strongly,
+        // producing larger average spacing after several ticks.
+        use crate::types::Graph;
+
+        // --- Setup A: center node is a hub with edges (gets mass boost) ---
+        let mut graph_hub = Graph::new();
+        graph_hub.add_node("center".into(), 300.0, 300.0, 0, 1.0, "Center".into());
+        for i in 0..8 {
+            let angle = (i as f32) * std::f32::consts::TAU / 8.0;
+            let x = 300.0 + angle.cos() * 40.0;
+            let y = 300.0 + angle.sin() * 40.0;
+            let name = format!("n{}", i);
+            graph_hub.add_node(name.clone(), x, y, 0, 1.0, name.clone());
+            graph_hub.add_edge("center", &name, 0, 1.0);
+        }
+
+        let mut state_hub = PhysicsState::new();
+        state_hub.load_from_graph(&graph_hub);
+        // Disable attraction and centering so only repulsion matters
+        state_hub.config.attraction = 0.0;
+        state_hub.config.center_strength = 0.0;
+        state_hub.config.alpha_decay = 0.0;
+
+        // --- Setup B: same positions, no edges (no mass boost) ---
+        let mut graph_no_hub = Graph::new();
+        graph_no_hub.add_node("center".into(), 300.0, 300.0, 0, 1.0, "Center".into());
+        for i in 0..8 {
+            let angle = (i as f32) * std::f32::consts::TAU / 8.0;
+            let x = 300.0 + angle.cos() * 40.0;
+            let y = 300.0 + angle.sin() * 40.0;
+            let name = format!("n{}", i);
+            graph_no_hub.add_node(name.clone(), x, y, 0, 1.0, name.clone());
+        }
+
+        let mut state_no_hub = PhysicsState::new();
+        state_no_hub.load_from_graph(&graph_no_hub);
+        state_no_hub.config.attraction = 0.0;
+        state_no_hub.config.center_strength = 0.0;
+        state_no_hub.config.alpha_decay = 0.0;
+
+        // Confirm the hub center actually has boosted mass
+        assert!(
+            state_hub.masses[0] > state_no_hub.masses[0],
+            "Hub center mass ({}) should exceed no-hub center mass ({})",
+            state_hub.masses[0],
+            state_no_hub.masses[0],
+        );
+
+        // Run both for several ticks
+        for _ in 0..10 {
+            state_hub.tick();
+            state_no_hub.tick();
+        }
+
+        // Measure average distance of neighbors from center in both setups
+        let center_hub = state_hub.positions[0];
+        let center_no = state_no_hub.positions[0];
+
+        let avg_dist_hub: f32 = (1..9)
+            .map(|i| (state_hub.positions[i] - center_hub).length())
+            .sum::<f32>()
+            / 8.0;
+
+        let avg_dist_no: f32 = (1..9)
+            .map(|i| (state_no_hub.positions[i] - center_no).length())
+            .sum::<f32>()
+            / 8.0;
+
+        assert!(
+            avg_dist_hub > avg_dist_no,
+            "Hub setup neighbors should be further from center ({}) than no-hub setup ({})",
+            avg_dist_hub,
+            avg_dist_no,
+        );
     }
 }
