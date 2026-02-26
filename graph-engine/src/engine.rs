@@ -7,6 +7,7 @@ use parking_lot::Mutex;
 
 use crate::physics::PhysicsState;
 use crate::renderer::Renderer;
+use crate::spatial::SpatialIndex;
 use crate::types::Graph;
 
 // ── Callback types ──────────────────────────────────────────────────────────
@@ -76,6 +77,9 @@ pub struct Engine {
     on_node_hovered: Option<CallbackSlot<HoverCallback>>,
     on_labels_updated: Option<CallbackSlot<LabelsCallback>>,
 
+    // Spatial index for O(log n) hit testing (click/hover detection)
+    spatial_index: SpatialIndex,
+
     // Cached CStrings for callback UUID delivery (avoids per-frame allocation)
     uuid_cache: Vec<CString>,
 }
@@ -104,6 +108,7 @@ impl Engine {
             on_node_right_clicked: None,
             on_node_hovered: None,
             on_labels_updated: None,
+            spatial_index: SpatialIndex::new(),
             uuid_cache: Vec::new(),
         }
     }
@@ -265,22 +270,10 @@ impl Engine {
         )
     }
 
-    /// Linear scan hit test over all visible nodes. Returns the closest node within radius.
+    /// O(log n) hit test using the spatial quadtree index.
+    /// Returns the closest visible node whose padded radius contains `world_pos`.
     fn hit_test(&self, world_pos: Vec2) -> Option<u32> {
-        let mut best: Option<(u32, f32)> = None;
-        for node in &self.graph.nodes {
-            if !node.visible {
-                continue;
-            }
-            let dist = (world_pos - node.pos).length();
-            let hit_radius = node.radius * 1.5; // 50% padding for touch targets
-            if dist < hit_radius {
-                if best.is_none() || dist < best.unwrap().1 {
-                    best = Some((node.id, dist));
-                }
-            }
-        }
-        best.map(|(id, _)| id)
+        self.spatial_index.query_point(world_pos.x, world_pos.y)
     }
 
     pub fn mouse_down(&mut self, x: f32, y: f32, button: u8) {
@@ -371,6 +364,9 @@ impl Engine {
     pub fn render(&mut self) {
         // Sync positions from the latest snapshot
         self.sync_positions();
+
+        // Rebuild spatial index for O(log n) hit testing (click/hover)
+        self.spatial_index.build(&self.graph.nodes);
 
         // Project visible node positions to screen and fire labels callback
         self.fire_labels_updated();

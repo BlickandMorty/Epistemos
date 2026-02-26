@@ -1,6 +1,7 @@
 mod engine;
 mod physics;
 mod renderer;
+pub mod spatial;
 mod types;
 
 use std::ffi::{c_char, c_void, CStr};
