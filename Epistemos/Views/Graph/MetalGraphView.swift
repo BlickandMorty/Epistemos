@@ -40,6 +40,18 @@ struct MetalGraphView: NSViewRepresentable {
         if graphState.isLoaded, !coordinator.hasLoadedData, let engine = coordinator.engine {
             coordinator.loadGraphData(engine: engine, store: graphState.store)
         }
+
+        // Push visibility bitmask when filter state changes
+        if coordinator.hasLoadedData, let engine = coordinator.engine {
+            let currentHash = graphState.filter.activeNodeTypes.hashValue
+                ^ (graphState.filter.focusedNodeId?.hashValue ?? 0)
+                ^ graphState.filter.hiddenNodeIds.hashValue
+                ^ (graphState.filter.timelineDate?.hashValue ?? 0)
+            if currentHash != coordinator.lastFilterHash {
+                coordinator.lastFilterHash = currentHash
+                coordinator.pushVisibility(engine: engine, filter: graphState.filter, store: graphState.store)
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -54,6 +66,8 @@ struct MetalGraphView: NSViewRepresentable {
         /// nonisolated(unsafe) because deinit needs to free the engine.
         nonisolated(unsafe) var engine: UnsafeMutableRawPointer?
         var hasLoadedData = false
+        var nodeInsertionOrder: [String] = []
+        var lastFilterHash: Int = 0
 
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
             if let engine {
@@ -82,8 +96,11 @@ struct MetalGraphView: NSViewRepresentable {
                 .concept: 10, .tag: 11, .quote: 12,
             ]
 
-            // Send nodes one at a time — withCString keeps pointers alive for the FFI call
+            // Send nodes one at a time — withCString keeps pointers alive for the FFI call.
+            // Capture insertion order so visibility bitmask indices match Rust's node array.
+            var orderedIds: [String] = []
             for node in store.nodes.values {
+                orderedIds.append(node.id)
                 node.id.withCString { uuidPtr in
                     node.label.withCString { labelPtr in
                         var cNode = CNode(
@@ -98,6 +115,7 @@ struct MetalGraphView: NSViewRepresentable {
                     }
                 }
             }
+            nodeInsertionOrder = orderedIds
 
             // Send edges one at a time
             for edge in store.edges.values {
@@ -121,6 +139,23 @@ struct MetalGraphView: NSViewRepresentable {
             let nc = graph_engine_node_count(engine)
             let ec = graph_engine_edge_count(engine)
             Log.app.info("MetalGraphView: loaded \(nc) nodes, \(ec) edges into Rust engine")
+        }
+
+        // MARK: - Visibility
+
+        /// Build a uint8_t bitmask from FilterEngine state and push it to Rust.
+        @MainActor
+        func pushVisibility(engine: UnsafeMutableRawPointer, filter: FilterEngine, store: GraphStore) {
+            guard !nodeInsertionOrder.isEmpty else { return }
+            var mask = [UInt8](repeating: 0, count: nodeInsertionOrder.count)
+            for (i, nodeId) in nodeInsertionOrder.enumerated() {
+                if let node = store.nodes[nodeId], filter.isNodeVisible(node) {
+                    mask[i] = 1
+                }
+            }
+            mask.withUnsafeBufferPointer { ptr in
+                graph_engine_set_visibility(engine, ptr.baseAddress, ptr.count)
+            }
         }
 
         deinit {
