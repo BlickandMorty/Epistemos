@@ -796,8 +796,8 @@ impl Renderer {
     /// Render one frame. Camera must be updated via update_camera() before calling draw().
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
         autoreleasepool(|| {
-            // Camera already advanced in Engine::render() before fire_labels_updated(),
-            // ensuring labels and Metal rendering share the same camera state.
+            // Camera already advanced in Engine::render() before upload_labels(),
+            // ensuring MSDF labels and Metal rendering share the same camera state.
 
             let drawable = match self.layer.next_drawable() {
                 Some(d) => d,
