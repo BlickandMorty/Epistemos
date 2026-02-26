@@ -107,7 +107,7 @@ struct GraphWindowView: View {
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "123456789")) { press in
-            let ch = press.characters.first!
+            guard let ch = press.characters.first else { return .handled }
             if let nodeType = Self.filterKeyMap[ch] {
                 withAnimation(Motion.quick) {
                     graphState.filter.toggleType(nodeType)
@@ -171,7 +171,6 @@ struct GraphWindowView: View {
 
         // Show Only Connected
         let showConnected = NSMenuItem(title: "Show Only Connected", action: nil, keyEquivalent: "")
-        showConnected.target = nil
         menu.addItem(showConnected)
         showConnected.representedObject = ContextAction {
             graphState.focusOnNode(nodeId)

@@ -105,6 +105,46 @@ struct FilterEngineTests {
         #expect(!engine.isNodeVisible(futureNode))
     }
 
+    @Test("hide node makes it invisible")
+    func hideNodeMakesItInvisible() {
+        let engine = FilterEngine()
+        let node = makeNode(id: "n1", type: .note)
+
+        #expect(engine.isNodeVisible(node))
+        engine.hideNode("n1")
+        #expect(!engine.isNodeVisible(node))
+        #expect(engine.isFiltered)
+    }
+
+    @Test("unhide node restores visibility")
+    func unhideNodeRestoresVisibility() {
+        let engine = FilterEngine()
+        let node = makeNode(id: "n1", type: .note)
+
+        engine.hideNode("n1")
+        #expect(!engine.isNodeVisible(node))
+
+        engine.unhideNode("n1")
+        #expect(engine.isNodeVisible(node))
+    }
+
+    @Test("clear hidden restores all hidden nodes")
+    func clearHiddenRestoresAll() {
+        let engine = FilterEngine()
+        let nodeA = makeNode(id: "a", type: .note)
+        let nodeB = makeNode(id: "b", type: .thinker)
+
+        engine.hideNode("a")
+        engine.hideNode("b")
+        #expect(!engine.isNodeVisible(nodeA))
+        #expect(!engine.isNodeVisible(nodeB))
+
+        engine.clearHidden()
+        #expect(engine.isNodeVisible(nodeA))
+        #expect(engine.isNodeVisible(nodeB))
+        #expect(!engine.isFiltered)
+    }
+
     @Test("edge visible only if both endpoints visible")
     func edgeVisibleOnlyIfBothEndpointsVisible() {
         let engine = FilterEngine()
