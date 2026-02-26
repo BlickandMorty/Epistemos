@@ -18,6 +18,8 @@
 		03080C020849EDF12EF27D59 /* PipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 818ABA625E1915138186C72C /* PipelineService.swift */; };
 		0421C1D3B7F67F34F49539E3 /* GradeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12DE96DC3ED4E824BEB4BC4F /* GradeTests.swift */; };
 		991B2ED9590E41EF8DF0EFB7 /* GraphModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7406CA8CD942BD8B4D3623 /* GraphModelTests.swift */; };
+		EDEFF9B79E5544F3A9931584 /* GraphStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B60666F023BD43CB9AC4001E /* GraphStoreTests.swift */; };
+		0A0020BDED64410F9837C3CF /* ForceSimulationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 868D11B3A8C44EED81EB969C /* ForceSimulationTests.swift */; };
 		05DF67064FF54B3C374F4211 /* SDPageVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B436566D022F335FA30747 /* SDPageVersion.swift */; };
 		06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */; };
 		07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A4402EB228D73EF547EC7D /* FolderEntity.swift */; };
@@ -55,6 +57,8 @@
 		F5E833B39A954C4F88B3850B /* SDGraphEdge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365CEFC2FA684F40A68C0856 /* SDGraphEdge.swift */; };
 		91E24EF7296A47A4A822A35E /* SDGraphNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBB51CE182684CE7B2490E69 /* SDGraphNode.swift */; };
 		87D62F126EDB4A39B4B86CFB /* GraphTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9B6A70E57F490EA446D83B /* GraphTypes.swift */; };
+		5E851D26A49B415782E31D44 /* GraphStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDF034EF4894629B508AD92 /* GraphStore.swift */; };
+		94B230E541FC44C5B3F7990D /* ForceSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */; };
 		33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */; };
 		34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */; };
 		37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */; };
@@ -229,6 +233,10 @@
 		631B76DC8FFADF44A0EB0F6C /* ClickableTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickableTextView.swift; sourceTree = "<group>"; };
 		654F422C75468BDA30E3F786 /* SDPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDPage.swift; sourceTree = "<group>"; };
 		365CEFC2FA684F40A68C0856 /* SDGraphEdge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDGraphEdge.swift; sourceTree = "<group>"; };
+		EEDF034EF4894629B508AD92 /* GraphStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphStore.swift; sourceTree = "<group>"; };
+		25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceSimulation.swift; sourceTree = "<group>"; };
+		B60666F023BD43CB9AC4001E /* GraphStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphStoreTests.swift; sourceTree = "<group>"; };
+		868D11B3A8C44EED81EB969C /* ForceSimulationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceSimulationTests.swift; sourceTree = "<group>"; };
 		DBB51CE182684CE7B2490E69 /* SDGraphNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDGraphNode.swift; sourceTree = "<group>"; };
 		6C9B6A70E57F490EA446D83B /* GraphTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphTypes.swift; sourceTree = "<group>"; };
 		6C1DBE46501FCAC1C106C8A2 /* PageShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageShell.swift; sourceTree = "<group>"; };
@@ -405,6 +413,15 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		7E9DE2694C9B47CBB4AA7BA8 /* Graph */ = {
+			isa = PBXGroup;
+			children = (
+				EEDF034EF4894629B508AD92 /* GraphStore.swift */,
+				25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */,
+			);
+			path = Graph;
+			sourceTree = "<group>";
+		};
 		3125BF94C0A9F8E7C6D2102E /* Fonts */ = {
 			isa = PBXGroup;
 			children = (
@@ -420,6 +437,7 @@
 				E84F81714131A6C713425FD5 /* App */,
 				123975AE61B0ED7B013373DD /* docs */,
 				F5DB1B3EF520523DDC7B03C1 /* Engine */,
+				7E9DE2694C9B47CBB4AA7BA8 /* Graph */,
 				039065FD6B7F3B62CF954B17 /* Intents */,
 				2694A659EB5423633BEF1F7B /* Models */,
 				3E0E8A3893A6D8C23B24C522 /* Resources */,
@@ -654,6 +672,8 @@
 				867AD4732275B3BB472FB1A3 /* LineDiffTests.swift */,
 				1DF6BDB75B9E9918C6D1C704 /* QueryAnalyzerTests.swift */,
 				A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */,				9B7406CA8CD942BD8B4D3623 /* GraphModelTests.swift */,
+				B60666F023BD43CB9AC4001E /* GraphStoreTests.swift */,
+				868D11B3A8C44EED81EB969C /* ForceSimulationTests.swift */,
 
 			);
 			path = EpistemosTests;
@@ -808,6 +828,8 @@
 				6F5080E70F9E887C446D2BB5 /* QueryAnalyzerTests.swift in Sources */,
 				D5BB2F79FFF66EF142F8DC66 /* SignalGeneratorTests.swift in Sources */,
 				991B2ED9590E41EF8DF0EFB7 /* GraphModelTests.swift in Sources */,
+				EDEFF9B79E5544F3A9931584 /* GraphStoreTests.swift in Sources */,
+				0A0020BDED64410F9837C3CF /* ForceSimulationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -935,6 +957,8 @@
 				79E5F7F2472543C5B09FD2B4 /* VaultSyncService.swift in Sources */,
 				3A108651CC3EAA7022379103 /* WordProcessorIntents.swift in Sources */,
 				87D62F126EDB4A39B4B86CFB /* GraphTypes.swift in Sources */,
+				5E851D26A49B415782E31D44 /* GraphStore.swift in Sources */,
+				94B230E541FC44C5B3F7990D /* ForceSimulation.swift in Sources */,
 				91E24EF7296A47A4A822A35E /* SDGraphNode.swift in Sources */,
 				F5E833B39A954C4F88B3850B /* SDGraphEdge.swift in Sources */,
 			);
