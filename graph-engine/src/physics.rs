@@ -112,7 +112,7 @@ impl QTNode {
         children[qi2].as_mut().unwrap().insert(idx, pos, mass, depth + 1);
     }
 
-    fn compute_force(&self, pos: Vec2, repulsion: f32) -> Vec2 {
+    fn compute_force(&self, pos: Vec2, radius: f32, repulsion: f32) -> Vec2 {
         if self.total_mass == 0.0 { return Vec2::ZERO; }
 
         let diff = pos - self.center_of_mass;
@@ -121,8 +121,11 @@ impl QTNode {
 
         // If this is a leaf or sufficiently far away, use approximation
         if self.children.is_none() || (self.bounds.w / dist) < THETA {
-            // Coulomb-like repulsion: F = repulsion * mass / dist²
-            let force_mag = repulsion * self.total_mass / dist_sq;
+            // Coulomb-like repulsion with radius offset:
+            // A larger node (bigger radius) shrinks effective_dist, producing
+            // stronger repulsion so big nodes claim more visual space.
+            let effective_dist = (dist - radius).max(1.0);
+            let force_mag = repulsion * self.total_mass / (effective_dist * effective_dist);
             return diff.normalize_or_zero() * force_mag;
         }
 
@@ -131,7 +134,7 @@ impl QTNode {
         if let Some(children) = &self.children {
             for child in children.iter() {
                 if let Some(c) = child {
-                    force += c.compute_force(pos, repulsion);
+                    force += c.compute_force(pos, radius, repulsion);
                 }
             }
         }
@@ -337,8 +340,12 @@ impl PhysicsState {
         // ── 3. Repulsion via Barnes-Hut ─────────────────────────────────
         let mut accelerations = vec![Vec2::ZERO; n];
         for i in 0..n {
-            accelerations[i] += tree.compute_force(self.positions[i], self.config.repulsion)
-                / self.masses[i]; // F = ma, so a = F/m
+            // Pass this node's radius so leaf-level forces account for visual size
+            accelerations[i] += tree.compute_force(
+                self.positions[i],
+                self.radii[i],
+                self.config.repulsion,
+            ) / self.masses[i]; // F = ma, so a = F/m
         }
 
         // ── 4. Attraction along edges (Hooke's spring) ─────────────────
@@ -585,6 +592,50 @@ mod tests {
         // Node should continue moving right due to momentum (Verlet inertia)
         assert!(state.positions[0].x > 100.0,
             "Node should continue moving right, got {}", state.positions[0].x);
+    }
+
+    #[test]
+    fn large_node_repels_more() {
+        // Two identical setups: node 0 at origin, node 1 nearby.
+        // Setup A: node 0 has radius 8  (small)
+        // Setup B: node 0 has radius 22 (large)
+        // After a single tick, node 0 in setup B should be pushed further
+        // from node 1 because effective_dist is smaller → force is stronger.
+        //
+        // We use a single tick to measure the raw force difference before
+        // Verlet inertia accumulation muddies the comparison.
+
+        let positions = vec![Vec2::new(0.0, 0.0), Vec2::new(50.0, 0.0)];
+
+        // --- Setup A: small radius ---
+        let mut state_a = make_verlet_state(positions.clone());
+        state_a.radii[0] = 8.0;
+        state_a.config.center_strength = 0.0;
+        state_a.config.alpha = 1.0;
+        state_a.config.alpha_min = 0.0;
+        state_a.config.alpha_decay = 0.0; // No cooling so alpha stays constant
+
+        // --- Setup B: large radius ---
+        let mut state_b = make_verlet_state(positions);
+        state_b.radii[0] = 22.0;
+        state_b.config.center_strength = 0.0;
+        state_b.config.alpha = 1.0;
+        state_b.config.alpha_min = 0.0;
+        state_b.config.alpha_decay = 0.0;
+
+        // Single tick: measures immediate force-driven displacement
+        state_a.tick();
+        state_b.tick();
+
+        // Node 0 moves left (negative x) in both cases.
+        // With larger radius, the repulsion is stronger, so node 0
+        // should be further left (more negative x) in setup B.
+        assert!(
+            state_b.positions[0].x < state_a.positions[0].x,
+            "Large-radius node should be pushed further: B.x={} should be < A.x={}",
+            state_b.positions[0].x,
+            state_a.positions[0].x,
+        );
     }
 
     #[test]
