@@ -23,16 +23,24 @@ struct SavedPaper: Identifiable, Codable, Sendable {
     var year: String?
     var journal: String?
     var doi: String?
+    var url: String?
     var abstract: String?
+    var source: String?          // e.g. "chat", "minichat", "note-scan", "research"
     var isFavorite: Bool
     var addedAt: Date
+    /// The chat ID where this citation was extracted (for provenance navigation).
+    var originChatId: String?
+    /// The note title where this citation was extracted (for provenance display).
+    var originNoteTitle: String?
 
     init(id: String = UUID().uuidString, title: String, authors: String, year: String? = nil,
-         journal: String? = nil, doi: String? = nil, abstract: String? = nil,
-         isFavorite: Bool = false, addedAt: Date = .now) {
+         journal: String? = nil, doi: String? = nil, url: String? = nil, abstract: String? = nil,
+         source: String? = nil, isFavorite: Bool = false, addedAt: Date = .now,
+         originChatId: String? = nil, originNoteTitle: String? = nil) {
         self.id = id; self.title = title; self.authors = authors; self.year = year
-        self.journal = journal; self.doi = doi; self.abstract = abstract
-        self.isFavorite = isFavorite; self.addedAt = addedAt
+        self.journal = journal; self.doi = doi; self.url = url; self.abstract = abstract
+        self.source = source; self.isFavorite = isFavorite; self.addedAt = addedAt
+        self.originChatId = originChatId; self.originNoteTitle = originNoteTitle
     }
 }
 

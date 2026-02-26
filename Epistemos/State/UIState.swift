@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Observation
+import UserNotifications
 
 // MARK: - UI State
 // Ephemeral UI state only — no persistent data arrays.
@@ -138,15 +139,41 @@ final class UIState {
     func stopBreathe() { breatheActive = false }
 
     /// Schedule the next breathe reminder based on the current interval.
+    /// Uses both an in-app Task timer AND a system notification so the
+    /// reminder works even when the app is in the background.
     func scheduleBreatheReminder() {
         breatheReminderTask?.cancel()
+        // Clear any pending system notification (guard: UNUserNotificationCenter
+        // asserts in test bundles that lack notification entitlements).
+        if Bundle.main.bundleIdentifier?.hasSuffix(".tests") != true {
+            UNUserNotificationCenter.current().removePendingNotificationRequests(
+                withIdentifiers: ["epistemos.breathe.reminder"])
+        }
+
         guard breatheReminder != .off else { return }
         let minutes = breatheReminder.minutes
+
+        // In-app timer — triggers the overlay when app is in foreground
         breatheReminderTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(minutes * 60))
             guard !Task.isCancelled else { return }
             startBreathe()
+            // Schedule the next one
+            scheduleBreatheReminder()
         }
+
+        // System notification — visible in Notification Center even when backgrounded.
+        // Guarded: UNUserNotificationCenter crashes in XCTest bundles.
+        guard Bundle.main.bundleIdentifier?.hasSuffix(".tests") != true else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Time to Breathe"
+        content.body = "Take a moment. 4 seconds in, 7 hold, 8 out."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: TimeInterval(minutes * 60), repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "epistemos.breathe.reminder", content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request) { _ in }
     }
 
     // MARK: - Mini-Chat Methods

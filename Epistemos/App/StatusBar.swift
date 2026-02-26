@@ -22,10 +22,12 @@ final class StatusBar {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
 
         if let button = item.button {
-            button.image = NSImage(
-                systemSymbolName: "brain.head.profile", accessibilityDescription: "Epistemos")
-            button.image?.size = NSSize(width: 18, height: 18)
-            button.image?.isTemplate = true
+            // Try the custom book icon from the asset catalog, fall back to SF Symbol
+            let img = NSImage(named: "MenuBarIcon")
+                ?? NSImage(systemSymbolName: "book", accessibilityDescription: "Epistemos")
+            img?.size = NSSize(width: 18, height: 18)
+            img?.isTemplate = true
+            button.image = img
         }
 
         let menu = buildMenu()

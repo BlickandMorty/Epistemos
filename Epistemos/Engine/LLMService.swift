@@ -498,21 +498,39 @@ extension LLMService {
         )
     }
 
-    /// Snapshot for enrichment passes (2–6) — always prefers Anthropic for analytical quality.
-    /// Enrichment prompts require dense JSON schema compliance + genuine chain-of-thought reasoning.
-    /// They were designed for Claude; other providers produce thinner or schema-non-compliant output.
-    /// Falls back to configSnapshot() only if no Anthropic key is present.
+    /// Snapshot for enrichment passes (2–6).
+    /// Priority: Anthropic (best JSON schema compliance) > current provider > any provider with a key.
+    /// This ensures enrichment runs whenever ANY valid API key exists, not just Anthropic.
     func enrichmentSnapshot() -> LLMSnapshot {
-        guard !inference.anthropicKey.isEmpty else {
-            // No Anthropic key — best effort with current provider
-            return configSnapshot()
+        // 1. Prefer Anthropic — best analytical quality for enrichment prompts
+        if !inference.anthropicKey.isEmpty {
+            return LLMSnapshot(
+                provider: .anthropic,
+                apiKey: inference.anthropicKey,
+                model: inference.anthropicModel,
+                ollamaBaseUrl: inference.ollamaBaseUrl
+            )
         }
-        return LLMSnapshot(
-            provider: .anthropic,
-            apiKey: inference.anthropicKey,
-            model: inference.anthropicModel,
-            ollamaBaseUrl: inference.ollamaBaseUrl
-        )
+        // 2. Try the currently selected provider
+        let current = configSnapshot()
+        if !current.apiKey.isEmpty || current.provider == .ollama || current.provider == .appleIntelligence {
+            return current
+        }
+        // 3. Try any provider that has a key (priority: OpenAI > Google > Kimi)
+        if !inference.openaiKey.isEmpty {
+            return LLMSnapshot(provider: .openai, apiKey: inference.openaiKey,
+                               model: inference.openaiModel, ollamaBaseUrl: inference.ollamaBaseUrl)
+        }
+        if !inference.googleKey.isEmpty {
+            return LLMSnapshot(provider: .google, apiKey: inference.googleKey,
+                               model: inference.googleModel, ollamaBaseUrl: inference.ollamaBaseUrl)
+        }
+        if !inference.kimiKey.isEmpty {
+            return LLMSnapshot(provider: .kimi, apiKey: inference.kimiKey,
+                               model: inference.kimiModel, ollamaBaseUrl: inference.ollamaBaseUrl)
+        }
+        // 4. No keys at all — return current config (enrichmentKeyValid check will skip)
+        return current
     }
 
     /// Generate a response without requiring MainActor — for use from Task.detached enrichment.

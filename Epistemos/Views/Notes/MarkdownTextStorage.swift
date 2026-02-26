@@ -10,6 +10,9 @@ import AppKit
 // - Paragraph styles are static constants (zero allocation per keystroke).
 // - Regexes are pre-compiled static constants (zero compilation per keystroke).
 
+// SAFETY: nonisolated(unsafe) is required because NSTextStorage is not Sendable,
+// but is always accessed on the main thread via NSLayoutManager / NSTextView.
+// All mutable state (isDark, skipInlineStyles, etc.) is only mutated from MainActor contexts.
 nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private let backing = NSMutableAttributedString()
     var isDark: Bool = true
@@ -97,7 +100,33 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         }
 
         let str = backing.string as NSString
-        let paraRange = str.paragraphRange(for: editedRange)
+        var paraRange = str.paragraphRange(for: editedRange)
+
+        // Fenced code blocks span multiple paragraphs. When editing near
+        // a ``` fence or inside a code block, expand the restyle range
+        // forward to the next fence (or end of document) so newly created
+        // lines (e.g. pressing Enter) get proper code block styling.
+        let trimmedPara = str.substring(with: paraRange)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: .whitespaces)
+        if trimmedPara.hasPrefix("```") || isInsideCodeBlock(at: paraRange.location, in: str) {
+            var endLoc = paraRange.location + paraRange.length
+            while endLoc < str.length {
+                let nextLineRange = str.lineRange(for: NSRange(location: endLoc, length: 0))
+                let newEnd = nextLineRange.location + nextLineRange.length
+                guard newEnd > endLoc, newEnd <= str.length else { break }
+                endLoc = newEnd
+                // Bounds-check before extracting substring
+                guard nextLineRange.location + nextLineRange.length <= str.length else { break }
+                let nextLine = str.substring(with: nextLineRange)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: .whitespaces)
+                if nextLine.hasPrefix("```") { break }
+            }
+            let safeEnd = min(endLoc, str.length)
+            let safeLen = max(0, safeEnd - paraRange.location)
+            paraRange = NSRange(location: paraRange.location, length: safeLen)
+        }
 
         applyBaseStyle(range: paraRange)
         restyleLines(in: paraRange)

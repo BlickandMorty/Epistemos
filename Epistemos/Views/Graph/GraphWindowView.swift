@@ -14,6 +14,7 @@ struct GraphWindowView: View {
     @State private var showSidebar = true
     @State private var showTimeline = true
     @State private var sidebarTab: SidebarTab = .info
+    @State private var navigateSearchText: String = ""
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -83,6 +84,28 @@ struct GraphWindowView: View {
                 GraphFilterPills()
                     .padding(.top, Spacing.md)
                     .padding(.trailing, Spacing.md)
+
+                // Scan progress overlay — top-center
+                if graphState.isScanning {
+                    VStack(spacing: 6) {
+                        Text(graphState.scanStatus)
+                            .font(.epCaption)
+                            .foregroundStyle(theme.foreground)
+                        ProgressView(value: graphState.scanProgress)
+                            .progressViewStyle(.linear)
+                            .tint(theme.accent)
+                            .frame(width: 200)
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, Spacing.md)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 60)
+                    .transition(.opacity)
+                }
             }
         }
         .onKeyPress(.space) {
@@ -164,6 +187,13 @@ struct GraphWindowView: View {
                 graphState.refreshStructuralData(context: modelContext)
             }
         }
+        .onChange(of: graphState.selectedNodeId) { _, newId in
+            if newId != nil, showSidebar {
+                withAnimation(Motion.quick) {
+                    sidebarTab = .info
+                }
+            }
+        }
     }
 
     // MARK: - Context Menu
@@ -190,6 +220,11 @@ struct GraphWindowView: View {
         } else if node.type == .chat {
             openItem.representedObject = ContextAction {
                 Log.app.info("Open chat not implemented yet")
+            }
+        } else if node.type == .idea || node.type == .brainDump,
+                  let noteId = node.metadata.originNoteId {
+            openItem.representedObject = ContextAction {
+                NoteWindowManager.shared.open(pageId: noteId)
             }
         } else if let sourceId = node.sourceId {
             openItem.representedObject = ContextAction {
@@ -272,7 +307,7 @@ struct GraphWindowView: View {
             case .ideas:
                 IdeasPortalView()
             case .navigate:
-                navigatePlaceholder
+                navigateView
             case .info:
                 infoPanel
             }
@@ -280,23 +315,89 @@ struct GraphWindowView: View {
         .background(theme.sidebarBackground)
     }
 
-    // MARK: - Sidebar: Navigate (placeholder for Task 9)
+    // MARK: - Sidebar: Navigate
 
-    private var navigatePlaceholder: some View {
-        VStack(spacing: Spacing.md) {
-            Spacer()
-            Image(systemName: "scope")
-                .font(.system(size: 32))
-                .foregroundStyle(theme.textTertiary)
-            Text("Navigate")
-                .font(.epHeading)
-                .foregroundStyle(theme.textSecondary)
-            Text("Coming soon — search & browse graph")
-                .font(.epCaption)
-                .foregroundStyle(theme.textTertiary)
-            Spacer()
+    private var navigateView: some View {
+        VStack(spacing: 0) {
+            // Search field
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.textTertiary)
+                TextField("Search nodes...", text: $navigateSearchText)
+                    .textFieldStyle(.plain)
+                    .font(.epBody)
+                if !navigateSearchText.isEmpty {
+                    Button {
+                        navigateSearchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(theme.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(theme.glassTint.opacity(0.3))
+
+            Rectangle()
+                .fill(theme.border)
+                .frame(height: 0.5)
+
+            // Node list
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(filteredNavigateNodes, id: \.id) { node in
+                        Button {
+                            graphState.selectNode(node.id)
+                            graphState.pendingCenterNodeId = node.id
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: node.type.icon)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(nodeColor(for: node.type))
+                                    .frame(width: 18)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(node.label)
+                                        .font(.epCaption)
+                                        .foregroundStyle(theme.foreground)
+                                        .lineLimit(1)
+                                    Text(node.type.displayName)
+                                        .font(.epSmall)
+                                        .foregroundStyle(theme.textTertiary)
+                                }
+                                Spacer()
+                                Text(String(format: "%.0f", node.weight))
+                                    .font(.epSmall)
+                                    .foregroundStyle(theme.textTertiary)
+                            }
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.vertical, 6)
+                            .background(
+                                graphState.selectedNodeId == node.id
+                                    ? theme.accent.opacity(0.08)
+                                    : Color.clear
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var filteredNavigateNodes: [GraphNodeRecord] {
+        let allNodes = Array(graphState.store.nodes.values)
+        let filtered: [GraphNodeRecord]
+        if navigateSearchText.isEmpty {
+            filtered = allNodes
+        } else {
+            let query = navigateSearchText.lowercased()
+            filtered = allNodes.filter { $0.label.lowercased().contains(query) }
+        }
+        return filtered.sorted { $0.weight > $1.weight }
     }
 
     // MARK: - Sidebar: Info Panel

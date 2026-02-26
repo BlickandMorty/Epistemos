@@ -128,12 +128,13 @@ struct ProseEditorView: View {
         )
 
         if let existing = try? modelContext.fetch(descriptor).first {
-            NoteWindowManager.shared.open(pageId: existing.id)
+            NoteWindowManager.shared.open(pageId: existing.id, fromPageId: page.id)
         } else {
             // Create new page for dangling wikilink
+            let sourcePageId = page.id
             Task {
                 if let newId = await vaultSync.createPage(title: title) {
-                    NoteWindowManager.shared.open(pageId: newId)
+                    NoteWindowManager.shared.open(pageId: newId, fromPageId: sourcePageId)
                 }
             }
         }

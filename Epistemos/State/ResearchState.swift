@@ -38,7 +38,11 @@ final class ResearchState {
     private static let savedPapersKey = "epistemos.research.savedPapers"
 
     func addSavedPaper(_ paper: SavedPaper) {
-        guard !savedPapers.contains(where: { $0.id == paper.id }) else { return }
+        // Deduplicate by ID or by normalized title (auto-extracted papers won't share IDs)
+        let normalizedTitle = paper.title.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !savedPapers.contains(where: {
+            $0.id == paper.id || $0.title.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) == normalizedTitle
+        }) else { return }
         savedPapers.append(paper)
         persistSavedPapers()
     }

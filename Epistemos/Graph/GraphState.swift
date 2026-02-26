@@ -44,11 +44,19 @@ final class GraphState {
             return  // buildStructuralGraph calls loadGraph again
         }
 
-        // Feed topology into simulation
+        // Feed topology into simulation and pre-settle before displaying
         let simNodes = store.nodes.values.map { (id: $0.id, position: $0.position, weight: Float($0.weight)) }
         let simEdges = store.edges.values.map { (source: $0.sourceNodeId, target: $0.targetNodeId, weight: Float($0.weight)) }
-        Task { await simulation.load(nodes: simNodes, edges: simEdges) }
-        isLoaded = true
+        Task {
+            await simulation.load(nodes: simNodes, edges: simEdges)
+            let settledPositions = await simulation.settle(iterations: 200)
+            // Apply settled positions back to store
+            for (nodeId, pos) in settledPositions {
+                store.updatePosition(nodeId, position: pos)
+            }
+            isLoaded = true
+            pendingResetView = true
+        }
     }
 
     // MARK: - Structural Graph

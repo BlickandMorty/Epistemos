@@ -10,6 +10,9 @@ import AppKit
 // - processEditing() is O(paragraph) per keystroke.
 // - reapplyFormatting() is O(document) — called on load and format change.
 
+// SAFETY: nonisolated(unsafe) is required because NSTextStorage is not Sendable,
+// but is always accessed on the main thread via NSLayoutManager / NSTextView.
+// All mutable state (formatState, isDark, skipFormatting) is only mutated from MainActor contexts.
 nonisolated(unsafe) final class WriterTextStorage: NSTextStorage {
     private let backing = NSMutableAttributedString()
     var formatState: WriterFormatState?

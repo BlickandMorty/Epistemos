@@ -20,6 +20,12 @@ import AppKit
 
 final class ClickableTextView: NSTextView {
 
+    // MARK: - Notifications (Right-Click → Ideas / Brain Dumps)
+    // Posted when user selects "New Idea" or "New Brain Dump" from the editor context menu.
+    // NoteTabView observes these to open the IdeasPanel with the correct tab.
+    static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
+    static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
+
     // MARK: - Wikilink Click Handling
 
     /// Closure called when user clicks a [[wikilink]]. Receives the link title.
@@ -179,4 +185,39 @@ final class ClickableTextView: NSTextView {
         super.mouseDown(with: event)
     }
 
+    // MARK: - Context Menu (Right-Click → Ideas / Brain Dumps)
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event) ?? NSMenu()
+
+        menu.addItem(NSMenuItem.separator())
+
+        let ideaItem = NSMenuItem(
+            title: "New Idea at This Line",
+            action: #selector(createIdeaAtLine),
+            keyEquivalent: ""
+        )
+        ideaItem.image = NSImage(systemSymbolName: "lightbulb", accessibilityDescription: "Idea")
+        ideaItem.target = self
+        menu.addItem(ideaItem)
+
+        let dumpItem = NSMenuItem(
+            title: "New Brain Dump at This Line",
+            action: #selector(createBrainDumpAtLine),
+            keyEquivalent: ""
+        )
+        dumpItem.image = NSImage(systemSymbolName: "brain", accessibilityDescription: "Brain Dump")
+        dumpItem.target = self
+        menu.addItem(dumpItem)
+
+        return menu
+    }
+
+    @objc private func createIdeaAtLine() {
+        NotificationCenter.default.post(name: Self.createIdeaNotification, object: nil)
+    }
+
+    @objc private func createBrainDumpAtLine() {
+        NotificationCenter.default.post(name: Self.createBrainDumpNotification, object: nil)
+    }
 }

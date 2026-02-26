@@ -696,7 +696,7 @@ nonisolated enum EnrichmentController {
 
     /// Extracts the outermost JSON object from a string.
     /// Handles: markdown code fences (```json...```), <thinking> blocks,
-    /// and prose-before-JSON (model writes reasoning before the JSON object).
+    /// prose-before-JSON, and trailing commas (common with GPT/Gemini).
     private static func extractJSON(from text: String) -> [String: Any]? {
         // 1. Strip <thinking> blocks (extended thinking models)
         var cleaned = text.replacingOccurrences(
@@ -722,7 +722,16 @@ nonisolated enum EnrichmentController {
             )
             return nil
         }
-        let jsonStr = String(cleaned[firstBrace...lastBrace])
+        var jsonStr = String(cleaned[firstBrace...lastBrace])
+
+        // 4. Strip trailing commas before } or ] — common with GPT/Gemini/Kimi.
+        //    Standard JSON doesn't allow trailing commas; JSONSerialization rejects them.
+        jsonStr = jsonStr.replacingOccurrences(
+            of: ",\\s*([}\\]])",
+            with: "$1",
+            options: .regularExpression
+        )
+
         guard let data = jsonStr.data(using: .utf8) else {
             Log.pipeline.info("🔬 extractJSON: UTF-8 encoding failed")
             return nil

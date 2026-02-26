@@ -40,10 +40,11 @@ extension AppBootstrap {
 
     // MARK: - Query Lifecycle
 
-    /// Cancel the active pipeline query (called by stop button via ChatState callback).
+    /// Cancel the active pipeline query AND enrichment (called by stop button via ChatState callback).
     func cancelActiveQuery() {
         queryTask?.cancel()
         queryTask = nil
+        pipelineService.cancelAllEnrichment()
     }
 
     /// Triggered when Notes Mode is enabled. Builds vault manifest and fires auto-briefing.
@@ -122,6 +123,32 @@ extension AppBootstrap {
                     conversationHistory = nil
                 }
 
+                // Pre-generate the assistant message ID so the onEnriched callback
+                // can target the exact message even if new messages are created.
+                let pendingAssistantId = UUID().uuidString
+                let capturedChatId = chatState.activeChatId
+                let capturedIsIncognito = chatState.isIncognito
+
+                // Enrichment callback — called directly by the enrichment Task.detached,
+                // bypassing the AsyncStream. This survives queryTask cancellation.
+                let onEnriched: @MainActor @Sendable (DualMessage, TruthAssessment) -> Void = { [weak self] dual, truth in
+                    guard let self else { return }
+                    Log.pipeline.info("[enriched] Callback — layman=\(dual.laymanSummary != nil) rawLen=\(dual.rawAnalysis.count) truth=\(Int(truth.overallTruthLikelihood * 100))% targetMsg=\(pendingAssistantId.prefix(8))")
+                    chatState.enrichMessage(id: pendingAssistantId, dualMessage: dual, truthAssessment: truth)
+                    if !capturedIsIncognito {
+                        self.persistEnrichment(
+                            chatId: capturedChatId,
+                            dualMessage: dual,
+                            truthAssessment: truth
+                        )
+                    }
+                    // Auto-extract citations from enriched research analysis
+                    if !dual.rawAnalysis.isEmpty {
+                        self.extractAndSaveCitations(from: dual.rawAnalysis, source: "research",
+                                                      originChatId: capturedChatId)
+                    }
+                }
+
                 let stream = pipeline.run(
                     query: effectiveQuery,
                     mode: mode,
@@ -129,10 +156,9 @@ extension AppBootstrap {
                     soarConfig: self.soarState.soarConfig,
                     notesContext: notesContext,
                     skipEnrichment: !isResearch,
-                    conversationHistory: conversationHistory
+                    conversationHistory: conversationHistory,
+                    onEnriched: isResearch ? onEnriched : nil
                 )
-
-                let capturedChatId = chatState.activeChatId
 
                 for try await event in stream {
                     switch event {
@@ -143,17 +169,9 @@ extension AppBootstrap {
                         chatState.startReasoning()
                         chatState.appendReasoningText(token)
 
-                    case .enriched(let dual, let truth):
-                        Log.pipeline.info("[enriched] Event received — layman=\(dual.laymanSummary != nil) rawLen=\(dual.rawAnalysis.count) truth=\(Int(truth.overallTruthLikelihood * 100))% msgCount=\(chatState.messages.count)")
-                        chatState.enrichLastMessage(dualMessage: dual, truthAssessment: truth)
-                        Log.pipeline.info("[enriched] enrichLastMessage complete — last msg layman=\(chatState.messages.last?.dualMessage?.laymanSummary != nil)")
-                        if !chatState.isIncognito {
-                            self.persistEnrichment(
-                                chatId: capturedChatId,
-                                dualMessage: dual,
-                                truthAssessment: truth
-                            )
-                        }
+                    case .enriched:
+                        // Enrichment now delivered via onEnriched callback, not through the stream.
+                        break
 
                     case .stageAdvanced, .signalUpdate, .soarEvent, .deliberationDelta:
                         break
@@ -162,6 +180,7 @@ extension AppBootstrap {
                         let confidence = truth?.overallTruthLikelihood ?? 0.5
                         let grade = Self.gradeFromConfidence(confidence)
                         chatState.completeProcessing(
+                            messageId: pendingAssistantId,
                             dualMessage: dual,
                             confidence: confidence,
                             grade: grade,
@@ -178,6 +197,12 @@ extension AppBootstrap {
                         }
 
                         eventBus.emit(.pipelineComplete)
+
+                        // Auto-extract citations from the response into the research library
+                        if let responseText = chatState.messages.last?.content {
+                            self.extractAndSaveCitations(from: responseText, source: "chat",
+                                                          originChatId: capturedChatId)
+                        }
 
                         if !chatState.isIncognito {
                             self.persistChatCompletion(
@@ -249,6 +274,23 @@ extension AppBootstrap {
             } catch {
                 Log.pipeline.debug("Chat title generation failed: \(error.localizedDescription, privacy: .public)")
             }
+        }
+    }
+
+    // MARK: - Auto-Citation Extraction
+
+    /// Extract citations from LLM response text and add to the research library.
+    func extractAndSaveCitations(from text: String, source: String,
+                                  originChatId: String? = nil, originNoteTitle: String? = nil) {
+        let papers = CitationExtractor.extract(from: text, source: source,
+                                                originChatId: originChatId,
+                                                originNoteTitle: originNoteTitle)
+        guard !papers.isEmpty else { return }
+        for paper in papers {
+            researchState.addSavedPaper(paper)
+        }
+        if papers.count > 0 {
+            eventBus.emitToast("Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library", type: .info)
         }
     }
 }

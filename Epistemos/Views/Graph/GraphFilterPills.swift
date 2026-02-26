@@ -64,7 +64,7 @@ struct GraphFilterPills: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(theme.glassBorder, lineWidth: 0.5)
         )
-        .frame(maxWidth: 280)
+        .frame(maxWidth: 360)
     }
 
     // MARK: - Pill
@@ -83,11 +83,14 @@ struct GraphFilterPills: View {
             HStack(spacing: 4) {
                 Image(systemName: type.icon)
                     .font(.system(size: 10, weight: .medium))
+                Text(type.displayName)
+                    .font(.system(size: 10, weight: .medium))
                 Text("\(count)")
                     .font(.epSmall)
+                    .opacity(0.7)
             }
             .foregroundStyle(isActive ? pillColor(for: type) : theme.textTertiary)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(
                 Capsule()

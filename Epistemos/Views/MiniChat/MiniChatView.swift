@@ -290,6 +290,8 @@ private struct MiniChatInputBar: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(TriageService.self) private var triage
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(ResearchState.self) private var researchState
+    @Environment(EventBus.self) private var eventBus
     @Environment(\.modelContext) private var modelContext
     @State private var text = ""
     @State private var isProcessing = false
@@ -519,6 +521,9 @@ private struct MiniChatInputBar: View {
                     role: .assistant,
                     content: final.isEmpty ? "No response generated." : final
                 ))
+
+                // Auto-extract citations from response
+                saveCitations(from: final)
             } catch is CancellationError {
                 let partial = threadState.miniChatStreamingText.trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.miniChatStreamingText = ""
@@ -670,6 +675,9 @@ private struct MiniChatInputBar: View {
                     role: .assistant,
                     content: final.isEmpty ? "No response generated." : final
                 ))
+
+                // Auto-extract citations from response
+                saveCitations(from: final)
             } catch is CancellationError {
                 let partial = threadState.miniChatStreamingText.trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.miniChatStreamingText = ""
@@ -681,6 +689,17 @@ private struct MiniChatInputBar: View {
                 threadState.addThreadMessage(AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"))
             }
         }
+    }
+
+    // MARK: - Citation Extraction
+
+    private func saveCitations(from text: String) {
+        let papers = CitationExtractor.extract(from: text, source: "minichat")
+        guard !papers.isEmpty else { return }
+        for paper in papers {
+            researchState.addSavedPaper(paper)
+        }
+        eventBus.emitToast("Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library", type: .info)
     }
 
     // MARK: - Action Parsing & Execution
