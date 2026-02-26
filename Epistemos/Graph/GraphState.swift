@@ -67,4 +67,14 @@ final class GraphState {
     }
 
     func clearFocus() { filter.clearFocus() }
+
+    // MARK: - AI Entity Extraction
+
+    /// Scan the vault using AI to extract thinkers, concepts, quotes, sources, and insights.
+    func scanVault(context: ModelContext, llmService: LLMService) {
+        Task {
+            let extractor = EntityExtractor(graphState: self)
+            await extractor.scanVault(context: context, llmService: llmService)
+        }
+    }
 }
