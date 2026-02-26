@@ -164,6 +164,11 @@ pub extern "C" fn graph_engine_commit(ptr: *mut c_void) {
 
     // Start physics simulation on dedicated thread
     engine.start_physics();
+
+    // Pre-allocate GPU buffers with headroom and perform initial data upload
+    if let Some(renderer) = &mut engine.renderer {
+        renderer.allocate_buffers(&engine.graph);
+    }
 }
 
 /// Query how many nodes are currently loaded.

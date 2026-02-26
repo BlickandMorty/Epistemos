@@ -2,15 +2,20 @@ use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use glam::Vec2;
 use parking_lot::Mutex;
 
 use crate::physics::PhysicsState;
 use crate::renderer::Renderer;
 use crate::types::Graph;
 
-/// Shared state between the physics thread and the render/main thread.
+/// Position snapshot: a lightweight copy of positions that the render thread reads.
+/// Physics thread writes to PhysicsState, then briefly locks to publish a snapshot.
+/// This avoids holding the mutex for the entire O(n log n) physics tick.
 pub struct SharedState {
     pub physics: Mutex<PhysicsState>,
+    /// Latest positions snapshot. Updated by physics thread after each tick.
+    pub positions: Mutex<Vec<Vec2>>,
 }
 
 pub struct Engine {
@@ -27,6 +32,7 @@ impl Engine {
     pub fn new() -> Self {
         let shared = Arc::new(SharedState {
             physics: Mutex::new(PhysicsState::new()),
+            positions: Mutex::new(Vec::new()),
         });
 
         Self {
@@ -67,6 +73,10 @@ impl Engine {
             phys.load_from_graph(&self.graph);
             phys.config.center_x = self.width as f32 / 2.0;
             phys.config.center_y = self.height as f32 / 2.0;
+
+            // Publish initial positions
+            let mut snap = self.shared.positions.lock();
+            *snap = phys.positions.clone();
         }
 
         self.physics_running.store(true, Ordering::SeqCst);
@@ -80,17 +90,30 @@ impl Engine {
                 .spawn(move || {
                     let tick_duration = std::time::Duration::from_micros(8333); // ~120 Hz
 
+                    let mut local_snap: Vec<Vec2> = Vec::new();
+
                     while running.load(Ordering::Relaxed) {
                         let start = std::time::Instant::now();
 
-                        {
+                        // 1. Lock physics, run tick, copy positions to local buffer, unlock
+                        let settled = {
                             let mut phys = shared.physics.lock();
                             phys.tick();
-                            if phys.is_settled {
-                                drop(phys);
-                                std::thread::sleep(std::time::Duration::from_millis(50));
-                                continue;
-                            }
+                            local_snap.clear();
+                            local_snap.extend_from_slice(&phys.positions);
+                            phys.is_settled
+                        };
+                        // Physics mutex is now released.
+
+                        // 2. Briefly lock positions to publish snapshot (no physics lock held)
+                        {
+                            let mut snap = shared.positions.lock();
+                            std::mem::swap(&mut *snap, &mut local_snap);
+                        }
+
+                        if settled {
+                            std::thread::sleep(std::time::Duration::from_millis(50));
+                            continue;
                         }
 
                         let elapsed = start.elapsed();
@@ -111,19 +134,23 @@ impl Engine {
         }
     }
 
-    /// Copy physics positions back to graph nodes (called before rendering).
+    /// Copy position snapshot to graph nodes (called before rendering).
+    /// Only locks the positions mutex briefly — does NOT contend with the full physics tick.
     pub fn sync_positions(&mut self) {
-        let phys = self.shared.physics.lock();
-        phys.write_back(&mut self.graph);
+        let snap = self.shared.positions.lock();
+        let n = snap.len().min(self.graph.nodes.len());
+        for i in 0..n {
+            self.graph.nodes[i].pos = snap[i];
+        }
     }
 
     pub fn render(&mut self) {
-        // Sync positions from physics thread
+        // Sync positions from the latest snapshot
         self.sync_positions();
 
-        // Upload updated positions to GPU and draw
+        // Update positions in pre-allocated GPU buffers and draw
         if let Some(renderer) = &mut self.renderer {
-            renderer.upload_graph(&self.graph);
+            renderer.update_positions(&self.graph);
             renderer.draw(self.width, self.height);
         }
     }
