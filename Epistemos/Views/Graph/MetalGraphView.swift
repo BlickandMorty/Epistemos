@@ -300,9 +300,18 @@ struct MetalGraphView: NSViewRepresentable {
 }
 
 /// MTKView subclass that accepts first responder for trackpad/mouse events.
+///
+/// All coordinates sent to Rust are in **drawable pixels** (not AppKit points).
+/// On retina displays, multiply point coords by `backingScaleFactor` (e.g., 2×)
+/// to match the Metal shader's viewport coordinate system.
 class GraphMTKView: MTKView {
     var engine: UnsafeMutableRawPointer? {
         (delegate as? MetalGraphView.Coordinator)?.engine
+    }
+
+    /// Retina scale: point × scale = drawable pixel
+    private var scale: Float {
+        Float(window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0)
     }
 
     override var acceptsFirstResponder: Bool { true }
@@ -326,6 +335,15 @@ class GraphMTKView: MTKView {
         addTrackingArea(area)
     }
 
+    /// Convert AppKit location (bottom-left origin, points) to Rust screen coords
+    /// (top-left origin, drawable pixels). Matches Metal shader's viewport space.
+    private func toDrawablePixels(_ loc: NSPoint) -> (Float, Float) {
+        let s = scale
+        let px = Float(loc.x) * s
+        let py = Float(bounds.height - loc.y) * s  // Flip Y to top-down, then scale
+        return (px, py)
+    }
+
     // MARK: - Mouse Events
 
     private var isDragging = false
@@ -334,7 +352,8 @@ class GraphMTKView: MTKView {
     override func mouseDown(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
-        graph_engine_mouse_down(engine, Float(loc.x), Float(bounds.height - loc.y), 0)
+        let (px, py) = toDrawablePixels(loc)
+        graph_engine_mouse_down(engine, px, py, 0)
         isDragging = false
         lastDragPoint = loc
     }
@@ -342,17 +361,20 @@ class GraphMTKView: MTKView {
     override func rightMouseDown(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
-        graph_engine_mouse_down(engine, Float(loc.x), Float(bounds.height - loc.y), 1)
+        let (px, py) = toDrawablePixels(loc)
+        graph_engine_mouse_down(engine, px, py, 1)
     }
 
     override func mouseDragged(with event: NSEvent) {
         guard let engine else { return }
         let point = convert(event.locationInWindow, from: nil)
-        let dx = Float(point.x - lastDragPoint.x)
-        let dy = Float(point.y - lastDragPoint.y)
+        let s = scale
+        // Delta in drawable pixels (Y already flipped by negation)
+        let dx = Float(point.x - lastDragPoint.x) * s
+        let dy = Float(point.y - lastDragPoint.y) * s
 
         if !isDragging {
-            if abs(dx) + abs(dy) < 3 { return }
+            if abs(dx) + abs(dy) < 3 * s { return }
             isDragging = true
         }
 
@@ -363,21 +385,24 @@ class GraphMTKView: MTKView {
     override func mouseUp(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
-        graph_engine_mouse_up(engine, Float(loc.x), Float(bounds.height - loc.y))
+        let (px, py) = toDrawablePixels(loc)
+        graph_engine_mouse_up(engine, px, py)
         isDragging = false
     }
 
     override func mouseMoved(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
-        graph_engine_mouse_moved(engine, Float(loc.x), Float(bounds.height - loc.y))
+        let (px, py) = toDrawablePixels(loc)
+        graph_engine_mouse_moved(engine, px, py)
     }
 
     // MARK: - Scroll / Pan
 
     override func scrollWheel(with event: NSEvent) {
         guard let engine else { return }
-        graph_engine_pan(engine, Float(event.scrollingDeltaX), Float(event.scrollingDeltaY))
+        let s = scale
+        graph_engine_pan(engine, Float(event.scrollingDeltaX) * s, Float(event.scrollingDeltaY) * s)
     }
 
     // MARK: - Pinch to Zoom
@@ -385,7 +410,8 @@ class GraphMTKView: MTKView {
     override func magnify(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
+        let (px, py) = toDrawablePixels(loc)
         let factor = 1.0 + Float(event.magnification)
-        graph_engine_zoom(engine, factor, Float(loc.x), Float(loc.y))
+        graph_engine_zoom(engine, factor, px, py)
     }
 }

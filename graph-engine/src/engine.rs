@@ -368,6 +368,13 @@ impl Engine {
         // Rebuild spatial index for O(log n) hit testing (click/hover)
         self.spatial_index.build(&self.graph.nodes);
 
+        // Advance camera animation BEFORE computing label positions.
+        // This ensures labels and Metal rendering use the same camera state,
+        // eliminating the 1-frame lag that caused labels to trail nodes during animation.
+        if let Some(renderer) = &mut self.renderer {
+            renderer.update_camera();
+        }
+
         // Project visible node positions to screen and fire labels callback
         self.fire_labels_updated();
 
