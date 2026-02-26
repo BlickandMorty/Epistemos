@@ -22,6 +22,15 @@ final class GraphNodeSprite: SKNode {
     /// when LOD or position updates re-configure the sprite within the same activation cycle.
     private var hasAnimatedIn: Bool = false
 
+    /// Cached LOD band to avoid redundant property sets every frame.
+    private var currentLODBand: Int = -1
+
+    /// Baseline glow alpha from research stage (hover fades back to this, not zero).
+    private var researchGlowAlpha: CGFloat = 0
+
+    /// Whether this node has an evidence grade ring configured.
+    private var hasGradeRing: Bool = false
+
     // MARK: - Init
 
     override init() {
@@ -151,14 +160,16 @@ final class GraphNodeSprite: SKNode {
             gradeRing.strokeColor = NSColor.systemYellow
             gradeRing.alpha = 0.8
             gradeRing.isHidden = false
+            hasGradeRing = true
         case "B":
             gradeRing.strokeColor = NSColor.lightGray
             gradeRing.alpha = 0.6
             gradeRing.isHidden = false
+            hasGradeRing = true
         default:
-            // C, D, F — no ring
             gradeRing.isHidden = true
             gradeRing.alpha = 0
+            hasGradeRing = false
         }
     }
 
@@ -179,8 +190,10 @@ final class GraphNodeSprite: SKNode {
 
         switch stage {
         case 4:
+            researchGlowAlpha = 0.3
             glowNode.alpha = 0.3
         case 5:
+            researchGlowAlpha = 0.5
             glowNode.alpha = 0.5
         default:
             break
@@ -203,7 +216,10 @@ final class GraphNodeSprite: SKNode {
         iconSprite.isHidden = false
         gradeRing.isHidden = true
         gradeRing.alpha = 0
+        hasGradeRing = false
         hasAnimatedIn = false
+        currentLODBand = -1
+        researchGlowAlpha = 0
         setScale(1.0)
     }
 
@@ -230,31 +246,36 @@ final class GraphNodeSprite: SKNode {
     ///   - radius: The computed radius for this node's weight
     ///   - weight: The node's weight (for hub-node label decisions)
     func applyLOD(scale: CGFloat, radius: CGFloat, weight: Double) {
-        if scale > 2.0 {
+        // Determine LOD band (0=dots, 1=medium, 2=normal, 3=closeUp)
+        let band: Int
+        if scale > 2.0 { band = 0 }
+        else if scale > 1.0 { band = 1 }
+        else if scale > 0.5 { band = 2 }
+        else { band = 3 }
+
+        // Skip redundant updates if band hasn't changed
+        guard band != currentLODBand else { return }
+        currentLODBand = band
+
+        switch band {
+        case 0:
             // Zoomed way out — colored dots only
             iconSprite.isHidden = true
             labelNode.isHidden = true
-            circle.setScale(3.0 / 10.0) // shrink to 3pt radius
+            circle.setScale(3.0 / 10.0)
             gradeRing.isHidden = true
-        } else if scale > 1.0 {
+        case 1:
             // Medium zoom out — circles with color, labels on hub nodes only
             iconSprite.isHidden = true
             circle.setScale(radius / 10.0)
             labelNode.isHidden = weight <= 5
-            // Grade ring visible if applicable (already configured)
-            if gradeRing.alpha > 0 { gradeRing.isHidden = false }
-        } else if scale > 0.5 {
-            // Normal view — full nodes with icons + labels
+            gradeRing.isHidden = !hasGradeRing
+        default:
+            // Normal + close-up — full nodes with icons + labels
             iconSprite.isHidden = false
             circle.setScale(radius / 10.0)
             labelNode.isHidden = false
-            if gradeRing.alpha > 0 { gradeRing.isHidden = false }
-        } else {
-            // Zoomed way in — large nodes, everything visible
-            iconSprite.isHidden = false
-            circle.setScale(radius / 10.0)
-            labelNode.isHidden = false
-            if gradeRing.alpha > 0 { gradeRing.isHidden = false }
+            gradeRing.isHidden = !hasGradeRing
         }
     }
 
@@ -268,9 +289,9 @@ final class GraphNodeSprite: SKNode {
         glowNode.run(.fadeAlpha(to: 0.6, duration: 0.2))
     }
 
-    /// Animate glow out over 0.15s.
+    /// Animate glow out over 0.15s, returning to research-stage baseline if applicable.
     func hideHoverGlow() {
-        glowNode.run(.fadeAlpha(to: 0, duration: 0.15))
+        glowNode.run(.fadeAlpha(to: researchGlowAlpha, duration: 0.15))
     }
 
     // MARK: - Selection Animation
