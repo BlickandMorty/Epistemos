@@ -47,7 +47,7 @@ struct GraphPhysicsSettings: View {
             physicsSlider(
                 label: "Repel Force",
                 value: $gs.physRepelForce,
-                range: 0...2000,
+                range: 0...3000,
                 icon: "arrow.up.left.and.arrow.down.right"
             )
 
@@ -139,12 +139,12 @@ struct GraphPhysicsSettings: View {
     }
 
     private func resetToDefaults() {
-        graphState.physCenterForce = 0.01
-        graphState.physRepelForce = 600.0
-        graphState.physLinkForce = 0.008
-        graphState.physLinkDistance = 120.0
+        graphState.physCenterForce = 0.003
+        graphState.physRepelForce = 800.0
+        graphState.physLinkForce = 0.010
+        graphState.physLinkDistance = 150.0
         graphState.physVelocityDecay = 0.55
-        graphState.physAlphaDecay = 0.015
+        graphState.physAlphaDecay = 0.012
         graphState.pushPhysicsChange()
     }
 }
