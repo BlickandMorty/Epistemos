@@ -47,8 +47,34 @@ struct MetalGraphView: NSViewRepresentable {
                 DispatchQueue.main.async { coord.handleHover(id) }
             }, ctx)
 
-            // Note: labels_updated callback will be registered in Task 7
+            graph_engine_set_on_labels_updated(engine, { (positions: UnsafePointer<LabelPosition>?, count: Int, ctx: UnsafeMutableRawPointer?) in
+                guard let ctx, count > 0, let positions else { return }
+                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
+                // Copy data before crossing thread boundary
+                var labels: [(uuid: String, x: CGFloat, y: CGFloat, radius: CGFloat, alpha: Float)] = []
+                labels.reserveCapacity(count)
+                for i in 0..<count {
+                    let pos = positions[i]
+                    guard let uuidPtr = pos.uuid else { continue }
+                    labels.append((
+                        uuid: String(cString: uuidPtr),
+                        x: CGFloat(pos.screen_x),
+                        y: CGFloat(pos.screen_y),
+                        radius: CGFloat(pos.radius),
+                        alpha: pos.alpha
+                    ))
+                }
+                DispatchQueue.main.async {
+                    coord.labelOverlay?.updateLabels(positions: labels)
+                }
+            }, ctx)
         }
+
+        // Create label overlay as subview of the MTKView
+        let overlay = GraphLabelOverlay(frame: view.bounds)
+        overlay.autoresizingMask = [.width, .height]
+        view.addSubview(overlay)
+        context.coordinator.labelOverlay = overlay
 
         return view
     }
@@ -110,6 +136,7 @@ struct MetalGraphView: NSViewRepresentable {
         var hasLoadedData = false
         var nodeInsertionOrder: [String] = []
         var lastFilterHash: Int = 0
+        var labelOverlay: GraphLabelOverlay?
 
         /// Reference to graphState for publishing selection changes.
         weak var graphStateRef: GraphState?
@@ -203,6 +230,10 @@ struct MetalGraphView: NSViewRepresentable {
 
             // Start animation to fit all nodes in view
             graph_engine_fit_all(engine)
+
+            // Pre-allocate label layers for text overlay
+            let labels = store.nodes.values.map { (uuid: $0.id, text: $0.label) }
+            labelOverlay?.rebuildPool(labels: labels)
 
             hasLoadedData = true
 
