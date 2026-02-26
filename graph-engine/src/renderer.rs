@@ -26,12 +26,15 @@ struct NodeInstance {
     color: [f32; 4],    // offset 16, 16 bytes
 }
 
-/// Per-instance data for edge rendering. Matches shader's EdgeInstance.
+/// Per-vertex data for edge quad-strip rendering. 6 vertices per edge.
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct EdgeVertex {
-    position: [f32; 2],
-    color: [f32; 4],
+struct EdgeQuadVertex {
+    endpoint_a: [f32; 2],  // 8 bytes
+    endpoint_b: [f32; 2],  // 8 bytes
+    perp_sign: f32,        // 4 bytes: -1.0 or +1.0
+    edge_coord: f32,       // 4 bytes: 0.0 at A, 1.0 at B
+    color: [f32; 4],       // 16 bytes
 }
 
 /// Uniform data sent to all shaders (camera transform).
@@ -107,33 +110,75 @@ fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
     return float4(in.color.rgb, in.color.a * alpha);
 }
 
-// ── Edge shaders (line segments) ────────────────────────────────────────
+// ── Edge shaders (quad strips with SDF anti-aliasing) ─────────────────
+
+struct EdgeQuadVertex {
+    float2 endpoint_a;   // offset 0
+    float2 endpoint_b;   // offset 8
+    float  perp_sign;    // offset 16: -1.0 or +1.0
+    float  edge_coord;   // offset 20: 0.0 at A, 1.0 at B
+    float4 color;        // offset 24
+};
 
 struct EdgeVertexOut {
     float4 position [[position]];
     float4 color;
+    float  edge_coord;   // For AA: -1 to +1 across line width
 };
 
 vertex EdgeVertexOut edge_vertex(
     uint vertex_id [[vertex_id]],
-    constant float2* positions [[buffer(0)]],
-    constant float4* colors [[buffer(1)]],
-    constant Uniforms& uniforms [[buffer(2)]]
+    constant EdgeQuadVertex* verts [[buffer(0)]],
+    constant Uniforms& u [[buffer(1)]]
 ) {
-    float2 world_pos = positions[vertex_id];
-    float2 screen = (world_pos - uniforms.camera_offset) * uniforms.camera_zoom;
-    float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
+    EdgeQuadVertex v = verts[vertex_id];
+
+    // Transform both endpoints to clip space
+    float2 a_screen = (v.endpoint_a - u.camera_offset) * u.camera_zoom;
+    float2 b_screen = (v.endpoint_b - u.camera_offset) * u.camera_zoom;
+    float2 a_ndc = a_screen / (u.viewport_size * 0.5) * float2(1, -1);
+    float2 b_ndc = b_screen / (u.viewport_size * 0.5) * float2(1, -1);
+
+    // Direction and perpendicular in NDC (clip-space expansion for zoom invariance)
+    float2 dir = b_ndc - a_ndc;
+    float len = length(dir);
+    float2 norm_dir = len > 0.0001 ? dir / len : float2(0, 1);
+    float2 perp = float2(-norm_dir.y, norm_dir.x);
+
+    // Thickness in NDC: 1.5px equivalent
+    float2 offset = perp * v.perp_sign * 1.5 / u.viewport_size;
+
+    // Pick base position
+    float2 base_ndc = mix(a_ndc, b_ndc, v.edge_coord);
 
     EdgeVertexOut out;
-    out.position = float4(ndc, 0.0, 1.0);
-    out.color = colors[vertex_id];
+    out.position = float4(base_ndc + offset, 0.0, 1.0);
+    out.color = v.color;
+    out.edge_coord = v.perp_sign; // -1 to +1 across width
     return out;
 }
 
 fragment float4 edge_fragment(EdgeVertexOut in [[stage_in]]) {
-    return in.color;
+    // SDF anti-aliasing: smooth falloff at edges
+    float dist = abs(in.edge_coord);
+    float aa_alpha = 1.0 - smoothstep(0.7, 1.0, dist);
+    return float4(in.color.rgb, in.color.a * aa_alpha);
 }
 "#;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Build 6 vertices (2 triangles) forming a quad strip for one edge.
+fn build_edge_quad(a: [f32; 2], b: [f32; 2], color: [f32; 4]) -> [EdgeQuadVertex; 6] {
+    [
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 0.0, color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 0.0, color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 1.0, color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 1.0, color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 0.0, color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 1.0, color },
+    ]
+}
 
 // ── Renderer ────────────────────────────────────────────────────────────────
 
@@ -145,12 +190,11 @@ pub struct Renderer {
     edge_pipeline: RenderPipelineState,
     // Buffers (pre-allocated with headroom, reused across frames)
     node_instance_buf: Option<Buffer>,
-    edge_position_buf: Option<Buffer>,
-    edge_color_buf: Option<Buffer>,
+    edge_quad_buf: Option<Buffer>,
     uniform_buf: Buffer,
     // Capacity tracking — buffers are only re-allocated when count exceeds capacity
     node_instance_capacity: usize,
-    edge_capacity: usize,
+    edge_capacity: usize, // in EdgeQuadVertex count (6 per edge)
     // Camera state
     pub camera_offset: Vec2,
     pub camera_zoom: f32,
@@ -240,8 +284,7 @@ impl Renderer {
             node_pipeline,
             edge_pipeline,
             node_instance_buf: None,
-            edge_position_buf: None,
-            edge_color_buf: None,
+            edge_quad_buf: None,
             uniform_buf,
             node_instance_capacity: 0,
             edge_capacity: 0,
@@ -270,8 +313,7 @@ impl Renderer {
         self.node_count = instances.len();
         if self.node_count == 0 {
             self.node_instance_buf = None;
-            self.edge_position_buf = None;
-            self.edge_color_buf = None;
+            self.edge_quad_buf = None;
             self.edge_vertex_count = 0;
             return;
         }
@@ -284,11 +326,8 @@ impl Renderer {
         );
         self.node_instance_buf = Some(node_buf);
 
-        // ── Edge vertices (2 per edge for line segments, visible only) ──
-        let mut edge_positions: Vec<[f32; 2]> = Vec::with_capacity(graph.edges.len() * 2);
-        let mut edge_colors: Vec<[f32; 4]> = Vec::with_capacity(graph.edges.len() * 2);
-
-        let edge_color: [f32; 4] = [0.35, 0.35, 0.40, 0.5]; // Subtle gray
+        // ── Edge quad-strip vertices (6 per edge, visible only) ─────────
+        let mut edge_verts: Vec<EdgeQuadVertex> = Vec::with_capacity(graph.edges.len() * 6);
 
         for edge in &graph.edges {
             let si = graph.id_to_index.get(&edge.source);
@@ -297,32 +336,26 @@ impl Renderer {
                 let src = &graph.nodes[si];
                 let tgt = &graph.nodes[ti];
                 if !src.visible || !tgt.visible { continue; }
-                edge_positions.push([src.pos.x, src.pos.y]);
-                edge_positions.push([tgt.pos.x, tgt.pos.y]);
-                edge_colors.push(edge_color);
-                edge_colors.push(edge_color);
+                let a = [src.pos.x, src.pos.y];
+                let b = [tgt.pos.x, tgt.pos.y];
+                // Edge color: source node type color at 40% opacity
+                let src_color = src.node_type.color();
+                let color = [src_color[0], src_color[1], src_color[2], 0.4];
+                edge_verts.extend_from_slice(&build_edge_quad(a, b, color));
             }
         }
 
-        self.edge_vertex_count = edge_positions.len();
+        self.edge_vertex_count = edge_verts.len();
 
         if self.edge_vertex_count > 0 {
-            let pos_size = (self.edge_vertex_count * std::mem::size_of::<[f32; 2]>()) as u64;
-            let col_size = (self.edge_vertex_count * std::mem::size_of::<[f32; 4]>()) as u64;
-
-            self.edge_position_buf = Some(self.device.new_buffer_with_data(
-                edge_positions.as_ptr() as *const c_void,
-                pos_size,
-                MTLResourceOptions::StorageModeShared,
-            ));
-            self.edge_color_buf = Some(self.device.new_buffer_with_data(
-                edge_colors.as_ptr() as *const c_void,
-                col_size,
+            let buf_size = (self.edge_vertex_count * std::mem::size_of::<EdgeQuadVertex>()) as u64;
+            self.edge_quad_buf = Some(self.device.new_buffer_with_data(
+                edge_verts.as_ptr() as *const c_void,
+                buf_size,
                 MTLResourceOptions::StorageModeShared,
             ));
         } else {
-            self.edge_position_buf = None;
-            self.edge_color_buf = None;
+            self.edge_quad_buf = None;
         }
     }
 
@@ -331,7 +364,7 @@ impl Renderer {
     /// Call this once after commit (graph topology change), NOT every frame.
     pub fn allocate_buffers(&mut self, graph: &Graph) {
         let node_count = graph.nodes.len();
-        let edge_vertex_count = graph.edges.len() * 2; // 2 vertices per edge (line segment)
+        let edge_vertex_count = graph.edges.len() * 6; // 6 vertices per edge (quad strip)
 
         // ── Node instance buffer ─────────────────────────────────────────
         if node_count > self.node_instance_capacity || self.node_instance_buf.is_none() {
@@ -344,18 +377,13 @@ impl Renderer {
             self.node_instance_capacity = capacity;
         }
 
-        // ── Edge buffers (positions + colors) ────────────────────────────
-        if edge_vertex_count > self.edge_capacity || self.edge_position_buf.is_none() {
+        // ── Edge quad buffer (single interleaved buffer) ─────────────────
+        if edge_vertex_count > self.edge_capacity || self.edge_quad_buf.is_none() {
             let capacity = (edge_vertex_count * 3 / 2).max(64);
-            let pos_size = (capacity * std::mem::size_of::<[f32; 2]>()) as u64;
-            let col_size = (capacity * std::mem::size_of::<[f32; 4]>()) as u64;
-            self.edge_position_buf = Some(
+            let buf_size = (capacity * std::mem::size_of::<EdgeQuadVertex>()) as u64;
+            self.edge_quad_buf = Some(
                 self.device
-                    .new_buffer(pos_size, MTLResourceOptions::StorageModeShared),
-            );
-            self.edge_color_buf = Some(
-                self.device
-                    .new_buffer(col_size, MTLResourceOptions::StorageModeShared),
+                    .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.edge_capacity = capacity;
         }
@@ -388,11 +416,11 @@ impl Renderer {
             return;
         }
 
-        // ── Update edge positions in-place (colors are static, visible only)
-        if let Some(buf) = &self.edge_position_buf {
+        // ── Update edge quad vertices in-place (visible only) ─────────────
+        if let Some(buf) = &self.edge_quad_buf {
             let mut vertex_idx = 0usize;
             unsafe {
-                let ptr = buf.contents() as *mut [f32; 2];
+                let ptr = buf.contents() as *mut EdgeQuadVertex;
                 for edge in &graph.edges {
                     let si = graph.id_to_index.get(&edge.source);
                     let ti = graph.id_to_index.get(&edge.target);
@@ -400,9 +428,16 @@ impl Renderer {
                         let src = &graph.nodes[si];
                         let tgt = &graph.nodes[ti];
                         if !src.visible || !tgt.visible { continue; }
-                        *ptr.add(vertex_idx) = [src.pos.x, src.pos.y];
-                        *ptr.add(vertex_idx + 1) = [tgt.pos.x, tgt.pos.y];
-                        vertex_idx += 2;
+                        let a = [src.pos.x, src.pos.y];
+                        let b = [tgt.pos.x, tgt.pos.y];
+                        // Edge color: source node type color at 40% opacity
+                        let src_color = src.node_type.color();
+                        let color = [src_color[0], src_color[1], src_color[2], 0.4];
+                        let quad = build_edge_quad(a, b, color);
+                        for (j, v) in quad.iter().enumerate() {
+                            *ptr.add(vertex_idx + j) = *v;
+                        }
+                        vertex_idx += 6;
                     }
                 }
             }
@@ -449,15 +484,12 @@ impl Renderer {
 
             // ── Draw edges first (behind nodes) ─────────────────────────
             if self.edge_vertex_count > 0 {
-                if let (Some(pos_buf), Some(col_buf)) =
-                    (&self.edge_position_buf, &self.edge_color_buf)
-                {
+                if let Some(quad_buf) = &self.edge_quad_buf {
                     encoder.set_render_pipeline_state(&self.edge_pipeline);
-                    encoder.set_vertex_buffer(0, Some(pos_buf), 0);
-                    encoder.set_vertex_buffer(1, Some(col_buf), 0);
-                    encoder.set_vertex_buffer(2, Some(&self.uniform_buf), 0);
+                    encoder.set_vertex_buffer(0, Some(quad_buf), 0);
+                    encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
                     encoder.draw_primitives(
-                        MTLPrimitiveType::Line,
+                        MTLPrimitiveType::Triangle,
                         0,
                         self.edge_vertex_count as u64,
                     );
