@@ -64,6 +64,7 @@ final class AppBootstrap {
             container = try ModelContainer(
                 for: SDPage.self, SDFolder.self,
                      SDChat.self, SDMessage.self, SDPageVersion.self,
+                     SDGraphNode.self, SDGraphEdge.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: false)
             )
         } catch {

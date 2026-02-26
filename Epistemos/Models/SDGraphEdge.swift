@@ -1,0 +1,51 @@
+import Foundation
+import SwiftData
+
+// MARK: - SDGraphEdge
+// A directed edge in the knowledge graph. Connects two SDGraphNode entities
+// via denormalized string IDs for fast graph traversal queries.
+//
+// CloudKit-compatible: all properties optional or defaulted.
+
+@Model
+final class SDGraphEdge {
+    // MARK: - Indexes
+    #Index<SDGraphEdge>([\.id], [\.sourceNodeId], [\.targetNodeId], [\.type])
+
+    // MARK: - Identity
+    var id: String = UUID().uuidString
+
+    // MARK: - Relations (denormalized)
+    var sourceNodeId: String = ""
+    var targetNodeId: String = ""
+
+    // MARK: - Edge Properties
+    var type: String = GraphEdgeType.wikilink.rawValue
+    var weight: Double = 1.0
+
+    // MARK: - Timestamps
+    var createdAt: Date = Date.now
+
+    // MARK: - Init
+
+    init(
+        source: String,
+        target: String,
+        type: GraphEdgeType,
+        weight: Double = 1.0
+    ) {
+        self.id = UUID().uuidString
+        self.sourceNodeId = source
+        self.targetNodeId = target
+        self.type = type.rawValue
+        self.weight = weight
+        self.createdAt = .now
+    }
+
+    // MARK: - Computed Accessors
+
+    /// Typed edge type derived from the stored raw value.
+    var edgeType: GraphEdgeType {
+        GraphEdgeType(rawValue: type) ?? .wikilink
+    }
+}
