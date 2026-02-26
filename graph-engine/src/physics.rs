@@ -1,4 +1,5 @@
 use glam::Vec2;
+use rustc_hash::FxHashMap;
 
 // ── Barnes-Hut Quad Tree ────────────────────────────────────────────────────
 
@@ -188,6 +189,7 @@ pub struct PhysicsState {
     pub velocities: Vec<Vec2>,
     pub masses: Vec<f32>,
     pub edges: Vec<(u32, u32, f32)>, // (source_id, target_id, weight)
+    pub graph_indices: Vec<usize>,   // maps physics index -> graph node index
     pub config: ForceConfig,
     pub is_settled: bool,
 }
@@ -199,6 +201,7 @@ impl PhysicsState {
             velocities: Vec::new(),
             masses: Vec::new(),
             edges: Vec::new(),
+            graph_indices: Vec::new(),
             config: ForceConfig::default(),
             is_settled: false,
         }
@@ -222,12 +225,48 @@ impl PhysicsState {
             self.masses.push(node.weight.max(1.0));
         }
 
+        // Identity mapping: physics index i == graph index i
+        self.graph_indices = (0..n).collect();
+
         self.edges.reserve(graph.edges.len());
         for edge in &graph.edges {
             self.edges.push((edge.source, edge.target, edge.weight));
         }
 
         self.config.alpha = 1.0;
+        self.is_settled = false;
+    }
+
+    /// Load physics state from graph, including only visible nodes.
+    /// Builds a compact physics array and maps indices back to graph positions.
+    pub fn load_from_graph_filtered(&mut self, graph: &crate::types::Graph) {
+        self.positions.clear();
+        self.velocities.clear();
+        self.masses.clear();
+        self.edges.clear();
+        self.graph_indices.clear();
+
+        // Build ID -> physics_index map for visible nodes only
+        let mut id_to_phys: FxHashMap<u32, usize> = FxHashMap::default();
+
+        for (graph_idx, node) in graph.nodes.iter().enumerate() {
+            if !node.visible { continue; }
+            let phys_idx = self.positions.len();
+            id_to_phys.insert(node.id, phys_idx);
+            self.positions.push(node.pos);
+            self.velocities.push(node.vel);
+            self.masses.push(node.weight.max(1.0));
+            self.graph_indices.push(graph_idx);
+        }
+
+        // Only include edges where both endpoints are visible
+        for edge in &graph.edges {
+            if let (Some(&si), Some(&ti)) = (id_to_phys.get(&edge.source), id_to_phys.get(&edge.target)) {
+                self.edges.push((si as u32, ti as u32, edge.weight));
+            }
+        }
+
+        self.config.alpha = 0.3; // Gentle reheat on filter change
         self.is_settled = false;
     }
 
@@ -314,12 +353,12 @@ impl PhysicsState {
         }
     }
 
-    /// Write updated positions back to graph nodes.
+    /// Write updated positions back to graph nodes using graph_indices mapping.
     pub fn write_back(&self, graph: &mut crate::types::Graph) {
-        for (i, node) in graph.nodes.iter_mut().enumerate() {
-            if i < self.positions.len() {
-                node.pos = self.positions[i];
-                node.vel = self.velocities[i];
+        for (phys_idx, &graph_idx) in self.graph_indices.iter().enumerate() {
+            if phys_idx < self.positions.len() && graph_idx < graph.nodes.len() {
+                graph.nodes[graph_idx].pos = self.positions[phys_idx];
+                graph.nodes[graph_idx].vel = self.velocities[phys_idx];
             }
         }
     }

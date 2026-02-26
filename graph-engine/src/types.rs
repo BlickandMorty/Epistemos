@@ -70,6 +70,7 @@ pub struct Node {
     pub weight: f32,
     pub label: String,
     pub radius: f32,
+    pub visible: bool,
 }
 
 impl Node {
@@ -140,6 +141,7 @@ impl Graph {
             weight,
             label,
             radius,
+            visible: true,
         };
         let index = self.nodes.len();
         self.uuid_to_id.insert(uuid, id);

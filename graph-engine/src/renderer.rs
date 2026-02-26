@@ -252,26 +252,28 @@ impl Renderer {
         })
     }
 
-    /// Upload graph data to GPU buffers.
+    /// Upload graph data to GPU buffers. Skips invisible nodes and edges
+    /// where either endpoint is invisible.
     pub fn upload_graph(&mut self, graph: &Graph) {
-        self.node_count = graph.nodes.len();
-        if self.node_count == 0 {
-            self.node_instance_buf = None;
-            self.edge_position_buf = None;
-            self.edge_color_buf = None;
-            self.edge_vertex_count = 0;
-            return;
-        }
-
-        // ── Node instances ──────────────────────────────────────────────
-        let mut instances: Vec<NodeInstance> = Vec::with_capacity(self.node_count);
+        // ── Node instances (visible only) ───────────────────────────────
+        let mut instances: Vec<NodeInstance> = Vec::with_capacity(graph.nodes.len());
         for node in &graph.nodes {
+            if !node.visible { continue; }
             instances.push(NodeInstance {
                 position: [node.pos.x, node.pos.y],
                 radius: node.radius,
                 _pad: 0.0,
                 color: node.node_type.color(),
             });
+        }
+
+        self.node_count = instances.len();
+        if self.node_count == 0 {
+            self.node_instance_buf = None;
+            self.edge_position_buf = None;
+            self.edge_color_buf = None;
+            self.edge_vertex_count = 0;
+            return;
         }
 
         let node_buf_size = (self.node_count * std::mem::size_of::<NodeInstance>()) as u64;
@@ -282,17 +284,9 @@ impl Renderer {
         );
         self.node_instance_buf = Some(node_buf);
 
-        // ── Edge vertices (2 per edge for line segments) ────────────────
-        let edge_count = graph.edges.len();
-        self.edge_vertex_count = edge_count * 2;
-        if edge_count == 0 {
-            self.edge_position_buf = None;
-            self.edge_color_buf = None;
-            return;
-        }
-
-        let mut edge_positions: Vec<[f32; 2]> = Vec::with_capacity(self.edge_vertex_count);
-        let mut edge_colors: Vec<[f32; 4]> = Vec::with_capacity(self.edge_vertex_count);
+        // ── Edge vertices (2 per edge for line segments, visible only) ──
+        let mut edge_positions: Vec<[f32; 2]> = Vec::with_capacity(graph.edges.len() * 2);
+        let mut edge_colors: Vec<[f32; 4]> = Vec::with_capacity(graph.edges.len() * 2);
 
         let edge_color: [f32; 4] = [0.35, 0.35, 0.40, 0.5]; // Subtle gray
 
@@ -302,6 +296,7 @@ impl Renderer {
             if let (Some(&si), Some(&ti)) = (si, ti) {
                 let src = &graph.nodes[si];
                 let tgt = &graph.nodes[ti];
+                if !src.visible || !tgt.visible { continue; }
                 edge_positions.push([src.pos.x, src.pos.y]);
                 edge_positions.push([tgt.pos.x, tgt.pos.y]);
                 edge_colors.push(edge_color);
@@ -325,6 +320,9 @@ impl Renderer {
                 col_size,
                 MTLResourceOptions::StorageModeShared,
             ));
+        } else {
+            self.edge_position_buf = None;
+            self.edge_color_buf = None;
         }
     }
 
@@ -368,26 +366,29 @@ impl Renderer {
 
     /// Write ONLY position data into existing pre-allocated buffers via pointer writes.
     /// Does NOT create new buffers. Call this every frame after sync_positions().
+    /// Skips invisible nodes and edges where either endpoint is invisible.
     pub fn update_positions(&mut self, graph: &Graph) {
-        self.node_count = graph.nodes.len();
+        // ── Update node positions in-place (visible only) ────────────────
+        let mut visible_count = 0usize;
+        if let Some(buf) = &self.node_instance_buf {
+            unsafe {
+                let ptr = buf.contents() as *mut NodeInstance;
+                for node in &graph.nodes {
+                    if !node.visible { continue; }
+                    let inst = &mut *ptr.add(visible_count);
+                    inst.position = [node.pos.x, node.pos.y];
+                    visible_count += 1;
+                }
+            }
+        }
+        self.node_count = visible_count;
 
         if self.node_count == 0 {
             self.edge_vertex_count = 0;
             return;
         }
 
-        // ── Update node positions in-place ───────────────────────────────
-        if let Some(buf) = &self.node_instance_buf {
-            unsafe {
-                let ptr = buf.contents() as *mut NodeInstance;
-                for (i, node) in graph.nodes.iter().enumerate() {
-                    let inst = &mut *ptr.add(i);
-                    inst.position = [node.pos.x, node.pos.y];
-                }
-            }
-        }
-
-        // ── Update edge positions in-place (colors are static) ───────────
+        // ── Update edge positions in-place (colors are static, visible only)
         if let Some(buf) = &self.edge_position_buf {
             let mut vertex_idx = 0usize;
             unsafe {
@@ -398,6 +399,7 @@ impl Renderer {
                     if let (Some(&si), Some(&ti)) = (si, ti) {
                         let src = &graph.nodes[si];
                         let tgt = &graph.nodes[ti];
+                        if !src.visible || !tgt.visible { continue; }
                         *ptr.add(vertex_idx) = [src.pos.x, src.pos.y];
                         *ptr.add(vertex_idx + 1) = [tgt.pos.x, tgt.pos.y];
                         vertex_idx += 2;
