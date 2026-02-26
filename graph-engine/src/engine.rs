@@ -279,6 +279,63 @@ impl Engine {
         }
     }
 
+    // ── Camera commands ────────────────────────────────────────────────────
+
+    pub fn reset_camera(&mut self) {
+        if let Some(r) = &mut self.renderer {
+            r.target_offset = Vec2::ZERO;
+            r.target_zoom = 1.0;
+            r.is_animating = true;
+        }
+    }
+
+    pub fn center_on_node(&mut self, uuid: &str) {
+        let node_id = self.graph.uuid_to_id.get(uuid).copied();
+        let node_idx = node_id.and_then(|id| self.graph.id_to_index.get(&id).copied());
+        if let Some(idx) = node_idx {
+            let node = &self.graph.nodes[idx];
+            if let Some(r) = &mut self.renderer {
+                r.target_offset = node.pos;
+                if r.camera_zoom < 1.5 {
+                    r.target_zoom = 2.0;
+                }
+                r.is_animating = true;
+            }
+        }
+    }
+
+    pub fn fit_all(&mut self) {
+        let visible: Vec<&crate::types::Node> = self.graph.nodes.iter().filter(|n| n.visible).collect();
+        if visible.is_empty() { return; }
+
+        let mut min_x = f32::MAX;
+        let mut min_y = f32::MAX;
+        let mut max_x = f32::MIN;
+        let mut max_y = f32::MIN;
+        for n in &visible {
+            min_x = min_x.min(n.pos.x);
+            min_y = min_y.min(n.pos.y);
+            max_x = max_x.max(n.pos.x);
+            max_y = max_y.max(n.pos.y);
+        }
+
+        let bbox_w = (max_x - min_x).max(100.0);
+        let bbox_h = (max_y - min_y).max(100.0);
+        let center = Vec2::new((min_x + max_x) * 0.5, (min_y + max_y) * 0.5);
+
+        let vp_w = self.width as f32;
+        let vp_h = self.height as f32;
+        let zoom_x = vp_w * 0.8 / bbox_w;
+        let zoom_y = vp_h * 0.8 / bbox_h;
+        let zoom = zoom_x.min(zoom_y).clamp(0.1, 5.0);
+
+        if let Some(r) = &mut self.renderer {
+            r.target_offset = center;
+            r.target_zoom = zoom;
+            r.is_animating = true;
+        }
+    }
+
     pub fn render(&mut self) {
         // Sync positions from the latest snapshot
         self.sync_positions();

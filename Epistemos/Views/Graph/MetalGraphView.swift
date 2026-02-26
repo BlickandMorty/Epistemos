@@ -80,6 +80,18 @@ struct MetalGraphView: NSViewRepresentable {
                 coordinator.pushVisibility(engine: engine, filter: graphState.filter, store: graphState.store)
             }
         }
+
+        // Camera commands
+        if graphState.pendingResetView, let engine = coordinator.engine {
+            graph_engine_reset_camera(engine)
+            graphState.pendingResetView = false
+        }
+        if let nodeId = graphState.pendingCenterNodeId, let engine = coordinator.engine {
+            nodeId.withCString { ptr in
+                graph_engine_center_on_node(engine, ptr)
+            }
+            graphState.pendingCenterNodeId = nil
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -188,6 +200,10 @@ struct MetalGraphView: NSViewRepresentable {
 
             // Commit — triggers circular layout + starts physics thread
             graph_engine_commit(engine)
+
+            // Start animation to fit all nodes in view
+            graph_engine_fit_all(engine)
+
             hasLoadedData = true
 
             let nc = graph_engine_node_count(engine)

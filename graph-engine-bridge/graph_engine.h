@@ -81,4 +81,9 @@ void graph_engine_set_on_node_right_clicked(GraphEngine* engine, GraphNodeScreen
 void graph_engine_set_on_node_hovered(GraphEngine* engine, GraphHoverCallback cb, void* ctx);
 void graph_engine_set_on_labels_updated(GraphEngine* engine, GraphLabelsCallback cb, void* ctx);
 
+// Camera commands
+void graph_engine_reset_camera(GraphEngine* engine);
+void graph_engine_center_on_node(GraphEngine* engine, const char* uuid);
+void graph_engine_fit_all(GraphEngine* engine);
+
 #endif /* graph_engine_h */

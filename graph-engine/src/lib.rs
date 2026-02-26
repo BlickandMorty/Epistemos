@@ -331,3 +331,26 @@ pub extern "C" fn graph_engine_set_on_labels_updated(
         engine.set_on_labels_updated(cb, ctx);
     }
 }
+
+// ── Camera commands ────────────────────────────────────────────────────────
+
+/// Reset camera to origin with zoom 1.0 (animated).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_reset_camera(ptr: *mut c_void) {
+    if let Some(engine) = get_engine(ptr) { engine.reset_camera(); }
+}
+
+/// Animate camera to center on a specific node by UUID.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_center_on_node(ptr: *mut c_void, uuid: *const c_char) {
+    let Some(engine) = get_engine(ptr) else { return };
+    if uuid.is_null() { return; }
+    let uuid_str = unsafe { CStr::from_ptr(uuid) }.to_string_lossy();
+    engine.center_on_node(&uuid_str);
+}
+
+/// Animate camera to fit all visible nodes in view.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_fit_all(ptr: *mut c_void) {
+    if let Some(engine) = get_engine(ptr) { engine.fit_all(); }
+}

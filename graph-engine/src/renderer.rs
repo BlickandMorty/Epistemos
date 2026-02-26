@@ -198,6 +198,11 @@ pub struct Renderer {
     // Camera state
     pub camera_offset: Vec2,
     pub camera_zoom: f32,
+    // Camera animation (frame-rate independent)
+    pub target_offset: Vec2,
+    pub target_zoom: f32,
+    pub is_animating: bool,
+    last_frame_time: std::time::Instant,
     // Cached counts
     node_count: usize,
     edge_vertex_count: usize,
@@ -291,6 +296,10 @@ impl Renderer {
             edge_capacity: 0,
             camera_offset: Vec2::ZERO,
             camera_zoom: 1.0,
+            target_offset: Vec2::ZERO,
+            target_zoom: 1.0,
+            is_animating: false,
+            last_frame_time: std::time::Instant::now(),
             node_count: 0,
             edge_vertex_count: 0,
             highlight_count: 0,
@@ -492,9 +501,37 @@ impl Renderer {
         self.highlight_count = idx - self.node_count;
     }
 
+    const CAMERA_LAMBDA: f32 = 8.0;
+
+    /// Smooth the camera toward its target using exponential damping.
+    /// Formula: t = 1 - exp(-lambda * dt). Gives identical results at 60Hz and 120Hz.
+    pub fn update_camera(&mut self) {
+        let now = std::time::Instant::now();
+        let dt = (now - self.last_frame_time).as_secs_f32().min(0.1);
+        self.last_frame_time = now;
+
+        if !self.is_animating { return; }
+
+        let t = 1.0 - (-Self::CAMERA_LAMBDA * dt).exp();
+
+        self.camera_offset = self.camera_offset.lerp(self.target_offset, t);
+        self.camera_zoom = self.camera_zoom + (self.target_zoom - self.camera_zoom) * t;
+
+        let offset_diff = (self.target_offset - self.camera_offset).length();
+        let zoom_diff = (self.target_zoom - self.camera_zoom).abs();
+        if offset_diff < 0.1 && zoom_diff < 0.001 {
+            self.camera_offset = self.target_offset;
+            self.camera_zoom = self.target_zoom;
+            self.is_animating = false;
+        }
+    }
+
     /// Render one frame.
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
         autoreleasepool(|| {
+            // Advance camera animation before writing uniforms to GPU
+            self.update_camera();
+
             let drawable = match self.layer.next_drawable() {
                 Some(d) => d,
                 None => return,
