@@ -286,9 +286,10 @@ impl Engine {
         // Project visible node positions to screen and fire labels callback
         self.fire_labels_updated();
 
-        // Update positions in pre-allocated GPU buffers and draw
+        // Update positions in pre-allocated GPU buffers, add highlights, and draw
         if let Some(renderer) = &mut self.renderer {
             renderer.update_positions(&self.graph);
+            renderer.set_highlights(self.selected_node_id, self.hovered_node_id, &self.graph);
             renderer.draw(self.width, self.height);
         }
     }

@@ -201,6 +201,7 @@ pub struct Renderer {
     // Cached counts
     node_count: usize,
     edge_vertex_count: usize,
+    highlight_count: usize,
 }
 
 impl Renderer {
@@ -292,6 +293,7 @@ impl Renderer {
             camera_zoom: 1.0,
             node_count: 0,
             edge_vertex_count: 0,
+            highlight_count: 0,
         })
     }
 
@@ -363,7 +365,7 @@ impl Renderer {
     /// Only re-allocates if the graph has grown beyond current capacity (or buffers are None).
     /// Call this once after commit (graph topology change), NOT every frame.
     pub fn allocate_buffers(&mut self, graph: &Graph) {
-        let node_count = graph.nodes.len();
+        let node_count = graph.nodes.len() + 2; // +2 for potential selected/hovered highlights
         let edge_vertex_count = graph.edges.len() * 6; // 6 vertices per edge (quad strip)
 
         // ── Node instance buffer ─────────────────────────────────────────
@@ -447,6 +449,49 @@ impl Renderer {
         }
     }
 
+    /// Append highlight ring instances after the regular nodes.
+    /// These use the same circle SDF shader but with larger radius and different alpha.
+    pub fn set_highlights(&mut self, selected: Option<u32>, hovered: Option<u32>, graph: &Graph) {
+        let Some(buf) = &self.node_instance_buf else { return };
+        let ptr = buf.contents() as *mut NodeInstance;
+        let mut idx = self.node_count;
+
+        // Selected ring: node-type color, +4px radius, 40% alpha
+        if let Some(sel_id) = selected {
+            if let Some(node) = graph.nodes.iter().find(|n| n.id == sel_id && n.visible) {
+                let color = node.node_type.color();
+                unsafe {
+                    *ptr.add(idx) = NodeInstance {
+                        position: [node.pos.x, node.pos.y],
+                        radius: node.radius + 4.0,
+                        _pad: 0.0,
+                        color: [color[0], color[1], color[2], 0.4],
+                    };
+                }
+                idx += 1;
+            }
+        }
+
+        // Hovered ring: white glow, +2px radius, 20% alpha (only if different from selected)
+        if let Some(hov_id) = hovered {
+            if Some(hov_id) != selected {
+                if let Some(node) = graph.nodes.iter().find(|n| n.id == hov_id && n.visible) {
+                    unsafe {
+                        *ptr.add(idx) = NodeInstance {
+                            position: [node.pos.x, node.pos.y],
+                            radius: node.radius + 2.0,
+                            _pad: 0.0,
+                            color: [1.0, 1.0, 1.0, 0.2],
+                        };
+                    }
+                    idx += 1;
+                }
+            }
+        }
+
+        self.highlight_count = idx - self.node_count;
+    }
+
     /// Render one frame.
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
         autoreleasepool(|| {
@@ -496,8 +541,9 @@ impl Renderer {
                 }
             }
 
-            // ── Draw nodes (instanced quads with circle SDF) ────────────
-            if self.node_count > 0 {
+            // ── Draw nodes + highlight rings (instanced quads with circle SDF) ──
+            let total_instances = self.node_count + self.highlight_count;
+            if total_instances > 0 {
                 if let Some(inst_buf) = &self.node_instance_buf {
                     encoder.set_render_pipeline_state(&self.node_pipeline);
                     encoder.set_vertex_buffer(0, Some(inst_buf), 0);
@@ -505,8 +551,8 @@ impl Renderer {
                     encoder.draw_primitives_instanced(
                         MTLPrimitiveType::Triangle,
                         0,
-                        6,                          // 6 vertices per quad
-                        self.node_count as u64,     // One instance per node
+                        6,                              // 6 vertices per quad
+                        total_instances as u64,         // Nodes + highlight rings
                     );
                 }
             }
