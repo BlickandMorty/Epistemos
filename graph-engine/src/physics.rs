@@ -160,9 +160,9 @@ pub struct ForceConfig {
 impl Default for ForceConfig {
     fn default() -> Self {
         Self {
-            repulsion: 600.0,
-            attraction: 0.008,
-            link_distance: 120.0,
+            repulsion: 2500.0,    // Strong personal-space bubble per node (Obsidian-style)
+            attraction: 0.012,    // Slightly stronger springs to hold clusters together
+            link_distance: 220.0, // More breathing room between connected nodes
             damping: 0.85,        // Verlet damping (applied to inertia term)
             alpha: 1.0,
             alpha_min: 0.001,
@@ -171,7 +171,7 @@ impl Default for ForceConfig {
             velocity_decay: 0.55, // Used for ambient drift magnitude
             center_x: 500.0,
             center_y: 350.0,
-            center_strength: 0.01,
+            center_strength: 0.002, // Weak center pull — clusters spread out, don't collapse
         }
     }
 }

@@ -512,16 +512,6 @@ impl Engine {
             None => return,
         };
 
-        let physics_settled = self.shared.settled.load(Ordering::Relaxed);
-        let camera_still = !renderer.is_animating;
-
-        // While things are moving, send an empty array to hide all labels.
-        // This avoids the 1-frame async lag between Metal rendering and CATextLayer updates.
-        if !physics_settled || !camera_still {
-            (cb.func)(std::ptr::null(), 0, cb.context);
-            return;
-        }
-
         let zoom = renderer.camera_zoom;
         let offset = renderer.camera_offset;
         let vp_w = self.width as f32;

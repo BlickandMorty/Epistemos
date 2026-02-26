@@ -15,9 +15,6 @@ struct MetalGraphView: NSViewRepresentable {
         view.colorPixelFormat = .bgra8Unorm
         view.clearColor = MTLClearColor(red: 0.07, green: 0.07, blue: 0.09, alpha: 1.0)
 
-        // Capture retina scale factor for pixel→point label conversion
-        context.coordinator.backingScaleFactor = NSScreen.main?.backingScaleFactor ?? 2.0
-
         // Create engine eagerly on main thread — avoids race between draw() and updateNSView()
         if let layer = view.layer as? CAMetalLayer {
             let devicePtr = Unmanaged.passUnretained(device).toOpaque()
@@ -54,15 +51,17 @@ struct MetalGraphView: NSViewRepresentable {
                 guard let ctx else { return }
                 let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
 
-                // Empty array = hide all labels (sent while physics/camera is moving)
+                // Empty array = hide all labels
                 guard count > 0, let positions else {
-                    DispatchQueue.main.async { coord.labelOverlay?.updateLabels(positions: []) }
+                    coord.labelOverlay?.updateLabels(positions: [])
                     return
                 }
 
-                // Rust computes positions in drawable pixels (retina); CATextLayer needs points.
-                let scale = coord.backingScaleFactor
-                // Copy data before crossing thread boundary
+                // Dynamically query retina scale each frame — handles monitor changes.
+                // Rust computes positions in drawable pixels; CATextLayer needs points.
+                let scale = coord.labelOverlay?.window?.backingScaleFactor
+                    ?? NSScreen.main?.backingScaleFactor ?? 2.0
+
                 var labels: [(uuid: String, x: CGFloat, y: CGFloat, radius: CGFloat, alpha: Float)] = []
                 labels.reserveCapacity(count)
                 for i in 0..<count {
@@ -76,9 +75,11 @@ struct MetalGraphView: NSViewRepresentable {
                         alpha: pos.alpha
                     ))
                 }
-                DispatchQueue.main.async {
-                    coord.labelOverlay?.updateLabels(positions: labels)
-                }
+
+                // Call synchronously — this callback fires on the main thread during
+                // draw(in:), so updating labels inline eliminates the 1-frame async lag
+                // that caused labels to trail nodes during physics/pan/zoom.
+                coord.labelOverlay?.updateLabels(positions: labels)
             }, ctx)
         }
 
@@ -167,8 +168,6 @@ struct MetalGraphView: NSViewRepresentable {
         var lastFilterHash: Int = 0
         var lastPhysicsConfigVersion: Int = 0
         var labelOverlay: GraphLabelOverlay?
-        /// Retina scale factor — Rust computes positions in drawable pixels, labels need points.
-        var backingScaleFactor: CGFloat = 2.0
 
         /// Reference to graphState for publishing selection changes.
         weak var graphStateRef: GraphState?
