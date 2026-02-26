@@ -27,11 +27,27 @@ final class GraphState {
             return
         }
 
+        // If empty, auto-build from structural data (notes, folders, ideas, chats, tags)
+        if store.nodeCount == 0 {
+            buildStructuralGraph(context: context)
+            return  // buildStructuralGraph calls loadGraph again
+        }
+
         // Feed topology into simulation
         let simNodes = store.nodes.values.map { (id: $0.id, position: $0.position, weight: Float($0.weight)) }
         let simEdges = store.edges.values.map { (source: $0.sourceNodeId, target: $0.targetNodeId, weight: Float($0.weight)) }
         Task { await simulation.load(nodes: simNodes, edges: simEdges) }
         isLoaded = true
+    }
+
+    // MARK: - Structural Graph
+
+    /// Build the graph skeleton from existing structured data (no AI needed).
+    func buildStructuralGraph(context: ModelContext) {
+        let builder = StructuralGraphBuilder()
+        let result = builder.build(context: context)
+        builder.persist(nodes: result.nodes, edges: result.edges, context: context)
+        loadGraph(context: context)
     }
 
     // MARK: - Selection

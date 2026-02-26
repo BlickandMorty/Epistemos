@@ -69,6 +69,8 @@
 		GS5A000200000000GWIN02 /* GraphWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = GS5A000100000000GWIN01 /* GraphWindowView.swift */; };
 		AA11BB22CC33DD44EE550006 /* SpriteKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550005 /* SpriteKit.framework */; };
 		F13E7A03B1C84D3E9A4FE003 /* FilterEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13E7A04B1C84D3E9A4FE004 /* FilterEngineTests.swift */; };
+		SGB6000200000000BILD02 /* StructuralGraphBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = SGB6000100000000FILE01 /* StructuralGraphBuilder.swift */; };
+		SGB6000200000000TEST02 /* StructuralGraphBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SGB6000100000000TEST01 /* StructuralGraphBuilderTests.swift */; };
 		33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */; };
 		34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */; };
 		37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */; };
@@ -249,6 +251,8 @@
 		AA11BB22CC33DD44EE550001 /* GraphNodeSprite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphNodeSprite.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE550003 /* KnowledgeGraphScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeGraphScene.swift; sourceTree = "<group>"; };
 		GS5A000100000000GRST01 /* GraphState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphState.swift; sourceTree = "<group>"; };
+		SGB6000100000000FILE01 /* StructuralGraphBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralGraphBuilder.swift; sourceTree = "<group>"; };
+		SGB6000100000000TEST01 /* StructuralGraphBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralGraphBuilderTests.swift; sourceTree = "<group>"; };
 		GS5A000100000000SPRV01 /* GraphSpriteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSpriteView.swift; sourceTree = "<group>"; };
 		GS5A000100000000FILT01 /* GraphFilterPills.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphFilterPills.swift; sourceTree = "<group>"; };
 		GS5A000100000000TMLN01 /* GraphTimelineScrubber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphTimelineScrubber.swift; sourceTree = "<group>"; };
@@ -443,6 +447,7 @@
 				AA11BB22CC33DD44EE550001 /* GraphNodeSprite.swift */,
 				AA11BB22CC33DD44EE550003 /* KnowledgeGraphScene.swift */,
 				GS5A000100000000GRST01 /* GraphState.swift */,
+				SGB6000100000000FILE01 /* StructuralGraphBuilder.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -702,7 +707,7 @@
 				B60666F023BD43CB9AC4001E /* GraphStoreTests.swift */,
 				868D11B3A8C44EED81EB969C /* ForceSimulationTests.swift */,
 				F13E7A04B1C84D3E9A4FE004 /* FilterEngineTests.swift */,
-
+				SGB6000100000000TEST01 /* StructuralGraphBuilderTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -870,6 +875,7 @@
 				EDEFF9B79E5544F3A9931584 /* GraphStoreTests.swift in Sources */,
 				0A0020BDED64410F9837C3CF /* ForceSimulationTests.swift in Sources */,
 				F13E7A03B1C84D3E9A4FE003 /* FilterEngineTests.swift in Sources */,
+				SGB6000200000000TEST02 /* StructuralGraphBuilderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1003,6 +1009,7 @@
 				AA11BB22CC33DD44EE550002 /* GraphNodeSprite.swift in Sources */,
 				AA11BB22CC33DD44EE550004 /* KnowledgeGraphScene.swift in Sources */,
 				GS5A000200000000GRST02 /* GraphState.swift in Sources */,
+				SGB6000200000000BILD02 /* StructuralGraphBuilder.swift in Sources */,
 				GS5A000200000000SPRV02 /* GraphSpriteView.swift in Sources */,
 				GS5A000200000000FILT02 /* GraphFilterPills.swift in Sources */,
 				GS5A000200000000TMLN02 /* GraphTimelineScrubber.swift in Sources */,
