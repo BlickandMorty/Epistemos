@@ -1,8 +1,12 @@
-use crate::physics::PhysicsState;
-use crate::types::Graph;
-use parking_lot::Mutex;
-use std::sync::Arc;
+use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
+use crate::physics::PhysicsState;
+use crate::renderer::Renderer;
+use crate::types::Graph;
 
 /// Shared state between the physics thread and the render/main thread.
 pub struct SharedState {
@@ -14,6 +18,7 @@ pub struct Engine {
     pub width: u32,
     pub height: u32,
     pub shared: Arc<SharedState>,
+    pub renderer: Option<Renderer>,
     physics_running: Arc<AtomicBool>,
     physics_handle: Option<std::thread::JoinHandle<()>>,
 }
@@ -29,9 +34,15 @@ impl Engine {
             width: 800,
             height: 600,
             shared,
+            renderer: None,
             physics_running: Arc::new(AtomicBool::new(false)),
             physics_handle: None,
         }
+    }
+
+    /// Initialize the Metal renderer. Called lazily on first draw.
+    pub fn init_renderer(&mut self, device_ptr: *mut c_void, layer_ptr: *mut c_void) {
+        self.renderer = Renderer::new(device_ptr, layer_ptr);
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -47,7 +58,7 @@ impl Engine {
     /// Start the dedicated physics thread. Called after commit().
     pub fn start_physics(&mut self) {
         if self.physics_running.load(Ordering::SeqCst) {
-            return; // Already running
+            return;
         }
 
         // Load graph data into physics state
@@ -63,33 +74,33 @@ impl Engine {
         let shared = Arc::clone(&self.shared);
         let running = Arc::clone(&self.physics_running);
 
-        self.physics_handle = Some(std::thread::Builder::new()
-            .name("graph-physics".into())
-            .spawn(move || {
-                // Physics loop: ~120 ticks/sec for smooth convergence
-                let tick_duration = std::time::Duration::from_micros(8333); // ~120 Hz
+        self.physics_handle = Some(
+            std::thread::Builder::new()
+                .name("graph-physics".into())
+                .spawn(move || {
+                    let tick_duration = std::time::Duration::from_micros(8333); // ~120 Hz
 
-                while running.load(Ordering::Relaxed) {
-                    let start = std::time::Instant::now();
+                    while running.load(Ordering::Relaxed) {
+                        let start = std::time::Instant::now();
 
-                    {
-                        let mut phys = shared.physics.lock();
-                        phys.tick();
-                        if phys.is_settled {
-                            // Settled — sleep longer, check periodically for reheat
-                            drop(phys);
-                            std::thread::sleep(std::time::Duration::from_millis(50));
-                            continue;
+                        {
+                            let mut phys = shared.physics.lock();
+                            phys.tick();
+                            if phys.is_settled {
+                                drop(phys);
+                                std::thread::sleep(std::time::Duration::from_millis(50));
+                                continue;
+                            }
+                        }
+
+                        let elapsed = start.elapsed();
+                        if elapsed < tick_duration {
+                            std::thread::sleep(tick_duration - elapsed);
                         }
                     }
-
-                    let elapsed = start.elapsed();
-                    if elapsed < tick_duration {
-                        std::thread::sleep(tick_duration - elapsed);
-                    }
-                }
-            })
-            .expect("Failed to spawn physics thread"));
+                })
+                .expect("Failed to spawn physics thread"),
+        );
     }
 
     /// Stop the physics thread.
@@ -100,16 +111,21 @@ impl Engine {
         }
     }
 
-    /// Copy physics positions back to graph nodes (called from render thread).
+    /// Copy physics positions back to graph nodes (called before rendering).
     pub fn sync_positions(&mut self) {
         let phys = self.shared.physics.lock();
         phys.write_back(&mut self.graph);
     }
 
     pub fn render(&mut self) {
-        // Sync positions from physics thread before rendering
+        // Sync positions from physics thread
         self.sync_positions();
-        // Metal rendering comes in Task 5
+
+        // Upload updated positions to GPU and draw
+        if let Some(renderer) = &mut self.renderer {
+            renderer.upload_graph(&self.graph);
+            renderer.draw(self.width, self.height);
+        }
     }
 }
 

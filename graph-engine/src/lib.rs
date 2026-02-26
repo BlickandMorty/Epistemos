@@ -1,5 +1,6 @@
 mod engine;
 mod physics;
+mod renderer;
 mod types;
 
 use std::ffi::{c_char, c_void, CStr};
@@ -41,13 +42,14 @@ pub struct CEdge {
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
-/// Create a new graph engine. Returns an opaque pointer.
+/// Create a new graph engine with Metal device and layer. Returns an opaque pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_create(
-    _metal_device: *mut c_void,
-    _metal_layer: *mut c_void,
+    metal_device: *mut c_void,
+    metal_layer: *mut c_void,
 ) -> *mut c_void {
-    let engine = Box::new(engine::Engine::new());
+    let mut engine = Box::new(engine::Engine::new());
+    engine.init_renderer(metal_device, metal_layer);
     Box::into_raw(engine) as *mut c_void
 }
 
