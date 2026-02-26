@@ -5,6 +5,7 @@ use metal::foreign_types::ForeignType;
 use metal::*;
 use objc::rc::autoreleasepool;
 
+use crate::msdf::{FontAtlas, GlyphInstance};
 use crate::types::Graph;
 
 // Direct Objective-C runtime call — avoids macro import issues with Rust 2024 edition.
@@ -227,6 +228,88 @@ fragment float4 bezier_edge_fragment(
     if (alpha < 0.01) discard_fragment();
     return float4(in.color.rgb, in.color.a * alpha);
 }
+
+// ── MSDF text label shaders (instanced glyph quads) ─────────────
+
+struct GlyphInstance {
+    float2 position;      // offset 0: node world pos (label anchor)
+    float2 glyph_offset;  // offset 8: per-glyph offset from anchor
+    float2 glyph_size;    // offset 16: quad half-extents in world units
+    float2 uv_origin;     // offset 24: atlas UV origin
+    float2 uv_size;       // offset 32: atlas UV dimensions
+    float  font_size;     // offset 40: world-space font size
+    float  alpha;         // offset 44: LOD opacity
+    float4 color;         // offset 48: RGBA text color
+};
+
+struct GlyphVertexOut {
+    float4 position [[position]];
+    float2 uv;
+    float  alpha;
+    float4 color;
+    float  screen_px_range;
+};
+
+vertex GlyphVertexOut msdf_vertex(
+    uint vertex_id [[vertex_id]],
+    uint instance_id [[instance_id]],
+    constant GlyphInstance* instances [[buffer(0)]],
+    constant Uniforms& uniforms [[buffer(1)]]
+) {
+    float2 corners[6] = {
+        float2(-1, -1), float2( 1, -1), float2(-1,  1),
+        float2(-1,  1), float2( 1, -1), float2( 1,  1)
+    };
+
+    // UV corners: map [-1,1] quad corners to [0,1] UV space
+    float2 uv_corners[6] = {
+        float2(0, 1), float2(1, 1), float2(0, 0),
+        float2(0, 0), float2(1, 1), float2(1, 0)
+    };
+
+    GlyphInstance inst = instances[instance_id];
+    float2 corner = corners[vertex_id];
+
+    // World position: anchor + glyph offset + corner scaled by half-extents
+    float2 world_pos = inst.position + inst.glyph_offset + corner * inst.glyph_size;
+
+    // Camera transform (identical to node shader)
+    float2 screen = (world_pos - uniforms.camera_offset) * uniforms.camera_zoom;
+    float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
+
+    // Atlas UV: map corner to glyph's sub-rectangle in the atlas
+    float2 uv_corner = uv_corners[vertex_id];
+    float2 uv = inst.uv_origin + uv_corner * inst.uv_size;
+
+    // Screen pixel range for crisp MSDF rendering at current zoom
+    // distance_range / em_size = 6/48 = 0.125
+    float screen_px_range = max(0.125 * inst.font_size * uniforms.camera_zoom, 1.0);
+
+    GlyphVertexOut out;
+    out.position = float4(ndc, 0.0, 1.0);
+    out.uv = uv;
+    out.alpha = inst.alpha;
+    out.color = inst.color;
+    out.screen_px_range = screen_px_range;
+    return out;
+}
+
+float median3(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
+
+fragment float4 msdf_fragment(
+    GlyphVertexOut in [[stage_in]],
+    texture2d<float> atlas [[texture(0)]]
+) {
+    constexpr sampler atlas_sampler(mag_filter::linear, min_filter::linear);
+    float3 msd = atlas.sample(atlas_sampler, in.uv).rgb;
+    float sd = median3(msd.r, msd.g, msd.b);
+    float screen_dist = in.screen_px_range * (sd - 0.5);
+    float opacity = clamp(screen_dist + 0.5, 0.0, 1.0);
+    if (opacity < 0.01) discard_fragment();
+    return float4(in.color.rgb, in.color.a * in.alpha * opacity);
+}
 "#;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -258,6 +341,12 @@ pub struct Renderer {
     layer: MetalLayer,
     node_pipeline: RenderPipelineState,
     edge_pipeline: RenderPipelineState,
+    msdf_pipeline: RenderPipelineState,
+    msdf_atlas_texture: Texture,
+    glyph_instance_buf: Option<Buffer>,
+    glyph_instance_capacity: usize,
+    glyph_count: usize,
+    font_atlas: FontAtlas,
     // Buffers (pre-allocated with headroom, reused across frames)
     node_instance_buf: Option<Buffer>,
     edge_instance_buf: Option<Buffer>,
@@ -347,6 +436,45 @@ impl Renderer {
             .new_render_pipeline_state(&edge_desc)
             .expect("Failed to create edge pipeline");
 
+        // MSDF text pipeline (same alpha blending as nodes)
+        let msdf_vert = library.get_function("msdf_vertex", None).unwrap();
+        let msdf_frag = library.get_function("msdf_fragment", None).unwrap();
+
+        let msdf_desc = RenderPipelineDescriptor::new();
+        msdf_desc.set_vertex_function(Some(&msdf_vert));
+        msdf_desc.set_fragment_function(Some(&msdf_frag));
+        let msdf_color_attach = msdf_desc.color_attachments().object_at(0).unwrap();
+        msdf_color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+        msdf_color_attach.set_blending_enabled(true);
+        msdf_color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
+        msdf_color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+        msdf_color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
+        msdf_color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+        let msdf_pipeline = device
+            .new_render_pipeline_state(&msdf_desc)
+            .expect("Failed to create MSDF pipeline");
+
+        // Load font atlas and create Metal texture
+        let font_atlas = FontAtlas::load();
+
+        let tex_desc = TextureDescriptor::new();
+        tex_desc.set_texture_type(MTLTextureType::D2);
+        tex_desc.set_pixel_format(MTLPixelFormat::RGBA8Unorm);
+        tex_desc.set_width(font_atlas.atlas_width as u64);
+        tex_desc.set_height(font_atlas.atlas_height as u64);
+        tex_desc.set_storage_mode(MTLStorageMode::Shared);
+        tex_desc.set_usage(MTLTextureUsage::ShaderRead);
+        let msdf_atlas_texture = device.new_texture(&tex_desc);
+
+        // Upload RGBA data to atlas texture
+        let region = MTLRegion::new_2d(0, 0, font_atlas.atlas_width as u64, font_atlas.atlas_height as u64);
+        msdf_atlas_texture.replace_region(
+            region,
+            0, // mipmap level
+            font_atlas.rgba_data.as_ptr() as *const c_void,
+            (font_atlas.atlas_width * 4) as u64, // bytes per row
+        );
+
         // Uniform buffer (small, persistent)
         let uniform_buf = device.new_buffer(
             std::mem::size_of::<Uniforms>() as u64,
@@ -359,6 +487,12 @@ impl Renderer {
             layer,
             node_pipeline,
             edge_pipeline,
+            msdf_pipeline,
+            msdf_atlas_texture,
+            glyph_instance_buf: None,
+            glyph_instance_capacity: 0,
+            glyph_count: 0,
+            font_atlas,
             node_instance_buf: None,
             edge_instance_buf: None,
             uniform_buf,
@@ -603,6 +737,62 @@ impl Renderer {
         }
     }
 
+    /// Build glyph instance buffer for visible node labels.
+    /// Uses the same LOD logic as the old fire_labels_updated:
+    /// MIN_SCREEN_RADIUS=8, alpha fade 8->16px, MAX_LABELS=40.
+    pub fn upload_labels(&mut self, graph: &Graph) {
+        const MAX_LABELS: usize = 40;
+        const MIN_SCREEN_RADIUS: f32 = 8.0;
+        const FONT_SIZE: f32 = 10.0; // world-space font size
+        const LABEL_GAP: f32 = 4.0;  // gap between node circle and label
+
+        let zoom = self.camera_zoom;
+        let mut all_instances: Vec<GlyphInstance> = Vec::new();
+        let mut label_count = 0usize;
+
+        for node in &graph.nodes {
+            if !node.visible { continue; }
+            let screen_radius = node.radius * zoom;
+            if screen_radius < MIN_SCREEN_RADIUS { continue; }
+
+            // Alpha ramps in between 8px and 16px screen radius
+            let size_alpha = ((screen_radius - MIN_SCREEN_RADIUS) / MIN_SCREEN_RADIUS).clamp(0.0, 1.0);
+            let weight_boost = if node.weight > 5.0 { 1.0 } else { 0.7 };
+            let alpha = size_alpha * weight_boost;
+            if alpha < 0.01 { continue; }
+
+            // Position label below node in world space
+            let anchor = [node.pos.x, node.pos.y + node.radius + LABEL_GAP];
+            let color = [1.0f32, 1.0, 1.0, 1.0]; // white text
+
+            let glyphs = self.font_atlas.layout_label(&node.label, anchor, FONT_SIZE, alpha, color);
+            all_instances.extend_from_slice(&glyphs);
+
+            label_count += 1;
+            if label_count >= MAX_LABELS { break; }
+        }
+
+        self.glyph_count = all_instances.len();
+
+        if self.glyph_count == 0 {
+            self.glyph_instance_buf = None;
+            return;
+        }
+
+        // Create/reallocate buffer if needed
+        if self.glyph_count > self.glyph_instance_capacity || self.glyph_instance_buf.is_none() {
+            self.glyph_instance_capacity = (self.glyph_count * 3 / 2).max(256);
+        }
+
+        let buf_size = (self.glyph_count * std::mem::size_of::<GlyphInstance>()) as u64;
+        let buf = self.device.new_buffer_with_data(
+            all_instances.as_ptr() as *const c_void,
+            buf_size,
+            MTLResourceOptions::StorageModeShared,
+        );
+        self.glyph_instance_buf = Some(buf);
+    }
+
     /// Render one frame. Camera must be updated via update_camera() before calling draw().
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
         autoreleasepool(|| {
@@ -669,6 +859,22 @@ impl Renderer {
                         0,
                         6,                              // 6 vertices per quad
                         total_instances as u64,         // Nodes + highlight rings
+                    );
+                }
+            }
+
+            // ── Draw MSDF text labels (on top of everything) ──────────
+            if self.glyph_count > 0 {
+                if let Some(glyph_buf) = &self.glyph_instance_buf {
+                    encoder.set_render_pipeline_state(&self.msdf_pipeline);
+                    encoder.set_vertex_buffer(0, Some(glyph_buf), 0);
+                    encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
+                    encoder.set_fragment_texture(0, Some(&self.msdf_atlas_texture));
+                    encoder.draw_primitives_instanced(
+                        MTLPrimitiveType::Triangle,
+                        0,
+                        6,
+                        self.glyph_count as u64,
                     );
                 }
             }
