@@ -184,6 +184,7 @@ pub struct PhysicsState {
     pub positions: Vec<Vec2>,
     pub prev_positions: Vec<Vec2>,
     pub masses: Vec<f32>,
+    pub radii: Vec<f32>,
     pub edges: Vec<(u32, u32, f32)>, // (source_id, target_id, weight)
     pub graph_indices: Vec<usize>,   // maps physics index -> graph node index
     pub config: ForceConfig,
@@ -203,6 +204,7 @@ impl PhysicsState {
             positions: Vec::new(),
             prev_positions: Vec::new(),
             masses: Vec::new(),
+            radii: Vec::new(),
             edges: Vec::new(),
             graph_indices: Vec::new(),
             config: ForceConfig::default(),
@@ -227,17 +229,20 @@ impl PhysicsState {
         self.positions.clear();
         self.prev_positions.clear();
         self.masses.clear();
+        self.radii.clear();
         self.edges.clear();
 
         self.positions.reserve(n);
         self.prev_positions.reserve(n);
         self.masses.reserve(n);
+        self.radii.reserve(n);
 
         for node in &graph.nodes {
             self.positions.push(node.pos);
             // Initialize prev_positions slightly behind current to give initial velocity
             self.prev_positions.push(node.pos - node.vel * 0.5);
             self.masses.push(node.weight.max(1.0));
+            self.radii.push(node.radius);
         }
 
         // Identity mapping: physics index i == graph index i
@@ -258,6 +263,7 @@ impl PhysicsState {
         self.positions.clear();
         self.prev_positions.clear();
         self.masses.clear();
+        self.radii.clear();
         self.edges.clear();
         self.graph_indices.clear();
 
@@ -271,6 +277,7 @@ impl PhysicsState {
             self.positions.push(node.pos);
             self.prev_positions.push(node.pos - node.vel * 0.5);
             self.masses.push(node.weight.max(1.0));
+            self.radii.push(node.radius);
             self.graph_indices.push(graph_idx);
         }
 
@@ -440,6 +447,7 @@ mod tests {
             prev_positions: positions.clone(), // Zero initial velocity
             positions,
             masses: vec![1.0; n],
+            radii: vec![8.0; n],
             edges: Vec::new(),
             graph_indices: (0..n).collect(),
             config: ForceConfig::default(),
@@ -564,6 +572,7 @@ mod tests {
         state.positions = vec![Vec2::new(100.0, 0.0)];
         state.prev_positions = vec![Vec2::new(95.0, 0.0)]; // Moving right at velocity 5
         state.masses = vec![1.0];
+        state.radii = vec![8.0];
         state.graph_indices = vec![0];
         state.drag_constraint = None;
         state.config.center_strength = 0.0;
@@ -576,5 +585,26 @@ mod tests {
         // Node should continue moving right due to momentum (Verlet inertia)
         assert!(state.positions[0].x > 100.0,
             "Node should continue moving right, got {}", state.positions[0].x);
+    }
+
+    #[test]
+    fn radii_loaded_from_graph() {
+        use crate::types::Graph;
+
+        let mut graph = Graph::new();
+        // weight 1.0 -> radius 8.0 (small)
+        graph.add_node("a".into(), 0.0, 0.0, 0, 1.0, "A".into());
+        // weight 5.0 -> radius 14.0 (medium)
+        graph.add_node("b".into(), 10.0, 0.0, 0, 5.0, "B".into());
+        // weight 15.0 -> radius 22.0 (large)
+        graph.add_node("c".into(), 20.0, 0.0, 0, 15.0, "C".into());
+
+        let mut state = PhysicsState::new();
+        state.load_from_graph(&graph);
+
+        assert_eq!(state.radii.len(), 3);
+        assert_eq!(state.radii[0], 8.0, "weight 1 -> radius 8");
+        assert_eq!(state.radii[1], 14.0, "weight 5 -> radius 14");
+        assert_eq!(state.radii[2], 22.0, "weight 15 -> radius 22");
     }
 }
