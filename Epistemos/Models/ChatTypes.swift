@@ -24,8 +24,11 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// raw Pass 1 text once Lucid Lens enrichment arrives.
     var isResearchResult: Bool
     /// Elapsed seconds from research start to enrichment completion.
-    /// Set by enrichLastMessage() when enrichment finishes.
+    /// Set by enrichMessage(id:) when enrichment finishes.
     var researchDuration: Double?
+    /// When this research message was created — drives the live timer in ResearchBadge.
+    /// Set at `.completed` time for research results; nil for regular messages.
+    var researchStartTime: Date?
 
     init(
         id: String = UUID().uuidString,
@@ -45,7 +48,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         isVaultBriefing: Bool = false,
         loadedNoteTitles: [String]? = nil,
         isResearchResult: Bool = false,
-        researchDuration: Double? = nil
+        researchDuration: Double? = nil,
+        researchStartTime: Date? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -65,6 +69,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.loadedNoteTitles = loadedNoteTitles
         self.isResearchResult = isResearchResult
         self.researchDuration = researchDuration
+        self.researchStartTime = researchStartTime
     }
 }
 

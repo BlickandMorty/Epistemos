@@ -43,6 +43,7 @@ final class MiniChatWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(bootstrap: AppBootstrap) {
+        let theme = bootstrap.uiState.theme
         let view = MiniChatView()
             .environment(bootstrap.uiState)
             .environment(bootstrap.chatState)
@@ -59,9 +60,14 @@ final class MiniChatWindowController: NSWindowController {
             .environment(bootstrap.threadState)
             .environment(bootstrap.dailyBriefState)
             .modelContainer(bootstrap.modelContainer)
-            .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
+            .preferredColorScheme(theme.colorScheme)
         let host = NSHostingView(rootView: view)
         window?.contentView = host
+
+        // Sync NSPanel chrome to theme (SwiftUI preferredColorScheme only affects content)
+        window?.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window?.backgroundColor = NSColor(theme.background)
+
         isConfigured = true
     }
 
@@ -76,6 +82,15 @@ final class MiniChatWindowController: NSWindowController {
 
     func show() { showPanel() }
     func hide() { window?.orderOut(nil) }
+
+    /// Sync NSPanel appearance and background to the current theme.
+    func syncTheme(isDark: Bool) {
+        guard let window else { return }
+        window.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        if let bg = AppBootstrap.shared.map({ NSColor($0.uiState.theme.background) }) {
+            window.backgroundColor = bg
+        }
+    }
 
     private func showPanel() {
         // Auto-configure on first show — NSPanel always creates a default contentView,

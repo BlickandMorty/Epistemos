@@ -187,12 +187,14 @@ struct CommandPaletteOverlay: View {
                 })
         }
 
-        // Real-time vault search
+        // Real-time vault search — deduplicate by page ID to prevent
+        // SwiftUI FAULT-level duplicate ID errors during SwiftData merges.
         if !searchText.isEmpty {
             let q = searchText.lowercased()
+            var seenIds = Set<String>()
             let matchingNotes =
                 allPages
-                .filter { $0.title.lowercased().contains(q) }
+                .filter { $0.title.lowercased().contains(q) && seenIds.insert($0.id).inserted }
                 .prefix(8)
             for page in matchingNotes {
                 let pageId = page.id
@@ -303,7 +305,7 @@ struct CommandPaletteOverlay: View {
     // MARK: - Commands
 
     private func makeCommands() -> [LandingCommandItem] {
-        var commands: [LandingCommandItem] = [
+        let commands: [LandingCommandItem] = [
             LandingCommandItem(
                 id: "chat-with-notes", label: "Chat with Notes", icon: "book.pages",
                 category: "Chat"

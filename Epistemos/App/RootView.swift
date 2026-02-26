@@ -39,7 +39,7 @@ struct RootView: View {
         .onDisappear {
             appearanceObserver.stop()
         }
-        .onChange(of: ui.theme.colorScheme) { _, _ in
+        .onChange(of: ui.theme) { _, _ in
             UtilityWindowManager.shared.syncTheme(isDark: ui.theme.isDark)
         }
         .toolbar {
@@ -51,6 +51,7 @@ struct RootView: View {
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                     }
+                    .accessibilityLabel("Back to Home")
                     .help("Back to Home")
                 }
             }
@@ -63,6 +64,7 @@ struct RootView: View {
                     } label: {
                         Label("History", systemImage: "sidebar.left")
                     }
+                    .accessibilityLabel("Chat History")
                     .help("Chat History (⇧⌘H)")
                     .popover(isPresented: $ui.showChatSidebar) {
                         ChatSidebarView()

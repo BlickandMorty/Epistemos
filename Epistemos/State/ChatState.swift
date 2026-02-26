@@ -202,6 +202,7 @@ final class ChatState {
     }
 
     func completeProcessing(
+        messageId: String = UUID().uuidString,
         dualMessage: DualMessage,
         confidence: Double,
         grade: EvidenceGrade,
@@ -232,8 +233,12 @@ final class ChatState {
         isCurrentVaultBriefing = false
         loadedNoteTitles = []
 
+        // Stamp the research start time on the message itself so its
+        // ResearchBadge can tick independently of the global state.
+        let msgResearchStart = isResearchResult ? researchStartTime : nil
+
         let assistantMessage = ChatMessage(
-            id: UUID().uuidString,
+            id: messageId,
             chatId: chatId,
             role: .assistant,
             content: answerText,
@@ -246,19 +251,17 @@ final class ChatState {
             reasoningDuration: thinkDuration,
             isVaultBriefing: briefing,
             loadedNoteTitles: noteTitles,
-            isResearchResult: isResearchResult
+            isResearchResult: isResearchResult,
+            researchStartTime: msgResearchStart
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id) — isResearchResult=\(isResearchResult) rawAnalysisLen=\(dualMessage.rawAnalysis.count)")
         messages.append(assistantMessage)
 
         streamingText = ""
         isStreaming = false
-        // Note: researchStartTime is NOT cleared here — it persists until enrichment
-        // completes so the ThinkingAccordion on the message can keep ticking.
-        // Cleared in enrichLastMessage() or clearMessages().
-        if !isResearchResult {
-            researchStartTime = nil
-        }
+        // Global researchStartTime is cleared — each message now carries its own copy.
+        // The ResearchBadge reads from the message for the live timer.
+        researchStartTime = nil
 
         eventBus?.emit(.queryCompleted(chatId: ChatId(chatId), messageId: MessageId(assistantMessage.id)))
     }
@@ -378,17 +381,19 @@ final class ChatState {
 
     // MARK: - Background Enrichment
 
-    func enrichLastMessage(dualMessage: DualMessage, truthAssessment: TruthAssessment) {
-        guard let idx = messages.indices.last(where: { messages[$0].role == .assistant }) else {
-            log.warning("[enrich] No assistant message found to enrich")
+    /// Enrich a specific message by ID with research pipeline results.
+    /// Called via the onEnriched callback — decoupled from the AsyncStream lifecycle
+    /// so enrichment survives new queries being submitted.
+    func enrichMessage(id: String, dualMessage: DualMessage, truthAssessment: TruthAssessment) {
+        guard let idx = messages.firstIndex(where: { $0.id == id }) else {
+            log.warning("[enrich] Message \(id) not found — may have been cleared")
             return
         }
-        let msgId = messages[idx].id
         let hasLayman = dualMessage.laymanSummary != nil
         let rawLen = dualMessage.rawAnalysis.count
         let hasReflection = dualMessage.reflection != nil
         let hasArbitration = dualMessage.arbitration != nil
-        log.warning("🔬 [enrich] Enriching message \(msgId) — layman=\(hasLayman) rawLen=\(rawLen) reflection=\(hasReflection) arbitration=\(hasArbitration)")
+        log.warning("🔬 [enrich] Enriching message \(id) — layman=\(hasLayman) rawLen=\(rawLen) reflection=\(hasReflection) arbitration=\(hasArbitration)")
 
         // Explicit full-element reassignment — guarantees @Observable property
         // setter fires, avoiding a subtle issue where in-place subscript mutation
@@ -396,15 +401,25 @@ final class ChatState {
         var updated = messages[idx]
         updated.dualMessage = dualMessage
         updated.truthAssessment = truthAssessment
-        // Capture elapsed duration before clearing the start time
-        if let start = researchStartTime {
+        // Update confidence + grade with real enrichment values (replaces placeholder 0.5)
+        updated.confidence = truthAssessment.overallTruthLikelihood
+        updated.evidenceGrade = AppBootstrap.gradeFromConfidence(truthAssessment.overallTruthLikelihood)
+        // Calculate elapsed duration from the message's own research start time
+        if let start = updated.researchStartTime {
             updated.researchDuration = Date().timeIntervalSince(start)
         }
         messages[idx] = updated
 
-        // Enrichment complete — stop the research thinking timer
-        researchStartTime = nil
         log.warning("🔬 [enrich] DONE — isResearchResult=\(updated.isResearchResult) layman=\(updated.dualMessage?.laymanSummary != nil) duration=\(updated.researchDuration.map { String(format: "%.1fs", $0) } ?? "nil")")
+    }
+
+    /// Legacy enrichment — targets last assistant message. Kept for backward compatibility.
+    func enrichLastMessage(dualMessage: DualMessage, truthAssessment: TruthAssessment) {
+        guard let lastAssistant = messages.last(where: { $0.role == .assistant }) else {
+            log.warning("[enrich] No assistant message found to enrich")
+            return
+        }
+        enrichMessage(id: lastAssistant.id, dualMessage: dualMessage, truthAssessment: truthAssessment)
     }
 
     // MARK: - Load / Clear

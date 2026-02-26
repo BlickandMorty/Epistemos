@@ -1,11 +1,13 @@
 import AppKit
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 // MARK: - App Entry Point
 
 @main
 struct EpistemosApp: App {
+    @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
     @State private var bootstrap = AppBootstrap()
 
     var body: some Scene {
@@ -27,6 +29,13 @@ struct EpistemosApp: App {
                 .environment(bootstrap.threadState)
                 .onAppear {
                     StatusBar.shared.setup()
+                    // Request notification permission for breathing reminders.
+                    // Guarded: UNUserNotificationCenter asserts in test bundles.
+                    if Bundle.main.bundleIdentifier == "com.epistemos.app" {
+                        UNUserNotificationCenter.current().requestAuthorization(
+                            options: [.alert, .sound]
+                        ) { _, _ in }
+                    }
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(
@@ -48,6 +57,63 @@ struct EpistemosApp: App {
         }
         .modelContainer(bootstrap.modelContainer)
         .defaultSize(width: 1000, height: 700)
+    }
+}
+
+// MARK: - App Delegate (Dock Menu + Native Hooks)
+
+final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
+
+    /// Native macOS dock menu — right-click the dock icon for quick actions.
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+
+        let newNote = NSMenuItem(
+            title: "New Note", action: #selector(dockNewNote), keyEquivalent: "")
+        newNote.image = NSImage(systemSymbolName: "plus.square", accessibilityDescription: "New Note")
+        newNote.target = self
+        menu.addItem(newNote)
+
+        let search = NSMenuItem(
+            title: "Search Notes", action: #selector(dockSearch), keyEquivalent: "")
+        search.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Search")
+        search.target = self
+        menu.addItem(search)
+
+        menu.addItem(.separator())
+
+        let miniChat = NSMenuItem(
+            title: "Toggle Mini Chat", action: #selector(dockMiniChat), keyEquivalent: "")
+        miniChat.image = NSImage(
+            systemSymbolName: "bubble.left.and.bubble.right", accessibilityDescription: "Mini Chat")
+        miniChat.target = self
+        menu.addItem(miniChat)
+
+        return menu
+    }
+
+    @objc private func dockNewNote() {
+        Task { @MainActor in
+            guard let vaultSync = AppBootstrap.shared?.vaultSync else { return }
+            if let pageId = await vaultSync.createPage(title: "Untitled") {
+                NoteWindowManager.shared.open(pageId: pageId)
+            }
+            NSApp.activate()
+        }
+    }
+
+    @objc private func dockSearch() {
+        Task { @MainActor in
+            AppBootstrap.shared?.uiState.toggleCommandPalette()
+            NSApp.activate()
+            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    @objc private func dockMiniChat() {
+        Task { @MainActor in
+            MiniChatWindowController.shared.toggle()
+        }
     }
 }
 

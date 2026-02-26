@@ -40,6 +40,7 @@ struct WriterFormatBar: View {
     let isDark: Bool
     let onExport: (ExportFormat) -> Void
 
+    @Environment(UIState.self) private var ui
     @State private var showTitlePagePopover = false
 
     // MARK: Static Font Lists
@@ -66,7 +67,12 @@ struct WriterFormatBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(.bar)
+        .background(ui.theme.glassBg)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(ui.theme.glassBorder)
+                .frame(height: 1)
+        }
     }
 
     // MARK: - Row 1: Preset | Typography | Paragraph
@@ -229,7 +235,16 @@ struct WriterFormatBar: View {
             titlePageControls
             marginsPicker
             pageSizePicker
+            spreadToggle
         }
+    }
+
+    private var spreadToggle: some View {
+        Toggle(isOn: $formatState.isSpreadView) {
+            Label("Book", systemImage: formatState.isSpreadView ? "book.pages.fill" : "book.pages")
+        }
+        .toggleStyle(.button)
+        .help("Two-page book spread")
     }
 
     private var titlePageControls: some View {

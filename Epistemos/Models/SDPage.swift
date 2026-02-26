@@ -50,6 +50,10 @@ final class SDPage {
     // Stored as JSON-encoded Data for flexibility (arbitrary key-value pairs beyond typed fields)
     var frontMatterData: Data?
 
+    // MARK: - Ideas & Brain Dumps
+    // JSON-encoded array of NoteIdea — ideas and brain dumps registered to this page.
+    var ideasData: Data?
+
     // MARK: - Timestamps
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
@@ -125,6 +129,23 @@ final class SDPage {
         templateId != nil
     }
 
+    /// Cached ideas array — avoids JSON decode/encode on every access.
+    @Transient private var _ideasCache: [NoteIdea]?
+
+    var ideas: [NoteIdea] {
+        get {
+            if let cached = _ideasCache { return cached }
+            guard let data = ideasData else { return [] }
+            let decoded = (try? JSONDecoder().decode([NoteIdea].self, from: data)) ?? []
+            _ideasCache = decoded
+            return decoded
+        }
+        set {
+            _ideasCache = newValue
+            ideasData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
     /// SHA256 hash prefix (16 hex chars) for dirty detection.
     static func bodyHash(_ body: String) -> String {
         let digest = SHA256.hash(data: Data(body.utf8))
@@ -140,4 +161,28 @@ final class SDPage {
         return false
     }
 
+}
+
+// MARK: - Note Idea / Brain Dump
+
+/// An idea or brain dump registered to a note page.
+/// Persisted as JSON array in SDPage.ideasData.
+/// Each idea is anchored to a specific line in the note for inline context.
+struct NoteIdea: Identifiable, Codable, Sendable {
+    var id: String = UUID().uuidString
+    var type: IdeaType
+    var title: String
+    var body: String
+    /// AI-formatted version of the body (brain dumps only).
+    var formattedBody: String?
+    /// 1-based line number in the note body where this idea is anchored.
+    var lineAnchor: Int?
+    /// Snippet of the anchor line for display context (first 80 chars).
+    var lineContext: String?
+    var createdAt: Date = .now
+
+    enum IdeaType: String, Codable, Sendable {
+        case idea
+        case brainDump
+    }
 }

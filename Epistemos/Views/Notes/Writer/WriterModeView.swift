@@ -42,11 +42,20 @@ struct WriterModeView: View {
         }
         .animation(.spring(duration: 0.3), value: isDark)
         .onAppear {
-            bodyText = stripMarkdownForWriter(page.body)
+            bodyText = page.body
             formatState.load(from: page.frontMatter)
+            formatState.loadTitlePageDefaults()
+
+            // Auto-fill title page fields from note / current date
             if formatState.titlePageTitle.isEmpty {
                 formatState.titlePageTitle = page.title
             }
+            if formatState.titlePageDate.isEmpty {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .long
+                formatState.titlePageDate = formatter.string(from: Date())
+            }
+
             hasLoaded = true
         }
         .onChange(of: bodyText) { _, newValue in
@@ -107,35 +116,5 @@ struct WriterModeView: View {
             pageTiles: [],
             formatState: formatState
         )
-    }
-
-    // MARK: - Markdown Stripping
-
-    /// Strips markdown syntax for the writer's plain-text editing surface.
-    /// Uses the same regex set as WriterExportService's `markdownStripped`.
-    private func stripMarkdownForWriter(_ text: String) -> String {
-        var s = text
-
-        // Bold: **text** or __text__
-        s = s.replacingOccurrences(of: #"\*\*(.+?)\*\*"#, with: "$1", options: .regularExpression)
-        s = s.replacingOccurrences(of: #"__(.+?)__"#, with: "$1", options: .regularExpression)
-
-        // Italic: *text* or _text_
-        s = s.replacingOccurrences(of: #"\*(.+?)\*"#, with: "$1", options: .regularExpression)
-        s = s.replacingOccurrences(of: #"\b_(.+?)_\b"#, with: "$1", options: .regularExpression)
-
-        // Strikethrough: ~~text~~
-        s = s.replacingOccurrences(of: #"~~(.+?)~~"#, with: "$1", options: .regularExpression)
-
-        // Inline code: `code`
-        s = s.replacingOccurrences(of: #"`(.+?)`"#, with: "$1", options: .regularExpression)
-
-        // Links: [text](url)
-        s = s.replacingOccurrences(of: #"\[(.+?)\]\(.+?\)"#, with: "$1", options: .regularExpression)
-
-        // Headings: lines starting with #
-        s = s.replacingOccurrences(of: #"(?m)^#{1,6}\s+"#, with: "", options: .regularExpression)
-
-        return s
     }
 }

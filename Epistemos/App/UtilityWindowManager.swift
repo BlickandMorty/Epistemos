@@ -76,6 +76,11 @@ final class UtilityWindowManager {
         if window.isVisible {
             window.orderOut(nil)
         } else {
+            // Sync window chrome to current theme before showing
+            if let theme = AppBootstrap.shared?.uiState.theme {
+                window.backgroundColor = NSColor(theme.background)
+                window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+            }
             window.makeKeyAndOrderFront(nil)
         }
     }
@@ -97,8 +102,9 @@ final class UtilityWindowManager {
             panel.appearance = appearance
             if let bg = background { panel.backgroundColor = bg }
         }
-        // Also sync note editor windows
+        // Also sync note editor windows and MiniChat
         NoteWindowManager.shared.syncTheme(isDark: isDark)
+        MiniChatWindowController.shared.syncTheme(isDark: isDark)
     }
 
     private func windowFor(_ panel: UtilityPanel) -> NSWindow? {
@@ -168,7 +174,7 @@ final class UtilityWindowManager {
 
             let toolbar = NSToolbar(identifier: "Utility-\(kind.rawValue)")
             panel.toolbar = toolbar
-            panel.toolbarStyle = .unified
+            panel.toolbarStyle = .unifiedCompact
             panel.titleVisibility = .hidden
 
             // Position offset from center so panels don't stack exactly

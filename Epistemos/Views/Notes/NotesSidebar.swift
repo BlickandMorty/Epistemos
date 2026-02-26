@@ -149,7 +149,14 @@ struct NotesSidebar: View {
     }
 
     private func rebuildCache() {
-        cachedPageItems = allPages.map(SidebarPageItem.init)
+        // Deduplicate by ID to prevent SwiftUI FAULT-level duplicate ID errors.
+        // SwiftData @Query can return the same SDPage multiple times during merges.
+        var seenPageIds = Set<String>()
+        cachedPageItems = allPages.compactMap { page in
+            guard !seenPageIds.contains(page.id) else { return nil }
+            seenPageIds.insert(page.id)
+            return SidebarPageItem(page)
+        }
         cachedFolderItems = allFolders.map(SidebarFolderItem.init)
 
         // Fallback: if folder.pages returned [] (SwiftData inverse not merged yet),

@@ -1,8 +1,10 @@
+import AppKit
+import SwiftData
 import SwiftUI
 
 // MARK: - Library View
-// Research Library — matches brainiac-2.0 library page.
-// 5 tabs: Papers, Thinkers & Authors, Citations, Reading List, Research Tools
+// Research Library.
+// 3 tabs: Sources (papers + citations), Thinkers & Authors, Research Tools
 // Stats bar, search, DOI import.
 
 struct LibraryView: View {
@@ -12,7 +14,7 @@ struct LibraryView: View {
     @Environment(ResearchService.self) private var researchService
     @Environment(InferenceState.self) private var inference
 
-    @State private var activeTab: LibraryTab = .papers
+    @State private var activeTab: LibraryTab = .sources
     @State private var searchQuery = ""
     @State private var showDOIImport = false
     @State private var selectedResearchTool: ResearchToolTab = .search
@@ -39,18 +41,14 @@ struct LibraryView: View {
     private var theme: EpistemosTheme { ui.theme }
 
     enum LibraryTab: String, CaseIterable, Hashable {
-        case papers = "Papers"
+        case sources = "Sources"
         case thinkers = "Thinkers & Authors"
-        case citations = "Citations"
-        case readingList = "Reading List"
         case tools = "Research Tools"
 
         var icon: String {
             switch self {
-            case .papers: "doc.text"
+            case .sources: "doc.text"
             case .thinkers: "person.2"
-            case .citations: "quote.opening"
-            case .readingList: "lightbulb"
             case .tools: "flask"
             }
         }
@@ -60,6 +58,8 @@ struct LibraryView: View {
 
     private var extractedAuthors: [ExtractedAuthor] {
         var map: [String: ExtractedAuthor] = [:]
+
+        // Extract from search result papers
         for paper in research.researchPapers {
             for author in paper.authors {
                 let key = author.lowercased().trimmingCharacters(in: .whitespaces)
@@ -79,43 +79,40 @@ struct LibraryView: View {
                 }
             }
         }
+
+        // Also extract from saved papers (auto-extracted citations)
+        for saved in research.savedPapers {
+            guard !saved.authors.isEmpty else { continue }
+            // SavedPaper.authors is a single string — split on common separators
+            let authorNames = saved.authors
+                .components(separatedBy: CharacterSet(charactersIn: ",;&"))
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0.count >= 2 }
+            for author in authorNames {
+                let key = author.lowercased()
+                let yearInt = saved.year.flatMap { Int($0) }
+                if var existing = map[key] {
+                    existing.paperCount += 1
+                    if let yr = yearInt, !existing.years.contains(yr) {
+                        existing.years.append(yr)
+                    }
+                    map[key] = existing
+                } else {
+                    map[key] = ExtractedAuthor(
+                        name: author,
+                        paperCount: 1,
+                        years: yearInt.map { [$0] } ?? []
+                    )
+                }
+            }
+        }
+
         return map.values.sorted { $0.paperCount > $1.paperCount }
     }
 
-    private var readingSuggestions: [ReadingSuggestion] {
-        var suggestions: [ReadingSuggestion] = []
-        var seen = Set<String>()
-
-        let journalCounts = Dictionary(
-            grouping: research.researchPapers.compactMap(\.journal), by: { $0 }
-        )
-        .mapValues(\.count)
-        .sorted { $0.value > $1.value }
-        .prefix(3)
-
-        for (journal, count) in journalCounts {
-            let key = journal.lowercased()
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
-            suggestions.append(
-                ReadingSuggestion(
-                    title: "Deep dive into \(journal)",
-                    reason:
-                        "You have \(count) paper\(count > 1 ? "s" : "") from this journal — consider reading foundational texts",
-                    domain: journal
-                ))
-        }
-
-        if research.researchPapers.count > 3 && !seen.contains("methodology") {
-            suggestions.append(
-                ReadingSuggestion(
-                    title: "Research Methods & Methodology",
-                    reason:
-                        "With \(research.researchPapers.count) papers in your library, understanding meta-analytical methods would help synthesize findings",
-                    domain: "methodology"
-                ))
-        }
-        return Array(suggestions.prefix(8))
+    /// Total source count — saved papers + search papers + citations (deduplicated display).
+    private var totalSourceCount: Int {
+        research.savedPapers.count + research.researchPapers.count + research.currentCitations.count
     }
 
     private var filteredPapers: [ResearchPaper] {
@@ -138,7 +135,7 @@ struct LibraryView: View {
     var body: some View {
         PageShell(
             icon: "books.vertical", title: "Research Library",
-            subtitle: "Your research brain — papers, thinkers, citations & reading suggestions"
+            subtitle: "Your research brain — sources, thinkers & research tools"
         ) {
             // Stats pills
             statsRow
@@ -160,10 +157,8 @@ struct LibraryView: View {
             // Tab content
             Group {
                 switch activeTab {
-                case .papers: papersTab
+                case .sources: sourcesTab
                 case .thinkers: thinkersTab
-                case .citations: citationsTab
-                case .readingList: readingListTab
                 case .tools: researchToolsTab
                 }
             }
@@ -184,14 +179,14 @@ struct LibraryView: View {
         HStack(spacing: Spacing.sm) {
             Spacer()
             StatPill(
-                icon: "doc.text", label: "Papers", value: "\(research.researchPapers.count)",
+                icon: "doc.text", label: "Sources", value: "\(totalSourceCount)",
                 color: Color(hex: 0x8B7CF6))
             StatPill(
                 icon: "person.2", label: "Authors", value: "\(extractedAuthors.count)",
                 color: Color(hex: 0x22D3EE))
             StatPill(
-                icon: "quote.opening", label: "Citations",
-                value: "\(research.currentCitations.count)", color: Color(hex: 0xF59E0B))
+                icon: "bookmark.fill", label: "Saved",
+                value: "\(research.savedPapers.count)", color: Color(hex: 0xF59E0B))
             StatPill(
                 icon: "tag", label: "Topics",
                 value: "\(Set(research.researchPapers.compactMap(\.journal)).count)",
@@ -212,7 +207,7 @@ struct LibraryView: View {
                 .font(.system(size: 13))
                 .textFieldStyle(.plain)
 
-            if activeTab == .papers {
+            if activeTab == .sources {
                 Button {
                     showDOIImport = true
                 } label: {
@@ -238,15 +233,13 @@ struct LibraryView: View {
 
     private var searchPlaceholder: String {
         switch activeTab {
-        case .papers: "Search papers, authors, tags..."
+        case .sources: "Search sources, authors, tags..."
         case .thinkers: "Search authors..."
-        case .citations: "Search citations..."
-        case .readingList: "Search suggestions..."
         case .tools: "Search tools..."
         }
     }
 
-    // MARK: - Papers Tab
+    // MARK: - Sources Tab (Papers + Citations combined)
 
     private var filteredSavedPapers: [SavedPaper] {
         guard !searchQuery.isEmpty else { return research.savedPapers }
@@ -257,7 +250,16 @@ struct LibraryView: View {
         }
     }
 
-    private var papersTab: some View {
+    private var filteredCitations: [Citation] {
+        guard !searchQuery.isEmpty else { return research.currentCitations }
+        let q = searchQuery.lowercased()
+        return research.currentCitations.filter {
+            $0.text.lowercased().contains(q) || $0.authors.contains { $0.lowercased().contains(q) }
+                || ($0.source?.lowercased().contains(q) ?? false)
+        }
+    }
+
+    private var sourcesTab: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             // Saved Papers section
             if !filteredSavedPapers.isEmpty {
@@ -279,14 +281,36 @@ struct LibraryView: View {
                 .padding(.bottom, Spacing.lg)
             }
 
-            // Extracted papers from search results
-            if filteredPapers.isEmpty && filteredSavedPapers.isEmpty {
+            // Citations section
+            if !filteredCitations.isEmpty {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "quote.opening")
+                            .font(.system(size: 10))
+                        Text("Citations · \(filteredCitations.count)")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: 0x22D3EE))
+
+                    LazyVStack(spacing: Spacing.sm) {
+                        ForEach(filteredCitations) { citation in
+                            CitationCard(citation: citation)
+                        }
+                    }
+                }
+                .padding(.bottom, Spacing.lg)
+            }
+
+            // Search result papers
+            if filteredPapers.isEmpty && filteredSavedPapers.isEmpty && filteredCitations.isEmpty {
                 LibraryEmptyState(
                     icon: "book.pages",
                     title: research.researchPapers.isEmpty && research.savedPapers.isEmpty
-                        ? "No papers yet" : "No matching papers",
+                        && research.currentCitations.isEmpty
+                        ? "No sources yet" : "No matching sources",
                     subtitle: research.researchPapers.isEmpty && research.savedPapers.isEmpty
-                        ? "Papers will appear here as you search, save, and discuss research in chat. Use the Research tools to search Semantic Scholar."
+                        && research.currentCitations.isEmpty
+                        ? "Sources will appear here as you search, save, and discuss research in chat. Use the Research tools to search Semantic Scholar."
                         : "Try adjusting your search"
                 )
             } else if !filteredPapers.isEmpty {
@@ -338,56 +362,6 @@ struct LibraryView: View {
                 ) {
                     ForEach(filteredAuthors) { author in
                         AuthorCard(author: author)
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Citations Tab
-
-    private var citationsTab: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            if research.currentCitations.isEmpty {
-                LibraryEmptyState(
-                    icon: "quote.opening",
-                    title: "No citations collected",
-                    subtitle:
-                        "Use the Citation Search tool in Research Hub to extract citations from your text. They'll appear here for reference."
-                )
-            } else {
-                LazyVStack(spacing: Spacing.sm) {
-                    ForEach(research.currentCitations) { citation in
-                        CitationCard(citation: citation)
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Reading List Tab
-
-    private var readingListTab: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            if readingSuggestions.isEmpty {
-                LibraryEmptyState(
-                    icon: "lightbulb",
-                    title: "No suggestions yet",
-                    subtitle:
-                        "Start researching topics and saving papers — personalized reading suggestions will appear based on your interests."
-                )
-            } else {
-                HStack(spacing: 4) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 10))
-                    Text("Based on your \(research.researchPapers.count) papers")
-                        .font(.system(size: 11))
-                }
-                .foregroundStyle(theme.textTertiary)
-
-                LazyVStack(spacing: Spacing.sm) {
-                    ForEach(readingSuggestions) { suggestion in
-                        SuggestionCard(suggestion: suggestion)
                     }
                 }
             }
@@ -454,74 +428,97 @@ private struct StatPill: View {
 }
 
 // MARK: - Library Paper Card
+// Native macOS row with context menu for actions.
 
 private struct LibraryPaperCard: View {
     let paper: ResearchPaper
 
     @Environment(UIState.self) private var ui
     @State private var isExpanded = false
-    @State private var isHovered = false
+    @State private var showCopied = false
     private var theme: EpistemosTheme { ui.theme }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            // Title row
-            HStack(alignment: .top) {
-                Button {
-                    withAnimation(Motion.quick) { isExpanded.toggle() }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(paper.title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(theme.foreground)
-                            .lineLimit(isExpanded ? nil : 2)
-                            .multilineTextAlignment(.leading)
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 9))
-                            .foregroundStyle(theme.textTertiary)
-                    }
-                }
-                .buttonStyle(.plain)
-                Spacer()
-                if let url = paper.url {
-                    Link(
-                        destination: URL(string: url) ?? URL(string: "https://scholar.google.com")!
-                    ) {
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 10))
-                            .foregroundStyle(theme.textTertiary)
-                    }
-                }
-            }
+    private var formattedCitation: String {
+        var parts: [String] = []
+        if !paper.authors.isEmpty { parts.append(paper.authors.prefix(3).joined(separator: ", ")) }
+        parts.append("\"\(paper.title).\"")
+        if let journal = paper.journal { parts.append("*\(journal)*") }
+        if let year = paper.year, year > 0 { parts.append("(\(year))") }
+        if let doi = paper.doi { parts.append("DOI: \(doi)") }
+        else if let url = paper.url { parts.append(url) }
+        return parts.joined(separator: " ")
+    }
 
-            // Author · Year · Journal
-            HStack(spacing: 6) {
-                if !paper.authors.isEmpty {
-                    let authorStr =
-                        paper.authors.prefix(3).joined(separator: ", ")
-                        + (paper.authors.count > 3 ? " +\(paper.authors.count - 3)" : "")
-                    Text(authorStr)
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.mutedForeground)
-                        .lineLimit(1)
-                }
-                if let year = paper.year, year > 0 {
-                    Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
-                    HStack(spacing: 2) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 9))
-                        Text("\(year)")
+    private func copyCitation() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(formattedCitation, forType: .string)
+        withAnimation(Motion.quick) { showCopied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(Motion.quick) { showCopied = false }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Title + expand
+            HStack(alignment: .top, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(paper.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(isExpanded ? nil : 2)
+                        .multilineTextAlignment(.leading)
+
+                    // Author · Year · Journal
+                    HStack(spacing: 6) {
+                        if !paper.authors.isEmpty {
+                            Text(paper.authors.prefix(3).joined(separator: ", ")
+                                 + (paper.authors.count > 3 ? " +\(paper.authors.count - 3)" : ""))
+                                .font(.system(size: 11))
+                                .foregroundStyle(theme.mutedForeground)
+                                .lineLimit(1)
+                        }
+                        if let year = paper.year, year > 0 {
+                            Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
+                            Text("\(year)")
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                        if let journal = paper.journal {
+                            Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
+                            Text(journal)
+                                .font(.system(size: 10))
+                                .italic()
+                                .foregroundStyle(theme.textTertiary)
+                                .lineLimit(1)
+                        }
                     }
-                    .font(.system(size: 10))
-                    .foregroundStyle(theme.textTertiary)
                 }
-                if let journal = paper.journal {
-                    Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
-                    Text(journal)
-                        .font(.system(size: 10))
-                        .italic()
-                        .foregroundStyle(theme.textTertiary)
-                        .lineLimit(1)
+
+                Spacer()
+
+                // Action buttons
+                HStack(spacing: 2) {
+                    Button(action: copyCitation) {
+                        Image(systemName: showCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                            .font(.system(size: 12))
+                            .foregroundStyle(showCopied ? .green : theme.textTertiary)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy citation")
+
+                    if let url = paper.url, let destination = URL(string: url) {
+                        Link(destination: destination) {
+                            Image(systemName: "safari")
+                                .font(.system(size: 12))
+                                .foregroundStyle(theme.textTertiary)
+                                .frame(width: 28, height: 28)
+                                .contentShape(Rectangle())
+                        }
+                        .help("Open in browser")
+                    }
                 }
             }
 
@@ -531,21 +528,31 @@ private struct LibraryPaperCard: View {
                     .font(.system(size: 12))
                     .foregroundStyle(theme.mutedForeground)
                     .lineSpacing(3)
-                    .padding(.top, 4)
+                    .padding(.top, 2)
             }
         }
-        .padding(Spacing.lg)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .hoverGlass(flatBackground: theme.card, cornerRadius: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(theme.accent.opacity(isHovered ? 0.06 : 0))
-        )
-        .onHover { isHovered = $0 }
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .onTapGesture { withAnimation(Motion.quick) { isExpanded.toggle() } }
+        .contextMenu {
+            Button("Copy Citation") { copyCitation() }
+            if let url = paper.url, let destination = URL(string: url) {
+                Link("Open in Browser", destination: destination)
+            }
+            if let doi = paper.doi {
+                Button("Copy DOI") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(doi, forType: .string)
+                }
+            }
+        }
     }
 }
 
 // MARK: - Saved Paper Card
+// Native macOS row with context menu and provenance navigation.
 
 private struct SavedPaperCard: View {
     let paper: SavedPaper
@@ -553,93 +560,189 @@ private struct SavedPaperCard: View {
     @Environment(UIState.self) private var ui
     @Environment(ResearchState.self) private var research
     @State private var isExpanded = false
-    @State private var isHovered = false
+    @State private var showCopied = false
     private var theme: EpistemosTheme { ui.theme }
 
+    private var formattedCitation: String {
+        var parts: [String] = []
+        if !paper.authors.isEmpty { parts.append(paper.authors) }
+        parts.append("\"\(paper.title).\"")
+        if let journal = paper.journal { parts.append("*\(journal)*") }
+        if let year = paper.year { parts.append("(\(year))") }
+        if let doi = paper.doi { parts.append("DOI: \(doi)") }
+        else if let url = paper.url { parts.append(url) }
+        return parts.joined(separator: " ")
+    }
+
+    private var provenanceLabel: String? {
+        if let noteTitle = paper.originNoteTitle {
+            return "Note: \(noteTitle)"
+        }
+        switch paper.source {
+        case "chat", "research": return paper.originChatId != nil ? "Chat conversation" : "Chat"
+        case "minichat": return "Mini chat"
+        case "note-scan": return "Note scan"
+        default: return paper.source
+        }
+    }
+
+    private var canNavigate: Bool {
+        paper.originChatId != nil || paper.originNoteTitle != nil
+    }
+
+    private func copyCitation() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(formattedCitation, forType: .string)
+        withAnimation(Motion.quick) { showCopied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(Motion.quick) { showCopied = false }
+        }
+    }
+
+    private func navigateToSource() {
+        if let noteTitle = paper.originNoteTitle {
+            guard let bootstrap = AppBootstrap.shared else { return }
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.title == noteTitle }
+            )
+            if let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first {
+                NoteWindowManager.shared.open(pageId: page.id)
+            }
+        } else if let chatId = paper.originChatId {
+            guard let bootstrap = AppBootstrap.shared else { return }
+            bootstrap.loadChat(chatId: chatId)
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(alignment: .top) {
-                Button {
-                    withAnimation(Motion.quick) { isExpanded.toggle() }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(paper.title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(theme.foreground)
-                            .lineLimit(isExpanded ? nil : 2)
-                            .multilineTextAlignment(.leading)
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 9))
-                            .foregroundStyle(theme.textTertiary)
+        VStack(alignment: .leading, spacing: 6) {
+            // Title + actions
+            HStack(alignment: .top, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(paper.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(isExpanded ? nil : 2)
+                        .multilineTextAlignment(.leading)
+
+                    // Author · Year · Journal
+                    HStack(spacing: 6) {
+                        if !paper.authors.isEmpty {
+                            Text(paper.authors)
+                                .font(.system(size: 11))
+                                .foregroundStyle(theme.mutedForeground)
+                                .lineLimit(1)
+                        }
+                        if let year = paper.year {
+                            Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
+                            Text(year)
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                        if let journal = paper.journal {
+                            Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
+                            Text(journal)
+                                .font(.system(size: 10))
+                                .italic()
+                                .foregroundStyle(theme.textTertiary)
+                                .lineLimit(1)
+                        }
                     }
                 }
-                .buttonStyle(.plain)
+
                 Spacer()
 
-                // Favorite toggle
-                Button {
-                    research.togglePaperFavorite(paper.id)
-                } label: {
-                    Image(systemName: paper.isFavorite ? "star.fill" : "star")
-                        .font(.system(size: 12))
-                        .foregroundStyle(paper.isFavorite ? .yellow : theme.textTertiary)
-                }
-                .buttonStyle(.plain)
-                .help(paper.isFavorite ? "Unfavorite" : "Favorite")
-                .accessibilityLabel(paper.isFavorite ? "Unfavorite" : "Favorite")
+                // Action buttons — visible inline
+                HStack(spacing: 2) {
+                    Button(action: copyCitation) {
+                        Image(systemName: showCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                            .font(.system(size: 12))
+                            .foregroundStyle(showCopied ? .green : theme.textTertiary)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy citation")
 
-                // Remove
-                Button {
-                    withAnimation(Motion.quick) { research.removeSavedPaper(paper.id) }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.textTertiary)
-                }
-                .buttonStyle(.plain)
-                .help("Remove")
-                .accessibilityLabel("Remove")
-            }
+                    Button { research.togglePaperFavorite(paper.id) } label: {
+                        Image(systemName: paper.isFavorite ? "star.fill" : "star")
+                            .font(.system(size: 12))
+                            .foregroundStyle(paper.isFavorite ? .yellow : theme.textTertiary)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(paper.isFavorite ? "Unfavorite" : "Favorite")
 
-            HStack(spacing: 6) {
-                if !paper.authors.isEmpty {
-                    Text(paper.authors)
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.mutedForeground)
-                        .lineLimit(1)
-                }
-                if let year = paper.year {
-                    Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
-                    Text(year)
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.textTertiary)
-                }
-                if let journal = paper.journal {
-                    Text("·").foregroundStyle(theme.textTertiary.opacity(0.3))
-                    Text(journal)
-                        .font(.system(size: 10))
-                        .italic()
-                        .foregroundStyle(theme.textTertiary)
-                        .lineLimit(1)
+                    Button { withAnimation(Motion.quick) { research.removeSavedPaper(paper.id) } } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.textTertiary)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Remove")
                 }
             }
 
+            // Provenance tag — clickable to navigate to source
+            if let label = provenanceLabel {
+                Button(action: navigateToSource) {
+                    HStack(spacing: 4) {
+                        Image(systemName: paper.originNoteTitle != nil ? "doc.text" : "bubble.left")
+                            .font(.system(size: 9))
+                        Text(label)
+                            .font(.system(size: 10, weight: .medium))
+                        if canNavigate {
+                            Image(systemName: "arrow.forward")
+                                .font(.system(size: 8, weight: .semibold))
+                        }
+                    }
+                    .foregroundStyle(canNavigate ? theme.accent : theme.textTertiary.opacity(0.7))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        canNavigate ? theme.accent.opacity(0.1) : theme.glassBg,
+                        in: RoundedRectangle(cornerRadius: 6)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .disabled(!canNavigate)
+                .help(canNavigate ? "Navigate to source" : "Source: \(label)")
+            }
+
+            // Abstract (expanded)
             if isExpanded, let abstract = paper.abstract, !abstract.isEmpty {
                 Text(abstract)
                     .font(.system(size: 12))
                     .foregroundStyle(theme.mutedForeground)
                     .lineSpacing(3)
-                    .padding(.top, 4)
+                    .padding(.top, 2)
             }
         }
-        .padding(Spacing.lg)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .hoverGlass(flatBackground: theme.card, cornerRadius: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(theme.accent.opacity(isHovered ? 0.06 : 0))
-        )
-        .onHover { isHovered = $0 }
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .onTapGesture { withAnimation(Motion.quick) { isExpanded.toggle() } }
+        .contextMenu {
+            Button("Copy Citation") { copyCitation() }
+            Button(paper.isFavorite ? "Unfavorite" : "Favorite") {
+                research.togglePaperFavorite(paper.id)
+            }
+            if canNavigate {
+                Button("Go to Source") { navigateToSource() }
+            }
+            if let url = paper.url, let destination = URL(string: url) {
+                Link("Open in Browser", destination: destination)
+            }
+            Divider()
+            Button("Remove", role: .destructive) {
+                withAnimation(Motion.quick) { research.removeSavedPaper(paper.id) }
+            }
+        }
     }
 }
 
@@ -649,7 +752,6 @@ private struct AuthorCard: View {
     let author: ExtractedAuthor
 
     @Environment(UIState.self) private var ui
-    @State private var isHovered = false
     private var theme: EpistemosTheme { ui.theme }
 
     private var yearRange: String {
@@ -700,11 +802,12 @@ private struct AuthorCard: View {
         }
         .padding(Spacing.md)
         .hoverGlass(flatBackground: theme.card, cornerRadius: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(theme.accent.opacity(isHovered ? 0.06 : 0))
-        )
-        .onHover { isHovered = $0 }
+        .contextMenu {
+            Button("Copy Name") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(author.name, forType: .string)
+            }
+        }
     }
 }
 
@@ -714,14 +817,53 @@ private struct CitationCard: View {
     let citation: Citation
 
     @Environment(UIState.self) private var ui
+    @State private var showCopied = false
     private var theme: EpistemosTheme { ui.theme }
 
+    private var formattedCitation: String {
+        var parts: [String] = ["\"\(citation.text)\""]
+        if !citation.authors.isEmpty {
+            parts.append("— \(citation.authors.joined(separator: ", "))")
+        }
+        if let year = citation.year { parts.append("(\(year))") }
+        if let source = citation.source { parts.append(source) }
+        return parts.joined(separator: " ")
+    }
+
+    private func copyCitation() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(formattedCitation, forType: .string)
+        withAnimation(Motion.quick) { showCopied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(Motion.quick) { showCopied = false }
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(citation.text)
-                .font(.system(size: 13))
-                .foregroundStyle(theme.foreground)
-                .lineSpacing(2)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "quote.opening")
+                    .font(.system(size: 10))
+                    .foregroundStyle(theme.textTertiary.opacity(0.5))
+                    .padding(.top, 3)
+
+                Text(citation.text)
+                    .font(.system(size: 13))
+                    .foregroundStyle(theme.foreground)
+                    .lineSpacing(2)
+
+                Spacer()
+
+                Button(action: copyCitation) {
+                    Image(systemName: showCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                        .font(.system(size: 12))
+                        .foregroundStyle(showCopied ? .green : theme.textTertiary)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Copy citation")
+            }
 
             HStack(spacing: 6) {
                 if let source = citation.source {
@@ -742,59 +884,18 @@ private struct CitationCard: View {
                         .foregroundStyle(theme.textTertiary)
                 }
             }
+            .padding(.leading, 20) // align with text after quote icon
         }
-        .padding(Spacing.lg)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .hoverGlass(flatBackground: theme.card, cornerRadius: 10)
-    }
-}
-
-// MARK: - Suggestion Card
-
-private struct SuggestionCard: View {
-    let suggestion: ReadingSuggestion
-
-    @Environment(UIState.self) private var ui
-    @State private var isHovered = false
-    private var theme: EpistemosTheme { ui.theme }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(hex: 0xF59E0B).opacity(0.1))
-                    .frame(width: 32, height: 32)
-                Image(systemName: "book.pages")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color(hex: 0xF59E0B))
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(suggestion.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(theme.foreground)
-                Text(suggestion.reason)
-                    .font(.system(size: 11))
-                    .foregroundStyle(theme.mutedForeground)
-                    .lineSpacing(2)
-                Text(suggestion.domain)
-                    .font(.system(size: 9, weight: .medium))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(theme.glassBg, in: Capsule())
-                    .overlay(Capsule().strokeBorder(theme.glassBorder, lineWidth: 0.5))
-                    .foregroundStyle(theme.textTertiary)
-                    .padding(.top, 2)
+        .contextMenu {
+            Button("Copy Citation") { copyCitation() }
+            Button("Copy Text Only") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(citation.text, forType: .string)
             }
         }
-        .padding(Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .hoverGlass(flatBackground: theme.card, cornerRadius: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(theme.accent.opacity(isHovered ? 0.06 : 0))
-        )
-        .onHover { isHovered = $0 }
     }
 }
 
@@ -909,11 +1010,5 @@ private struct ExtractedAuthor: Identifiable {
     var years: [Int]
 }
 
-private struct ReadingSuggestion: Identifiable {
-    let id = UUID()
-    var title: String
-    var reason: String
-    var domain: String
-}
 
 

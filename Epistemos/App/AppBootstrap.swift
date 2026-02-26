@@ -307,4 +307,41 @@ final class AppBootstrap {
 
         Log.pipeline.info("Reset: All data cleared. Setup screen shown.")
     }
+
+    // MARK: - Chat Navigation
+
+    /// Load a chat by ID and navigate to it. Used by library provenance links.
+    func loadChat(chatId: String) {
+        let descriptor = FetchDescriptor<SDChat>(
+            predicate: #Predicate<SDChat> { $0.id == chatId }
+        )
+        guard let sdChat = try? modelContainer.mainContext.fetch(descriptor).first else { return }
+        let sorted = sdChat.sortedMessages
+        let messages = sorted.map { msg in
+            let dual = msg.dualMessageData.flatMap { try? JSONDecoder().decode(DualMessage.self, from: $0) }
+            let isResearch = dual?.laymanSummary != nil
+            return ChatMessage(
+                id: msg.id,
+                chatId: sdChat.id,
+                role: msg.role == "user" ? .user : .assistant,
+                content: msg.content,
+                dualMessage: dual,
+                truthAssessment: msg.truthAssessmentData.flatMap { try? JSONDecoder().decode(TruthAssessment.self, from: $0) },
+                confidence: msg.confidenceScore,
+                evidenceGrade: msg.evidenceGrade.flatMap { EvidenceGrade(rawValue: $0) },
+                mode: msg.inferenceMode.flatMap { InferenceMode(rawValue: $0) },
+                createdAt: msg.createdAt,
+                isResearchResult: isResearch
+            )
+        }
+        chatState.setCurrentChat(sdChat.id)
+        chatState.chatTitle = sdChat.title
+        chatState.loadMessages(messages)
+        uiState.setActivePanel(.home)
+        // Bring the main window to front — Library is a separate window,
+        // so the user needs to see the main window where the chat lives.
+        if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+            main.makeKeyAndOrderFront(nil)
+        }
+    }
 }

@@ -221,6 +221,7 @@ struct MessageBubble: View {
             ResearchBadge(
                 isEnriched: liveMessage.dualMessage?.laymanSummary != nil,
                 researchDuration: liveMessage.researchDuration,
+                researchStartTime: liveMessage.researchStartTime,
                 theme: theme
             )
 
@@ -328,13 +329,9 @@ struct MessageBubble: View {
 
             // Response content — regular mode display.
             // Research results are routed to researchBubble above.
+            // Confidence bar and ConsensusReportCard are research-only features
+            // and are NOT shown here — regular chat has no real enrichment data.
             TaggedMarkdownTextView(content: cleanedText, theme: theme)
-            if let confidence = liveMessage.confidence {
-                ConfidenceBar(confidence: confidence, evidenceGrade: liveMessage.evidenceGrade)
-            }
-            if let dual = liveMessage.dualMessage, let arb = dual.arbitration {
-                ConsensusReportCard(arbitration: arb, theme: theme)
-            }
 
             // Toolbar — always rendered at fixed height, opacity-only transition
             MessageToolbar(
@@ -459,9 +456,9 @@ private struct ConfidenceBar: View {
 private struct ResearchBadge: View {
     let isEnriched: Bool
     let researchDuration: TimeInterval?
+    /// Per-message start time — drives the live timer independently of global state.
+    let researchStartTime: Date?
     let theme: EpistemosTheme
-
-    @Environment(ChatState.self) private var chat
 
     /// Format seconds into "Xm Ys" or just "Xs".
     private func formatDuration(_ seconds: TimeInterval) -> String {
@@ -490,8 +487,9 @@ private struct ResearchBadge: View {
                         .font(.epSmall)
                         .foregroundStyle(theme.emerald)
                 }
-            } else if let start = chat.researchStartTime {
-                // Enrichment in progress — live ticking timer
+            } else if let start = researchStartTime {
+                // Enrichment in progress — live ticking timer using the message's own start time.
+                // This persists even when the user sends a new query.
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     let elapsed = context.date.timeIntervalSince(start)
                     Text("Enriching \(formatDuration(elapsed))")

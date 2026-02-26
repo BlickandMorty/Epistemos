@@ -64,15 +64,24 @@ final class PipelineService {
     }
 
     // MARK: - Active Tasks
-    // Held so a new query (or stop button) can cancel the previous work.
+    // pipelineTask: cancelled on new query or stop.
+    // enrichmentTask: only cancelled on explicit stop — survives new queries.
     private var pipelineTask: Task<Void, Never>?
     private var enrichmentTask: Task<Void, Never>?
+
+    /// Cancel enrichment explicitly (stop button). New queries do NOT cancel enrichment.
+    func cancelAllEnrichment() {
+        enrichmentTask?.cancel()
+        enrichmentTask = nil
+    }
 
     // MARK: - Run Pipeline
 
     /// Execute the full analytical pipeline for a user query.
     /// When `skipEnrichment` is true, Passes 2-6 are skipped entirely (no Lucid Lens API calls).
     /// `conversationHistory` provides prior User/Assistant turns for multi-turn context.
+    /// `onEnriched` delivers enrichment results directly (bypasses the stream) so results
+    /// survive query cancellation — the callback is captured by the detached enrichment task.
     func run(
         query: String,
         mode: InferenceMode,
@@ -83,23 +92,22 @@ final class PipelineService {
         reroute: RerouteInstruction? = nil,
         notesContext: String? = nil,
         skipEnrichment: Bool = false,
-        conversationHistory: String? = nil
+        conversationHistory: String? = nil,
+        onEnriched: (@MainActor @Sendable (DualMessage, TruthAssessment) -> Void)? = nil
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
-        // Cancel any in-flight work from a previous query
+        // Cancel the previous Pass 1 generation, but NOT enrichment —
+        // previous enrichment continues in the background and delivers via callback.
         pipelineTask?.cancel()
         pipelineTask = nil
-        enrichmentTask?.cancel()
-        enrichmentTask = nil
 
-        // Thread-safe guard: ensures continuation.finish() is called exactly once,
-        // even when the @MainActor task and the detached enrichment task race.
+        // Thread-safe guard: ensures continuation.finish() is called exactly once.
         let finisher = FinishOnce()
 
         return AsyncThrowingStream { continuation in
             continuation.onTermination = { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.pipelineTask?.cancel()
-                    self?.enrichmentTask?.cancel()
+                    // Don't cancel enrichment on stream termination — it delivers via callback
                 }
             }
 
@@ -351,17 +359,8 @@ final class PipelineService {
                         Log.pipeline.info(
                             "🔬 Enrichment: SKIPPED (regular mode) — no Passes 2-6"
                         )
-                        // Regular mode: yield signal-derived arbitration + truth assessment
-                        // so the user gets a ConsensusReportCard without extra API calls.
-                        let fallbackArb = EnrichmentController.fallbackArbitration(signals: signals)
-                        let fallbackTruth = EnrichmentController.fallbackTruthAssessment(signals: signals)
-                        let regularDual = DualMessage(
-                            rawAnalysis: rawAnswerBuffer,
-                            uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: rawAnswerBuffer),
-                            modelVsDataFlags: [],
-                            arbitration: fallbackArb
-                        )
-                        continuation.yield(.enriched(regularDual, fallbackTruth))
+                        // Regular mode: no enrichment. Don't emit fake arbitration or
+                        // placeholder truth — those are research-only features.
                         if finisher.tryFinish() { continuation.finish() }
                         return
                     }
@@ -387,8 +386,8 @@ final class PipelineService {
                         || capturedLLM.provider == .ollama
                         || capturedLLM.provider == .appleIntelligence
                     if !enrichmentKeyValid {
-                        Log.pipeline.info(
-                            "🔬 Enrichment: SKIPPED (no API key for \(capturedLLM.provider.rawValue)) — yielding signal-derived fallback"
+                        Log.pipeline.warning(
+                            "🔬 Enrichment: SKIPPED (no API key for \(capturedLLM.provider.rawValue)) — yielding signal-derived fallback. Add an Anthropic API key in Settings for full research."
                         )
                         let fallbackArb = EnrichmentController.fallbackArbitration(signals: signals)
                         let fallbackTruth = EnrichmentController.fallbackTruthAssessment(signals: signals)
@@ -401,7 +400,7 @@ final class PipelineService {
                             reflection: EnrichmentController.fallbackReflection(signals: signals),
                             arbitration: fallbackArb
                         )
-                        continuation.yield(.enriched(noKeyDual, fallbackTruth))
+                        onEnriched?(noKeyDual, fallbackTruth)
                         if finisher.tryFinish() { continuation.finish() }
                         return
                     }
@@ -418,13 +417,17 @@ final class PipelineService {
                         )
                         defer { ProcessInfo.processInfo.endActivity(napActivity) }
 
+                        // Delivery guard: ensures onEnriched is called exactly once,
+                        // even if timeout and normal completion race.
+                        let deliveryGuard = FinishOnce()
+
                         Log.pipeline.info(
                             "🔬 Enrichment: STARTED — provider=\(capturedLLM.provider.rawValue) model=\(capturedLLM.model.prefix(30)) keyLen=\(capturedLLM.apiKey.count)"
                         )
 
                         guard !Task.isCancelled else {
                             Log.pipeline.warning(
-                                "Enrichment: CANCELLED before starting — yielding full fallback (this should not happen for a freshly created Task.detached)"
+                                "Enrichment: CANCELLED before starting — delivering full fallback"
                             )
                             let fallbackDual = DualMessage(
                                 rawAnalysis: "",
@@ -436,11 +439,11 @@ final class PipelineService {
                                 reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
                                 arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
-                            continuation.yield(
-                                .enriched(
+                            if deliveryGuard.tryFinish() {
+                                await onEnriched?(
                                     fallbackDual,
-                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
-                            if finisher.tryFinish() { continuation.finish() }
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals))
+                            }
                             return
                         }
 
@@ -456,7 +459,7 @@ final class PipelineService {
                             guard !Task.isCancelled else { return }
                             let elapsed = CFAbsoluteTimeGetCurrent() - enrichmentStart
                             Log.pipeline.info(
-                                "🔬 Enrichment: 600s global timeout exceeded (elapsed=\(String(format: "%.1f", elapsed))s), yielding full fallback"
+                                "🔬 Enrichment: 600s global timeout exceeded (elapsed=\(String(format: "%.1f", elapsed))s), delivering full fallback"
                             )
                             let timeoutDual = DualMessage(
                                 rawAnalysis: "",
@@ -468,11 +471,11 @@ final class PipelineService {
                                 reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
                                 arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
-                            continuation.yield(
-                                .enriched(
+                            if deliveryGuard.tryFinish() {
+                                await onEnriched?(
                                     timeoutDual,
-                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
-                            if finisher.tryFinish() { continuation.finish() }
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals))
+                            }
                         }
                         defer { timeoutTask.cancel() }
 
@@ -505,7 +508,7 @@ final class PipelineService {
 
                         guard !Task.isCancelled else {
                             Log.pipeline.info(
-                                "Enrichment: cancelled after Pass 2 — yielding partial+fallback")
+                                "Enrichment: cancelled after Pass 2 — delivering partial+fallback")
                             let fallbackDual = DualMessage(
                                 rawAnalysis: rawAnalysis,
                                 uncertaintyTags: EnrichmentController.extractUncertaintyTags(
@@ -517,11 +520,11 @@ final class PipelineService {
                                 reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
                                 arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
-                            continuation.yield(
-                                .enriched(
+                            if deliveryGuard.tryFinish() {
+                                await onEnriched?(
                                     fallbackDual,
-                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
-                            if finisher.tryFinish() { continuation.finish() }
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals))
+                            }
                             return
                         }
 
@@ -561,7 +564,7 @@ final class PipelineService {
 
                         guard !Task.isCancelled else {
                             Log.pipeline.info(
-                                "Enrichment: cancelled after Pass 3 — yielding partial+fallback")
+                                "Enrichment: cancelled after Pass 3 — delivering partial+fallback")
                             let cancelDual = DualMessage(
                                 rawAnalysis: rawAnalysis,
                                 uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: analysisText),
@@ -570,11 +573,11 @@ final class PipelineService {
                                 reflection: EnrichmentController.fallbackReflection(signals: capturedSignals),
                                 arbitration: EnrichmentController.fallbackArbitration(signals: capturedSignals)
                             )
-                            continuation.yield(
-                                .enriched(
+                            if deliveryGuard.tryFinish() {
+                                await onEnriched?(
                                     cancelDual,
-                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
-                            if finisher.tryFinish() { continuation.finish() }
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals))
+                            }
                             return
                         }
 
@@ -632,11 +635,11 @@ final class PipelineService {
                                 reflection: reflection,
                                 arbitration: arbitration
                             )
-                            continuation.yield(
-                                .enriched(
+                            if deliveryGuard.tryFinish() {
+                                await onEnriched?(
                                     cancelDual,
-                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals)))
-                            if finisher.tryFinish() { continuation.finish() }
+                                    EnrichmentController.fallbackTruthAssessment(signals: capturedSignals))
+                            }
                             return
                         }
 
@@ -692,20 +695,22 @@ final class PipelineService {
                             arbitration: arbitration
                         )
 
-                        // Always yield enrichment if we got this far (not cancelled).
-                        // The finisher guard previously caused enrichment to be silently
-                        // dropped if any cancellation path consumed it first.
+                        // Deliver enrichment via callback — bypasses the stream so results
+                        // survive query cancellation. The deliveryGuard ensures only one path
+                        // (normal completion or timeout) delivers.
                         let totalEnrichment = CFAbsoluteTimeGetCurrent() - enrichmentStart
                         Log.pipeline.info(
                             "🔬 Enrichment: ALL PASSES COMPLETE in \(String(format: "%.1f", totalEnrichment))s — rawLen=\(rawAnalysis.count) layman=\(laymanSummary.whatWasTried.prefix(40)) reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%"
                         )
-                        continuation.yield(.enriched(enrichedDual, truthAssessment))
-                        let finished = finisher.tryFinish()
-                        Log.pipeline.info("Enrichment: finisher.tryFinish()=\(finished)")
-                        if finished { continuation.finish() }
+                        if deliveryGuard.tryFinish() {
+                            await onEnriched?(enrichedDual, truthAssessment)
+                        }
                     }
 
                     self.enrichmentTask = enrichTask
+
+                    // Stream is done — enrichment delivers via callback, not through the stream.
+                    if finisher.tryFinish() { continuation.finish() }
 
                 } catch {
                     pipelineState.setError(error.localizedDescription)

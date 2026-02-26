@@ -97,6 +97,9 @@ final class WriterFormatState {
         didSet { markCustom() }
     }
 
+    /// Two-up "book spread" layout — pages shown in pairs side by side.
+    var isSpreadView: Bool = false
+
     // MARK: - Headers / Footers
 
     var showPageNumbers: Bool = true {
@@ -351,6 +354,9 @@ final class WriterFormatState {
            let ps = PageSize(rawValue: v) {
             pageSize = ps
         }
+        if let v = frontMatter[Self.keyPrefix + "isSpreadView"] {
+            isSpreadView = v == "true"
+        }
 
         // Headers / Footers
         if let v = frontMatter[Self.keyPrefix + "showPageNumbers"] {
@@ -415,6 +421,7 @@ final class WriterFormatState {
         frontMatter[Self.keyPrefix + "showTitlePage"] = String(showTitlePage)
         frontMatter[Self.keyPrefix + "margins"] = margins.rawValue
         frontMatter[Self.keyPrefix + "pageSize"] = pageSize.rawValue
+        frontMatter[Self.keyPrefix + "isSpreadView"] = String(isSpreadView)
 
         // Headers / Footers
         frontMatter[Self.keyPrefix + "showPageNumbers"] = String(showPageNumbers)
