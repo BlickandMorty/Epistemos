@@ -116,6 +116,7 @@
 		AF23236677E949656076F72A /* ResearchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4877EAD0B940B5E1B02C2AAE /* ResearchState.swift */; };
 		AF7549603B20C0A51FA9B0C2 /* ChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C52E5A635322119D9F376BC /* ChatState.swift */; };
 		B2149D5C49C915C81AD06F02 /* GraphWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7557C785292A6375567FF054 /* GraphWindowView.swift */; };
+		D8A1F92E4C7B83A1E5F06D12 /* IdeasPortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E7B30A9F2D56E8A1B4C7D3 /* IdeasPortalView.swift */; };
 		B38D69510B1266DAC78BC3AE /* AppBootstrap+Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 957E722596BA7B2B51EBB3BD /* AppBootstrap+Persistence.swift */; };
 		B4C3794F9AE4C4827F2CA192 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BF697E1D7B96C4CCE733C3 /* Extensions.swift */; };
 		B6CD5A5B77290070D8B396A8 /* JournalIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271CA2F1B0047DC529BB3E28 /* JournalIntents.swift */; };
@@ -255,6 +256,7 @@
 		6EFC53C2550C906A4B3E082F /* ResearchStageEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchStageEntity.swift; sourceTree = "<group>"; };
 		71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteWindowManager.swift; sourceTree = "<group>"; };
 		7557C785292A6375567FF054 /* GraphWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphWindowView.swift; sourceTree = "<group>"; };
+		C4E7B30A9F2D56E8A1B4C7D3 /* IdeasPortalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdeasPortalView.swift; sourceTree = "<group>"; };
 		7A2C0D9640D6DF3417E41438 /* SDFolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDFolder.swift; sourceTree = "<group>"; };
 		7DCE4D6309ADCD3F9B9189BA /* SDMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDMessage.swift; sourceTree = "<group>"; };
 		7DEEF8225F9781F4C3647074 /* LandingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandingView.swift; sourceTree = "<group>"; };
@@ -450,6 +452,7 @@
 				FB1968A27B3DC8F2AA4E1E4E /* GraphSpriteView.swift */,
 				A290F96AD17DB7CDC4265956 /* GraphTimelineScrubber.swift */,
 				7557C785292A6375567FF054 /* GraphWindowView.swift */,
+				C4E7B30A9F2D56E8A1B4C7D3 /* IdeasPortalView.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -938,6 +941,7 @@
 				28C51C7D31917764FABBFABC /* GraphTimelineScrubber.swift in Sources */,
 				0111829EA017ED2492CC1072 /* GraphTypes.swift in Sources */,
 				B2149D5C49C915C81AD06F02 /* GraphWindowView.swift in Sources */,
+				D8A1F92E4C7B83A1E5F06D12 /* IdeasPortalView.swift in Sources */,
 				FC9BDD9CB6B68E2D12ABCB7C /* InferenceState.swift in Sources */,
 				B6CD5A5B77290070D8B396A8 /* JournalIntents.swift in Sources */,
 				DF71D454567820AD17BB5E5B /* Keychain.swift in Sources */,

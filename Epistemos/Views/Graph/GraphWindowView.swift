@@ -131,7 +131,7 @@ struct GraphWindowView: View {
             // Tab content
             switch sidebarTab {
             case .ideas:
-                ideasPlaceholder
+                IdeasPortalView()
             case .navigate:
                 navigatePlaceholder
             case .info:
@@ -141,26 +141,7 @@ struct GraphWindowView: View {
         .background(theme.sidebarBackground)
     }
 
-    // MARK: - Sidebar: Ideas (placeholder for Task 8)
-
-    private var ideasPlaceholder: some View {
-        VStack(spacing: Spacing.md) {
-            Spacer()
-            Image(systemName: "lightbulb")
-                .font(.system(size: 32))
-                .foregroundStyle(theme.textTertiary)
-            Text("Ideas Portal")
-                .font(.epHeading)
-                .foregroundStyle(theme.textSecondary)
-            Text("Coming soon — global ideas hub")
-                .font(.epCaption)
-                .foregroundStyle(theme.textTertiary)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Sidebar: Navigate (placeholder for Task 8)
+    // MARK: - Sidebar: Navigate (placeholder for Task 9)
 
     private var navigatePlaceholder: some View {
         VStack(spacing: Spacing.md) {
