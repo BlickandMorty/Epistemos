@@ -1,4 +1,5 @@
 mod engine;
+mod physics;
 mod types;
 
 use std::ffi::{c_char, c_void, CStr};
@@ -139,7 +140,7 @@ pub extern "C" fn graph_engine_add_edges(ptr: *mut c_void, edges: *const CEdge, 
     }
 }
 
-/// Signal that data loading is complete. Triggers initial layout positioning.
+/// Signal that data loading is complete. Positions nodes and starts physics.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_commit(ptr: *mut c_void) {
     let Some(engine) = get_engine(ptr) else { return };
@@ -158,6 +159,9 @@ pub extern "C" fn graph_engine_commit(ptr: *mut c_void) {
             node.pos.y = cy + radius * angle.sin();
         }
     }
+
+    // Start physics simulation on dedicated thread
+    engine.start_physics();
 }
 
 /// Query how many nodes are currently loaded.
