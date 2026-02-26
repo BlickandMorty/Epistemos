@@ -54,6 +54,9 @@ struct EpistemosApp: App {
 
         Window("Knowledge Graph", id: "graph") {
             GraphWindowView()
+                .environment(bootstrap.graphState)
+                .environment(bootstrap.uiState)
+                .environment(bootstrap.llmService)
         }
         .modelContainer(bootstrap.modelContainer)
         .defaultSize(width: 1000, height: 700)
@@ -124,6 +127,7 @@ struct EpistemosCommands: Commands {
     let chat: ChatState
     let notesUI: NotesUIState
     let vaultSync: VaultSyncService
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandGroup(after: .sidebar) {
@@ -142,6 +146,11 @@ struct EpistemosCommands: Commands {
 
             Button("Show Library & Research") { UtilityWindowManager.shared.show(.library) }
                 .keyboardShortcut("3", modifiers: .command)
+
+            Button("Knowledge Graph") {
+                openWindow(id: "graph")
+            }
+            .keyboardShortcut("g", modifiers: .command)
 
             Divider()
 

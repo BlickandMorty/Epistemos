@@ -32,6 +32,7 @@ final class AppBootstrap {
     let inferenceState: InferenceState
     let dailyBriefState = DailyBriefState()
     let threadState = ThreadState()
+    let graphState = GraphState()
 
     // MARK: - App Nap Prevention
     private var antiNapActivity: NSObjectProtocol?
@@ -64,6 +65,7 @@ final class AppBootstrap {
             container = try ModelContainer(
                 for: SDPage.self, SDFolder.self,
                      SDChat.self, SDMessage.self, SDPageVersion.self,
+                     SDGraphNode.self, SDGraphEdge.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: false)
             )
         } catch {
