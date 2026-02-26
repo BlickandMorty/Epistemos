@@ -59,6 +59,8 @@
 		87D62F126EDB4A39B4B86CFB /* GraphTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9B6A70E57F490EA446D83B /* GraphTypes.swift */; };
 		5E851D26A49B415782E31D44 /* GraphStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDF034EF4894629B508AD92 /* GraphStore.swift */; };
 		94B230E541FC44C5B3F7990D /* ForceSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */; };
+		F13E7A02B1C84D3E9A4FE001 /* FilterEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13E7A01B1C84D3E9A4FE002 /* FilterEngine.swift */; };
+		F13E7A03B1C84D3E9A4FE003 /* FilterEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13E7A04B1C84D3E9A4FE004 /* FilterEngineTests.swift */; };
 		33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */; };
 		34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */; };
 		37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */; };
@@ -235,6 +237,8 @@
 		365CEFC2FA684F40A68C0856 /* SDGraphEdge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDGraphEdge.swift; sourceTree = "<group>"; };
 		EEDF034EF4894629B508AD92 /* GraphStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphStore.swift; sourceTree = "<group>"; };
 		25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceSimulation.swift; sourceTree = "<group>"; };
+		F13E7A01B1C84D3E9A4FE002 /* FilterEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterEngine.swift; sourceTree = "<group>"; };
+		F13E7A04B1C84D3E9A4FE004 /* FilterEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterEngineTests.swift; sourceTree = "<group>"; };
 		B60666F023BD43CB9AC4001E /* GraphStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphStoreTests.swift; sourceTree = "<group>"; };
 		868D11B3A8C44EED81EB969C /* ForceSimulationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceSimulationTests.swift; sourceTree = "<group>"; };
 		DBB51CE182684CE7B2490E69 /* SDGraphNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDGraphNode.swift; sourceTree = "<group>"; };
@@ -418,6 +422,7 @@
 			children = (
 				EEDF034EF4894629B508AD92 /* GraphStore.swift */,
 				25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */,
+				F13E7A01B1C84D3E9A4FE002 /* FilterEngine.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -674,6 +679,7 @@
 				A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */,				9B7406CA8CD942BD8B4D3623 /* GraphModelTests.swift */,
 				B60666F023BD43CB9AC4001E /* GraphStoreTests.swift */,
 				868D11B3A8C44EED81EB969C /* ForceSimulationTests.swift */,
+				F13E7A04B1C84D3E9A4FE004 /* FilterEngineTests.swift */,
 
 			);
 			path = EpistemosTests;
@@ -830,6 +836,7 @@
 				991B2ED9590E41EF8DF0EFB7 /* GraphModelTests.swift in Sources */,
 				EDEFF9B79E5544F3A9931584 /* GraphStoreTests.swift in Sources */,
 				0A0020BDED64410F9837C3CF /* ForceSimulationTests.swift in Sources */,
+				F13E7A03B1C84D3E9A4FE003 /* FilterEngineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -959,6 +966,7 @@
 				87D62F126EDB4A39B4B86CFB /* GraphTypes.swift in Sources */,
 				5E851D26A49B415782E31D44 /* GraphStore.swift in Sources */,
 				94B230E541FC44C5B3F7990D /* ForceSimulation.swift in Sources */,
+				F13E7A02B1C84D3E9A4FE001 /* FilterEngine.swift in Sources */,
 				91E24EF7296A47A4A822A35E /* SDGraphNode.swift in Sources */,
 				F5E833B39A954C4F88B3850B /* SDGraphEdge.swift in Sources */,
 			);
