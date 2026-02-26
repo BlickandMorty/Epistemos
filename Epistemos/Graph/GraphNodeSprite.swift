@@ -2,7 +2,7 @@ import SpriteKit
 
 // MARK: - GraphNodeSprite
 // A reusable SKNode subclass representing one graph node. Pooled by KnowledgeGraphScene.
-// Contains a circle shape, icon, label, and glow effect node.
+// Contains a circle shape, icon, label, glow effect node, and optional evidence grade ring.
 
 final class GraphNodeSprite: SKNode {
 
@@ -12,10 +12,15 @@ final class GraphNodeSprite: SKNode {
     let iconSprite: SKSpriteNode
     let labelNode: SKLabelNode
     let glowNode: SKEffectNode
+    let gradeRing: SKShapeNode
 
     // MARK: - State
 
     var recordId: String?
+
+    /// Tracks whether this sprite was already animated in, to avoid repeating the entrance animation
+    /// when LOD or position updates re-configure the sprite within the same activation cycle.
+    private var hasAnimatedIn: Bool = false
 
     // MARK: - Init
 
@@ -39,7 +44,7 @@ final class GraphNodeSprite: SKNode {
         labelNode.horizontalAlignmentMode = .center
         labelNode.position = CGPoint(x: 0, y: -14)
 
-        // Glow: blur effect for hover/selection
+        // Glow: blur effect for hover/selection/research-stage
         glowNode = SKEffectNode()
         let glowCircle = SKShapeNode(circleOfRadius: 14)
         glowCircle.fillColor = .white
@@ -51,9 +56,19 @@ final class GraphNodeSprite: SKNode {
         glowNode.alpha = 0
         glowNode.zPosition = -1
 
+        // Evidence grade ring: thin ring slightly larger than the circle
+        gradeRing = SKShapeNode(circleOfRadius: 12)
+        gradeRing.fillColor = .clear
+        gradeRing.strokeColor = .systemYellow
+        gradeRing.lineWidth = 1.5
+        gradeRing.alpha = 0
+        gradeRing.isHidden = true
+        gradeRing.zPosition = -0.5
+
         super.init()
 
         addChild(glowNode)
+        addChild(gradeRing)
         addChild(circle)
         circle.addChild(iconSprite)
         addChild(labelNode)
@@ -95,9 +110,81 @@ final class GraphNodeSprite: SKNode {
         labelNode.isHidden = !showLabel
         labelNode.position = CGPoint(x: 0, y: -radius - 4)
 
-        // Show
-        isHidden = false
-        alpha = 1
+        // Evidence grade ring
+        configureGradeRing(metadata: record.metadata, radius: radius)
+
+        // Research stage glow
+        configureResearchGlow(metadata: record.metadata, color: color)
+
+        // Animate entrance (scale from zero + fade)
+        if !hasAnimatedIn {
+            hasAnimatedIn = true
+            setScale(0)
+            alpha = 0
+            isHidden = false
+            run(SKAction.group([
+                SKAction.scale(to: 1.0, duration: 0.3),
+                SKAction.fadeIn(withDuration: 0.2)
+            ]))
+        } else {
+            isHidden = false
+            alpha = 1
+        }
+    }
+
+    // MARK: - Evidence Grade Ring
+
+    /// Show or hide the evidence grade ring based on metadata.
+    private func configureGradeRing(metadata: GraphNodeMetadata, radius: CGFloat) {
+        guard let grade = metadata.evidenceGrade else {
+            gradeRing.isHidden = true
+            gradeRing.alpha = 0
+            return
+        }
+
+        // Scale the ring to match the node radius (ring is base radius 12, so offset = +2pt from circle)
+        let ringScale = (radius + 2.0) / 12.0
+        gradeRing.setScale(ringScale)
+
+        switch grade {
+        case "A":
+            gradeRing.strokeColor = NSColor.systemYellow
+            gradeRing.alpha = 0.8
+            gradeRing.isHidden = false
+        case "B":
+            gradeRing.strokeColor = NSColor.lightGray
+            gradeRing.alpha = 0.6
+            gradeRing.isHidden = false
+        default:
+            // C, D, F — no ring
+            gradeRing.isHidden = true
+            gradeRing.alpha = 0
+        }
+    }
+
+    // MARK: - Research Stage Glow
+
+    /// Enhance glow for mature research stages (4+).
+    private func configureResearchGlow(metadata: GraphNodeMetadata, color: NSColor) {
+        guard let stage = metadata.researchStage, stage >= 4 else {
+            // Don't touch glowNode alpha here — it may be controlled by hover.
+            // Only reset if we're doing initial config (no hover active).
+            return
+        }
+
+        // Set glow color to a warm version of the node color
+        if let glowCircle = glowNode.children.first as? SKShapeNode {
+            glowCircle.fillColor = color
+        }
+
+        switch stage {
+        case 4:
+            glowNode.alpha = 0.3
+        case 5:
+            glowNode.alpha = 0.5
+        default:
+            break
+        }
     }
 
     // MARK: - Recycling
@@ -111,7 +198,64 @@ final class GraphNodeSprite: SKNode {
         glowNode.alpha = 0
         circle.setScale(1.0)
         labelNode.text = nil
+        labelNode.isHidden = false
         iconSprite.texture = nil
+        iconSprite.isHidden = false
+        gradeRing.isHidden = true
+        gradeRing.alpha = 0
+        hasAnimatedIn = false
+        setScale(1.0)
+    }
+
+    /// Animate out then recycle. The completion handler is called after the animation
+    /// finishes, allowing the caller to return this sprite to the pool.
+    func animateOutThenRecycle(completion: @escaping () -> Void) {
+        run(SKAction.sequence([
+            SKAction.group([
+                SKAction.scale(to: 0, duration: 0.3),
+                SKAction.fadeOut(withDuration: 0.3)
+            ]),
+            SKAction.run { [weak self] in
+                self?.recycle()
+                completion()
+            }
+        ]))
+    }
+
+    // MARK: - LOD Appearance
+
+    /// Apply level-of-detail settings based on camera zoom scale.
+    /// - Parameters:
+    ///   - scale: Current camera xScale (higher = more zoomed out)
+    ///   - radius: The computed radius for this node's weight
+    ///   - weight: The node's weight (for hub-node label decisions)
+    func applyLOD(scale: CGFloat, radius: CGFloat, weight: Double) {
+        if scale > 2.0 {
+            // Zoomed way out — colored dots only
+            iconSprite.isHidden = true
+            labelNode.isHidden = true
+            circle.setScale(3.0 / 10.0) // shrink to 3pt radius
+            gradeRing.isHidden = true
+        } else if scale > 1.0 {
+            // Medium zoom out — circles with color, labels on hub nodes only
+            iconSprite.isHidden = true
+            circle.setScale(radius / 10.0)
+            labelNode.isHidden = weight <= 5
+            // Grade ring visible if applicable (already configured)
+            if gradeRing.alpha > 0 { gradeRing.isHidden = false }
+        } else if scale > 0.5 {
+            // Normal view — full nodes with icons + labels
+            iconSprite.isHidden = false
+            circle.setScale(radius / 10.0)
+            labelNode.isHidden = false
+            if gradeRing.alpha > 0 { gradeRing.isHidden = false }
+        } else {
+            // Zoomed way in — large nodes, everything visible
+            iconSprite.isHidden = false
+            circle.setScale(radius / 10.0)
+            labelNode.isHidden = false
+            if gradeRing.alpha > 0 { gradeRing.isHidden = false }
+        }
     }
 
     // MARK: - Glow Effects

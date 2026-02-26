@@ -54,6 +54,11 @@ final class KnowledgeGraphScene: SKScene {
     private var activeEdges: [String: SKShapeNode] = [:]
     private var edgePool: [SKShapeNode] = []
 
+    // MARK: - Edge Label Pool (for LOD scale <= 0.5)
+
+    private var activeEdgeLabels: [String: SKLabelNode] = [:]
+    private var edgeLabelPool: [SKLabelNode] = []
+
     // MARK: - Interaction State
 
     private(set) var selectedNodeId: String?
@@ -148,6 +153,7 @@ final class KnowledgeGraphScene: SKScene {
         }
 
         let visibleRect = calculateVisibleRect()
+        let currentScale = cameraNode.xScale
 
         // Determine which nodes should be active
         var shouldBeActive = Set<String>()
@@ -174,8 +180,10 @@ final class KnowledgeGraphScene: SKScene {
         let toRecycle = Set(activeSprites.keys).subtracting(shouldBeActive)
         for nodeId in toRecycle {
             if let sprite = activeSprites.removeValue(forKey: nodeId) {
-                sprite.recycle()
-                spritePool.append(sprite)
+                // Animate out, then return to pool after animation completes
+                sprite.animateOutThenRecycle { [weak self] in
+                    self?.spritePool.append(sprite)
+                }
             }
         }
 
@@ -188,17 +196,34 @@ final class KnowledgeGraphScene: SKScene {
             let color = Self.nodeColors[record.type] ?? .systemGray
             let radius = radiusForWeight(record.weight)
             sprite.configure(record: record, color: color, radius: radius, showLabel: true)
+            applyLOD(sprite: sprite, record: record, scale: currentScale, radius: radius)
             activeSprites[nodeId] = sprite
         }
 
-        // Update positions for all active sprites
+        // Update positions and LOD for all active sprites
         for (nodeId, sprite) in activeSprites {
             guard let record = store.nodes[nodeId] else { continue }
             sprite.position = CGPoint(x: CGFloat(record.position.x), y: CGFloat(record.position.y))
+
+            let radius = radiusForWeight(record.weight)
+            applyLOD(sprite: sprite, record: record, scale: currentScale, radius: radius)
         }
 
         // Update edges
         updateEdges()
+    }
+
+    // MARK: - LOD (Level of Detail)
+
+    /// Configure a sprite's level of detail based on the current camera zoom scale.
+    ///
+    /// Camera xScale semantics (SpriteKit):
+    /// - `scale > 2.0`  — zoomed way out, show colored dots only
+    /// - `1.0 < scale <= 2.0` — medium zoom, circles + labels on hub nodes
+    /// - `0.5 < scale <= 1.0` — normal view, full nodes with icons + labels
+    /// - `scale <= 0.5` — zoomed way in, large nodes, edge type labels appear
+    private func applyLOD(sprite: GraphNodeSprite, record: GraphNodeRecord, scale: CGFloat, radius: CGFloat) {
+        sprite.applyLOD(scale: scale, radius: radius, weight: record.weight)
     }
 
     private func calculateVisibleRect() -> CGRect {
@@ -236,12 +261,23 @@ final class KnowledgeGraphScene: SKScene {
     private func updateEdges() {
         guard let store = graphStore else { return }
 
+        let currentScale = cameraNode.xScale
+        let showEdgeLabels = currentScale <= 0.5
+
         // Recycle all active edges to pool (edges are cheap to redraw)
         for (edgeId, shapeNode) in activeEdges {
             shapeNode.isHidden = true
             shapeNode.removeFromParent()
             edgePool.append(shapeNode)
             activeEdges.removeValue(forKey: edgeId)
+        }
+
+        // Recycle edge labels
+        for (labelId, labelNode) in activeEdgeLabels {
+            labelNode.isHidden = true
+            labelNode.removeFromParent()
+            edgeLabelPool.append(labelNode)
+            activeEdgeLabels.removeValue(forKey: labelId)
         }
 
         // Draw edges where both endpoints are active (visible)
@@ -297,6 +333,28 @@ final class KnowledgeGraphScene: SKScene {
 
             edgeLayer.addChild(shapeNode)
             activeEdges[edgeId] = shapeNode
+
+            // Edge type labels at high zoom (scale <= 0.5)
+            if showEdgeLabels, length > 30 {
+                let labelNode: SKLabelNode
+                if let pooled = edgeLabelPool.popLast() {
+                    labelNode = pooled
+                } else {
+                    labelNode = SKLabelNode(fontNamed: "SF Pro Text")
+                    labelNode.fontSize = 8
+                    labelNode.verticalAlignmentMode = .center
+                    labelNode.horizontalAlignmentMode = .center
+                }
+
+                labelNode.text = edge.type.rawValue
+                labelNode.fontColor = sourceColor.withAlphaComponent(0.5)
+                labelNode.position = CGPoint(x: midX, y: midY + 6)
+                labelNode.isHidden = false
+                labelNode.zPosition = 0
+
+                edgeLayer.addChild(labelNode)
+                activeEdgeLabels[edgeId] = labelNode
+            }
         }
     }
 
@@ -398,9 +456,10 @@ final class KnowledgeGraphScene: SKScene {
             activeSprites[previousId]?.hideHoverGlow()
         }
 
-        // Hover new
+        // Hover new — only when at normal or closer zoom (scale <= 1.0)
         if let currentId = newHoveredId, currentId != hoveredNodeId {
-            if let hoveredSprite = activeSprites[currentId],
+            if cameraNode.xScale <= 1.0,
+               let hoveredSprite = activeSprites[currentId],
                let record = graphStore?.nodes[currentId] {
                 let color = Self.nodeColors[record.type] ?? .systemGray
                 hoveredSprite.showHoverGlow(color: color)
