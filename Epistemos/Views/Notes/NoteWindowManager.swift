@@ -8,6 +8,12 @@ import os
 // Every note opens as a tab using NoteTabView (fixed pageId, self-contained).
 // Single entry point: open(pageId:) — fetches page, highlights sidebar, opens tab.
 
+/// A single item in the wikilink navigation breadcrumb trail.
+struct BreadcrumbItem: Identifiable {
+    let id: String   // pageId
+    let title: String
+}
+
 @MainActor
 final class NoteWindowManager {
     static let shared = NoteWindowManager()
@@ -18,13 +24,18 @@ final class NoteWindowManager {
     private let tabDelegate = NoteTabDelegate()
     nonisolated static let log = Logger(subsystem: "com.epistemos", category: "NoteWindow")
 
+    /// Breadcrumb trails per page — tracks how a user navigated to each tab via wikilinks.
+    /// Key = pageId, Value = trail from root to this page (inclusive).
+    private(set) var breadcrumbs: [String: [BreadcrumbItem]] = [:]
+
     private init() {}
 
     // MARK: - Open Note (Single Entry Point)
 
     /// Open a note by ID — fetches the page, highlights in sidebar, opens as tab.
     /// Single entry point for all note-opening actions across the app.
-    func open(pageId: String) {
+    /// `fromPageId`: when non-nil, this was a wikilink navigation — extends that page's breadcrumb.
+    func open(pageId: String, fromPageId: String? = nil) {
         guard let bootstrap = AppBootstrap.shared else { return }
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
@@ -32,6 +43,18 @@ final class NoteWindowManager {
         guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else {
             return
         }
+
+        // Build breadcrumb trail
+        let pageTitle = page.title.isEmpty ? "Untitled" : page.title
+        if let from = fromPageId, let parentTrail = breadcrumbs[from] {
+            // Wikilink navigation: extend the parent's trail
+            breadcrumbs[pageId] = parentTrail + [BreadcrumbItem(id: pageId, title: pageTitle)]
+        } else if breadcrumbs[pageId] == nil {
+            // Opened from sidebar or fresh — single-item trail (no breadcrumb shown)
+            breadcrumbs[pageId] = [BreadcrumbItem(id: pageId, title: pageTitle)]
+        }
+        // If breadcrumbs[pageId] already exists (re-activating tab), keep existing trail.
+
         bootstrap.notesUI.openPage(pageId)
         openWindow(for: page)
     }
@@ -89,6 +112,11 @@ final class NoteWindowManager {
         window.minSize = NSSize(width: 400, height: 300)
         window.setFrameAutosaveName("note-\(page.id)")
 
+        // Sync window chrome to current theme
+        let theme = bootstrap.uiState.theme
+        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window.backgroundColor = NSColor(theme.background)
+
         // Native macOS Finder-style tab bar
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
@@ -128,6 +156,7 @@ final class NoteWindowManager {
             NotificationCenter.default.removeObserver(observer)
         }
         windows.removeValue(forKey: pageId)
+        breadcrumbs.removeValue(forKey: pageId)
     }
 
     // MARK: - Version Tab (Read-Only)
@@ -164,6 +193,11 @@ final class NoteWindowManager {
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
+
+        // Sync window chrome to current theme
+        let theme = bootstrap.uiState.theme
+        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window.backgroundColor = NSColor(theme.background)
 
         // Join the note tab group
         window.tabbingMode = .preferred
@@ -239,39 +273,81 @@ private struct NoteTabView: View {
 
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(ResearchState.self) private var researchState
+    @Environment(EventBus.self) private var eventBus
+    @Environment(\.modelContext) private var modelContext
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
     @State private var showWriterMode = false
+    @State private var isScanningCitations = false
+    @State private var showIdeasPopover = false
+    /// Pre-selected idea tab when opened from right-click context menu.
+    @State private var contextMenuIdeaTab: IdeasPanel.IdeaTab?
+    /// Editor selection captured BEFORE the popover steals focus.
+    /// The popover becomes key, deselecting the editor — so we snapshot
+    /// the selection range + text at the moment the user opens the panel.
+    @State private var capturedSelection: NSRange?
+    @State private var capturedSelectionText: String?
+    /// Opacity of the greeting overlay (0 = invisible, 1 = fully covering).
+    /// Kept always in the view tree to avoid insertion delay.
+    @State private var transitionOpacity: Double = 0
+    /// The greeting message shown during the current transition.
+    @State private var transitionGreeting: String = ""
+    /// True while a transition is in flight (prevents rapid re-trigger).
+    @State private var isTransitioning = false
 
     init(pageId: String) {
         self.pageId = pageId
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
     }
 
+    /// The breadcrumb trail for this page — only shown when 2+ items (i.e. arrived via wikilink).
+    private var breadcrumb: [BreadcrumbItem] {
+        NoteWindowManager.shared.breadcrumbs[pageId] ?? []
+    }
+
     var body: some View {
-        ZStack {
-            if let page = pages.first {
-                if showWriterMode {
-                    WriterModeView(page: page, isDark: ui.theme.isDark, isLocked: page.isLocked)
-                        .frame(minWidth: 400, minHeight: 300)
-                } else if showPreview {
-                    NotePreviewView(body: page.body, isDark: ui.theme.isDark)
-                        .frame(minWidth: 400, minHeight: 300)
+        VStack(spacing: 0) {
+            // Breadcrumb trail — shown only when navigated via wikilinks (2+ items)
+            if breadcrumb.count > 1 {
+                NoteBreadcrumbBar(trail: breadcrumb, currentPageId: pageId, theme: ui.theme)
+            }
+
+            ZStack {
+                if let page = pages.first {
+                    if showWriterMode {
+                        WriterModeView(page: page, isDark: ui.theme.isDark, isLocked: page.isLocked)
+                            .frame(minWidth: 400, minHeight: 300)
+                    } else if showPreview {
+                        NotePreviewView(body: page.body, isDark: ui.theme.isDark)
+                            .frame(minWidth: 400, minHeight: 300)
+                    } else {
+                        ProseEditorView(page: page, isEditable: !page.isLocked)
+                            .frame(minWidth: 400, minHeight: 300)
+                    }
                 } else {
-                    ProseEditorView(page: page, isEditable: !page.isLocked)
+                    ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
                         .frame(minWidth: 400, minHeight: 300)
                 }
-            } else {
-                ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
-                    .frame(minWidth: 400, minHeight: 300)
+
+                // Greeting overlay — always in the view tree (no insertion delay).
+                // Opacity is flipped instantly to 1 before the mode swap, then
+                // animated back to 0 after the new view has settled.
+                TransitionGreetingView(
+                    message: transitionGreeting,
+                    theme: ui.theme
+                )
+                .opacity(transitionOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(transitionOpacity > 0)
             }
         }
         .background(ui.theme.background)
         .toolbarBackground(.hidden, for: .windowToolbar)
         .toolbar {
-            // New Note — far left
+            // — New Note (far left) —
             ToolbarItem(placement: .navigation) {
                 Button {
                     Task {
@@ -282,106 +358,89 @@ private struct NoteTabView: View {
                 } label: {
                     Label("New Note", systemImage: "square.and.pencil")
                 }
+                .accessibilityLabel("New Note")
                 .help("New Note (⌘N)")
             }
 
-            // — Organization: Pin, Favorite, Lock —
-            ToolbarItemGroup(placement: .primaryAction) {
+            // — All actions, centered in toolbar —
+            ToolbarItemGroup(placement: .principal) {
+                // Writer toggle — hidden when Preview is active
+                if !showPreview {
+                    Button { toggleWriterMode() } label: {
+                        Label("Writer", systemImage: showWriterMode ? "doc.richtext.fill" : "doc.richtext")
+                    }
+                    .accessibilityLabel(showWriterMode ? "Exit Writer Mode" : "Enter Writer Mode")
+                    .help("Writer Mode (⌘R)")
+                }
+
+                if !showWriterMode && !showPreview {
+                    formatMenu
+                }
+
+                // Preview toggle — hidden when Writer is active
+                if !showWriterMode {
+                    Button { togglePreviewMode() } label: {
+                        Label("Preview", systemImage: showPreview ? "eye.fill" : "eye")
+                    }
+                    .accessibilityLabel(showPreview ? "Exit Preview" : "Show Preview")
+                    .help("Preview (⌘E)")
+                }
+
                 if let page = pages.first {
                     Button {
                         page.isPinned.toggle()
+                        try? modelContext.save()
                     } label: {
                         Label("Pin", systemImage: page.isPinned ? "pin.fill" : "pin")
                     }
-                    .help(page.isPinned ? "Unpin" : "Pin")
-
-                    Button {
-                        page.isFavorite.toggle()
-                    } label: {
-                        Label("Favorite", systemImage: page.isFavorite ? "star.fill" : "star")
-                    }
-                    .help(page.isFavorite ? "Unfavorite" : "Favorite")
+                    .accessibilityLabel(page.isPinned ? "Unpin Note" : "Pin Note")
+                    .help(page.isPinned ? "Unpin (⌘⇧P)" : "Pin (⌘⇧P)")
 
                     Button {
                         page.isLocked.toggle()
+                        try? modelContext.save()
                     } label: {
                         Label("Lock", systemImage: page.isLocked ? "lock.fill" : "lock.open")
                     }
-                    .help(page.isLocked ? "Unlock" : "Lock")
+                    .accessibilityLabel(page.isLocked ? "Unlock Note" : "Lock Note")
+                    .help(page.isLocked ? "Unlock (⌘⇧L)" : "Lock (⌘⇧L)")
                 }
-            }
 
-            // — Editor: Writer, Format, Preview, Info, Share —
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    showWriterMode.toggle()
-                    if showWriterMode { showPreview = false }
-                } label: {
-                    Label("Writer", systemImage: showWriterMode ? "doc.plaintext" : "doc.richtext")
+                Button { vaultSync.savePage(pageId: pageId) } label: {
+                    Label("Save", systemImage: "square.and.arrow.down")
                 }
-                .help("Writer Mode (⌘R)")
+                .accessibilityLabel("Save Note")
+                .help("Save (⌘S)")
 
-                formatMenu
-
-                Button {
-                    showPreview.toggle()
-                    if showPreview { showWriterMode = false }
-                } label: {
-                    Label("Preview", systemImage: showPreview ? "eye.slash" : "eye")
-                }
-                .help("Preview (⌘E)")
-
-                Button {
-                    showInfoPopover.toggle()
-                } label: {
+                Button { showInfoPopover.toggle() } label: {
                     Label("Info", systemImage: "info.circle")
                 }
-                .help("Info")
+                .accessibilityLabel("Note Information")
+                .help("Note Info")
                 .popover(isPresented: $showInfoPopover) {
                     if let page = pages.first {
                         noteInfoPanel(page: page)
                     }
                 }
 
-                Button {
+                Button { captureSelectionAndOpenIdeas() } label: {
+                    Label("Ideas", systemImage: "lightbulb")
+                }
+                .accessibilityLabel("Ideas and Brain Dumps")
+                .help("Ideas & Brain Dumps")
+                .popover(isPresented: $showIdeasPopover) {
                     if let page = pages.first {
-                        shareNote(page)
+                        IdeasPanel(
+                            page: page,
+                            initialTab: contextMenuIdeaTab,
+                            autoShowForm: contextMenuIdeaTab != nil,
+                            capturedSelection: capturedSelection,
+                            capturedSelectionText: capturedSelectionText
+                        )
                     }
-                } label: {
-                    Label("Share", systemImage: "square.and.arrow.up")
                 }
-                .help("Share")
-            }
 
-            // — Window: Sidebar, Save, Diff, Chat —
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    UtilityWindowManager.shared.show(.notes)
-                } label: {
-                    Label("Sidebar", systemImage: "sidebar.leading")
-                }
-                .help("Notes Sidebar (⌘2)")
-
-                Button {
-                    vaultSync.savePage(pageId: pageId)
-                } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .help("Save (⌘S)")
-
-                Button {
-                    showDiffSheet = true
-                } label: {
-                    Label("Diff", systemImage: "chevron.left.forwardslash.chevron.right")
-                }
-                .help("Diff (⌘D)")
-
-                Button {
-                    MiniChatWindowController.shared.toggle()
-                } label: {
-                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
-                }
-                .help("Mini Chat")
+                moreMenu
             }
         }
         .background {
@@ -404,25 +463,176 @@ private struct NoteTabView: View {
             Button("") { showDiffSheet = true }
                 .keyboardShortcut("d", modifiers: .command)
                 .hidden()
-            Button("") { showPreview.toggle() }
+            Button("") { togglePreviewMode() }
                 .keyboardShortcut("e", modifiers: .command)
                 .hidden()
-            Button("") {
-                showWriterMode.toggle()
-                if showWriterMode { showPreview = false }
-            }
-            .keyboardShortcut("r", modifiers: .command)
-            .hidden()
+            Button("") { toggleWriterMode() }
+                .keyboardShortcut("r", modifiers: .command)
+                .hidden()
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)
                 .hidden()
             Button("") { insertMarkdown("*", "*") }
                 .keyboardShortcut("i", modifiers: .command)
                 .hidden()
+            Button("") {
+                if let page = pages.first {
+                    page.isPinned.toggle()
+                    try? modelContext.save()
+                }
+            }
+            .keyboardShortcut("p", modifiers: [.command, .shift])
+            .hidden()
+            Button("") {
+                if let page = pages.first {
+                    page.isLocked.toggle()
+                    try? modelContext.save()
+                }
+            }
+            .keyboardShortcut("l", modifiers: [.command, .shift])
+            .hidden()
         }
         .sheet(isPresented: $showDiffSheet) {
             if let page = pages.first {
                 DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.body)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)) { _ in
+            snapshotEditorSelection()
+            contextMenuIdeaTab = .ideas
+            showIdeasPopover = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createBrainDumpNotification)) { _ in
+            snapshotEditorSelection()
+            contextMenuIdeaTab = .brainDumps
+            showIdeasPopover = true
+        }
+        .onChange(of: showIdeasPopover) { _, isShown in
+            if !isShown {
+                contextMenuIdeaTab = nil
+                capturedSelection = nil
+                capturedSelectionText = nil
+            }
+        }
+    }
+
+    // MARK: - Selection Capture for Ideas Panel
+    // The popover steals keyboard focus from the editor, which clears the selection.
+    // We snapshot the selection BEFORE the popover opens so Integrate can use it.
+
+    private func snapshotEditorSelection() {
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else {
+            capturedSelection = nil
+            capturedSelectionText = nil
+            return
+        }
+        let sel = tv.selectedRange()
+        if sel.length > 0 {
+            capturedSelection = sel
+            capturedSelectionText = (tv.string as NSString).substring(with: sel)
+        } else {
+            capturedSelection = nil
+            capturedSelectionText = nil
+        }
+    }
+
+    private func captureSelectionAndOpenIdeas() {
+        snapshotEditorSelection()
+        showIdeasPopover.toggle()
+    }
+
+    // MARK: - Editor Flush & Pool Reset (Mode Switching)
+    // Flushes unsaved text from the current editor (ProseEditor or Writer) to page.body
+    // before switching modes, preventing stale data in the new editor.
+    // Also invalidates the PageStoragePool entry so the regular editor gets a fresh
+    // MarkdownTextStorage with correct formatting when switching back from Writer/Preview.
+
+    private func invalidateEditorCache() {
+        PageStoragePool.shared.saveToDisk(pageId: pageId)
+        PageStoragePool.shared.remove(pageId: pageId)
+    }
+
+    private func flushCurrentEditor() {
+        guard let page = pages.first else { return }
+        guard let responder = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        // Get full document text — handles both single-view (ProseEditor) and
+        // multi-container (Writer/PageTileView) via the shared text storage.
+        let fullText = responder.layoutManager?.textStorage?.string ?? responder.string
+        if fullText != page.body {
+            page.body = fullText
+            page.needsVaultSync = true
+            page.updatedAt = .now
+            // Mark graph for structural refresh when next viewed
+            AppBootstrap.shared?.graphState.needsRefresh = true
+        }
+    }
+
+    // MARK: - Mode Transition Helpers
+    // Shows a solid greeting card that fully covers the view swap glitch.
+    // Timing: appear instantly → mode swaps behind it → fade out after settling.
+
+    private static let greetings = [
+        "hey there...",
+        "working hard?",
+        "shhhhh....",
+        "i love you",
+        "giving yourself grace today?",
+        "take a breath...",
+        "you're doing great",
+        "one step at a time",
+        "be gentle with yourself",
+        "deep breaths...",
+        "almost there...",
+        "you got this",
+        "stay curious",
+        "keep going...",
+        "thoughts becoming words...",
+        "words becoming worlds...",
+    ]
+
+    private func toggleWriterMode() {
+        guard !isTransitioning else { return }
+        guard !showPreview else { return }
+        flushCurrentEditor()
+        invalidateEditorCache()
+        performGreetingTransition {
+            showWriterMode.toggle()
+        }
+    }
+
+    private func togglePreviewMode() {
+        guard !isTransitioning else { return }
+        guard !showWriterMode else { return }
+        flushCurrentEditor()
+        invalidateEditorCache()
+        performGreetingTransition {
+            showPreview.toggle()
+        }
+    }
+
+    private func performGreetingTransition(_ modeSwap: @escaping () -> Void) {
+        // Pick a random greeting
+        transitionGreeting = Self.greetings.randomElement() ?? "hey there..."
+        isTransitioning = true
+
+        // Instantly opaque — no animation, no insertion delay.
+        // The overlay is already in the view tree, just invisible.
+        transitionOpacity = 1
+
+        // Swap mode after one frame (overlay is guaranteed visible).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            modeSwap()
+        }
+
+        // Hold long enough for the new view to fully settle + user reads,
+        // then smooth fade out.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.70) {
+            withAnimation(.easeOut(duration: 0.35)) {
+                transitionOpacity = 0
+            }
+            // Re-enable triggers after fade completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                isTransitioning = false
             }
         }
     }
@@ -431,8 +641,8 @@ private struct NoteTabView: View {
 
     private var formatMenu: some View {
         Menu {
-            Button("Bold") { insertMarkdown("**", "**") }
-            Button("Italic") { insertMarkdown("*", "*") }
+            Button("Bold  ⌘B") { insertMarkdown("**", "**") }
+            Button("Italic  ⌘I") { insertMarkdown("*", "*") }
             Menu("Heading") {
                 Button("Heading 1") { insertLinePrefix("# ") }
                 Button("Heading 2") { insertLinePrefix("## ") }
@@ -446,7 +656,50 @@ private struct NoteTabView: View {
         } label: {
             Label("Format", systemImage: "textformat")
         }
-        .help("Format")
+        .help("Format (⌘B Bold, ⌘I Italic)")
+    }
+
+    // MARK: - More Menu
+
+    private var moreMenu: some View {
+        Menu {
+            if let page = pages.first {
+                Button {
+                    page.isFavorite.toggle()
+                    try? modelContext.save()
+                } label: {
+                    Label(page.isFavorite ? "Unfavorite" : "Favorite",
+                          systemImage: page.isFavorite ? "star.fill" : "star")
+                }
+            }
+            Divider()
+            Button {
+                scanForCitations()
+            } label: {
+                Label(isScanningCitations ? "Scanning…" : "Scan Sources",
+                      systemImage: "text.magnifyingglass")
+            }
+            .disabled(isScanningCitations || pages.first == nil)
+            Divider()
+            Button {
+                if let page = pages.first { shareNote(page) }
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            Button { showDiffSheet = true } label: {
+                Label("Diff (⌘D)", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+            Divider()
+            Button { UtilityWindowManager.shared.show(.notes) } label: {
+                Label("Notes Sidebar", systemImage: "sidebar.leading")
+            }
+            Button { MiniChatWindowController.shared.toggle() } label: {
+                Label("Chat", systemImage: "bubble.left.and.bubble.right")
+            }
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+        .help("More")
     }
 
     /// Wraps the current selection (or inserts at cursor) with markdown syntax.
@@ -499,13 +752,851 @@ private struct NoteTabView: View {
     // MARK: - Share
 
     private func shareNote(_ page: SDPage) {
-        let text = "# \(page.title)\n\n\(page.body)"
+        let text = "# \(page.title)\n\n\(page.body)" as NSString
+        // Use NSApp.keyWindow directly (not from toolbar menu context where it can be nil).
+        // Fall back to the note tab group windows.
+        let window = NSApp.keyWindow
+            ?? NSApp.windows.first(where: { $0.tabbingIdentifier == "epistemos-note-tabs" && $0.isVisible })
+        guard let contentView = window?.contentView else { return }
         let picker = NSSharingServicePicker(items: [text])
-        // Present from the toolbar area of the key window
-        if let contentView = NSApp.keyWindow?.contentView {
-            let buttonRect = NSRect(x: contentView.bounds.midX, y: contentView.bounds.maxY - 40,
-                                    width: 1, height: 1)
-            picker.show(relativeTo: buttonRect, of: contentView, preferredEdge: .minY)
+        let buttonRect = NSRect(x: contentView.bounds.midX, y: contentView.bounds.maxY - 40,
+                                width: 1, height: 1)
+        picker.show(relativeTo: buttonRect, of: contentView, preferredEdge: .minY)
+    }
+
+    // MARK: - Citation Scanning
+
+    /// Scan the current note for sources, citations, and academic references,
+    /// then add any found to the research library.
+    private func scanForCitations() {
+        guard let page = pages.first else { return }
+        isScanningCitations = true
+
+        let fullText = "# \(page.title)\n\n\(page.body)"
+        let papers = CitationExtractor.extract(from: fullText, source: "note-scan",
+                                                originNoteTitle: page.title)
+
+        if papers.isEmpty {
+            eventBus.emitToast("No sources found in this note", type: .info)
+        } else {
+            for paper in papers {
+                researchState.addSavedPaper(paper)
+            }
+            eventBus.emitToast("Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library", type: .success)
+        }
+
+        isScanningCitations = false
+    }
+}
+
+// MARK: - Ideas & Brain Dumps Panel
+// Popover for registering ideas and brain dumps anchored to specific lines in a note.
+// Each idea captures the cursor line when created. Clicking navigates to that line.
+// "Insert" pastes the idea at the anchor. "Integrate" uses Apple Intelligence to weave it in.
+
+private struct IdeasPanel: View {
+    let page: SDPage
+    /// When opened from the right-click context menu, pre-select this tab.
+    var initialTab: IdeaTab?
+    /// When true, auto-show the new item form (right-click context menu flow).
+    var autoShowForm: Bool = false
+    /// Editor selection range captured BEFORE the popover opened (popover steals focus).
+    var capturedSelection: NSRange?
+    /// The selected text captured BEFORE the popover opened.
+    var capturedSelectionText: String?
+
+    @Environment(UIState.self) private var ui
+    @Environment(EventBus.self) private var eventBus
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var activeTab: IdeaTab = .ideas
+    @State private var showNewForm = false
+    @State private var newTitle = ""
+    @State private var newBody = ""
+    @State private var busyItemId: String?  // ID of the idea being processed by AI
+    @State private var didApplyInitial = false
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    enum IdeaTab: String, CaseIterable {
+        case ideas = "Ideas"
+        case brainDumps = "Brain Dumps"
+    }
+
+    private var filteredItems: [NoteIdea] {
+        let targetType: NoteIdea.IdeaType = activeTab == .ideas ? .idea : .brainDump
+        return readIdeas().filter { $0.type == targetType }.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Read ideas directly from JSON data — avoids @Transient cache issues in popovers.
+    private func readIdeas() -> [NoteIdea] {
+        guard let data = page.ideasData else { return [] }
+        return (try? JSONDecoder().decode([NoteIdea].self, from: data)) ?? []
+    }
+
+    /// Write ideas directly to JSON data — avoids @Transient cache staleness.
+    private func writeIdeas(_ ideas: [NoteIdea]) {
+        page.ideasData = try? JSONEncoder().encode(ideas)
+        page.updatedAt = .now
+        try? modelContext.save()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                Text("Ideas & Brain Dumps")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.foreground)
+                Spacer()
+                Text("\(readIdeas().count)")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(theme.glassBg, in: Capsule())
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
+
+            // Tab picker
+            Picker("", selection: $activeTab) {
+                ForEach(IdeaTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
+
+            // Selection indicator — shows captured highlight so user knows Integrate will use it
+            if let selText = capturedSelectionText, !selText.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "text.cursor")
+                        .font(.system(size: 9))
+                    Text("Selected: \"\(selText.prefix(40))\(selText.count > 40 ? "…" : "")\"")
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(theme.accent.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+            }
+
+            Divider()
+
+            // Content — always a ScrollView with fixed height to prevent popover resize crash.
+            // PopoverHostingView.updateAnimatedWindowSize crashes with EXC_BAD_ACCESS when
+            // the popover content changes height dynamically (tab switch, form toggle, item expand).
+            // Fixed frame = no window resize = no crash.
+            ScrollView {
+                if filteredItems.isEmpty && !showNewForm {
+                    VStack(spacing: 8) {
+                        Image(systemName: activeTab == .ideas ? "lightbulb" : "brain")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundStyle(theme.mutedForeground.opacity(0.3))
+                        Text(activeTab == .ideas ? "No ideas yet" : "No brain dumps yet")
+                            .font(.system(size: 12))
+                            .foregroundStyle(theme.mutedForeground.opacity(0.5))
+                        Text(activeTab == .ideas
+                             ? "Place your cursor on a line, then add an idea"
+                             : "Dump raw thoughts — format & insert with AI")
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.mutedForeground.opacity(0.3))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 30)
+                } else {
+                    LazyVStack(spacing: 6) {
+                        ForEach(filteredItems) { item in
+                            IdeaRow(
+                                item: item,
+                                isBusy: busyItemId == item.id,
+                                theme: theme,
+                                pageBody: page.body,
+                                onGoToLine: { goToLine(item.lineAnchor) },
+                                onInsert: { insertIdea(item) },
+                                onIntegrate: { integrateWithAI(item) },
+                                onFormat: { formatWithAI(item) },
+                                onDelete: { deleteIdea(item.id) }
+                            )
+                        }
+
+                        // New item form — inside ScrollView to avoid popover resize
+                        if showNewForm {
+                            Divider().padding(.vertical, 4)
+                            newItemForm
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                }
+            }
+            .frame(height: 340)
+
+            Divider()
+
+            // Add button
+            Button {
+                showNewForm.toggle()
+                if showNewForm {
+                    newTitle = ""
+                    newBody = ""
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: showNewForm ? "xmark" : "plus")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(showNewForm ? "Cancel" : (activeTab == .ideas ? "New Idea" : "New Brain Dump"))
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(showNewForm ? theme.mutedForeground : theme.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+        .frame(width: 340)
+        .onAppear {
+            guard !didApplyInitial else { return }
+            didApplyInitial = true
+            if let tab = initialTab {
+                activeTab = tab
+            }
+            if autoShowForm {
+                showNewForm = true
+                newTitle = ""
+                newBody = ""
+            }
+        }
+    }
+
+    // MARK: - New Item Form
+
+    private var newItemForm: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Show current anchor line context
+            let anchor = Self.currentCursorLine()
+            if let anchor {
+                HStack(spacing: 4) {
+                    Image(systemName: "mappin")
+                        .font(.system(size: 8))
+                    Text("Anchored to line \(anchor.line)")
+                        .font(.system(size: 9, weight: .medium))
+                    if let ctx = anchor.context, !ctx.isEmpty {
+                        Text("· \(ctx)")
+                            .font(.system(size: 9))
+                            .lineLimit(1)
+                            .foregroundStyle(theme.textTertiary)
+                    }
+                }
+                .foregroundStyle(theme.accent.opacity(0.8))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(theme.accent.opacity(0.08), in: Capsule())
+            }
+
+            TextField(activeTab == .ideas ? "Idea title" : "Brain dump title", text: $newTitle)
+                .font(.system(size: 12))
+                .textFieldStyle(.plain)
+                .padding(6)
+                .background(theme.glassBg, in: RoundedRectangle(cornerRadius: 6))
+
+            TextEditor(text: $newBody)
+                .font(.system(size: 11))
+                .foregroundStyle(theme.foreground)
+                .scrollContentBackground(.hidden)
+                .frame(height: 80)
+                .padding(4)
+                .background(theme.glassBg, in: RoundedRectangle(cornerRadius: 6))
+
+            HStack {
+                Spacer()
+                Button("Save") { saveNewItem() }
+                    .font(.system(size: 11, weight: .medium))
+                    .disabled(newTitle.trimmingCharacters(in: .whitespaces).isEmpty
+                              && newBody.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .keyboardShortcut(.return, modifiers: .command)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Cursor / Line Helpers
+
+    /// Get the current cursor line number (1-based) and the line's text content.
+    static func currentCursorLine() -> (line: Int, context: String?)? {
+        // Walk the window list to find an NSTextView (editor might not be key when popover is open)
+        guard let tv = findEditorTextView() else { return nil }
+        let str = tv.string as NSString
+        guard str.length > 0 else { return (1, nil) }
+        let cursor = min(tv.selectedRange().location, str.length)
+        let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
+        let lineText = str.substring(with: lineRange)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Count line number (1-based)
+        var lineNum = 1
+        str.enumerateSubstrings(
+            in: NSRange(location: 0, length: min(cursor, str.length)),
+            options: [.byLines, .substringNotRequired]
+        ) { _, _, _, _ in lineNum += 1 }
+
+        let snippet = lineText.isEmpty ? nil : String(lineText.prefix(80))
+        return (lineNum, snippet)
+    }
+
+    /// Find the editor NSTextView — searches the note window's view hierarchy
+    /// because the popover steals key focus from the editor.
+    private static func findEditorTextView() -> NSTextView? {
+        // First try the direct responder chain
+        if let tv = NSApp.keyWindow?.firstResponder as? NSTextView,
+           tv.isEditable {
+            return tv
+        }
+        // Search all windows in the note tab group
+        for window in NSApp.windows where window.tabbingIdentifier == "epistemos-note-tabs" {
+            if let tv = findTextView(in: window.contentView) {
+                return tv
+            }
+        }
+        return nil
+    }
+
+    private static func findTextView(in view: NSView?) -> NSTextView? {
+        guard let view else { return nil }
+        if let tv = view as? NSTextView, tv.isEditable { return tv }
+        for sub in view.subviews {
+            if let tv = findTextView(in: sub) { return tv }
+        }
+        return nil
+    }
+
+    // MARK: - Actions
+
+    private func saveNewItem() {
+        let trimmedTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBody = newBody.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty || !trimmedBody.isEmpty else { return }
+
+        let anchor = Self.currentCursorLine()
+
+        let idea = NoteIdea(
+            type: activeTab == .ideas ? .idea : .brainDump,
+            title: trimmedTitle.isEmpty ? (activeTab == .ideas ? "Untitled Idea" : "Brain Dump") : trimmedTitle,
+            body: trimmedBody,
+            lineAnchor: anchor?.line,
+            lineContext: anchor?.context
+        )
+
+        var ideas = readIdeas()
+        ideas.append(idea)
+        writeIdeas(ideas)
+
+        newTitle = ""
+        newBody = ""
+        showNewForm = false
+    }
+
+    private func deleteIdea(_ id: String) {
+        var ideas = readIdeas()
+        ideas.removeAll { $0.id == id }
+        writeIdeas(ideas)
+    }
+
+    /// Navigate the editor to the anchor line of an idea.
+    private func goToLine(_ line: Int?) {
+        guard let line, let tv = Self.findEditorTextView() else { return }
+        let str = tv.string as NSString
+        var currentLine = 1
+        var targetRange = NSRange(location: 0, length: 0)
+
+        str.enumerateSubstrings(
+            in: NSRange(location: 0, length: str.length),
+            options: .byLines
+        ) { _, substringRange, _, stop in
+            if currentLine == line {
+                targetRange = substringRange
+                stop.pointee = true
+            }
+            currentLine += 1
+        }
+
+        tv.setSelectedRange(targetRange)
+        tv.scrollRangeToVisible(targetRange)
+        tv.window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Insert the idea's body text at the anchor line.
+    private func insertIdea(_ item: NoteIdea) {
+        guard let tv = Self.findEditorTextView() else { return }
+        let textToInsert = item.formattedBody ?? item.body
+        guard !textToInsert.isEmpty else { return }
+
+        let str = tv.string as NSString
+
+        if let line = item.lineAnchor {
+            // Find the end of the anchor line and insert after it
+            var currentLine = 1
+            var insertLocation = str.length
+
+            str.enumerateSubstrings(
+                in: NSRange(location: 0, length: str.length),
+                options: .byLines
+            ) { _, substringRange, enclosingRange, stop in
+                if currentLine == line {
+                    insertLocation = NSMaxRange(enclosingRange)
+                    stop.pointee = true
+                }
+                currentLine += 1
+            }
+
+            let insertion = textToInsert.hasSuffix("\n") ? textToInsert : textToInsert + "\n"
+            tv.insertText(insertion, replacementRange: NSRange(location: insertLocation, length: 0))
+        } else {
+            // No anchor — insert at cursor
+            let insertion = textToInsert.hasSuffix("\n") ? textToInsert : textToInsert + "\n"
+            tv.insertText(insertion, replacementRange: tv.selectedRange())
+        }
+
+        tv.window?.makeKeyAndOrderFront(nil)
+        eventBus.emitToast("Inserted", type: .success)
+    }
+
+    /// Use Apple Intelligence to deeply integrate a brain dump / idea into the note.
+    /// Uses the editor selection captured BEFORE the popover opened (popover steals focus).
+    /// Sends the full note for context so AI understands the broader piece.
+    private func integrateWithAI(_ item: NoteIdea) {
+        guard busyItemId == nil else { return }
+
+        let ideaText = item.formattedBody ?? item.body
+        guard !ideaText.isEmpty else { return }
+
+        let fullBody = page.body
+        let noteTitle = page.title
+
+        // Use the selection captured before the popover opened
+        let targetText: String
+        let replaceRange: NSRange
+
+        if let sel = capturedSelection, let selText = capturedSelectionText, !selText.isEmpty {
+            // User had text highlighted when they opened the panel
+            targetText = selText
+            replaceRange = sel
+        } else if let line = item.lineAnchor {
+            // No selection — use the anchor line's paragraph
+            let lines = fullBody.components(separatedBy: "\n")
+            let safeIdx = min(max(line - 1, 0), lines.count - 1)
+            let start = max(0, safeIdx - 3)
+            let end = min(lines.count - 1, safeIdx + 3)
+            targetText = lines[start...end].joined(separator: "\n")
+
+            // Find the NSRange covering those lines
+            let nsBody = fullBody as NSString
+            var lineIdx = 0
+            var rStart = 0
+            var rEnd = nsBody.length
+            nsBody.enumerateSubstrings(
+                in: NSRange(location: 0, length: nsBody.length),
+                options: .byLines
+            ) { _, _, enclosingRange, stop in
+                if lineIdx == start { rStart = enclosingRange.location }
+                if lineIdx == end { rEnd = NSMaxRange(enclosingRange); stop.pointee = true }
+                lineIdx += 1
+            }
+            replaceRange = NSRange(location: rStart, length: rEnd - rStart)
+        } else {
+            eventBus.emitToast("Highlight text first, then Integrate", type: .info)
+            return
+        }
+
+        busyItemId = item.id
+
+        // Build surrounding context — paragraphs before and after the target
+        // so the AI understands what comes before and after.
+        let nsBody = fullBody as NSString
+        let beforeStart = max(0, replaceRange.location - 500)
+        let beforeLen = replaceRange.location - beforeStart
+        let afterStart = NSMaxRange(replaceRange)
+        let afterLen = min(500, nsBody.length - afterStart)
+
+        let textBefore = beforeLen > 0
+            ? nsBody.substring(with: NSRange(location: beforeStart, length: beforeLen))
+            : ""
+        let textAfter = afterLen > 0
+            ? nsBody.substring(with: NSRange(location: afterStart, length: afterLen))
+            : ""
+
+        Task {
+            do {
+                let prompt = """
+                You are rewriting a section of a note titled "\(noteTitle)".
+
+                CONTEXT BEFORE the target section:
+                \(textBefore.isEmpty ? "(start of note)" : textBefore)
+
+                TARGET SECTION TO REWRITE (this is what you must replace):
+                ---
+                \(targetText)
+                ---
+
+                CONTEXT AFTER the target section:
+                \(textAfter.isEmpty ? "(end of note)" : textAfter)
+
+                NEW CONTENT TO INTEGRATE (brain dump / idea from the user):
+                Title: \(item.title)
+                Content: \(ideaText)
+
+                INSTRUCTIONS:
+                1. Combine the TARGET SECTION and the NEW CONTENT into ONE rewritten block.
+                2. The new content's ideas must be DEEPLY WOVEN into the existing text — not appended, not listed separately, not tacked on at the end.
+                3. The result must flow naturally from the CONTEXT BEFORE and into the CONTEXT AFTER.
+                4. Preserve the author's voice, markdown formatting, and academic tone.
+                5. Return ONLY the rewritten target section. No explanation, no preamble, no "Here is the rewritten section:" prefix.
+                """
+
+                let result = try await AppleIntelligenceService.shared.generate(
+                    prompt: prompt,
+                    systemPrompt: "You are a writing assistant that rewrites text sections. You deeply merge new ideas into existing prose. You never append or list ideas separately — you weave them into the fabric of the existing text. Return only the rewritten text, nothing else."
+                )
+
+                let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !cleaned.isEmpty else {
+                    busyItemId = nil
+                    return
+                }
+
+                guard let tv = Self.findEditorTextView() else {
+                    busyItemId = nil
+                    return
+                }
+
+                // Verify the range is still valid (user may have edited in between)
+                let currentLength = (tv.string as NSString).length
+                let safeRange: NSRange
+                if NSMaxRange(replaceRange) <= currentLength {
+                    safeRange = replaceRange
+                } else {
+                    // Range shifted — insert at end as fallback
+                    safeRange = NSRange(location: currentLength, length: 0)
+                }
+
+                let replacement = cleaned.hasSuffix("\n") ? cleaned : cleaned + "\n"
+                tv.insertText(replacement, replacementRange: safeRange)
+                tv.window?.makeKeyAndOrderFront(nil)
+
+                busyItemId = nil
+                eventBus.emitToast("Integrated into note", type: .success)
+            } catch {
+                busyItemId = nil
+                eventBus.emitToast("Apple Intelligence: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+
+    /// Use Apple Intelligence to format a brain dump into coherent text.
+    private func formatWithAI(_ item: NoteIdea) {
+        guard busyItemId == nil else { return }
+        busyItemId = item.id
+
+        Task {
+            do {
+                let prompt = """
+                Take this raw brain dump and format it into a clear, coherent paragraph or set of points. \
+                Keep the original meaning and ideas intact. Don't add new ideas — just clean up the language, \
+                fix grammar, organize the thoughts, and make it readable. Return ONLY the formatted text.
+
+                Brain dump:
+                \(item.body)
+                """
+
+                let result = try await AppleIntelligenceService.shared.generate(
+                    prompt: prompt,
+                    systemPrompt: "You clean up raw brain dumps into coherent, readable text. Preserve the author's voice and ideas."
+                )
+
+                let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !cleaned.isEmpty else {
+                    busyItemId = nil
+                    return
+                }
+
+                var ideas = readIdeas()
+                if let idx = ideas.firstIndex(where: { $0.id == item.id }) {
+                    ideas[idx].formattedBody = cleaned
+                    writeIdeas(ideas)
+                }
+                busyItemId = nil
+            } catch {
+                busyItemId = nil
+                eventBus.emitToast("Apple Intelligence: \(error.localizedDescription)", type: .error)
+            }
+        }
+    }
+}
+
+// MARK: - Idea Row
+
+private struct IdeaRow: View {
+    let item: NoteIdea
+    let isBusy: Bool
+    let theme: EpistemosTheme
+    let pageBody: String
+    let onGoToLine: () -> Void
+    let onInsert: () -> Void
+    let onIntegrate: () -> Void
+    let onFormat: () -> Void
+    let onDelete: () -> Void
+
+    @State private var isExpanded = false
+    @State private var showFormatted = true
+
+    /// Live line context — re-reads from current note body in case lines shifted.
+    private var liveLineContext: String? {
+        guard let line = item.lineAnchor else { return nil }
+        let lines = pageBody.components(separatedBy: "\n")
+        guard line >= 1, line <= lines.count else { return item.lineContext }
+        let text = lines[line - 1].trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? item.lineContext : String(text.prefix(60))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Title + anchor context
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: item.type == .idea ? "lightbulb.fill" : "brain")
+                    .font(.system(size: 10))
+                    .foregroundStyle(item.type == .idea ? .yellow : .purple)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(isExpanded ? nil : 1)
+
+                    if !item.body.isEmpty {
+                        let displayText = (showFormatted && item.formattedBody != nil)
+                            ? item.formattedBody!
+                            : item.body
+                        Text(displayText)
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.mutedForeground)
+                            .lineLimit(isExpanded ? nil : 2)
+                            .lineSpacing(2)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { isExpanded.toggle() }
+
+                Spacer()
+
+                if isBusy {
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 16, height: 16)
+                } else {
+                    Button { onDelete() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 8))
+                            .foregroundStyle(theme.textTertiary)
+                            .frame(width: 16, height: 16)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove idea")
+                    .help("Remove")
+                }
+            }
+
+            // Line anchor badge — click to navigate
+            if let line = item.lineAnchor {
+                Button { onGoToLine() } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "mappin")
+                            .font(.system(size: 7))
+                        Text("Line \(line)")
+                            .font(.system(size: 9, weight: .medium))
+                        if let ctx = liveLineContext {
+                            Text("· \(ctx)")
+                                .font(.system(size: 9))
+                                .lineLimit(1)
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                    }
+                    .foregroundStyle(theme.accent.opacity(0.8))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(theme.accent.opacity(0.08), in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Go to line \(line)")
+            }
+
+            // Action bar — Insert / Integrate / Format
+            if isExpanded && !isBusy {
+                HStack(spacing: 8) {
+                    // Insert at anchor
+                    Button { onInsert() } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "text.insert")
+                                .font(.system(size: 9))
+                            Text("Insert")
+                                .font(.system(size: 9, weight: .medium))
+                        }
+                        .foregroundStyle(theme.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(theme.accent.opacity(0.1), in: Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Insert at anchor line")
+                    .help("Insert text at anchor line")
+
+                    // Integrate with AI
+                    Button { onIntegrate() } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 9))
+                            Text("Integrate")
+                                .font(.system(size: 9, weight: .medium))
+                        }
+                        .foregroundStyle(.purple)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.purple.opacity(0.1), in: Capsule())
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Integrate with AI")
+                    .help("AI integrates this into the note")
+
+                    // Format brain dump (brain dumps only, no formatted body yet)
+                    if item.type == .brainDump && item.formattedBody == nil && !item.body.isEmpty {
+                        Button { onFormat() } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "wand.and.stars")
+                                    .font(.system(size: 9))
+                                Text("Format")
+                                    .font(.system(size: 9, weight: .medium))
+                            }
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.orange.opacity(0.1), in: Capsule())
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Format with AI")
+                        .help("Format with Apple Intelligence")
+                    }
+
+                    // Toggle raw/formatted (brain dumps with formatted body)
+                    if item.type == .brainDump && item.formattedBody != nil {
+                        Button {
+                            showFormatted.toggle()
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: showFormatted ? "text.quote" : "text.alignleft")
+                                    .font(.system(size: 9))
+                                Text(showFormatted ? "Raw" : "Formatted")
+                                    .font(.system(size: 9, weight: .medium))
+                            }
+                            .foregroundStyle(theme.textTertiary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(theme.glassBg, in: Capsule())
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Spacer()
+                }
+            }
+
+            // Timestamp + badges
+            HStack(spacing: 6) {
+                Text(item.createdAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 9))
+                    .foregroundStyle(theme.textTertiary.opacity(0.6))
+                if item.formattedBody != nil {
+                    Text("AI formatted")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(theme.accent.opacity(0.7))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(theme.accent.opacity(0.1), in: Capsule())
+                }
+            }
+        }
+        .padding(8)
+        .background(theme.glassBg, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(theme.glassBorder, lineWidth: 0.5)
+        )
+    }
+}
+
+// MARK: - Note Breadcrumb Bar
+// Thin horizontal bar showing the wikilink navigation trail.
+// Each crumb is clickable to activate that note's tab.
+
+private struct NoteBreadcrumbBar: View {
+    let trail: [BreadcrumbItem]
+    let currentPageId: String
+    let theme: EpistemosTheme
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 2) {
+                ForEach(Array(trail.enumerated()), id: \.element.id) { index, item in
+                    if index > 0 {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 7, weight: .semibold))
+                            .foregroundStyle(theme.textTertiary.opacity(0.4))
+                    }
+
+                    Button {
+                        NoteWindowManager.shared.open(pageId: item.id)
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 8))
+                            Text(item.title)
+                                .font(.system(size: 10, weight: item.id == currentPageId ? .semibold : .regular))
+                                .lineLimit(1)
+                        }
+                        .foregroundStyle(item.id == currentPageId
+                                         ? theme.accent
+                                         : theme.mutedForeground.opacity(0.7))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            item.id == currentPageId
+                                ? theme.accent.opacity(0.08)
+                                : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 4)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+        .frame(height: 24)
+        .background(theme.background.opacity(0.95))
+        .overlay(alignment: .bottom) {
+            theme.glassBorder.frame(height: 0.5)
         }
     }
 }
@@ -640,6 +1731,27 @@ private struct NotePreviewView: NSViewRepresentable {
             || abs(currentInset.height - verticalInset) > 0.5
         {
             tv.textContainerInset = NSSize(width: horizontalInset, height: verticalInset)
+        }
+    }
+}
+
+// MARK: - Transition Greeting View
+// A solid full-screen overlay with a gentle centered message.
+// Fully opaque to mask the SwiftUI view-swap glitch during mode transitions.
+// Background and text colors match the current theme.
+
+private struct TransitionGreetingView: View {
+    let message: String
+    let theme: EpistemosTheme
+
+    var body: some View {
+        ZStack {
+            theme.background.ignoresSafeArea()
+            Text(message)
+                .font(.system(size: 18, weight: .regular, design: .serif))
+                .foregroundStyle(theme.mutedForeground)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
         }
     }
 }

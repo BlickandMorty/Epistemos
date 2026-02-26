@@ -17,6 +17,9 @@ final class GraphState {
     var scanStatus: String = ""
     var selectedNodeId: String?
 
+    /// Set to true when notes change — the graph window checks this on appear and refreshes structural data.
+    var needsRefresh = false
+
     // MARK: - Pending Scene Actions
 
     /// Set to true to request the SpriteKit scene reset its camera view.
@@ -56,6 +59,15 @@ final class GraphState {
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
         loadGraph(context: context)
+    }
+
+    // MARK: - Structural Refresh
+
+    /// Lightweight refresh: re-runs the structural graph builder to pick up new/deleted pages,
+    /// ideas, tags, etc. Does NOT run AI extraction — just deterministic edges.
+    func refreshStructuralData(context: ModelContext) {
+        needsRefresh = false
+        buildStructuralGraph(context: context)
     }
 
     // MARK: - Selection

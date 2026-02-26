@@ -8,6 +8,7 @@ import SwiftUI
 struct GraphWindowView: View {
     @Environment(GraphState.self) private var graphState
     @Environment(UIState.self) private var ui
+    @Environment(LLMService.self) private var llmService
     @Environment(\.modelContext) private var modelContext
 
     @State private var showSidebar = true
@@ -136,13 +137,14 @@ struct GraphWindowView: View {
                 .help("Reset View")
 
                 Button {
-                    // Scan vault placeholder — Task 6 StructuralGraphBuilder fills this
-                    graphState.isScanning = true
-                    graphState.scanStatus = "Scanning vault..."
-                    // For now just reload from SwiftData
-                    graphState.loadGraph(context: modelContext)
-                    graphState.isScanning = false
-                    graphState.scanStatus = ""
+                    graphState.refreshStructuralData(context: modelContext)
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .help("Refresh Structural Graph")
+
+                Button {
+                    graphState.scanVault(context: modelContext, llmService: llmService)
                 } label: {
                     if graphState.isScanning {
                         ProgressView()
@@ -151,13 +153,15 @@ struct GraphWindowView: View {
                         Image(systemName: "arrow.triangle.2.circlepath")
                     }
                 }
-                .help("Scan Vault")
+                .help("AI Scan Vault — Extract Entities")
                 .disabled(graphState.isScanning)
             }
         }
         .onAppear {
             if !graphState.isLoaded {
                 graphState.loadGraph(context: modelContext)
+            } else if graphState.needsRefresh {
+                graphState.refreshStructuralData(context: modelContext)
             }
         }
     }
