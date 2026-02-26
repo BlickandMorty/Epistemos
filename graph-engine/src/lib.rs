@@ -183,6 +183,36 @@ pub extern "C" fn graph_engine_edge_count(ptr: *mut c_void) -> u32 {
     get_engine(ptr).map_or(0, |e| e.graph.edges.len() as u32)
 }
 
+// ── Visibility ─────────────────────────────────────────────────────────────
+
+/// Set node visibility from a flat byte array (0 = hidden, nonzero = visible).
+/// Array indices match node insertion order.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_visibility(
+    ptr: *mut c_void,
+    visible: *const u8,
+    count: usize,
+) {
+    let Some(engine) = get_engine(ptr) else { return };
+    if visible.is_null() || count == 0 { return; }
+
+    let slice = unsafe { std::slice::from_raw_parts(visible, count) };
+    for (i, node) in engine.graph.nodes.iter_mut().enumerate() {
+        node.visible = if i < slice.len() { slice[i] != 0 } else { true };
+    }
+
+    // Rebuild physics with only visible nodes
+    {
+        let mut phys = engine.shared.physics.lock();
+        phys.load_from_graph_filtered(&engine.graph);
+    }
+
+    // Re-upload buffers with only visible nodes
+    if let Some(renderer) = &mut engine.renderer {
+        renderer.upload_graph(&engine.graph);
+    }
+}
+
 // ── Input handling ──────────────────────────────────────────────────────────
 
 /// Pan the camera by (dx, dy) in screen pixels. Called from scroll/drag events.
@@ -221,5 +251,31 @@ pub extern "C" fn graph_engine_zoom(ptr: *mut c_void, factor: f32, cx: f32, cy: 
             renderer.camera_offset.x += world_x - new_world_x;
             renderer.camera_offset.y += world_y - new_world_y;
         }
+    }
+}
+
+// ── Mouse events (hit testing / selection) ──────────────────────────────
+
+/// Handle mouse down at screen position (x, y). button: 0=left, 1=right.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_mouse_down(ptr: *mut c_void, x: f32, y: f32, button: u8) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.mouse_down(x, y, button);
+    }
+}
+
+/// Handle mouse up at screen position (x, y).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_mouse_up(ptr: *mut c_void, x: f32, y: f32) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.mouse_up(x, y);
+    }
+}
+
+/// Handle mouse moved at screen position (x, y). Used for hover detection.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_mouse_moved(ptr: *mut c_void, x: f32, y: f32) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.mouse_moved(x, y);
     }
 }

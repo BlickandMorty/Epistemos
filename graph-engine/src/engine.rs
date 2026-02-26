@@ -26,6 +26,10 @@ pub struct Engine {
     pub renderer: Option<Renderer>,
     physics_running: Arc<AtomicBool>,
     physics_handle: Option<std::thread::JoinHandle<()>>,
+
+    // Interaction state
+    pub selected_node_id: Option<u32>,
+    pub hovered_node_id: Option<u32>,
 }
 
 impl Engine {
@@ -43,6 +47,8 @@ impl Engine {
             renderer: None,
             physics_running: Arc::new(AtomicBool::new(false)),
             physics_handle: None,
+            selected_node_id: None,
+            hovered_node_id: None,
         }
     }
 
@@ -141,6 +147,72 @@ impl Engine {
         let n = snap.len().min(self.graph.nodes.len());
         for i in 0..n {
             self.graph.nodes[i].pos = snap[i];
+        }
+    }
+
+    // ── Interaction ────────────────────────────────────────────────────────
+
+    /// Convert screen coordinates (AppKit space) to world coordinates.
+    /// Uses the camera offset and zoom from the renderer.
+    fn screen_to_world(&self, screen_x: f32, screen_y: f32) -> Vec2 {
+        let renderer = match &self.renderer {
+            Some(r) => r,
+            None => return Vec2::new(screen_x, screen_y),
+        };
+        let vp_w = self.width as f32;
+        let vp_h = self.height as f32;
+        let zoom = renderer.camera_zoom;
+        let offset = renderer.camera_offset;
+
+        Vec2::new(
+            screen_x / zoom + offset.x - vp_w / (2.0 * zoom),
+            screen_y / zoom + offset.y - vp_h / (2.0 * zoom),
+        )
+    }
+
+    /// Linear scan hit test over all visible nodes. Returns the closest node within radius.
+    fn hit_test(&self, world_pos: Vec2) -> Option<u32> {
+        let mut best: Option<(u32, f32)> = None;
+        for node in &self.graph.nodes {
+            if !node.visible {
+                continue;
+            }
+            let dist = (world_pos - node.pos).length();
+            let hit_radius = node.radius * 1.5; // 50% padding for touch targets
+            if dist < hit_radius {
+                if best.is_none() || dist < best.unwrap().1 {
+                    best = Some((node.id, dist));
+                }
+            }
+        }
+        best.map(|(id, _)| id)
+    }
+
+    pub fn mouse_down(&mut self, x: f32, y: f32, button: u8) {
+        let world = self.screen_to_world(x, y);
+        let hit = self.hit_test(world);
+
+        if button == 0 {
+            // Left click
+            self.selected_node_id = hit;
+            // Callbacks will be added in Task 4
+        } else if button == 1 {
+            // Right click
+            // Right-click callback will be added in Task 4
+        }
+    }
+
+    pub fn mouse_up(&mut self, _x: f32, _y: f32) {
+        // Node dragging will be added later if needed
+    }
+
+    pub fn mouse_moved(&mut self, x: f32, y: f32) {
+        let world = self.screen_to_world(x, y);
+        let hit = self.hit_test(world);
+
+        if hit != self.hovered_node_id {
+            self.hovered_node_id = hit;
+            // Hover callback will be added in Task 4
         }
     }
 

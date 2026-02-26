@@ -6,19 +6,37 @@ struct MetalGraphView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> GraphMTKView {
         let view = GraphMTKView()
-        view.device = MTLCreateSystemDefaultDevice()
+        guard let device = MTLCreateSystemDefaultDevice() else { return view }
+        view.device = device
         view.delegate = context.coordinator
         view.enableSetNeedsDisplay = false
         view.isPaused = false
         view.preferredFramesPerSecond = 60
         view.colorPixelFormat = .bgra8Unorm
         view.clearColor = MTLClearColor(red: 0.07, green: 0.07, blue: 0.09, alpha: 1.0)
+
+        // Create engine eagerly on main thread — avoids race between draw() and updateNSView()
+        if let layer = view.layer as? CAMetalLayer {
+            let devicePtr = Unmanaged.passUnretained(device).toOpaque()
+            let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
+            context.coordinator.engine = graph_engine_create(devicePtr, layerPtr)
+        }
+
         return view
     }
 
     func updateNSView(_ nsView: GraphMTKView, context: Context) {
-        // Push graph data to Rust engine when store is loaded and engine is ready
         let coordinator = context.coordinator
+
+        // Resize on layout changes
+        if let engine = coordinator.engine {
+            let size = nsView.drawableSize
+            if size.width > 0, size.height > 0 {
+                graph_engine_resize(engine, UInt32(size.width), UInt32(size.height))
+            }
+        }
+
+        // Push graph data to Rust engine when store is loaded and engine is ready
         if graphState.isLoaded, !coordinator.hasLoadedData, let engine = coordinator.engine {
             coordinator.loadGraphData(engine: engine, store: graphState.store)
         }
@@ -28,9 +46,12 @@ struct MetalGraphView: NSViewRepresentable {
         Coordinator()
     }
 
+    // MARK: - Coordinator
+
     class Coordinator: NSObject, MTKViewDelegate {
-        /// Raw pointer to the Rust GraphEngine. C FFI uses void* (UnsafeMutableRawPointer).
-        /// nonisolated(unsafe) because deinit needs to access this to free the engine.
+        /// Raw pointer to the Rust GraphEngine.
+        /// Created on main thread in makeNSView, read from display link in draw().
+        /// nonisolated(unsafe) because deinit needs to free the engine.
         nonisolated(unsafe) var engine: UnsafeMutableRawPointer?
         var hasLoadedData = false
 
@@ -41,17 +62,6 @@ struct MetalGraphView: NSViewRepresentable {
         }
 
         func draw(in view: MTKView) {
-            // Create engine lazily on first draw when Metal device is guaranteed available
-            if engine == nil, let device = view.device,
-               let layer = view.layer as? CAMetalLayer {
-                let devicePtr = Unmanaged.passUnretained(device).toOpaque()
-                let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
-                engine = graph_engine_create(devicePtr, layerPtr)
-
-                let size = view.drawableSize
-                graph_engine_resize(engine, UInt32(size.width), UInt32(size.height))
-            }
-
             if let engine {
                 graph_engine_render(engine)
             }
@@ -60,6 +70,7 @@ struct MetalGraphView: NSViewRepresentable {
         // MARK: - Data Loading
 
         /// Push graph data from the Swift GraphStore into the Rust engine via C FFI.
+        /// String lifetimes are guaranteed by calling FFI inside withCString closures.
         @MainActor
         func loadGraphData(engine: UnsafeMutableRawPointer, store: GraphStore) {
             graph_engine_clear(engine)
@@ -71,72 +82,35 @@ struct MetalGraphView: NSViewRepresentable {
                 .concept: 10, .tag: 11, .quote: 12,
             ]
 
-            // Build CNode array
-            let nodes = Array(store.nodes.values)
-            var cNodes: [CNode] = []
-            // Keep string buffers alive until after the FFI call
-            var nodeStrings: [(uuid: [CChar], label: [CChar])] = []
-
-            for node in nodes {
-                let uuidChars = Array(node.id.utf8CString)
-                let labelChars = Array(node.label.utf8CString)
-                nodeStrings.append((uuid: uuidChars, label: labelChars))
-            }
-
-            for i in 0..<nodes.count {
-                let node = nodes[i]
-                let cNode = nodeStrings[i].uuid.withUnsafeBufferPointer { uuidBuf in
-                    nodeStrings[i].label.withUnsafeBufferPointer { labelBuf in
-                        CNode(
-                            uuid: uuidBuf.baseAddress,
+            // Send nodes one at a time — withCString keeps pointers alive for the FFI call
+            for node in store.nodes.values {
+                node.id.withCString { uuidPtr in
+                    node.label.withCString { labelPtr in
+                        var cNode = CNode(
+                            uuid: uuidPtr,
                             x: node.position.x,
                             y: node.position.y,
                             node_type: nodeTypeToU8[node.type] ?? 0,
                             weight: Float(node.weight),
-                            label: labelBuf.baseAddress
+                            label: labelPtr
                         )
+                        graph_engine_add_nodes(engine, &cNode, 1)
                     }
                 }
-                cNodes.append(cNode)
             }
 
-            // Send nodes to Rust
-            cNodes.withUnsafeBufferPointer { buf in
-                if let ptr = buf.baseAddress {
-                    graph_engine_add_nodes(engine, ptr, buf.count)
-                }
-            }
-
-            // Build CEdge array
-            let edges = Array(store.edges.values)
-            var cEdges: [CEdge] = []
-            var edgeStrings: [(source: [CChar], target: [CChar])] = []
-
-            for edge in edges {
-                let sourceChars = Array(edge.sourceNodeId.utf8CString)
-                let targetChars = Array(edge.targetNodeId.utf8CString)
-                edgeStrings.append((source: sourceChars, target: targetChars))
-            }
-
-            for i in 0..<edges.count {
-                let edge = edges[i]
-                let cEdge = edgeStrings[i].source.withUnsafeBufferPointer { srcBuf in
-                    edgeStrings[i].target.withUnsafeBufferPointer { tgtBuf in
-                        CEdge(
-                            source_uuid: srcBuf.baseAddress,
-                            target_uuid: tgtBuf.baseAddress,
-                            edge_type: 0, // Edge type not critical for rendering
+            // Send edges one at a time
+            for edge in store.edges.values {
+                edge.sourceNodeId.withCString { srcPtr in
+                    edge.targetNodeId.withCString { tgtPtr in
+                        var cEdge = CEdge(
+                            source_uuid: srcPtr,
+                            target_uuid: tgtPtr,
+                            edge_type: 0,
                             weight: Float(edge.weight)
                         )
+                        graph_engine_add_edges(engine, &cEdge, 1)
                     }
-                }
-                cEdges.append(cEdge)
-            }
-
-            // Send edges to Rust
-            cEdges.withUnsafeBufferPointer { buf in
-                if let ptr = buf.baseAddress {
-                    graph_engine_add_edges(engine, ptr, buf.count)
                 }
             }
 
@@ -170,6 +144,67 @@ class GraphMTKView: MTKView {
         window?.makeFirstResponder(self)
     }
 
+    // MARK: - Tracking Areas (enables mouseMoved)
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach { removeTrackingArea($0) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+    }
+
+    // MARK: - Mouse Events
+
+    private var isDragging = false
+    private var lastDragPoint: NSPoint = .zero
+
+    override func mouseDown(with event: NSEvent) {
+        guard let engine else { return }
+        let loc = convert(event.locationInWindow, from: nil)
+        graph_engine_mouse_down(engine, Float(loc.x), Float(bounds.height - loc.y), 0)
+        isDragging = false
+        lastDragPoint = loc
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        guard let engine else { return }
+        let loc = convert(event.locationInWindow, from: nil)
+        graph_engine_mouse_down(engine, Float(loc.x), Float(bounds.height - loc.y), 1)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let engine else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let dx = Float(point.x - lastDragPoint.x)
+        let dy = Float(point.y - lastDragPoint.y)
+
+        if !isDragging {
+            if abs(dx) + abs(dy) < 3 { return }
+            isDragging = true
+        }
+
+        graph_engine_pan(engine, dx, -dy)
+        lastDragPoint = point
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard let engine else { return }
+        let loc = convert(event.locationInWindow, from: nil)
+        graph_engine_mouse_up(engine, Float(loc.x), Float(bounds.height - loc.y))
+        isDragging = false
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        guard let engine else { return }
+        let loc = convert(event.locationInWindow, from: nil)
+        graph_engine_mouse_moved(engine, Float(loc.x), Float(bounds.height - loc.y))
+    }
+
     // MARK: - Scroll / Pan
 
     override func scrollWheel(with event: NSEvent) {
@@ -184,28 +219,5 @@ class GraphMTKView: MTKView {
         let loc = convert(event.locationInWindow, from: nil)
         let factor = 1.0 + Float(event.magnification)
         graph_engine_zoom(engine, factor, Float(loc.x), Float(loc.y))
-    }
-
-    // MARK: - Mouse drag to pan
-
-    private var isDragging = false
-    private var lastDragPoint: NSPoint = .zero
-
-    override func mouseDown(with event: NSEvent) {
-        isDragging = true
-        lastDragPoint = convert(event.locationInWindow, from: nil)
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard isDragging, let engine else { return }
-        let point = convert(event.locationInWindow, from: nil)
-        let dx = Float(point.x - lastDragPoint.x)
-        let dy = Float(point.y - lastDragPoint.y)
-        graph_engine_pan(engine, dx, -dy) // Flip Y: AppKit Y is up, our viewport Y is down
-        lastDragPoint = point
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        isDragging = false
     }
 }
