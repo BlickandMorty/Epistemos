@@ -29,6 +29,7 @@ final class KnowledgeGraphScene: SKScene {
     var graphStore: GraphStore?
     var filterEngine: FilterEngine?
     var forceSimulation: ForceSimulation?
+    weak var graphState: GraphState?
 
     // MARK: - Callbacks
 
@@ -133,6 +134,18 @@ final class KnowledgeGraphScene: SKScene {
 
     func updateViewport() {
         guard let store = graphStore else { return }
+
+        // Consume pending scene actions from GraphState
+        if let state = graphState {
+            if state.pendingResetView {
+                state.pendingResetView = false
+                resetView()
+            }
+            if let nodeId = state.pendingCenterNodeId {
+                state.pendingCenterNodeId = nil
+                centerOnNode(nodeId)
+            }
+        }
 
         let visibleRect = calculateVisibleRect()
 

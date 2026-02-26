@@ -19,16 +19,20 @@ final class FilterEngine {
     /// The set of node IDs connected to the focused node (including itself).
     private(set) var focusedConnected: Set<String>?
 
+    /// Individually hidden node IDs (via right-click "Hide This Node").
+    private(set) var hiddenNodeIds: Set<String> = []
+
     /// Timeline cutoff date. Nodes created after this date are hidden.
     private(set) var timelineDate: Date?
 
     // MARK: - Computed
 
-    /// True if any filter is active (not all types shown, or focused, or timeline set).
+    /// True if any filter is active (not all types shown, or focused, or timeline set, or nodes hidden).
     var isFiltered: Bool {
         activeNodeTypes.count != GraphNodeType.allCases.count
             || focusedNodeId != nil
             || timelineDate != nil
+            || !hiddenNodeIds.isEmpty
     }
 
     // MARK: - Type Filter Methods
@@ -75,6 +79,23 @@ final class FilterEngine {
         focusedConnected = nil
     }
 
+    // MARK: - Hide Individual Nodes
+
+    /// Hide a single node by ID (right-click "Hide This Node").
+    func hideNode(_ nodeId: String) {
+        hiddenNodeIds.insert(nodeId)
+    }
+
+    /// Unhide a previously hidden node.
+    func unhideNode(_ nodeId: String) {
+        hiddenNodeIds.remove(nodeId)
+    }
+
+    /// Clear all individually hidden nodes.
+    func clearHidden() {
+        hiddenNodeIds.removeAll()
+    }
+
     // MARK: - Timeline
 
     /// Set the timeline cutoff date. Pass nil to clear.
@@ -87,15 +108,18 @@ final class FilterEngine {
     /// Check whether a node should be visible given all active filters.
     /// Checks type filter, then focus filter, then timeline filter — short-circuits on first fail.
     func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
-        // 1. Type filter
+        // 1. Individually hidden nodes
+        guard !hiddenNodeIds.contains(node.id) else { return false }
+
+        // 2. Type filter
         guard activeNodeTypes.contains(node.type) else { return false }
 
-        // 2. Focus filter
+        // 3. Focus filter
         if let connected = focusedConnected {
             guard connected.contains(node.id) else { return false }
         }
 
-        // 3. Timeline filter
+        // 4. Timeline filter
         if let cutoff = timelineDate {
             guard node.createdAt <= cutoff else { return false }
         }

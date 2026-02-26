@@ -17,6 +17,14 @@ final class GraphState {
     var scanStatus: String = ""
     var selectedNodeId: String?
 
+    // MARK: - Pending Scene Actions
+
+    /// Set to true to request the SpriteKit scene reset its camera view.
+    var pendingResetView = false
+
+    /// Set to a node ID to request the SpriteKit scene center its camera on that node.
+    var pendingCenterNodeId: String?
+
     // MARK: - Loading
 
     func loadGraph(context: ModelContext) {

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -10,6 +11,7 @@ struct GraphWindowView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var showSidebar = true
+    @State private var showTimeline = true
     @State private var sidebarTab: SidebarTab = .info
 
     private var theme: EpistemosTheme { ui.theme }
@@ -28,6 +30,20 @@ struct GraphWindowView: View {
         }
     }
 
+    // MARK: - Filter key lookup
+
+    /// Maps keyboard characters 1-9 to their corresponding GraphNodeType.
+    private static let filterKeyMap: [Character: GraphNodeType] = {
+        var map: [Character: GraphNodeType] = [:]
+        for nodeType in GraphNodeType.allCases {
+            let key = nodeType.filterKey
+            if key >= 1, key <= 9 {
+                map[Character("\(key)")] = nodeType
+            }
+        }
+        return map
+    }()
+
     // MARK: - Body
 
     var body: some View {
@@ -45,13 +61,21 @@ struct GraphWindowView: View {
             ZStack(alignment: .topTrailing) {
                 ZStack(alignment: .bottom) {
                     // SpriteKit canvas — full size
-                    GraphSpriteView(graphState: graphState)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    GraphSpriteView(
+                        graphState: graphState,
+                        onNodeRightClicked: { nodeId, screenPoint in
+                            showContextMenu(nodeId: nodeId, screenPoint: screenPoint)
+                        }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // Timeline scrubber — bottom overlay
-                    GraphTimelineScrubber()
-                        .padding(.horizontal, Spacing.lg)
-                        .padding(.bottom, Spacing.md)
+                    if showTimeline {
+                        GraphTimelineScrubber()
+                            .padding(.horizontal, Spacing.lg)
+                            .padding(.bottom, Spacing.md)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
 
                 // Filter pills — top-right overlay
@@ -59,6 +83,37 @@ struct GraphWindowView: View {
                     .padding(.top, Spacing.md)
                     .padding(.trailing, Spacing.md)
             }
+        }
+        .onKeyPress(.space) {
+            graphState.pendingResetView = true
+            return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "f")) { _ in
+            if let nodeId = graphState.selectedNodeId {
+                graphState.pendingCenterNodeId = nodeId
+            }
+            return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "t")) { _ in
+            withAnimation(Motion.quick) {
+                showTimeline.toggle()
+            }
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            graphState.selectNode(nil)
+            graphState.clearFocus()
+            graphState.filter.clearHidden()
+            return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "123456789")) { press in
+            let ch = press.characters.first!
+            if let nodeType = Self.filterKeyMap[ch] {
+                withAnimation(Motion.quick) {
+                    graphState.filter.toggleType(nodeType)
+                }
+            }
+            return .handled
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -74,9 +129,7 @@ struct GraphWindowView: View {
 
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    // Reset view triggers the SpriteKit scene camera reset
-                    // by re-waking the simulation
-                    Task { await graphState.simulation.wake() }
+                    graphState.pendingResetView = true
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
                 }
@@ -106,6 +159,89 @@ struct GraphWindowView: View {
             if !graphState.isLoaded {
                 graphState.loadGraph(context: modelContext)
             }
+        }
+    }
+
+    // MARK: - Context Menu
+
+    private func showContextMenu(nodeId: String, screenPoint: CGPoint) {
+        guard let node = graphState.store.nodes[nodeId] else { return }
+
+        let menu = NSMenu(title: "Node Actions")
+
+        // Show Only Connected
+        let showConnected = NSMenuItem(title: "Show Only Connected", action: nil, keyEquivalent: "")
+        showConnected.target = nil
+        menu.addItem(showConnected)
+        showConnected.representedObject = ContextAction {
+            graphState.focusOnNode(nodeId)
+        }
+
+        // Open in Editor
+        let openItem = NSMenuItem(title: "Open in Editor", action: nil, keyEquivalent: "")
+        menu.addItem(openItem)
+        if node.type == .note, let sourceId = node.sourceId {
+            openItem.representedObject = ContextAction {
+                NoteWindowManager.shared.open(pageId: sourceId)
+            }
+        } else if node.type == .chat {
+            openItem.representedObject = ContextAction {
+                Log.app.info("Open chat not implemented yet")
+            }
+        } else if let sourceId = node.sourceId {
+            openItem.representedObject = ContextAction {
+                NoteWindowManager.shared.open(pageId: sourceId)
+            }
+        } else {
+            openItem.isEnabled = false
+        }
+
+        menu.addItem(.separator())
+
+        // Pin to Center
+        let pinItem = NSMenuItem(title: "Pin to Center", action: nil, keyEquivalent: "")
+        menu.addItem(pinItem)
+        pinItem.representedObject = ContextAction {
+            if let record = graphState.store.nodes[nodeId] {
+                Task { await graphState.simulation.pinNode(nodeId, at: record.position) }
+            }
+        }
+
+        // Hide This Node
+        let hideItem = NSMenuItem(title: "Hide This Node", action: nil, keyEquivalent: "")
+        menu.addItem(hideItem)
+        hideItem.representedObject = ContextAction {
+            graphState.filter.hideNode(nodeId)
+        }
+
+        menu.addItem(.separator())
+
+        // Clear Focus
+        let clearItem = NSMenuItem(title: "Clear Focus", action: nil, keyEquivalent: "")
+        menu.addItem(clearItem)
+        clearItem.representedObject = ContextAction {
+            graphState.clearFocus()
+            graphState.filter.clearHidden()
+        }
+
+        // Use ContextMenuDelegate to handle actions
+        let delegate = ContextMenuDelegate()
+        menu.delegate = delegate
+
+        // Present the menu — attach all items to the delegate for action dispatch
+        for item in menu.items where item.representedObject is ContextAction {
+            item.target = delegate
+            item.action = #selector(ContextMenuDelegate.performAction(_:))
+        }
+
+        // Pop up at mouse location in screen coordinates
+        // NSMenu.popUp needs a view and local point. Use the key window's content view.
+        if let window = NSApp.keyWindow, let contentView = window.contentView {
+            let windowPoint = window.convertPoint(fromScreen: screenPoint)
+            let localPoint = contentView.convert(windowPoint, from: nil)
+            // Retain delegate for duration of menu interaction
+            objc_setAssociatedObject(menu, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
+            menu.popUp(positioning: nil, at: localPoint, in: contentView)
         }
     }
 
@@ -340,5 +476,23 @@ struct GraphWindowView: View {
         case .quote:     return .cyan
         case .tag, .folder: return .gray
         }
+    }
+}
+
+// MARK: - Context Menu Support
+
+/// Wraps a closure for use as NSMenuItem.representedObject.
+private final class ContextAction {
+    let action: @MainActor () -> Void
+    init(_ action: @escaping @MainActor () -> Void) {
+        self.action = action
+    }
+}
+
+/// NSObject delegate that dispatches NSMenuItem actions by invoking the ContextAction closure.
+private final class ContextMenuDelegate: NSObject, NSMenuDelegate {
+    @objc func performAction(_ sender: NSMenuItem) {
+        guard let contextAction = sender.representedObject as? ContextAction else { return }
+        contextAction.action()
     }
 }
