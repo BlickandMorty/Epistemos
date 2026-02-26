@@ -5,6 +5,8 @@ mod types;
 
 use std::ffi::{c_char, c_void, CStr};
 
+pub use crate::engine::LabelPosition;
+
 // ── FFI helper ──────────────────────────────────────────────────────────────
 
 /// Safely cast an opaque pointer to an Engine reference.
@@ -277,5 +279,55 @@ pub extern "C" fn graph_engine_mouse_up(ptr: *mut c_void, x: f32, y: f32) {
 pub extern "C" fn graph_engine_mouse_moved(ptr: *mut c_void, x: f32, y: f32) {
     if let Some(engine) = get_engine(ptr) {
         engine.mouse_moved(x, y);
+    }
+}
+
+// ── Callback registration ──────────────────────────────────────────────────
+
+/// Register a callback for node selection. uuid is null when deselected.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_on_node_selected(
+    ptr: *mut c_void,
+    cb: extern "C" fn(*const c_char, *mut c_void),
+    ctx: *mut c_void,
+) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.set_on_node_selected(cb, ctx);
+    }
+}
+
+/// Register a callback for right-click on a node.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_on_node_right_clicked(
+    ptr: *mut c_void,
+    cb: extern "C" fn(*const c_char, f32, f32, *mut c_void),
+    ctx: *mut c_void,
+) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.set_on_node_right_clicked(cb, ctx);
+    }
+}
+
+/// Register a callback for hover changes. uuid is null when nothing is hovered.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_on_node_hovered(
+    ptr: *mut c_void,
+    cb: extern "C" fn(*const c_char, *mut c_void),
+    ctx: *mut c_void,
+) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.set_on_node_hovered(cb, ctx);
+    }
+}
+
+/// Register a callback for label position updates (fired every frame).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_on_labels_updated(
+    ptr: *mut c_void,
+    cb: extern "C" fn(*const LabelPosition, usize, *mut c_void),
+    ctx: *mut c_void,
+) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.set_on_labels_updated(cb, ctx);
     }
 }

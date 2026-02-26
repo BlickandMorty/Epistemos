@@ -22,6 +22,34 @@ struct MetalGraphView: NSViewRepresentable {
             context.coordinator.engine = graph_engine_create(devicePtr, layerPtr)
         }
 
+        // Register Rust→Swift callbacks using Coordinator as context
+        if let engine = context.coordinator.engine {
+            let ctx = Unmanaged.passUnretained(context.coordinator).toOpaque()
+
+            graph_engine_set_on_node_selected(engine, { (uuid: UnsafePointer<CChar>?, ctx: UnsafeMutableRawPointer?) in
+                guard let ctx else { return }
+                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
+                let id: String? = uuid != nil ? String(cString: uuid!) : nil
+                DispatchQueue.main.async { coord.handleNodeSelected(id) }
+            }, ctx)
+
+            graph_engine_set_on_node_right_clicked(engine, { (uuid: UnsafePointer<CChar>?, sx: Float, sy: Float, ctx: UnsafeMutableRawPointer?) in
+                guard let ctx, let uuid else { return }
+                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
+                let id = String(cString: uuid)
+                DispatchQueue.main.async { coord.handleRightClick(id, screenX: CGFloat(sx), screenY: CGFloat(sy)) }
+            }, ctx)
+
+            graph_engine_set_on_node_hovered(engine, { (uuid: UnsafePointer<CChar>?, ctx: UnsafeMutableRawPointer?) in
+                guard let ctx else { return }
+                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
+                let id: String? = uuid != nil ? String(cString: uuid!) : nil
+                DispatchQueue.main.async { coord.handleHover(id) }
+            }, ctx)
+
+            // Note: labels_updated callback will be registered in Task 7
+        }
+
         return view
     }
 
@@ -55,7 +83,9 @@ struct MetalGraphView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        let coord = Coordinator()
+        coord.graphStateRef = graphState
+        return coord
     }
 
     // MARK: - Coordinator
@@ -69,6 +99,9 @@ struct MetalGraphView: NSViewRepresentable {
         var nodeInsertionOrder: [String] = []
         var lastFilterHash: Int = 0
 
+        /// Reference to graphState for publishing selection changes.
+        weak var graphStateRef: GraphState?
+
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
             if let engine {
                 graph_engine_resize(engine, UInt32(size.width), UInt32(size.height))
@@ -78,6 +111,27 @@ struct MetalGraphView: NSViewRepresentable {
         func draw(in view: MTKView) {
             if let engine {
                 graph_engine_render(engine)
+            }
+        }
+
+        // MARK: - Callback Handlers
+
+        @MainActor
+        func handleNodeSelected(_ uuid: String?) {
+            graphStateRef?.selectNode(uuid)
+        }
+
+        @MainActor
+        func handleRightClick(_ uuid: String, screenX: CGFloat, screenY: CGFloat) {
+            // TODO: Show context menu (can be wired later)
+        }
+
+        @MainActor
+        func handleHover(_ uuid: String?) {
+            if uuid != nil {
+                NSCursor.pointingHand.set()
+            } else {
+                NSCursor.arrow.set()
             }
         }
 
