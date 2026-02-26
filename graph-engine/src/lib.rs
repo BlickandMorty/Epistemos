@@ -3,6 +3,7 @@ mod physics;
 mod renderer;
 pub mod spatial;
 mod types;
+pub mod msdf;
 
 use std::ffi::{c_char, c_void, CStr};
 
