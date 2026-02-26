@@ -18,6 +18,7 @@ struct IdeasPortalView: View {
     @State private var showCreateSheet = false
     @State private var isLinkMode = false
     @State private var linkSelection: [String] = []
+    @State private var ideaToDelete: IdeaDeleteTarget?
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -39,6 +40,20 @@ struct IdeasPortalView: View {
         .sheet(isPresented: $showCreateSheet) {
             CreateIdeaSheet(pages: pagesWithContent)
         }
+        .confirmationDialog(
+            "Delete Idea",
+            isPresented: Binding(
+                get: { ideaToDelete != nil },
+                set: { if !$0 { ideaToDelete = nil } }
+            ),
+            presenting: ideaToDelete
+        ) { target in
+            Button("Delete", role: .destructive) {
+                deleteIdea(target.idea, fromPageId: target.pageId)
+            }
+        } message: { target in
+            Text("Delete \"\(target.idea.title)\"? This cannot be undone.")
+        }
     }
 
     // MARK: - Header
@@ -46,7 +61,12 @@ struct IdeasPortalView: View {
     private var header: some View {
         VStack(spacing: Spacing.sm) {
             HStack {
-                Picker("", selection: $viewMode) {
+                Picker("", selection: Binding(
+                    get: { viewMode },
+                    set: { newValue in
+                        withAnimation(Motion.quick) { viewMode = newValue }
+                    }
+                )) {
                     ForEach(ViewMode.allCases, id: \.self) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
@@ -54,8 +74,10 @@ struct IdeasPortalView: View {
                 .pickerStyle(.segmented)
 
                 Button {
-                    isLinkMode.toggle()
-                    linkSelection.removeAll()
+                    withAnimation(Motion.quick) {
+                        isLinkMode.toggle()
+                        linkSelection.removeAll()
+                    }
                 } label: {
                     Image(systemName: "link")
                         .font(.system(size: 12, weight: .medium))
@@ -348,7 +370,7 @@ struct IdeasPortalView: View {
 
                 // Delete button
                 Button {
-                    deleteIdea(idea, fromPageId: pageId)
+                    ideaToDelete = IdeaDeleteTarget(idea: idea, pageId: pageId)
                 } label: {
                     Image(systemName: "trash")
                         .font(.system(size: 10))
@@ -456,13 +478,15 @@ struct IdeasPortalView: View {
     // MARK: - Actions
 
     private func toggleLinkSelection(_ idea: NoteIdea) {
-        if let index = linkSelection.firstIndex(of: idea.id) {
-            linkSelection.remove(at: index)
-        } else {
-            guard linkSelection.count < 2 else { return }
-            linkSelection.append(idea.id)
-            if linkSelection.count == 2 {
-                linkSelectedIdeas()
+        withAnimation(Motion.quick) {
+            if let index = linkSelection.firstIndex(of: idea.id) {
+                linkSelection.remove(at: index)
+            } else {
+                guard linkSelection.count < 2 else { return }
+                linkSelection.append(idea.id)
+                if linkSelection.count == 2 {
+                    linkSelectedIdeas()
+                }
             }
         }
     }
@@ -529,14 +553,24 @@ struct IdeasPortalView: View {
         // Remove corresponding graph node
         let nodeType: GraphNodeType = idea.type == .brainDump ? .brainDump : .idea
         if let graphNode = graphState.store.node(bySourceId: idea.id, type: nodeType) {
-            graphState.store.removeNode(graphNode.id)
-
-            // Also remove the persisted SDGraphNode
             let nodeId = graphNode.id
-            let descriptor = FetchDescriptor<SDGraphNode>(
+
+            // Delete persisted SDGraphEdge records touching this node
+            let edgeDescriptor = FetchDescriptor<SDGraphEdge>(
+                predicate: #Predicate { $0.sourceNodeId == nodeId || $0.targetNodeId == nodeId }
+            )
+            if let sdEdges = try? modelContext.fetch(edgeDescriptor) {
+                for edge in sdEdges { modelContext.delete(edge) }
+            }
+
+            // Remove in-memory node (also removes in-memory edges)
+            graphState.store.removeNode(nodeId)
+
+            // Delete the persisted SDGraphNode
+            let nodeDescriptor = FetchDescriptor<SDGraphNode>(
                 predicate: #Predicate { $0.id == nodeId }
             )
-            if let sdNode = try? modelContext.fetch(descriptor).first {
+            if let sdNode = try? modelContext.fetch(nodeDescriptor).first {
                 modelContext.delete(sdNode)
             }
         }
@@ -551,10 +585,19 @@ private struct IdeaWithPage: Identifiable {
     var id: String { idea.id }
 }
 
+/// Target for delete confirmation dialog.
+private struct IdeaDeleteTarget: Identifiable {
+    let idea: NoteIdea
+    let pageId: String
+    var id: String { idea.id }
+}
+
 // MARK: - Create Idea Sheet
 
 private struct CreateIdeaSheet: View {
+    @Environment(GraphState.self) private var graphState
     @Environment(UIState.self) private var ui
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     let pages: [SDPage]
@@ -658,5 +701,51 @@ private struct CreateIdeaSheet: View {
         var ideas = page.ideas
         ideas.append(newIdea)
         page.ideas = ideas
+
+        // Create a corresponding graph node so the idea is visible in the graph
+        let nodeType: GraphNodeType = ideaType == .brainDump ? .brainDump : .idea
+        let sdNode = SDGraphNode(
+            type: nodeType,
+            label: title,
+            sourceId: newIdea.id
+        )
+        modelContext.insert(sdNode)
+
+        let nodeRecord = GraphNodeRecord(
+            id: sdNode.id,
+            type: nodeType,
+            label: title,
+            sourceId: newIdea.id,
+            metadata: GraphNodeMetadata(),
+            weight: 1.0,
+            createdAt: sdNode.createdAt,
+            position: SIMD2<Float>(
+                Float.random(in: -500...500),
+                Float.random(in: -500...500)
+            ),
+            velocity: .zero
+        )
+        graphState.store.addNode(nodeRecord)
+
+        // Link the idea node to its parent note node
+        if let noteNode = graphState.store.node(bySourceId: pageId, type: .note) {
+            let sdEdge = SDGraphEdge(
+                source: sdNode.id,
+                target: noteNode.id,
+                type: .belongsTo,
+                weight: 1.0
+            )
+            modelContext.insert(sdEdge)
+
+            let edgeRecord = GraphEdgeRecord(
+                id: sdEdge.id,
+                sourceNodeId: sdNode.id,
+                targetNodeId: noteNode.id,
+                type: .belongsTo,
+                weight: 1.0,
+                createdAt: sdEdge.createdAt
+            )
+            graphState.store.addEdge(edgeRecord)
+        }
     }
 }
