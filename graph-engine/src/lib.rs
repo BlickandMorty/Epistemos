@@ -7,8 +7,6 @@ pub mod msdf;
 
 use std::ffi::{c_char, c_void, CStr};
 
-pub use crate::engine::LabelPosition;
-
 // ── FFI helper ──────────────────────────────────────────────────────────────
 
 /// Safely cast an opaque pointer to an Engine reference.
@@ -342,18 +340,6 @@ pub extern "C" fn graph_engine_set_on_node_hovered(
 ) {
     if let Some(engine) = get_engine(ptr) {
         engine.set_on_node_hovered(cb, ctx);
-    }
-}
-
-/// Register a callback for label position updates (fired every frame).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_on_labels_updated(
-    ptr: *mut c_void,
-    cb: extern "C" fn(*const LabelPosition, usize, *mut c_void),
-    ctx: *mut c_void,
-) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.set_on_labels_updated(cb, ctx);
     }
 }
 

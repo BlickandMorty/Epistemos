@@ -46,48 +46,7 @@ struct MetalGraphView: NSViewRepresentable {
                 let id: String? = uuid != nil ? String(cString: uuid!) : nil
                 DispatchQueue.main.async { coord.handleHover(id) }
             }, ctx)
-
-            graph_engine_set_on_labels_updated(engine, { (positions: UnsafePointer<LabelPosition>?, count: Int, ctx: UnsafeMutableRawPointer?) in
-                guard let ctx else { return }
-                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
-
-                // Empty array = hide all labels
-                guard count > 0, let positions else {
-                    coord.labelOverlay?.updateLabels(positions: [])
-                    return
-                }
-
-                // Dynamically query retina scale each frame — handles monitor changes.
-                // Rust computes positions in drawable pixels; CATextLayer needs points.
-                let scale = coord.labelOverlay?.window?.backingScaleFactor
-                    ?? NSScreen.main?.backingScaleFactor ?? 2.0
-
-                var labels: [(uuid: String, x: CGFloat, y: CGFloat, radius: CGFloat, alpha: Float)] = []
-                labels.reserveCapacity(count)
-                for i in 0..<count {
-                    let pos = positions[i]
-                    guard let uuidPtr = pos.uuid else { continue }
-                    labels.append((
-                        uuid: String(cString: uuidPtr),
-                        x: CGFloat(pos.screen_x) / scale,
-                        y: CGFloat(pos.screen_y) / scale,
-                        radius: CGFloat(pos.radius) / scale,
-                        alpha: pos.alpha
-                    ))
-                }
-
-                // Call synchronously — this callback fires on the main thread during
-                // draw(in:), so updating labels inline eliminates the 1-frame async lag
-                // that caused labels to trail nodes during physics/pan/zoom.
-                coord.labelOverlay?.updateLabels(positions: labels)
-            }, ctx)
         }
-
-        // Create label overlay as subview of the MTKView
-        let overlay = GraphLabelOverlay(frame: view.bounds)
-        overlay.autoresizingMask = [.width, .height]
-        view.addSubview(overlay)
-        context.coordinator.labelOverlay = overlay
 
         return view
     }
@@ -167,7 +126,6 @@ struct MetalGraphView: NSViewRepresentable {
         var nodeInsertionOrder: [String] = []
         var lastFilterHash: Int = 0
         var lastPhysicsConfigVersion: Int = 0
-        var labelOverlay: GraphLabelOverlay?
 
         /// Reference to graphState for publishing selection changes.
         weak var graphStateRef: GraphState?
@@ -261,10 +219,6 @@ struct MetalGraphView: NSViewRepresentable {
 
             // Start animation to fit all nodes in view
             graph_engine_fit_all(engine)
-
-            // Pre-allocate label layers for text overlay
-            let labels = store.nodes.values.map { (uuid: $0.id, text: $0.label) }
-            labelOverlay?.rebuildPool(labels: labels)
 
             hasLoadedData = true
 

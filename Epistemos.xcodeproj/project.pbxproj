@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -91,9 +91,7 @@
 		8A47E20DFF8507D934770455 /* VaultOrganizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */; };
 		8D4055CB85E867D6E4737A36 /* SOAREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FE918724D095CA26CDE027 /* SOAREngine.swift */; };
 		8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 33119B911499635E646BB389 /* RetroGaming.ttf */; };
-		E17339DCD920A094F0E53847 /* GraphPhysicsSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */; };
 		8FFE04A36686370ACF4DAA91 /* GraphFilterPills.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1908C45264DCD9600A45FA /* GraphFilterPills.swift */; };
-		F1E0D9C8B7A6F5E4D3C2B1A7 /* GraphLabelOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B1C2D3E4F5A6B7C8D9E0F1 /* GraphLabelOverlay.swift */; };
 		92522C81F8AB01E6993FB2B4 /* SOARTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */; };
 		96FB7AD7B6833B867CC1B4B6 /* CommandPaletteOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */; };
 		986166A75033C3FF046A1B94 /* PageStoragePool.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */; };
@@ -148,6 +146,7 @@
 		DF71D454567820AD17BB5E5B /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9F8FAF8C937C445D7C2152 /* Keychain.swift */; };
 		E03E8477BE5D37BBAE944FAC /* AppBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB5E38C97E34992A850B56C /* AppBootstrap.swift */; };
 		E16E0654FCDC29BAFDEEE708 /* NavigationIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B39B3AA6F3003107096F4E6C /* NavigationIntents.swift */; };
+		E17339DCD920A094F0E53847 /* GraphPhysicsSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */; };
 		E4FBBD4ACF160EC3887F6AA1 /* SDChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF1DE0FF63B16FCB60201B9 /* SDChat.swift */; };
 		E5E92F094F60B3861D3EF394 /* NativeButtonStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AF572694A5CFADE574D4F2B /* NativeButtonStyles.swift */; };
 		E8511B6F1B784CA7A9AE1D56 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0718573D4BE2D44999758A16 /* ChatView.swift */; };
@@ -192,8 +191,6 @@
 		1DF6BDB75B9E9918C6D1C704 /* QueryAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryAnalyzerTests.swift; sourceTree = "<group>"; };
 		1EDD1807C4EF2DDFFECDDD03 /* 2026-02-25-forge-production-audit.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-02-25-forge-production-audit.md"; sourceTree = "<group>"; };
 		1F1908C45264DCD9600A45FA /* GraphFilterPills.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphFilterPills.swift; sourceTree = "<group>"; };
-		EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphPhysicsSettings.swift; sourceTree = "<group>"; };
-		A7B1C2D3E4F5A6B7C8D9E0F1 /* GraphLabelOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphLabelOverlay.swift; sourceTree = "<group>"; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		22D0E1E91102579D7408FF8E /* SOARStudent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARStudent.swift; sourceTree = "<group>"; };
 		2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultChangesPanel.swift; sourceTree = "<group>"; };
@@ -305,7 +302,7 @@
 		CEB5E38C97E34992A850B56C /* AppBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBootstrap.swift; sourceTree = "<group>"; };
 		D5B7FEDB6B8DBDF1868450FA /* ResearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchView.swift; sourceTree = "<group>"; };
 		D6FE918724D095CA26CDE027 /* SOAREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOAREngine.swift; sourceTree = "<group>"; };
-		D7311A0665B7431C47E25B2B /* MetalGraphView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MetalGraphView.swift; path = MetalGraphView.swift; sourceTree = "<group>"; };
+		D7311A0665B7431C47E25B2B /* MetalGraphView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MetalGraphView.swift; sourceTree = "<group>"; };
 		D95F3DBA4481F47B024B088B /* EpistemosShortcutsProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosShortcutsProvider.swift; sourceTree = "<group>"; };
 		D97EC6BFACD2D409F9E04AD7 /* SOARDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARDetector.swift; sourceTree = "<group>"; };
 		DB211887E2C199C35268119F /* NotesMentionDropdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesMentionDropdown.swift; sourceTree = "<group>"; };
@@ -316,7 +313,8 @@
 		E3260DBD123A55AE26999EC3 /* PromptComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptComposer.swift; sourceTree = "<group>"; };
 		E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTextView.swift; sourceTree = "<group>"; };
 		E9964F6D56D0A9A72ED41455 /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = System/Library/Frameworks/SwiftData.framework; sourceTree = SDKROOT; };
-		EA5C71F8ED6F65C731F5B33A /* GraphWindowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GraphWindowView.swift; path = GraphWindowView.swift; sourceTree = "<group>"; };
+		EA5C71F8ED6F65C731F5B33A /* GraphWindowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphWindowView.swift; sourceTree = "<group>"; };
+		EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphPhysicsSettings.swift; sourceTree = "<group>"; };
 		EBD84760F9ECD2E997B4FAAD /* SDPage+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SDPage+Queries.swift"; sourceTree = "<group>"; };
 		ED8EB883CA519394AC49A9DB /* GlassModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassModifiers.swift; sourceTree = "<group>"; };
 		F1457DCEF9E644AFAB25224D /* CitationExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationExtractor.swift; sourceTree = "<group>"; };
@@ -410,7 +408,6 @@
 				36BD9E3D2CFCAC355E8A2D08 /* EntityExtractor.swift */,
 				F2211321B9F2F95CDF0F7A69 /* ExtractionTypes.swift */,
 			);
-			name = Graph;
 			path = Graph;
 			sourceTree = "<group>";
 		};
@@ -658,14 +655,12 @@
 			isa = PBXGroup;
 			children = (
 				D7311A0665B7431C47E25B2B /* MetalGraphView.swift */,
-				A7B1C2D3E4F5A6B7C8D9E0F1 /* GraphLabelOverlay.swift */,
 				EA5C71F8ED6F65C731F5B33A /* GraphWindowView.swift */,
 				1F1908C45264DCD9600A45FA /* GraphFilterPills.swift */,
 				EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */,
 				5040C86886D34F9D1B7C7D67 /* GraphTimelineScrubber.swift */,
 				911DA62EB67E58000BC421B8 /* IdeasPortalView.swift */,
 			);
-			name = Graph;
 			path = Graph;
 			sourceTree = "<group>";
 		};
@@ -831,7 +826,6 @@
 			packageReferences = (
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 			);
-			preferredProjectObjectVersion = 77;
 			productRefGroup = 21C2583A1AFD8B5552357491 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -1025,7 +1019,6 @@
 				84D75089A844390501529FBA /* SDGraphNode.swift in Sources */,
 				8FFE04A36686370ACF4DAA91 /* GraphFilterPills.swift in Sources */,
 				E17339DCD920A094F0E53847 /* GraphPhysicsSettings.swift in Sources */,
-				F1E0D9C8B7A6F5E4D3C2B1A7 /* GraphLabelOverlay.swift in Sources */,
 				4334D61DE6D34F879E91A074 /* GraphTimelineScrubber.swift in Sources */,
 				34EC9B4A11F199B054061437 /* IdeasPortalView.swift in Sources */,
 			);
@@ -1073,6 +1066,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
@@ -1099,6 +1093,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;

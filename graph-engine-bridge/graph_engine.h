@@ -66,22 +66,11 @@ typedef void (*GraphNodeCallback)(const char* uuid, void* context);
 typedef void (*GraphNodeScreenCallback)(const char* uuid, float screen_x, float screen_y, void* context);
 typedef void (*GraphHoverCallback)(const char* uuid_or_null, void* context);
 
-typedef struct {
-    const char* uuid;
-    float screen_x;
-    float screen_y;
-    float radius;
-    float alpha;
-} LabelPosition;
-
-typedef void (*GraphLabelsCallback)(const LabelPosition* positions, size_t count, void* context);
-
 // ── Callback registration ────────────────────────────────────────────────
 
 void graph_engine_set_on_node_selected(GraphEngine* engine, GraphNodeCallback cb, void* ctx);
 void graph_engine_set_on_node_right_clicked(GraphEngine* engine, GraphNodeScreenCallback cb, void* ctx);
 void graph_engine_set_on_node_hovered(GraphEngine* engine, GraphHoverCallback cb, void* ctx);
-void graph_engine_set_on_labels_updated(GraphEngine* engine, GraphLabelsCallback cb, void* ctx);
 
 // Camera commands
 void graph_engine_reset_camera(GraphEngine* engine);

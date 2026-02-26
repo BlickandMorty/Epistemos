@@ -10,6 +10,10 @@ use crate::renderer::Renderer;
 use crate::spatial::SpatialIndex;
 use crate::types::Graph;
 
+// Note: Labels are now rendered on the GPU via MSDF shaders in the Metal pipeline.
+// The old CATextLayer callback system (LabelPosition, LabelsCallback, fire_labels_updated)
+// has been removed. See renderer.rs upload_labels() for the GPU text rendering path.
+
 // ── Callback types ──────────────────────────────────────────────────────────
 
 /// Callback for node selected: uuid (null = deselected), context.
@@ -20,19 +24,6 @@ type NodeScreenCallback = extern "C" fn(*const c_char, f32, f32, *mut c_void);
 
 /// Callback for hover: uuid (null = no hover), context.
 type HoverCallback = extern "C" fn(*const c_char, *mut c_void);
-
-/// Callback for labels updated: array of LabelPosition, count, context.
-type LabelsCallback = extern "C" fn(*const LabelPosition, usize, *mut c_void);
-
-/// Pre-calculated screen position for a visible node label.
-#[repr(C)]
-pub struct LabelPosition {
-    pub uuid: *const c_char,
-    pub screen_x: f32,
-    pub screen_y: f32,
-    pub radius: f32,
-    pub alpha: f32,
-}
 
 struct CallbackSlot<F> {
     func: F,
@@ -82,13 +73,9 @@ pub struct Engine {
     on_node_selected: Option<CallbackSlot<NodeCallback>>,
     on_node_right_clicked: Option<CallbackSlot<NodeScreenCallback>>,
     on_node_hovered: Option<CallbackSlot<HoverCallback>>,
-    on_labels_updated: Option<CallbackSlot<LabelsCallback>>,
 
     // Spatial index for O(log n) hit testing (click/hover detection)
     spatial_index: SpatialIndex,
-
-    // Cached CStrings for callback UUID delivery (avoids per-frame allocation)
-    uuid_cache: Vec<CString>,
 }
 
 impl Engine {
@@ -117,9 +104,7 @@ impl Engine {
             on_node_selected: None,
             on_node_right_clicked: None,
             on_node_hovered: None,
-            on_labels_updated: None,
             spatial_index: SpatialIndex::new(),
-            uuid_cache: Vec::new(),
         }
     }
 
@@ -459,10 +444,6 @@ impl Engine {
         self.on_node_hovered = Some(CallbackSlot { func: cb, context: ctx });
     }
 
-    pub fn set_on_labels_updated(&mut self, cb: LabelsCallback, ctx: *mut c_void) {
-        self.on_labels_updated = Some(CallbackSlot { func: cb, context: ctx });
-    }
-
     // ── Callback fire methods ─────────────────────────────────────────────
 
     fn fire_node_selected(&self, node_id: Option<u32>) {
@@ -503,69 +484,6 @@ impl Engine {
         }
     }
 
-    fn fire_labels_updated(&mut self) {
-        let Some(cb) = &self.on_labels_updated else { return };
-        let renderer = match &self.renderer {
-            Some(r) => r,
-            None => return,
-        };
-
-        let zoom = renderer.camera_zoom;
-        let offset = renderer.camera_offset;
-        let vp_w = self.width as f32;
-        let vp_h = self.height as f32;
-
-        // Rebuild UUID cache if node count changed
-        if self.uuid_cache.len() != self.graph.nodes.len() {
-            self.uuid_cache = self.graph.nodes.iter()
-                .map(|n| CString::new(n.uuid.as_str()).unwrap_or_default())
-                .collect();
-        }
-
-        // Obsidian-style LOD: only show labels when zoomed in enough that the node
-        // has a meaningful screen-space size. High-weight nodes appear first.
-        // Cap total labels to prevent CATextLayer thrash.
-        const MAX_LABELS: usize = 40;
-        const MIN_SCREEN_RADIUS: f32 = 8.0; // Node must be ≥8px on screen to show label
-
-        let mut positions: Vec<LabelPosition> = Vec::new();
-        for (i, node) in self.graph.nodes.iter().enumerate() {
-            if !node.visible { continue; }
-
-            let screen_radius = node.radius * zoom;
-
-            // Skip labels entirely when node is too small on screen
-            if screen_radius < MIN_SCREEN_RADIUS { continue; }
-
-            // World -> screen (in drawable pixels)
-            let sx = (node.pos.x - offset.x) * zoom + vp_w * 0.5;
-            let sy = (node.pos.y - offset.y) * zoom + vp_h * 0.5;
-
-            // Skip if off-screen (with generous margin)
-            if sx < -100.0 || sx > vp_w + 100.0 || sy < -100.0 || sy > vp_h + 100.0 {
-                continue;
-            }
-
-            // Alpha ramps up as node grows on screen: fade in between 8px and 16px
-            let size_alpha = ((screen_radius - MIN_SCREEN_RADIUS) / MIN_SCREEN_RADIUS).clamp(0.0, 1.0);
-            // Weight boost: heavier nodes are slightly more opaque
-            let weight_boost = if node.weight > 5.0 { 1.0 } else { 0.7 };
-            let alpha = size_alpha * weight_boost;
-            if alpha < 0.01 { continue; }
-
-            positions.push(LabelPosition {
-                uuid: self.uuid_cache[i].as_ptr(),
-                screen_x: sx,
-                screen_y: sy,
-                radius: screen_radius,
-                alpha,
-            });
-
-            if positions.len() >= MAX_LABELS { break; }
-        }
-
-        (cb.func)(positions.as_ptr(), positions.len(), cb.context);
-    }
 }
 
 impl Drop for Engine {
