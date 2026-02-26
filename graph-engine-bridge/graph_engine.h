@@ -86,4 +86,18 @@ void graph_engine_reset_camera(GraphEngine* engine);
 void graph_engine_center_on_node(GraphEngine* engine, const char* uuid);
 void graph_engine_fit_all(GraphEngine* engine);
 
+// ── Physics configuration ────────────────────────────────────────────────
+
+typedef struct {
+    float center_force;
+    float repel_force;
+    float link_force;
+    float link_distance;
+    float velocity_decay;
+    float alpha_decay;
+} CPhysicsConfig;
+
+void graph_engine_set_physics_config(GraphEngine* engine, const CPhysicsConfig* config);
+void graph_engine_get_physics_config(GraphEngine* engine, CPhysicsConfig* out);
+
 #endif /* graph_engine_h */

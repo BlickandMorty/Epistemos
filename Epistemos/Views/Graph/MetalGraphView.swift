@@ -119,6 +119,23 @@ struct MetalGraphView: NSViewRepresentable {
             }
         }
 
+        // Push physics config when sliders change
+        if coordinator.hasLoadedData, let engine = coordinator.engine {
+            let version = graphState.physicsConfigVersion
+            if version != coordinator.lastPhysicsConfigVersion {
+                coordinator.lastPhysicsConfigVersion = version
+                var cfg = CPhysicsConfig(
+                    center_force: graphState.physCenterForce,
+                    repel_force: graphState.physRepelForce,
+                    link_force: graphState.physLinkForce,
+                    link_distance: graphState.physLinkDistance,
+                    velocity_decay: graphState.physVelocityDecay,
+                    alpha_decay: graphState.physAlphaDecay
+                )
+                graph_engine_set_physics_config(engine, &cfg)
+            }
+        }
+
         // Camera commands
         if graphState.pendingResetView, let engine = coordinator.engine {
             graph_engine_reset_camera(engine)
@@ -148,6 +165,7 @@ struct MetalGraphView: NSViewRepresentable {
         var hasLoadedData = false
         var nodeInsertionOrder: [String] = []
         var lastFilterHash: Int = 0
+        var lastPhysicsConfigVersion: Int = 0
         var labelOverlay: GraphLabelOverlay?
         /// Retina scale factor — Rust computes positions in drawable pixels, labels need points.
         var backingScaleFactor: CGFloat = 2.0

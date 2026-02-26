@@ -42,6 +42,18 @@ pub struct CEdge {
     pub weight: f32,
 }
 
+/// Physics configuration passed from Swift via C FFI.
+/// All fields correspond to ForceConfig parameters.
+#[repr(C)]
+pub struct CPhysicsConfig {
+    pub center_force: f32,
+    pub repel_force: f32,
+    pub link_force: f32,
+    pub link_distance: f32,
+    pub velocity_decay: f32,
+    pub alpha_decay: f32,
+}
+
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
 /// Create a new graph engine with Metal device and layer. Returns an opaque pointer.
@@ -353,4 +365,42 @@ pub extern "C" fn graph_engine_center_on_node(ptr: *mut c_void, uuid: *const c_c
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_fit_all(ptr: *mut c_void) {
     if let Some(engine) = get_engine(ptr) { engine.fit_all(); }
+}
+
+// ── Physics configuration ──────────────────────────────────────────────────
+
+/// Update physics simulation parameters. Takes effect on the next tick.
+/// Reheats the simulation so changes are visible.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_physics_config(ptr: *mut c_void, config: *const CPhysicsConfig) {
+    let Some(engine) = get_engine(ptr) else { return };
+    if config.is_null() { return; }
+    let cfg = unsafe { &*config };
+
+    let mut phys = engine.shared.physics.lock();
+    phys.config.center_strength = cfg.center_force;
+    phys.config.repulsion = cfg.repel_force;
+    phys.config.attraction = cfg.link_force;
+    phys.config.link_distance = cfg.link_distance;
+    phys.config.velocity_decay = cfg.velocity_decay;
+    phys.config.alpha_decay = cfg.alpha_decay;
+
+    // Reheat so the user sees the change immediately
+    phys.reheat();
+}
+
+/// Get the current physics config values (for populating UI on launch).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_get_physics_config(ptr: *mut c_void, out: *mut CPhysicsConfig) {
+    let Some(engine) = get_engine(ptr) else { return };
+    if out.is_null() { return; }
+
+    let phys = engine.shared.physics.lock();
+    let cfg = unsafe { &mut *out };
+    cfg.center_force = phys.config.center_strength;
+    cfg.repel_force = phys.config.repulsion;
+    cfg.link_force = phys.config.attraction;
+    cfg.link_distance = phys.config.link_distance;
+    cfg.velocity_decay = phys.config.velocity_decay;
+    cfg.alpha_decay = phys.config.alpha_decay;
 }

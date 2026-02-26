@@ -29,6 +29,33 @@ final class GraphState {
     /// Set to a node ID to request the Metal canvas center its camera on that node.
     var pendingCenterNodeId: String?
 
+    // MARK: - Physics Settings (Obsidian-style adjustable forces)
+
+    /// Center force strength. Pulls nodes toward viewport center.
+    var physCenterForce: Float = 0.01
+
+    /// Repulsion force between nodes (Coulomb-like).
+    var physRepelForce: Float = 600.0
+
+    /// Attraction force along edges (spring stiffness).
+    var physLinkForce: Float = 0.008
+
+    /// Natural resting length of edge springs.
+    var physLinkDistance: Float = 120.0
+
+    /// Velocity damping per tick. Lower = more floaty drift.
+    var physVelocityDecay: Float = 0.55
+
+    /// Alpha decay rate. Lower = slower cooling, longer animation.
+    var physAlphaDecay: Float = 0.015
+
+    /// Incremented whenever a physics slider changes, so updateNSView can detect it.
+    var physicsConfigVersion: Int = 0
+
+    func pushPhysicsChange() {
+        physicsConfigVersion += 1
+    }
+
     // MARK: - Loading
 
     func loadGraph(context: ModelContext) {

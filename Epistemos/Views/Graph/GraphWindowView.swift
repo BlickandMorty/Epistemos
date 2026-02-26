@@ -13,6 +13,7 @@ struct GraphWindowView: View {
 
     @State private var showSidebar = true
     @State private var showTimeline = true
+    @State private var showPhysicsSettings = false
     @State private var sidebarTab: SidebarTab = .info
 
     private var theme: EpistemosTheme { ui.theme }
@@ -123,6 +124,16 @@ struct GraphWindowView: View {
                     Image(systemName: "arrow.counterclockwise")
                 }
                 .help("Reset View")
+
+                Button {
+                    showPhysicsSettings.toggle()
+                } label: {
+                    Image(systemName: "atom")
+                }
+                .help("Physics Settings")
+                .popover(isPresented: $showPhysicsSettings, arrowEdge: .bottom) {
+                    GraphPhysicsSettings()
+                }
 
                 Button {
                     graphState.refreshStructuralData(context: modelContext)

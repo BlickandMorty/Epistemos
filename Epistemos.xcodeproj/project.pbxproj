@@ -91,6 +91,7 @@
 		8A47E20DFF8507D934770455 /* VaultOrganizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */; };
 		8D4055CB85E867D6E4737A36 /* SOAREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FE918724D095CA26CDE027 /* SOAREngine.swift */; };
 		8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 33119B911499635E646BB389 /* RetroGaming.ttf */; };
+		E17339DCD920A094F0E53847 /* GraphPhysicsSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */; };
 		8FFE04A36686370ACF4DAA91 /* GraphFilterPills.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1908C45264DCD9600A45FA /* GraphFilterPills.swift */; };
 		F1E0D9C8B7A6F5E4D3C2B1A7 /* GraphLabelOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B1C2D3E4F5A6B7C8D9E0F1 /* GraphLabelOverlay.swift */; };
 		92522C81F8AB01E6993FB2B4 /* SOARTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */; };
@@ -191,6 +192,7 @@
 		1DF6BDB75B9E9918C6D1C704 /* QueryAnalyzerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryAnalyzerTests.swift; sourceTree = "<group>"; };
 		1EDD1807C4EF2DDFFECDDD03 /* 2026-02-25-forge-production-audit.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-02-25-forge-production-audit.md"; sourceTree = "<group>"; };
 		1F1908C45264DCD9600A45FA /* GraphFilterPills.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphFilterPills.swift; sourceTree = "<group>"; };
+		EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphPhysicsSettings.swift; sourceTree = "<group>"; };
 		A7B1C2D3E4F5A6B7C8D9E0F1 /* GraphLabelOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphLabelOverlay.swift; sourceTree = "<group>"; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		22D0E1E91102579D7408FF8E /* SOARStudent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARStudent.swift; sourceTree = "<group>"; };
@@ -659,6 +661,7 @@
 				A7B1C2D3E4F5A6B7C8D9E0F1 /* GraphLabelOverlay.swift */,
 				EA5C71F8ED6F65C731F5B33A /* GraphWindowView.swift */,
 				1F1908C45264DCD9600A45FA /* GraphFilterPills.swift */,
+				EB91C0E9CD75CF50A170867C /* GraphPhysicsSettings.swift */,
 				5040C86886D34F9D1B7C7D67 /* GraphTimelineScrubber.swift */,
 				911DA62EB67E58000BC421B8 /* IdeasPortalView.swift */,
 			);
@@ -1021,6 +1024,7 @@
 				5CA4A65389B513A47A9949B0 /* SDGraphEdge.swift in Sources */,
 				84D75089A844390501529FBA /* SDGraphNode.swift in Sources */,
 				8FFE04A36686370ACF4DAA91 /* GraphFilterPills.swift in Sources */,
+				E17339DCD920A094F0E53847 /* GraphPhysicsSettings.swift in Sources */,
 				F1E0D9C8B7A6F5E4D3C2B1A7 /* GraphLabelOverlay.swift in Sources */,
 				4334D61DE6D34F879E91A074 /* GraphTimelineScrubber.swift in Sources */,
 				34EC9B4A11F199B054061437 /* IdeasPortalView.swift in Sources */,

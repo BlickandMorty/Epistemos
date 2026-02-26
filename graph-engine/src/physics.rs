@@ -154,6 +154,7 @@ impl QTNode {
 pub struct ForceConfig {
     pub repulsion: f32,
     pub attraction: f32,
+    pub link_distance: f32,
     pub damping: f32,
     pub alpha: f32,
     pub alpha_min: f32,
@@ -168,17 +169,18 @@ pub struct ForceConfig {
 impl Default for ForceConfig {
     fn default() -> Self {
         Self {
-            repulsion: 800.0,
-            attraction: 0.005,
+            repulsion: 600.0,
+            attraction: 0.008,
+            link_distance: 120.0,
             damping: 0.3,
             alpha: 1.0,
             alpha_min: 0.001,
-            alpha_decay: 0.0228, // ~300 iterations to cool (1 - (0.001)^(1/300))
+            alpha_decay: 0.015,   // Slower cooling → longer, more fluid animation
             alpha_target: 0.0,
-            velocity_decay: 0.6,
+            velocity_decay: 0.55, // Less friction → nodes drift/float more
             center_x: 500.0,
             center_y: 350.0,
-            center_strength: 0.02,
+            center_strength: 0.01,
         }
     }
 }
@@ -322,8 +324,7 @@ impl PhysicsState {
 
             let diff = self.positions[ti] - self.positions[si];
             let dist = diff.length().max(1.0);
-            let target_len = 100.0; // Natural spring length
-            let displacement = dist - target_len;
+            let displacement = dist - self.config.link_distance;
             let strength = self.config.attraction * weight;
             let f = diff.normalize_or_zero() * displacement * strength;
 
