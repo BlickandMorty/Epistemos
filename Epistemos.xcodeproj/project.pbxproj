@@ -60,6 +60,9 @@
 		5E851D26A49B415782E31D44 /* GraphStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDF034EF4894629B508AD92 /* GraphStore.swift */; };
 		94B230E541FC44C5B3F7990D /* ForceSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */; };
 		F13E7A02B1C84D3E9A4FE001 /* FilterEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13E7A01B1C84D3E9A4FE002 /* FilterEngine.swift */; };
+		AA11BB22CC33DD44EE550002 /* GraphNodeSprite.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550001 /* GraphNodeSprite.swift */; };
+		AA11BB22CC33DD44EE550004 /* KnowledgeGraphScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550003 /* KnowledgeGraphScene.swift */; };
+		AA11BB22CC33DD44EE550006 /* SpriteKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550005 /* SpriteKit.framework */; };
 		F13E7A03B1C84D3E9A4FE003 /* FilterEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13E7A04B1C84D3E9A4FE004 /* FilterEngineTests.swift */; };
 		33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */; };
 		34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */; };
@@ -238,6 +241,9 @@
 		EEDF034EF4894629B508AD92 /* GraphStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphStore.swift; sourceTree = "<group>"; };
 		25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceSimulation.swift; sourceTree = "<group>"; };
 		F13E7A01B1C84D3E9A4FE002 /* FilterEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterEngine.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE550001 /* GraphNodeSprite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphNodeSprite.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE550003 /* KnowledgeGraphScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeGraphScene.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE550005 /* SpriteKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SpriteKit.framework; path = System/Library/Frameworks/SpriteKit.framework; sourceTree = SDKROOT; };
 		F13E7A04B1C84D3E9A4FE004 /* FilterEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterEngineTests.swift; sourceTree = "<group>"; };
 		B60666F023BD43CB9AC4001E /* GraphStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphStoreTests.swift; sourceTree = "<group>"; };
 		868D11B3A8C44EED81EB969C /* ForceSimulationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceSimulationTests.swift; sourceTree = "<group>"; };
@@ -326,6 +332,7 @@
 				ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */,
 				DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */,
 				F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */,
+				AA11BB22CC33DD44EE550006 /* SpriteKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -423,6 +430,8 @@
 				EEDF034EF4894629B508AD92 /* GraphStore.swift */,
 				25BFC1603AA64A4B9CF48F7B /* ForceSimulation.swift */,
 				F13E7A01B1C84D3E9A4FE002 /* FilterEngine.swift */,
+				AA11BB22CC33DD44EE550001 /* GraphNodeSprite.swift */,
+				AA11BB22CC33DD44EE550003 /* KnowledgeGraphScene.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -643,6 +652,7 @@
 				20B80048C5E5CB20ACE0CF6C /* Foundation.framework */,
 				E9964F6D56D0A9A72ED41455 /* SwiftData.framework */,
 				0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */,
+				AA11BB22CC33DD44EE550005 /* SpriteKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -967,6 +977,8 @@
 				5E851D26A49B415782E31D44 /* GraphStore.swift in Sources */,
 				94B230E541FC44C5B3F7990D /* ForceSimulation.swift in Sources */,
 				F13E7A02B1C84D3E9A4FE001 /* FilterEngine.swift in Sources */,
+				AA11BB22CC33DD44EE550002 /* GraphNodeSprite.swift in Sources */,
+				AA11BB22CC33DD44EE550004 /* KnowledgeGraphScene.swift in Sources */,
 				91E24EF7296A47A4A822A35E /* SDGraphNode.swift in Sources */,
 				F5E833B39A954C4F88B3850B /* SDGraphEdge.swift in Sources */,
 			);
