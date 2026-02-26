@@ -51,6 +51,8 @@ pub struct SharedState {
     pub positions: Mutex<Vec<Vec2>>,
     /// Maps physics snapshot index -> graph node index (for filtered physics).
     pub graph_indices: Mutex<Vec<usize>>,
+    /// True when physics simulation has cooled down. Read by render thread (no lock needed).
+    pub settled: AtomicBool,
 }
 
 pub struct Engine {
@@ -82,6 +84,7 @@ impl Engine {
             physics: Mutex::new(PhysicsState::new()),
             positions: Mutex::new(Vec::new()),
             graph_indices: Mutex::new(Vec::new()),
+            settled: AtomicBool::new(false),
         });
 
         Self {
@@ -176,6 +179,9 @@ impl Engine {
                             let mut gi = shared.graph_indices.lock();
                             std::mem::swap(&mut *gi, &mut local_gi);
                         }
+
+                        // 3. Publish settled flag (lock-free, read by render thread)
+                        shared.settled.store(settled, Ordering::Relaxed);
 
                         if settled {
                             std::thread::sleep(std::time::Duration::from_millis(50));
@@ -415,6 +421,17 @@ impl Engine {
             Some(r) => r,
             None => return,
         };
+
+        let physics_settled = self.shared.settled.load(Ordering::Relaxed);
+        let camera_still = !renderer.is_animating;
+
+        // While things are moving, send an empty array to hide all labels.
+        // This avoids the 1-frame async lag between Metal rendering and CATextLayer updates.
+        if !physics_settled || !camera_still {
+            (cb.func)(std::ptr::null(), 0, cb.context);
+            return;
+        }
+
         let zoom = renderer.camera_zoom;
         let offset = renderer.camera_offset;
         let vp_w = self.width as f32;
@@ -427,11 +444,22 @@ impl Engine {
                 .collect();
         }
 
+        // Obsidian-style LOD: only show labels when zoomed in enough that the node
+        // has a meaningful screen-space size. High-weight nodes appear first.
+        // Cap total labels to prevent CATextLayer thrash.
+        const MAX_LABELS: usize = 40;
+        const MIN_SCREEN_RADIUS: f32 = 8.0; // Node must be ≥8px on screen to show label
+
         let mut positions: Vec<LabelPosition> = Vec::new();
         for (i, node) in self.graph.nodes.iter().enumerate() {
             if !node.visible { continue; }
 
-            // World -> screen
+            let screen_radius = node.radius * zoom;
+
+            // Skip labels entirely when node is too small on screen
+            if screen_radius < MIN_SCREEN_RADIUS { continue; }
+
+            // World -> screen (in drawable pixels)
             let sx = (node.pos.x - offset.x) * zoom + vp_w * 0.5;
             let sy = (node.pos.y - offset.y) * zoom + vp_h * 0.5;
 
@@ -440,25 +468,22 @@ impl Engine {
                 continue;
             }
 
-            // LOD alpha based on weight
-            let base_alpha = if node.weight > 5.0 {
-                1.0
-            } else if node.weight > 2.0 {
-                0.5
-            } else {
-                0.0
-            };
-            // Fade all labels at far zoom
-            let alpha = base_alpha * (zoom * 2.0).min(1.0);
+            // Alpha ramps up as node grows on screen: fade in between 8px and 16px
+            let size_alpha = ((screen_radius - MIN_SCREEN_RADIUS) / MIN_SCREEN_RADIUS).clamp(0.0, 1.0);
+            // Weight boost: heavier nodes are slightly more opaque
+            let weight_boost = if node.weight > 5.0 { 1.0 } else { 0.7 };
+            let alpha = size_alpha * weight_boost;
             if alpha < 0.01 { continue; }
 
             positions.push(LabelPosition {
                 uuid: self.uuid_cache[i].as_ptr(),
                 screen_x: sx,
                 screen_y: sy,
-                radius: node.radius * zoom,
+                radius: screen_radius,
                 alpha,
             });
+
+            if positions.len() >= MAX_LABELS { break; }
         }
 
         (cb.func)(positions.as_ptr(), positions.len(), cb.context);

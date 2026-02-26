@@ -92,6 +92,7 @@ version = "0.1.0"
 dependencies = [
  "glam",
  "metal",
+ "objc",
  "parking_lot",
  "rustc-hash",
 ]

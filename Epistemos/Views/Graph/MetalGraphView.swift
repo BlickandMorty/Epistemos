@@ -15,6 +15,9 @@ struct MetalGraphView: NSViewRepresentable {
         view.colorPixelFormat = .bgra8Unorm
         view.clearColor = MTLClearColor(red: 0.07, green: 0.07, blue: 0.09, alpha: 1.0)
 
+        // Capture retina scale factor for pixel→point label conversion
+        context.coordinator.backingScaleFactor = NSScreen.main?.backingScaleFactor ?? 2.0
+
         // Create engine eagerly on main thread — avoids race between draw() and updateNSView()
         if let layer = view.layer as? CAMetalLayer {
             let devicePtr = Unmanaged.passUnretained(device).toOpaque()
@@ -48,8 +51,17 @@ struct MetalGraphView: NSViewRepresentable {
             }, ctx)
 
             graph_engine_set_on_labels_updated(engine, { (positions: UnsafePointer<LabelPosition>?, count: Int, ctx: UnsafeMutableRawPointer?) in
-                guard let ctx, count > 0, let positions else { return }
+                guard let ctx else { return }
                 let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
+
+                // Empty array = hide all labels (sent while physics/camera is moving)
+                guard count > 0, let positions else {
+                    DispatchQueue.main.async { coord.labelOverlay?.updateLabels(positions: []) }
+                    return
+                }
+
+                // Rust computes positions in drawable pixels (retina); CATextLayer needs points.
+                let scale = coord.backingScaleFactor
                 // Copy data before crossing thread boundary
                 var labels: [(uuid: String, x: CGFloat, y: CGFloat, radius: CGFloat, alpha: Float)] = []
                 labels.reserveCapacity(count)
@@ -58,9 +70,9 @@ struct MetalGraphView: NSViewRepresentable {
                     guard let uuidPtr = pos.uuid else { continue }
                     labels.append((
                         uuid: String(cString: uuidPtr),
-                        x: CGFloat(pos.screen_x),
-                        y: CGFloat(pos.screen_y),
-                        radius: CGFloat(pos.radius),
+                        x: CGFloat(pos.screen_x) / scale,
+                        y: CGFloat(pos.screen_y) / scale,
+                        radius: CGFloat(pos.radius) / scale,
                         alpha: pos.alpha
                     ))
                 }
@@ -137,6 +149,8 @@ struct MetalGraphView: NSViewRepresentable {
         var nodeInsertionOrder: [String] = []
         var lastFilterHash: Int = 0
         var labelOverlay: GraphLabelOverlay?
+        /// Retina scale factor — Rust computes positions in drawable pixels, labels need points.
+        var backingScaleFactor: CGFloat = 2.0
 
         /// Reference to graphState for publishing selection changes.
         weak var graphStateRef: GraphState?

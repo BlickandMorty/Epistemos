@@ -16,6 +16,7 @@ final class GraphState {
     var scanProgress: Double = 0  // 0.0-1.0
     var scanStatus: String = ""
     var selectedNodeId: String?
+    private var isBuildingStructural = false
 
     /// Set to true when notes change — the graph window checks this on appear and refreshes structural data.
     var needsRefresh = false
@@ -38,10 +39,11 @@ final class GraphState {
             return
         }
 
-        // If empty, auto-build from structural data (notes, folders, ideas, chats, tags)
-        if store.nodeCount == 0 {
+        // If empty and not already building, auto-build from structural data.
+        // The guard prevents infinite recursion: buildStructuralGraph → loadGraph → buildStructuralGraph...
+        if store.nodeCount == 0, !isBuildingStructural {
             buildStructuralGraph(context: context)
-            return  // buildStructuralGraph calls loadGraph again
+            return
         }
 
         // Physics and rendering are driven by the Rust engine.
@@ -53,6 +55,10 @@ final class GraphState {
 
     /// Build the graph skeleton from existing structured data (no AI needed).
     func buildStructuralGraph(context: ModelContext) {
+        guard !isBuildingStructural else { return }
+        isBuildingStructural = true
+        defer { isBuildingStructural = false }
+
         let builder = StructuralGraphBuilder()
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)

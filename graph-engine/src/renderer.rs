@@ -27,14 +27,18 @@ struct NodeInstance {
 }
 
 /// Per-vertex data for edge quad-strip rendering. 6 vertices per edge.
+/// NOTE: `_pad` aligns `color` to offset 32 so it matches MSL `float4` alignment (16 bytes).
+/// Without this, Rust writes 40-byte structs but Metal reads 48-byte structs, causing every
+/// vertex after the first to read from wrong offsets → wildly wrong positions → giant triangles.
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct EdgeQuadVertex {
-    endpoint_a: [f32; 2],  // 8 bytes
-    endpoint_b: [f32; 2],  // 8 bytes
-    perp_sign: f32,        // 4 bytes: -1.0 or +1.0
-    edge_coord: f32,       // 4 bytes: 0.0 at A, 1.0 at B
-    color: [f32; 4],       // 16 bytes
+    endpoint_a: [f32; 2],  // 8 bytes  (offset 0)
+    endpoint_b: [f32; 2],  // 8 bytes  (offset 8)
+    perp_sign: f32,        // 4 bytes  (offset 16)
+    edge_coord: f32,       // 4 bytes  (offset 20)
+    _pad: [f32; 2],        // 8 bytes  (offset 24) — aligns color to 32
+    color: [f32; 4],       // 16 bytes (offset 32, 16-byte aligned for MSL float4)
 }
 
 /// Uniform data sent to all shaders (camera transform).
@@ -117,7 +121,8 @@ struct EdgeQuadVertex {
     float2 endpoint_b;   // offset 8
     float  perp_sign;    // offset 16: -1.0 or +1.0
     float  edge_coord;   // offset 20: 0.0 at A, 1.0 at B
-    float4 color;        // offset 24
+    float2 _pad;         // offset 24: padding to align float4 to 32
+    float4 color;        // offset 32 (16-byte aligned)
 };
 
 struct EdgeVertexOut {
@@ -171,12 +176,12 @@ fragment float4 edge_fragment(EdgeVertexOut in [[stage_in]]) {
 /// Build 6 vertices (2 triangles) forming a quad strip for one edge.
 fn build_edge_quad(a: [f32; 2], b: [f32; 2], color: [f32; 4]) -> [EdgeQuadVertex; 6] {
     [
-        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 0.0, color },
-        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 0.0, color },
-        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 1.0, color },
-        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 1.0, color },
-        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 0.0, color },
-        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 1.0, color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 0.0, _pad: [0.0; 2], color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 0.0, _pad: [0.0; 2], color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 1.0, _pad: [0.0; 2], color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign: -1.0, edge_coord: 1.0, _pad: [0.0; 2], color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 0.0, _pad: [0.0; 2], color },
+        EdgeQuadVertex { endpoint_a: a, endpoint_b: b, perp_sign:  1.0, edge_coord: 1.0, _pad: [0.0; 2], color },
     ]
 }
 
