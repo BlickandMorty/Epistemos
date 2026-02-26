@@ -177,3 +177,44 @@ pub extern "C" fn graph_engine_node_count(ptr: *mut c_void) -> u32 {
 pub extern "C" fn graph_engine_edge_count(ptr: *mut c_void) -> u32 {
     get_engine(ptr).map_or(0, |e| e.graph.edges.len() as u32)
 }
+
+// ── Input handling ──────────────────────────────────────────────────────────
+
+/// Pan the camera by (dx, dy) in screen pixels. Called from scroll/drag events.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_pan(ptr: *mut c_void, dx: f32, dy: f32) {
+    if let Some(engine) = get_engine(ptr) {
+        if let Some(renderer) = &mut engine.renderer {
+            // Pan is inverse of scroll direction, scaled by zoom
+            renderer.camera_offset.x -= dx / renderer.camera_zoom;
+            renderer.camera_offset.y -= dy / renderer.camera_zoom;
+        }
+    }
+}
+
+/// Zoom the camera by a factor, centered at screen position (cx, cy).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_zoom(ptr: *mut c_void, factor: f32, cx: f32, cy: f32) {
+    if let Some(engine) = get_engine(ptr) {
+        if let Some(renderer) = &mut engine.renderer {
+            let old_zoom = renderer.camera_zoom;
+            let new_zoom = (old_zoom * factor).clamp(0.1, 10.0);
+
+            // Zoom toward the cursor position:
+            // Convert cursor screen pos to world pos at old zoom,
+            // then adjust offset so that world point stays at cursor.
+            let vp_w = engine.width as f32;
+            let vp_h = engine.height as f32;
+            let world_x = cx / old_zoom + renderer.camera_offset.x - vp_w / (2.0 * old_zoom);
+            let world_y = cy / old_zoom + renderer.camera_offset.y - vp_h / (2.0 * old_zoom);
+
+            renderer.camera_zoom = new_zoom;
+
+            let new_world_x = cx / new_zoom + renderer.camera_offset.x - vp_w / (2.0 * new_zoom);
+            let new_world_y = cy / new_zoom + renderer.camera_offset.y - vp_h / (2.0 * new_zoom);
+
+            renderer.camera_offset.x += world_x - new_world_x;
+            renderer.camera_offset.y += world_y - new_world_y;
+        }
+    }
+}

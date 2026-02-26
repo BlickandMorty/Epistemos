@@ -68,4 +68,50 @@ class GraphMTKView: MTKView {
         super.viewDidMoveToWindow()
         window?.makeFirstResponder(self)
     }
+
+    // MARK: - Scroll / Pan
+
+    override func scrollWheel(with event: NSEvent) {
+        guard let engine else { return }
+
+        if event.modifierFlags.contains(.option) || event.momentumPhase != [] {
+            // Option+scroll or momentum = pan
+            graph_engine_pan(engine, Float(event.scrollingDeltaX), Float(event.scrollingDeltaY))
+        } else {
+            // Regular scroll = pan
+            graph_engine_pan(engine, Float(event.scrollingDeltaX), Float(event.scrollingDeltaY))
+        }
+    }
+
+    // MARK: - Pinch to Zoom
+
+    override func magnify(with event: NSEvent) {
+        guard let engine else { return }
+        let loc = convert(event.locationInWindow, from: nil)
+        let factor = 1.0 + Float(event.magnification)
+        graph_engine_zoom(engine, factor, Float(loc.x), Float(loc.y))
+    }
+
+    // MARK: - Mouse drag to pan
+
+    private var isDragging = false
+    private var lastDragPoint: NSPoint = .zero
+
+    override func mouseDown(with event: NSEvent) {
+        isDragging = true
+        lastDragPoint = convert(event.locationInWindow, from: nil)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isDragging, let engine else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let dx = Float(point.x - lastDragPoint.x)
+        let dy = Float(point.y - lastDragPoint.y)
+        graph_engine_pan(engine, dx, -dy) // Flip Y: AppKit Y is up, our viewport Y is down
+        lastDragPoint = point
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        isDragging = false
+    }
 }

@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Xcode strips PATH — ensure cargo is available
+if [ -f "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env"
+fi
+
 cd "$(dirname "$0")/graph-engine"
 
 if [ "$CONFIGURATION" = "Debug" ]; then

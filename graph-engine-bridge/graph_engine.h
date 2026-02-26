@@ -44,4 +44,9 @@ void graph_engine_commit(GraphEngine* engine);
 uint32_t graph_engine_node_count(GraphEngine* engine);
 uint32_t graph_engine_edge_count(GraphEngine* engine);
 
+// ── Input handling ────────────────────────────────────────────────────────
+
+void graph_engine_pan(GraphEngine* engine, float dx, float dy);
+void graph_engine_zoom(GraphEngine* engine, float factor, float cx, float cy);
+
 #endif /* graph_engine_h */
