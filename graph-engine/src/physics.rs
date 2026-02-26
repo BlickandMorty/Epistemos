@@ -39,10 +39,6 @@ impl Rect {
         }
     }
 
-    fn contains(&self, p: Vec2) -> bool {
-        p.x >= self.x && p.x < self.x + self.w && p.y >= self.y && p.y < self.y + self.h
-    }
-
     fn quadrant_for(&self, p: Vec2) -> usize {
         let mx = self.x + self.w * 0.5;
         let my = self.y + self.h * 0.5;
@@ -97,12 +93,7 @@ impl QTNode {
         let old_idx = self.body_index.take().unwrap();
         self.children = Some(Box::new([None, None, None, None]));
 
-        // Re-insert the existing body (use center_of_mass as approximation of old position)
-        // We need the old position, but we only have center_of_mass which was just updated.
-        // Fix: we need to pass positions array. Instead, store old pos in center_of_mass before update.
-        // Actually, the simpler approach: pass positions slice to insert.
-        // Let me restructure this.
-        // For now, the old body was at the old center_of_mass (before we updated it).
+        // Recover old body position from center_of_mass before update
         let old_pos = (self.center_of_mass * new_mass - pos * mass) / (new_mass - mass);
         let old_mass = new_mass - mass;
 
@@ -172,12 +163,12 @@ impl Default for ForceConfig {
             repulsion: 600.0,
             attraction: 0.008,
             link_distance: 120.0,
-            damping: 0.3,
+            damping: 0.85,        // Verlet damping (applied to inertia term)
             alpha: 1.0,
             alpha_min: 0.001,
             alpha_decay: 0.015,   // Slower cooling → longer, more fluid animation
             alpha_target: 0.0,
-            velocity_decay: 0.55, // Less friction → nodes drift/float more
+            velocity_decay: 0.55, // Used for ambient drift magnitude
             center_x: 500.0,
             center_y: 350.0,
             center_strength: 0.01,
@@ -185,45 +176,61 @@ impl Default for ForceConfig {
     }
 }
 
-/// Per-node physics state, kept in flat arrays for cache-friendly iteration.
+/// Per-node physics state using Verlet integration.
+/// Stores current and previous positions instead of explicit velocities.
+/// Velocity is implicitly (positions[i] - prev_positions[i]), giving superior
+/// stability and natural momentum preservation over Euler integration.
 pub struct PhysicsState {
     pub positions: Vec<Vec2>,
-    pub velocities: Vec<Vec2>,
+    pub prev_positions: Vec<Vec2>,
     pub masses: Vec<f32>,
     pub edges: Vec<(u32, u32, f32)>, // (source_id, target_id, weight)
     pub graph_indices: Vec<usize>,   // maps physics index -> graph node index
     pub config: ForceConfig,
     pub is_settled: bool,
+    /// Simple xorshift32 RNG state for ambient Brownian motion.
+    rng_state: u32,
 }
 
 impl PhysicsState {
     pub fn new() -> Self {
         Self {
             positions: Vec::new(),
-            velocities: Vec::new(),
+            prev_positions: Vec::new(),
             masses: Vec::new(),
             edges: Vec::new(),
             graph_indices: Vec::new(),
             config: ForceConfig::default(),
             is_settled: false,
+            rng_state: 0xDEAD_BEEF,
         }
+    }
+
+    /// Fast xorshift32 PRNG. Returns a float in [-1, 1].
+    fn rand_f32(&mut self) -> f32 {
+        self.rng_state ^= self.rng_state << 13;
+        self.rng_state ^= self.rng_state >> 17;
+        self.rng_state ^= self.rng_state << 5;
+        // Map u32 to [-1, 1]
+        (self.rng_state as f32 / u32::MAX as f32) * 2.0 - 1.0
     }
 
     /// Load physics state from the graph. Call after graph_engine_commit.
     pub fn load_from_graph(&mut self, graph: &crate::types::Graph) {
         let n = graph.nodes.len();
         self.positions.clear();
-        self.velocities.clear();
+        self.prev_positions.clear();
         self.masses.clear();
         self.edges.clear();
 
         self.positions.reserve(n);
-        self.velocities.reserve(n);
+        self.prev_positions.reserve(n);
         self.masses.reserve(n);
 
         for node in &graph.nodes {
             self.positions.push(node.pos);
-            self.velocities.push(node.vel);
+            // Initialize prev_positions slightly behind current to give initial velocity
+            self.prev_positions.push(node.pos - node.vel * 0.5);
             self.masses.push(node.weight.max(1.0));
         }
 
@@ -243,7 +250,7 @@ impl PhysicsState {
     /// Builds a compact physics array and maps indices back to graph positions.
     pub fn load_from_graph_filtered(&mut self, graph: &crate::types::Graph) {
         self.positions.clear();
-        self.velocities.clear();
+        self.prev_positions.clear();
         self.masses.clear();
         self.edges.clear();
         self.graph_indices.clear();
@@ -256,7 +263,7 @@ impl PhysicsState {
             let phys_idx = self.positions.len();
             id_to_phys.insert(node.id, phys_idx);
             self.positions.push(node.pos);
-            self.velocities.push(node.vel);
+            self.prev_positions.push(node.pos - node.vel * 0.5);
             self.masses.push(node.weight.max(1.0));
             self.graph_indices.push(graph_idx);
         }
@@ -272,7 +279,11 @@ impl PhysicsState {
         self.is_settled = false;
     }
 
-    /// Run one tick of the force simulation.
+    /// Run one tick of the force simulation using Verlet integration.
+    ///
+    /// Verlet: next_pos = pos + (pos - prev_pos) * damping + acceleration * dt²
+    /// The (pos - prev_pos) term implicitly preserves velocity/momentum from
+    /// the previous tick, producing much smoother, more stable motion than Euler.
     pub fn tick(&mut self) {
         if self.is_settled || self.positions.is_empty() { return; }
 
@@ -311,9 +322,10 @@ impl PhysicsState {
         }
 
         // ── 3. Repulsion via Barnes-Hut ─────────────────────────────────
-        let mut forces = vec![Vec2::ZERO; n];
+        let mut accelerations = vec![Vec2::ZERO; n];
         for i in 0..n {
-            forces[i] += tree.compute_force(self.positions[i], self.config.repulsion);
+            accelerations[i] += tree.compute_force(self.positions[i], self.config.repulsion)
+                / self.masses[i]; // F = ma, so a = F/m
         }
 
         // ── 4. Attraction along edges (Hooke's spring) ─────────────────
@@ -328,38 +340,64 @@ impl PhysicsState {
             let strength = self.config.attraction * weight;
             let f = diff.normalize_or_zero() * displacement * strength;
 
-            forces[si] += f;
-            forces[ti] -= f;
+            accelerations[si] += f / self.masses[si];
+            accelerations[ti] -= f / self.masses[ti];
         }
 
         // ── 5. Center gravity ───────────────────────────────────────────
         let center = Vec2::new(self.config.center_x, self.config.center_y);
         for i in 0..n {
             let to_center = center - self.positions[i];
-            forces[i] += to_center * self.config.center_strength;
+            accelerations[i] += to_center * self.config.center_strength;
         }
 
-        // ── 6. Apply forces with alpha and velocity decay ───────────────
-        for i in 0..n {
-            self.velocities[i] += forces[i] * alpha;
-            self.velocities[i] *= self.config.velocity_decay;
-
-            // Clamp velocity to prevent explosions
-            let speed = self.velocities[i].length();
-            if speed > 50.0 {
-                self.velocities[i] *= 50.0 / speed;
+        // ── 6. Ambient Brownian motion (never fully sleep) ──────────────
+        // Inject tiny random perturbation that scales inversely with alpha.
+        // When alpha is high (active layout), this is negligible.
+        // When alpha is low (nearly settled), this creates organic floating drift.
+        let ambient_strength = 0.3 * (1.0 - alpha.min(0.1) / 0.1);
+        if ambient_strength > 0.01 {
+            for i in 0..n {
+                let rx = self.rand_f32() * ambient_strength;
+                let ry = self.rand_f32() * ambient_strength;
+                accelerations[i] += Vec2::new(rx, ry);
             }
+        }
 
-            self.positions[i] += self.velocities[i];
+        // ── 7. Verlet integration with damping ──────────────────────────
+        let damping = self.config.damping;
+        let dt2_alpha = alpha; // Scale accelerations by alpha for cooling
+
+        for i in 0..n {
+            let current = self.positions[i];
+            let prev = self.prev_positions[i];
+
+            // Verlet: next = current + (current - prev) * damping + accel * dt²
+            let inertia = (current - prev) * damping;
+
+            // Clamp inertia to prevent explosions
+            let speed = inertia.length();
+            let clamped_inertia = if speed > 50.0 {
+                inertia * (50.0 / speed)
+            } else {
+                inertia
+            };
+
+            let next = current + clamped_inertia + accelerations[i] * dt2_alpha;
+
+            self.prev_positions[i] = current;
+            self.positions[i] = next;
         }
     }
 
     /// Write updated positions back to graph nodes using graph_indices mapping.
+    /// Also writes back implicit velocity (for persistence across filter changes).
     pub fn write_back(&self, graph: &mut crate::types::Graph) {
         for (phys_idx, &graph_idx) in self.graph_indices.iter().enumerate() {
             if phys_idx < self.positions.len() && graph_idx < graph.nodes.len() {
                 graph.nodes[graph_idx].pos = self.positions[phys_idx];
-                graph.nodes[graph_idx].vel = self.velocities[phys_idx];
+                // Implicit velocity = current - prev
+                graph.nodes[graph_idx].vel = self.positions[phys_idx] - self.prev_positions[phys_idx];
             }
         }
     }
@@ -377,12 +415,23 @@ impl PhysicsState {
 mod tests {
     use super::*;
 
+    fn make_verlet_state(positions: Vec<Vec2>) -> PhysicsState {
+        let n = positions.len();
+        PhysicsState {
+            prev_positions: positions.clone(), // Zero initial velocity
+            positions,
+            masses: vec![1.0; n],
+            edges: Vec::new(),
+            graph_indices: (0..n).collect(),
+            config: ForceConfig::default(),
+            is_settled: false,
+            rng_state: 0xDEAD_BEEF,
+        }
+    }
+
     #[test]
     fn two_nodes_repel() {
-        let mut state = PhysicsState::new();
-        state.positions = vec![Vec2::new(0.0, 0.0), Vec2::new(10.0, 0.0)];
-        state.velocities = vec![Vec2::ZERO, Vec2::ZERO];
-        state.masses = vec![1.0, 1.0];
+        let mut state = make_verlet_state(vec![Vec2::new(0.0, 0.0), Vec2::new(10.0, 0.0)]);
         state.config.center_strength = 0.0; // Disable centering for clean test
         state.config.alpha = 1.0;
         state.config.alpha_min = 0.0;
@@ -397,11 +446,7 @@ mod tests {
 
     #[test]
     fn connected_nodes_attract() {
-        let mut state = PhysicsState::new();
-        // Place nodes far apart so attraction > repulsion
-        state.positions = vec![Vec2::new(0.0, 0.0), Vec2::new(500.0, 0.0)];
-        state.velocities = vec![Vec2::ZERO, Vec2::ZERO];
-        state.masses = vec![1.0, 1.0];
+        let mut state = make_verlet_state(vec![Vec2::new(0.0, 0.0), Vec2::new(500.0, 0.0)]);
         state.edges = vec![(0, 1, 5.0)]; // Strong edge
         state.config.center_strength = 0.0;
         state.config.repulsion = 100.0; // Reduce repulsion
@@ -418,10 +463,7 @@ mod tests {
 
     #[test]
     fn simulation_settles() {
-        let mut state = PhysicsState::new();
-        state.positions = vec![Vec2::new(100.0, 100.0), Vec2::new(200.0, 200.0)];
-        state.velocities = vec![Vec2::ZERO, Vec2::ZERO];
-        state.masses = vec![1.0, 1.0];
+        let mut state = make_verlet_state(vec![Vec2::new(100.0, 100.0), Vec2::new(200.0, 200.0)]);
         state.config.alpha_decay = 0.1; // Fast decay for test
 
         for _ in 0..200 {
@@ -441,5 +483,25 @@ mod tests {
 
         assert!(!state.is_settled);
         assert!(state.config.alpha > 0.0);
+    }
+
+    #[test]
+    fn verlet_preserves_momentum() {
+        // Give node 0 initial velocity by offsetting prev_position
+        let mut state = PhysicsState::new();
+        state.positions = vec![Vec2::new(100.0, 0.0)];
+        state.prev_positions = vec![Vec2::new(95.0, 0.0)]; // Moving right at velocity 5
+        state.masses = vec![1.0];
+        state.graph_indices = vec![0];
+        state.config.center_strength = 0.0;
+        state.config.repulsion = 0.0;
+        state.config.alpha = 1.0;
+        state.config.alpha_min = 0.0;
+
+        state.tick();
+
+        // Node should continue moving right due to momentum (Verlet inertia)
+        assert!(state.positions[0].x > 100.0,
+            "Node should continue moving right, got {}", state.positions[0].x);
     }
 }

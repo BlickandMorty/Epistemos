@@ -49,6 +49,8 @@ pub struct SharedState {
     pub physics: Mutex<PhysicsState>,
     /// Latest positions snapshot. Updated by physics thread after each tick.
     pub positions: Mutex<Vec<Vec2>>,
+    /// Implicit velocities (pos - prev_pos) for Verlet. Used to seed vel on filter changes.
+    pub velocities: Mutex<Vec<Vec2>>,
     /// Maps physics snapshot index -> graph node index (for filtered physics).
     pub graph_indices: Mutex<Vec<usize>>,
     /// True when physics simulation has cooled down. Read by render thread (no lock needed).
@@ -83,6 +85,7 @@ impl Engine {
         let shared = Arc::new(SharedState {
             physics: Mutex::new(PhysicsState::new()),
             positions: Mutex::new(Vec::new()),
+            velocities: Mutex::new(Vec::new()),
             graph_indices: Mutex::new(Vec::new()),
             settled: AtomicBool::new(false),
         });
@@ -133,10 +136,17 @@ impl Engine {
             phys.config.center_x = self.width as f32 / 2.0;
             phys.config.center_y = self.height as f32 / 2.0;
 
-            // Publish initial positions and graph_indices
+            // Publish initial positions, velocities, and graph_indices
             let mut snap = self.shared.positions.lock();
             *snap = phys.positions.clone();
             drop(snap);
+            // Initial velocities: pos - prev_pos
+            let vels: Vec<Vec2> = phys.positions.iter().zip(phys.prev_positions.iter())
+                .map(|(p, pp)| *p - *pp)
+                .collect();
+            let mut vel_snap = self.shared.velocities.lock();
+            *vel_snap = vels;
+            drop(vel_snap);
             let mut gi = self.shared.graph_indices.lock();
             *gi = phys.graph_indices.clone();
         }
@@ -155,25 +165,37 @@ impl Engine {
                     let mut local_snap: Vec<Vec2> = Vec::new();
                     let mut local_gi: Vec<usize> = Vec::new();
 
+                    let mut local_vel: Vec<Vec2> = Vec::new();
+
                     while running.load(Ordering::Relaxed) {
                         let start = std::time::Instant::now();
 
-                        // 1. Lock physics, run tick, copy positions + graph_indices to local buffer, unlock
+                        // 1. Lock physics, run tick, copy positions + velocities + graph_indices to local buffer
                         let settled = {
                             let mut phys = shared.physics.lock();
                             phys.tick();
                             local_snap.clear();
                             local_snap.extend_from_slice(&phys.positions);
+                            // Compute implicit Verlet velocities: pos - prev_pos
+                            local_vel.clear();
+                            local_vel.reserve(phys.positions.len());
+                            for i in 0..phys.positions.len() {
+                                local_vel.push(phys.positions[i] - phys.prev_positions[i]);
+                            }
                             local_gi.clear();
                             local_gi.extend_from_slice(&phys.graph_indices);
                             phys.is_settled
                         };
                         // Physics mutex is now released.
 
-                        // 2. Briefly lock positions + graph_indices to publish snapshot (no physics lock held)
+                        // 2. Briefly lock positions + velocities + graph_indices to publish (no physics lock held)
                         {
                             let mut snap = shared.positions.lock();
                             std::mem::swap(&mut *snap, &mut local_snap);
+                        }
+                        {
+                            let mut vel = shared.velocities.lock();
+                            std::mem::swap(&mut *vel, &mut local_vel);
                         }
                         {
                             let mut gi = shared.graph_indices.lock();
@@ -206,15 +228,19 @@ impl Engine {
         }
     }
 
-    /// Copy position snapshot to graph nodes (called before rendering).
+    /// Copy position + velocity snapshot to graph nodes (called before rendering).
     /// Uses graph_indices to map physics positions back to the correct graph nodes.
     /// Only locks the positions mutex briefly — does NOT contend with the full physics tick.
     pub fn sync_positions(&mut self) {
         let snap = self.shared.positions.lock();
+        let vel = self.shared.velocities.lock();
         let gi = self.shared.graph_indices.lock();
         for (phys_idx, &graph_idx) in gi.iter().enumerate() {
             if phys_idx < snap.len() && graph_idx < self.graph.nodes.len() {
                 self.graph.nodes[graph_idx].pos = snap[phys_idx];
+                if phys_idx < vel.len() {
+                    self.graph.nodes[graph_idx].vel = vel[phys_idx];
+                }
             }
         }
     }
