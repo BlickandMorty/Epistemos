@@ -190,6 +190,11 @@ pub struct PhysicsState {
     pub is_settled: bool,
     /// Simple xorshift32 RNG state for ambient Brownian motion.
     rng_state: u32,
+    /// Drag constraint: (physics_index, world_target). When set, the node is
+    /// lerped toward the target each tick with prev_pos zeroed so Verlet forces
+    /// are suppressed. On release, the implicit velocity (pos − prev_pos) carries
+    /// the cursor's fling direction.
+    pub drag_constraint: Option<(usize, Vec2)>,
 }
 
 impl PhysicsState {
@@ -203,6 +208,7 @@ impl PhysicsState {
             config: ForceConfig::default(),
             is_settled: false,
             rng_state: 0xDEAD_BEEF,
+            drag_constraint: None,
         }
     }
 
@@ -388,6 +394,19 @@ impl PhysicsState {
             self.prev_positions[i] = current;
             self.positions[i] = next;
         }
+
+        // ── 8. Apply drag constraint (after Verlet) ─────────────────────
+        // Lerp dragged node toward cursor target. Setting prev_pos = pos
+        // before the lerp zeros the Verlet inertia term so forces don't
+        // fight the user's cursor. On release, the lerp delta becomes the
+        // implicit velocity → natural fling.
+        if let Some((drag_idx, target)) = self.drag_constraint {
+            if drag_idx < n {
+                let pos = self.positions[drag_idx];
+                self.prev_positions[drag_idx] = pos; // zero external forces
+                self.positions[drag_idx] = pos.lerp(target, 0.4);
+            }
+        }
     }
 
     /// Write updated positions back to graph nodes using graph_indices mapping.
@@ -426,6 +445,7 @@ mod tests {
             config: ForceConfig::default(),
             is_settled: false,
             rng_state: 0xDEAD_BEEF,
+            drag_constraint: None,
         }
     }
 
@@ -486,6 +506,58 @@ mod tests {
     }
 
     #[test]
+    fn drag_constraint_moves_node_toward_target() {
+        let mut state = make_verlet_state(vec![
+            Vec2::new(100.0, 100.0),
+            Vec2::new(300.0, 100.0),
+        ]);
+        state.config.center_strength = 0.0;
+        state.config.repulsion = 0.0;
+        state.config.alpha = 1.0;
+        state.config.alpha_min = 0.0;
+
+        // Drag node 0 toward (200, 200)
+        state.drag_constraint = Some((0, Vec2::new(200.0, 200.0)));
+
+        state.tick();
+
+        // Node 0 should have moved toward target
+        assert!(state.positions[0].x > 100.0,
+            "Dragged node should move toward target x, got {}", state.positions[0].x);
+        assert!(state.positions[0].y > 100.0,
+            "Dragged node should move toward target y, got {}", state.positions[0].y);
+        // Node 1 should be unaffected by drag (no forces)
+        let node1_moved = (state.positions[1] - Vec2::new(300.0, 100.0)).length();
+        assert!(node1_moved < 5.0,
+            "Non-dragged node should barely move, moved {}", node1_moved);
+    }
+
+    #[test]
+    fn drag_release_preserves_fling_velocity() {
+        let mut state = make_verlet_state(vec![Vec2::new(100.0, 0.0)]);
+        state.config.center_strength = 0.0;
+        state.config.repulsion = 0.0;
+        state.config.alpha = 1.0;
+        state.config.alpha_min = 0.0;
+
+        // Simulate dragging: apply constraint for a few ticks
+        state.drag_constraint = Some((0, Vec2::new(200.0, 0.0)));
+        for _ in 0..5 {
+            state.tick();
+        }
+        let pos_at_release = state.positions[0];
+
+        // Release: clear drag, tick once more
+        state.drag_constraint = None;
+        state.tick();
+
+        // Node should continue moving right due to Verlet inertia (fling)
+        assert!(state.positions[0].x > pos_at_release.x,
+            "Node should fling right after release, pos {} vs release {}",
+            state.positions[0].x, pos_at_release.x);
+    }
+
+    #[test]
     fn verlet_preserves_momentum() {
         // Give node 0 initial velocity by offsetting prev_position
         let mut state = PhysicsState::new();
@@ -493,6 +565,7 @@ mod tests {
         state.prev_positions = vec![Vec2::new(95.0, 0.0)]; // Moving right at velocity 5
         state.masses = vec![1.0];
         state.graph_indices = vec![0];
+        state.drag_constraint = None;
         state.config.center_strength = 0.0;
         state.config.repulsion = 0.0;
         state.config.alpha = 1.0;

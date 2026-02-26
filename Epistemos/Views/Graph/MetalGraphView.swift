@@ -347,14 +347,17 @@ class GraphMTKView: MTKView {
     // MARK: - Mouse Events
 
     private var isDragging = false
+    /// True when the user clicked on a node → mouseDragged moves the node, not the camera.
+    private var isDraggingNode = false
     private var lastDragPoint: NSPoint = .zero
 
     override func mouseDown(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
         let (px, py) = toDrawablePixels(loc)
-        graph_engine_mouse_down(engine, px, py, 0)
+        let hitNode = graph_engine_mouse_down(engine, px, py, 0)
         isDragging = false
+        isDraggingNode = (hitNode != 0)
         lastDragPoint = loc
     }
 
@@ -362,23 +365,30 @@ class GraphMTKView: MTKView {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
         let (px, py) = toDrawablePixels(loc)
-        graph_engine_mouse_down(engine, px, py, 1)
+        _ = graph_engine_mouse_down(engine, px, py, 1)
     }
 
     override func mouseDragged(with event: NSEvent) {
         guard let engine else { return }
         let point = convert(event.locationInWindow, from: nil)
         let s = scale
-        // Delta in drawable pixels (Y already flipped by negation)
-        let dx = Float(point.x - lastDragPoint.x) * s
-        let dy = Float(point.y - lastDragPoint.y) * s
 
-        if !isDragging {
-            if abs(dx) + abs(dy) < 3 * s { return }
-            isDragging = true
+        if isDraggingNode {
+            // Node drag: send absolute screen position → Rust converts to world coords
+            let (px, py) = toDrawablePixels(point)
+            graph_engine_mouse_dragged(engine, px, py)
+        } else {
+            // Camera pan: delta in drawable pixels (Y flipped by negation)
+            let dx = Float(point.x - lastDragPoint.x) * s
+            let dy = Float(point.y - lastDragPoint.y) * s
+
+            if !isDragging {
+                if abs(dx) + abs(dy) < 3 * s { return }
+                isDragging = true
+            }
+
+            graph_engine_pan(engine, dx, -dy)
         }
-
-        graph_engine_pan(engine, dx, -dy)
         lastDragPoint = point
     }
 
@@ -388,6 +398,7 @@ class GraphMTKView: MTKView {
         let (px, py) = toDrawablePixels(loc)
         graph_engine_mouse_up(engine, px, py)
         isDragging = false
+        isDraggingNode = false
     }
 
     override func mouseMoved(with event: NSEvent) {

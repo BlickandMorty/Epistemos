@@ -56,6 +56,9 @@ pub struct SharedState {
     pub graph_indices: Mutex<Vec<usize>>,
     /// True when physics simulation has cooled down. Read by render thread (no lock needed).
     pub settled: AtomicBool,
+    /// Drag constraint published by render thread, consumed by physics thread.
+    /// (graph_index, world_target). Physics thread maps graph_index → physics_index.
+    pub drag: Mutex<Option<(usize, Vec2)>>,
 }
 
 pub struct Engine {
@@ -70,6 +73,10 @@ pub struct Engine {
     // Interaction state
     pub selected_node_id: Option<u32>,
     pub hovered_node_id: Option<u32>,
+    /// Node being dragged (internal id). Set on mouse_down hit, cleared on mouse_up.
+    dragging_node_id: Option<u32>,
+    /// World-space target for the dragged node (updated each mouse_dragged).
+    drag_world_target: Vec2,
 
     // Callbacks
     on_node_selected: Option<CallbackSlot<NodeCallback>>,
@@ -92,6 +99,7 @@ impl Engine {
             velocities: Mutex::new(Vec::new()),
             graph_indices: Mutex::new(Vec::new()),
             settled: AtomicBool::new(false),
+            drag: Mutex::new(None),
         });
 
         Self {
@@ -104,6 +112,8 @@ impl Engine {
             physics_handle: None,
             selected_node_id: None,
             hovered_node_id: None,
+            dragging_node_id: None,
+            drag_world_target: Vec2::ZERO,
             on_node_selected: None,
             on_node_right_clicked: None,
             on_node_hovered: None,
@@ -175,9 +185,25 @@ impl Engine {
                     while running.load(Ordering::Relaxed) {
                         let start = std::time::Instant::now();
 
-                        // 1. Lock physics, run tick, copy positions + velocities + graph_indices to local buffer
+                        // 1. Lock physics, apply drag constraint, run tick, copy snapshot
                         let settled = {
                             let mut phys = shared.physics.lock();
+
+                            // Read drag from render thread, map graph_index → physics_index
+                            let drag = shared.drag.lock().clone();
+                            if let Some((graph_idx, target)) = drag {
+                                // Find physics index for this graph index
+                                let phys_idx = phys.graph_indices.iter().position(|&gi| gi == graph_idx);
+                                phys.drag_constraint = phys_idx.map(|pi| (pi, target));
+                                // Keep simulation hot while dragging so neighbors react
+                                if phys.config.alpha < 0.3 {
+                                    phys.config.alpha = 0.3;
+                                }
+                                phys.is_settled = false;
+                            } else {
+                                phys.drag_constraint = None;
+                            }
+
                             phys.tick();
                             local_snap.clear();
                             local_snap.extend_from_slice(&phys.positions);
@@ -276,22 +302,48 @@ impl Engine {
         self.spatial_index.query_point(world_pos.x, world_pos.y)
     }
 
-    pub fn mouse_down(&mut self, x: f32, y: f32, button: u8) {
+    /// Handle mouse down. Returns true if a node was hit (caller should route
+    /// subsequent drags to `mouse_dragged` instead of panning).
+    pub fn mouse_down(&mut self, x: f32, y: f32, button: u8) -> bool {
         let world = self.screen_to_world(x, y);
         let hit = self.hit_test(world);
 
         if button == 0 {
             self.selected_node_id = hit;
             self.fire_node_selected(hit);
+
+            // Start drag if we hit a node
+            if hit.is_some() {
+                self.dragging_node_id = hit;
+                self.drag_world_target = world;
+            } else {
+                self.dragging_node_id = None;
+            }
         } else if button == 1 {
             if let Some(node_id) = hit {
                 self.fire_node_right_clicked(node_id, x, y);
             }
         }
+
+        hit.is_some()
     }
 
+    /// Update the drag target while dragging a node.
+    pub fn mouse_dragged(&mut self, x: f32, y: f32) {
+        if self.dragging_node_id.is_some() {
+            self.drag_world_target = self.screen_to_world(x, y);
+        }
+    }
+
+    /// Handle mouse up — release any dragged node.
+    /// The Verlet integrator preserves the cursor's movement direction as fling velocity.
     pub fn mouse_up(&mut self, _x: f32, _y: f32) {
-        // Node dragging will be added later if needed
+        if self.dragging_node_id.is_some() {
+            self.dragging_node_id = None;
+            // Clear drag constraint so physics thread stops applying it
+            let mut drag = self.shared.drag.lock();
+            *drag = None;
+        }
     }
 
     pub fn mouse_moved(&mut self, x: f32, y: f32) {
@@ -367,6 +419,15 @@ impl Engine {
 
         // Rebuild spatial index for O(log n) hit testing (click/hover)
         self.spatial_index.build(&self.graph.nodes);
+
+        // Publish drag constraint for the physics thread.
+        // We store graph_index so the physics thread can map to its own index.
+        if let Some(node_id) = self.dragging_node_id {
+            if let Some(&graph_idx) = self.graph.id_to_index.get(&node_id) {
+                let mut drag = self.shared.drag.lock();
+                *drag = Some((graph_idx, self.drag_world_target));
+            }
+        }
 
         // Advance camera animation BEFORE computing label positions.
         // This ensures labels and Metal rendering use the same camera state,

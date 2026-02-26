@@ -272,10 +272,21 @@ pub extern "C" fn graph_engine_zoom(ptr: *mut c_void, factor: f32, cx: f32, cy: 
 // ── Mouse events (hit testing / selection) ──────────────────────────────
 
 /// Handle mouse down at screen position (x, y). button: 0=left, 1=right.
+/// Returns 1 if a node was hit (caller should route drags to mouse_dragged), 0 otherwise.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_mouse_down(ptr: *mut c_void, x: f32, y: f32, button: u8) {
+pub extern "C" fn graph_engine_mouse_down(ptr: *mut c_void, x: f32, y: f32, button: u8) -> u8 {
     if let Some(engine) = get_engine(ptr) {
-        engine.mouse_down(x, y, button);
+        if engine.mouse_down(x, y, button) { 1 } else { 0 }
+    } else {
+        0
+    }
+}
+
+/// Handle mouse dragged at screen position (x, y). Called while dragging a node.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_mouse_dragged(ptr: *mut c_void, x: f32, y: f32) {
+    if let Some(engine) = get_engine(ptr) {
+        engine.mouse_dragged(x, y);
     }
 }
 

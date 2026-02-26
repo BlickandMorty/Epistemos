@@ -54,7 +54,9 @@ void graph_engine_pan(GraphEngine* engine, float dx, float dy);
 void graph_engine_zoom(GraphEngine* engine, float factor, float cx, float cy);
 
 // Input — mouse events
-void graph_engine_mouse_down(GraphEngine* engine, float x, float y, uint8_t button);
+// Returns 1 if a node was hit (caller should route drags to mouse_dragged), 0 otherwise.
+uint8_t graph_engine_mouse_down(GraphEngine* engine, float x, float y, uint8_t button);
+void graph_engine_mouse_dragged(GraphEngine* engine, float x, float y);
 void graph_engine_mouse_up(GraphEngine* engine, float x, float y);
 void graph_engine_mouse_moved(GraphEngine* engine, float x, float y);
 
