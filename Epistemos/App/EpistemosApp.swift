@@ -29,13 +29,9 @@ struct EpistemosApp: App {
                 .environment(bootstrap.threadState)
                 .onAppear {
                     StatusBar.shared.setup()
-                    // Request notification permission for breathing reminders.
-                    // Guarded: UNUserNotificationCenter asserts in test bundles.
-                    if Bundle.main.bundleIdentifier == "com.epistemos.app" {
-                        UNUserNotificationCenter.current().requestAuthorization(
-                            options: [.alert, .sound]
-                        ) { _, _ in }
-                    }
+                    // Notification permission deferred — entitlement not yet configured.
+                    // UNUserNotificationCenter.current() asserts in Debug builds without
+                    // the UserNotifications entitlement, causing a SIGABRT crash.
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(

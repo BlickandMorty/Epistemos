@@ -294,7 +294,7 @@ vertex GlyphVertexOut msdf_vertex(
     return out;
 }
 
-float median3(float r, float g, float b) {
+float msdf_median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
 
@@ -304,7 +304,7 @@ fragment float4 msdf_fragment(
 ) {
     constexpr sampler atlas_sampler(mag_filter::linear, min_filter::linear);
     float3 msd = atlas.sample(atlas_sampler, in.uv).rgb;
-    float sd = median3(msd.r, msd.g, msd.b);
+    float sd = msdf_median(msd.r, msd.g, msd.b);
     float screen_dist = in.screen_px_range * (sd - 0.5);
     float opacity = clamp(screen_dist + 0.5, 0.0, 1.0);
     if (opacity < 0.01) discard_fragment();
