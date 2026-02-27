@@ -536,9 +536,9 @@ pub struct Renderer {
     prev_camera_zoom: f32,
     prev_camera_offset: [f32; 2],
     // Label rendering settings (tunable from Swift)
-    /// Screen radius below which labels are invisible (default 6).
+    /// Screen radius below which labels are invisible (default 2).
     pub label_fade_start: f32,
-    /// Screen radius above which labels are fully opaque (default 18).
+    /// Screen radius above which labels are fully opaque (default 10).
     pub label_fade_end: f32,
     /// Base font size in world units (default 12).
     pub label_font_size: f32,
@@ -703,8 +703,8 @@ impl Renderer {
             offscreen_height: 0,
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
-            label_fade_start: 6.0,
-            label_fade_end: 18.0,
+            label_fade_start: 2.0,
+            label_fade_end: 10.0,
             label_font_size: 12.0,
             labels_enabled: true,
         })

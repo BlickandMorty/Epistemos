@@ -229,8 +229,8 @@ final class GraphState {
 
     // ── Labels ──
     var labelsEnabled: Bool = true
-    var labelFadeStart: Float = 6.0
-    var labelFadeEnd: Float = 18.0
+    var labelFadeStart: Float = 2.0
+    var labelFadeEnd: Float = 10.0
     var labelFontSize: Float = 12.0
 
     var labelConfigVersion: Int = 0

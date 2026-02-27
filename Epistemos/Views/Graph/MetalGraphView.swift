@@ -235,10 +235,10 @@ final class MetalGraphNSView: NSView {
 
     // MARK: - Force Params
 
-    var lastExtendedForceConfigVersion: Int = 0
-    var lastLabelConfigVersion: Int = 0
-    var lastClusterConfigVersion: Int = 0
-    var lastAttractConfigVersion: Int = 0
+    var lastExtendedForceConfigVersion: Int = -1
+    var lastLabelConfigVersion: Int = -1
+    var lastClusterConfigVersion: Int = -1
+    var lastAttractConfigVersion: Int = -1
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
