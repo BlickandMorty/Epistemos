@@ -269,6 +269,62 @@ pub fn force_center(
     }
 }
 
+// ── Force: Cluster (cohesion toward cluster centroid) ────────────────────────
+
+/// Cluster cohesion force: pulls nodes toward their cluster centroid.
+///
+/// Each node is assigned a `cluster_id`. For each cluster, compute the centroid
+/// of all member nodes, then apply a spring force pulling each node toward its
+/// cluster centroid. Singleton clusters (count <= 1) are skipped.
+///
+/// `strength` is 0-1 user-facing knob; `alpha` is the simulation alpha.
+pub fn force_cluster(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    cluster_ids: &[u32],
+    strength: f32,
+    alpha: f32,
+) {
+    if strength < 0.001 || x.is_empty() {
+        return;
+    }
+    let n = x.len();
+    if cluster_ids.len() != n {
+        return;
+    }
+
+    let max_cluster = cluster_ids.iter().copied().max().unwrap_or(0) as usize;
+    let mut cx = vec![0.0f32; max_cluster + 1];
+    let mut cy = vec![0.0f32; max_cluster + 1];
+    let mut counts = vec![0u32; max_cluster + 1];
+
+    for i in 0..n {
+        let c = cluster_ids[i] as usize;
+        cx[c] += x[i];
+        cy[c] += y[i];
+        counts[c] += 1;
+    }
+
+    for c in 0..=max_cluster {
+        if counts[c] > 0 {
+            cx[c] /= counts[c] as f32;
+            cy[c] /= counts[c] as f32;
+        }
+    }
+
+    let effective = strength * 0.05 * alpha;
+    for i in 0..n {
+        let c = cluster_ids[i] as usize;
+        if counts[c] <= 1 {
+            continue;
+        }
+        vx[i] += (cx[c] - x[i]) * effective;
+        vy[i] += (cy[c] - y[i]) * effective;
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -402,5 +458,51 @@ mod tests {
             vx[0].abs(),
             vx[1].abs()
         );
+    }
+
+    #[test]
+    fn cluster_force_pulls_toward_centroid() {
+        // Two clusters: {0,1} centered around (-90, 10), {2,3} centered around (90, 10).
+        let x = vec![-100.0, -80.0, 80.0, 100.0];
+        let y = vec![0.0, 20.0, 0.0, 20.0];
+        let mut vx = vec![0.0; 4];
+        let mut vy = vec![0.0; 4];
+        let cluster_ids = vec![0u32, 0, 1, 1];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 0.5, 1.0);
+
+        // Node 0 at (-100, 0), centroid of cluster 0 is (-90, 10).
+        // Should be pulled right (toward -90) and down (toward 10).
+        assert!(vx[0] > 0.0, "node 0 should move right toward centroid");
+        assert!(vy[0] > 0.0, "node 0 should move down toward centroid");
+    }
+
+    #[test]
+    fn cluster_force_skips_singletons() {
+        let x = vec![100.0, -100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0; 2];
+        let mut vy = vec![0.0; 2];
+        // Each node in its own cluster → singleton → no force applied.
+        let cluster_ids = vec![0u32, 1];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 1.0, 1.0);
+
+        assert_eq!(vx[0], 0.0, "singleton cluster should not produce force");
+        assert_eq!(vx[1], 0.0, "singleton cluster should not produce force");
+    }
+
+    #[test]
+    fn cluster_force_zero_strength_noop() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0; 2];
+        let mut vy = vec![0.0; 2];
+        let cluster_ids = vec![0u32, 0];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 0.0, 1.0);
+
+        assert_eq!(vx[0], 0.0, "zero strength should be a no-op");
+        assert_eq!(vx[1], 0.0, "zero strength should be a no-op");
     }
 }

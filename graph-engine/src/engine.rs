@@ -295,6 +295,10 @@ impl Engine {
         {
             let mut sim = self.sim.lock();
             sim.load_from_graph(&self.graph);
+
+            // Run Louvain community detection and assign cluster IDs.
+            let cluster_ids = crate::cluster::detect_communities(sim.x.len(), &sim.edges);
+            sim.cluster_ids = cluster_ids;
         }
 
         // Allocate renderer buffers and upload initial data.

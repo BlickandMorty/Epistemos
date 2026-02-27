@@ -9,6 +9,25 @@
 
 use crate::forces;
 
+/// Center force behavior: attract toward origin, off, or repel away.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum CenterMode {
+    Attract = 0,
+    Off = 1,
+    Repel = 2,
+}
+
+impl CenterMode {
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::Off,
+            2 => Self::Repel,
+            _ => Self::Attract,
+        }
+    }
+}
+
 /// Force parameters for the graph simulation.
 /// Core 4 from LogSeq + extended tuning for smoother, more interactive physics.
 #[derive(Clone)]
@@ -36,6 +55,11 @@ pub struct ForceParams {
     /// Orbital drift: rotational micro-force around the graph centroid.
     /// Creates a subtle "breathing" effect. 0 = off, 1.0 = gentle spin.
     pub orbital: f32,
+    /// Cluster cohesion strength: pulls nodes toward their cluster centroid.
+    /// 0 = off (default), 1.0 = strong clustering.
+    pub cluster_strength: f32,
+    /// Center force mode: Attract (default), Off, or Repel.
+    pub center_mode: CenterMode,
 
     // ── Internal simulation state ──
     pub alpha: f32,
@@ -60,6 +84,8 @@ impl Default for ForceParams {
             collision_iterations: 2,
             warmth: 0.0,
             orbital: 0.0,
+            cluster_strength: 0.0,
+            center_mode: CenterMode::Attract,
 
             // Simulation state
             alpha: 1.0,
@@ -84,6 +110,9 @@ pub struct Simulation {
     pub radii: Vec<f32>,
     pub degrees: Vec<u32>,
     pub collision_radii: Vec<f32>,
+
+    // Per-node cluster assignment (from Louvain community detection).
+    pub cluster_ids: Vec<u32>,
 
     // Edge topology (source_idx, target_idx)
     pub edges: Vec<(usize, usize)>,
@@ -121,6 +150,7 @@ impl Simulation {
             radii: Vec::new(),
             degrees: Vec::new(),
             collision_radii: Vec::new(),
+            cluster_ids: Vec::new(),
             edges: Vec::new(),
             graph_indices: Vec::new(),
             params: ForceParams::default(),
@@ -142,6 +172,7 @@ impl Simulation {
         self.radii.clear();
         self.degrees.clear();
         self.collision_radii.clear();
+        self.cluster_ids.clear();
         self.edges.clear();
         self.graph_indices.clear();
 
@@ -280,20 +311,41 @@ impl Simulation {
         );
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
+        // Respects center_mode: Attract = normal, Off = disabled, Repel = inverted.
         let (cx, cy) = match self.anchor_center {
             Some([ax, ay]) => (ax, ay),
             None => (0.0, 0.0),
         };
-        forces::force_center(
-            &self.x,
-            &self.y,
-            &mut self.vx,
-            &mut self.vy,
-            cx,
-            cy,
-            self.params.center_strength,
-            alpha,
-        );
+        let center_str = match self.params.center_mode {
+            CenterMode::Attract => self.params.center_strength,
+            CenterMode::Off => 0.0,
+            CenterMode::Repel => -self.params.center_strength,
+        };
+        if center_str.abs() > 0.0001 {
+            forces::force_center(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                cx,
+                cy,
+                center_str,
+                alpha,
+            );
+        }
+
+        // Cluster cohesion force.
+        if self.params.cluster_strength > 0.001 && !self.cluster_ids.is_empty() {
+            forces::force_cluster(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                &self.cluster_ids,
+                self.params.cluster_strength,
+                alpha,
+            );
+        }
 
         // 3. Orbital drift — subtle rotational force around centroid
         let orbital = self.params.orbital;
@@ -551,6 +603,8 @@ mod tests {
         assert_eq!(p.collision_iterations, 2);
         assert_eq!(p.warmth, 0.0);
         assert_eq!(p.orbital, 0.0);
+        assert_eq!(p.cluster_strength, 0.0);
+        assert_eq!(p.center_mode, CenterMode::Attract);
     }
 
     #[test]
