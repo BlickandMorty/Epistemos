@@ -10,6 +10,7 @@ pub mod spatial;
 pub mod renderer;
 pub mod engine;
 pub mod markdown;
+pub mod cluster;
 
 // ── FFI Boundary ────────────────────────────────────────────────────────────
 //
