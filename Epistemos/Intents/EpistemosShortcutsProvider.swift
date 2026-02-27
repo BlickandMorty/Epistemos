@@ -1,9 +1,9 @@
 import AppIntents
 
 // MARK: - Lucid Shortcuts Provider
-// Top 14 discoverable Siri phrases. Strategy: lead with intents no
-// competitor has (AI analysis, research), then essentials.
-// All 22 intents work in Shortcuts.app — this controls discoverability.
+// Top 10 discoverable Siri phrases (macOS limit). Strategy: lead with intents
+// no competitor has (AI analysis, research), then essentials.
+// All 23 intents work in Shortcuts.app — this controls discoverability only.
 
 struct EpistemosShortcutsProvider: AppShortcutsProvider {
     nonisolated(unsafe) static var appShortcuts: [AppShortcut] {
@@ -118,47 +118,9 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             systemImageName: "newspaper"
         )
 
-        // MARK: Knowledge Graph & Connections
-
-        AppShortcut(
-            intent: FindConnectionsIntent(),
-            phrases: [
-                "Find connections in \(.applicationName)",
-                "Connect my notes in \(.applicationName)",
-            ],
-            shortTitle: "Find Connections",
-            systemImageName: "point.3.connected.trianglepath.dotted"
-        )
-
-        AppShortcut(
-            intent: GenerateQuestionsIntent(),
-            phrases: [
-                "Generate questions in \(.applicationName)",
-                "What should I explore in \(.applicationName)",
-            ],
-            shortTitle: "Questions",
-            systemImageName: "questionmark.bubble"
-        )
-
-        AppShortcut(
-            intent: OpenMiniChatIntent(),
-            phrases: [
-                "Open \(.applicationName) chat",
-                "Chat with \(.applicationName)",
-            ],
-            shortTitle: "Chat",
-            systemImageName: "bubble.left.and.bubble.right"
-        )
-
-        AppShortcut(
-            intent: MoveNoteToFolderIntent(),
-            phrases: [
-                "Organize note in \(.applicationName)",
-                "Move note in \(.applicationName)",
-            ],
-            shortTitle: "Organize",
-            systemImageName: "folder.badge.gearshape"
-        )
+        // NOTE: FindConnectionsIntent, GenerateQuestionsIntent, OpenMiniChatIntent,
+        // and MoveNoteToFolderIntent are available in Shortcuts.app but not listed
+        // here due to the macOS 10-shortcut limit on AppShortcutsProvider.
     }
 }
 

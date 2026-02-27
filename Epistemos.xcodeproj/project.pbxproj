@@ -80,6 +80,7 @@
 		709603D34C0C1AB5E3035898 /* AppBootstrap+ChatOrchestration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDB8F0790BC798EE63145524 /* AppBootstrap+ChatOrchestration.swift */; };
 		70FF71E217877FD681651188 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */; };
 		71B515B00D4223ADCB38F093 /* MiniChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01501774D229B160DB423DA /* MiniChatView.swift */; };
+		75F094D83A36EAFE2102A288 /* DailyBriefingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372B13C594A6FB00FDE79404 /* DailyBriefingIntent.swift */; };
 		75C700C860CDA76BB99BCFC0 /* NoteWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */; };
 		76BFFBAC03BA72756E6A8313 /* PillNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EDAE57D8846BCCCDE876C09 /* PillNavBar.swift */; };
 		79E5F7F2472543C5B09FD2B4 /* VaultSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90360B15B11C41D8F944352 /* VaultSyncService.swift */; };
@@ -220,6 +221,7 @@
 		33119B911499635E646BB389 /* RetroGaming.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = RetroGaming.ttf; sourceTree = "<group>"; };
 		344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultOrganizerView.swift; sourceTree = "<group>"; };
 		36BD9E3D2CFCAC355E8A2D08 /* EntityExtractor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EntityExtractor.swift; sourceTree = "<group>"; };
+		372B13C594A6FB00FDE79404 /* DailyBriefingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefingIntent.swift; sourceTree = "<group>"; };
 		39BF697E1D7B96C4CCE733C3 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesSidebar.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteTableOfContents.swift; sourceTree = "<group>"; };
@@ -714,6 +716,7 @@
 			isa = PBXGroup;
 			children = (
 				B0DF0CDCC7411AB9F8BE227E /* AnalysisIntents.swift */,
+				372B13C594A6FB00FDE79404 /* DailyBriefingIntent.swift */,
 				1002A7E01B0EC4FFB8A969A7 /* LearningIntents.swift */,
 				B39B3AA6F3003107096F4E6C /* NavigationIntents.swift */,
 				DB2B8BB90B3F540234A8D4C6 /* NoteActionIntents.swift */,
@@ -965,6 +968,7 @@
 				66B72428D9FD8BC5D3FE2AA5 /* ConceptMiniMap.swift in Sources */,
 				CD529C7FBC83864C3F7307C2 /* DailyBriefButton.swift in Sources */,
 				139DACAE4ECA3C28086FD969 /* DailyBriefState.swift in Sources */,
+				75F094D83A36EAFE2102A288 /* DailyBriefingIntent.swift in Sources */,
 				70FF71E217877FD681651188 /* DiffSheetView.swift in Sources */,
 				C324B4F406DFA6C4157BA803 /* EngineTypes.swift in Sources */,
 				2E84F2A08119FD3F976BEA80 /* EnrichmentController.swift in Sources */,
