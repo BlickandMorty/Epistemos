@@ -1,5 +1,6 @@
 import CoreSpotlight
 import Foundation
+import PDFKit
 import SwiftData
 import os
 
@@ -66,8 +67,13 @@ actor VaultIndexActor {
             return
         }
 
-        // Directories that should never be indexed (developer artifacts, not user notes)
-        let excludedDirs: Set<String> = ["node_modules", ".git", ".build", "Pods", "DerivedData", ".svn"]
+        // Directories that should never be indexed (developer artifacts, system data, not user notes)
+        let excludedDirs: Set<String> = [
+            "node_modules", ".git", ".build", "Pods", "DerivedData", ".svn", ".venv", "venv",
+            "__pycache__", ".pytest_cache", ".mypy_cache",
+        ]
+        // Package/system directories that contain thousands of non-note files
+        let excludedSuffixes: Set<String> = [".photoslibrary", ".app", ".framework", ".xcodeproj", ".xcworkspace"]
 
         var diskPaths = Set<String>()
         var insertCount = 0
@@ -77,13 +83,16 @@ actor VaultIndexActor {
         let batchSize = 200
 
         for case let fileURL as URL in enumerator {
-            // Skip developer artifact directory subtrees entirely
-            if excludedDirs.contains(fileURL.lastPathComponent) {
+            // Skip developer artifact and system directory subtrees entirely
+            let name = fileURL.lastPathComponent
+            if excludedDirs.contains(name)
+                || excludedSuffixes.contains(where: { name.hasSuffix($0) }) {
                 enumerator.skipDescendants()
                 continue
             }
 
-            guard fileURL.pathExtension == "md" else { continue }
+            let ext = fileURL.pathExtension.lowercased()
+            guard ext == "md" || ext == "markdown" || ext == "txt" || ext == "pdf" else { continue }
 
             let filePath = fileURL.path
             diskPaths.insert(filePath)
@@ -167,7 +176,7 @@ actor VaultIndexActor {
         }
 
         log.info(
-            "Vault import complete: \(diskPaths.count) .md files on disk → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted"
+            "Vault import complete: \(diskPaths.count) note files on disk → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted"
         )
     }
 
@@ -365,9 +374,10 @@ actor VaultIndexActor {
             page.filePath = fileURL.path
         }
 
-        // Build markdown content with front-matter, write with coordination
-        let markdown = buildMarkdown(for: page)
-        try coordinatedWrite(markdown, to: fileURL)
+        // Build content — markdown with front-matter for .md files, plain text for .txt
+        let ext = fileURL.pathExtension.lowercased()
+        let output = (ext == "txt") ? page.body : buildMarkdown(for: page)
+        try coordinatedWrite(output, to: fileURL)
 
         // Persist filePath back to the store so subsequent exports use the same path.
         // Without this save, the filePath only exists in the background actor's memory
@@ -410,19 +420,30 @@ actor VaultIndexActor {
             return false
         }
 
-        let content: String
-        do {
-            content = try String(contentsOf: fileURL, encoding: .utf8)
-        } catch {
-            log.error(
-                "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
-            )
-            return false  // Skip this file instead of crashing the entire import
-        }
         let filePath = fileURL.path
+        let isPDF = fileURL.pathExtension.lowercased() == "pdf"
 
-        // Parse front-matter and body
-        let (frontMatter, body) = parseFrontMatter(content)
+        let content: String
+        if isPDF {
+            // Extract text from PDF using PDFKit
+            guard let doc = PDFDocument(url: fileURL) else {
+                log.warning("Skipping unreadable PDF: \(fileURL.lastPathComponent, privacy: .public)")
+                return false
+            }
+            content = (0..<doc.pageCount).compactMap { doc.page(at: $0)?.string }.joined(separator: "\n\n")
+        } else {
+            do {
+                content = try String(contentsOf: fileURL, encoding: .utf8)
+            } catch {
+                log.error(
+                    "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
+                )
+                return false  // Skip this file instead of crashing the entire import
+            }
+        }
+
+        // Parse front-matter and body (PDFs and .txt files have no front-matter)
+        let (frontMatter, body) = isPDF ? ([:], content) : parseFrontMatter(content)
 
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.filePath == filePath }

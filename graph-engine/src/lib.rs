@@ -5,7 +5,6 @@ pub mod types;
 pub mod quadtree;
 pub mod forces;
 pub mod simulation;
-pub mod msdf;
 pub mod spatial;
 pub mod renderer;
 pub mod engine;
@@ -301,21 +300,6 @@ pub extern "C" fn graph_engine_pause(engine: *mut Engine) {
 pub extern "C" fn graph_engine_resume(engine: *mut Engine) {
     ffi_engine!(engine);
     engine.resume();
-}
-
-// ── Label Parameters ────────────────────────────────────────────────────────
-
-/// Update label rendering parameters.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_label_params(
-    engine: *mut Engine,
-    fade_start: f32,
-    fade_end: f32,
-    font_size: f32,
-    enabled: u8,
-) {
-    ffi_engine!(engine);
-    engine.set_label_params(fade_start, fade_end, font_size, enabled != 0);
 }
 
 // ── Cluster Parameters ──────────────────────────────────────────────────────

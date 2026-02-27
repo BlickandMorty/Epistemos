@@ -257,7 +257,6 @@ final class MetalGraphNSView: NSView {
     // MARK: - Force Params
 
     var lastExtendedForceConfigVersion: Int = -1
-    var lastLabelConfigVersion: Int = -1
     var lastClusterConfigVersion: Int = -1
     var lastAttractConfigVersion: Int = -1
 
@@ -282,18 +281,6 @@ final class MetalGraphNSView: NSView {
             graphState.collisionRadius,
             graphState.warmth,
             graphState.orbital
-        )
-        needsRender = true
-    }
-
-    func pushLabelParams() {
-        guard let engine, let graphState else { return }
-        graph_engine_set_label_params(
-            engine,
-            graphState.labelFadeStart,
-            graphState.labelFadeEnd,
-            graphState.labelFontSize,
-            graphState.labelsEnabled ? 1 : 0
         )
         needsRender = true
     }
@@ -445,12 +432,6 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastExtendedForceConfigVersion != graphState.extendedForceConfigVersion {
             lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
             pushExtendedForceParams()
-        }
-
-        // Sync label params (fade, font size, enabled).
-        if let graphState, lastLabelConfigVersion != graphState.labelConfigVersion {
-            lastLabelConfigVersion = graphState.labelConfigVersion
-            pushLabelParams()
         }
 
         // Sync cluster params (cluster strength, center mode).

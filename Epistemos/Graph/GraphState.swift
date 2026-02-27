@@ -238,18 +238,6 @@ final class GraphState {
     var attractConfigVersion: Int = 0
     func pushAttractChange() { attractConfigVersion += 1 }
 
-    // ── Labels ──
-    var labelsEnabled: Bool = true
-    var labelFadeStart: Float = 1.0
-    var labelFadeEnd: Float = 8.0
-    var labelFontSize: Float = 12.0
-
-    var labelConfigVersion: Int = 0
-
-    func pushLabelChange() {
-        labelConfigVersion += 1
-    }
-
     /// Apply a named physics preset.
     func applyPreset(_ preset: PhysicsPreset) {
         linkDistance = preset.linkDistance

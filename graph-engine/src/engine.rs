@@ -304,9 +304,6 @@ impl Engine {
         // Allocate renderer buffers and upload initial data (nodes + edges).
         self.renderer.allocate_buffers(&self.graph, None);
 
-        // Upload labels immediately so they're available on the first frame.
-        self.renderer.upload_labels(&self.graph);
-
         // Build spatial index for hit testing.
         self.spatial.build(&self.graph.nodes);
 
@@ -462,12 +459,7 @@ impl Engine {
 
         if positions_changed || entrance_active {
             self.renderer.update_positions(&self.graph, ent);
-            self.renderer.upload_labels(&self.graph);
             self.spatial.build(&self.graph.nodes);
-        } else if camera_moving {
-            // Re-upload labels when zoom changes so fade-by-screen-radius stays correct.
-            // Positions haven't changed, so skip update_positions and spatial rebuild.
-            self.renderer.upload_labels(&self.graph);
         }
 
         // Append selection/hover highlight rings.
@@ -950,15 +942,6 @@ impl Engine {
     pub fn set_attract_strength(&mut self, strength: f32) {
         let mut sim = self.sim.lock();
         sim.attract_strength = strength.clamp(0.0, 1.0);
-    }
-
-    // ── Label Parameters ─────────────────────────────────────────────
-
-    pub fn set_label_params(&mut self, fade_start: f32, fade_end: f32, font_size: f32, enabled: bool) {
-        self.renderer.label_fade_start = fade_start;
-        self.renderer.label_fade_end = fade_end;
-        self.renderer.label_font_size = font_size;
-        self.renderer.labels_enabled = enabled;
     }
 
     // ── Accessors ────────────────────────────────────────────────────

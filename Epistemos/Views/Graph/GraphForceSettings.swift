@@ -40,7 +40,6 @@ struct GraphForceSettings: View {
                 attractorSection(gs: $gs)
 
                 Divider().opacity(0.3)
-                labelsSection(gs: $gs)
 
                 Divider().opacity(0.3)
                 resetButton
@@ -276,51 +275,6 @@ struct GraphForceSettings: View {
                 subtitle: "Pull force toward cursor",
                 onChange: { graphState.pushAttractChange() }
             )
-        }
-    }
-
-    // MARK: - Labels
-
-    private func labelsSection(gs: Bindable<GraphState>) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("Labels", icon: "textformat")
-
-            Toggle("Show Labels", isOn: gs.labelsEnabled)
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-                .onChange(of: graphState.labelsEnabled) {
-                    graphState.pushLabelChange()
-                }
-
-            if graphState.labelsEnabled {
-                forceSlider(
-                    label: "Fade Start",
-                    value: gs.labelFadeStart,
-                    range: 2...30,
-                    format: "%.0f",
-                    subtitle: "Radius below which labels hide",
-                    onChange: { graphState.pushLabelChange() }
-                )
-
-                forceSlider(
-                    label: "Fade End",
-                    value: gs.labelFadeEnd,
-                    range: 5...50,
-                    format: "%.0f",
-                    subtitle: "Radius above which labels fully show",
-                    onChange: { graphState.pushLabelChange() }
-                )
-
-                forceSlider(
-                    label: "Label Size",
-                    value: gs.labelFontSize,
-                    range: 6...24,
-                    format: "%.0f",
-                    onChange: { graphState.pushLabelChange() }
-                )
-            }
         }
     }
 
