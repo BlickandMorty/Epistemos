@@ -42,6 +42,8 @@ final class HologramOverlay {
     // Observation tokens for tracking note window movement.
     private var noteWindowMoveObserver: Any?
     private var noteWindowResizeObserver: Any?
+    // KVO observation for system appearance (light/dark mode) changes.
+    private var appearanceObserver: NSKeyValueObservation?
 
     // Mini floating panel (chromeless glass float).
     private var miniPanel: NSWindow?
@@ -430,6 +432,17 @@ final class HologramOverlay {
         }
     }
 
+    /// Re-sync blur, tint, and Metal light-mode flag to the current system appearance.
+    private func syncTheme() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        metalView?.isLightMode = !isDark
+        blurView?.material = isDark ? .fullScreenUI : .sheet
+        blurView?.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        darkenLayer?.layer?.backgroundColor = isDark
+            ? NSColor.black.withAlphaComponent(0.45).cgColor
+            : NSColor.white.withAlphaComponent(0.55).cgColor
+    }
+
     /// Destroy all views and the Rust engine to free GPU/CPU memory.
     /// Called after the fade-out animation completes.
     private func teardown() {
@@ -448,6 +461,9 @@ final class HologramOverlay {
         if let obs = restoreObserver { NotificationCenter.default.removeObserver(obs) }
         minimizeObserver = nil
         restoreObserver = nil
+        // Invalidate appearance KVO observer.
+        appearanceObserver?.invalidate()
+        appearanceObserver = nil
         // Nil inspector (SwiftUI hosting view).
         inspectorHostView = nil
         // Nil blur layer refs.
@@ -652,6 +668,13 @@ final class HologramOverlay {
                     graphView.setAnchorRect(frame)
                 }
                 graphView.zoomInClose()
+            }
+        }
+
+        // Observe system appearance changes so the graph reacts to light/dark mode switches.
+        self.appearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+            DispatchQueue.main.async {
+                self?.syncTheme()
             }
         }
     }

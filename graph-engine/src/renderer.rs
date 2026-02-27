@@ -773,6 +773,8 @@ impl Renderer {
                     && !self.highlight.highlighted_ids.contains(&node.id)
                 {
                     DIM_ALPHA * 0.3
+                } else if self.light_mode {
+                    0.15
                 } else {
                     0.08
                 };
@@ -1001,16 +1003,16 @@ impl Renderer {
 
                         // Light mode: darker edges for light backgrounds.
                         let base_edge = if self.light_mode {
-                            [0.30, 0.30, 0.35, 0.25]
+                            [0.30, 0.30, 0.35, 0.45]
                         } else {
                             EDGE_COLOR
                         };
                         let hi_edge = if self.light_mode {
-                            [0.20, 0.50, 0.75, 0.5]
+                            [0.10, 0.40, 0.70, 0.65]
                         } else {
                             EDGE_HIGHLIGHT_COLOR
                         };
-                        let dim_edge_alpha = if self.light_mode { 0.04 } else { EDGE_DIM_ALPHA };
+                        let dim_edge_alpha = if self.light_mode { 0.10 } else { EDGE_DIM_ALPHA };
 
                         let mut color = if self.highlight.active {
                             let src_lit = self.highlight.highlighted_ids.contains(&src.id);
