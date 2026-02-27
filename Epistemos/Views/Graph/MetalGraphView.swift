@@ -57,6 +57,9 @@ final class MetalGraphNSView: NSView {
 
     /// Callback for background tap (click without drag). Used for click-outside dismiss.
     var onBackgroundTap: (() -> Void)?
+    /// Optional callback for when a node is tapped. Receives the node's sourceId.
+    /// Used by in-note graph mode to navigate to the tapped note.
+    var onNodeTap: ((String) -> Void)?
     private var mouseDownLocation: CGPoint?
     private var isDraggingNode = false
     private var isPanning = false
@@ -533,6 +536,11 @@ final class MetalGraphNSView: NSView {
         if let uuidPtr {
             let uuid = String(cString: uuidPtr)
             graphState?.selectNode(uuid)
+
+            // Notify in-note graph mode about the tap (if callback is set).
+            if let onNodeTap, let sourceId = graphState?.store.nodes[uuid]?.sourceId {
+                onNodeTap(sourceId)
+            }
         } else {
             graphState?.selectNode(nil)
 
