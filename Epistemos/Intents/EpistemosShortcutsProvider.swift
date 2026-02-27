@@ -1,7 +1,7 @@
 import AppIntents
 
 // MARK: - Lucid Shortcuts Provider
-// Top 10 discoverable Siri phrases. Strategy: lead with intents no
+// Top 14 discoverable Siri phrases. Strategy: lead with intents no
 // competitor has (AI analysis, research), then essentials.
 // All 22 intents work in Shortcuts.app — this controls discoverability.
 
@@ -104,6 +104,60 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             ],
             shortTitle: "Find Gaps",
             systemImageName: "exclamationmark.magnifyingglass"
+        )
+
+        // MARK: Daily Intelligence
+
+        AppShortcut(
+            intent: DailyBriefingIntent(),
+            phrases: [
+                "Daily brief in \(.applicationName)",
+                "Give me my daily brief in \(.applicationName)",
+            ],
+            shortTitle: "Daily Brief",
+            systemImageName: "newspaper"
+        )
+
+        // MARK: Knowledge Graph & Connections
+
+        AppShortcut(
+            intent: FindConnectionsIntent(),
+            phrases: [
+                "Find connections in \(.applicationName)",
+                "Connect my notes in \(.applicationName)",
+            ],
+            shortTitle: "Find Connections",
+            systemImageName: "point.3.connected.trianglepath.dotted"
+        )
+
+        AppShortcut(
+            intent: GenerateQuestionsIntent(),
+            phrases: [
+                "Generate questions in \(.applicationName)",
+                "What should I explore in \(.applicationName)",
+            ],
+            shortTitle: "Questions",
+            systemImageName: "questionmark.bubble"
+        )
+
+        AppShortcut(
+            intent: OpenMiniChatIntent(),
+            phrases: [
+                "Open \(.applicationName) chat",
+                "Chat with \(.applicationName)",
+            ],
+            shortTitle: "Chat",
+            systemImageName: "bubble.left.and.bubble.right"
+        )
+
+        AppShortcut(
+            intent: MoveNoteToFolderIntent(),
+            phrases: [
+                "Organize note in \(.applicationName)",
+                "Move note in \(.applicationName)",
+            ],
+            shortTitle: "Organize",
+            systemImageName: "folder.badge.gearshape"
         )
     }
 }
