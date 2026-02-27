@@ -367,6 +367,96 @@ pub fn force_attract(
     }
 }
 
+// ── Force: Gravitational Lensing (orbital paths around hub nodes) ──────────
+
+/// Gravitational lensing: nodes near high-degree hubs experience a lateral
+/// (tangential) force perpendicular to the hub-node vector, creating orbital
+/// paths. Only hubs with 10+ links generate the gravitational field.
+///
+/// `lensing_strength` is 0-1 user-facing knob (default 0.3).
+pub fn force_gravitational_lensing(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    degrees: &[u32],
+    lensing_strength: f32,
+    alpha: f32,
+) {
+    if lensing_strength < 0.001 {
+        return;
+    }
+    let n = x.len();
+
+    // Identify hub indices (10+ links).
+    let hubs: Vec<usize> = (0..n).filter(|&i| degrees[i] >= 10).collect();
+    if hubs.is_empty() {
+        return;
+    }
+
+    let effective = lensing_strength * 0.02 * alpha;
+
+    for i in 0..n {
+        for &h in &hubs {
+            if i == h { continue; }
+            let dx = x[i] - x[h];
+            let dy = y[i] - y[h];
+            let dist_sq = dx * dx + dy * dy;
+            let dist = dist_sq.sqrt().max(1.0);
+
+            // Only affect nodes within a reasonable range (5x collision radius ~175px)
+            if dist > 300.0 { continue; }
+
+            // Gravitational mass proportional to sqrt(degree)
+            let hub_mass = (degrees[h] as f32).sqrt();
+
+            // Force magnitude: hub_mass / distance² (inverse-square law)
+            let force = hub_mass / dist_sq.max(100.0) * effective;
+
+            // Tangential (perpendicular) direction: rotate (dx, dy) by 90 degrees
+            let tx = -dy / dist;
+            let ty = dx / dist;
+
+            vx[i] += tx * force * dist; // Scale by dist to prevent extreme near-field
+            vy[i] += ty * force * dist;
+        }
+    }
+}
+
+// ── Force: Quantum Entanglement (paired node mirroring) ──────────────────
+
+/// Quantum entanglement: entangled node pairs subtly mirror each other's velocity.
+/// When one node moves, its partner drifts in the same direction.
+///
+/// `entangled_pairs` contains pairs of simulation indices that are entangled
+/// (e.g., nodes connected by 2+ edges or bidirectional references).
+/// `entangle_strength` is 0-1 user-facing knob (default 0.2).
+pub fn force_entanglement(
+    vx: &mut [f32],
+    vy: &mut [f32],
+    entangled_pairs: &[(usize, usize)],
+    entangle_strength: f32,
+) {
+    if entangle_strength < 0.001 || entangled_pairs.is_empty() {
+        return;
+    }
+
+    let effective = entangle_strength * 0.02;
+
+    for &(a, b) in entangled_pairs {
+        if a >= vx.len() || b >= vx.len() { continue; }
+
+        // Mirror velocities: each partner picks up a fraction of the other's velocity
+        let dvx = (vx[a] - vx[b]) * effective;
+        let dvy = (vy[a] - vy[b]) * effective;
+
+        vx[b] += dvx;
+        vy[b] += dvy;
+        vx[a] -= dvx;
+        vy[a] -= dvy;
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -590,5 +680,92 @@ mod tests {
 
         assert_eq!(vx[0], 0.0, "mismatched attracted length should be a no-op");
         assert_eq!(vx[1], 0.0, "mismatched attracted length should be a no-op");
+    }
+
+    // ── Gravitational Lensing Tests ──────────────────────────────────────
+
+    #[test]
+    fn lensing_creates_tangential_force() {
+        // Hub at origin (degree 15), satellite at (100, 0)
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0; 2];
+        let mut vy = vec![0.0; 2];
+        let degrees = vec![15, 1];
+
+        force_gravitational_lensing(&x, &y, &mut vx, &mut vy, &degrees, 0.5, 1.0);
+
+        // Satellite should get tangential (y-direction) force, not radial
+        assert!(vy[1].abs() > 0.0001, "should have tangential force, got vy={}", vy[1]);
+        // Hub (degree >= 10) should not affect itself
+        assert_eq!(vx[0], 0.0, "hub should not affect itself");
+    }
+
+    #[test]
+    fn lensing_zero_strength_noop() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0; 2];
+        let mut vy = vec![0.0; 2];
+        let degrees = vec![15, 1];
+
+        force_gravitational_lensing(&x, &y, &mut vx, &mut vy, &degrees, 0.0, 1.0);
+
+        assert_eq!(vx[1], 0.0);
+        assert_eq!(vy[1], 0.0);
+    }
+
+    #[test]
+    fn lensing_ignores_low_degree_nodes() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0; 2];
+        let mut vy = vec![0.0; 2];
+        let degrees = vec![5, 1]; // Node 0 only has 5 links, below threshold
+
+        force_gravitational_lensing(&x, &y, &mut vx, &mut vy, &degrees, 0.5, 1.0);
+
+        assert_eq!(vx[1], 0.0, "should not affect when no hub");
+        assert_eq!(vy[1], 0.0, "should not affect when no hub");
+    }
+
+    // ── Quantum Entanglement Tests ───────────────────────────────────────
+
+    #[test]
+    fn entanglement_mirrors_velocity() {
+        let mut vx = vec![10.0, 0.0];
+        let mut vy = vec![5.0, 0.0];
+        let pairs = vec![(0, 1)];
+
+        force_entanglement(&mut vx, &mut vy, &pairs, 0.5);
+
+        // Partner should pick up some velocity from the mover
+        assert!(vx[1] > 0.0, "entangled partner should gain velocity");
+        assert!(vy[1] > 0.0, "entangled partner should gain velocity");
+        // Mover should lose some velocity (conservation-ish)
+        assert!(vx[0] < 10.0, "mover should lose some velocity");
+    }
+
+    #[test]
+    fn entanglement_zero_strength_noop() {
+        let mut vx = vec![10.0, 0.0];
+        let mut vy = vec![5.0, 0.0];
+        let pairs = vec![(0, 1)];
+
+        force_entanglement(&mut vx, &mut vy, &pairs, 0.0);
+
+        assert_eq!(vx[0], 10.0);
+        assert_eq!(vx[1], 0.0);
+    }
+
+    #[test]
+    fn entanglement_empty_pairs_noop() {
+        let mut vx = vec![10.0, 0.0];
+        let mut vy = vec![5.0, 0.0];
+
+        force_entanglement(&mut vx, &mut vy, &[], 0.5);
+
+        assert_eq!(vx[0], 10.0);
+        assert_eq!(vx[1], 0.0);
     }
 }

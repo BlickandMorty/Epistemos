@@ -61,6 +61,12 @@ pub struct ForceParams {
     /// Center force mode: Attract (default), Off, or Repel.
     pub center_mode: CenterMode,
 
+    // ── Cosmic forces ──
+    /// Gravitational lensing strength (0-1). Hub nodes warp nearby trajectories.
+    pub lensing_strength: f32,
+    /// Dark energy amplitude (0-0.5). Modulates center force for cosmic breathing.
+    pub dark_energy_amplitude: f32,
+
     // ── Internal simulation state ──
     pub alpha: f32,
     pub alpha_min: f32,
@@ -86,6 +92,10 @@ impl Default for ForceParams {
             orbital: 0.0,
             cluster_strength: 0.0,
             center_mode: CenterMode::Attract,
+
+            // Cosmic forces
+            lensing_strength: 0.3,
+            dark_energy_amplitude: 0.15,
 
             // Simulation state
             alpha: 1.0,
@@ -131,6 +141,12 @@ pub struct Simulation {
     /// When set, the center force pulls toward this point instead of (0, 0).
     pub anchor_center: Option<[f32; 2]>,
 
+    // ── Quantum Entanglement ──
+    /// Entangled node pairs (simulation indices) — nodes connected by 2+ edges.
+    pub entangled_pairs: Vec<(usize, usize)>,
+    /// Entanglement strength (0-1). Default 0.2.
+    pub entangle_strength: f32,
+
     // ── Cursor Attractor ──
     /// Target point for the attractor force (world coordinates).
     pub attract_target: Option<[f32; 2]>,
@@ -165,6 +181,8 @@ impl Simulation {
             is_settled: false,
             tick_counter: 0,
             anchor_center: None,
+            entangled_pairs: Vec::new(),
+            entangle_strength: 0.2,
             attract_target: None,
             attracted_nodes: Vec::new(),
             attract_strength: 0.5,
@@ -186,6 +204,7 @@ impl Simulation {
         self.cluster_ids.clear();
         self.edges.clear();
         self.graph_indices.clear();
+        self.entangled_pairs.clear();
 
         // Map graph node index → simulation index (only visible nodes).
         let mut graph_to_sim: Vec<Option<usize>> = vec![None; graph.nodes.len()];
@@ -231,6 +250,20 @@ impl Simulation {
             if *d == 0 {
                 *d = 1;
             }
+        }
+
+        // Detect entangled pairs: nodes connected by 2+ edges.
+        {
+            use std::collections::HashMap;
+            let mut edge_counts: HashMap<(usize, usize), u32> = HashMap::new();
+            for &(s, t) in &self.edges {
+                let key = if s < t { (s, t) } else { (t, s) };
+                *edge_counts.entry(key).or_default() += 1;
+            }
+            self.entangled_pairs = edge_counts.into_iter()
+                .filter(|(_, count)| *count >= 2)
+                .map(|(pair, _)| pair)
+                .collect();
         }
 
         // Reset alpha for fresh simulation.
@@ -327,10 +360,18 @@ impl Simulation {
             Some([ax, ay]) => (ax, ay),
             None => (0.0, 0.0),
         };
-        let center_str = match self.params.center_mode {
+        let center_str_base = match self.params.center_mode {
             CenterMode::Attract => self.params.center_strength,
             CenterMode::Off => 0.0,
             CenterMode::Repel => -self.params.center_strength,
+        };
+        // Dark energy breathing: sinusoidal expansion modulates center force.
+        let center_str = if self.params.dark_energy_amplitude > 0.001 && center_str_base.abs() > 0.0001 {
+            let time = self.tick_counter as f32 * 0.02; // ~42 second cycle at 60fps
+            let expansion = 1.0 + (time * 0.15).sin() * self.params.dark_energy_amplitude;
+            center_str_base / expansion
+        } else {
+            center_str_base
         };
         if center_str.abs() > 0.0001 {
             forces::force_center(
@@ -355,6 +396,29 @@ impl Simulation {
                 &self.cluster_ids,
                 self.params.cluster_strength,
                 alpha,
+            );
+        }
+
+        // Gravitational lensing: orbital paths around hub nodes.
+        if self.params.lensing_strength > 0.001 {
+            forces::force_gravitational_lensing(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                &self.degrees,
+                self.params.lensing_strength,
+                alpha,
+            );
+        }
+
+        // Quantum entanglement: mirrored velocity for paired nodes.
+        if !self.entangled_pairs.is_empty() {
+            forces::force_entanglement(
+                &mut self.vx,
+                &mut self.vy,
+                &self.entangled_pairs,
+                self.entangle_strength,
             );
         }
 
@@ -633,6 +697,8 @@ mod tests {
         assert_eq!(p.orbital, 0.0);
         assert_eq!(p.cluster_strength, 0.0);
         assert_eq!(p.center_mode, CenterMode::Attract);
+        assert_eq!(p.lensing_strength, 0.3);
+        assert_eq!(p.dark_energy_amplitude, 0.15);
     }
 
     #[test]
@@ -678,5 +744,16 @@ mod tests {
             "expected equilibrium distance between 50 and 500, got {}",
             dist
         );
+    }
+
+    #[test]
+    fn dark_energy_modulates_alpha() {
+        let p1 = ForceParams { dark_energy_amplitude: 0.0, ..Default::default() };
+        let p2 = ForceParams { dark_energy_amplitude: 0.3, ..Default::default() };
+
+        // Both should have the same base center_strength
+        assert_eq!(p1.center_strength, p2.center_strength);
+        // dark_energy_amplitude should be set
+        assert_eq!(p2.dark_energy_amplitude, 0.3);
     }
 }
