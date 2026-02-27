@@ -90,7 +90,7 @@ impl Default for ForceParams {
             collision_iterations: 2,
             warmth: 0.0,
             orbital: 0.0,
-            cluster_strength: 0.0,
+            cluster_strength: 0.3,
             center_mode: CenterMode::Attract,
 
             // Cosmic forces — off by default (prevent settling when active).
@@ -705,7 +705,7 @@ mod tests {
         assert_eq!(p.collision_iterations, 2);
         assert_eq!(p.warmth, 0.0);
         assert_eq!(p.orbital, 0.0);
-        assert_eq!(p.cluster_strength, 0.0);
+        assert_eq!(p.cluster_strength, 0.3);
         assert_eq!(p.center_mode, CenterMode::Attract);
         assert_eq!(p.lensing_strength, 0.0);
         assert_eq!(p.dark_energy_amplitude, 0.0);

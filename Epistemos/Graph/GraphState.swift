@@ -219,7 +219,7 @@ final class GraphState {
     }
 
     // ── Cluster ──
-    var clusterStrength: Float = 0.0
+    var clusterStrength: Float = 0.3
     var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
 
     var clusterConfigVersion: Int = 0
