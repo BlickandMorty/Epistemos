@@ -178,20 +178,6 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     // MARK: - Pre-Styled Content Loading
 
     /// Loads pre-styled attributed content, bypassing all custom styling.
-    /// The cached NSAttributedString already has correct fonts, colors, and paragraph styles.
-    /// Only notifies the layout manager of the change (via super.processEditing).
-    func loadPreStyledContent(_ attrString: NSAttributedString) {
-        let oldLen = backing.length
-        skipAllStyling = true
-        beginEditing()
-        backing.setAttributedString(attrString)
-        edited([.editedCharacters, .editedAttributes],
-               range: NSRange(location: 0, length: oldLen),
-               changeInLength: attrString.length - oldLen)
-        endEditing()
-        skipAllStyling = false
-    }
-
     // MARK: - Base Style
 
     func applyBaseStyle(range: NSRange) {

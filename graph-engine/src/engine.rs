@@ -968,10 +968,6 @@ impl Engine {
         &mut self.graph
     }
 
-    pub fn graph(&self) -> &Graph {
-        &self.graph
-    }
-
     pub fn hovered_id(&self) -> Option<u32> {
         self.hovered_id
     }
@@ -1589,9 +1585,7 @@ mod tests {
     #[test]
     fn zoom_to_fit_empty_graph_safe() {
         // zoom_to_fit with 0 nodes should not panic or produce NaN.
-        let viewport_w = 800.0f32;
-        let viewport_h = 600.0f32;
-        let mut min_x = f32::MAX;
+        let min_x = f32::MAX;
         let max_x = f32::MIN;
 
         // No nodes → min_x stays MAX → skip zoom.
@@ -1712,8 +1706,8 @@ mod tests {
         let mut animator = EntranceAnimator::from_graph(&graph);
 
         // Check early: spiral displacement should be non-zero.
-        let early = animator.compute();
-        let hero_idx = graph.nodes.iter()
+        let _early = animator.compute();
+        let _hero_idx = graph.nodes.iter()
             .enumerate()
             .max_by_key(|(_, n)| n.link_count)
             .map(|(i, _)| i)

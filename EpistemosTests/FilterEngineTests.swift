@@ -69,15 +69,14 @@ struct FilterEngineTests {
         #expect(engine.isNodeVisible(noteNode))
     }
 
-    @Test("show only type isolates one type")
-    func showOnlyTypeIsolatesOneType() {
+    @Test("show all types resets filter")
+    func showAllTypesResetsFilter() {
         let engine = FilterEngine()
-        let noteNode = makeNode(id: "n1", type: .note)
-        let paperNode = makeNode(id: "n2", type: .source)
+        engine.toggleType(.note)
+        #expect(engine.isFiltered)
 
-        engine.showOnlyType(.source)
-        #expect(!engine.isNodeVisible(noteNode))
-        #expect(engine.isNodeVisible(paperNode))
+        engine.showAllTypes()
+        #expect(!engine.isFiltered)
     }
 
     @Test("focus filter limits to connected set")
@@ -92,56 +91,17 @@ struct FilterEngineTests {
         #expect(!engine.isNodeVisible(nodeC))
     }
 
-    @Test("timeline filter hides future nodes")
-    func timelineFilterHidesFutureNodes() {
+    @Test("clear focus restores all")
+    func clearFocusRestoresAll() {
         let engine = FilterEngine()
-        let now = Date()
-        let pastNode = makeNode(id: "past", created: now.addingTimeInterval(-3600))
-        let futureNode = makeNode(id: "future", created: now.addingTimeInterval(3600))
+        let nodeA = makeNode(id: "a")
+        let nodeC = makeNode(id: "c")
 
-        engine.setTimelineDate(now)
+        engine.focusOn(nodeId: "center", connectedSet: ["center", "a"])
+        #expect(!engine.isNodeVisible(nodeC))
 
-        #expect(engine.isNodeVisible(pastNode))
-        #expect(!engine.isNodeVisible(futureNode))
-    }
-
-    @Test("hide node makes it invisible")
-    func hideNodeMakesItInvisible() {
-        let engine = FilterEngine()
-        let node = makeNode(id: "n1", type: .note)
-
-        #expect(engine.isNodeVisible(node))
-        engine.hideNode("n1")
-        #expect(!engine.isNodeVisible(node))
-        #expect(engine.isFiltered)
-    }
-
-    @Test("unhide node restores visibility")
-    func unhideNodeRestoresVisibility() {
-        let engine = FilterEngine()
-        let node = makeNode(id: "n1", type: .note)
-
-        engine.hideNode("n1")
-        #expect(!engine.isNodeVisible(node))
-
-        engine.unhideNode("n1")
-        #expect(engine.isNodeVisible(node))
-    }
-
-    @Test("clear hidden restores all hidden nodes")
-    func clearHiddenRestoresAll() {
-        let engine = FilterEngine()
-        let nodeA = makeNode(id: "a", type: .note)
-        let nodeB = makeNode(id: "b", type: .source)
-
-        engine.hideNode("a")
-        engine.hideNode("b")
-        #expect(!engine.isNodeVisible(nodeA))
-        #expect(!engine.isNodeVisible(nodeB))
-
-        engine.clearHidden()
-        #expect(engine.isNodeVisible(nodeA))
-        #expect(engine.isNodeVisible(nodeB))
+        engine.clearFocus()
+        #expect(engine.isNodeVisible(nodeC))
         #expect(!engine.isFiltered)
     }
 

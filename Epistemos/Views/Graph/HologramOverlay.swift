@@ -140,18 +140,6 @@ final class HologramOverlay {
         )
     }
 
-    /// Animate blur transition between global (dark) and page (light) modes.
-    func setPageModeBlur(_ isPageMode: Bool) {
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.4
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            darkenLayer?.animator().alphaValue = isPageMode ? 0.15 : 1.0
-        }
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        blurView?.material = isPageMode
-            ? (isDark ? .hudWindow : .sheet)
-            : (isDark ? .fullScreenUI : .sheet)
-    }
 
     func hide() {
         if isMinimized {

@@ -265,11 +265,6 @@ final class GraphState {
         pushExtendedForceChange()
     }
 
-    // MARK: - Neighbor Highlight
-
-    /// UUID of the node whose neighbors are highlighted (shift+click).
-    var highlightedNodeId: String?
-
     // MARK: - Interactive Creation
 
     var interactionMode: GraphInteractionMode = .idle

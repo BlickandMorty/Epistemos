@@ -225,18 +225,6 @@ final class GraphStore {
         edgesByNode.removeValue(forKey: nodeId)
     }
 
-    // MARK: - Position & Velocity Updates
-
-    /// Update a node's position (called from ForceSimulation results).
-    func updatePosition(_ nodeId: String, position: SIMD2<Float>) {
-        nodes[nodeId]?.position = position
-    }
-
-    /// Update a node's velocity.
-    func updateVelocity(_ nodeId: String, velocity: SIMD2<Float>) {
-        nodes[nodeId]?.velocity = velocity
-    }
-
     // MARK: - Link Count (for Rust FFI)
 
     /// Number of edges touching this node (degree).

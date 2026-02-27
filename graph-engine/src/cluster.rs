@@ -1,9 +1,13 @@
 //! Louvain community detection for cluster physics.
 //! Detects densely connected subgraphs and assigns cluster IDs.
 
-/// Detect communities using a simplified Louvain method.
+/// Detect communities using Louvain modularity optimization.
 /// Returns a Vec<u32> where result[i] = cluster_id for node i.
 /// Only operates on the provided edge list (simulation indices).
+///
+/// Uses the standard modularity gain formula: a node moves to a neighboring
+/// community only when the gain ΔQ > 0. This prevents single bridge edges
+/// from merging distinct dense subgraphs.
 pub fn detect_communities(
     n: usize,
     edges: &[(usize, usize)],
@@ -14,6 +18,7 @@ pub fn detect_communities(
     }
 
     let mut community: Vec<u32> = (0..n as u32).collect();
+    let m2 = (2 * edges.len()) as f64; // 2m (total degree sum)
 
     let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
     for &(u, v) in edges {
@@ -23,35 +28,55 @@ pub fn detect_communities(
         }
     }
 
-    let mut improved = true;
-    let mut iterations = 0;
-    while improved && iterations < 10 {
-        improved = false;
-        iterations += 1;
+    let degree: Vec<f64> = (0..n).map(|i| adj[i].len() as f64).collect();
+
+    for _ in 0..20 {
+        let mut improved = false;
 
         for i in 0..n {
-            let current_comm = community[i];
+            let ki = degree[i];
+            let current = community[i];
 
-            let mut comm_edges: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+            // Edges from i to each neighboring community
+            let mut ki_to: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
             for &j in &adj[i] {
-                *comm_edges.entry(community[j]).or_default() += 1;
+                *ki_to.entry(community[j]).or_default() += 1.0;
             }
 
-            let mut best_comm = current_comm;
-            let mut best_count = comm_edges.get(&current_comm).copied().unwrap_or(0);
+            // Σ_tot: sum of degrees per community
+            let mut sigma: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
+            for j in 0..n {
+                *sigma.entry(community[j]).or_default() += degree[j];
+            }
 
-            for (&comm, &count) in &comm_edges {
-                if count > best_count {
+            let ki_in_current = ki_to.get(&current).copied().unwrap_or(0.0);
+            let sigma_current = sigma.get(&current).copied().unwrap_or(0.0);
+
+            let mut best_comm = current;
+            let mut best_gain = 0.0f64;
+
+            for (&comm, &ki_in_c) in &ki_to {
+                if comm == current { continue; }
+                let sigma_c = sigma.get(&comm).copied().unwrap_or(0.0);
+
+                // ΔQ = (k_{i,C} - k_{i,current}) / 2m
+                //    + k_i · (Σ_tot(current) - k_i - Σ_tot(C)) / (2m)²
+                let gain = (ki_in_c - ki_in_current) / m2
+                    + ki * (sigma_current - ki - sigma_c) / (m2 * m2);
+
+                if gain > best_gain {
+                    best_gain = gain;
                     best_comm = comm;
-                    best_count = count;
                 }
             }
 
-            if best_comm != current_comm {
+            if best_comm != current {
                 community[i] = best_comm;
                 improved = true;
             }
         }
+
+        if !improved { break; }
     }
 
     // Renumber communities to be contiguous (0, 1, 2, ...).
