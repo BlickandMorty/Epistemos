@@ -535,6 +535,15 @@ pub struct Renderer {
     offscreen_height: u32,
     prev_camera_zoom: f32,
     prev_camera_offset: [f32; 2],
+    // Label rendering settings (tunable from Swift)
+    /// Screen radius below which labels are invisible (default 6).
+    pub label_fade_start: f32,
+    /// Screen radius above which labels are fully opaque (default 18).
+    pub label_fade_end: f32,
+    /// Base font size in world units (default 12).
+    pub label_font_size: f32,
+    /// Master toggle for label rendering (default true).
+    pub labels_enabled: bool,
 }
 
 impl Renderer {
@@ -694,6 +703,10 @@ impl Renderer {
             offscreen_height: 0,
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
+            label_fade_start: 6.0,
+            label_fade_end: 18.0,
+            label_font_size: 12.0,
+            labels_enabled: true,
         })
     }
 
@@ -1208,22 +1221,27 @@ impl Renderer {
     }
 
     pub fn upload_labels(&mut self, graph: &Graph) {
-        const MAX_LABELS: usize = 40;
-        const MIN_SCREEN_RADIUS: f32 = 8.0;
-        const FONT_SIZE: f32 = 10.0;
         const LABEL_GAP: f32 = 4.0;
 
+        if !self.labels_enabled {
+            self.glyph_count = 0;
+            self.glyph_instance_buf = None;
+            return;
+        }
+
         let zoom = self.camera_zoom;
+        let fade_start = self.label_fade_start;
+        let fade_end = self.label_fade_end;
+        let font_size = self.label_font_size;
         let mut all_instances: Vec<GlyphInstance> = Vec::new();
-        let mut label_count = 0usize;
 
         for node in &graph.nodes {
             if !node.visible { continue; }
             let screen_radius = node.radius * zoom;
-            if screen_radius < MIN_SCREEN_RADIUS { continue; }
+            if screen_radius < fade_start { continue; }
 
             let size_alpha =
-                ((screen_radius - MIN_SCREEN_RADIUS) / MIN_SCREEN_RADIUS).clamp(0.0, 1.0);
+                ((screen_radius - fade_start) / (fade_end - fade_start)).clamp(0.0, 1.0);
             let weight_boost = if node.link_count > 5 { 1.0 } else { 0.7 };
             let mut alpha = size_alpha * weight_boost;
 
@@ -1240,11 +1258,8 @@ impl Renderer {
                 [1.0f32, 1.0, 1.0, 1.0]
             };
 
-            let glyphs = self.font_atlas.layout_label(&node.label, anchor, FONT_SIZE, alpha, color);
+            let glyphs = self.font_atlas.layout_label(&node.label, anchor, font_size, alpha, color);
             all_instances.extend_from_slice(&glyphs);
-
-            label_count += 1;
-            if label_count >= MAX_LABELS { break; }
         }
 
         self.glyph_count = all_instances.len();

@@ -326,4 +326,15 @@ mod tests {
         assert_eq!(std::mem::size_of::<GlyphInstance>(), 64);
         assert_eq!(std::mem::offset_of!(GlyphInstance, color), 48);
     }
+
+    #[test]
+    fn layout_label_position_offset_preserved() {
+        let atlas = FontAtlas::load();
+        let instances = atlas.layout_label("Test", [100.0, 200.0], 10.0, 1.0, [1.0, 1.0, 1.0, 1.0]);
+        assert!(!instances.is_empty());
+        // All glyphs should have position = the anchor point passed in.
+        for inst in &instances {
+            assert_eq!(inst.position, [100.0, 200.0], "glyph position should match anchor");
+        }
+    }
 }
