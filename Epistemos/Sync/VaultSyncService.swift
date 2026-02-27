@@ -36,12 +36,19 @@ final class VaultSyncService {
     /// FTS5 search index (GRDB). Created in startWatching, nil'd in stopWatching.
     private var searchService: SearchIndexService?
 
+    /// EventBus for emitting vaultChanged events on mutations.
+    private weak var eventBus: EventBus?
+
+    /// Set the EventBus reference for vault change notifications.
+    func setEventBus(_ bus: EventBus) { eventBus = bus }
+
     /// Whether we hold a security-scoped resource on the vault URL.
     private var isSecurityScoped = false
 
     private var importTask: Task<Void, Never>?
     private var autoSaveTask: Task<Void, Never>?
     private var versionCaptureTask: Task<Void, Never>?
+    private var manifestRefreshTask: Task<Void, Never>?
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
@@ -250,6 +257,11 @@ final class VaultSyncService {
         migrateFromExternalStorage()
         restartAutoSaveTimer()
         startVersionCaptureTimer()
+        startManifestRefreshTimer()
+
+        // Build ambient manifest eagerly after import completes
+        AppBootstrap.shared?.refreshAmbientManifest()
+
         log.info("VaultSyncService started for: \(vaultURL.lastPathComponent, privacy: .public)")
     }
 
@@ -264,6 +276,8 @@ final class VaultSyncService {
         autoSaveTask = nil
         versionCaptureTask?.cancel()
         versionCaptureTask = nil
+        manifestRefreshTask?.cancel()
+        manifestRefreshTask = nil
         indexActor = nil
         searchService = nil
 
@@ -304,7 +318,12 @@ final class VaultSyncService {
         await indexActor?.buildVaultContext(for: query)
     }
 
-    /// Build complete vault manifest for Notes Mode.
+    /// Build lightweight ambient manifest (entries only, no bodies).
+    func buildAmbientManifest() async -> VaultManifest? {
+        await indexActor?.buildAmbientManifest()
+    }
+
+    /// Build complete vault manifest with recent bodies (for vault briefing).
     func buildVaultManifest() async -> VaultManifest? {
         await indexActor?.buildVaultManifest()
     }
@@ -442,6 +461,7 @@ final class VaultSyncService {
         }
 
         log.info("Sync from vault complete: \(updatedPages.count) pages")
+        eventBus?.emit(.vaultChanged)
         return []
     }
 
@@ -490,6 +510,9 @@ final class VaultSyncService {
 
                 if let path = exportedPath {
                     log.info("Saved page to vault: \(path, privacy: .public)")
+                }
+                await MainActor.run { [weak self] in
+                    self?.eventBus?.emit(.vaultChanged)
                 }
             } catch {
                 log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -577,6 +600,18 @@ final class VaultSyncService {
                 try? await Task.sleep(for: .seconds(interval))
                 guard !Task.isCancelled, let self else { return }
                 self.saveAllDirtyPages()
+            }
+        }
+    }
+
+    /// Periodic manifest refresh (5-minute interval) as safety net for external edits.
+    private func startManifestRefreshTimer() {
+        manifestRefreshTask?.cancel()
+        manifestRefreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(300))
+                guard !Task.isCancelled, let self else { return }
+                AppBootstrap.shared?.refreshAmbientManifest()
             }
         }
     }
@@ -688,13 +723,16 @@ final class VaultSyncService {
 
         // Export to disk in background
         let pageId = page.id
-        Task {
+        Task { [weak self] in
             do {
-                _ = try await indexActor?.exportPage(pageId: pageId, to: vaultURL)
+                _ = try await self?.indexActor?.exportPage(pageId: pageId, to: vaultURL)
             } catch {
                 log.error(
                     "Failed to export new page to disk: \(error.localizedDescription, privacy: .public)"
                 )
+            }
+            await MainActor.run {
+                self?.eventBus?.emit(.vaultChanged)
             }
         }
 
@@ -711,6 +749,7 @@ final class VaultSyncService {
         do {
             try FileManager.default.removeItem(atPath: filePath)
             log.info("Deleted page file: \(filePath, privacy: .public)")
+            eventBus?.emit(.vaultChanged)
         } catch {
             log.error("Failed to delete page file: \(error.localizedDescription, privacy: .public)")
         }

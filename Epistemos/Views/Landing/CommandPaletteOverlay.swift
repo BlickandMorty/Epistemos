@@ -307,14 +307,13 @@ struct CommandPaletteOverlay: View {
     private func makeCommands() -> [LandingCommandItem] {
         let commands: [LandingCommandItem] = [
             LandingCommandItem(
-                id: "chat-with-notes", label: "Chat with Notes", icon: "book.pages",
+                id: "vault-briefing", label: "Vault Briefing", icon: "book.pages",
                 category: "Chat"
             ) { [self] in
                 dismiss()
                 chat.startNewChat()
-                chat.enableNotesMode()
                 ui.setActivePanel(.home)
-                AppBootstrap.shared?.startNotesMode(chatState: chat)
+                AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
             },
             LandingCommandItem(
                 id: "new-note", label: "New Note", icon: "doc.badge.plus", category: "Notes"
@@ -350,7 +349,7 @@ struct CommandPaletteOverlay: View {
                 icon: "point.3.connected.trianglepath.dotted",
                 category: "Navigate"
             ) {
-                UtilityWindowManager.shared.show(.graph)
+                HologramController.shared.show()
                 dismiss()
             },
             LandingCommandItem(

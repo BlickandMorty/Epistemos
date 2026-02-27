@@ -18,6 +18,7 @@ struct PagedDocumentView: NSViewRepresentable {
     @Binding var text: String
     let formatState: WriterFormatState
     let isDark: Bool
+    var theme: EpistemosTheme = .light
     let isEditable: Bool
 
     // MARK: - Constants
@@ -28,11 +29,25 @@ struct PagedDocumentView: NSViewRepresentable {
     // MARK: - Theme Colors
 
     private var canvasColor: NSColor {
-        isDark ? NSColor(white: 0.15, alpha: 1) : NSColor(white: 0.85, alpha: 1)
+        switch theme {
+        case .oled:   return NSColor(white: 0.0, alpha: 1)     // Pure black
+        case .sunset: return NSColor(red: 0.10, green: 0.06, blue: 0.11, alpha: 1)
+        case .ember:  return NSColor(red: 0.09, green: 0.06, blue: 0.04, alpha: 1)
+        case .light:  return NSColor(white: 0.88, alpha: 1)
+        case .sunny:  return NSColor(red: 0.88, green: 0.93, blue: 0.97, alpha: 1)
+        case .tan:    return NSColor(red: 0.92, green: 0.87, blue: 0.79, alpha: 1)
+        }
     }
 
     private var pageColor: NSColor {
-        isDark ? NSColor(white: 0.18, alpha: 1) : .white
+        switch theme {
+        case .oled:   return NSColor(white: 0.06, alpha: 1)    // Near-black page
+        case .sunset: return NSColor(red: 0.14, green: 0.09, blue: 0.15, alpha: 1)
+        case .ember:  return NSColor(red: 0.13, green: 0.10, blue: 0.07, alpha: 1)
+        case .light:  return .white
+        case .sunny:  return NSColor(red: 0.96, green: 0.98, blue: 1.0, alpha: 1)
+        case .tan:    return NSColor(red: 0.98, green: 0.95, blue: 0.90, alpha: 1)
+        }
     }
 
     // MARK: - Coordinator
@@ -50,6 +65,7 @@ struct PagedDocumentView: NSViewRepresentable {
         let storage = WriterTextStorage()
         storage.formatState = formatState
         storage.isDark = isDark
+        storage.theme = theme
         coord.storage = storage
 
         // 2. Create NSLayoutManager
@@ -63,6 +79,7 @@ struct PagedDocumentView: NSViewRepresentable {
 
         // 4. Create PageCanvasView
         let canvas = PageCanvasView(isDark: isDark)
+        canvas.theme = theme
         coord.canvas = canvas
 
         // 5. Add the first page
@@ -86,8 +103,11 @@ struct PagedDocumentView: NSViewRepresentable {
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
-        // 8. Observe clip view frame changes so we re-center on window resize
+        // 8. Observe clip view frame changes so we re-center on window resize.
+        // Throttled to avoid relayout on every scroll pixel — only fires when
+        // the clip view's actual frame size changes (i.e. window resize).
         scrollView.contentView.postsFrameChangedNotifications = true
+        coord.lastClipSize = scrollView.contentView.bounds.size
         coord.frameObserver = NotificationCenter.default.addObserver(
             forName: NSView.frameDidChangeNotification,
             object: scrollView.contentView,
@@ -95,9 +115,13 @@ struct PagedDocumentView: NSViewRepresentable {
         ) { [weak coord] _ in
             guard let coord else { return }
             MainActor.assumeIsolated {
-                if let sv = coord.canvas?.enclosingScrollView {
-                    PagedDocumentView.layoutPageTiles(coord: coord, in: sv)
-                }
+                guard let sv = coord.canvas?.enclosingScrollView else { return }
+                let newSize = sv.contentView.bounds.size
+                // Only relayout when the clip view size actually changed (window resize),
+                // not on every scroll position change.
+                guard newSize != coord.lastClipSize else { return }
+                coord.lastClipSize = newSize
+                PagedDocumentView.layoutPageTiles(coord: coord, in: sv)
             }
         }
 
@@ -127,18 +151,24 @@ struct PagedDocumentView: NSViewRepresentable {
               let canvas = coord.canvas
         else { return }
 
-        // Theme update
-        if coord.lastIsDark != isDark {
+        // Theme update — track full theme enum, not just isDark,
+        // so switching between themes of the same lightness (e.g. Sunset→OLED) also updates.
+        if coord.lastTheme != theme || coord.lastIsDark != isDark {
             coord.lastIsDark = isDark
+            coord.lastTheme = theme
             storage.isDark = isDark
+            storage.theme = theme
             storage.reapplyFormatting()
             canvas.isDark = isDark
+            canvas.theme = theme
             scrollView.backgroundColor = canvasColor
             for tile in coord.pageTiles {
                 tile.backgroundColor = pageColor
                 tile.isDark = isDark
+                tile.theme = theme
             }
             coord.titlePageView?.isDark = isDark
+            coord.titlePageView?.theme = theme
         }
 
         // Spread mode may need horizontal scrolling
@@ -213,19 +243,37 @@ struct PagedDocumentView: NSViewRepresentable {
         tile.isAutomaticTextReplacementEnabled = false
         tile.isAutomaticLinkDetectionEnabled = false
 
-        // Shadow via layer
+        // Shadow via layer — theme-aware for visual polish, rasterized for scroll performance
         tile.wantsLayer = true
         if let layer = tile.layer {
-            layer.shadowColor = NSColor.black.withAlphaComponent(0.25).cgColor
-            layer.shadowOpacity = 1
-            layer.shadowOffset = CGSize(width: 0, height: -2)
-            layer.shadowRadius = 8
+            switch theme {
+            case .oled:
+                // Subtle edge glow on pure black
+                layer.shadowColor = NSColor(white: 0.3, alpha: 0.4).cgColor
+                layer.shadowOpacity = 1
+                layer.shadowOffset = .zero
+                layer.shadowRadius = 12
+            case .sunset, .ember:
+                layer.shadowColor = NSColor.black.withAlphaComponent(0.35).cgColor
+                layer.shadowOpacity = 1
+                layer.shadowOffset = CGSize(width: 0, height: -1)
+                layer.shadowRadius = 10
+            default:
+                layer.shadowColor = NSColor.black.withAlphaComponent(0.18).cgColor
+                layer.shadowOpacity = 1
+                layer.shadowOffset = CGSize(width: 0, height: -2)
+                layer.shadowRadius = 8
+            }
+            layer.shadowPath = CGPath(rect: CGRect(origin: .zero, size: pageSize), transform: nil)
+            layer.shouldRasterize = true
+            layer.rasterizationScale = NSScreen.main?.backingScaleFactor ?? 2.0
         }
 
         // Wire delegate and format state for header/footer rendering
         tile.delegate = coord
         tile.formatState = formatState
         tile.isDark = isDark
+        tile.theme = theme
         tile.pageIndex = coord.pageTiles.count
 
         // Add to canvas
@@ -235,23 +283,40 @@ struct PagedDocumentView: NSViewRepresentable {
 
     // MARK: - reconcilePages
 
+    /// Maximum pages to create synchronously before deferring to a background pass.
+    /// Keeps the main thread responsive for large documents.
+    private static let maxSyncPages = 5
+
     private static func reconcilePages(coord: Coordinator) {
         guard let layoutManager = coord.layoutManager,
               let storage = coord.storage
         else { return }
 
-        // Force layout to completion
+        // Force layout for the first container only (visible page).
         guard let lastContainer = layoutManager.textContainers.last else { return }
         layoutManager.ensureLayout(for: lastContainer)
 
-        // Add pages while text overflows the last container
+        // Add pages while text overflows — cap synchronous creation to avoid blocking.
+        var pagesAdded = 0
         while let tailContainer = layoutManager.textContainers.last {
             let charRange = layoutManager.characterRange(forGlyphRange:
                 layoutManager.glyphRange(for: tailContainer), actualGlyphRange: nil)
             if charRange.location + charRange.length < storage.length {
                 coord.parent.addPage(coord: coord)
+                pagesAdded += 1
                 guard let newTail = layoutManager.textContainers.last else { break }
                 layoutManager.ensureLayout(for: newTail)
+                // Defer remaining pages to keep UI responsive.
+                if pagesAdded >= maxSyncPages {
+                    DispatchQueue.main.async { [weak coord] in
+                        guard let coord else { return }
+                        reconcilePages(coord: coord)
+                        if let sv = coord.canvas?.enclosingScrollView {
+                            layoutPageTiles(coord: coord, in: sv)
+                        }
+                    }
+                    break
+                }
             } else {
                 break
             }
@@ -303,18 +368,23 @@ struct PagedDocumentView: NSViewRepresentable {
                 let tpv = TitlePageView()
                 tpv.formatState = formatState
                 tpv.isDark = coord.parent.isDark
+                tpv.theme = coord.parent.theme
                 tpv.wantsLayer = true
                 if let layer = tpv.layer {
                     layer.shadowColor = NSColor.black.withAlphaComponent(0.25).cgColor
                     layer.shadowOpacity = 1
                     layer.shadowOffset = CGSize(width: 0, height: -2)
                     layer.shadowRadius = 8
+                    layer.shadowPath = CGPath(rect: CGRect(origin: .zero, size: formatState.pageSize.size), transform: nil)
+                    layer.shouldRasterize = true
+                    layer.rasterizationScale = NSScreen.main?.backingScaleFactor ?? 2.0
                 }
                 canvas.addSubview(tpv)
                 coord.titlePageView = tpv
             }
             coord.titlePageView?.formatState = formatState
             coord.titlePageView?.isDark = coord.parent.isDark
+            coord.titlePageView?.theme = coord.parent.theme
             coord.titlePageView?.needsDisplay = true
             if let tpv = coord.titlePageView {
                 allViews.append(tpv)
@@ -331,6 +401,7 @@ struct PagedDocumentView: NSViewRepresentable {
             tile.isTitlePage = false
             tile.formatState = formatState
             tile.isDark = coord.parent.isDark
+            tile.theme = coord.parent.theme
             tile.needsDisplay = true
             allViews.append(tile)
         }
@@ -425,6 +496,7 @@ struct PagedDocumentView: NSViewRepresentable {
         var pageTiles: [PageTileView] = []
         var titlePageView: TitlePageView?
         var lastIsDark: Bool
+        var lastTheme: EpistemosTheme
         var lastShowTitlePage: Bool = false
         var isUserEditing = false
         // SAFETY: Only accessed from MainActor (textDidChange delegate + DispatchQueue.main).
@@ -432,10 +504,13 @@ struct PagedDocumentView: NSViewRepresentable {
         nonisolated(unsafe) var reconcileWorkItem: DispatchWorkItem?
         /// Observes clip view frame changes to re-center pages on window resize.
         var frameObserver: NSObjectProtocol?
+        /// Last known clip view size — used to skip relayout when only scroll position changes.
+        var lastClipSize: NSSize = .zero
 
         init(_ parent: PagedDocumentView) {
             self.parent = parent
             self.lastIsDark = parent.isDark
+            self.lastTheme = parent.theme
         }
 
         func textDidChange(_ notification: Notification) {
@@ -475,6 +550,11 @@ final class PageCanvasView: NSView {
         didSet { needsDisplay = true }
     }
 
+    /// The actual theme — used to draw the correct canvas background per theme.
+    var theme: EpistemosTheme = .light {
+        didSet { needsDisplay = true }
+    }
+
     init(isDark: Bool) {
         self.isDark = isDark
         super.init(frame: .zero)
@@ -488,9 +568,15 @@ final class PageCanvasView: NSView {
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
-        let color = isDark
-            ? NSColor(white: 0.15, alpha: 1)
-            : NSColor(white: 0.85, alpha: 1)
+        let color: NSColor
+        switch theme {
+        case .oled:   color = NSColor(white: 0.0, alpha: 1)
+        case .sunset: color = NSColor(red: 0.10, green: 0.06, blue: 0.11, alpha: 1)
+        case .ember:  color = NSColor(red: 0.09, green: 0.06, blue: 0.04, alpha: 1)
+        case .light:  color = NSColor(white: 0.88, alpha: 1)
+        case .sunny:  color = NSColor(red: 0.88, green: 0.93, blue: 0.97, alpha: 1)
+        case .tan:    color = NSColor(red: 0.92, green: 0.87, blue: 0.79, alpha: 1)
+        }
         color.setFill()
         dirtyRect.fill()
     }
@@ -521,6 +607,9 @@ final class PageTileView: NSTextView {
     /// Dark mode flag, set by PagedDocumentView during layout.
     var isDark: Bool = false
 
+    /// Current theme, for theme-aware header/footer rendering.
+    var theme: EpistemosTheme = .light
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard let state = formatState else { return }
@@ -534,9 +623,19 @@ final class PageTileView: NSTextView {
         let pageWidth = bounds.width
         let font = NSFont(name: state.fontFamily, size: state.fontSize - 2)
             ?? NSFont.systemFont(ofSize: state.fontSize - 2)
-        let textColor: NSColor = isExporting
-            ? .black
-            : (isDark ? NSColor(white: 0.6, alpha: 1) : NSColor(white: 0.3, alpha: 1))
+        let textColor: NSColor
+        if isExporting {
+            textColor = .black
+        } else {
+            switch theme {
+            case .oled:   textColor = NSColor(white: 0.5, alpha: 1)
+            case .sunset: textColor = NSColor(red: 0.60, green: 0.55, blue: 0.52, alpha: 1)
+            case .ember:  textColor = NSColor(red: 0.58, green: 0.48, blue: 0.40, alpha: 1)
+            case .light:  textColor = NSColor(white: 0.3, alpha: 1)
+            case .sunny:  textColor = NSColor(red: 0.35, green: 0.48, blue: 0.58, alpha: 1)
+            case .tan:    textColor = NSColor(red: 0.54, green: 0.44, blue: 0.30, alpha: 1)
+            }
+        }
 
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
@@ -609,13 +708,26 @@ final class TitlePageView: NSView {
 
     var formatState: WriterFormatState?
     var isDark: Bool = false
+    var theme: EpistemosTheme = .light
     var isExporting: Bool = false
 
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
-        // Draw page background
-        let bgColor: NSColor = isExporting ? .white : (isDark ? NSColor(white: 0.18, alpha: 1) : .white)
+        // Draw page background matching the current theme
+        let bgColor: NSColor
+        if isExporting {
+            bgColor = .white
+        } else {
+            switch theme {
+            case .oled:   bgColor = NSColor(white: 0.06, alpha: 1)
+            case .sunset: bgColor = NSColor(red: 0.14, green: 0.09, blue: 0.15, alpha: 1)
+            case .ember:  bgColor = NSColor(red: 0.13, green: 0.10, blue: 0.07, alpha: 1)
+            case .light:  bgColor = .white
+            case .sunny:  bgColor = NSColor(red: 0.96, green: 0.98, blue: 1.0, alpha: 1)
+            case .tan:    bgColor = NSColor(red: 0.98, green: 0.95, blue: 0.90, alpha: 1)
+            }
+        }
         bgColor.setFill()
         bounds.fill()
 
@@ -631,8 +743,19 @@ final class TitlePageView: NSView {
         let font = NSFont(name: state.fontFamily, size: state.fontSize)
             ?? NSFont.systemFont(ofSize: state.fontSize)
         let boldFont = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
-        let textColor: NSColor = isExporting ? .black
-            : (isDark ? .white.withAlphaComponent(0.88) : NSColor(white: 0.1, alpha: 1))
+        let textColor: NSColor
+        if isExporting {
+            textColor = .black
+        } else {
+            switch theme {
+            case .oled:   textColor = NSColor.white.withAlphaComponent(0.85)
+            case .sunset: textColor = NSColor(red: 0.91, green: 0.88, blue: 0.85, alpha: 1)
+            case .ember:  textColor = NSColor(red: 0.88, green: 0.83, blue: 0.78, alpha: 1)
+            case .light:  textColor = NSColor(white: 0.1, alpha: 1)
+            case .sunny:  textColor = NSColor(red: 0.14, green: 0.19, blue: 0.25, alpha: 1)
+            case .tan:    textColor = NSColor(red: 0.21, green: 0.16, blue: 0.09, alpha: 1)
+            }
+        }
 
         let centered = NSMutableParagraphStyle()
         centered.alignment = .center

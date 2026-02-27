@@ -28,9 +28,15 @@ final class DiskStyleCache {
     private let maxFiles = 200
 
     private init() {
-        let appSupport = FileManager.default.urls(
+        guard let appSupportBase = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!.appendingPathComponent("Epistemos", isDirectory: true)
+        ).first else {
+            // Fallback to temp directory if Application Support is unavailable
+            cacheDir = FileManager.default.temporaryDirectory.appendingPathComponent("epistemos-style-cache", isDirectory: true)
+            try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+            return
+        }
+        let appSupport = appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
         cacheDir = appSupport.appendingPathComponent("style-cache", isDirectory: true)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }

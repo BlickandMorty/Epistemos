@@ -214,7 +214,7 @@ struct ChatSidebarView: View {
             chat.clearMessages()
         }
         modelContext.delete(sdChat)
-        try? modelContext.save()
+        do { try modelContext.save() } catch { Log.app.error("Save failed (delete chat): \(error.localizedDescription, privacy: .private)") }
         loadChats()
     }
 

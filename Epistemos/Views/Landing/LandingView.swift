@@ -244,51 +244,89 @@ struct LandingView: View {
 
     // MARK: - Daily Brief Prompt
 
-    /// Builds a context-rich prompt that includes recent notes and chat history
-    /// so the LLM can give a truly personalized daily brief.
+    /// Builds a comprehensive prompt with deep vault context for a productivity-grade daily brief.
     private func buildDailyBriefPrompt() -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .none
+
         var context: [String] = []
 
-        // ── Recent notes (titles + first ~200 chars of body) ──
+        // ── Recent notes with rich metadata + longer snippets ──
         let recentNotes =
             allPages
             .filter {
                 $0.templateId == nil
                     && !$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
-            .prefix(8)
+            .prefix(18)
 
         if !recentNotes.isEmpty {
-            var notesSection = "## My Recent Notes\n"
+            var notesSection = "## Recent Notes (\(recentNotes.count) most recent)\n"
             for note in recentNotes {
-                let snippet = String(note.body.prefix(200))
+                let snippet = String(note.body.prefix(500))
                     .replacingOccurrences(of: "\n", with: " ")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 let tags = note.tags.isEmpty ? "" : " [tags: \(note.tags.joined(separator: ", "))]"
+                let daysSinceEdit =
+                    Calendar.current.dateComponents([.day], from: note.updatedAt, to: .now).day ?? 0
+                let freshness = daysSinceEdit == 0 ? "today" : daysSinceEdit == 1 ? "yesterday" : "\(daysSinceEdit)d ago"
+                let emoji = note.emoji.isEmpty ? "" : "\(note.emoji) "
                 notesSection +=
-                    "- **\(note.title.isEmpty ? "Untitled" : note.title)**\(tags): \(snippet)...\n"
+                    "- **\(emoji)\(note.title.isEmpty ? "Untitled" : note.title)**\(tags) (\(note.wordCount) words, edited \(freshness)): \(snippet)…\n"
+            }
+
+            // Aggregate stats for pattern detection
+            let totalWords = recentNotes.reduce(0) { $0 + $1.wordCount }
+            let allTags = recentNotes.flatMap(\.tags)
+            let tagFreq = Dictionary(allTags.map { ($0, 1) }, uniquingKeysWith: +)
+                .sorted { $0.value > $1.value }
+                .prefix(8)
+                .map { "\($0.key) (\($0.value))" }
+            if !tagFreq.isEmpty {
+                notesSection += "\nTop tags: \(tagFreq.joined(separator: ", ")) | Total words across notes: \(totalWords)\n"
             }
             context.append(notesSection)
         }
 
-        // ── Recent chat conversations (titles + last user message) ──
-        let recentChats = allChats.prefix(6)
+        // ── Recent chat conversations with richer context ──
+        let recentChats = allChats.prefix(12)
 
         if !recentChats.isEmpty {
-            var chatsSection = "## My Recent Conversations\n"
+            var chatsSection = "## Recent Conversations (\(recentChats.count) most recent)\n"
             for chatItem in recentChats {
-                let lastUserMsg =
-                    chatItem.sortedMessages
-                    .last { $0.role == "user" }?
-                    .content
-                    .prefix(150) ?? ""
-                let snippet = String(lastUserMsg)
+                let msgs = chatItem.sortedMessages
+                let msgCount = msgs.count
+                let daysSinceChat =
+                    Calendar.current.dateComponents([.day], from: chatItem.updatedAt, to: .now).day ?? 0
+                let freshness = daysSinceChat == 0 ? "today" : daysSinceChat == 1 ? "yesterday" : "\(daysSinceChat)d ago"
+                let isResearch = chatItem.hasDeepResearch == true
+
+                // Get last user query and last assistant response for topic understanding
+                let lastUserMsg = msgs.last { $0.role == "user" }?.content.prefix(300) ?? ""
+                let lastAssistantSnippet = msgs.last { $0.role == "assistant" }?.content.prefix(200) ?? ""
+                let userSnippet = String(lastUserMsg)
                     .replacingOccurrences(of: "\n", with: " ")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
+                let assistantSnippet = String(lastAssistantSnippet)
+                    .replacingOccurrences(of: "\n", with: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
                 chatsSection +=
-                    "- **\(chatItem.title)**: \(snippet.isEmpty ? "(no messages)" : "\(snippet)...")\n"
+                    "- **\(chatItem.title)**\(isResearch ? " [research]" : "") (\(msgCount) msgs, \(freshness))\n"
+                if !userSnippet.isEmpty {
+                    chatsSection += "  Q: \(userSnippet)…\n"
+                }
+                if !assistantSnippet.isEmpty {
+                    chatsSection += "  A: \(assistantSnippet)…\n"
+                }
             }
             context.append(chatsSection)
+        }
+
+        // ── Vault manifest for full vault awareness ──
+        if let manifest = AppBootstrap.shared?.ambientManifest {
+            context.append(manifest.asManifestOnly())
         }
 
         let contextBlock =
@@ -296,22 +334,39 @@ struct LandingView: View {
             ? ""
             : """
 
-            Here is context from my recent activity to personalize this brief:
+            Here is my full recent activity and vault overview for deep analysis:
 
             \(context.joined(separator: "\n"))
             """
 
         return """
-            Give me my personalized daily brief. \
-            Scan through my recent notes and conversations below, then:
-            1. Summarize the key themes and topics I've been exploring
-            2. Highlight any surprising connections between different notes or conversations
-            3. Suggest 2-3 research questions or next steps based on what I've been working on
-            4. Flag anything that seems incomplete or worth revisiting
+            Generate my daily brief — a deep, actionable intelligence report on my knowledge work. \
+            Analyze everything below comprehensively, then produce:
 
-            Format: Write in flowing prose with **bold** for emphasis. Use minimal headings — \
-            at most 2-3 short section breaks. Keep it conversational and warm but substantive. \
-            Use bullet points sparingly, only for the action items at the end.
+            ### What I'm Working On
+            Identify the 3-5 major threads of work/research I'm currently engaged in. For each thread, \
+            explain what stage it's at (just starting, deep in progress, wrapping up, stalled).
+
+            ### Key Insights & Connections
+            Find the most interesting connections between my notes and conversations. Surface patterns I \
+            might not have noticed — thematic overlaps, conceptual tensions, evolving perspectives. \
+            Be specific: cite actual note titles and conversation topics.
+
+            ### Open Loops & Incomplete Work
+            Flag anything that looks started but unfinished, questions I asked but didn't follow up on, \
+            notes that seem like fragments of larger ideas. These are my highest-priority knowledge debts.
+
+            ### Recommended Actions
+            Based on all the above, give me 4-6 concrete next steps I should take today. Prioritize by \
+            impact. Each action should reference a specific note, conversation, or topic.
+
+            ### Emerging Themes
+            Step back and describe the bigger picture — what intellectual territory am I mapping? How do \
+            my different projects and interests connect at a higher level?
+
+            Format: Use **bold** for note titles and key concepts. Write in substantive prose — \
+            this should read like a research analyst's morning brief, not a bulleted summary. \
+            Be warm but rigorous. Reference specific content to prove you've actually read everything.
             \(contextBlock)
             """
     }

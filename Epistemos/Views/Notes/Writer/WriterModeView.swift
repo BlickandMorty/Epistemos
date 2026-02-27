@@ -14,6 +14,7 @@ import SwiftUI
 struct WriterModeView: View {
     let page: SDPage
     let isDark: Bool
+    var theme: EpistemosTheme = .light
     var isLocked: Bool = false
 
     @State private var formatState = WriterFormatState()
@@ -37,6 +38,7 @@ struct WriterModeView: View {
                 text: $bodyText,
                 formatState: formatState,
                 isDark: isDark,
+                theme: theme,
                 isEditable: !isLocked
             )
         }

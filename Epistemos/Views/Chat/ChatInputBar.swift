@@ -101,10 +101,8 @@ struct ChatInputBar: View {
                 TextField(
                     isProcessing
                         ? "Generating response…"
-                        : chat.isNotesMode
-                            ? "Chat with your vault..."
-                            : chat.isResearchMode
-                                ? "Ask a research question..." : "Ask anything...",
+                        : chat.isResearchMode
+                            ? "Ask a research question..." : "Ask anything...",
                     text: $text,
                     axis: .vertical
                 )
@@ -130,8 +128,8 @@ struct ChatInputBar: View {
                     }
                 }
                 .onChange(of: text) { _, newVal in
-                    // Notes Mode: detect @ trigger for mention dropdown
-                    if chat.isNotesMode {
+                    // Detect @ trigger for mention dropdown (active when vault is attached)
+                    if AppBootstrap.shared?.ambientManifest != nil {
                         if let atIdx = newVal.lastIndex(of: "@") {
                             let afterAt = String(newVal[newVal.index(after: atIdx)...])
                             if !afterAt.contains("]") {
@@ -180,7 +178,7 @@ struct ChatInputBar: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(alignment: .topLeading) {
             // Notes Mode @-mention dropdown — floats above the input bar
-            if showMentionDropdown, chat.isNotesMode, let manifest = chat.vaultManifest {
+            if showMentionDropdown, let manifest = AppBootstrap.shared?.ambientManifest {
                 NotesMentionDropdown(
                     entries: manifest.entries,
                     filter: mentionFilter,

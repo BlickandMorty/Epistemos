@@ -1,7 +1,6 @@
 import AppKit
 import SwiftData
 import SwiftUI
-import UserNotifications
 
 // MARK: - App Entry Point
 
@@ -30,9 +29,7 @@ struct EpistemosApp: App {
                 .environment(bootstrap.graphState)
                 .onAppear {
                     StatusBar.shared.setup()
-                    // Notification permission deferred — entitlement not yet configured.
-                    // UNUserNotificationCenter.current() asserts in Debug builds without
-                    // the UserNotifications entitlement, causing a SIGABRT crash.
+                    HologramController.shared.setup(graphState: bootstrap.graphState, modelContainer: bootstrap.modelContainer)
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(
@@ -40,6 +37,7 @@ struct EpistemosApp: App {
                 ) { _ in
                     bootstrap.vaultSync.stopWatching(preserveData: true)
                     StatusBar.shared.remove()
+                    HologramController.shared.teardown()
                 }
         }
         .modelContainer(bootstrap.modelContainer)
@@ -49,14 +47,8 @@ struct EpistemosApp: App {
                 vaultSync: bootstrap.vaultSync)
         }
 
-        Window("Knowledge Graph", id: "graph") {
-            GraphWindowView()
-                .environment(bootstrap.graphState)
-                .environment(bootstrap.uiState)
-                .environment(bootstrap.llmService)
-        }
-        .modelContainer(bootstrap.modelContainer)
-        .defaultSize(width: 1000, height: 700)
+        // Knowledge Graph uses a full-screen hologram overlay (HologramController),
+        // not a SwiftUI Window scene. Toggle with Cmd+Shift+G.
     }
 }
 
@@ -124,8 +116,6 @@ struct EpistemosCommands: Commands {
     let chat: ChatState
     let notesUI: NotesUIState
     let vaultSync: VaultSyncService
-    @Environment(\.openWindow) private var openWindow
-
     var body: some Commands {
         CommandGroup(after: .sidebar) {
             Button("Show Home") {
@@ -145,7 +135,7 @@ struct EpistemosCommands: Commands {
                 .keyboardShortcut("3", modifiers: .command)
 
             Button("Knowledge Graph") {
-                openWindow(id: "graph")
+                HologramController.shared.toggle()
             }
             .keyboardShortcut("g", modifiers: .command)
 

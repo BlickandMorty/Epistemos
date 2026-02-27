@@ -31,7 +31,7 @@ struct GraphStoreTests {
         id: String = "",
         source: String,
         target: String,
-        type: GraphEdgeType = .wikilink
+        type: GraphEdgeType = .reference
     ) -> GraphEdgeRecord {
         GraphEdgeRecord(
             id: id.isEmpty ? "\(source)-\(target)" : id,
@@ -50,7 +50,7 @@ struct GraphStoreTests {
         let store = GraphStore()
 
         let noteNode = makeNode(id: "n1", type: .note, label: "My Note")
-        let conceptNode = makeNode(id: "n2", type: .concept, label: "Epistemology")
+        let conceptNode = makeNode(id: "n2", type: .tag, label: "Epistemology")
 
         store.addNode(noteNode)
         store.addNode(conceptNode)
@@ -62,7 +62,7 @@ struct GraphStoreTests {
         #expect(notes.count == 1)
         #expect(notes.first?.label == "My Note")
 
-        let concepts = store.nodes(ofType: .concept)
+        let concepts = store.nodes(ofType: .tag)
         #expect(concepts.count == 1)
         #expect(concepts.first?.id == "n2")
     }

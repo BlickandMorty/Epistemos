@@ -151,6 +151,11 @@ final class NoteWindowManager {
         windows.first(where: { $0.value === window })?.key
     }
 
+    /// Forward lookup: find the NSWindow for a given pageId.
+    func window(for pageId: String) -> NSWindow? {
+        windows[pageId]
+    }
+
     private func handleWindowClose(_ window: NSWindow, pageId: String) {
         if let observer = observers.removeValue(forKey: pageId) {
             NotificationCenter.default.removeObserver(observer)
@@ -283,6 +288,7 @@ private struct NoteTabView: View {
     @State private var showWriterMode = false
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
+    @State private var showTableOfContents = false
     /// Pre-selected idea tab when opened from right-click context menu.
     @State private var contextMenuIdeaTab: IdeasPanel.IdeaTab?
     /// Editor selection captured BEFORE the popover steals focus.
@@ -315,34 +321,50 @@ private struct NoteTabView: View {
                 NoteBreadcrumbBar(trail: breadcrumb, currentPageId: pageId, theme: ui.theme)
             }
 
-            ZStack {
-                if let page = pages.first {
-                    if showWriterMode {
-                        WriterModeView(page: page, isDark: ui.theme.isDark, isLocked: page.isLocked)
-                            .frame(minWidth: 400, minHeight: 300)
-                    } else if showPreview {
-                        NotePreviewView(body: page.body, isDark: ui.theme.isDark)
-                            .frame(minWidth: 400, minHeight: 300)
+            HStack(spacing: 0) {
+                ZStack {
+                    if let page = pages.first {
+                        if showWriterMode {
+                            WriterModeView(page: page, isDark: ui.theme.isDark, theme: ui.theme, isLocked: page.isLocked)
+                                .frame(minWidth: 400, minHeight: 300)
+                        } else if showPreview {
+                            NotePreviewView(body: page.body, isDark: ui.theme.isDark)
+                                .frame(minWidth: 400, minHeight: 300)
+                        } else {
+                            ProseEditorView(page: page, isEditable: !page.isLocked)
+                                .frame(minWidth: 400, minHeight: 300)
+                        }
                     } else {
-                        ProseEditorView(page: page, isEditable: !page.isLocked)
+                        ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
                             .frame(minWidth: 400, minHeight: 300)
                     }
-                } else {
-                    ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
-                        .frame(minWidth: 400, minHeight: 300)
+
+                    // Greeting overlay — always in the view tree (no insertion delay).
+                    // Opacity is flipped instantly to 1 before the mode swap, then
+                    // animated back to 0 after the new view has settled.
+                    TransitionGreetingView(
+                        message: transitionGreeting,
+                        theme: ui.theme
+                    )
+                    .opacity(transitionOpacity)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(transitionOpacity > 0)
                 }
 
-                // Greeting overlay — always in the view tree (no insertion delay).
-                // Opacity is flipped instantly to 1 before the mode swap, then
-                // animated back to 0 after the new view has settled.
-                TransitionGreetingView(
-                    message: transitionGreeting,
-                    theme: ui.theme
-                )
-                .opacity(transitionOpacity)
-                .ignoresSafeArea()
-                .allowsHitTesting(transitionOpacity > 0)
+                // Table of Contents sidebar
+                if showTableOfContents, let page = pages.first {
+                    Divider()
+                    NoteTableOfContents(
+                        markdown: page.body,
+                        isDark: ui.theme.isDark,
+                        onNavigate: { charOffset in
+                            scrollEditorTo(charOffset: charOffset)
+                        }
+                    )
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
+            .animation(.smooth(duration: 0.2), value: showTableOfContents)
         }
         .background(ui.theme.background)
         .toolbarBackground(.hidden, for: .windowToolbar)
@@ -389,7 +411,7 @@ private struct NoteTabView: View {
                 if let page = pages.first {
                     Button {
                         page.isPinned.toggle()
-                        try? modelContext.save()
+                        do { try modelContext.save() } catch { Log.notes.error("Save failed (pin toggle): \(error.localizedDescription, privacy: .private)") }
                     } label: {
                         Label("Pin", systemImage: page.isPinned ? "pin.fill" : "pin")
                     }
@@ -398,7 +420,7 @@ private struct NoteTabView: View {
 
                     Button {
                         page.isLocked.toggle()
-                        try? modelContext.save()
+                        do { try modelContext.save() } catch { Log.notes.error("Save failed (lock toggle): \(error.localizedDescription, privacy: .private)") }
                     } label: {
                         Label("Lock", systemImage: page.isLocked ? "lock.fill" : "lock.open")
                     }
@@ -440,6 +462,14 @@ private struct NoteTabView: View {
                     }
                 }
 
+                Button {
+                    withAnimation { showTableOfContents.toggle() }
+                } label: {
+                    Label("Contents", systemImage: showTableOfContents ? "list.bullet.indent" : "list.bullet")
+                }
+                .accessibilityLabel(showTableOfContents ? "Hide Table of Contents" : "Show Table of Contents")
+                .help("Table of Contents (⌘T)")
+
                 moreMenu
             }
         }
@@ -469,6 +499,9 @@ private struct NoteTabView: View {
             Button("") { toggleWriterMode() }
                 .keyboardShortcut("r", modifiers: .command)
                 .hidden()
+            Button("") { withAnimation { showTableOfContents.toggle() } }
+                .keyboardShortcut("t", modifiers: .command)
+                .hidden()
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)
                 .hidden()
@@ -478,7 +511,7 @@ private struct NoteTabView: View {
             Button("") {
                 if let page = pages.first {
                     page.isPinned.toggle()
-                    try? modelContext.save()
+                    do { try modelContext.save() } catch { Log.notes.error("Save failed (pin shortcut): \(error.localizedDescription, privacy: .private)") }
                 }
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
@@ -486,7 +519,7 @@ private struct NoteTabView: View {
             Button("") {
                 if let page = pages.first {
                     page.isLocked.toggle()
-                    try? modelContext.save()
+                    do { try modelContext.save() } catch { Log.notes.error("Save failed (lock shortcut): \(error.localizedDescription, privacy: .private)") }
                 }
             }
             .keyboardShortcut("l", modifiers: [.command, .shift])
@@ -539,6 +572,25 @@ private struct NoteTabView: View {
     private func captureSelectionAndOpenIdeas() {
         snapshotEditorSelection()
         showIdeasPopover.toggle()
+    }
+
+    // MARK: - Table of Contents Navigation
+
+    private func scrollEditorTo(charOffset: Int) {
+        // Find the active NSTextView and scroll to the character offset.
+        guard let window = NSApp.keyWindow else { return }
+        // Walk the responder chain to find the text view, or search subviews.
+        let textView: NSTextView? = window.firstResponder as? NSTextView
+            ?? window.contentView?.findFirstTextView()
+        guard let tv = textView else { return }
+
+        let safeOffset = min(charOffset, tv.string.count)
+        let range = NSRange(location: safeOffset, length: 0)
+        tv.setSelectedRange(range)
+        tv.scrollRangeToVisible(range)
+        // Flash the line briefly by selecting the whole line
+        let lineRange = (tv.string as NSString).lineRange(for: range)
+        tv.showFindIndicator(for: lineRange)
     }
 
     // MARK: - Editor Flush & Pool Reset (Mode Switching)
@@ -594,8 +646,8 @@ private struct NoteTabView: View {
         guard !isTransitioning else { return }
         guard !showPreview else { return }
         flushCurrentEditor()
-        invalidateEditorCache()
         performGreetingTransition {
+            invalidateEditorCache()
             showWriterMode.toggle()
         }
     }
@@ -604,8 +656,8 @@ private struct NoteTabView: View {
         guard !isTransitioning else { return }
         guard !showWriterMode else { return }
         flushCurrentEditor()
-        invalidateEditorCache()
         performGreetingTransition {
+            invalidateEditorCache()
             showPreview.toggle()
         }
     }
@@ -615,18 +667,24 @@ private struct NoteTabView: View {
         transitionGreeting = Self.greetings.randomElement() ?? "hey there..."
         isTransitioning = true
 
+        // Scale hold time for larger documents — more text = more layout work.
+        let bodyLength = pages.first?.body.count ?? 0
+        let holdTime: Double = bodyLength > 20_000 ? 1.4 : bodyLength > 5_000 ? 1.0 : 0.70
+
         // Instantly opaque — no animation, no insertion delay.
         // The overlay is already in the view tree, just invisible.
         transitionOpacity = 1
 
         // Swap mode after one frame (overlay is guaranteed visible).
+        // Cache invalidation happens inside modeSwap so the old editor
+        // isn't pulled out from under itself before SwiftUI tears it down.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             modeSwap()
         }
 
         // Hold long enough for the new view to fully settle + user reads,
         // then smooth fade out.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.70) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + holdTime) {
             withAnimation(.easeOut(duration: 0.35)) {
                 transitionOpacity = 0
             }
@@ -666,7 +724,7 @@ private struct NoteTabView: View {
             if let page = pages.first {
                 Button {
                     page.isFavorite.toggle()
-                    try? modelContext.save()
+                    do { try modelContext.save() } catch { Log.notes.error("Save failed (favorite toggle): \(error.localizedDescription, privacy: .private)") }
                 } label: {
                     Label(page.isFavorite ? "Unfavorite" : "Favorite",
                           systemImage: page.isFavorite ? "star.fill" : "star")
@@ -838,7 +896,7 @@ private struct IdeasPanel: View {
     private func writeIdeas(_ ideas: [NoteIdea]) {
         page.ideasData = try? JSONEncoder().encode(ideas)
         page.updatedAt = .now
-        try? modelContext.save()
+        do { try modelContext.save() } catch { Log.notes.error("Save failed (write ideas): \(error.localizedDescription, privacy: .private)") }
     }
 
     var body: some View {
@@ -1381,9 +1439,7 @@ private struct IdeaRow: View {
                         .lineLimit(isExpanded ? nil : 1)
 
                     if !item.body.isEmpty {
-                        let displayText = (showFormatted && item.formattedBody != nil)
-                            ? item.formattedBody!
-                            : item.body
+                        let displayText = (showFormatted ? item.formattedBody : nil) ?? item.body
                         Text(displayText)
                             .font(.system(size: 11))
                             .foregroundStyle(theme.mutedForeground)
@@ -1753,5 +1809,18 @@ private struct TransitionGreetingView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
         }
+    }
+}
+
+// MARK: - NSView Helper
+
+private extension NSView {
+    /// Recursively find the first NSTextView in the subview hierarchy.
+    func findFirstTextView() -> NSTextView? {
+        for subview in subviews {
+            if let tv = subview as? NSTextView { return tv }
+            if let found = subview.findFirstTextView() { return found }
+        }
+        return nil
     }
 }

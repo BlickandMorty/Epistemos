@@ -2,9 +2,12 @@ import Foundation
 import SwiftData
 
 // MARK: - EntityExtractor
-// AI-powered entity extraction that scans notes and chats to find thinkers,
-// concepts, quotes, sources, and insights. Uses the user's configured LLM
-// to extract entities and builds graph nodes + edges from the results.
+// AI-powered entity extraction that scans notes and chats to find sources,
+// quotes, tags, and ideas. Uses the user's configured LLM to extract entities
+// and builds graph nodes + edges from the results.
+//
+// Updated for 7-type model: sources (absorbs thinkers/papers/books),
+// tags (absorbs concepts), ideas (absorbs insights/brainDumps).
 
 @MainActor
 final class EntityExtractor {
@@ -22,8 +25,8 @@ final class EntityExtractor {
         graphState.scanProgress = 0
         graphState.scanStatus = "Rebuilding structural graph..."
 
-        // 1. Run StructuralGraphBuilder first (build + persist + reload)
-        let builder = StructuralGraphBuilder()
+        // 1. Run GraphBuilder first (build + persist + reload)
+        let builder = GraphBuilder()
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
         graphState.loadGraph(context: context)
@@ -47,19 +50,17 @@ final class EntityExtractor {
                 batchContent += "--- Note: \(page.title) ---\n\(bodySnippet)\n\n"
             }
 
-            // Build extraction prompt
+            // Build extraction prompt (7-type model: sources, quotes, tags)
             let prompt = """
                 Extract entities from the following notes. Return ONLY valid JSON matching this exact schema:
-                {"thinkers": [{"name": "string", "role": "string or null", "confidence": 0.0-1.0}],
-                 "concepts": [{"name": "string", "description": "string or null"}],
+                {"sources": [{"name": "string", "url": "string or null", "title": "string or null", "type": "string or null"}],
                  "quotes": [{"text": "string", "attribution": "string or null", "context": "string or null"}],
-                 "sources": [{"url": "string or null", "title": "string or null", "type": "string or null"}]}
+                 "tags": [{"name": "string", "description": "string or null"}]}
 
                 Rules:
-                - Thinkers: Named real people (philosophers, scientists, authors). NOT the note author.
-                - Concepts: Abstract themes that appear substantively.
+                - Sources: Named people (philosophers, scientists, authors), URLs, papers, books. Include the person/work name.
                 - Quotes: Direct quotations with clear attribution.
-                - Sources: URLs, paper titles, or book titles.
+                - Tags: Abstract themes or concepts that appear substantively.
                 - Empty array [] if none found.
                 - Deduplicate within batch.
 
@@ -83,8 +84,8 @@ final class EntityExtractor {
             graphState.scanProgress = completed / totalWork
         }
 
-        // 3. Fetch all SDChat with >2 messages for insight extraction
-        graphState.scanStatus = "Extracting insights from chats..."
+        // 3. Fetch all SDChat with >2 messages for idea extraction
+        graphState.scanStatus = "Extracting ideas from chats..."
         let allChats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []
         let substantiveChats = allChats.filter { ($0.messages ?? []).count > 2 }
 
@@ -97,14 +98,14 @@ final class EntityExtractor {
             }
 
             let prompt = """
-                Extract key insights from this conversation titled "\(chat.title)". Return ONLY valid JSON:
-                {"insights": [{"summary": "string", "evidenceGrade": "A/B/C/D/F or null", "relatedEntities": ["string"]}],
-                 "sourcesShared": [{"url": "string or null", "title": "string or null"}],
-                 "thinkersDiscussed": [{"name": "string", "context": "string or null"}]}
+                Extract key ideas from this conversation titled "\(chat.title)". Return ONLY valid JSON:
+                {"ideas": [{"summary": "string", "evidenceGrade": "A/B/C/D/F or null", "relatedEntities": ["string"]}],
+                 "sourcesShared": [{"url": "string or null", "title": "string or null"}]}
 
                 Rules:
-                - Insights: 2-4 most significant conclusions. Not small talk.
+                - Ideas: 2-4 most significant conclusions or insights. Not small talk.
                 - Evidence grade: A = strong evidence, F = speculation.
+                - Sources: Any URLs or references shared during the conversation.
 
                 Conversation:
                 \(messagesText)
@@ -112,8 +113,8 @@ final class EntityExtractor {
 
             do {
                 let response = try await llmService.generate(prompt: prompt, maxTokens: 2000)
-                if let insightResult = parseJSON(response, as: InsightExtractionResult.self) {
-                    processInsightResult(insightResult, sourceChat: chat, context: context)
+                if let ideaResult = parseJSON(response, as: InsightExtractionResult.self) {
+                    processIdeaResult(ideaResult, sourceChat: chat, context: context)
                 } else {
                     Log.app.info("EntityExtractor: failed to parse JSON for chat '\(chat.title, privacy: .public)'")
                 }
@@ -141,34 +142,24 @@ final class EntityExtractor {
         sourcePages: [SDPage],
         context: ModelContext
     ) {
-        // For each source page, find or create a reference node
         let sourceNodeIds: [String] = sourcePages.compactMap { page in
             findSDGraphNode(type: .note, sourceId: page.id, context: context)?.id
         }
 
-        // Thinkers
-        for thinker in extraction.thinkers {
-            let node = findOrCreateNode(type: .thinker, label: thinker.name, context: context)
-            if let role = thinker.role {
+        // Sources (absorbs thinkers, papers, books)
+        for source in extraction.sources {
+            let node = findOrCreateSourceNode(
+                url: source.url,
+                title: source.title ?? source.name,
+                context: context
+            )
+            if let sourceType = source.type {
                 var meta = node.meta
-                meta.clusterTheme = role
+                meta.clusterTheme = sourceType
                 node.meta = meta
             }
             for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: node.id, target: sourceId, type: .mentionedIn, context: context)
-            }
-        }
-
-        // Concepts
-        for concept in extraction.concepts {
-            let node = findOrCreateNode(type: .concept, label: concept.name, context: context)
-            if let desc = concept.description {
-                var meta = node.meta
-                meta.abstract = desc
-                node.meta = meta
-            }
-            for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: node.id, target: sourceId, type: .appearsIn, context: context)
+                createEdgeIfNeeded(source: node.id, target: sourceId, type: .cites, context: context)
             }
         }
 
@@ -182,26 +173,26 @@ final class EntityExtractor {
 
             // Link to source notes
             for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: quoteNode.id, target: sourceId, type: .extractedFrom, context: context)
+                createEdgeIfNeeded(source: quoteNode.id, target: sourceId, type: .reference, context: context)
             }
 
-            // Link to attribution thinker if present
+            // Link to attribution source if present
             if let attribution = quote.attribution, !attribution.isEmpty {
-                let thinkerNode = findOrCreateNode(type: .thinker, label: attribution, context: context)
-                createEdgeIfNeeded(source: quoteNode.id, target: thinkerNode.id, type: .attributedTo, context: context)
+                let sourceNode = findOrCreateNode(type: .source, label: attribution, context: context)
+                createEdgeIfNeeded(source: quoteNode.id, target: sourceNode.id, type: .quotes, context: context)
             }
         }
 
-        // Sources
-        for source in extraction.sources {
-            let node = findOrCreateSourceNode(url: source.url, title: source.title, context: context)
-            if let sourceType = source.type {
+        // Tags (absorbs concepts)
+        for tag in extraction.tags {
+            let node = findOrCreateNode(type: .tag, label: tag.name, context: context)
+            if let desc = tag.description {
                 var meta = node.meta
-                meta.clusterTheme = sourceType
+                meta.abstract = desc
                 node.meta = meta
             }
             for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: node.id, target: sourceId, type: .citedIn, context: context)
+                createEdgeIfNeeded(source: sourceId, target: node.id, type: .tagged, context: context)
             }
         }
 
@@ -212,79 +203,61 @@ final class EntityExtractor {
         }
     }
 
-    // MARK: - Process Insight Result (Chats)
+    // MARK: - Process Idea Result (Chats)
 
-    private func processInsightResult(
-        _ insightResult: InsightExtractionResult,
+    private func processIdeaResult(
+        _ ideaResult: InsightExtractionResult,
         sourceChat: SDChat,
         context: ModelContext
     ) {
-        // Find or locate the chat node in the graph
         let chatNode = findSDGraphNode(type: .chat, sourceId: sourceChat.id, context: context)
         let chatNodeId = chatNode?.id
 
-        // Insights — always create new node
-        for insight in insightResult.insights {
-            let insightNode = SDGraphNode(type: .insight, label: String(insight.summary.prefix(80)))
+        // Ideas (absorbs insights)
+        for idea in ideaResult.ideas {
+            let ideaNode = SDGraphNode(type: .idea, label: String(idea.summary.prefix(80)))
             var meta = GraphNodeMetadata()
-            meta.evidenceGrade = insight.evidenceGrade
+            meta.evidenceGrade = idea.evidenceGrade
             meta.originChatId = sourceChat.id
-            insightNode.meta = meta
-            context.insert(insightNode)
+            ideaNode.meta = meta
+            context.insert(ideaNode)
 
-            // Link insight back to source chat
+            // Link idea back to source chat
             if let chatId = chatNodeId {
-                createEdgeIfNeeded(source: insightNode.id, target: chatId, type: .extractedFrom, context: context)
+                createEdgeIfNeeded(source: ideaNode.id, target: chatId, type: .reference, context: context)
             }
 
-            // Link to related entities mentioned in the insight
-            if let related = insight.relatedEntities {
+            // Link to related entities mentioned in the idea
+            if let related = idea.relatedEntities {
                 for entityName in related {
-                    // Try to find an existing concept or thinker node
                     if let existingNode = findExistingNodeByLabel(entityName, context: context) {
-                        createEdgeIfNeeded(source: insightNode.id, target: existingNode.id, type: .relatesTo, context: context)
+                        createEdgeIfNeeded(source: ideaNode.id, target: existingNode.id, type: .related, context: context)
                     }
                 }
             }
         }
 
         // Sources shared in chat
-        for source in insightResult.sourcesShared {
+        for source in ideaResult.sourcesShared {
             let node = findOrCreateSourceNode(url: source.url, title: source.title, context: context)
             if let chatId = chatNodeId {
-                createEdgeIfNeeded(source: node.id, target: chatId, type: .sharedIn, context: context)
-            }
-        }
-
-        // Thinkers discussed
-        for thinker in insightResult.thinkersDiscussed {
-            let node = findOrCreateNode(type: .thinker, label: thinker.name, context: context)
-            if let ctx = thinker.context {
-                var meta = node.meta
-                meta.clusterTheme = ctx
-                node.meta = meta
-            }
-            if let chatId = chatNodeId {
-                createEdgeIfNeeded(source: node.id, target: chatId, type: .discussedIn, context: context)
+                createEdgeIfNeeded(source: node.id, target: chatId, type: .reference, context: context)
             }
         }
 
         do {
             try context.save()
         } catch {
-            Log.app.error("EntityExtractor: failed to save insight results — \(error.localizedDescription, privacy: .public)")
+            Log.app.error("EntityExtractor: failed to save idea results — \(error.localizedDescription, privacy: .public)")
         }
     }
 
     // MARK: - Find or Create Node
 
-    /// Find an existing node by type + label (case-insensitive), incrementing weight if found.
-    /// Creates a new node if none exists.
     private func findOrCreateNode(type: GraphNodeType, label: String, context: ModelContext) -> SDGraphNode {
         let normalizedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let typeRaw = type.rawValue
 
-        // Query for existing node with matching type and label
         let descriptor = FetchDescriptor<SDGraphNode>(
             predicate: #Predicate { $0.type == typeRaw && $0.label == normalizedLabel }
         )
@@ -294,13 +267,11 @@ final class EntityExtractor {
             return existing
         }
 
-        // Create new node
         let node = SDGraphNode(type: type, label: normalizedLabel)
         context.insert(node)
         return node
     }
 
-    /// Find an existing SDGraphNode by type and sourceId.
     private func findSDGraphNode(type: GraphNodeType, sourceId: String, context: ModelContext) -> SDGraphNode? {
         let typeRaw = type.rawValue
         let descriptor = FetchDescriptor<SDGraphNode>(
@@ -309,7 +280,6 @@ final class EntityExtractor {
         return (try? context.fetch(descriptor))?.first
     }
 
-    /// Find any existing node by label (case-insensitive search across types).
     private func findExistingNodeByLabel(_ label: String, context: ModelContext) -> SDGraphNode? {
         let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let descriptor = FetchDescriptor<SDGraphNode>(
@@ -318,11 +288,9 @@ final class EntityExtractor {
         return (try? context.fetch(descriptor))?.first
     }
 
-    /// Find or create a source node by URL or title.
     private func findOrCreateSourceNode(url: String?, title: String?, context: ModelContext) -> SDGraphNode {
         let typeRaw = GraphNodeType.source.rawValue
 
-        // Try to find by URL first
         if let url, !url.isEmpty {
             let descriptor = FetchDescriptor<SDGraphNode>(
                 predicate: #Predicate { $0.type == typeRaw && $0.sourceId == url }
@@ -334,7 +302,6 @@ final class EntityExtractor {
             }
         }
 
-        // Try to find by title
         if let title, !title.isEmpty {
             let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
             let descriptor = FetchDescriptor<SDGraphNode>(
@@ -347,7 +314,6 @@ final class EntityExtractor {
             }
         }
 
-        // Create new source node
         let label = title ?? url ?? "Unknown Source"
         let node = SDGraphNode(type: .source, label: label.trimmingCharacters(in: .whitespacesAndNewlines), sourceId: url)
         if let url {
@@ -361,7 +327,6 @@ final class EntityExtractor {
 
     // MARK: - Create Edge If Needed
 
-    /// Create an edge between two nodes if one does not already exist.
     private func createEdgeIfNeeded(source: String, target: String, type: GraphEdgeType, context: ModelContext) {
         let typeRaw = type.rawValue
         let descriptor = FetchDescriptor<SDGraphEdge>(
@@ -370,7 +335,7 @@ final class EntityExtractor {
             }
         )
         if let existing = try? context.fetch(descriptor), !existing.isEmpty {
-            return  // Edge already exists
+            return
         }
 
         let edge = SDGraphEdge(source: source, target: target, type: type)
@@ -379,27 +344,22 @@ final class EntityExtractor {
 
     // MARK: - JSON Parsing
 
-    /// Parse JSON from LLM response, handling markdown code fences and whitespace.
     private func parseJSON<T: Decodable>(_ text: String, as type: T.Type) -> T? {
-        // Strip <thinking> blocks (extended thinking models)
         var cleaned = text.replacingOccurrences(
             of: "<thinking>[\\s\\S]*?</thinking>",
             with: "",
             options: .regularExpression
         )
-        // Strip markdown code fences
         cleaned = cleaned.replacingOccurrences(of: "```json", with: "", options: .caseInsensitive)
         cleaned = cleaned.replacingOccurrences(of: "```", with: "")
         cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Find the outermost { ... }
         guard let firstBrace = cleaned.firstIndex(of: "{"),
               let lastBrace = cleaned.lastIndex(of: "}") else {
             return nil
         }
         var jsonStr = String(cleaned[firstBrace...lastBrace])
 
-        // Strip trailing commas before } or ] — common with GPT/Gemini/Kimi
         jsonStr = jsonStr.replacingOccurrences(
             of: ",\\s*([}\\]])",
             with: "$1",

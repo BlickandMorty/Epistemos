@@ -217,15 +217,23 @@ struct VaultOrganizerView: View {
             }.joined(separator: ",\n")
 
             // Collect all existing tags for consistency
-            let existingTags = Set(allPages.flatMap(\.tags)).sorted().prefix(30)
+            let existingTags = Set(allPages.flatMap(\.tags)).sorted().prefix(50)
             let existingTagsList = existingTags.isEmpty ? "none yet" : existingTags.joined(separator: ", ")
+
+            // Include vault manifest for cross-note context awareness
+            var vaultContext = ""
+            if let manifest = AppBootstrap.shared?.ambientManifest {
+                vaultContext = "\n\nVault overview for context (use existing tags and themes):\n" + manifest.asManifestOnly()
+            }
 
             let prompt = """
             Suggest 2-4 tags for each note. Prefer reusing existing tags when relevant.
+            Consider thematic connections between notes when choosing tags.
             Existing tags in vault: [\(existingTagsList)]
 
             Notes:
             [\(pagesJSON)]
+            \(vaultContext)
 
             Return ONLY a JSON array: [{"index": 0, "tags": ["tag1", "tag2"]}, ...]
             Use lowercase, short tags (1-2 words). No explanations.
@@ -294,13 +302,14 @@ struct VaultOrganizerView: View {
             let batch = Array(pages[batchStart..<batchEnd])
 
             let pagesJSON = batch.enumerated().map { i, page in
-                """
-                {"index": \(i), "title": "\(page.title.replacingOccurrences(of: "\"", with: "'"))"}
+                let snippet = String(page.body.prefix(150)).replacingOccurrences(of: "\"", with: "'").replacingOccurrences(of: "\n", with: " ")
+                return """
+                {"index": \(i), "title": "\(page.title.replacingOccurrences(of: "\"", with: "'"))", "snippet": "\(snippet)"}
                 """
             }.joined(separator: ",\n")
 
             let prompt = """
-            Match each note to the most relevant folder, or "none" if no good fit.
+            Match each note to the most relevant folder based on its content, or "none" if no good fit.
             Available folders: [\(folderNames.map { "\"\($0)\"" }.joined(separator: ", "))]
 
             Notes:
@@ -327,11 +336,24 @@ struct VaultOrganizerView: View {
     }
 
     private func generateNewFolderSuggestions(for pages: [SDPage]) async {
-        let titles = pages.prefix(20).map(\.title)
-        let prompt = """
-        Given these note titles, suggest 3-5 folder names to organize them.
-        Titles: \(titles.map { "\"\($0)\"" }.joined(separator: ", "))
+        let titlesWithSnippets = pages.prefix(20).map { page in
+            let snippet = String(page.body.prefix(100)).replacingOccurrences(of: "\n", with: " ")
+            return "\"\(page.title)\" — \(snippet)"
+        }
 
+        var vaultHint = ""
+        if let manifest = AppBootstrap.shared?.ambientManifest {
+            let allTags = Set(manifest.entries.flatMap(\.tags)).sorted().prefix(20)
+            if !allTags.isEmpty {
+                vaultHint = "\nExisting vault themes/tags: \(allTags.joined(separator: ", "))\n"
+            }
+        }
+
+        let prompt = """
+        Given these notes, suggest 3-5 folder names to organize them thematically.
+        Notes:
+        \(titlesWithSnippets.joined(separator: "\n"))
+        \(vaultHint)
         Return ONLY a JSON array of folder names: ["Folder1", "Folder2", ...]
         Use clear, short names. No explanations.
         """

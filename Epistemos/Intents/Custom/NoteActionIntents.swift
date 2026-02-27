@@ -125,7 +125,11 @@ struct MoveNoteToFolderIntent: AppIntent {
         }
 
         page.folder = folder
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            return .result(dialog: "Failed to save: \(error.localizedDescription)")
+        }
 
         return .result(dialog: "Moved \"\(page.title)\" to \(folder.name).")
     }

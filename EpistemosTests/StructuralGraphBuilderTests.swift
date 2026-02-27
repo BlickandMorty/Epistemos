@@ -1,8 +1,8 @@
 import Testing
 @testable import Epistemos
 
-@Suite("StructuralGraphBuilder")
-struct StructuralGraphBuilderTests {
+@Suite("GraphBuilder")
+struct GraphBuilderTests {
 
     @Test("NoteIdea types map correctly to graph node types")
     func ideaTypeMapping() {

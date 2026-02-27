@@ -110,14 +110,18 @@ struct FindGapsIntent: AppIntent {
             relevantPages = Array(pages.prefix(10))
         }
 
-        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.body.prefix(200)))" }.joined(separator: "\n")
+        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.body.prefix(300)))" }.joined(separator: "\n")
+
+        // Inject vault manifest for full vault awareness
+        let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""
+        let fullPrompt = "Analyze these notes for knowledge gaps:\n\(notesSummary)\(manifestHint)"
 
         let triage = bootstrap.triageService
         let response = try await triage.generateGeneral(
-            prompt: "Analyze these notes for knowledge gaps:\n\(notesSummary)",
-            systemPrompt: "You are a research advisor. Identify 3-5 specific knowledge gaps or blind spots in the user's research notes. Focus on missing evidence, unexplored angles, and methodological gaps. Be specific and actionable.",
+            prompt: fullPrompt,
+            systemPrompt: "You are a research advisor with access to the user's full vault index. Identify 3-5 specific knowledge gaps or blind spots. Consider what the vault covers broadly versus what these specific notes address. Focus on missing evidence, unexplored angles, and methodological gaps. Be specific and actionable.",
             operation: .epistemicLens,
-            contentLength: notesSummary.count
+            contentLength: fullPrompt.count
         )
 
         let area = topic ?? "all research"

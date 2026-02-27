@@ -17,14 +17,21 @@ import os
 // Swift 6 note: DatabaseQueue is Sendable. All GRDB operations are in nonisolated
 // methods to avoid actor-hop overhead. The actor serializes only the async diff sync.
 
+enum SearchIndexError: Error {
+    case noAppSupportDirectory
+}
+
 actor SearchIndexService {
     private let log = Logger(subsystem: "com.epistemos", category: "SearchIndex")
     private let dbQueue: DatabaseQueue
 
     init() throws {
-        let appSupport = FileManager.default.urls(
+        guard let appSupportBase = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!.appendingPathComponent("Epistemos", isDirectory: true)
+        ).first else {
+            throw SearchIndexError.noAppSupportDirectory
+        }
+        let appSupport = appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
         try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
 
         let dbPath = appSupport.appendingPathComponent("search.sqlite").path

@@ -120,7 +120,11 @@ struct CreateJournalIntent: AppIntent {
             page.isJournal = true
             page.body = bodyText
             page.needsVaultSync = true
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Log.app.error("Journal save failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
 
         NoteWindowManager.shared.open(pageId: pageId)

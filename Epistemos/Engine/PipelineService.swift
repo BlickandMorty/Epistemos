@@ -174,7 +174,7 @@ final class PipelineService {
                         pipelineState.advanceStage(stage, result: startResult)
                         continuation.yield(.stageAdvanced(stage, startResult))
 
-                        try await Task.sleep(for: .milliseconds(100))
+                        try await Task.sleep(for: .milliseconds(20))
 
                         // Check for SOAR engagement on triage stage
                         if stage == .triage,
@@ -753,15 +753,15 @@ final class PipelineService {
         if let nc = notesContext {
             notesSection = """
 
-                ## User's Knowledge Base
-                You are in Notes Mode — the user is chatting with their personal vault. You have access to their notes below.
+                ## User's Knowledge Vault
+                The user has a personal knowledge vault attached. Note titles, metadata, and any @-referenced bodies are below.
 
                 Instructions:
-                - Reference specific notes by title when making connections
-                - Quote specific content from notes, don't paraphrase vaguely
-                - Identify contradictions, evolving ideas, and gaps across notes
-                - When the user asks about a topic, check if any notes are relevant before answering from general knowledge
-                - Be direct about what their notes say vs. what you know from training data
+                - When the query relates to topics in their notes, reference specific notes by title and quote content
+                - When the query is unrelated to their notes, answer from general knowledge WITHOUT mentioning the vault
+                - If the user explicitly asks about their notes or uses @-mentions, always engage with vault content
+                - Be clear about what their notes say vs. what you know from training data
+                - Identify contradictions, evolving ideas, and gaps across notes when relevant
 
                 \(nc)
                 """
@@ -813,21 +813,20 @@ final class PipelineService {
         }
 
         // Inject conversation history for multi-turn context
-        let hasHistory = conversationHistory != nil && !conversationHistory!.isEmpty
         let finalSystemPrompt: String
         let finalPrompt: String
-        if hasHistory {
+        if let history = conversationHistory, !history.isEmpty {
             finalSystemPrompt =
                 systemPrompt
                 + "\n\nThe user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
-            finalPrompt = conversationHistory! + "\n\nUser: " + query
+            finalPrompt = history + "\n\nUser: " + query
         } else {
             finalSystemPrompt = systemPrompt
             finalPrompt = query
         }
 
         Log.pipeline.info(
-            "🔬 systemPrompt length=\(finalSystemPrompt.count) chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(hasHistory)"
+            "🔬 systemPrompt length=\(finalSystemPrompt.count) chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(conversationHistory != nil)"
         )
 
         return triageService.streamGeneral(

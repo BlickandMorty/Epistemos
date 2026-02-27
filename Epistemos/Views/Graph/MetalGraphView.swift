@@ -1,412 +1,664 @@
 import SwiftUI
 import MetalKit
+import Synchronization
+
+// MARK: - MetalGraphView
+// NSViewRepresentable wrapping a CAMetalLayer for the Rust graph engine.
+// Bridges SwiftUI ↔ Metal ↔ Rust FFI. The engine owns the render loop;
+// this view just provides the surface and forwards input events.
 
 struct MetalGraphView: NSViewRepresentable {
-    let graphState: GraphState
+    @Environment(GraphState.self) private var graphState
 
-    func makeNSView(context: Context) -> GraphMTKView {
-        let view = GraphMTKView()
-        guard let device = MTLCreateSystemDefaultDevice() else { return view }
-        view.device = device
-        view.delegate = context.coordinator
-        view.enableSetNeedsDisplay = false
-        view.isPaused = false
-        view.preferredFramesPerSecond = 60
-        view.colorPixelFormat = .bgra8Unorm
-        view.clearColor = MTLClearColor(red: 0.07, green: 0.07, blue: 0.09, alpha: 1.0)
-
-        // Create engine eagerly on main thread — avoids race between draw() and updateNSView()
-        if let layer = view.layer as? CAMetalLayer {
-            let devicePtr = Unmanaged.passUnretained(device).toOpaque()
-            let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
-            context.coordinator.engine = graph_engine_create(devicePtr, layerPtr)
-        }
-
-        // Register Rust→Swift callbacks using Coordinator as context
-        if let engine = context.coordinator.engine {
-            let ctx = Unmanaged.passUnretained(context.coordinator).toOpaque()
-
-            graph_engine_set_on_node_selected(engine, { (uuid: UnsafePointer<CChar>?, ctx: UnsafeMutableRawPointer?) in
-                guard let ctx else { return }
-                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
-                let id: String? = uuid != nil ? String(cString: uuid!) : nil
-                DispatchQueue.main.async { coord.handleNodeSelected(id) }
-            }, ctx)
-
-            graph_engine_set_on_node_right_clicked(engine, { (uuid: UnsafePointer<CChar>?, sx: Float, sy: Float, ctx: UnsafeMutableRawPointer?) in
-                guard let ctx, let uuid else { return }
-                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
-                let id = String(cString: uuid)
-                DispatchQueue.main.async { coord.handleRightClick(id, screenX: CGFloat(sx), screenY: CGFloat(sy)) }
-            }, ctx)
-
-            graph_engine_set_on_node_hovered(engine, { (uuid: UnsafePointer<CChar>?, ctx: UnsafeMutableRawPointer?) in
-                guard let ctx else { return }
-                let coord = Unmanaged<MetalGraphView.Coordinator>.fromOpaque(ctx).takeUnretainedValue()
-                let id: String? = uuid != nil ? String(cString: uuid!) : nil
-                DispatchQueue.main.async { coord.handleHover(id) }
-            }, ctx)
-        }
-
+    func makeNSView(context: Context) -> MetalGraphNSView {
+        let view = MetalGraphNSView()
+        view.graphState = graphState
         return view
     }
 
-    func updateNSView(_ nsView: GraphMTKView, context: Context) {
-        let coordinator = context.coordinator
-
-        // Resize on layout changes
-        if let engine = coordinator.engine {
-            let size = nsView.drawableSize
-            if size.width > 0, size.height > 0 {
-                graph_engine_resize(engine, UInt32(size.width), UInt32(size.height))
-            }
+    func updateNSView(_ nsView: MetalGraphNSView, context: Context) {
+        // Push force params if changed.
+        if nsView.lastForceConfigVersion != graphState.forceConfigVersion {
+            nsView.lastForceConfigVersion = graphState.forceConfigVersion
+            nsView.pushForceParams()
         }
 
-        // Push graph data to Rust engine when store is loaded and engine is ready
-        if graphState.isLoaded, !coordinator.hasLoadedData, let engine = coordinator.engine {
-            coordinator.loadGraphData(engine: engine, store: graphState.store)
-            coordinator.wake(nsView)   // Fresh data loaded → resume rendering
-        }
-
-        // Push visibility bitmask when filter state changes
-        if coordinator.hasLoadedData, let engine = coordinator.engine {
-            let currentHash = graphState.filter.activeNodeTypes.hashValue
-                ^ (graphState.filter.focusedNodeId?.hashValue ?? 0)
-                ^ graphState.filter.hiddenNodeIds.hashValue
-                ^ (graphState.filter.timelineDate?.hashValue ?? 0)
-            if currentHash != coordinator.lastFilterHash {
-                coordinator.lastFilterHash = currentHash
-                coordinator.pushVisibility(engine: engine, filter: graphState.filter, store: graphState.store)
-                coordinator.wake(nsView)   // Visibility changed → resume rendering
-            }
-        }
-
-        // Push physics config when sliders change
-        if coordinator.hasLoadedData, let engine = coordinator.engine {
-            let version = graphState.physicsConfigVersion
-            if version != coordinator.lastPhysicsConfigVersion {
-                coordinator.lastPhysicsConfigVersion = version
-                var cfg = CPhysicsConfig(
-                    center_force: graphState.physCenterForce,
-                    repel_force: graphState.physRepelForce,
-                    link_force: graphState.physLinkForce,
-                    link_distance: graphState.physLinkDistance,
-                    velocity_decay: graphState.physVelocityDecay,
-                    alpha_decay: graphState.physAlphaDecay
-                )
-                graph_engine_set_physics_config(engine, &cfg)
-                coordinator.wake(nsView)   // Physics reheated → resume rendering
-            }
-        }
-
-        // Camera commands
-        if graphState.pendingResetView, let engine = coordinator.engine {
-            graph_engine_reset_camera(engine)
+        // Handle pending actions.
+        if graphState.pendingResetView {
             graphState.pendingResetView = false
-            coordinator.wake(nsView)   // Camera animating → resume rendering
+            nsView.resetCamera()
         }
-        if let nodeId = graphState.pendingCenterNodeId, let engine = coordinator.engine {
-            nodeId.withCString { ptr in
-                graph_engine_center_on_node(engine, ptr)
-            }
+        if let nodeId = graphState.pendingCenterNodeId {
             graphState.pendingCenterNodeId = nil
-            coordinator.wake(nsView)   // Camera animating → resume rendering
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        let coord = Coordinator()
-        coord.graphStateRef = graphState
-        return coord
-    }
-
-    // MARK: - Coordinator
-
-    class Coordinator: NSObject, MTKViewDelegate {
-        /// Raw pointer to the Rust GraphEngine.
-        /// Created on main thread in makeNSView, read from display link in draw().
-        /// nonisolated(unsafe) because deinit needs to free the engine.
-        nonisolated(unsafe) var engine: UnsafeMutableRawPointer?
-        var hasLoadedData = false
-        var nodeInsertionOrder: [String] = []
-        var lastFilterHash: Int = 0
-        var lastPhysicsConfigVersion: Int = 0
-
-        /// Reference to graphState for publishing selection changes.
-        weak var graphStateRef: GraphState?
-
-        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-            if let engine {
-                graph_engine_resize(engine, UInt32(size.width), UInt32(size.height))
-            }
-        }
-
-        func draw(in view: MTKView) {
-            if let engine {
-                let needsMore = graph_engine_render(engine)
-                if needsMore == 0 {
-                    // Physics settled + camera static → stop burning GPU
-                    view.isPaused = true
-                }
-            }
-        }
-
-        /// Resume rendering — called by mouse/scroll/pinch events and config changes.
-        func wake(_ view: MTKView) {
-            if view.isPaused {
-                view.isPaused = false
-            }
-        }
-
-        // MARK: - Callback Handlers
-
-        @MainActor
-        func handleNodeSelected(_ uuid: String?) {
-            graphStateRef?.selectNode(uuid)
-        }
-
-        @MainActor
-        func handleRightClick(_ uuid: String, screenX: CGFloat, screenY: CGFloat) {
-            // TODO: Show context menu (can be wired later)
-        }
-
-        @MainActor
-        func handleHover(_ uuid: String?) {
-            if uuid != nil {
-                NSCursor.pointingHand.set()
-            } else {
-                NSCursor.arrow.set()
-            }
-        }
-
-        // MARK: - Data Loading
-
-        /// Push graph data from the Swift GraphStore into the Rust engine via C FFI.
-        /// String lifetimes are guaranteed by calling FFI inside withCString closures.
-        @MainActor
-        func loadGraphData(engine: UnsafeMutableRawPointer, store: GraphStore) {
-            graph_engine_clear(engine)
-
-            // Map GraphNodeType → Rust u8
-            let nodeTypeToU8: [GraphNodeType: UInt8] = [
-                .note: 0, .folder: 1, .idea: 2, .brainDump: 3, .chat: 4,
-                .insight: 5, .thinker: 6, .paper: 7, .book: 8, .source: 9,
-                .concept: 10, .tag: 11, .quote: 12,
-            ]
-
-            // Send nodes one at a time — withCString keeps pointers alive for the FFI call.
-            // Capture insertion order so visibility bitmask indices match Rust's node array.
-            var orderedIds: [String] = []
-            for node in store.nodes.values {
-                orderedIds.append(node.id)
-                node.id.withCString { uuidPtr in
-                    node.label.withCString { labelPtr in
-                        var cNode = CNode(
-                            uuid: uuidPtr,
-                            x: node.position.x,
-                            y: node.position.y,
-                            node_type: nodeTypeToU8[node.type] ?? 0,
-                            weight: Float(node.weight),
-                            label: labelPtr
-                        )
-                        graph_engine_add_nodes(engine, &cNode, 1)
-                    }
-                }
-            }
-            nodeInsertionOrder = orderedIds
-
-            // Send edges one at a time
-            for edge in store.edges.values {
-                edge.sourceNodeId.withCString { srcPtr in
-                    edge.targetNodeId.withCString { tgtPtr in
-                        var cEdge = CEdge(
-                            source_uuid: srcPtr,
-                            target_uuid: tgtPtr,
-                            edge_type: 0,
-                            weight: Float(edge.weight)
-                        )
-                        graph_engine_add_edges(engine, &cEdge, 1)
-                    }
-                }
-            }
-
-            // Commit — triggers circular layout + starts physics thread
-            graph_engine_commit(engine)
-
-            // Start animation to fit all nodes in view
-            graph_engine_fit_all(engine)
-
-            hasLoadedData = true
-
-            let nc = graph_engine_node_count(engine)
-            let ec = graph_engine_edge_count(engine)
-            Log.app.info("MetalGraphView: loaded \(nc) nodes, \(ec) edges into Rust engine")
-        }
-
-        // MARK: - Visibility
-
-        /// Build a uint8_t bitmask from FilterEngine state and push it to Rust.
-        @MainActor
-        func pushVisibility(engine: UnsafeMutableRawPointer, filter: FilterEngine, store: GraphStore) {
-            guard !nodeInsertionOrder.isEmpty else { return }
-            var mask = [UInt8](repeating: 0, count: nodeInsertionOrder.count)
-            for (i, nodeId) in nodeInsertionOrder.enumerated() {
-                if let node = store.nodes[nodeId], filter.isNodeVisible(node) {
-                    mask[i] = 1
-                }
-            }
-            mask.withUnsafeBufferPointer { ptr in
-                graph_engine_set_visibility(engine, ptr.baseAddress, ptr.count)
-            }
-        }
-
-        deinit {
-            if let engine {
-                graph_engine_destroy(engine)
-            }
+            nsView.centerOnNode(nodeId)
         }
     }
 }
 
-/// MTKView subclass that accepts first responder for trackpad/mouse events.
-///
-/// All coordinates sent to Rust are in **drawable pixels** (not AppKit points).
-/// On retina displays, multiply point coords by `backingScaleFactor` (e.g., 2×)
-/// to match the Metal shader's viewport coordinate system.
-class GraphMTKView: MTKView {
-    var engine: UnsafeMutableRawPointer? {
-        (delegate as? MetalGraphView.Coordinator)?.engine
-    }
+// MARK: - MetalGraphNSView
+// NSView subclass that owns the CAMetalLayer and Rust engine pointer.
+// Uses CVDisplayLink for frame pacing (only renders when the engine requests it).
 
-    /// Retina scale: point × scale = drawable pixel
-    private var scale: Float {
-        Float(window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0)
-    }
+final class MetalGraphNSView: NSView {
+    nonisolated(unsafe) private var engine: OpaquePointer?
+    private var displayLink: CVDisplayLink?
+    private var metalLayer: CAMetalLayer?
+    private var needsRender = true
 
-    /// Resume MTKView rendering when the user interacts.
-    private func wakeRenderer() {
-        if isPaused { isPaused = false }
-    }
+    /// Frame coalescing: prevents queuing multiple render dispatches.
+    /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
+    nonisolated(unsafe) private let framePending = Atomic<Bool>(false)
 
-    override var acceptsFirstResponder: Bool { true }
+    var graphState: GraphState?
+    var lastForceConfigVersion = 0
+    var lastGraphDataVersion = 0
+    /// Current search query text (bound by the search sidebar).
+    var searchQuery: String = ""
 
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        guard window != nil else { return }
-        window?.makeFirstResponder(self)
-        wakeRenderer()
-        // Force full data reload on next updateNSView (Obsidian-style fresh start)
-        if let coord = delegate as? MetalGraphView.Coordinator {
-            coord.hasLoadedData = false
+    /// Callback for background tap (click without drag). Used for click-outside dismiss.
+    var onBackgroundTap: (() -> Void)?
+    private var mouseDownLocation: CGPoint?
+    private var isDraggingNode = false
+    private var isPanning = false
+    /// Mini mode window drag tracking.
+    private var isDraggingWindow = false
+    private var windowDragOrigin: NSPoint?
+    private var windowFrameOrigin: NSPoint?
+
+    // Track whether graph data has been committed.
+    private(set) var isCommitted = false
+
+    /// When true, uses transparent clear color so blur shows through (hologram overlay mode).
+    var isOverlayMode = false
+
+    /// When true, the view is in the mini floating panel. Background taps are disabled
+    /// and Option+drag moves the parent window (holographic drag).
+    var isMiniMode = false
+
+    /// When true, uses darker node/edge/label colors for light backgrounds.
+    var isLightMode = false {
+        didSet {
+            guard isLightMode != oldValue, let engine else { return }
+            graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
         }
     }
 
-    // MARK: - Tracking Areas (enables mouseMoved)
+    // MARK: - Setup
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        trackingAreas.forEach { removeTrackingArea($0) }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
-            owner: self,
-            userInfo: nil
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        setupMetal()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        wantsLayer = true
+        setupMetal()
+    }
+
+    override func makeBackingLayer() -> CALayer {
+        let layer = CAMetalLayer()
+        layer.pixelFormat = .bgra8Unorm
+        layer.framebufferOnly = false      // Required for transparent compositing.
+        layer.isOpaque = false             // Allow blur to show through.
+        layer.maximumDrawableCount = 3     // Triple buffer for smooth 120Hz ProMotion.
+        layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
+        self.metalLayer = layer
+        return layer
+    }
+
+    private func setupMetal() {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let layer = self.layer as? CAMetalLayer else { return }
+
+        layer.device = device
+        metalLayer = layer
+
+        // Create the Rust engine.
+        let devicePtr = Unmanaged.passUnretained(device).toOpaque()
+        let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
+        engine = graph_engine_create(devicePtr, layerPtr)
+
+        startDisplayLink()
+    }
+
+    // MARK: - Display Link
+
+    private func startDisplayLink() {
+        CVDisplayLinkCreateWithActiveCGDisplays(&displayLink)
+        guard let link = displayLink else { return }
+
+        // The Rust engine is NOT thread-safe — render must happen on the main thread.
+        // CVDisplayLink fires on a background thread, so dispatch to main with coalescing:
+        // if a frame is already pending dispatch, skip to avoid queuing backup at 120Hz.
+        let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
+            let view = Unmanaged<MetalGraphNSView>.fromOpaque(userInfo!).takeUnretainedValue()
+            if !view.framePending.load(ordering: .relaxed) {
+                view.framePending.store(true, ordering: .relaxed)
+                DispatchQueue.main.async {
+                    view.framePending.store(false, ordering: .relaxed)
+                    view.renderFrame()
+                }
+            }
+            return kCVReturnSuccess
+        }
+
+        CVDisplayLinkSetOutputCallback(link, callback, Unmanaged.passUnretained(self).toOpaque())
+        CVDisplayLinkStart(link)
+    }
+
+    private func stopDisplayLink() {
+        guard let link = displayLink else { return }
+        CVDisplayLinkStop(link)
+        displayLink = nil
+    }
+
+    /// Pause rendering and physics. Call when overlay is hidden.
+    func pauseEngine() {
+        stopDisplayLink()
+        if let engine { graph_engine_pause(engine) }
+    }
+
+    /// Resume rendering and physics. Call when overlay is shown.
+    func resumeEngine() {
+        if let engine { graph_engine_resume(engine) }
+        if displayLink == nil { startDisplayLink() }
+        needsRender = true
+    }
+
+    /// Set transparent clear color for hologram overlay mode.
+    /// Call after setting `isOverlayMode = true` (must happen after init since setupMetal runs during init).
+    func applyOverlayMode() {
+        guard isOverlayMode, let engine else { return }
+        graph_engine_set_clear_color(engine, 0, 0, 0, 0)
+        graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
+        metalLayer?.isOpaque = false
+    }
+
+    // MARK: - Graph Data Commit
+
+    /// Load all visible nodes and edges from the GraphStore into the Rust engine.
+    func commitGraphData() {
+        guard let engine, let graphState else { return }
+        let store = graphState.store
+        let filter = graphState.filter
+
+        graph_engine_clear(engine)
+
+        // Add visible nodes with link_count for radius sizing.
+        for (_, node) in store.nodes {
+            guard filter.isNodeVisible(node) else { continue }
+
+            node.id.withCString { uuidPtr in
+                node.label.withCString { labelPtr in
+                    graph_engine_add_node(
+                        engine,
+                        uuidPtr,
+                        node.position.x,
+                        node.position.y,
+                        node.type.rustIndex,
+                        store.linkCount(for: node.id),
+                        labelPtr
+                    )
+                }
+            }
+        }
+
+        // Add edges (only between visible nodes).
+        for (_, edge) in store.edges {
+            let srcVisible = store.nodes[edge.sourceNodeId].map { filter.isNodeVisible($0) } ?? false
+            let tgtVisible = store.nodes[edge.targetNodeId].map { filter.isNodeVisible($0) } ?? false
+            guard filter.isEdgeVisible(edge, sourceVisible: srcVisible, targetVisible: tgtVisible) else { continue }
+
+            edge.sourceNodeId.withCString { srcPtr in
+                edge.targetNodeId.withCString { tgtPtr in
+                    graph_engine_add_edge(engine, srcPtr, tgtPtr, Float(edge.weight))
+                }
+            }
+        }
+
+        // First commit gets the entrance animation (nodes cluster at center then expand).
+        let entrance: UInt8 = isCommitted ? 0 : 1
+        graph_engine_commit(engine, entrance)
+        pushForceParams()
+
+        // Transparent background for hologram overlay mode.
+        if isOverlayMode {
+            graph_engine_set_clear_color(engine, 0, 0, 0, 0)
+            graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
+        }
+
+        isCommitted = true
+        needsRender = true
+    }
+
+    // MARK: - Force Params
+
+    var lastExtendedForceConfigVersion: Int = 0
+
+    func pushForceParams() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_force_params(
+            engine,
+            graphState.linkDistance,
+            graphState.chargeStrength,
+            graphState.chargeRange,
+            graphState.linkStrength
         )
-        addTrackingArea(area)
     }
 
-    /// Convert AppKit location (bottom-left origin, points) to Rust screen coords
-    /// (top-left origin, drawable pixels). Matches Metal shader's viewport space.
-    private func toDrawablePixels(_ loc: NSPoint) -> (Float, Float) {
-        let s = scale
-        let px = Float(loc.x) * s
-        let py = Float(bounds.height - loc.y) * s  // Flip Y to top-down, then scale
-        return (px, py)
+    func pushExtendedForceParams() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_extended_force_params(
+            engine,
+            graphState.velocityDecay,
+            graphState.centerStrength,
+            graphState.collisionRadius,
+            graphState.warmth,
+            graphState.orbital
+        )
     }
 
-    // MARK: - Mouse Events
+    // MARK: - Camera
 
-    private var isDragging = false
-    /// True when the user clicked on a node → mouseDragged moves the node, not the camera.
-    private var isDraggingNode = false
-    private var lastDragPoint: NSPoint = .zero
+    func resetCamera() {
+        guard let engine else { return }
+        graph_engine_zoom_to_fit(engine)
+        needsRender = true
+    }
+
+    func zoomToFit() {
+        guard let engine else { return }
+        graph_engine_zoom_to_fit(engine)
+        needsRender = true
+    }
+
+    /// Zoom to fit, then magnify extra to get close on a small cluster (page mode).
+    func zoomInClose() {
+        guard let engine else { return }
+        graph_engine_zoom_to_fit(engine)
+        let scale = metalLayer?.contentsScale ?? 2.0
+        let cx = Float(bounds.width * 0.5 * scale)
+        let cy = Float(bounds.height * 0.5 * scale)
+        graph_engine_magnify(engine, cx, cy, 0.6)
+        needsRender = true
+    }
+
+    func centerOnNode(_ nodeId: String) {
+        guard let engine else { return }
+        graph_engine_center_camera(engine)
+        needsRender = true
+    }
+
+    // MARK: - Graph Mode
+
+    /// Set graph mode on the Rust engine: 0 = global, 1 = page.
+    func setGraphMode(_ mode: UInt8) {
+        guard let engine else { return }
+        graph_engine_set_mode(engine, mode)
+    }
+
+    /// Pass the note window's screen rect to the Rust engine for anchor-based positioning.
+    func setAnchorRect(_ rect: NSRect) {
+        guard let engine else { return }
+        let scale = metalLayer?.contentsScale ?? 2.0
+        graph_engine_set_anchor_rect(
+            engine,
+            Float(rect.origin.x * scale),
+            Float(rect.origin.y * scale),
+            Float(rect.width * scale),
+            Float(rect.height * scale)
+        )
+    }
+
+    /// Highlight nodes matching a search query. Empty string clears.
+    func searchHighlight(_ query: String) {
+        guard let engine else { return }
+        query.withCString { ptr in
+            graph_engine_search_highlight(engine, ptr)
+        }
+        needsRender = true
+    }
+
+    /// Isolate a node by UUID (highlight + center camera on it).
+    func isolateNode(_ uuid: String) {
+        guard let engine else { return }
+        uuid.withCString { ptr in
+            graph_engine_highlight_neighbors(engine, ptr)
+            graph_engine_center_on_node(engine, ptr)
+        }
+        needsRender = true
+    }
+
+    // MARK: - Render Loop
+
+    /// Render one frame. Must be called on the main thread.
+    private func renderFrame() {
+        guard let engine, isCommitted else { return }
+        guard let layer = metalLayer else { return }
+
+        // Sync force params if GraphState changed (handles hologram overlay mode
+        // where there's no SwiftUI update cycle to trigger updateNSView).
+        if let graphState, lastForceConfigVersion != graphState.forceConfigVersion {
+            lastForceConfigVersion = graphState.forceConfigVersion
+            pushForceParams()
+        }
+
+        // Sync extended force params (velocity decay, warmth, orbital, etc.).
+        if let graphState, lastExtendedForceConfigVersion != graphState.extendedForceConfigVersion {
+            lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
+            pushExtendedForceParams()
+        }
+
+        // Minimize request: post notification for the overlay to handle.
+        if let graphState, graphState.pendingMinimize {
+            graphState.pendingMinimize = false
+            NotificationCenter.default.post(name: .graphMinimizeRequested, object: nil)
+        }
+
+        // Re-commit graph data when mode/filter changes (e.g. Global↔Page toggle).
+        if let graphState, lastGraphDataVersion != graphState.graphDataVersion {
+            lastGraphDataVersion = graphState.graphDataVersion
+            let isPageMode: Bool = {
+                if case .page = graphState.mode { return true }
+                return false
+            }()
+            setGraphMode(isPageMode ? 1 : 0)
+            commitGraphData()
+            if isPageMode {
+                zoomInClose()
+            } else {
+                graph_engine_zoom_to_fit(engine)
+            }
+        }
+
+        let size = layer.drawableSize
+        let w = UInt32(size.width)
+        let h = UInt32(size.height)
+        guard w > 0, h > 0 else { return }
+
+        let result = graph_engine_render(engine, w, h)
+        needsRender = result != 0
+    }
+
+    // MARK: - Input Events
+
+    override var acceptsFirstResponder: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
         guard let engine else { return }
-        wakeRenderer()
         let loc = convert(event.locationInWindow, from: nil)
-        let (px, py) = toDrawablePixels(loc)
-        let hitNode = graph_engine_mouse_down(engine, px, py, 0)
-        isDragging = false
-        isDraggingNode = (hitNode != 0)
-        lastDragPoint = loc
-    }
+        mouseDownLocation = loc
+        let scale = metalLayer?.contentsScale ?? 2.0
+        let shift: UInt8 = event.modifierFlags.contains(.shift) ? 1 : 0
+        graph_engine_mouse_down(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale), shift)
 
-    override func rightMouseDown(with event: NSEvent) {
-        guard let engine else { return }
-        let loc = convert(event.locationInWindow, from: nil)
-        let (px, py) = toDrawablePixels(loc)
-        _ = graph_engine_mouse_down(engine, px, py, 1)
+        // Cursor feedback: closedHand for both node drag and pan.
+        if graph_engine_hovered_node_uuid(engine) != nil {
+            isDraggingNode = true
+        } else {
+            isPanning = true
+            // In mini mode, background drag moves the window.
+            if isMiniMode {
+                isDraggingWindow = true
+                windowDragOrigin = NSEvent.mouseLocation
+                windowFrameOrigin = window?.frame.origin
+            }
+        }
+        NSCursor.closedHand.set()
+        needsRender = true
     }
 
     override func mouseDragged(with event: NSEvent) {
         guard let engine else { return }
-        wakeRenderer()
-        let point = convert(event.locationInWindow, from: nil)
-        let s = scale
 
-        if isDraggingNode {
-            // Node drag: send absolute screen position → Rust converts to world coords
-            let (px, py) = toDrawablePixels(point)
-            graph_engine_mouse_dragged(engine, px, py)
-        } else {
-            // Camera pan: delta in drawable pixels (Y flipped by negation)
-            let dx = Float(point.x - lastDragPoint.x) * s
-            let dy = Float(point.y - lastDragPoint.y) * s
-
-            if !isDragging {
-                if abs(dx) + abs(dy) < 3 * s { return }
-                isDragging = true
-            }
-
-            graph_engine_pan(engine, dx, -dy)
+        // In mini mode, background drag moves the floating window.
+        if isMiniMode && isDraggingWindow, let origin = windowDragOrigin, let frameOrigin = windowFrameOrigin {
+            let current = NSEvent.mouseLocation
+            let dx = current.x - origin.x
+            let dy = current.y - origin.y
+            window?.setFrameOrigin(NSPoint(x: frameOrigin.x + dx, y: frameOrigin.y + dy))
+            return
         }
-        lastDragPoint = point
+
+        let loc = convert(event.locationInWindow, from: nil)
+        let scale = metalLayer?.contentsScale ?? 2.0
+        graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
+        needsRender = true
     }
 
     override func mouseUp(with event: NSEvent) {
         guard let engine else { return }
-        let loc = convert(event.locationInWindow, from: nil)
-        let (px, py) = toDrawablePixels(loc)
-        graph_engine_mouse_up(engine, px, py)
-        isDragging = false
+        graph_engine_mouse_up(engine)
+
+        // Sync selection state: node click → select, background click → deselect.
+        let uuidPtr = graph_engine_selected_node_uuid(engine)
+        if let uuidPtr {
+            let uuid = String(cString: uuidPtr)
+            graphState?.selectNode(uuid)
+        } else {
+            graphState?.selectNode(nil)
+
+            // Background tap: if mouse barely moved, treat as click-outside dismiss.
+            // Disabled in mini mode — mini graph stays open.
+            if !isMiniMode, let down = mouseDownLocation {
+                let up = convert(event.locationInWindow, from: nil)
+                let dx = up.x - down.x, dy = up.y - down.y
+                if dx * dx + dy * dy < 25 { // 5px threshold
+                    onBackgroundTap?()
+                }
+            }
+        }
+
+        // Reset cursor based on hover state.
+        if graph_engine_hovered_node_uuid(engine) != nil {
+            NSCursor.pointingHand.set()
+        } else {
+            NSCursor.arrow.set()
+        }
         isDraggingNode = false
+        isPanning = false
+        isDraggingWindow = false
+        windowDragOrigin = nil
+        windowFrameOrigin = nil
+        mouseDownLocation = nil
+        needsRender = true
+    }
+
+    // MARK: - Context Menu (Right-Click)
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        guard let engine else { return nil }
+
+        // Move hover to click location so Rust knows which node is under the cursor.
+        let loc = convert(event.locationInWindow, from: nil)
+        let scale = metalLayer?.contentsScale ?? 2.0
+        graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
+
+        guard let uuidPtr = graph_engine_hovered_node_uuid(engine) else { return nil }
+        let uuid = String(cString: uuidPtr)
+        guard let node = graphState?.store.nodes[uuid] else { return nil }
+
+        let menu = NSMenu()
+
+        // "Open Note" — only for note-type nodes that have a sourceId.
+        if node.type == .note, node.sourceId != nil {
+            let openItem = NSMenuItem(title: "Open Note", action: #selector(contextOpenNote(_:)), keyEquivalent: "")
+            openItem.target = self
+            openItem.representedObject = node.sourceId
+            openItem.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "Open Note")
+            menu.addItem(openItem)
+        }
+
+        // "Focus" — zoom into this node's neighborhood.
+        let focusItem = NSMenuItem(title: "Focus on Node", action: #selector(contextFocusNode(_:)), keyEquivalent: "")
+        focusItem.target = self
+        focusItem.representedObject = uuid
+        focusItem.image = NSImage(systemSymbolName: "scope", accessibilityDescription: "Focus")
+        menu.addItem(focusItem)
+
+        // "Highlight Neighbors"
+        let highlightItem = NSMenuItem(title: "Highlight Neighbors", action: #selector(contextHighlightNeighbors(_:)), keyEquivalent: "")
+        highlightItem.target = self
+        highlightItem.representedObject = uuid
+        highlightItem.image = NSImage(systemSymbolName: "circle.hexagongrid", accessibilityDescription: "Neighbors")
+        menu.addItem(highlightItem)
+
+        return menu
+    }
+
+    @objc private func contextOpenNote(_ sender: NSMenuItem) {
+        guard let pageId = sender.representedObject as? String else { return }
+        NoteWindowManager.shared.open(pageId: pageId)
+    }
+
+    @objc private func contextFocusNode(_ sender: NSMenuItem) {
+        guard let uuid = sender.representedObject as? String else { return }
+        isolateNode(uuid)
+        graphState?.selectNode(uuid)
+    }
+
+    @objc private func contextHighlightNeighbors(_ sender: NSMenuItem) {
+        guard let uuid = sender.representedObject as? String, let engine else { return }
+        uuid.withCString { ptr in
+            graph_engine_highlight_neighbors(engine, ptr)
+        }
+        needsRender = true
     }
 
     override func mouseMoved(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
-        let (px, py) = toDrawablePixels(loc)
-        graph_engine_mouse_moved(engine, px, py)
-    }
+        let scale = metalLayer?.contentsScale ?? 2.0
+        graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
 
-    // MARK: - Scroll / Pan
+        // Update cursor based on hover state (only when not dragging).
+        if !isDraggingNode && !isPanning {
+            if graph_engine_hovered_node_uuid(engine) != nil {
+                NSCursor.pointingHand.set()
+            } else {
+                NSCursor.arrow.set()
+            }
+        }
+        needsRender = true
+    }
 
     override func scrollWheel(with event: NSEvent) {
         guard let engine else { return }
-        wakeRenderer()
-        let s = scale
-        graph_engine_pan(engine, Float(event.scrollingDeltaX) * s, Float(event.scrollingDeltaY) * s)
+        let scale = metalLayer?.contentsScale ?? 2.0
+        let loc = convert(event.locationInWindow, from: nil)
+        let sx = Float(loc.x * scale)
+        let sy = Float((bounds.height - loc.y) * scale)
+
+        // Default scroll → zoom (game-like). Option+scroll → pan.
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if mods.contains(.option) {
+            // Option+scroll → pan.
+            let dx = Float(event.scrollingDeltaX * scale)
+            let dy = Float(event.scrollingDeltaY * scale)
+            graph_engine_scroll(engine, dx, dy)
+        } else {
+            // Zoom toward cursor (default for both trackpad and mouse wheel).
+            let sensitivity: Float = event.hasPreciseScrollingDeltas ? 0.005 : 0.06
+            let magnification = Float(event.scrollingDeltaY) * sensitivity
+            graph_engine_magnify(engine, sx, sy, magnification)
+        }
+        needsRender = true
     }
 
-    // MARK: - Pinch to Zoom
+    override func keyDown(with event: NSEvent) {
+        guard let engine else { super.keyDown(with: event); return }
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .numericPad, .function])
+
+        if mods == .command {
+            switch event.charactersIgnoringModifiers {
+            case "=", "+":
+                // Cmd+= → zoom in toward center.
+                let scale = metalLayer?.contentsScale ?? 2.0
+                let cx = Float(bounds.width * 0.5 * scale)
+                let cy = Float(bounds.height * 0.5 * scale)
+                graph_engine_magnify(engine, cx, cy, 0.15)
+                needsRender = true
+                return
+            case "-":
+                // Cmd+- → zoom out from center.
+                let scale = metalLayer?.contentsScale ?? 2.0
+                let cx = Float(bounds.width * 0.5 * scale)
+                let cy = Float(bounds.height * 0.5 * scale)
+                graph_engine_magnify(engine, cx, cy, -0.15)
+                needsRender = true
+                return
+            case "0":
+                // Cmd+0 → zoom to fit.
+                graph_engine_zoom_to_fit(engine)
+                needsRender = true
+                return
+            default:
+                break
+            }
+        }
+        super.keyDown(with: event)
+    }
 
     override func magnify(with event: NSEvent) {
         guard let engine else { return }
-        wakeRenderer()
         let loc = convert(event.locationInWindow, from: nil)
-        let (px, py) = toDrawablePixels(loc)
-        let factor = 1.0 + Float(event.magnification)
-        graph_engine_zoom(engine, factor, px, py)
+        let scale = metalLayer?.contentsScale ?? 2.0
+        graph_engine_magnify(
+            engine,
+            Float(loc.x * scale),
+            Float((bounds.height - loc.y) * scale),
+            Float(event.magnification)
+        )
+        needsRender = true
     }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
+    }
+
+    // MARK: - Layout
+
+    override func layout() {
+        super.layout()
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        metalLayer?.contentsScale = scale
+        metalLayer?.drawableSize = CGSize(
+            width: bounds.width * scale,
+            height: bounds.height * scale
+        )
+        needsRender = true
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil, !isCommitted, graphState?.isLoaded == true {
+            commitGraphData()
+        }
+    }
+
+    // MARK: - Cleanup
+
+    deinit {
+        stopDisplayLink()
+        if let engine {
+            graph_engine_destroy(engine)
+        }
+    }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let graphMinimizeRequested = Notification.Name("EpistemosGraphMinimizeRequested")
+    static let graphRestoreRequested = Notification.Name("EpistemosGraphRestoreRequested")
 }

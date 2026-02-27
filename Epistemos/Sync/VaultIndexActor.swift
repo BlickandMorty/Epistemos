@@ -801,7 +801,38 @@ actor VaultIndexActor {
 
     // MARK: - Vault Manifest for Notes Mode
 
-    /// Build a complete vault manifest for Notes Mode.
+    /// Build a lightweight manifest for ambient vault awareness.
+    /// Entries only — no recent bodies (those are loaded on-demand via @-mentions).
+    func buildAmbientManifest() -> VaultManifest? {
+        var descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { !$0.isArchived },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 500
+
+        guard let pages = try? modelContext.fetch(descriptor), !pages.isEmpty else { return nil }
+
+        let entries: [VaultManifest.ManifestEntry] = pages.map { page in
+            VaultManifest.ManifestEntry(
+                pageId: page.id,
+                title: page.title,
+                tags: page.tags,
+                folderName: page.folder?.name,
+                wordCount: page.wordCount,
+                snippet: page.summary.isEmpty ? page.title : page.summary,
+                updatedAt: page.updatedAt,
+                createdAt: page.createdAt
+            )
+        }
+
+        return VaultManifest(
+            entries: entries,
+            recentBodies: [],
+            generatedAt: .now
+        )
+    }
+
+    /// Build a complete vault manifest for vault briefing.
     /// Includes metadata for ALL non-archived notes + full bodies of the 20 most recent.
     func buildVaultManifest() -> VaultManifest? {
         var descriptor = FetchDescriptor<SDPage>(

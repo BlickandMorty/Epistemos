@@ -1,104 +1,120 @@
-use glam::Vec2;
+//! # Graph Data Structures
+//!
+//! Core types for the LogSeq-style graph engine.
+//! 7 node types (down from 13), explicit velocity model (d3-force style).
+
 use rustc_hash::FxHashMap;
 
-/// Node type enum — mirrors Swift GraphNodeType (13 types)
+/// Node type enum — 7 semantic categories.
+/// Idea merges BrainDump, Source merges Paper/Book/Thinker, Tag absorbs Concept.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NodeType {
     Note = 0,
-    Folder = 1,
+    Chat = 1,
     Idea = 2,
-    BrainDump = 3,
-    Chat = 4,
-    Insight = 5,
-    Thinker = 6,
-    Paper = 7,
-    Book = 8,
-    Source = 9,
-    Concept = 10,
-    Tag = 11,
-    Quote = 12,
+    Source = 3,
+    Folder = 4,
+    Quote = 5,
+    Tag = 6,
 }
 
 impl NodeType {
     pub fn from_u8(v: u8) -> Self {
         match v {
             0 => Self::Note,
-            1 => Self::Folder,
+            1 => Self::Chat,
             2 => Self::Idea,
-            3 => Self::BrainDump,
-            4 => Self::Chat,
-            5 => Self::Insight,
-            6 => Self::Thinker,
-            7 => Self::Paper,
-            8 => Self::Book,
-            9 => Self::Source,
-            10 => Self::Concept,
-            11 => Self::Tag,
-            12 => Self::Quote,
+            3 => Self::Source,
+            4 => Self::Folder,
+            5 => Self::Quote,
+            6 => Self::Tag,
             _ => Self::Note,
         }
     }
 
-    /// RGBA color for this node type.
+    /// RGBA color for this node type (dark mode — vibrant pastels on dark background).
     pub fn color(&self) -> [f32; 4] {
         match self {
-            Self::Note => [0.39, 0.90, 0.85, 1.0],
-            Self::Folder => [0.64, 0.52, 0.37, 1.0],
-            Self::Idea => [1.00, 0.84, 0.04, 1.0],
-            Self::BrainDump => [0.35, 0.34, 0.84, 1.0],
-            Self::Chat => [1.00, 0.62, 0.04, 1.0],
-            Self::Insight => [0.69, 0.32, 0.87, 1.0],
-            Self::Thinker => [1.00, 0.18, 0.33, 1.0],
-            Self::Paper => [0.20, 0.78, 0.35, 1.0],
-            Self::Book => [0.25, 0.78, 0.76, 1.0],
-            Self::Source => [0.56, 0.56, 0.58, 1.0],
-            Self::Concept => [0.39, 0.82, 1.00, 1.0],
-            Self::Tag => [0.46, 0.46, 0.50, 1.0],
-            Self::Quote => [1.00, 0.84, 0.04, 1.0],
+            Self::Note => [0.39, 0.90, 0.85, 1.0],   // teal
+            Self::Chat => [1.00, 0.62, 0.04, 1.0],   // orange
+            Self::Idea => [1.00, 0.84, 0.04, 1.0],   // yellow
+            Self::Source => [0.20, 0.78, 0.35, 1.0],  // green
+            Self::Folder => [0.64, 0.52, 0.37, 1.0],  // brown
+            Self::Quote => [0.69, 0.32, 0.87, 1.0],   // purple
+            Self::Tag => [0.46, 0.46, 0.50, 1.0],     // gray
+        }
+    }
+
+    /// RGBA color for light mode — deeper, more saturated colors that read well on white/light backgrounds.
+    pub fn color_light(&self) -> [f32; 4] {
+        match self {
+            Self::Note => [0.10, 0.55, 0.52, 1.0],   // deep teal
+            Self::Chat => [0.80, 0.42, 0.00, 1.0],   // burnt orange
+            Self::Idea => [0.72, 0.58, 0.00, 1.0],   // deep gold
+            Self::Source => [0.08, 0.52, 0.20, 1.0],  // forest green
+            Self::Folder => [0.44, 0.34, 0.22, 1.0],  // dark brown
+            Self::Quote => [0.48, 0.18, 0.65, 1.0],   // deep purple
+            Self::Tag => [0.30, 0.30, 0.35, 1.0],     // dark gray
         }
     }
 }
 
+/// Minimum node radius in world units.
+const MIN_RADIUS: f32 = 4.0;
+/// Maximum node radius in world units.
+const MAX_RADIUS: f32 = 40.0;
+/// Base radius multiplier for cbrt(link_count) scaling.
+const BASE_RADIUS: f32 = 8.0;
+
+/// Compute node radius from link count using LogSeq's formula:
+/// `radius = cbrt(link_count) * 8.0`, clamped to [4, 40].
+pub fn radius_for_link_count(link_count: u32) -> f32 {
+    let count = link_count.max(1) as f32;
+    (count.cbrt() * BASE_RADIUS).clamp(MIN_RADIUS, MAX_RADIUS)
+}
+
+/// A node in the knowledge graph.
+/// Uses d3-force's explicit velocity model (vx/vy stored directly).
 #[derive(Clone)]
 pub struct Node {
     pub id: u32,
     pub uuid: String,
-    pub pos: Vec2,
-    pub vel: Vec2,
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
+    /// Fixed position for drag constraint (d3 style).
+    /// When set, node snaps to this position and velocity is zeroed.
+    pub fx: Option<f32>,
+    pub fy: Option<f32>,
     pub node_type: NodeType,
-    pub weight: f32,
-    pub label: String,
+    pub link_count: u32,
     pub radius: f32,
+    pub label: String,
     pub visible: bool,
-}
-
-impl Node {
-    pub fn radius_for_weight(weight: f32) -> f32 {
-        if weight > 10.0 {
-            22.0
-        } else if weight > 3.0 {
-            14.0
-        } else {
-            8.0
-        }
-    }
 }
 
 #[derive(Clone)]
 pub struct Edge {
     pub source: u32,
     pub target: u32,
-    pub edge_type: u8,
     pub weight: f32,
 }
 
+#[derive(Clone)]
 pub struct Graph {
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
     pub uuid_to_id: FxHashMap<String, u32>,
     pub id_to_index: FxHashMap<u32, usize>,
     next_id: u32,
+}
+
+impl Default for Graph {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Graph {
@@ -126,21 +142,25 @@ impl Graph {
         x: f32,
         y: f32,
         node_type: u8,
-        weight: f32,
+        link_count: u32,
         label: String,
     ) {
         let id = self.next_id;
         self.next_id += 1;
-        let radius = Node::radius_for_weight(weight);
+        let radius = radius_for_link_count(link_count);
         let node = Node {
             id,
             uuid: uuid.clone(),
-            pos: Vec2::new(x, y),
-            vel: Vec2::ZERO,
+            x,
+            y,
+            vx: 0.0,
+            vy: 0.0,
+            fx: None,
+            fy: None,
             node_type: NodeType::from_u8(node_type),
-            weight,
-            label,
+            link_count,
             radius,
+            label,
             visible: true,
         };
         let index = self.nodes.len();
@@ -149,7 +169,7 @@ impl Graph {
         self.nodes.push(node);
     }
 
-    pub fn add_edge(&mut self, source_uuid: &str, target_uuid: &str, edge_type: u8, weight: f32) {
+    pub fn add_edge(&mut self, source_uuid: &str, target_uuid: &str, weight: f32) {
         if let (Some(&src), Some(&tgt)) = (
             self.uuid_to_id.get(source_uuid),
             self.uuid_to_id.get(target_uuid),
@@ -157,9 +177,75 @@ impl Graph {
             self.edges.push(Edge {
                 source: src,
                 target: tgt,
-                edge_type,
                 weight,
             });
+        }
+    }
+}
+
+// ── Tests ───────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_type_roundtrip() {
+        for v in 0..=6u8 {
+            let nt = NodeType::from_u8(v);
+            assert_eq!(nt as u8, v);
+        }
+        // Out-of-range defaults to Note
+        assert_eq!(NodeType::from_u8(255), NodeType::Note);
+    }
+
+    #[test]
+    fn radius_scaling() {
+        assert_eq!(radius_for_link_count(0), BASE_RADIUS); // 0 treated as 1 → cbrt(1)*8 = 8
+        assert_eq!(radius_for_link_count(1), BASE_RADIUS); // cbrt(1) * 8 = 8
+        let r8 = radius_for_link_count(8);
+        assert!((r8 - 16.0).abs() < 0.01); // cbrt(8) * 8 = 16
+        let r27 = radius_for_link_count(27);
+        assert!((r27 - 24.0).abs() < 0.01); // cbrt(27) * 8 = 24
+        // Very large should clamp to MAX_RADIUS
+        assert_eq!(radius_for_link_count(1000), MAX_RADIUS);
+    }
+
+    #[test]
+    fn graph_add_and_edge() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        g.add_node("b".into(), 10.0, 0.0, 1, 2, "B".into());
+        g.add_edge("a", "b", 1.0);
+
+        assert_eq!(g.nodes.len(), 2);
+        assert_eq!(g.edges.len(), 1);
+        assert_eq!(g.edges[0].source, 0);
+        assert_eq!(g.edges[0].target, 1);
+    }
+
+    #[test]
+    fn graph_edge_unknown_uuid_skipped() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        g.add_edge("a", "nonexistent", 1.0);
+        assert_eq!(g.edges.len(), 0);
+    }
+
+    #[test]
+    fn graph_clear() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        g.clear();
+        assert!(g.nodes.is_empty());
+        assert!(g.uuid_to_id.is_empty());
+    }
+
+    #[test]
+    fn node_colors_all_opaque() {
+        for v in 0..=6u8 {
+            let color = NodeType::from_u8(v).color();
+            assert_eq!(color[3], 1.0, "alpha should be 1.0 for type {}", v);
         }
     }
 }

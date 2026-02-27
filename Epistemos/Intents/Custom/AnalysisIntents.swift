@@ -19,12 +19,18 @@ struct RunAnalysisIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
 
-        // Quick analysis: single LLM call through triage (auto-routes Apple Intelligence vs API)
+        // Add vault context if available for grounded analysis
+        let vaultHint = bootstrap.ambientManifest.map { "\n\nUser's vault index:\n" + $0.asManifestOnly() } ?? ""
+
         let response = try await bootstrap.triageService.generateGeneral(
-            prompt: query,
-            systemPrompt: "You are Epistemos, a research-grade analytical engine. Give a concise, well-structured answer. Use markdown for clarity. Be direct — answer first, then evidence. 2-4 paragraphs max.",
+            prompt: query + vaultHint,
+            systemPrompt: """
+            You are Epistemos, a research-grade analytical engine. Give a concise, well-structured answer. \
+            Use markdown for clarity. Be direct — answer first, then evidence. 2-4 paragraphs max. \
+            If the user has notes on this topic, reference them naturally. Don't force vault references when irrelevant.
+            """,
             operation: .chatResponse(query: query),
-            contentLength: query.count
+            contentLength: query.count + vaultHint.count
         )
 
         return .result(dialog: "\(String(response.prefix(500)))")
@@ -44,15 +50,16 @@ struct AskAboutNotesIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
-        let context = ModelContext(bootstrap.modelContainer)
 
-        // Gather relevant notes as context
+        // Use ambient manifest for vault-wide awareness, with keyword-matched pages for depth
+        let manifestContext = bootstrap.ambientManifest?.asManifestOnly() ?? ""
+
+        let context = ModelContext(bootstrap.modelContainer)
         let descriptor = FetchDescriptor<SDPage>(
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
         let pages = (try? context.fetch(descriptor)) ?? []
 
-        // Search notes for relevance to the question
         let queryLower = question.lowercased()
         let keywords = queryLower.split(separator: " ").filter { $0.count > 3 }.map(String.init)
 
@@ -62,25 +69,27 @@ struct AskAboutNotesIntent: AppIntent {
             return keywords.contains(where: { titleLower.contains($0) || bodyLower.contains($0) })
         }.prefix(5)
 
-        let notesContext: String
+        let deepContext: String
         if relevantPages.isEmpty {
-            // Fall back to most recent notes
             let recent = pages.prefix(5)
-            notesContext = recent.map { "## \($0.title)\n\(String($0.body.prefix(300)))" }.joined(separator: "\n\n")
+            deepContext = recent.map { "## \($0.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
         } else {
-            notesContext = relevantPages.map { "## \($0.title)\n\(String($0.body.prefix(300)))" }.joined(separator: "\n\n")
+            deepContext = relevantPages.map { "## \($0.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
         }
+
+        let fullContext = manifestContext.isEmpty ? deepContext : "\(manifestContext)\n\n## Relevant Note Bodies\n\(deepContext)"
 
         let response = try await bootstrap.triageService.generateGeneral(
             prompt: "Question about my notes: \(question)",
             systemPrompt: """
-            You are Epistemos, the user's research assistant. Answer their question using ONLY the context from their notes below. Quote specific note content when relevant. If the notes don't contain enough information, say so clearly.
+            You are Epistemos, the user's research assistant with access to their full vault index and relevant note bodies. \
+            Answer their question by referencing specific notes. Quote content when relevant. \
+            If the vault doesn't cover something, say so and offer what you know from general knowledge.
 
-            ## User's Notes
-            \(notesContext)
+            \(fullContext)
             """,
             operation: .chatResponse(query: question),
-            contentLength: notesContext.count
+            contentLength: fullContext.count
         )
 
         return .result(dialog: "\(String(response.prefix(500)))")

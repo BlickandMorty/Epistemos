@@ -167,7 +167,7 @@ struct NotesSidebar: View {
         if anyFolderEmpty {
             let pagesBySubfolder = Dictionary(
                 grouping: cachedPageItems.filter { $0.subfolder != nil && !$0.isArchived },
-                by: { $0.subfolder! }
+                by: { $0.subfolder ?? "" }
             )
             for i in cachedFolderItems.indices where cachedFolderItems[i].childPages.isEmpty {
                 let path = cachedFolderItems[i].relativePath

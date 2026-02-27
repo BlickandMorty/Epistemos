@@ -1,412 +1,369 @@
-mod engine;
-mod physics;
-mod renderer;
-pub mod spatial;
-mod types;
+// FFI entry points dereference raw pointers by design — safety is the C caller's contract.
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
+pub mod types;
+pub mod quadtree;
+pub mod forces;
+pub mod simulation;
 pub mod msdf;
+pub mod spatial;
+pub mod renderer;
+pub mod engine;
+pub mod markdown;
+
+// ── FFI Boundary ────────────────────────────────────────────────────────────
+//
+// Every function below is called from Swift via the C bridge header.
+// Convention: all functions take `*mut engine::Engine` as the first argument.
+// Pointers are never null under normal operation (Swift owns the lifecycle).
 
 use std::ffi::{c_char, c_void, CStr};
 
-// ── FFI helper ──────────────────────────────────────────────────────────────
+use crate::engine::Engine;
 
-/// Safely cast an opaque pointer to an Engine reference.
-/// Returns None if ptr is null.
-#[inline]
-fn get_engine<'a>(ptr: *mut c_void) -> Option<&'a mut engine::Engine> {
-    if ptr.is_null() {
-        None
-    } else {
-        Some(unsafe { &mut *(ptr as *mut engine::Engine) })
+// ── Lifecycle ───────────────────────────────────────────────────────────────
+
+/// Create a new graph engine. Returns null on failure.
+/// `device_ptr`: `MTLDevice` pointer.
+/// `layer_ptr`:  `CAMetalLayer` pointer.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_create(
+    device_ptr: *mut c_void,
+    layer_ptr: *mut c_void,
+) -> *mut Engine {
+    match Engine::new(device_ptr, layer_ptr) {
+        Some(engine) => Box::into_raw(Box::new(engine)),
+        None => std::ptr::null_mut(),
     }
 }
 
-// ── C-compatible structs for batch data loading ─────────────────────────────
-
-/// Node data passed from Swift via C FFI.
-#[repr(C)]
-pub struct CNode {
-    pub uuid: *const c_char,
-    pub x: f32,
-    pub y: f32,
-    pub node_type: u8,
-    pub weight: f32,
-    pub label: *const c_char,
+/// Destroy the engine and free all resources.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_destroy(engine: *mut Engine) {
+    if !engine.is_null() {
+        unsafe {
+            drop(Box::from_raw(engine));
+        }
+    }
 }
 
-/// Edge data passed from Swift via C FFI.
-#[repr(C)]
-pub struct CEdge {
-    pub source_uuid: *const c_char,
-    pub target_uuid: *const c_char,
-    pub edge_type: u8,
-    pub weight: f32,
+// ── Graph Data Loading ──────────────────────────────────────────────────────
+
+/// Clear all nodes and edges (call before re-populating).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_clear(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.graph_mut().clear();
 }
 
-/// Physics configuration passed from Swift via C FFI.
-/// All fields correspond to ForceConfig parameters.
-#[repr(C)]
-pub struct CPhysicsConfig {
-    pub center_force: f32,
-    pub repel_force: f32,
-    pub link_force: f32,
-    pub link_distance: f32,
-    pub velocity_decay: f32,
-    pub alpha_decay: f32,
+/// Add a node to the graph.
+/// `uuid`, `label`: null-terminated UTF-8 C strings.
+/// `node_type`: 0–6 matching NodeType enum.
+/// `link_count`: number of edges this node has (for radius sizing).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_add_node(
+    engine: *mut Engine,
+    uuid: *const c_char,
+    x: f32,
+    y: f32,
+    node_type: u8,
+    link_count: u32,
+    label: *const c_char,
+) {
+    let engine = unsafe { &mut *engine };
+    let uuid_str = unsafe { CStr::from_ptr(uuid) }
+        .to_str()
+        .unwrap_or("")
+        .to_owned();
+    let label_str = unsafe { CStr::from_ptr(label) }
+        .to_str()
+        .unwrap_or("")
+        .to_owned();
+    engine
+        .graph_mut()
+        .add_node(uuid_str, x, y, node_type, link_count, label_str);
+}
+
+/// Add an edge between two nodes by UUID.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_add_edge(
+    engine: *mut Engine,
+    source_uuid: *const c_char,
+    target_uuid: *const c_char,
+    weight: f32,
+) {
+    let engine = unsafe { &mut *engine };
+    let src = unsafe { CStr::from_ptr(source_uuid) }
+        .to_str()
+        .unwrap_or("");
+    let tgt = unsafe { CStr::from_ptr(target_uuid) }
+        .to_str()
+        .unwrap_or("");
+    engine.graph_mut().add_edge(src, tgt, weight);
+}
+
+/// Commit the graph: loads data into simulation, starts physics.
+/// Call after `graph_engine_clear` + `add_node`/`add_edge` sequence.
+/// `entrance`: if 1, plays Obsidian-style entrance animation (nodes cluster at center, expand out).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_commit(engine: *mut Engine, entrance: u8) {
+    let engine = unsafe { &mut *engine };
+    engine.commit(entrance != 0);
+}
+
+// ── Rendering ───────────────────────────────────────────────────────────────
+
+/// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_render(
+    engine: *mut Engine,
+    width: u32,
+    height: u32,
+) -> u32 {
+    let engine = unsafe { &mut *engine };
+    engine.render(width, height)
+}
+
+// ── Input Events ────────────────────────────────────────────────────────────
+
+/// Mouse/trackpad button pressed.
+/// `shift`: 1 if shift key held (for neighbor highlighting), 0 otherwise.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_mouse_down(
+    engine: *mut Engine,
+    screen_x: f32,
+    screen_y: f32,
+    shift: u8,
+) {
+    let engine = unsafe { &mut *engine };
+    engine.mouse_down(screen_x, screen_y, shift != 0);
+}
+
+/// Mouse/trackpad moved.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_mouse_moved(
+    engine: *mut Engine,
+    screen_x: f32,
+    screen_y: f32,
+) {
+    let engine = unsafe { &mut *engine };
+    engine.mouse_moved(screen_x, screen_y);
+}
+
+/// Mouse/trackpad button released.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_mouse_up(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.mouse_up();
+}
+
+/// Two-finger scroll: pan the camera.
+/// `delta_x`, `delta_y`: scroll deltas in screen points.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_scroll(
+    engine: *mut Engine,
+    delta_x: f32,
+    delta_y: f32,
+) {
+    let engine = unsafe { &mut *engine };
+    engine.scroll(delta_x, delta_y);
+}
+
+/// Pinch-to-zoom toward cursor position.
+/// `magnification`: scale delta from NSEvent (e.g. +0.02 = 2% zoom in).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_magnify(
+    engine: *mut Engine,
+    screen_x: f32,
+    screen_y: f32,
+    magnification: f32,
+) {
+    let engine = unsafe { &mut *engine };
+    engine.magnify(screen_x, screen_y, magnification);
+}
+
+// ── Force Parameters ────────────────────────────────────────────────────────
+
+/// Update the 4 user-adjustable force parameters and reheat the simulation.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_force_params(
+    engine: *mut Engine,
+    link_distance: f32,
+    charge_strength: f32,
+    charge_range: f32,
+    link_strength: f32,
+) {
+    let engine = unsafe { &mut *engine };
+    engine.set_force_params(link_distance, charge_strength, charge_range, link_strength);
+}
+
+/// Update extended physics parameters.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_extended_force_params(
+    engine: *mut Engine,
+    velocity_decay: f32,
+    center_strength: f32,
+    collision_radius: f32,
+    warmth: f32,
+    orbital: f32,
+) {
+    let engine = unsafe { &mut *engine };
+    engine.set_extended_force_params(velocity_decay, center_strength, collision_radius, warmth, orbital);
+}
+
+// ── Highlighting ────────────────────────────────────────────────────────────
+
+/// Highlight a node and its neighbors (shift+click behavior).
+/// `uuid`: null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_highlight_neighbors(
+    engine: *mut Engine,
+    uuid: *const c_char,
+) {
+    let engine = unsafe { &mut *engine };
+    let uuid_str = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
+    engine.highlight_neighbors(uuid_str);
+}
+
+/// Clear neighbor highlighting.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_clear_highlight(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.clear_highlight();
+}
+
+/// Highlight all nodes matching a search query (case-insensitive label match).
+/// Empty query clears highlighting.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_search_highlight(
+    engine: *mut Engine,
+    query: *const c_char,
+) {
+    let engine = unsafe { &mut *engine };
+    let query_str = unsafe { CStr::from_ptr(query) }
+        .to_str()
+        .unwrap_or("");
+    engine.search_highlight(query_str);
+}
+
+// ── Camera ──────────────────────────────────────────────────────────────────
+
+/// Animate camera to center on the centroid of visible nodes.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_center_camera(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.center_camera();
+}
+
+/// Center camera on a specific node by UUID, zooming in moderately.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_center_on_node(
+    engine: *mut Engine,
+    uuid: *const c_char,
+) {
+    let engine = unsafe { &mut *engine };
+    let uuid_str = unsafe { CStr::from_ptr(uuid) }
+        .to_str()
+        .unwrap_or("");
+    engine.center_on_node(uuid_str);
+}
+
+/// Zoom to fit all visible nodes in the viewport.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_zoom_to_fit(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.zoom_to_fit();
 }
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
-/// Create a new graph engine with Metal device and layer. Returns an opaque pointer.
+/// Pause the engine: stop physics thread to free CPU when overlay is hidden.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_create(
-    metal_device: *mut c_void,
-    metal_layer: *mut c_void,
-) -> *mut c_void {
-    let mut engine = Box::new(engine::Engine::new());
-    engine.init_renderer(metal_device, metal_layer);
-    Box::into_raw(engine) as *mut c_void
+pub extern "C" fn graph_engine_pause(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.pause();
 }
 
-/// Destroy the engine and free memory.
+/// Resume the engine: restart physics thread when overlay is shown again.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_destroy(ptr: *mut c_void) {
-    if !ptr.is_null() {
-        unsafe { drop(Box::from_raw(ptr as *mut engine::Engine)) };
-    }
+pub extern "C" fn graph_engine_resume(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.resume();
 }
 
-// ── Render ──────────────────────────────────────────────────────────────────
+// ── Display Settings ────────────────────────────────────────────────────────
 
-/// Render one frame. Called by MTKViewDelegate.draw().
-/// Returns 1 if the view needs to keep rendering (physics active or camera animating),
-/// 0 if the view can go idle (physics settled and camera static).
+/// Set the clear color (use transparent for hologram overlay).
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_render(ptr: *mut c_void) -> u8 {
-    if let Some(engine) = get_engine(ptr) {
-        engine.render();
-        let settled = engine.shared.settled.load(std::sync::atomic::Ordering::Relaxed);
-        let animating = engine.renderer.as_ref().is_some_and(|r| r.is_animating);
-        if settled && !animating { 0 } else { 1 }
-    } else {
-        0
-    }
-}
-
-/// Resize the viewport.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_resize(ptr: *mut c_void, width: u32, height: u32) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.resize(width, height);
-    }
-}
-
-// ── Data loading (batch FFI) ────────────────────────────────────────────────
-
-/// Clear all nodes and edges from the graph.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_clear(ptr: *mut c_void) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.graph.clear();
-    }
-}
-
-/// Add a batch of nodes. `nodes` is a C array of CNode, `count` is the length.
-/// Called once with all nodes before adding edges.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_add_nodes(ptr: *mut c_void, nodes: *const CNode, count: usize) {
-    let Some(engine) = get_engine(ptr) else { return };
-    if nodes.is_null() || count == 0 { return; }
-
-    let slice = unsafe { std::slice::from_raw_parts(nodes, count) };
-    engine.graph.nodes.reserve(count);
-
-    for cn in slice {
-        let uuid = if cn.uuid.is_null() {
-            String::new()
-        } else {
-            unsafe { CStr::from_ptr(cn.uuid) }
-                .to_string_lossy()
-                .into_owned()
-        };
-
-        let label = if cn.label.is_null() {
-            String::new()
-        } else {
-            unsafe { CStr::from_ptr(cn.label) }
-                .to_string_lossy()
-                .into_owned()
-        };
-
-        engine.graph.add_node(uuid, cn.x, cn.y, cn.node_type, cn.weight, label);
-    }
-}
-
-/// Add a batch of edges. `edges` is a C array of CEdge, `count` is the length.
-/// Must be called after add_nodes so UUIDs are resolvable.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_add_edges(ptr: *mut c_void, edges: *const CEdge, count: usize) {
-    let Some(engine) = get_engine(ptr) else { return };
-    if edges.is_null() || count == 0 { return; }
-
-    let slice = unsafe { std::slice::from_raw_parts(edges, count) };
-    engine.graph.edges.reserve(count);
-
-    for ce in slice {
-        if ce.source_uuid.is_null() || ce.target_uuid.is_null() { continue; }
-
-        let src = unsafe { CStr::from_ptr(ce.source_uuid) }
-            .to_string_lossy();
-        let tgt = unsafe { CStr::from_ptr(ce.target_uuid) }
-            .to_string_lossy();
-
-        engine.graph.add_edge(&src, &tgt, ce.edge_type, ce.weight);
-    }
-}
-
-/// Signal that data loading is complete. Positions nodes and starts physics.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_commit(ptr: *mut c_void) {
-    let Some(engine) = get_engine(ptr) else { return };
-    let count = engine.graph.nodes.len();
-    if count == 0 { return; }
-
-    // Place nodes in a circle if they're all at origin (fresh load)
-    let all_at_origin = engine.graph.nodes.iter().all(|n| n.pos.x == 0.0 && n.pos.y == 0.0);
-    if all_at_origin {
-        let cx = engine.width as f32 / 2.0;
-        let cy = engine.height as f32 / 2.0;
-        let radius = (cx.min(cy)) * 0.6;
-        for (i, node) in engine.graph.nodes.iter_mut().enumerate() {
-            let angle = 2.0 * std::f32::consts::PI * (i as f32) / (count as f32);
-            node.pos.x = cx + radius * angle.cos();
-            node.pos.y = cy + radius * angle.sin();
-        }
-    }
-
-    // Start physics simulation on dedicated thread
-    engine.start_physics();
-
-    // Pre-allocate GPU buffers with headroom and perform initial data upload
-    if let Some(renderer) = &mut engine.renderer {
-        renderer.allocate_buffers(&engine.graph);
-    }
-}
-
-/// Query how many nodes are currently loaded.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_node_count(ptr: *mut c_void) -> u32 {
-    get_engine(ptr).map_or(0, |e| e.graph.nodes.len() as u32)
-}
-
-/// Query how many edges are currently loaded.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_edge_count(ptr: *mut c_void) -> u32 {
-    get_engine(ptr).map_or(0, |e| e.graph.edges.len() as u32)
-}
-
-// ── Visibility ─────────────────────────────────────────────────────────────
-
-/// Set node visibility from a flat byte array (0 = hidden, nonzero = visible).
-/// Array indices match node insertion order.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_visibility(
-    ptr: *mut c_void,
-    visible: *const u8,
-    count: usize,
+pub extern "C" fn graph_engine_set_clear_color(
+    engine: *mut Engine,
+    r: f64,
+    g: f64,
+    b: f64,
+    a: f64,
 ) {
-    let Some(engine) = get_engine(ptr) else { return };
-    if visible.is_null() || count == 0 { return; }
-
-    let slice = unsafe { std::slice::from_raw_parts(visible, count) };
-    for (i, node) in engine.graph.nodes.iter_mut().enumerate() {
-        node.visible = if i < slice.len() { slice[i] != 0 } else { true };
-    }
-
-    // Rebuild physics with only visible nodes
-    {
-        let mut phys = engine.shared.physics.lock();
-        phys.load_from_graph_filtered(&engine.graph);
-    }
-
-    // Re-upload buffers with only visible nodes
-    if let Some(renderer) = &mut engine.renderer {
-        renderer.upload_graph(&engine.graph);
-    }
+    let engine = unsafe { &mut *engine };
+    engine.set_clear_color(r, g, b, a);
 }
 
-// ── Input handling ──────────────────────────────────────────────────────────
-
-/// Pan the camera by (dx, dy) in screen pixels. Called from scroll/drag events.
+/// Set light mode (darker node colors for light backgrounds).
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_pan(ptr: *mut c_void, dx: f32, dy: f32) {
-    if let Some(engine) = get_engine(ptr) {
-        if let Some(renderer) = &mut engine.renderer {
-            // Pan is inverse of scroll direction, scaled by zoom
-            renderer.camera_offset.x -= dx / renderer.camera_zoom;
-            renderer.camera_offset.y -= dy / renderer.camera_zoom;
-        }
-    }
+pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) {
+    let engine = unsafe { &mut *engine };
+    engine.set_light_mode(enabled != 0);
 }
 
-/// Zoom the camera by a factor, centered at screen position (cx, cy).
+/// Set graph mode: 0 = global, 1 = page.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_zoom(ptr: *mut c_void, factor: f32, cx: f32, cy: f32) {
-    if let Some(engine) = get_engine(ptr) {
-        if let Some(renderer) = &mut engine.renderer {
-            let old_zoom = renderer.camera_zoom;
-            let new_zoom = (old_zoom * factor).clamp(0.1, 10.0);
-
-            // Zoom toward the cursor position:
-            // Convert cursor screen pos to world pos at old zoom,
-            // then adjust offset so that world point stays at cursor.
-            let vp_w = engine.width as f32;
-            let vp_h = engine.height as f32;
-            let world_x = cx / old_zoom + renderer.camera_offset.x - vp_w / (2.0 * old_zoom);
-            let world_y = cy / old_zoom + renderer.camera_offset.y - vp_h / (2.0 * old_zoom);
-
-            renderer.camera_zoom = new_zoom;
-
-            let new_world_x = cx / new_zoom + renderer.camera_offset.x - vp_w / (2.0 * new_zoom);
-            let new_world_y = cy / new_zoom + renderer.camera_offset.y - vp_h / (2.0 * new_zoom);
-
-            renderer.camera_offset.x += world_x - new_world_x;
-            renderer.camera_offset.y += world_y - new_world_y;
-        }
-    }
+pub extern "C" fn graph_engine_set_mode(engine: *mut Engine, mode: u8) {
+    let engine = unsafe { &mut *engine };
+    engine.set_mode(mode);
 }
 
-// ── Mouse events (hit testing / selection) ──────────────────────────────
-
-/// Handle mouse down at screen position (x, y). button: 0=left, 1=right.
-/// Returns 1 if a node was hit (caller should route drags to mouse_dragged), 0 otherwise.
+/// Set the note window rect in screen pixels for page mode anchor positioning.
+/// Nodes will cluster near this rect instead of dead center.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_mouse_down(ptr: *mut c_void, x: f32, y: f32, button: u8) -> u8 {
-    if let Some(engine) = get_engine(ptr) {
-        if engine.mouse_down(x, y, button) { 1 } else { 0 }
-    } else {
-        0
-    }
-}
-
-/// Handle mouse dragged at screen position (x, y). Called while dragging a node.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_mouse_dragged(ptr: *mut c_void, x: f32, y: f32) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.mouse_dragged(x, y);
-    }
-}
-
-/// Handle mouse up at screen position (x, y).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_mouse_up(ptr: *mut c_void, x: f32, y: f32) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.mouse_up(x, y);
-    }
-}
-
-/// Handle mouse moved at screen position (x, y). Used for hover detection.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_mouse_moved(ptr: *mut c_void, x: f32, y: f32) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.mouse_moved(x, y);
-    }
-}
-
-// ── Callback registration ──────────────────────────────────────────────────
-
-/// Register a callback for node selection. uuid is null when deselected.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_on_node_selected(
-    ptr: *mut c_void,
-    cb: extern "C" fn(*const c_char, *mut c_void),
-    ctx: *mut c_void,
+pub extern "C" fn graph_engine_set_anchor_rect(
+    engine: *mut Engine,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
 ) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.set_on_node_selected(cb, ctx);
+    let engine = unsafe { &mut *engine };
+    engine.set_anchor_rect(x, y, w, h);
+}
+
+// ── Queries ─────────────────────────────────────────────────────────────────
+
+/// Check if the simulation has settled (alpha < alpha_min).
+/// Returns 1 if settled, 0 if still running.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_is_settled(engine: *mut Engine) -> u8 {
+    let engine = unsafe { &*engine };
+    u8::from(engine.is_settled())
+}
+
+/// Get the UUID of the currently hovered node.
+/// Returns null if no node is hovered.
+/// The pointer is valid until the next call to any UUID query function.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_hovered_node_uuid(engine: *mut Engine) -> *const c_char {
+    let engine = unsafe { &mut *engine };
+    match engine.hovered_id() {
+        Some(id) => engine.node_uuid_by_id(id),
+        None => std::ptr::null(),
     }
 }
 
-/// Register a callback for right-click on a node.
+/// Get the UUID of the currently selected node.
+/// Returns null if no node is selected.
+/// The pointer is valid until the next call to any UUID query function.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_on_node_right_clicked(
-    ptr: *mut c_void,
-    cb: extern "C" fn(*const c_char, f32, f32, *mut c_void),
-    ctx: *mut c_void,
-) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.set_on_node_right_clicked(cb, ctx);
+pub extern "C" fn graph_engine_selected_node_uuid(engine: *mut Engine) -> *const c_char {
+    let engine = unsafe { &mut *engine };
+    match engine.selected_id() {
+        Some(id) => engine.node_uuid_by_id(id),
+        None => std::ptr::null(),
     }
-}
-
-/// Register a callback for hover changes. uuid is null when nothing is hovered.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_on_node_hovered(
-    ptr: *mut c_void,
-    cb: extern "C" fn(*const c_char, *mut c_void),
-    ctx: *mut c_void,
-) {
-    if let Some(engine) = get_engine(ptr) {
-        engine.set_on_node_hovered(cb, ctx);
-    }
-}
-
-// ── Camera commands ────────────────────────────────────────────────────────
-
-/// Reset camera to origin with zoom 1.0 (animated).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_reset_camera(ptr: *mut c_void) {
-    if let Some(engine) = get_engine(ptr) { engine.reset_camera(); }
-}
-
-/// Animate camera to center on a specific node by UUID.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_center_on_node(ptr: *mut c_void, uuid: *const c_char) {
-    let Some(engine) = get_engine(ptr) else { return };
-    if uuid.is_null() { return; }
-    let uuid_str = unsafe { CStr::from_ptr(uuid) }.to_string_lossy();
-    engine.center_on_node(&uuid_str);
-}
-
-/// Animate camera to fit all visible nodes in view.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_fit_all(ptr: *mut c_void) {
-    if let Some(engine) = get_engine(ptr) { engine.fit_all(); }
-}
-
-// ── Physics configuration ──────────────────────────────────────────────────
-
-/// Update physics simulation parameters. Takes effect on the next tick.
-/// Reheats the simulation so changes are visible.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_physics_config(ptr: *mut c_void, config: *const CPhysicsConfig) {
-    let Some(engine) = get_engine(ptr) else { return };
-    if config.is_null() { return; }
-    let cfg = unsafe { &*config };
-
-    let mut phys = engine.shared.physics.lock();
-    phys.config.center_strength = cfg.center_force;
-    phys.config.repulsion = cfg.repel_force;
-    phys.config.attraction = cfg.link_force;
-    phys.config.link_distance = cfg.link_distance;
-    phys.config.velocity_decay = cfg.velocity_decay;
-    phys.config.alpha_decay = cfg.alpha_decay;
-
-    // Reheat so the user sees the change immediately
-    phys.reheat();
-}
-
-/// Get the current physics config values (for populating UI on launch).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_get_physics_config(ptr: *mut c_void, out: *mut CPhysicsConfig) {
-    let Some(engine) = get_engine(ptr) else { return };
-    if out.is_null() { return; }
-
-    let phys = engine.shared.physics.lock();
-    let cfg = unsafe { &mut *out };
-    cfg.center_force = phys.config.center_strength;
-    cfg.repel_force = phys.config.repulsion;
-    cfg.link_force = phys.config.attraction;
-    cfg.link_distance = phys.config.link_distance;
-    cfg.velocity_decay = phys.config.velocity_decay;
-    cfg.alpha_decay = phys.config.alpha_decay;
 }

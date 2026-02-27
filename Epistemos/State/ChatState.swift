@@ -48,14 +48,7 @@ final class ChatState {
         didSet { UserDefaults.standard.set(isResearchMode, forKey: "epistemos.researchMode") }
     }
 
-    // MARK: - Notes Mode
-    /// When true, chat has full vault context — manifest + @-referenced note bodies.
-    /// Can be combined with Research Mode for vault-aware deep analysis.
-    var isNotesMode = false
-
-    /// Cached vault manifest built on Notes Mode entry. Cleared when Notes Mode is toggled off.
-    var vaultManifest: VaultManifest?
-
+    // MARK: - Vault Context (Ambient)
     /// Page IDs of notes whose full bodies have been loaded into context via @-mentions.
     var loadedNoteIds: Set<String> = []
 
@@ -66,34 +59,18 @@ final class ChatState {
     /// Set by AppBootstrap, read by finalizeStreaming to stamp the ChatMessage.
     var isCurrentVaultBriefing = false
 
-    /// Enable Notes Mode. Can be combined with Research Mode.
-    func enableNotesMode() {
-        isNotesMode = true
-    }
+    /// Transient: full manifest (with bodies) used only for vault briefing requests.
+    /// Set by requestVaultBriefing, consumed and cleared by handleQuery.
+    var vaultBriefingManifest: VaultManifest?
 
-    /// Disable Notes Mode and clear vault state.
-    func disableNotesMode() {
-        isNotesMode = false
-        vaultManifest = nil
-        loadedNoteIds = []
-        loadedNoteTitles = []
-        isCurrentVaultBriefing = false
-    }
-
-    /// Enable Research Mode. Can be combined with Notes Mode.
+    /// Enable Research Mode.
     func enableResearchMode() {
         isResearchMode = true
     }
 
-    /// Disable Research Mode only.
+    /// Disable Research Mode.
     func disableResearchMode() {
         isResearchMode = false
-    }
-
-    /// Disable all special modes — return to Regular.
-    func disableSpecialModes() {
-        disableResearchMode()
-        disableNotesMode()
     }
 
     // MARK: - Init
@@ -154,10 +131,9 @@ final class ChatState {
         activeChatId = nil
         chatTitle = nil
         showLanding = false
-        isNotesMode = false          // Reset — Notes Mode is a one-shot action, not a preference.
-        vaultManifest = nil          // Clear stale vault manifest from previous session.
         loadedNoteIds = []
         loadedNoteTitles = []
+        vaultBriefingManifest = nil
         // Note: isResearchMode is NOT reset — it's a persisted user preference (stored in UserDefaults).
         // Note: researchStartTime is NOT reset — old enrichment may still be running.
     }
@@ -450,10 +426,9 @@ final class ChatState {
         researchStartTime = nil
         showLanding = true
         // Note: isResearchMode is NOT reset here — it's a persisted user preference.
-        isNotesMode = false
-        vaultManifest = nil
         loadedNoteIds = []
         loadedNoteTitles = []
+        vaultBriefingManifest = nil
         activeChatId = nil
         chatTitle = nil
 

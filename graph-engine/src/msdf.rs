@@ -51,14 +51,11 @@ struct BoundsJson {
 /// Metrics for a single glyph in the font atlas.
 #[derive(Clone, Copy, Debug)]
 pub struct GlyphMetrics {
-    /// Horizontal advance in EM units.
     pub advance: f32,
-    /// EM-space quad bounds (left, bottom, right, top).
     pub plane_left: f32,
     pub plane_bottom: f32,
     pub plane_right: f32,
     pub plane_top: f32,
-    /// Normalized UV bounds (0..1) in the atlas texture.
     pub uv_left: f32,
     pub uv_bottom: f32,
     pub uv_right: f32,
@@ -69,44 +66,30 @@ pub struct GlyphMetrics {
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct GlyphInstance {
-    /// Node world position (label anchor).
-    pub position: [f32; 2],     // offset 0
-    /// Per-glyph offset from anchor in world units.
-    pub glyph_offset: [f32; 2], // offset 8
-    /// Quad half-extents in world units.
-    pub glyph_size: [f32; 2],   // offset 16
-    /// Atlas UV origin (top-left of glyph region).
-    pub uv_origin: [f32; 2],    // offset 24
-    /// Atlas UV dimensions (width, height).
-    pub uv_size: [f32; 2],      // offset 32
-    /// World-space font size.
-    pub font_size: f32,         // offset 40
-    /// LOD opacity (0..1).
-    pub alpha: f32,             // offset 44
-    /// RGBA text color.
-    pub color: [f32; 4],        // offset 48
+    pub position: [f32; 2],
+    pub glyph_offset: [f32; 2],
+    pub glyph_size: [f32; 2],
+    pub uv_origin: [f32; 2],
+    pub uv_size: [f32; 2],
+    pub font_size: f32,
+    pub alpha: f32,
+    pub color: [f32; 4],
 }
 
 /// Pre-loaded MSDF font atlas with glyph metrics and decoded RGBA texture data.
 pub struct FontAtlas {
     pub atlas_width: u32,
     pub atlas_height: u32,
-    /// Font EM size from the atlas metadata (typically 48).
     pub em_size: f32,
-    /// SDF distance range in pixels (typically 6).
     pub distance_range: f32,
-    /// Decoded RGBA8 texture data (atlas_width * atlas_height * 4 bytes).
     pub rgba_data: Vec<u8>,
-    /// ASCII lookup table indexed by unicode codepoint (0..127).
     pub glyphs: [Option<GlyphMetrics>; 128],
 }
 
 // ── Implementation ──────────────────────────────────────────────────────────
 
 impl FontAtlas {
-    /// Load the embedded font atlas, decode the PNG to RGBA, and parse glyph metrics.
     pub fn load() -> Self {
-        // ── Parse JSON ──────────────────────────────────────────────────
         let json: AtlasJson =
             serde_json::from_slice(ATLAS_JSON).expect("failed to parse atlas JSON");
 
@@ -118,14 +101,12 @@ impl FontAtlas {
         let aw = atlas_width as f32;
         let ah = atlas_height as f32;
 
-        // ── Decode PNG ──────────────────────────────────────────────────
         let decoder = png::Decoder::new(ATLAS_PNG);
         let mut reader = decoder.read_info().expect("failed to read PNG info");
         let mut raw_buf = vec![0u8; reader.output_buffer_size()];
         let info = reader.next_frame(&mut raw_buf).expect("failed to decode PNG frame");
         let raw_data = &raw_buf[..info.buffer_size()];
 
-        // The atlas is RGB (3 channels). Expand to RGBA by inserting alpha=255.
         let pixel_count = (atlas_width * atlas_height) as usize;
         let mut rgba_data = Vec::with_capacity(pixel_count * 4);
 
@@ -139,7 +120,6 @@ impl FontAtlas {
                 }
             }
             png::ColorType::Rgba => {
-                // Already RGBA — just copy.
                 rgba_data.extend_from_slice(raw_data);
             }
             other => panic!("unexpected PNG color type: {:?}", other),
@@ -148,17 +128,14 @@ impl FontAtlas {
         assert_eq!(
             rgba_data.len(),
             pixel_count * 4,
-            "RGBA data length mismatch: expected {}, got {}",
-            pixel_count * 4,
-            rgba_data.len()
+            "RGBA data length mismatch"
         );
 
-        // ── Build glyph lookup ──────────────────────────────────────────
         let mut glyphs: [Option<GlyphMetrics>; 128] = [None; 128];
 
         for g in &json.glyphs {
             if g.unicode >= 128 {
-                continue; // only ASCII
+                continue;
             }
 
             let (plane_left, plane_bottom, plane_right, plane_top) =
@@ -198,13 +175,6 @@ impl FontAtlas {
         }
     }
 
-    /// Lay out a text string into GPU-ready glyph instances.
-    ///
-    /// * `text`      — the label string (truncated to 20 chars + "..." if needed)
-    /// * `position`  — world-space anchor point (center-bottom of label)
-    /// * `font_size` — world-space font size in the same units as node positions
-    /// * `alpha`     — LOD opacity (0..1)
-    /// * `color`     — RGBA text color
     pub fn layout_label(
         &self,
         text: &str,
@@ -217,7 +187,6 @@ impl FontAtlas {
             return Vec::new();
         }
 
-        // Truncate to 20 characters; append "..." if truncated.
         let display: String = if text.chars().count() > 20 {
             let truncated: String = text.chars().take(20).collect();
             format!("{}...", truncated)
@@ -225,19 +194,19 @@ impl FontAtlas {
             text.to_string()
         };
 
-        // ── Pass 1: measure total advance width ─────────────────────────
+        // Pass 1: measure total advance width
         let mut total_advance = 0.0_f32;
         for ch in display.chars() {
             let cp = ch as u32;
-            if cp < 128 {
-                if let Some(ref gm) = self.glyphs[cp as usize] {
-                    total_advance += gm.advance;
-                }
+            if cp < 128
+                && let Some(ref gm) = self.glyphs[cp as usize]
+            {
+                total_advance += gm.advance;
             }
         }
         let total_width = total_advance * font_size;
 
-        // ── Pass 2: emit GlyphInstance for each visible glyph ───────────
+        // Pass 2: emit GlyphInstance for each visible glyph
         let mut instances = Vec::with_capacity(display.len());
         let mut cursor_x = -total_width / 2.0;
 
@@ -252,7 +221,6 @@ impl FontAtlas {
                 None => continue,
             };
 
-            // Skip quads for space and glyphs with zero-size bounds.
             let has_bounds = (gm.plane_right - gm.plane_left).abs() > f32::EPSILON
                 && (gm.plane_top - gm.plane_bottom).abs() > f32::EPSILON;
 
@@ -282,7 +250,6 @@ impl FontAtlas {
                 });
             }
 
-            // Advance cursor regardless (spaces advance but emit no quad).
             cursor_x += gm.advance * font_size;
         }
 
@@ -307,12 +274,8 @@ mod tests {
     #[test]
     fn ascii_glyphs_present() {
         let atlas = FontAtlas::load();
-
-        // Space (32) should be present with advance > 0 but zero bounds.
         let space = atlas.glyphs[32].expect("space glyph missing");
-        assert!(space.advance > 0.0, "space advance should be positive");
-
-        // All printable ASCII (33..=126) should be present.
+        assert!(space.advance > 0.0);
         for cp in 33..=126u8 {
             assert!(
                 atlas.glyphs[cp as usize].is_some(),
@@ -328,7 +291,7 @@ mod tests {
         let atlas = FontAtlas::load();
         let instances =
             atlas.layout_label("Hello", [0.0, 0.0], 1.0, 1.0, [1.0, 1.0, 1.0, 1.0]);
-        assert_eq!(instances.len(), 5, "expected 5 glyph instances for 'Hello'");
+        assert_eq!(instances.len(), 5);
     }
 
     #[test]
@@ -337,12 +300,7 @@ mod tests {
         let long_text = "A".repeat(50);
         let instances =
             atlas.layout_label(&long_text, [0.0, 0.0], 1.0, 1.0, [1.0, 1.0, 1.0, 1.0]);
-        // Truncated to 20 chars + "..." = 23 visible glyphs (all are 'A' or '.').
-        assert!(
-            instances.len() <= 23,
-            "expected at most 23 instances, got {}",
-            instances.len()
-        );
+        assert!(instances.len() <= 23);
     }
 
     #[test]
@@ -358,27 +316,14 @@ mod tests {
         let atlas = FontAtlas::load();
         let instances =
             atlas.layout_label("A", [0.0, 0.0], 1.0, 1.0, [1.0, 1.0, 1.0, 1.0]);
-        assert_eq!(instances.len(), 1, "expected 1 glyph for 'A'");
-        // The single glyph should be roughly centered around x=0.
+        assert_eq!(instances.len(), 1);
         let offset_x = instances[0].glyph_offset[0];
-        assert!(
-            offset_x.abs() < 0.5,
-            "expected glyph offset near 0, got {}",
-            offset_x
-        );
+        assert!(offset_x.abs() < 0.5);
     }
 
     #[test]
     fn glyph_instance_size_and_alignment() {
-        assert_eq!(
-            std::mem::size_of::<GlyphInstance>(),
-            64,
-            "GlyphInstance must be exactly 64 bytes"
-        );
-        assert_eq!(
-            std::mem::offset_of!(GlyphInstance, color),
-            48,
-            "color field must be at byte offset 48"
-        );
+        assert_eq!(std::mem::size_of::<GlyphInstance>(), 64);
+        assert_eq!(std::mem::offset_of!(GlyphInstance, color), 48);
     }
 }

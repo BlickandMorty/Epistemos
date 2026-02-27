@@ -1,25 +1,25 @@
 import Foundation
 import SwiftData
 
-// MARK: - Notes Mode Context & Vault Actions
-// Builds vault context for Notes Mode queries and executes [ACTION:...] markers.
+// MARK: - Vault Context & Vault Actions
+// Builds ambient vault context for queries and executes [ACTION:...] markers.
 
 extension AppBootstrap {
 
-    // MARK: - Notes Mode Context
+    // MARK: - Vault Context
 
-    /// Build vault context for Notes Mode queries.
-    /// Parses @[Note Title] references, fetches their bodies, combines with manifest.
+    /// Build vault context for queries when a vault is attached.
+    /// Injects ambient manifest (titles/metadata only) + resolves @[Note Title] references.
     /// Returns (notesContext, cleanedQuery) where cleanedQuery has @-references stripped.
     func buildNotesContext(query: String, chatState: ChatState) async -> (String?, String) {
-        guard chatState.isNotesMode else { return (nil, query) }
+        guard ambientManifest != nil else { return (nil, query) }
 
         var contextParts: [String] = []
         var cleanedQuery = query
 
-        // 1. Include vault manifest if available
-        if let manifest = chatState.vaultManifest {
-            contextParts.append(manifest.asContext())
+        // 1. Include ambient manifest (titles + metadata, no bodies)
+        if let manifest = ambientManifest {
+            contextParts.append(manifest.asManifestOnly())
         }
 
         // 2. Parse and resolve @[Note Title] references

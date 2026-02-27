@@ -20,7 +20,7 @@ final class SDGraphEdge {
     var targetNodeId: String = ""
 
     // MARK: - Edge Properties
-    var type: String = GraphEdgeType.wikilink.rawValue
+    var type: String = GraphEdgeType.reference.rawValue
     var weight: Double = 1.0
 
     // MARK: - Timestamps
@@ -45,7 +45,8 @@ final class SDGraphEdge {
     // MARK: - Computed Accessors
 
     /// Typed edge type derived from the stored raw value.
+    /// Uses legacy migration so old records (e.g. "wikilink", "livesIn") map to new 8-type system.
     var edgeType: GraphEdgeType {
-        GraphEdgeType(rawValue: type) ?? .wikilink
+        GraphEdgeType(legacy: type)
     }
 }

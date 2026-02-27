@@ -265,7 +265,8 @@ final class ResearchService {
         Respond in JSON: { "claims": [{ "claim": "...", "searchQuery": "..." }] }
         """
 
-        let claimUserPrompt = "\(context != nil ? "Context: This text is about \(context!)\n\n" : "")Text to analyze:\n\n\(String(text.prefix(6000)))"
+        let contextPrefix = context.map { "Context: This text is about \($0)\n\n" } ?? ""
+        let claimUserPrompt = "\(contextPrefix)Text to analyze:\n\n\(String(text.prefix(6000)))"
 
         let claimResponse = try await llm.generate(prompt: claimUserPrompt, systemPrompt: claimSystemPrompt, maxTokens: 1500)
         let claimJSON = extractJSON(from: claimResponse)

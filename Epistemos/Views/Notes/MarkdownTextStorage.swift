@@ -362,13 +362,13 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             let pfx = t.hasPrefix("- ") ? "- " : "* "
             dimPrefix(in: line, prefix: pfx, lineStart: range.location, color: accentColor)
 
-        } else if t.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil {
+        } else if Self.numberedListRegex.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) != nil {
             backing.addAttributes([
                 .font: NSFont.systemFont(ofSize: baseFontSize),
                 .paragraphStyle: Self.listStyle
             ], range: range)
-            if let numRange = t.range(of: #"^\d+\.\s"#, options: .regularExpression) {
-                let offset = t.distance(from: t.startIndex, to: numRange.upperBound)
+            if let numMatch = Self.numberedListRegex.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)) {
+                let offset = numMatch.range.length
                 let prefixOffset = line.distance(from: line.startIndex,
                     to: line.firstIndex(where: { !$0.isWhitespace }) ?? line.startIndex)
                 let dimRange = NSRange(location: range.location + prefixOffset, length: offset)
@@ -474,150 +474,214 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         // the entire document (line height changed) on every keystroke.
     }
 
-    // MARK: - Inline Styles (bold, italic, code, [[links]], inline math)
+    // MARK: - Inline Styles (Rust pulldown-cmark parser via FFI)
+    //
+    // Replaces 7 regex passes with a single Rust parse call. The Rust parser
+    // (pulldown-cmark) handles bold, italic, strikethrough, inline code,
+    // [[wikilinks]], [links](url), and $inline math$ with correct nesting
+    // and CommonMark compliance.
 
-    // Pre-compiled regexes — static constants avoid re-compiling on every keystroke.
-    // SAFETY: All `try!` below use hardcoded literal patterns validated at development time.
-    // NSRegularExpression.init only throws for invalid regex syntax, never for valid literals.
-    private static let boldRegex = try! NSRegularExpression(pattern: #"\*\*(.+?)\*\*|__(.+?)__"#)
-    private static let italicRegex = try! NSRegularExpression(pattern: #"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)"#)
-    private static let strikethroughRegex = try! NSRegularExpression(pattern: #"~~(.+?)~~"#)
-    private static let codeRegex = try! NSRegularExpression(pattern: #"`([^`]+)`"#)
-    private static let linkRegex = try! NSRegularExpression(pattern: #"\[\[([^\]]+)\]\]"#)
-    private static let mdLinkRegex = try! NSRegularExpression(pattern: #"\[([^\]]+)\]\(([^)]+)\)"#)
-    private static let inlineMathRegex = try! NSRegularExpression(pattern: #"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)"#)
+    private static let numberedListRegex = try! NSRegularExpression(pattern: #"^\d+\.\s"#)
+
+    /// Inline style kinds from the Rust parser that we apply here.
+    /// Line-level styles (headings, lists, quotes, code blocks, tables) are
+    /// handled by restyleLines() and skipped from the Rust output.
+    private static let inlineStyleKinds: Set<UInt8> = [
+        4,  // Bold
+        5,  // Italic
+        6,  // Strikethrough
+        7,  // InlineCode
+        15, // Wikilink
+        16, // WikilinkBrackets
+        17, // MarkdownLink
+        19, // InlineMath
+    ]
 
     func applyInlineStyles(fullRange: NSRange) {
-        let str = backing.string
+        let nsStr = backing.string as NSString
+        guard fullRange.location + fullRange.length <= nsStr.length else { return }
+        let substring = nsStr.substring(with: fullRange)
+        guard !substring.isEmpty else { return }
+        guard let cStr = substring.cString(using: .utf8) else { return }
+
+        var spansPtr: UnsafeMutablePointer<StyleSpan>?
+        var count: UInt32 = 0
+        let result = markdown_parse(cStr, UInt32(cStr.count - 1), &spansPtr, &count)
+        guard result == 0 else { return }
+        guard let spans = spansPtr, count > 0 else { return }
+        defer { markdown_free_spans(spans, count) }
+
+        // Build UTF-8 byte → UTF-16 code unit offset map (O(paragraph)).
+        let utf8ToUtf16 = Self.buildUtf8ToUtf16Map(substring)
+
         let accentColor = Self.accentColor(isDark: isDark)
         let mutedColor = Self.mutedColor(isDark: isDark)
-
-        // Bold: **text** or __text__ — markers nearly invisible
         let ghostMarker: [NSAttributedString.Key: Any] = [
             .foregroundColor: isDark
                 ? NSColor.white.withAlphaComponent(0.15)
                 : NSColor.black.withAlphaComponent(0.12)
         ]
-        applyRegexStyle(
-            regex: Self.boldRegex, in: str, range: fullRange,
-            markerAttrs: ghostMarker,
-            contentAttrs: [.font: NSFont.systemFont(ofSize: baseFontSize, weight: .bold)]
-        )
 
-        // Italic: *text* or _text_ — markers nearly invisible
-        applyRegexStyle(
-            regex: Self.italicRegex, in: str, range: fullRange,
-            markerAttrs: ghostMarker,
-            contentAttrs: [.font: NSFont.systemFont(ofSize: baseFontSize).italic]
-        )
-
-        // Strikethrough: ~~text~~ — markers ghost, content softly faded
-        let strikeMatches = Self.strikethroughRegex.matches(in: str, range: fullRange)
-        for match in strikeMatches {
-            let full = match.range
-            guard full.location + full.length <= backing.length else { continue }
-            backing.addAttributes(ghostMarker, range: full)
-            let content = match.range(at: 1)
-            if content.location != NSNotFound {
-                backing.addAttributes([
-                    .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                    .foregroundColor: mutedColor
-                ], range: content)
-            }
+        // Sort spans largest-first so inner (smaller) spans override outer ones.
+        let sorted = (0..<Int(count)).sorted {
+            let a = spans[$0], b = spans[$1]
+            return (a.end &- a.start) > (b.end &- b.start)
         }
 
-        // Inline highlight: `text` — warm accent pill, body font.
-        // Feels like a highlighted keyword/concept, not a code snippet.
-        let highlightColor: NSColor = isDark
-            ? NSColor(red: 1.0, green: 0.82, blue: 0.48, alpha: 1)
-            : NSColor(red: 0.62, green: 0.40, blue: 0.10, alpha: 1)
-        let highlightBg: NSColor = isDark
-            ? NSColor(red: 1.0, green: 0.85, blue: 0.5, alpha: 0.08)
-            : NSColor(red: 0.90, green: 0.72, blue: 0.30, alpha: 0.12)
-        applyRegexStyle(
-            regex: Self.codeRegex, in: str, range: fullRange,
-            markerAttrs: [
-                .foregroundColor: isDark
-                    ? NSColor.white.withAlphaComponent(0.15)
-                    : NSColor.black.withAlphaComponent(0.12)
-            ],
-            contentAttrs: [
-                .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium),
-                .foregroundColor: highlightColor,
-                .backgroundColor: highlightBg
-            ]
-        )
+        for idx in sorted {
+            let span = spans[idx]
+            guard Self.inlineStyleKinds.contains(span.style) else { continue }
 
-        // [[wikilinks]] — brackets ghosted, content is a clean clickable link
-        let linkMatches = Self.linkRegex.matches(in: str, range: fullRange)
-        for match in linkMatches {
-            let fullMatchRange = match.range
-            guard fullMatchRange.location + fullMatchRange.length <= backing.length else { continue }
+            let startByte = Int(span.start)
+            let endByte = Int(span.end)
+            guard startByte < utf8ToUtf16.count, endByte < utf8ToUtf16.count else { continue }
 
-            backing.addAttributes(ghostMarker, range: fullMatchRange)
+            let utf16Start = utf8ToUtf16[startByte]
+            let utf16End = utf8ToUtf16[endByte]
+            let spanRange = NSRange(
+                location: fullRange.location + utf16Start,
+                length: utf16End - utf16Start
+            )
+            guard spanRange.length > 0,
+                  spanRange.location + spanRange.length <= backing.length else { continue }
 
-            let contentRange = match.range(at: 1)
-            if contentRange.location != NSNotFound {
-                let linkTitle = (str as NSString).substring(with: contentRange)
-                backing.addAttributes([
-                    .foregroundColor: accentColor,
-                    .underlineStyle: NSUnderlineStyle.single.rawValue,
-                    .cursor: NSCursor.pointingHand,
-                    .init("EpistemosWikilink"): linkTitle
-                ], range: contentRange)
-            }
+            applySpanStyle(
+                span.style, group: span.group, range: spanRange,
+                ghost: ghostMarker, accent: accentColor, muted: mutedColor
+            )
         }
-
-        // Markdown links: [text](url) — syntax ghosted, link text stands out
-        let mdLinkMatches = Self.mdLinkRegex.matches(in: str, range: fullRange)
-        for match in mdLinkMatches {
-            let full = match.range
-            guard full.location + full.length <= backing.length else { continue }
-            backing.addAttributes(ghostMarker, range: full)
-            // Highlight link text
-            let textRange = match.range(at: 1)
-            if textRange.location != NSNotFound {
-                backing.addAttributes([
-                    .foregroundColor: accentColor,
-                    .underlineStyle: NSUnderlineStyle.single.rawValue
-                ], range: textRange)
-            }
-        }
-
-        // Inline math: $expr$
-        applyRegexStyle(
-            regex: Self.inlineMathRegex, in: str, range: fullRange,
-            markerAttrs: [.foregroundColor: mutedColor],
-            contentAttrs: [
-                .font: NSFont(name: "NewYork-RegularItalic", size: smallSize) ?? NSFont.systemFont(ofSize: smallSize).italic,
-                .foregroundColor: accentColor
-            ]
-        )
     }
 
-    private func applyRegexStyle(
-        regex: NSRegularExpression,
-        in str: String,
-        range: NSRange,
-        markerAttrs: [NSAttributedString.Key: Any],
-        contentAttrs: [NSAttributedString.Key: Any]
+    /// Apply visual attributes for a single Rust-parsed style span.
+    private func applySpanStyle(
+        _ style: UInt8, group: UInt8, range: NSRange,
+        ghost: [NSAttributedString.Key: Any],
+        accent: NSColor, muted: NSColor
     ) {
-        let matches = regex.matches(in: str, range: range)
-        for match in matches {
-            let fullRange = match.range
-            guard fullRange.location + fullRange.length <= backing.length else { continue }
-
-            var contentRange: NSRange?
-            for g in 1..<match.numberOfRanges {
-                let r = match.range(at: g)
-                if r.location != NSNotFound { contentRange = r; break }
+        switch style {
+        case 4: // Bold — ghost markers, bold content
+            backing.addAttributes(ghost, range: range)
+            if range.length > 4 {
+                let content = NSRange(location: range.location + 2, length: range.length - 4)
+                backing.addAttributes([
+                    .font: NSFont.systemFont(ofSize: baseFontSize, weight: .bold)
+                ], range: content)
             }
 
-            backing.addAttributes(markerAttrs, range: fullRange)
-            if let cr = contentRange {
-                backing.addAttributes(contentAttrs, range: cr)
+        case 5: // Italic — ghost markers, italic content
+            backing.addAttributes(ghost, range: range)
+            if range.length > 2 {
+                let content = NSRange(location: range.location + 1, length: range.length - 2)
+                backing.addAttributes([
+                    .font: NSFont.systemFont(ofSize: baseFontSize).italic
+                ], range: content)
             }
+
+        case 6: // Strikethrough — ghost markers, strikethrough + muted content
+            backing.addAttributes(ghost, range: range)
+            if range.length > 4 {
+                let content = NSRange(location: range.location + 2, length: range.length - 4)
+                backing.addAttributes([
+                    .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                    .foregroundColor: muted
+                ], range: content)
+            }
+
+        case 7: // InlineCode — ghost backticks, warm accent pill for content
+            backing.addAttributes(ghost, range: range)
+            if range.length > 2 {
+                let content = NSRange(location: range.location + 1, length: range.length - 2)
+                let highlightColor: NSColor = isDark
+                    ? NSColor(red: 1.0, green: 0.82, blue: 0.48, alpha: 1)
+                    : NSColor(red: 0.62, green: 0.40, blue: 0.10, alpha: 1)
+                let highlightBg: NSColor = isDark
+                    ? NSColor(red: 1.0, green: 0.85, blue: 0.5, alpha: 0.08)
+                    : NSColor(red: 0.90, green: 0.72, blue: 0.30, alpha: 0.12)
+                backing.addAttributes([
+                    .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium),
+                    .foregroundColor: highlightColor,
+                    .backgroundColor: highlightBg
+                ], range: content)
+            }
+
+        case 15: // Wikilink content — accent underlined clickable link
+            let linkTitle = (backing.string as NSString).substring(with: range)
+            backing.addAttributes([
+                .foregroundColor: accent,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .cursor: NSCursor.pointingHand,
+                .init("EpistemosWikilink"): linkTitle
+            ], range: range)
+
+        case 16: // WikilinkBrackets [[ or ]] — ghosted
+            backing.addAttributes(ghost, range: range)
+
+        case 17: // MarkdownLink [text](url) — ghost all, accent the text part
+            backing.addAttributes(ghost, range: range)
+            if range.length > 4 {
+                let linkStr = (backing.string as NSString).substring(with: range)
+                if let closeBracket = linkStr.firstIndex(of: "]") {
+                    let textLen = linkStr.distance(
+                        from: linkStr.index(after: linkStr.startIndex),
+                        to: closeBracket
+                    )
+                    if textLen > 0 {
+                        let textRange = NSRange(location: range.location + 1, length: textLen)
+                        backing.addAttributes([
+                            .foregroundColor: accent,
+                            .underlineStyle: NSUnderlineStyle.single.rawValue
+                        ], range: textRange)
+                    }
+                }
+            }
+
+        case 19: // InlineMath $expr$ — muted dollars, accent italic content
+            backing.addAttributes([.foregroundColor: muted], range: range)
+            if range.length > 2 {
+                let content = NSRange(location: range.location + 1, length: range.length - 2)
+                backing.addAttributes([
+                    .font: NSFont(name: "NewYork-RegularItalic", size: smallSize)
+                        ?? NSFont.systemFont(ofSize: smallSize).italic,
+                    .foregroundColor: accent
+                ], range: content)
+            }
+
+        default:
+            break
         }
+    }
+
+    /// Build a lookup table from UTF-8 byte offsets to UTF-16 code unit offsets.
+    /// Index = byte position in UTF-8, value = corresponding UTF-16 offset.
+    /// Size is utf8Count + 1 (sentinel for end-of-string positions).
+    private static func buildUtf8ToUtf16Map(_ str: String) -> [Int] {
+        let utf8Count = str.utf8.count
+        var map = [Int](repeating: 0, count: utf8Count + 1)
+        var utf8Pos = 0
+        var utf16Pos = 0
+
+        for scalar in str.unicodeScalars {
+            let value = scalar.value
+            let u8Len: Int
+            if value <= 0x7F { u8Len = 1 }
+            else if value <= 0x7FF { u8Len = 2 }
+            else if value <= 0xFFFF { u8Len = 3 }
+            else { u8Len = 4 }
+
+            for j in 0..<u8Len {
+                if utf8Pos + j < map.count {
+                    map[utf8Pos + j] = utf16Pos
+                }
+            }
+
+            utf8Pos += u8Len
+            utf16Pos += (value > 0xFFFF) ? 2 : 1
+        }
+
+        if utf8Pos < map.count {
+            map[utf8Pos] = utf16Pos
+        }
+        return map
     }
 
     // MARK: - Helpers

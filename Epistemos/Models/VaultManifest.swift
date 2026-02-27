@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - Vault Manifest
 // Lightweight in-memory representation of the full vault.
-// Built once on Notes Mode entry, reused for all queries in the session.
-// ~50-80 tokens per entry — a 200-note vault ≈ 12K tokens.
+// Built eagerly on vault attach, shared across all AI surfaces.
+// ~30-40 tokens per entry (manifest-only) or ~50-80 (with snippets).
 
 struct VaultManifest: Sendable {
     let entries: [ManifestEntry]
@@ -49,6 +49,20 @@ struct VaultManifest: Sendable {
             }
         }
 
+        return parts.joined(separator: "\n")
+    }
+
+    /// Compact manifest for ambient context injection — titles, tags, and metadata only.
+    /// Omits snippets and recent note bodies to minimize token overhead (~30-40 tokens/entry).
+    func asManifestOnly() -> String {
+        var parts: [String] = []
+        parts.append("## Vault Overview (\(entries.count) notes)")
+        for entry in entries {
+            let tags = entry.tags.isEmpty ? "" : " [tags: \(entry.tags.joined(separator: ", "))]"
+            let folder = entry.folderName.map { " in \($0)" } ?? ""
+            let date = entry.updatedAt.formatted(date: .abbreviated, time: .omitted)
+            parts.append("- **\(entry.title)**\(folder)\(tags) — \(entry.wordCount) words, updated \(date)")
+        }
         return parts.joined(separator: "\n")
     }
 }

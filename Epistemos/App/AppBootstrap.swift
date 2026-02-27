@@ -16,7 +16,7 @@ import SwiftData
 @MainActor
 final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
-    nonisolated(unsafe) static var shared: AppBootstrap?
+    static var shared: AppBootstrap?
 
     // MARK: - Model Container
     let modelContainer: ModelContainer
@@ -33,6 +33,11 @@ final class AppBootstrap {
     let dailyBriefState = DailyBriefState()
     let threadState = ThreadState()
     let graphState = GraphState()
+
+    // MARK: - Ambient Vault Manifest
+    /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
+    /// Nil when no vault is attached. Shared across all AI surfaces (main chat, MiniChat, graph inspector).
+    var ambientManifest: VaultManifest?
 
     // MARK: - App Nap Prevention
     private var antiNapActivity: NSObjectProtocol?
@@ -116,14 +121,20 @@ final class AppBootstrap {
         // Wire EventBus: querySubmitted → PipelineService
         subscribeToPipelineEvents(pipeline: pipeline, chatState: chatState)
 
-        // Evict old disk style cache entries (cap at 200 files)
-        DiskStyleCache.shared.evictIfNeeded()
+        // Evict old disk style cache entries in background (filesystem I/O).
+        Task { DiskStyleCache.shared.evictIfNeeded() }
 
         // Wire Daily Brief overlay
         wireDailyBrief()
 
         // Wire toast/error display
         subscribeToToastEvents()
+
+        // Wire vault change events → ambient manifest refresh
+        subscribeToVaultEvents()
+
+        // Give VaultSyncService access to EventBus for change notifications
+        vaultSync.setEventBus(eventBus)
 
         // Check Ollama availability in background
         Task {
@@ -146,9 +157,18 @@ final class AppBootstrap {
             return try? await self.triageService.generateGeneral(
                 prompt: prompt,
                 systemPrompt: """
-                You are the user's personal research assistant. Generate a warm but substantive daily brief. \
-                Use markdown formatting (headers, bold, bullets). Be specific — reference actual topics and \
-                connections you see in their recent activity. Keep it actionable and intellectually engaging.
+                You are a senior research analyst preparing a daily intelligence brief for a knowledge worker. \
+                This person relies on your brief to orient their day — it must be comprehensive, specific, and actionable.
+
+                Rules:
+                - Reference actual note titles, conversation topics, and specific content — never be vague
+                - Identify patterns the user hasn't explicitly connected
+                - Flag stalled work and knowledge debts with urgency
+                - Recommended actions must be concrete and reference specific materials
+                - Write in flowing analytical prose, not shallow bullet lists
+                - Use markdown headers (###) to structure sections, **bold** for emphasis
+                - Aim for 600-1000 words — this is a deep brief, not a quick summary
+                - If the vault contains many notes, focus on recency and interconnection, not exhaustive coverage
                 """,
                 operation: .chatResponse(query: prompt),
                 contentLength: prompt.count
@@ -232,7 +252,11 @@ final class AppBootstrap {
                 if let page = try? context.fetch(pageQuery).first {
                     page.folder = folder
                     page.tags = ["daily-brief"]
-                    try? context.save()
+                    do {
+                        try context.save()
+                    } catch {
+                        Log.pipeline.error("Failed to save daily brief page: \(error.localizedDescription, privacy: .public)")
+                    }
                 }
             } else {
                 let page = SDPage(title: title, emoji: emoji)
@@ -242,7 +266,11 @@ final class AppBootstrap {
                 page.folder = folder
                 page.tags = ["daily-brief"]
                 context.insert(page)
-                try? context.save()
+                do {
+                    try context.save()
+                } catch {
+                    Log.pipeline.error("Failed to save daily brief fallback: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
     }
@@ -250,9 +278,20 @@ final class AppBootstrap {
     // MARK: - Full Reset
 
     /// Wipe all persisted data except on-disk vault files, then show setup screen.
+    /// Rebuild the ambient vault manifest from current SwiftData state.
+    /// Called on vault attach, vault changes, and periodic refresh.
+    func refreshAmbientManifest() {
+        Task {
+            ambientManifest = await vaultSync.buildAmbientManifest()
+            Log.app.info("Ambient manifest refreshed: \(self.ambientManifest?.entries.count ?? 0) entries")
+        }
+    }
+
     func resetAllData() {
         queryTask?.cancel()
         queryTask = nil
+        pipelineService.cancelAllEnrichment()
+        ambientManifest = nil
 
         let context = modelContainer.mainContext
         do {

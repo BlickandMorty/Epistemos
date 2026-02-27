@@ -73,9 +73,11 @@ enum CitationExtractor {
         // Extract everything after the heading until the next heading or end of text
         let afterHeading = String(text[headingRange.upperBound...])
         let sectionEnd = afterHeading.range(of: #"\n#{1,3}\s+"#, options: .regularExpression)
-        let section = sectionEnd != nil
-            ? String(afterHeading[..<sectionEnd!.lowerBound])
-            : afterHeading
+        let section = if let sectionEnd {
+            String(afterHeading[..<sectionEnd.lowerBound])
+        } else {
+            afterHeading
+        }
 
         // Parse each list item (-, *, numbered)
         let lines = section.components(separatedBy: "\n")
@@ -125,8 +127,8 @@ enum CitationExtractor {
         if let urlMatch = line.range(of: #"https?://[^\s\)\]>]+"#, options: .regularExpression) {
             url = String(line[urlMatch])
             // Check if URL is a DOI
-            if let doiPart = url?.range(of: #"doi\.org/(.+)"#, options: .regularExpression) {
-                doi = String(url![doiPart.lowerBound...])
+            if let url, let doiPart = url.range(of: #"doi\.org/(.+)"#, options: .regularExpression) {
+                doi = String(url[doiPart.lowerBound...])
             }
         }
 

@@ -36,7 +36,7 @@ struct FilterEngineTests {
             id: "\(source)-\(target)",
             sourceNodeId: source,
             targetNodeId: target,
-            type: .wikilink,
+            type: .reference,
             weight: 1.0,
             createdAt: .now
         )
@@ -57,7 +57,7 @@ struct FilterEngineTests {
     func toggleTypeHidesAndShows() {
         let engine = FilterEngine()
         let noteNode = makeNode(id: "n1", type: .note)
-        let thinkerNode = makeNode(id: "n2", type: .thinker)
+        let thinkerNode = makeNode(id: "n2", type: .source)
 
         // Toggle .note off
         engine.toggleType(.note)
@@ -73,9 +73,9 @@ struct FilterEngineTests {
     func showOnlyTypeIsolatesOneType() {
         let engine = FilterEngine()
         let noteNode = makeNode(id: "n1", type: .note)
-        let paperNode = makeNode(id: "n2", type: .paper)
+        let paperNode = makeNode(id: "n2", type: .source)
 
-        engine.showOnlyType(.paper)
+        engine.showOnlyType(.source)
         #expect(!engine.isNodeVisible(noteNode))
         #expect(engine.isNodeVisible(paperNode))
     }
@@ -132,7 +132,7 @@ struct FilterEngineTests {
     func clearHiddenRestoresAll() {
         let engine = FilterEngine()
         let nodeA = makeNode(id: "a", type: .note)
-        let nodeB = makeNode(id: "b", type: .thinker)
+        let nodeB = makeNode(id: "b", type: .source)
 
         engine.hideNode("a")
         engine.hideNode("b")

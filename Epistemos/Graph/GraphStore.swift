@@ -232,4 +232,12 @@ final class GraphStore {
     func updateVelocity(_ nodeId: String, velocity: SIMD2<Float>) {
         nodes[nodeId]?.velocity = velocity
     }
+
+    // MARK: - Link Count (for Rust FFI)
+
+    /// Number of edges touching this node (degree).
+    /// Used by the Rust engine for radius sizing: cbrt(link_count) * 8.0.
+    func linkCount(for nodeId: String) -> UInt32 {
+        UInt32(adjacency[nodeId]?.count ?? 0)
+    }
 }

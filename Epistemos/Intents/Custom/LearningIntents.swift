@@ -104,13 +104,17 @@ struct FindConnectionsIntent: AppIntent {
             relevantPages = Array(pages.prefix(10))
         }
 
-        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.body.prefix(200)))" }.joined(separator: "\n")
+        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.body.prefix(300)))" }.joined(separator: "\n")
+
+        // Inject vault manifest for full vault awareness
+        let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""
+        let fullPrompt = "Analyze these notes for hidden connections and cross-references:\n\(notesSummary)\(manifestHint)"
 
         let response = try await bootstrap.triageService.generateGeneral(
-            prompt: "Analyze these notes for hidden connections and cross-references:\n\(notesSummary)",
-            systemPrompt: "You are a knowledge graph analyst. Identify 3-5 non-obvious connections between the user's notes. Focus on shared concepts, contradictions, complementary ideas, and potential synthesis opportunities. Be specific — name the notes and concepts you're connecting.",
+            prompt: fullPrompt,
+            systemPrompt: "You are a knowledge graph analyst with access to the user's full vault index. Identify 3-5 non-obvious connections — shared concepts, contradictions, complementary ideas, and synthesis opportunities. Reference notes by title. Look beyond the detailed notes to spot patterns in the vault index too.",
             operation: .epistemicLens,
-            contentLength: notesSummary.count
+            contentLength: fullPrompt.count
         )
 
         let area = topic ?? "all notes"
@@ -145,13 +149,17 @@ struct GenerateQuestionsIntent: AppIntent {
             relevantPages = Array(pages.prefix(10))
         }
 
-        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.body.prefix(200)))" }.joined(separator: "\n")
+        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.body.prefix(300)))" }.joined(separator: "\n")
+
+        // Inject vault manifest for full vault awareness
+        let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""
+        let fullPrompt = "Based on these notes, generate thought-provoking questions:\n\(notesSummary)\(manifestHint)"
 
         let response = try await bootstrap.triageService.generateGeneral(
-            prompt: "Based on these notes, generate thought-provoking questions:\n\(notesSummary)",
-            systemPrompt: "You are a Socratic research advisor. Generate 5 incisive questions that the user's notes don't yet answer. Each question should push thinking deeper — challenge assumptions, probe gaps, or suggest new angles. Format: numbered list with a one-line 'Why it matters' for each.",
+            prompt: fullPrompt,
+            systemPrompt: "You are a Socratic research advisor with access to the user's full vault. Generate 5 incisive questions that their notes don't yet answer. Challenge assumptions, probe gaps, suggest new angles. Consider the broader vault index for patterns they might be missing. Format: numbered list with a one-line 'Why it matters' for each.",
             operation: .epistemicLens,
-            contentLength: notesSummary.count
+            contentLength: fullPrompt.count
         )
 
         let area = topic ?? "your research"

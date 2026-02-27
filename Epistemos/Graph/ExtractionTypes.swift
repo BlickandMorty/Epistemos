@@ -2,23 +2,18 @@ import Foundation
 
 // MARK: - ExtractionResult
 // Codable struct for parsing LLM JSON responses from note entity extraction.
-// Each field maps to a category of knowledge graph entity the AI can identify.
+// Updated for 7-type model: sources (absorbs thinkers), quotes, tags (absorbs concepts).
 
 nonisolated struct ExtractionResult: Codable, Sendable {
-    var thinkers: [ExtractedThinker]
-    var concepts: [ExtractedConcept]
-    var quotes: [ExtractedQuote]
     var sources: [ExtractedSource]
+    var quotes: [ExtractedQuote]
+    var tags: [ExtractedTag]
 
-    nonisolated struct ExtractedThinker: Codable, Sendable {
+    nonisolated struct ExtractedSource: Codable, Sendable {
         var name: String
-        var role: String?
-        var confidence: Double?
-    }
-
-    nonisolated struct ExtractedConcept: Codable, Sendable {
-        var name: String
-        var description: String?
+        var url: String?
+        var title: String?
+        var type: String?
     }
 
     nonisolated struct ExtractedQuote: Codable, Sendable {
@@ -27,30 +22,24 @@ nonisolated struct ExtractionResult: Codable, Sendable {
         var context: String?
     }
 
-    nonisolated struct ExtractedSource: Codable, Sendable {
-        var url: String?
-        var title: String?
-        var type: String?
+    nonisolated struct ExtractedTag: Codable, Sendable {
+        var name: String
+        var description: String?
     }
 }
 
 // MARK: - InsightExtractionResult
 // Codable struct for parsing LLM JSON responses from chat insight extraction.
+// Insights map to .idea nodes in the 7-type model.
 
 nonisolated struct InsightExtractionResult: Codable, Sendable {
-    var insights: [ExtractedInsight]
+    var ideas: [ExtractedIdea]
     var sourcesShared: [ExtractedSource]
-    var thinkersDiscussed: [ExtractedThinker]
 
-    nonisolated struct ExtractedInsight: Codable, Sendable {
+    nonisolated struct ExtractedIdea: Codable, Sendable {
         var summary: String
         var evidenceGrade: String?
         var relatedEntities: [String]?
-    }
-
-    nonisolated struct ExtractedThinker: Codable, Sendable {
-        var name: String
-        var context: String?
     }
 
     nonisolated struct ExtractedSource: Codable, Sendable {

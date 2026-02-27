@@ -38,6 +38,19 @@ extension AppBootstrap {
         }
     }
 
+    /// Subscribe to vaultChanged events and refresh the ambient manifest.
+    func subscribeToVaultEvents() {
+        eventBus.subscribe(id: "vaultManifest") { [weak self] event in
+            guard let self else { return }
+            switch event {
+            case .vaultChanged:
+                self.refreshAmbientManifest()
+            default:
+                break
+            }
+        }
+    }
+
     // MARK: - Query Lifecycle
 
     /// Cancel the active pipeline query AND enrichment (called by stop button via ChatState callback).
@@ -47,15 +60,15 @@ extension AppBootstrap {
         pipelineService.cancelAllEnrichment()
     }
 
-    /// Triggered when Notes Mode is enabled. Builds vault manifest and fires auto-briefing.
-    func startNotesMode(chatState: ChatState) {
+    /// Explicit vault briefing — builds full manifest (with bodies) and fires briefing query.
+    /// Triggered from command palette "Vault Briefing" action.
+    func requestVaultBriefing(chatState: ChatState) {
         Task {
-            guard let manifest = await vaultSync.buildVaultManifest() else {
-                chatState.addErrorMessage("No notes found in vault. Add some notes first.")
-                chatState.disableSpecialModes()
+            guard let fullManifest = await vaultSync.buildVaultManifest() else {
+                chatState.addErrorMessage("No notes found in vault.")
                 return
             }
-            chatState.vaultManifest = manifest
+            chatState.vaultBriefingManifest = fullManifest
             chatState.submitQuery("[VAULT_BRIEFING]")
         }
     }
@@ -86,12 +99,12 @@ extension AppBootstrap {
             do {
                 let mode = inferenceState.inferenceMode
                 let isResearch = chatState.isResearchMode
-                let isNotes = chatState.isNotesMode
-                Log.pipeline.warning("🔬 handleQuery — isResearch=\(isResearch) isNotes=\(isNotes) skipEnrichment=\(!isResearch)")
+                let hasVault = self.ambientManifest != nil
+                Log.pipeline.warning("🔬 handleQuery — isResearch=\(isResearch) hasVault=\(hasVault) skipEnrichment=\(!isResearch)")
 
                 let notesContext: String?
                 let resolvedQuery: String
-                if isNotes {
+                if hasVault {
                     let (ctx, cleaned) = await self.buildNotesContext(query: query, chatState: chatState)
                     notesContext = ctx
                     resolvedQuery = cleaned
@@ -100,9 +113,17 @@ extension AppBootstrap {
                     resolvedQuery = query
                 }
 
-                let effectiveQuery = isVaultBriefing
-                    ? "Analyze my vault and provide a briefing: find cross-note connections, recurring themes, contradictions, topic gaps, stale notes worth revisiting, and notes that could be merged or split. Be specific — reference notes by title."
-                    : resolvedQuery
+                // For vault briefing, override notesContext with full manifest (includes bodies)
+                let effectiveNotesContext: String?
+                let effectiveQuery: String
+                if isVaultBriefing {
+                    effectiveNotesContext = chatState.vaultBriefingManifest?.asContext() ?? notesContext
+                    chatState.vaultBriefingManifest = nil  // Consumed — free memory
+                    effectiveQuery = "Analyze my vault and provide a briefing: find cross-note connections, recurring themes, contradictions, topic gaps, stale notes worth revisiting, and notes that could be merged or split. Be specific — reference notes by title."
+                } else {
+                    effectiveNotesContext = notesContext
+                    effectiveQuery = resolvedQuery
+                }
 
                 // Build conversation history for multi-turn context.
                 // Prior messages = everything except the current user message (just appended).
@@ -154,7 +175,7 @@ extension AppBootstrap {
                     mode: mode,
                     controls: .defaults,
                     soarConfig: self.soarState.soarConfig,
-                    notesContext: notesContext,
+                    notesContext: effectiveNotesContext,
                     skipEnrichment: !isResearch,
                     conversationHistory: conversationHistory,
                     onEnriched: isResearch ? onEnriched : nil
@@ -215,7 +236,7 @@ extension AppBootstrap {
                                 grade: grade,
                                 mode: mode,
                                 isResearch: isResearch,
-                                isNotes: isNotes
+                                isNotes: hasVault
                             )
                         }
 
@@ -268,7 +289,11 @@ extension AppBootstrap {
                     let descriptor = FetchDescriptor<SDChat>(predicate: predicate)
                     if let sdChat = try? context.fetch(descriptor).first {
                         sdChat.title = cleaned
-                        try? context.save()
+                        do {
+                            try context.save()
+                        } catch {
+                            Log.pipeline.error("Failed to save chat title: \(error.localizedDescription, privacy: .public)")
+                        }
                     }
                 }
             } catch {

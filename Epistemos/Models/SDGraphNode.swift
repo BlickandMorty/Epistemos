@@ -52,8 +52,9 @@ final class SDGraphNode {
     // MARK: - Computed Accessors
 
     /// Typed node type derived from the stored raw value.
+    /// Uses legacy migration so old records (e.g. "brainDump", "paper") map to new 7-type system.
     var nodeType: GraphNodeType {
-        GraphNodeType(rawValue: type) ?? .note
+        GraphNodeType(legacy: type)
     }
 
     /// Cached metadata — avoids JSON decode/encode on every access.

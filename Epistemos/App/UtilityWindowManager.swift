@@ -11,14 +11,12 @@ enum UtilityPanel: String, CaseIterable {
     case settings
     case notes
     case library
-    case graph
 
     var title: String {
         switch self {
         case .settings: "Settings"
         case .notes: "Notes"
         case .library: "Library & Research"
-        case .graph: "Knowledge Graph"
         }
     }
 
@@ -27,7 +25,6 @@ enum UtilityPanel: String, CaseIterable {
         case .settings: "gear"
         case .notes: "pencil.line"
         case .library: "books.vertical"
-        case .graph: "point.3.connected.trianglepath.dotted"
         }
     }
 
@@ -36,15 +33,14 @@ enum UtilityPanel: String, CaseIterable {
         case .settings: NSSize(width: 520, height: 480)
         case .notes: NSSize(width: 320, height: 600)
         case .library: NSSize(width: 900, height: 660)
-        case .graph: NSSize(width: 1100, height: 700)
         }
     }
 
-    /// Library and Graph use full NSWindow (appears in Window menu / dock).
+    /// Library uses full NSWindow (appears in Window menu / dock).
     /// Notes browser and Settings use floating NSPanel.
     var usesFullWindow: Bool {
         switch self {
-        case .library, .graph: true
+        case .library: true
         case .notes, .settings: false
         }
     }
@@ -245,7 +241,6 @@ private struct ThemedUtilityRoot: View {
             case .settings: SettingsView()
             case .notes: NotesBrowserView()
             case .library: LibraryView()
-            case .graph: GraphWindowView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

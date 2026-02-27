@@ -4,9 +4,9 @@ import Testing
 @Suite("Graph Data Models")
 struct GraphModelTests {
 
-    @Test("GraphNodeType has exactly 13 cases")
+    @Test("GraphNodeType has exactly 7 cases")
     func nodeTypeCaseCount() {
-        #expect(GraphNodeType.allCases.count == 13)
+        #expect(GraphNodeType.allCases.count == 7)
     }
 
     @Test("All GraphNodeType cases have non-empty icon and displayName")
@@ -19,7 +19,7 @@ struct GraphModelTests {
 
     @Test("SDGraphNode stores and retrieves metadata via JSON cache")
     func nodeMetadataRoundTrip() {
-        let node = SDGraphNode(type: .paper, label: "Test Paper")
+        let node = SDGraphNode(type: .source, label: "Test Paper")
         var meta = GraphNodeMetadata()
         meta.authors = ["Alice", "Bob"]
         meta.year = 2026
@@ -40,8 +40,8 @@ struct GraphModelTests {
 
     @Test("SDGraphNode defaults are correct")
     func nodeDefaults() {
-        let node = SDGraphNode(type: .concept, label: "Epistemology")
-        #expect(node.nodeType == .concept)
+        let node = SDGraphNode(type: .tag, label: "Epistemology")
+        #expect(node.nodeType == .tag)
         #expect(node.label == "Epistemology")
         #expect(node.weight == 1.0)
         #expect(node.sourceId == nil)
@@ -54,12 +54,12 @@ struct GraphModelTests {
         let edge = SDGraphEdge(
             source: "node-a",
             target: "node-b",
-            type: .semanticLink,
+            type: .related,
             weight: 0.85
         )
         #expect(edge.sourceNodeId == "node-a")
         #expect(edge.targetNodeId == "node-b")
-        #expect(edge.edgeType == .semanticLink)
+        #expect(edge.edgeType == .related)
         #expect(edge.weight == 0.85)
         #expect(!edge.id.isEmpty)
     }

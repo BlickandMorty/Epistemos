@@ -17,6 +17,7 @@ nonisolated(unsafe) final class WriterTextStorage: NSTextStorage {
     private let backing = NSMutableAttributedString()
     var formatState: WriterFormatState?
     var isDark: Bool = false
+    var theme: EpistemosTheme = .light
     var skipFormatting = false
 
     // MARK: - NSTextStorage Overrides
@@ -109,11 +110,16 @@ nonisolated(unsafe) final class WriterTextStorage: NSTextStorage {
 
     // MARK: - Theme Colors
 
-    /// Text color matching the current theme (dark or light).
+    /// Text color matching the current theme.
     private var resolvedTextColor: NSColor {
-        isDark
-            ? NSColor.white.withAlphaComponent(0.88)
-            : NSColor(white: 0.1, alpha: 1)
+        switch theme {
+        case .oled:   return NSColor.white.withAlphaComponent(0.85)
+        case .sunset: return NSColor(red: 0.91, green: 0.88, blue: 0.85, alpha: 1)
+        case .ember:  return NSColor(red: 0.88, green: 0.83, blue: 0.78, alpha: 1)
+        case .light:  return NSColor(white: 0.1, alpha: 1)
+        case .sunny:  return NSColor(red: 0.14, green: 0.19, blue: 0.25, alpha: 1)
+        case .tan:    return NSColor(red: 0.21, green: 0.16, blue: 0.09, alpha: 1)
+        }
     }
 
     // MARK: - PDF Export Helpers

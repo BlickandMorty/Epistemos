@@ -1,14 +1,16 @@
 import Foundation
 import SwiftData
 
-// MARK: - StructuralGraphBuilder
-// Builds the "structural" knowledge graph from existing SwiftData entities.
+// MARK: - GraphBuilder
+// Builds the structural knowledge graph from existing SwiftData entities.
 // No AI calls — purely deterministic edges from SDPage, SDFolder, NoteIdea,
 // SDChat, and tags. Run on first load or manual refresh to give the graph
 // an immediate skeleton before AI entity extraction fills in semantic links.
+//
+// Uses the 7-type node model and 8-type edge model.
 
 @MainActor
-final class StructuralGraphBuilder {
+final class GraphBuilder {
 
     // MARK: - Build
 
@@ -58,19 +60,18 @@ final class StructuralGraphBuilder {
                 }
             }
 
-            // Ideas & Brain Dumps
+            // Ideas (brainDump and idea both map to .idea in the 7-type model)
             for idea in page.ideas {
                 let ideaKey = "idea-\(idea.id)"
                 guard existingSourceIds.insert(ideaKey).inserted else { continue }
 
-                let ideaType: GraphNodeType = idea.type == .brainDump ? .brainDump : .idea
-                let ideaNode = SDGraphNode(type: ideaType, label: idea.title, sourceId: idea.id)
+                let ideaNode = SDGraphNode(type: .idea, label: idea.title, sourceId: idea.id)
                 ideaNode.createdAt = idea.createdAt
                 nodes.append(ideaNode)
                 sourceIdToNodeId[idea.id] = ideaNode.id
 
-                // idea/brainDump → note (belongsTo)
-                edges.append(SDGraphEdge(source: ideaNode.id, target: node.id, type: .belongsTo))
+                // idea → note (contains)
+                edges.append(SDGraphEdge(source: ideaNode.id, target: node.id, type: .contains))
             }
         }
 
@@ -90,40 +91,31 @@ final class StructuralGraphBuilder {
         }
 
         // ────────────────────────────────────────────
-        // 3. Note → Folder edges (livesIn)
+        // 3. Note → Folder edges (contains)
         // ────────────────────────────────────────────
         for page in pages {
             guard let folder = page.folder,
                   let noteNodeId = sourceIdToNodeId[page.id],
                   let folderNodeId = sourceIdToNodeId[folder.id]
             else { continue }
-            edges.append(SDGraphEdge(source: noteNodeId, target: folderNodeId, type: .livesIn))
+            edges.append(SDGraphEdge(source: folderNodeId, target: noteNodeId, type: .contains))
         }
 
         // ────────────────────────────────────────────
-        // 4. Nested pages (wikilink to parent)
+        // 4. Nested pages (reference to parent)
         // ────────────────────────────────────────────
         for page in pages {
             guard let parentId = page.parentPageId,
                   let childNodeId = sourceIdToNodeId[page.id],
                   let parentNodeId = sourceIdToNodeId[parentId]
             else { continue }
-            edges.append(SDGraphEdge(source: childNodeId, target: parentNodeId, type: .wikilink))
+            edges.append(SDGraphEdge(source: childNodeId, target: parentNodeId, type: .reference))
         }
 
         // ────────────────────────────────────────────
         // 5. Chats
         // ────────────────────────────────────────────
         let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []
-
-        // Build a title → note-node-id lookup for chat→note referenced edges.
-        var titleToNoteNodeId: [String: String] = [:]
-        for page in pages {
-            let key = page.title.lowercased()
-            if !key.isEmpty, let nodeId = sourceIdToNodeId[page.id] {
-                titleToNoteNodeId[key] = nodeId
-            }
-        }
 
         for chat in chats {
             let chatKey = "chat-\(chat.id)"
@@ -133,16 +125,9 @@ final class StructuralGraphBuilder {
             node.createdAt = chat.createdAt
             nodes.append(node)
             sourceIdToNodeId[chat.id] = node.id
-
-            // Chat → Note referenced edges.
-            // SDMessage doesn't persist loadedNoteTitles directly.
-            // We do a lightweight heuristic: scan assistant message content for exact
-            // note title matches. This is skipped for now — the referenced edges will
-            // be populated by the AI extraction pipeline (Task 7) or when SDMessage
-            // gains a noteTitlesData field.
         }
 
-        Log.app.info("StructuralGraphBuilder: built \(nodes.count) nodes, \(edges.count) edges")
+        Log.app.info("GraphBuilder: built \(nodes.count) nodes, \(edges.count) edges")
         return (nodes: nodes, edges: edges)
     }
 
@@ -155,7 +140,7 @@ final class StructuralGraphBuilder {
             try context.delete(model: SDGraphEdge.self)
             try context.delete(model: SDGraphNode.self)
         } catch {
-            Log.app.error("StructuralGraphBuilder: failed to delete existing graph: \(error.localizedDescription, privacy: .public)")
+            Log.app.error("GraphBuilder: failed to delete existing graph: \(error.localizedDescription, privacy: .public)")
         }
 
         for node in nodes {
@@ -167,9 +152,9 @@ final class StructuralGraphBuilder {
 
         do {
             try context.save()
-            Log.app.info("StructuralGraphBuilder: persisted \(nodes.count) nodes, \(edges.count) edges")
+            Log.app.info("GraphBuilder: persisted \(nodes.count) nodes, \(edges.count) edges")
         } catch {
-            Log.app.error("StructuralGraphBuilder: failed to save graph: \(error.localizedDescription, privacy: .public)")
+            Log.app.error("GraphBuilder: failed to save graph: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

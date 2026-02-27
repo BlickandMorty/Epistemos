@@ -298,6 +298,10 @@ private struct MiniChatInputBar: View {
     @State private var streamTask: Task<Void, Never>?
     @FocusState private var isFocused: Bool
 
+    // @-mention dropdown
+    @State private var showMentionDropdown = false
+    @State private var mentionFilter = ""
+
     private var theme: EpistemosTheme { ui.theme }
 
     private var canSend: Bool {
@@ -336,6 +340,19 @@ private struct MiniChatInputBar: View {
                     .writingToolsBehavior(.limited)
                     .foregroundStyle(theme.foreground)
                     .onSubmit { send() }
+                    .onChange(of: text) { _, newVal in
+                        if AppBootstrap.shared?.ambientManifest != nil {
+                            if let atIdx = newVal.lastIndex(of: "@") {
+                                let afterAt = String(newVal[newVal.index(after: atIdx)...])
+                                if !afterAt.contains("]") {
+                                    mentionFilter = afterAt
+                                    if !showMentionDropdown { showMentionDropdown = true }
+                                    return
+                                }
+                            }
+                            if showMentionDropdown { showMentionDropdown = false }
+                        }
+                    }
 
                 if isProcessing {
                     Button {
@@ -363,6 +380,24 @@ private struct MiniChatInputBar: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+        }
+        .overlay(alignment: .topLeading) {
+            if showMentionDropdown, let manifest = AppBootstrap.shared?.ambientManifest {
+                NotesMentionDropdown(
+                    entries: manifest.entries,
+                    filter: mentionFilter,
+                    onSelect: insertMention
+                )
+                .frame(maxWidth: 280)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .offset(y: -8)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
     }
 
@@ -456,30 +491,66 @@ private struct MiniChatInputBar: View {
         let prompt: String
         let systemPrompt: String
 
+        // Gather vault-wide tag list for consistency
+        let vaultTagList: String = {
+            guard let manifest = AppBootstrap.shared?.ambientManifest else { return "" }
+            var freq: [String: Int] = [:]
+            for entry in manifest.entries {
+                for tag in entry.tags { freq[tag, default: 0] += 1 }
+            }
+            let sorted = freq.sorted { $0.value > $1.value }.prefix(60)
+            return sorted.map { "\($0.key) (\($0.value))" }.joined(separator: ", ")
+        }()
+
+        // Ambient manifest for cross-note awareness
+        let manifestContext: String = {
+            guard let manifest = AppBootstrap.shared?.ambientManifest else { return "" }
+            return "\n\n## Vault Index\n" + manifest.asManifestOnly()
+        }()
+
         switch action {
         case .autoTag:
             let existing = page.tags.joined(separator: ", ")
             actionLabel = "Auto-tag"
             prompt = "Suggest 3-5 tags for this note. Current tags: [\(existing.isEmpty ? "none" : existing)]\n\n# \(pageTitle)\n\(snippet)"
             systemPrompt = """
-            You are a note organizer. Suggest short, lowercase tags (1-2 words each). \
+            You are a note organizer with knowledge of the user's entire vault. \
+            Suggest short, lowercase tags (1-2 words each) that are consistent with existing vault tags. \
+            Prefer reusing existing tags over creating new ones when they fit. \
             Return your suggestions as a comma-separated list on the first line, then optionally explain briefly. \
-            Format: tags: tag1, tag2, tag3
+            Format: tags: tag1, tag2, tag3\
+            \(vaultTagList.isEmpty ? "" : "\n\nExisting vault tags (by frequency): \(vaultTagList)")
             """
         case .summarize:
             actionLabel = "Summarize"
-            prompt = "Summarize this note:\n\n# \(pageTitle)\n\(snippet)"
-            systemPrompt = "Produce a concise summary (3-5 sentences). Capture key ideas, arguments, and open questions."
+            prompt = "Summarize this note:\n\n# \(pageTitle)\n\(snippet)\(manifestContext)"
+            systemPrompt = """
+            Produce a rich contextual summary (4-6 sentences). Capture key ideas, arguments, and open questions. \
+            If related notes exist in the vault index, mention 1-2 connections that add context.
+            """
         case .findRelated:
             let vault = searchVault(query: pageTitle)
-            let vaultContext = vault.isEmpty ? "No related notes found." : vault.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
+            let searchResults = vault.isEmpty ? "" : "\n\n## Search Results\n" + vault.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
             actionLabel = "Find Related"
-            prompt = "Find connections between this note and related notes in the vault.\n\n## Current Note: \(pageTitle)\n\(snippet)\n\n## Other Notes\n\(vaultContext)"
-            systemPrompt = "Identify thematic connections, contrasts, and potential cross-references between the notes. Be specific about what connects them."
+            prompt = "Find connections between this note and the rest of the vault.\n\n## Current Note: \(pageTitle)\n\(snippet)\(searchResults)\(manifestContext)"
+            systemPrompt = """
+            You have access to the user's full vault index. Identify: \
+            (1) Directly related notes — shared themes, arguments, or references. \
+            (2) Surprising connections — notes the user might not realize are related. \
+            (3) Gaps — topics this note touches on that aren't covered elsewhere. \
+            Be specific: quote titles, explain what connects them, and suggest cross-links worth creating.
+            """
         case .createFromNote:
             actionLabel = "Create From Note"
-            prompt = "Based on this note, suggest a good follow-up note to write. Provide a title and a brief outline.\n\n# \(pageTitle)\n\(snippet)"
-            systemPrompt = "Suggest one follow-up note with a clear title and 3-5 bullet outline. Format: Title: [title]\\nOutline:\\n- point 1\\n- point 2"
+            prompt = "Based on this note, suggest a good follow-up note to write.\n\n# \(pageTitle)\n\(snippet)\(manifestContext)"
+            systemPrompt = """
+            You can see the user's full vault index. Suggest one follow-up note that: \
+            (1) doesn't duplicate an existing note, \
+            (2) fills a gap in their knowledge graph, \
+            (3) builds on ideas in this note. \
+            Format: Title: [title]\nOutline:\n- point 1\n- point 2\n- point 3\
+            \nExplain briefly why this note would strengthen their vault.
+            """
         }
 
         // Show action as user message
@@ -591,6 +662,11 @@ private struct MiniChatInputBar: View {
                 if !vaultSnippets.isEmpty {
                     let snippetText = vaultSnippets.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
                     contextParts.append("## Related Notes from Vault\n\(snippetText)")
+                }
+
+                // Inject ambient vault manifest for cross-note awareness
+                if let manifest = AppBootstrap.shared?.ambientManifest {
+                    contextParts.append(manifest.asManifestOnly())
                 }
 
                 // Build folder list for move actions
@@ -769,6 +845,14 @@ private struct MiniChatInputBar: View {
         }
 
         return cleaned
+    }
+
+    private func insertMention(_ entry: VaultManifest.ManifestEntry) {
+        if let atIdx = text.lastIndex(of: "@") {
+            text = String(text[text.startIndex..<atIdx]) + "@[\(entry.title)] "
+        }
+        showMentionDropdown = false
+        mentionFilter = ""
     }
 
     private func cancelStream() {
