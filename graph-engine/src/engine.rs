@@ -908,17 +908,27 @@ impl Engine {
 
     /// Mark nodes (by UUID) as attracted to the current target.
     /// Resolves UUIDs → graph node IDs → simulation indices.
+    /// Empty `uuids` means "attract ALL nodes" (manual mode).
     pub fn set_attracted_nodes(&mut self, uuids: &[&str]) {
         let mut sim = self.sim.lock();
-        sim.attracted_nodes = vec![false; sim.x.len()];
-        for uuid in uuids {
-            if let Some(&id) = self.graph.uuid_to_id.get(*uuid) {
-                if let Some(&gi) = self.graph.id_to_index.get(&id) {
-                    if let Some(si) = sim.graph_indices.iter().position(|&g| g == gi) {
-                        sim.attracted_nodes[si] = true;
+        let n = sim.x.len();
+        if uuids.is_empty() {
+            // Manual mode: attract every node.
+            sim.attracted_nodes = vec![true; n];
+        } else {
+            sim.attracted_nodes = vec![false; n];
+            for uuid in uuids {
+                if let Some(&id) = self.graph.uuid_to_id.get(*uuid) {
+                    if let Some(&gi) = self.graph.id_to_index.get(&id) {
+                        if let Some(si) = sim.graph_indices.iter().position(|&g| g == gi) {
+                            sim.attracted_nodes[si] = true;
+                        }
                     }
                 }
             }
+        }
+        if sim.is_settled {
+            sim.reheat();
         }
     }
 

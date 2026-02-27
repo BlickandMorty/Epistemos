@@ -291,16 +291,27 @@ final class MetalGraphNSView: NSView {
             graph_engine_clear_attract(engine)
 
         case .manual:
-            // Manual mode: attract ALL nodes. Pass empty attracted list —
-            // the engine treats empty + active target as "attract all".
+            // Manual mode: attract ALL nodes toward the cursor.
+            // Set an initial target at viewport center so the force
+            // activates immediately (mouse move will update it).
+            let scale = metalLayer?.contentsScale ?? 2.0
+            let cx = Float(bounds.midX * scale)
+            let cy = Float(bounds.midY * scale)
+            graph_engine_set_attract_target_screen(engine, cx, cy)
             graph_engine_set_attracted_nodes(engine, nil, 0)
 
         case .ai:
-            // AI mode: attract only matching nodes.
+            // AI mode: attract only matching nodes toward viewport center.
             let ids = graphState.attractedNodeIds
             if ids.isEmpty {
                 graph_engine_clear_attract(engine)
             } else {
+                // Set initial target at viewport center.
+                let scale = metalLayer?.contentsScale ?? 2.0
+                let cx = Float(bounds.midX * scale)
+                let cy = Float(bounds.midY * scale)
+                graph_engine_set_attract_target_screen(engine, cx, cy)
+
                 var cPtrs: [UnsafePointer<CChar>?] = ids.map { id in
                     UnsafePointer(strdup(id))
                 }
