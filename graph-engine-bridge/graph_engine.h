@@ -137,6 +137,15 @@ void graph_engine_pause(Engine* engine);
 /// Call when hologram overlay is shown again.
 void graph_engine_resume(Engine* engine);
 
+// ── Label Parameters ────────────────────────────────────────────────────────
+
+/// Set label rendering parameters.
+/// @param fade_start Screen radius below which labels are invisible.
+/// @param fade_end   Screen radius above which labels are fully opaque.
+/// @param font_size  Base font size in world units.
+/// @param enabled    1 to show labels, 0 to hide.
+void graph_engine_set_label_params(Engine* engine, float fade_start, float fade_end, float font_size, uint8_t enabled);
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).

@@ -291,6 +291,21 @@ pub extern "C" fn graph_engine_resume(engine: *mut Engine) {
     engine.resume();
 }
 
+// ── Label Parameters ────────────────────────────────────────────────────────
+
+/// Update label rendering parameters.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_label_params(
+    engine: *mut Engine,
+    fade_start: f32,
+    fade_end: f32,
+    font_size: f32,
+    enabled: u8,
+) {
+    let engine = unsafe { &mut *engine };
+    engine.set_label_params(fade_start, fade_end, font_size, enabled != 0);
+}
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).

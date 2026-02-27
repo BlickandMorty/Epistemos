@@ -236,6 +236,7 @@ final class MetalGraphNSView: NSView {
     // MARK: - Force Params
 
     var lastExtendedForceConfigVersion: Int = 0
+    var lastLabelConfigVersion: Int = 0
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -257,6 +258,17 @@ final class MetalGraphNSView: NSView {
             graphState.collisionRadius,
             graphState.warmth,
             graphState.orbital
+        )
+    }
+
+    func pushLabelParams() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_label_params(
+            engine,
+            graphState.labelFadeStart,
+            graphState.labelFadeEnd,
+            graphState.labelFontSize,
+            graphState.labelsEnabled ? 1 : 0
         )
     }
 
@@ -349,6 +361,12 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastExtendedForceConfigVersion != graphState.extendedForceConfigVersion {
             lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
             pushExtendedForceParams()
+        }
+
+        // Sync label params (fade, font size, enabled).
+        if let graphState, lastLabelConfigVersion != graphState.labelConfigVersion {
+            lastLabelConfigVersion = graphState.labelConfigVersion
+            pushLabelParams()
         }
 
         // Minimize request: post notification for the overlay to handle.

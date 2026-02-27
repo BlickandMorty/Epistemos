@@ -875,6 +875,15 @@ impl Engine {
         }
     }
 
+    // ── Label Parameters ─────────────────────────────────────────────
+
+    pub fn set_label_params(&mut self, fade_start: f32, fade_end: f32, font_size: f32, enabled: bool) {
+        self.renderer.label_fade_start = fade_start;
+        self.renderer.label_fade_end = fade_end;
+        self.renderer.label_font_size = font_size;
+        self.renderer.labels_enabled = enabled;
+    }
+
     // ── Accessors ────────────────────────────────────────────────────
 
     /// Mutable reference to the graph (for FFI data loading).
