@@ -43,11 +43,22 @@ final class MetalGraphNSView: NSView {
     nonisolated(unsafe) private var engine: OpaquePointer?
     private var displayLink: CVDisplayLink?
     private var metalLayer: CAMetalLayer?
-    private var needsRender = true
 
     /// Frame coalescing: prevents queuing multiple render dispatches.
     /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
     nonisolated(unsafe) private let framePending = Atomic<Bool>(false)
+
+    /// Atomic render-needed flag. CVDisplayLink (background thread) reads this
+    /// to skip dispatches when settled. Main thread writes it on user events
+    /// and after graph_engine_render() returns.
+    nonisolated(unsafe) private let renderNeeded = Atomic<Bool>(true)
+
+    /// Convenience wrapper for main-thread code. Background thread should
+    /// use renderNeeded directly for thread safety.
+    private var needsRender: Bool {
+        get { renderNeeded.load(ordering: .relaxed) }
+        set { renderNeeded.store(newValue, ordering: .relaxed) }
+    }
 
     var graphState: GraphState?
     var lastForceConfigVersion = 0
@@ -135,9 +146,10 @@ final class MetalGraphNSView: NSView {
         // The Rust engine is NOT thread-safe — render must happen on the main thread.
         // CVDisplayLink fires on a background thread, so dispatch to main with coalescing:
         // if a frame is already pending dispatch, skip to avoid queuing backup at 120Hz.
+        // Also skip entirely when simulation is settled (renderNeeded = false) to save CPU.
         let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
             let view = Unmanaged<MetalGraphNSView>.fromOpaque(userInfo!).takeUnretainedValue()
-            if !view.framePending.load(ordering: .relaxed) {
+            if view.renderNeeded.load(ordering: .relaxed) && !view.framePending.load(ordering: .relaxed) {
                 view.framePending.store(true, ordering: .relaxed)
                 DispatchQueue.main.async {
                     view.framePending.store(false, ordering: .relaxed)
@@ -252,6 +264,7 @@ final class MetalGraphNSView: NSView {
             graphState.chargeRange,
             graphState.linkStrength
         )
+        needsRender = true
     }
 
     func pushExtendedForceParams() {
@@ -264,6 +277,7 @@ final class MetalGraphNSView: NSView {
             graphState.warmth,
             graphState.orbital
         )
+        needsRender = true
     }
 
     func pushLabelParams() {
@@ -275,12 +289,14 @@ final class MetalGraphNSView: NSView {
             graphState.labelFontSize,
             graphState.labelsEnabled ? 1 : 0
         )
+        needsRender = true
     }
 
     func pushClusterParams() {
         guard let engine, let graphState else { return }
         graph_engine_set_cluster_params(engine, graphState.clusterStrength)
         graph_engine_set_center_mode(engine, graphState.centerMode)
+        needsRender = true
     }
 
     func pushAttractParams() {
@@ -448,6 +464,12 @@ final class MetalGraphNSView: NSView {
             NotificationCenter.default.post(name: .graphMinimizeRequested, object: nil)
         }
 
+        // Close request: post notification for the overlay to handle.
+        if let graphState, graphState.pendingClose {
+            graphState.pendingClose = false
+            NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
+        }
+
         // Re-commit graph data when mode/filter changes (e.g. Global↔Page toggle).
         if let graphState, lastGraphDataVersion != graphState.graphDataVersion {
             lastGraphDataVersion = graphState.graphDataVersion
@@ -479,6 +501,15 @@ final class MetalGraphNSView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         guard let engine else { return }
+
+        // In connection mode, don't start drag/pan — handle in mouseUp.
+        if let graphState, graphState.isConnecting {
+            let loc = convert(event.locationInWindow, from: nil)
+            let scale = metalLayer?.contentsScale ?? 2.0
+            graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
+            return
+        }
+
         let loc = convert(event.locationInWindow, from: nil)
         mouseDownLocation = loc
         let scale = metalLayer?.contentsScale ?? 2.0
@@ -529,6 +560,33 @@ final class MetalGraphNSView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         guard let engine else { return }
+
+        // Connection mode: complete or cancel the connection.
+        if let graphState, case .connecting(let sourceNodeId) = graphState.interactionMode {
+            if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
+                let targetUuid = String(cString: uuidPtr)
+                if targetUuid != sourceNodeId {
+                    promptForEdgeType { [weak self] edgeType in
+                        guard let self, let edgeType,
+                              let context = graphState.modelContext else {
+                            self?.graphState?.cancelConnecting()
+                            return
+                        }
+                        graphState.connectNodes(
+                            sourceId: sourceNodeId, targetId: targetUuid,
+                            edgeType: edgeType, context: context
+                        )
+                    }
+                }
+            }
+            graphState.cancelConnecting()
+            graph_engine_clear_highlight(engine)
+            NSCursor.arrow.set()
+            isDraggingNode = false; isPanning = false; mouseDownLocation = nil
+            needsRender = true
+            return
+        }
+
         graph_engine_mouse_up(engine)
 
         // Sync selection state: node click → select, background click → deselect.
@@ -572,18 +630,62 @@ final class MetalGraphNSView: NSView {
 
     // MARK: - Context Menu (Right-Click)
 
+    /// Data carrier for node creation menu items.
+    private final class NodeCreationInfo: NSObject {
+        let type: GraphNodeType
+        let worldPos: SIMD2<Float>
+        let connectedTo: String?  // existing node UUID, nil for orphan
+        init(type: GraphNodeType, worldPos: SIMD2<Float>, connectedTo: String?) {
+            self.type = type; self.worldPos = worldPos; self.connectedTo = connectedTo
+        }
+    }
+
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let engine else { return nil }
 
         // Move hover to click location so Rust knows which node is under the cursor.
         let loc = convert(event.locationInWindow, from: nil)
         let scale = metalLayer?.contentsScale ?? 2.0
-        graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
+        let screenX = Float(loc.x * scale)
+        let screenY = Float((bounds.height - loc.y) * scale)
+        graph_engine_mouse_moved(engine, screenX, screenY)
 
-        guard let uuidPtr = graph_engine_hovered_node_uuid(engine) else { return nil }
-        let uuid = String(cString: uuidPtr)
+        // Convert click position to world coordinates for node placement.
+        var worldX: Float = 0, worldY: Float = 0
+        graph_engine_screen_to_world(engine, screenX, screenY, &worldX, &worldY)
+        let clickPos = SIMD2<Float>(worldX, worldY)
+
+        if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
+            let uuid = String(cString: uuidPtr)
+            return buildNodeContextMenu(uuid: uuid, clickWorldPos: clickPos)
+        } else {
+            return buildEmptySpaceContextMenu(clickWorldPos: clickPos)
+        }
+    }
+
+    // MARK: Empty Space Menu
+
+    private func buildEmptySpaceContextMenu(clickWorldPos: SIMD2<Float>) -> NSMenu {
+        let menu = NSMenu()
+        let types: [(GraphNodeType, String, String)] = [
+            (.note, "Create Note", "doc.text"),
+            (.idea, "Create Idea", "lightbulb"),
+            (.tag,  "Create Tag",  "number"),
+        ]
+        for (type, title, icon) in types {
+            let item = NSMenuItem(title: title, action: #selector(contextCreateNode(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = NodeCreationInfo(type: type, worldPos: clickWorldPos, connectedTo: nil)
+            item.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    // MARK: Node Menu
+
+    private func buildNodeContextMenu(uuid: String, clickWorldPos: SIMD2<Float>) -> NSMenu? {
         guard let node = graphState?.store.nodes[uuid] else { return nil }
-
         let menu = NSMenu()
 
         // "Open Note" — only for note-type nodes that have a sourceId.
@@ -609,8 +711,26 @@ final class MetalGraphNSView: NSView {
         highlightItem.image = NSImage(systemSymbolName: "circle.hexagongrid", accessibilityDescription: "Neighbors")
         menu.addItem(highlightItem)
 
+        menu.addItem(.separator())
+
+        // "Create Connected Note"
+        let connectedItem = NSMenuItem(title: "Create Connected Note", action: #selector(contextCreateNode(_:)), keyEquivalent: "")
+        connectedItem.target = self
+        connectedItem.representedObject = NodeCreationInfo(type: .note, worldPos: clickWorldPos, connectedTo: uuid)
+        connectedItem.image = NSImage(systemSymbolName: "doc.badge.plus", accessibilityDescription: nil)
+        menu.addItem(connectedItem)
+
+        // "Connect to…"
+        let connectItem = NSMenuItem(title: "Connect to\u{2026}", action: #selector(contextBeginConnect(_:)), keyEquivalent: "")
+        connectItem.target = self
+        connectItem.representedObject = uuid
+        connectItem.image = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: nil)
+        menu.addItem(connectItem)
+
         return menu
     }
+
+    // MARK: Context Menu Actions
 
     @objc private func contextOpenNote(_ sender: NSMenuItem) {
         guard let pageId = sender.representedObject as? String else { return }
@@ -631,6 +751,75 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
+    @objc private func contextCreateNode(_ sender: NSMenuItem) {
+        guard let info = sender.representedObject as? NodeCreationInfo,
+              let graphState,
+              let context = graphState.modelContext else { return }
+
+        promptForNodeName(type: info.type) { [weak self] name in
+            guard let self, let name, !name.isEmpty else { return }
+
+            if let connectedTo = info.connectedTo {
+                let edgeType: GraphEdgeType = info.type == .tag ? .tagged : .reference
+                graphState.createConnectedNode(
+                    type: info.type, label: name,
+                    connectedTo: connectedTo, edgeType: edgeType,
+                    atWorldPosition: info.worldPos, context: context
+                )
+            } else {
+                graphState.createNode(
+                    type: info.type, label: name,
+                    atWorldPosition: info.worldPos, context: context
+                )
+            }
+        }
+    }
+
+    @objc private func contextBeginConnect(_ sender: NSMenuItem) {
+        guard let uuid = sender.representedObject as? String else { return }
+        graphState?.beginConnecting(from: uuid)
+        // Visual feedback: highlight source node.
+        if let engine {
+            uuid.withCString { graph_engine_highlight_neighbors(engine, $0) }
+        }
+        NSCursor.crosshair.set()
+        needsRender = true
+    }
+
+    // MARK: Prompts
+
+    private func promptForNodeName(type: GraphNodeType, completion: @escaping (String?) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Create \(type.displayName)"
+        alert.informativeText = "Enter a name:"
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        textField.placeholderString = "\(type.displayName) name"
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+        completion(alert.runModal() == .alertFirstButtonReturn ? textField.stringValue : nil)
+    }
+
+    private func promptForEdgeType(completion: @escaping (GraphEdgeType?) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Connection Type"
+        alert.informativeText = "Select the relationship:"
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 200, height: 26))
+        let types: [(GraphEdgeType, String)] = [
+            (.reference, "Reference"), (.related, "Related"),
+            (.contains, "Contains"), (.tagged, "Tagged"),
+            (.mentions, "Mentions"), (.cites, "Cites"),
+        ]
+        for (_, label) in types { popup.addItem(withTitle: label) }
+        alert.accessoryView = popup
+        if alert.runModal() == .alertFirstButtonReturn {
+            completion(types[popup.indexOfSelectedItem].0)
+        } else { completion(nil) }
+    }
+
     override func mouseMoved(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
@@ -642,6 +831,13 @@ final class MetalGraphNSView: NSView {
         // When attractor is active, update target position.
         if let graphState, graphState.attractMode != .off {
             graph_engine_set_attract_target_screen(engine, screenX, screenY)
+        }
+
+        // Connection mode: override cursor to crosshair.
+        if let graphState, graphState.isConnecting {
+            NSCursor.crosshair.set()
+            needsRender = true
+            return
         }
 
         // Update cursor based on hover state (only when not dragging).
@@ -680,6 +876,16 @@ final class MetalGraphNSView: NSView {
 
     override func keyDown(with event: NSEvent) {
         guard let engine else { super.keyDown(with: event); return }
+
+        // Escape cancels connection mode.
+        if event.keyCode == 53, let graphState, graphState.isConnecting {
+            graphState.cancelConnecting()
+            graph_engine_clear_highlight(engine)
+            NSCursor.arrow.set()
+            needsRender = true
+            return
+        }
+
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .numericPad, .function])
 
@@ -772,4 +978,5 @@ final class MetalGraphNSView: NSView {
 extension Notification.Name {
     static let graphMinimizeRequested = Notification.Name("EpistemosGraphMinimizeRequested")
     static let graphRestoreRequested = Notification.Name("EpistemosGraphRestoreRequested")
+    static let graphCloseRequested = Notification.Name("EpistemosGraphCloseRequested")
 }
