@@ -171,6 +171,16 @@ void graph_engine_clear_attract(Engine* engine);
 /// Set the attractor strength (0-1).
 void graph_engine_set_attract_strength(Engine* engine, float strength);
 
+// ── Visibility (Lightweight Filtering) ──────────────────────────────────────
+
+/// Toggle a node's visibility by UUID.
+/// Call graph_engine_refresh_visibility once after all toggles.
+void graph_engine_set_node_visible(Engine* engine, const char* uuid, uint8_t visible);
+
+/// Apply visibility changes: re-upload renderer + reload simulation.
+/// Preserves positions/velocities — lightweight alternative to full recommit.
+void graph_engine_refresh_visibility(Engine* engine);
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).

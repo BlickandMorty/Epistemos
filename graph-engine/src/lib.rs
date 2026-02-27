@@ -393,6 +393,29 @@ pub extern "C" fn graph_engine_set_attract_strength(engine: *mut Engine, strengt
     engine.set_attract_strength(strength);
 }
 
+// ── Visibility (Lightweight Filtering) ──────────────────────────────────────
+
+/// Toggle a node's visibility by UUID. Call `graph_engine_refresh_visibility`
+/// once after all toggles to apply changes to renderer + simulation.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_node_visible(
+    engine: *mut Engine,
+    uuid: *const c_char,
+    visible: u8,
+) {
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid);
+    engine.set_node_visible(uuid_str, visible != 0);
+}
+
+/// Apply visibility changes: re-upload to renderer, reload simulation, reheat.
+/// Preserves positions and velocities — lightweight alternative to full recommit.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_refresh_visibility(engine: *mut Engine) {
+    ffi_engine!(engine);
+    engine.refresh_visibility();
+}
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).

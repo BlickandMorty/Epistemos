@@ -174,6 +174,15 @@ final class GraphState {
 
     func requestRecommit() { graphDataVersion += 1 }
 
+    /// Incremented when filter toggles require a lightweight visibility refresh.
+    /// Unlike graphDataVersion (full recommit), this only toggles node visibility in Rust.
+    var filterVersion: Int = 0
+
+    func requestFilterSync() { filterVersion += 1 }
+
+    /// Set to true when the rebuild button is pressed while graph is visible.
+    var pendingRebuild = false
+
     /// Set to true to request the overlay minimize to a floating window.
     var pendingMinimize = false
 

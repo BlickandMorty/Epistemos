@@ -66,7 +66,10 @@ struct GraphFloatingControls: View {
                 FilterPill(
                     type: type,
                     isActive: graphState.filter.activeNodeTypes.contains(type),
-                    action: { graphState.filter.toggleType(type) }
+                    action: {
+                        graphState.filter.toggleType(type)
+                        graphState.requestFilterSync()
+                    }
                 )
             }
         }
@@ -236,7 +239,7 @@ struct GraphFloatingControls: View {
 
     private var rebuildGraphButton: some View {
         Button {
-            graphState.needsRefresh = true
+            graphState.pendingRebuild = true
         } label: {
             Image(systemName: "arrow.trianglehead.2.clockwise")
                 .font(.system(size: 12, weight: .medium))

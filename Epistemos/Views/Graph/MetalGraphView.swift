@@ -255,11 +255,31 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
+    // MARK: - Lightweight Filter Sync
+
+    /// Toggle node visibility in Rust to match the current filter state.
+    /// Much cheaper than commitGraphData() — no clear/re-add/commit cycle.
+    func applyFilterState() {
+        guard let engine, let graphState, isCommitted else { return }
+        let store = graphState.store
+        let filter = graphState.filter
+
+        for (_, node) in store.nodes {
+            let visible: UInt8 = filter.isNodeVisible(node) ? 1 : 0
+            node.id.withCString { uuid in
+                graph_engine_set_node_visible(engine, uuid, visible)
+            }
+        }
+        graph_engine_refresh_visibility(engine)
+        needsRender = true
+    }
+
     // MARK: - Force Params
 
     var lastExtendedForceConfigVersion: Int = -1
     var lastClusterConfigVersion: Int = -1
     var lastAttractConfigVersion: Int = -1
+    var lastFilterVersion: Int = 0
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -457,6 +477,28 @@ final class MetalGraphNSView: NSView {
         if let graphState, graphState.pendingClose {
             graphState.pendingClose = false
             NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
+        }
+
+        // Lightweight filter sync: toggle node visibility in Rust without full recommit.
+        if let graphState, lastFilterVersion != graphState.filterVersion {
+            lastFilterVersion = graphState.filterVersion
+            applyFilterState()
+        }
+
+        // Reset view: zoom to fit all visible nodes.
+        if let graphState, graphState.pendingResetView {
+            graphState.pendingResetView = false
+            graph_engine_zoom_to_fit(engine)
+            needsRender = true
+        }
+
+        // Rebuild: re-run structural graph builder and full recommit.
+        if let graphState, graphState.pendingRebuild {
+            graphState.pendingRebuild = false
+            if let context = graphState.modelContext {
+                graphState.refreshStructuralData(context: context)
+                graphState.requestRecommit()
+            }
         }
 
         // Re-commit graph data when mode/filter changes (e.g. Global↔Page toggle).

@@ -355,6 +355,54 @@ impl Engine {
         }
     }
 
+    // ── Visibility (Lightweight Filtering) ──────────────────────────
+
+    /// Toggle a single node's visibility by UUID.
+    /// Does NOT re-upload to renderer — call `refresh_visibility()` once after
+    /// all desired toggles are applied.
+    pub fn set_node_visible(&mut self, uuid: &str, visible: bool) {
+        if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
+            if let Some(&idx) = self.graph.id_to_index.get(&id) {
+                self.graph.nodes[idx].visible = visible;
+            }
+        }
+    }
+
+    /// Re-upload graph to renderer and reload simulation after visibility changes.
+    /// Preserves positions/velocities — only the set of active nodes changes.
+    pub fn refresh_visibility(&mut self) {
+        // Sync current positions from simulation → graph before reloading.
+        self.sync_positions();
+
+        // Reload simulation with only visible nodes, reheat to re-settle.
+        {
+            let mut sim = self.sim.lock();
+            sim.load_from_graph(&self.graph);
+            let cluster_ids = crate::cluster::detect_communities(sim.x.len(), &sim.edges);
+            sim.cluster_ids = cluster_ids;
+            sim.reheat();
+        }
+
+        // Re-upload graph to renderer (only visible nodes are drawn).
+        let ent = if self.entrance_states.is_empty() {
+            None
+        } else {
+            Some(self.entrance_states.as_slice())
+        };
+        self.renderer.upload_graph(&self.graph, ent);
+
+        // Rebuild spatial index so invisible nodes aren't hittable.
+        self.spatial.build(&self.graph.nodes);
+
+        // Wake rendering + restart physics if it was stopped.
+        self.idle_frame_count = 0;
+        if self.physics_handle.is_none() {
+            self.start_physics();
+        }
+    }
+
+    // ── Lifecycle ───────────────────────────────────────────────────
+
     /// Pause the engine: stop physics thread and signal that rendering can idle.
     /// Call when the overlay is hidden to free CPU/GPU.
     pub fn pause(&mut self) {
