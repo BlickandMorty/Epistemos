@@ -37,6 +37,8 @@ final class HologramController {
     func setup(graphState: GraphState, modelContainer: ModelContainer) {
         self.graphState = graphState
         self.modelContainer = modelContainer
+        // Provide a ModelContext for interactive graph mutations (node/edge creation).
+        graphState.modelContext = modelContainer.mainContext
         registerHotkey()
         observeScreenChanges()
     }

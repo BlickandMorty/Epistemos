@@ -126,6 +126,14 @@ enum AttractMode: String, CaseIterable {
     case manual = "Manual"
 }
 
+// MARK: - GraphInteractionMode
+// Tracks whether the user is idle or mid-connection-drag in the graph canvas.
+
+enum GraphInteractionMode: Equatable {
+    case idle
+    case connecting(sourceNodeId: String)
+}
+
 // MARK: - GraphState
 // Observable coordinator that owns the graph engine components (store, filter).
 // Physics and rendering are handled by the Rust engine via Metal.
@@ -166,6 +174,9 @@ final class GraphState {
 
     /// Set to true to request the overlay minimize to a floating window.
     var pendingMinimize = false
+
+    /// Set to true to request the overlay close completely.
+    var pendingClose = false
 
     // MARK: - Force Parameters
     // Core 4 params (basic panel) + 5 extended params (advanced panel).
@@ -229,8 +240,8 @@ final class GraphState {
 
     // ── Labels ──
     var labelsEnabled: Bool = true
-    var labelFadeStart: Float = 2.0
-    var labelFadeEnd: Float = 10.0
+    var labelFadeStart: Float = 1.0
+    var labelFadeEnd: Float = 8.0
     var labelFontSize: Float = 12.0
 
     var labelConfigVersion: Int = 0
@@ -258,6 +269,26 @@ final class GraphState {
 
     /// UUID of the node whose neighbors are highlighted (shift+click).
     var highlightedNodeId: String?
+
+    // MARK: - Interactive Creation
+
+    var interactionMode: GraphInteractionMode = .idle
+
+    /// ModelContext for graph mutations. Set during AppBootstrap setup.
+    var modelContext: ModelContext?
+
+    var isConnecting: Bool {
+        if case .connecting = interactionMode { return true }
+        return false
+    }
+
+    func beginConnecting(from nodeId: String) {
+        interactionMode = .connecting(sourceNodeId: nodeId)
+    }
+
+    func cancelConnecting() {
+        interactionMode = .idle
+    }
 
     // MARK: - Loading
 
@@ -443,6 +474,96 @@ final class GraphState {
             store.removeNode(nodeId)
         }
         ephemeralNodeIds.removeAll()
+    }
+
+    // MARK: - Node / Edge Creation
+
+    /// Create an orphan node at a world position.
+    func createNode(
+        type: GraphNodeType,
+        label: String,
+        atWorldPosition position: SIMD2<Float>,
+        context: ModelContext
+    ) {
+        let sdNode = SDGraphNode(type: type, label: label)
+        sdNode.isManual = true
+        context.insert(sdNode)
+
+        // Place at clicked position
+        store.positionHints[sdNode.id] = position
+
+        if type == .note {
+            // Notes need a backing .md file
+            Task { @MainActor in
+                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
+                    sdNode.sourceId = pageId
+                    try? context.save()
+                }
+                buildStructuralGraph(context: context)
+                requestRecommit()
+            }
+        } else {
+            try? context.save()
+            buildStructuralGraph(context: context)
+            requestRecommit()
+        }
+    }
+
+    /// Create a node connected to an existing node.
+    func createConnectedNode(
+        type: GraphNodeType,
+        label: String,
+        connectedTo existingNodeId: String,
+        edgeType: GraphEdgeType,
+        atWorldPosition position: SIMD2<Float>,
+        context: ModelContext
+    ) {
+        let sdNode = SDGraphNode(type: type, label: label)
+        sdNode.isManual = true
+        context.insert(sdNode)
+
+        let sdEdge = SDGraphEdge(source: existingNodeId, target: sdNode.id, type: edgeType)
+        sdEdge.isManual = true
+        context.insert(sdEdge)
+
+        store.positionHints[sdNode.id] = position
+
+        if type == .note {
+            Task { @MainActor in
+                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
+                    sdNode.sourceId = pageId
+                    try? context.save()
+                }
+                buildStructuralGraph(context: context)
+                requestRecommit()
+            }
+        } else {
+            try? context.save()
+            buildStructuralGraph(context: context)
+            requestRecommit()
+        }
+    }
+
+    /// Connect two existing nodes with an edge.
+    func connectNodes(
+        sourceId: String,
+        targetId: String,
+        edgeType: GraphEdgeType,
+        context: ModelContext
+    ) {
+        guard store.nodes[sourceId] != nil, store.nodes[targetId] != nil else {
+            interactionMode = .idle
+            return
+        }
+
+        let sdEdge = SDGraphEdge(source: sourceId, target: targetId, type: edgeType)
+        sdEdge.isManual = true
+        context.insert(sdEdge)
+        try? context.save()
+
+        buildStructuralGraph(context: context)
+        requestRecommit()
+        interactionMode = .idle
     }
 
     // MARK: - AI Entity Extraction
