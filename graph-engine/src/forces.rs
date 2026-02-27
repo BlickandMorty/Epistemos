@@ -325,6 +325,48 @@ pub fn force_cluster(
     }
 }
 
+// ── Force: Attract (cursor/target attractor for selected nodes) ──────────────
+
+/// Attractor force: pulls a subset of nodes toward a target point.
+///
+/// Only nodes marked `true` in `attracted` are affected. The force uses
+/// distance-based falloff (closer nodes feel a stronger pull, capped by
+/// `dist.min(200.0)` to prevent extreme velocity at large distances).
+///
+/// `strength` is 0-1 user-facing knob; `alpha` is the simulation alpha.
+pub fn force_attract(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    attracted: &[bool],
+    target_x: f32,
+    target_y: f32,
+    strength: f32,
+    alpha: f32,
+) {
+    if strength < 0.001 {
+        return;
+    }
+    let n = x.len();
+    if attracted.len() != n {
+        return;
+    }
+
+    let effective = strength * 0.1 * alpha;
+    for i in 0..n {
+        if !attracted[i] {
+            continue;
+        }
+        let dx = target_x - x[i];
+        let dy = target_y - y[i];
+        let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+        let falloff = 1.0 / (1.0 + dist * 0.002);
+        vx[i] += dx / dist * effective * falloff * dist.min(200.0);
+        vy[i] += dy / dist * effective * falloff * dist.min(200.0);
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -504,5 +546,49 @@ mod tests {
 
         assert_eq!(vx[0], 0.0, "zero strength should be a no-op");
         assert_eq!(vx[1], 0.0, "zero strength should be a no-op");
+    }
+
+    #[test]
+    fn attract_pulls_selected_nodes_toward_target() {
+        let x = vec![0.0, 100.0, 200.0];
+        let y = vec![0.0, 0.0, 0.0];
+        let mut vx = vec![0.0; 3];
+        let mut vy = vec![0.0; 3];
+        let attracted = vec![true, false, true];
+
+        force_attract(&x, &y, &mut vx, &mut vy, &attracted, 50.0, 50.0, 0.5, 1.0);
+
+        assert!(vx[0] > 0.0, "attracted node 0 should move toward target x");
+        assert!(vy[0] > 0.0, "attracted node 0 should move toward target y");
+        assert_eq!(vx[1], 0.0, "non-attracted node 1 should not move");
+        assert!(vx[2] < 0.0, "attracted node 2 should move toward target x");
+    }
+
+    #[test]
+    fn attract_zero_strength_noop() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0; 2];
+        let mut vy = vec![0.0; 2];
+        let attracted = vec![true, true];
+
+        force_attract(&x, &y, &mut vx, &mut vy, &attracted, 50.0, 50.0, 0.0, 1.0);
+
+        assert_eq!(vx[0], 0.0, "zero strength should be a no-op");
+        assert_eq!(vx[1], 0.0, "zero strength should be a no-op");
+    }
+
+    #[test]
+    fn attract_mismatched_length_noop() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0; 2];
+        let mut vy = vec![0.0; 2];
+        let attracted = vec![true]; // wrong length
+
+        force_attract(&x, &y, &mut vx, &mut vy, &attracted, 50.0, 50.0, 0.5, 1.0);
+
+        assert_eq!(vx[0], 0.0, "mismatched attracted length should be a no-op");
+        assert_eq!(vx[1], 0.0, "mismatched attracted length should be a no-op");
     }
 }

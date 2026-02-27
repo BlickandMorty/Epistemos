@@ -481,7 +481,7 @@ impl Engine {
 
     /// Convert screen pixel coordinates to world coordinates.
     /// Derived from the shader's transform: `screen = (world - offset) * zoom`.
-    fn screen_to_world(&self, sx: f32, sy: f32) -> (f32, f32) {
+    pub fn screen_to_world(&self, sx: f32, sy: f32) -> (f32, f32) {
         let w = self.viewport_width as f32;
         let h = self.viewport_height as f32;
         let zoom = self.renderer.camera_zoom;
@@ -891,6 +891,48 @@ impl Engine {
         let mut sim = self.sim.lock();
         sim.params.center_mode = crate::simulation::CenterMode::from_u8(mode);
         sim.reheat();
+    }
+
+    // ── Cursor Attractor ─────────────────────────────────────────────
+
+    /// Set the attractor target in world coordinates.
+    /// Reheats the simulation if it was settled.
+    pub fn set_attract_target(&mut self, x: f32, y: f32) {
+        self.idle_frame_count = 0;
+        let mut sim = self.sim.lock();
+        sim.attract_target = Some([x, y]);
+        if sim.is_settled {
+            sim.reheat();
+        }
+    }
+
+    /// Mark nodes (by UUID) as attracted to the current target.
+    /// Resolves UUIDs → graph node IDs → simulation indices.
+    pub fn set_attracted_nodes(&mut self, uuids: &[&str]) {
+        let mut sim = self.sim.lock();
+        sim.attracted_nodes = vec![false; sim.x.len()];
+        for uuid in uuids {
+            if let Some(&id) = self.graph.uuid_to_id.get(*uuid) {
+                if let Some(&gi) = self.graph.id_to_index.get(&id) {
+                    if let Some(si) = sim.graph_indices.iter().position(|&g| g == gi) {
+                        sim.attracted_nodes[si] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Clear the attractor (target + attracted nodes).
+    pub fn clear_attract(&mut self) {
+        let mut sim = self.sim.lock();
+        sim.attract_target = None;
+        sim.attracted_nodes.clear();
+    }
+
+    /// Set the attractor strength (0-1).
+    pub fn set_attract_strength(&mut self, strength: f32) {
+        let mut sim = self.sim.lock();
+        sim.attract_strength = strength.clamp(0.0, 1.0);
     }
 
     // ── Label Parameters ─────────────────────────────────────────────

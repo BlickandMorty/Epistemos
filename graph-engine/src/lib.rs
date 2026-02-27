@@ -323,6 +323,55 @@ pub extern "C" fn graph_engine_set_center_mode(engine: *mut Engine, mode: u8) {
     engine.set_center_mode(mode);
 }
 
+// ── Cursor Attractor ────────────────────────────────────────────────────────
+
+/// Set the attractor target in world coordinates.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_attract_target(engine: *mut Engine, x: f32, y: f32) {
+    let engine = unsafe { &mut *engine };
+    engine.set_attract_target(x, y);
+}
+
+/// Set the attractor target from screen coordinates (auto-converts to world).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_attract_target_screen(
+    engine: *mut Engine,
+    screen_x: f32,
+    screen_y: f32,
+) {
+    let engine = unsafe { &mut *engine };
+    let (wx, wy) = engine.screen_to_world(screen_x, screen_y);
+    engine.set_attract_target(wx, wy);
+}
+
+/// Mark nodes (by UUID) as attracted to the current target.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_attracted_nodes(
+    engine: *mut Engine,
+    uuids: *const *const c_char,
+    count: u32,
+) {
+    let engine = unsafe { &mut *engine };
+    let uuid_strs: Vec<&str> = (0..count as usize)
+        .filter_map(|i| unsafe { CStr::from_ptr(*uuids.add(i)).to_str().ok() })
+        .collect();
+    engine.set_attracted_nodes(&uuid_strs);
+}
+
+/// Clear the attractor (target + attracted nodes).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_clear_attract(engine: *mut Engine) {
+    let engine = unsafe { &mut *engine };
+    engine.clear_attract();
+}
+
+/// Set the attractor strength (0-1).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_attract_strength(engine: *mut Engine, strength: f32) {
+    let engine = unsafe { &mut *engine };
+    engine.set_attract_strength(strength);
+}
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).

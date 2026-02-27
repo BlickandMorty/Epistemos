@@ -130,6 +130,14 @@ pub struct Simulation {
     /// Page mode: optional anchor center in world coordinates.
     /// When set, the center force pulls toward this point instead of (0, 0).
     pub anchor_center: Option<[f32; 2]>,
+
+    // ── Cursor Attractor ──
+    /// Target point for the attractor force (world coordinates).
+    pub attract_target: Option<[f32; 2]>,
+    /// Per-node flag: true if this node should be attracted to the target.
+    pub attracted_nodes: Vec<bool>,
+    /// Attractor strength (0-1 user-facing knob).
+    pub attract_strength: f32,
 }
 
 impl Default for Simulation {
@@ -157,6 +165,9 @@ impl Simulation {
             is_settled: false,
             tick_counter: 0,
             anchor_center: None,
+            attract_target: None,
+            attracted_nodes: Vec::new(),
+            attract_strength: 0.5,
         }
     }
 
@@ -345,6 +356,23 @@ impl Simulation {
                 self.params.cluster_strength,
                 alpha,
             );
+        }
+
+        // Cursor attractor force.
+        if let Some([tx, ty]) = self.attract_target {
+            if !self.attracted_nodes.is_empty() {
+                forces::force_attract(
+                    &self.x,
+                    &self.y,
+                    &mut self.vx,
+                    &mut self.vy,
+                    &self.attracted_nodes,
+                    tx,
+                    ty,
+                    self.attract_strength,
+                    alpha,
+                );
+            }
         }
 
         // 3. Orbital drift — subtle rotational force around centroid

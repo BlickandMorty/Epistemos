@@ -154,6 +154,25 @@ void graph_engine_set_cluster_params(Engine* engine, float cluster_strength);
 /// Set center force mode: 0 = attract, 1 = off, 2 = repel.
 void graph_engine_set_center_mode(Engine* engine, uint8_t mode);
 
+// ── Cursor Attractor ────────────────────────────────────────────────────────
+
+/// Set the attractor target in world coordinates.
+void graph_engine_set_attract_target(Engine* engine, float x, float y);
+
+/// Set the attractor target from screen coordinates (auto-converts to world).
+void graph_engine_set_attract_target_screen(Engine* engine, float screen_x, float screen_y);
+
+/// Mark nodes (by UUID) as attracted to the current target.
+/// @param uuids  Array of null-terminated UTF-8 strings.
+/// @param count  Number of UUIDs in the array.
+void graph_engine_set_attracted_nodes(Engine* engine, const char** uuids, uint32_t count);
+
+/// Clear the attractor (target + attracted nodes).
+void graph_engine_clear_attract(Engine* engine);
+
+/// Set the attractor strength (0-1).
+void graph_engine_set_attract_strength(Engine* engine, float strength);
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).
