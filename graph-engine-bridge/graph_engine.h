@@ -162,6 +162,13 @@ void graph_engine_set_attract_target(Engine* engine, float x, float y);
 /// Set the attractor target from screen coordinates (auto-converts to world).
 void graph_engine_set_attract_target_screen(Engine* engine, float screen_x, float screen_y);
 
+/// Convert screen pixel coordinates to world coordinates.
+/// @param screen_x  Screen x in pixels.
+/// @param screen_y  Screen y in pixels.
+/// @param out_world_x  On return, receives the world-space x coordinate (may be NULL).
+/// @param out_world_y  On return, receives the world-space y coordinate (may be NULL).
+void graph_engine_screen_to_world(Engine *engine, float screen_x, float screen_y, float *out_world_x, float *out_world_y);
+
 /// Mark nodes (by UUID) as attracted to the current target.
 /// @param uuids  Array of null-terminated UTF-8 strings.
 /// @param count  Number of UUIDs in the array.

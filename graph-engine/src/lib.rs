@@ -355,6 +355,24 @@ pub extern "C" fn graph_engine_set_attract_target_screen(
     engine.set_attract_target(wx, wy);
 }
 
+/// Convert screen pixel coordinates to world coordinates.
+/// Writes world-space x/y into the out pointers.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_screen_to_world(
+    engine: *mut Engine,
+    screen_x: f32,
+    screen_y: f32,
+    out_world_x: *mut f32,
+    out_world_y: *mut f32,
+) {
+    ffi_engine!(engine);
+    let (wx, wy) = engine.screen_to_world(screen_x, screen_y);
+    unsafe {
+        if !out_world_x.is_null() { *out_world_x = wx; }
+        if !out_world_y.is_null() { *out_world_y = wy; }
+    }
+}
+
 /// Mark nodes (by UUID) as attracted to the current target.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_attracted_nodes(
