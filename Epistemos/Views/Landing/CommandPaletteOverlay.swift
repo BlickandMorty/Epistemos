@@ -291,6 +291,21 @@ struct CommandPaletteOverlay: View {
         inlineFilteredCommands[inlineSelectedIndex].action()
     }
 
+    private func captureIdea(type: NoteIdea.IdeaType) {
+        let content = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = content.isEmpty
+            ? (type == .idea ? "New Idea" : "Brain Dump")
+            : String(content.prefix(60))
+        let emoji = type == .idea ? "💡" : "🧠"
+
+        dismiss()
+        Task {
+            if let pageId = await vaultSync.createPage(title: title, body: content, emoji: emoji) {
+                NoteWindowManager.shared.open(pageId: pageId)
+            }
+        }
+    }
+
     private func handleUpload() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -364,6 +379,16 @@ struct CommandPaletteOverlay: View {
             ) {
                 ui.cycleTheme()
                 dismiss()
+            },
+            LandingCommandItem(
+                id: "quick-idea", label: "Quick Idea", icon: "lightbulb", category: "Create"
+            ) { [self] in
+                captureIdea(type: .idea)
+            },
+            LandingCommandItem(
+                id: "brain-dump", label: "Brain Dump", icon: "brain", category: "Create"
+            ) { [self] in
+                captureIdea(type: .brainDump)
             },
             LandingCommandItem(
                 id: "breathe", label: "Breathe Now", icon: "wind", category: "Wellness"
