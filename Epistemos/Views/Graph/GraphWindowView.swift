@@ -159,7 +159,11 @@ struct GraphWindowView: View {
         .onAppear {
             if !graphState.isLoaded {
                 graphState.loadGraph(context: modelContext)
-            } else if graphState.needsRefresh {
+            } else {
+                // Always refresh structural data on window reopen (Obsidian-style reset).
+                // The MetalGraphView coordinator's hasLoadedData is reset in
+                // viewDidMoveToWindow, so the next updateNSView pushes fresh data
+                // to the Rust engine → physics restart + fit-all camera.
                 graphState.refreshStructuralData(context: modelContext)
             }
         }

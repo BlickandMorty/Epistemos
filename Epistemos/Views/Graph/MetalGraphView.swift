@@ -292,7 +292,13 @@ class GraphMTKView: MTKView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        guard window != nil else { return }
         window?.makeFirstResponder(self)
+        wakeRenderer()
+        // Force full data reload on next updateNSView (Obsidian-style fresh start)
+        if let coord = delegate as? MetalGraphView.Coordinator {
+            coord.hasLoadedData = false
+        }
     }
 
     // MARK: - Tracking Areas (enables mouseMoved)

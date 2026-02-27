@@ -123,10 +123,11 @@ impl Engine {
         phys.config.center_y = height as f32 / 2.0;
     }
 
-    /// Start the dedicated physics thread. Called after commit().
+    /// Start (or restart) the dedicated physics thread. Called after commit().
+    /// If already running, stops the existing thread first so fresh data is loaded.
     pub fn start_physics(&mut self) {
         if self.physics_running.load(Ordering::SeqCst) {
-            return;
+            self.stop_physics();
         }
 
         // Load graph data into physics state
