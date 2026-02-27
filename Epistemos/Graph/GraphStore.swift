@@ -50,6 +50,10 @@ final class GraphStore {
     /// All edges keyed by ID.
     private(set) var edges: [String: GraphEdgeRecord] = [:]
 
+    /// Position hints for newly created nodes. Key: SDGraphNode.id, Value: desired world position.
+    /// Consumed during load() — if a hint exists, use it instead of random placement.
+    var positionHints: [String: SIMD2<Float>] = [:]
+
     /// Adjacency list: nodeId -> set of neighbor nodeIds (undirected).
     private(set) var adjacency: [String: Set<String>] = [:]
 
@@ -77,6 +81,9 @@ final class GraphStore {
         let sdNodes = try context.fetch(nodeDescriptor)
 
         for sdNode in sdNodes {
+            let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
+                ?? SIMD2<Float>(Float.random(in: -500...500), Float.random(in: -500...500))
+
             let record = GraphNodeRecord(
                 id: sdNode.id,
                 type: sdNode.nodeType,
@@ -85,10 +92,7 @@ final class GraphStore {
                 metadata: sdNode.meta,
                 weight: sdNode.weight,
                 createdAt: sdNode.createdAt,
-                position: SIMD2<Float>(
-                    Float.random(in: -500...500),
-                    Float.random(in: -500...500)
-                ),
+                position: position,
                 velocity: .zero
             )
             nodes[record.id] = record

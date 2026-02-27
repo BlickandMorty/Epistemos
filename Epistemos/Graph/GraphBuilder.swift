@@ -76,22 +76,49 @@ final class GraphBuilder {
         }
 
         // ────────────────────────────────────────────
-        // 2. Folders
+        // 2. Folders (recursive — parent→child nesting)
         // ────────────────────────────────────────────
         let folders = (try? context.fetch(FetchDescriptor<SDFolder>())) ?? []
+
+        // Pre-compute recursive page count for each folder so parent folders
+        // are visually larger (more content = bigger node radius).
+        var folderContentCount: [String: Int] = [:]
+        func recursivePageCount(_ folder: SDFolder) -> Int {
+            if let cached = folderContentCount[folder.id] { return cached }
+            let directPages = (folder.pages ?? []).filter { !$0.isArchived }.count
+            let childCount = (folder.children ?? []).reduce(0) { $0 + recursivePageCount($1) }
+            let total = directPages + childCount
+            folderContentCount[folder.id] = total
+            return total
+        }
+        for folder in folders { _ = recursivePageCount(folder) }
 
         for folder in folders {
             let folderKey = "folder-\(folder.id)"
             guard existingSourceIds.insert(folderKey).inserted else { continue }
 
-            let node = SDGraphNode(type: .folder, label: folder.name, sourceId: folder.id)
+            // Weight by recursive content count so parent folders are bigger.
+            let contentCount = folderContentCount[folder.id] ?? 1
+            let node = SDGraphNode(type: .folder, label: folder.name, sourceId: folder.id, weight: Double(max(1, contentCount)))
             node.createdAt = folder.createdAt
             nodes.append(node)
             sourceIdToNodeId[folder.id] = node.id
         }
 
         // ────────────────────────────────────────────
-        // 3. Note → Folder edges (contains)
+        // 3. Folder → Subfolder edges (contains)
+        // ────────────────────────────────────────────
+        for folder in folders {
+            guard let children = folder.children else { continue }
+            guard let parentNodeId = sourceIdToNodeId[folder.id] else { continue }
+            for child in children {
+                guard let childNodeId = sourceIdToNodeId[child.id] else { continue }
+                edges.append(SDGraphEdge(source: parentNodeId, target: childNodeId, type: .contains))
+            }
+        }
+
+        // ────────────────────────────────────────────
+        // 4. Note → Folder edges (contains)
         // ────────────────────────────────────────────
         for page in pages {
             guard let folder = page.folder,
@@ -102,7 +129,7 @@ final class GraphBuilder {
         }
 
         // ────────────────────────────────────────────
-        // 4. Nested pages (reference to parent)
+        // 5. Nested pages (reference to parent)
         // ────────────────────────────────────────────
         for page in pages {
             guard let parentId = page.parentPageId,
@@ -113,7 +140,7 @@ final class GraphBuilder {
         }
 
         // ────────────────────────────────────────────
-        // 5. Chats
+        // 6. Chats
         // ────────────────────────────────────────────
         let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []
 
@@ -137,8 +164,8 @@ final class GraphBuilder {
     func persist(nodes: [SDGraphNode], edges: [SDGraphEdge], context: ModelContext) {
         // Wipe existing graph (fresh rebuild)
         do {
-            try context.delete(model: SDGraphEdge.self)
-            try context.delete(model: SDGraphNode.self)
+            try context.delete(model: SDGraphEdge.self, where: #Predicate<SDGraphEdge> { !$0.isManual })
+            try context.delete(model: SDGraphNode.self, where: #Predicate<SDGraphNode> { !$0.isManual })
         } catch {
             Log.app.error("GraphBuilder: failed to delete existing graph: \(error.localizedDescription, privacy: .public)")
         }

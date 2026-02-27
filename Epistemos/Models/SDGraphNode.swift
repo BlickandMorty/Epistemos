@@ -32,6 +32,10 @@ final class SDGraphNode {
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
 
+    /// True for nodes created by the user via the graph UI (not derived from structural data).
+    /// GraphBuilder.persist() preserves manual nodes during rebuilds.
+    var isManual: Bool = false
+
     // MARK: - Init
 
     init(

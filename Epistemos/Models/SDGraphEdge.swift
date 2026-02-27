@@ -26,6 +26,9 @@ final class SDGraphEdge {
     // MARK: - Timestamps
     var createdAt: Date = Date.now
 
+    /// True for edges created by the user via the graph UI.
+    var isManual: Bool = false
+
     // MARK: - Init
 
     init(
