@@ -231,6 +231,10 @@ pub struct Engine {
 
     // Reusable buffer for returning UUIDs through FFI.
     uuid_buf: Option<CString>,
+
+    /// Counts consecutive frames where the engine reported "no more frames needed."
+    /// Used to throttle render calls when idle.
+    idle_frame_count: u32,
 }
 
 impl Engine {
@@ -257,12 +261,16 @@ impl Engine {
             entrance_states: Vec::new(),
             entrance_camera_frame: 0,
             uuid_buf: None,
+            idle_frame_count: 0,
         })
     }
 
     /// Commit graph data. Replaces all simulation state, restarts physics.
     /// If `entrance` is true, plays the wormhole entrance animation.
     pub fn commit(&mut self, entrance: bool) {
+        // Wake rendering for the new graph data.
+        self.idle_frame_count = 0;
+
         // Stop existing physics thread.
         self.stop_physics();
 
@@ -352,6 +360,7 @@ impl Engine {
     /// Resume the engine: restart physics if simulation is not settled.
     /// Call when the overlay is shown again.
     pub fn resume(&mut self) {
+        self.idle_frame_count = 0;
         if self.physics_handle.is_none() && !self.sim.lock().is_settled {
             self.start_physics();
         }
@@ -426,6 +435,17 @@ impl Engine {
         let ripple_active = self.renderer.ripple_start.is_some();
         let needs_frame = sim_active || camera_moving || ripple_active || entrance_active;
 
+        // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
+        // We still render the first 3 idle frames to flush any final visual updates.
+        if !needs_frame {
+            self.idle_frame_count += 1;
+            if self.idle_frame_count > 3 {
+                return 0;
+            }
+        } else {
+            self.idle_frame_count = 0;
+        }
+
         // Build the optional entrance state slice for the renderer.
         let ent = if self.entrance_states.is_empty() {
             None
@@ -471,6 +491,7 @@ impl Engine {
     /// Mouse/trackpad button pressed.
     /// `shift`: whether shift key is held (for neighbor highlighting).
     pub fn mouse_down(&mut self, screen_x: f32, screen_y: f32, shift: bool) {
+        self.idle_frame_count = 0;
         let (wx, wy) = self.screen_to_world(screen_x, screen_y);
         let hit = self.spatial.query_point(wx, wy);
 
@@ -530,6 +551,7 @@ impl Engine {
 
     /// Mouse/trackpad moved (drag, pan, or hover).
     pub fn mouse_moved(&mut self, screen_x: f32, screen_y: f32) {
+        self.idle_frame_count = 0;
         if self.drag.is_some() {
             let drag = self.drag.as_ref().unwrap();
             let sim_index = drag.sim_index;
@@ -562,6 +584,7 @@ impl Engine {
 
     /// Mouse/trackpad button released.
     pub fn mouse_up(&mut self) {
+        self.idle_frame_count = 0;
         if let Some(drag) = self.drag.take() {
             // D3 behavior: unfix node on release (no fling).
             let mut sim = self.sim.lock();
@@ -631,6 +654,7 @@ impl Engine {
 
     /// Two-finger scroll: pan the camera by screen-space delta.
     pub fn scroll(&mut self, delta_x: f32, delta_y: f32) {
+        self.idle_frame_count = 0;
         let zoom = self.renderer.camera_zoom;
         self.renderer.camera_offset[0] -= delta_x / zoom;
         self.renderer.camera_offset[1] += delta_y / zoom;
@@ -641,6 +665,7 @@ impl Engine {
     /// `magnification`: scale delta from NSEvent (e.g. +0.02 = 2% zoom in).
     /// Applies zoom directly (no animation) to avoid drift from target/actual mismatch.
     pub fn magnify(&mut self, screen_x: f32, screen_y: f32, magnification: f32) {
+        self.idle_frame_count = 0;
         let (world_x, world_y) = self.screen_to_world(screen_x, screen_y);
 
         let new_zoom = (self.renderer.camera_zoom * (1.0 + magnification)).clamp(0.05, 10.0);
@@ -809,6 +834,7 @@ impl Engine {
         charge_range: f32,
         link_strength: f32,
     ) {
+        self.idle_frame_count = 0;
         let mut sim = self.sim.lock();
         sim.params.link_distance = link_distance;
         sim.params.charge_strength = charge_strength;
@@ -826,6 +852,7 @@ impl Engine {
         warmth: f32,
         orbital: f32,
     ) {
+        self.idle_frame_count = 0;
         let mut sim = self.sim.lock();
         sim.params.velocity_decay = velocity_decay.clamp(0.0, 0.95);
         sim.params.center_strength = center_strength.clamp(0.0, 0.2);
@@ -872,6 +899,7 @@ impl Engine {
     }
 
     pub fn set_mode(&mut self, mode: u8) {
+        self.idle_frame_count = 0;
         self.mode = mode;
         let mut sim = self.sim.lock();
         if mode == 1 {
