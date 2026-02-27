@@ -373,7 +373,7 @@ pub fn force_attract(
 /// (tangential) force perpendicular to the hub-node vector, creating orbital
 /// paths. Only hubs with 10+ links generate the gravitational field.
 ///
-/// `lensing_strength` is 0-1 user-facing knob (default 0.3).
+/// `lensing_strength` is 0-1 user-facing knob (default 0.0, user-enabled).
 pub fn force_gravitational_lensing(
     x: &[f32],
     y: &[f32],
@@ -430,7 +430,7 @@ pub fn force_gravitational_lensing(
 ///
 /// `entangled_pairs` contains pairs of simulation indices that are entangled
 /// (e.g., nodes connected by 2+ edges or bidirectional references).
-/// `entangle_strength` is 0-1 user-facing knob (default 0.2).
+/// `entangle_strength` is 0-1 user-facing knob (default 0.0, user-enabled).
 pub fn force_entanglement(
     vx: &mut [f32],
     vy: &mut [f32],

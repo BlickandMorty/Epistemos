@@ -93,9 +93,10 @@ impl Default for ForceParams {
             cluster_strength: 0.0,
             center_mode: CenterMode::Attract,
 
-            // Cosmic forces
-            lensing_strength: 0.3,
-            dark_energy_amplitude: 0.15,
+            // Cosmic forces — off by default (prevent settling when active).
+            // Users enable via GraphForceSettings.
+            lensing_strength: 0.0,
+            dark_energy_amplitude: 0.0,
 
             // Simulation state
             alpha: 1.0,
@@ -182,7 +183,7 @@ impl Simulation {
             tick_counter: 0,
             anchor_center: None,
             entangled_pairs: Vec::new(),
-            entangle_strength: 0.2,
+            entangle_strength: 0.0,
             attract_target: None,
             attracted_nodes: Vec::new(),
             attract_strength: 0.5,
@@ -366,7 +367,8 @@ impl Simulation {
             CenterMode::Repel => -self.params.center_strength,
         };
         // Dark energy breathing: sinusoidal expansion modulates center force.
-        let center_str = if self.params.dark_energy_amplitude > 0.001 && center_str_base.abs() > 0.0001 {
+        // Gated by alpha > 0.05 so the effect fades during cooldown, allowing settling.
+        let center_str = if self.params.dark_energy_amplitude > 0.001 && center_str_base.abs() > 0.0001 && alpha > 0.05 {
             let time = self.tick_counter as f32 * 0.02; // ~42 second cycle at 60fps
             let expansion = 1.0 + (time * 0.15).sin() * self.params.dark_energy_amplitude;
             center_str_base / expansion
@@ -400,7 +402,8 @@ impl Simulation {
         }
 
         // Gravitational lensing: orbital paths around hub nodes.
-        if self.params.lensing_strength > 0.001 {
+        // Gated by alpha > 0.01 to allow settling.
+        if self.params.lensing_strength > 0.001 && alpha > 0.01 {
             forces::force_gravitational_lensing(
                 &self.x,
                 &self.y,
@@ -413,7 +416,8 @@ impl Simulation {
         }
 
         // Quantum entanglement: mirrored velocity for paired nodes.
-        if !self.entangled_pairs.is_empty() {
+        // Gated by alpha > 0.01 and strength check to allow settling.
+        if !self.entangled_pairs.is_empty() && self.entangle_strength > 0.001 && alpha > 0.01 {
             forces::force_entanglement(
                 &mut self.vx,
                 &mut self.vy,
@@ -697,8 +701,8 @@ mod tests {
         assert_eq!(p.orbital, 0.0);
         assert_eq!(p.cluster_strength, 0.0);
         assert_eq!(p.center_mode, CenterMode::Attract);
-        assert_eq!(p.lensing_strength, 0.3);
-        assert_eq!(p.dark_energy_amplitude, 0.15);
+        assert_eq!(p.lensing_strength, 0.0);
+        assert_eq!(p.dark_energy_amplitude, 0.0);
     }
 
     #[test]

@@ -52,6 +52,7 @@ final class HologramOverlay {
     private(set) var isMinimized = false
     private var minimizeObserver: Any?
     private var restoreObserver: Any?
+    private var closeObserver: Any?
 
     init(graphState: GraphState, modelContainer: ModelContainer?) {
         self.graphState = graphState
@@ -430,6 +431,11 @@ final class HologramOverlay {
         ) { [weak self] _ in
             self?.restore()
         }
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: .graphCloseRequested, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.hide()
+        }
     }
 
     /// Re-sync blur, tint, and Metal light-mode flag to the current system appearance.
@@ -456,11 +462,13 @@ final class HologramOverlay {
         if let obs = noteWindowResizeObserver { NotificationCenter.default.removeObserver(obs) }
         noteWindowMoveObserver = nil
         noteWindowResizeObserver = nil
-        // Remove minimize/restore observers.
+        // Remove minimize/restore/close observers.
         if let obs = minimizeObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = restoreObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = closeObserver { NotificationCenter.default.removeObserver(obs) }
         minimizeObserver = nil
         restoreObserver = nil
+        closeObserver = nil
         // Invalidate appearance KVO observer.
         appearanceObserver?.invalidate()
         appearanceObserver = nil
@@ -641,11 +649,6 @@ final class HologramOverlay {
 
         self.window = window
         self.metalView = graphView
-
-        // Click-outside dismiss: background tap (no node hit, no drag) closes overlay.
-        graphView.onBackgroundTap = { [weak self] in
-            self?.hide()
-        }
 
         window.makeFirstResponder(graphView)
 

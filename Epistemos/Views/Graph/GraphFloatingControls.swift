@@ -41,6 +41,12 @@ struct GraphFloatingControls: View {
                 .opacity(0.3)
 
             rebuildGraphButton
+
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
+
+            closeButton
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -240,6 +246,27 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .help("Rebuild Graph")
+    }
+
+    // MARK: - Close
+
+    private var closeButton: some View {
+        Button {
+            graphState.pendingClose = true
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Close")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(.white.opacity(0.6))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Close Graph (Esc)")
     }
 }
 

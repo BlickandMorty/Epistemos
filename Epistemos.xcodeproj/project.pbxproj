@@ -130,7 +130,7 @@
 		C86DACE5DFE1577ED9FAC9DA /* SOARDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D97EC6BFACD2D409F9E04AD7 /* SOARDetector.swift */; };
 		CBD58CD0923FE36FE7FFD82D /* NotesSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */; };
 		A1B2C3D4E5F60718NOTETOC2 /* NoteTableOfContents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */; };
-		A1B2C3D4E5F60718NGRPMD2 /* NoteGraphMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718NGRPMD1 /* NoteGraphMode.swift */; };
+
 		CCB23084A08F20E597B38950 /* NotesBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */; };
 		CCDD340F08953CBE3838C7F3 /* EventBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9947A75806BAE2F306FAFB6C /* EventBus.swift */; };
 		CD4E9F59276F545B492CEC3F /* NotesMentionDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB211887E2C199C35268119F /* NotesMentionDropdown.swift */; };
@@ -225,7 +225,7 @@
 		39BF697E1D7B96C4CCE733C3 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesSidebar.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteTableOfContents.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60718NGRPMD1 /* NoteGraphMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteGraphMode.swift; sourceTree = "<group>"; };
+
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		3BCFFE65F6525E5AC7F02EF9 /* ToastOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastOverlay.swift; sourceTree = "<group>"; };
 		3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseEditorView.swift; sourceTree = "<group>"; };
@@ -543,7 +543,6 @@
 				9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */,
 				59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */,
 				3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */,
-				A1B2C3D4E5F60718NGRPMD1 /* NoteGraphMode.swift */,
 				A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */,
 				71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */,
 				0735CB2532A434111036257E /* PageEditorCache.swift */,
@@ -1005,7 +1004,6 @@
 				CD4E9F59276F545B492CEC3F /* NotesMentionDropdown.swift in Sources */,
 				CBD58CD0923FE36FE7FFD82D /* NotesSidebar.swift in Sources */,
 				A1B2C3D4E5F60718NOTETOC2 /* NoteTableOfContents.swift in Sources */,
-				A1B2C3D4E5F60718NGRPMD2 /* NoteGraphMode.swift in Sources */,
 				9C63C274562EF873FCDF079C /* NotesUIState.swift in Sources */,
 				2ADFF2EE98DD1F4778A03875 /* PageEditorCache.swift in Sources */,
 				ACEE861F6BD0857E448EE390 /* PageShell.swift in Sources */,

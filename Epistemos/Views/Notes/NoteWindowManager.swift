@@ -289,7 +289,6 @@ private struct NoteTabView: View {
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showTableOfContents = false
-    @State private var isGraphMode = false
     /// Pre-selected idea tab when opened from right-click context menu.
     @State private var contextMenuIdeaTab: IdeasPanel.IdeaTab?
     /// Editor selection captured BEFORE the popover steals focus.
@@ -350,12 +349,6 @@ private struct NoteTabView: View {
                     .opacity(transitionOpacity)
                     .ignoresSafeArea()
                     .allowsHitTesting(transitionOpacity > 0)
-
-                    // In-Note Graph Mode overlay (Cmd+G)
-                    if isGraphMode {
-                        NoteGraphOverlay(pageId: pageId, isActive: $isGraphMode)
-                            .transition(.opacity)
-                    }
                 }
 
                 // Table of Contents sidebar
@@ -477,16 +470,6 @@ private struct NoteTabView: View {
                 .accessibilityLabel(showTableOfContents ? "Hide Table of Contents" : "Show Table of Contents")
                 .help("Table of Contents (⌘T)")
 
-                Button {
-                    withAnimation(.smooth(duration: 0.3)) {
-                        isGraphMode.toggle()
-                    }
-                } label: {
-                    Label("Graph", systemImage: "point.3.connected.trianglepath.dotted")
-                }
-                .accessibilityLabel(isGraphMode ? "Hide Graph" : "Show Graph")
-                .help("Toggle Graph View (⌘G)")
-
                 moreMenu
             }
         }
@@ -518,9 +501,6 @@ private struct NoteTabView: View {
                 .hidden()
             Button("") { withAnimation { showTableOfContents.toggle() } }
                 .keyboardShortcut("t", modifiers: .command)
-                .hidden()
-            Button("") { withAnimation(.smooth(duration: 0.3)) { isGraphMode.toggle() } }
-                .keyboardShortcut("g", modifiers: .command)
                 .hidden()
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)

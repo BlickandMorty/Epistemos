@@ -461,6 +461,10 @@ impl Engine {
             self.renderer.update_positions(&self.graph, ent);
             self.renderer.upload_labels(&self.graph);
             self.spatial.build(&self.graph.nodes);
+        } else if camera_moving {
+            // Re-upload labels when zoom changes so fade-by-screen-radius stays correct.
+            // Positions haven't changed, so skip update_positions and spatial rebuild.
+            self.renderer.upload_labels(&self.graph);
         }
 
         // Append selection/hover highlight rings.
