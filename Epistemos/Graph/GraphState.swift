@@ -116,6 +116,16 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - AttractMode
+// Three attractor modes for the cursor gravity well.
+// Off = disabled, AI = attract matching nodes to cursor, Manual = attract all nodes.
+
+enum AttractMode: String, CaseIterable {
+    case off = "Off"
+    case ai = "AI"
+    case manual = "Manual"
+}
+
 // MARK: - GraphState
 // Observable coordinator that owns the graph engine components (store, filter).
 // Physics and rendering are handled by the Rust engine via Metal.
@@ -203,6 +213,19 @@ final class GraphState {
 
     var clusterConfigVersion: Int = 0
     func pushClusterChange() { clusterConfigVersion += 1 }
+
+    // ── Attractor ──
+    /// Current attractor mode: off, AI (search-based), or manual (all nodes).
+    var attractMode: AttractMode = .off
+    /// Search query for AI attract mode — matches node labels.
+    var attractQuery: String = ""
+    /// Attractor pull strength (0 = none, 1 = max).
+    var attractStrength: Float = 0.5
+    /// UUIDs of nodes currently attracted (populated by AI search matching).
+    var attractedNodeIds: [String] = []
+
+    var attractConfigVersion: Int = 0
+    func pushAttractChange() { attractConfigVersion += 1 }
 
     // ── Labels ──
     var labelsEnabled: Bool = true

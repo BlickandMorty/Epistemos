@@ -24,6 +24,12 @@ struct GraphFloatingControls: View {
                 .frame(height: 20)
                 .opacity(0.3)
 
+            attractControls
+
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
+
             forceSettingsButton
 
             minimizeButton
@@ -93,6 +99,78 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
+    }
+
+    // MARK: - Attract Controls
+
+    private var attractControls: some View {
+        @Bindable var gs = graphState
+        return HStack(spacing: 6) {
+            // Magnet toggle: cycles Off → AI → Manual → Off.
+            Button {
+                let modes = AttractMode.allCases
+                let idx = modes.firstIndex(of: graphState.attractMode) ?? 0
+                let next = modes[(idx + 1) % modes.count]
+                graphState.attractMode = next
+                graphState.pushAttractChange()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: attractIcon)
+                        .font(.system(size: 11, weight: .medium))
+                    Text(graphState.attractMode.rawValue)
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    graphState.attractMode != .off ? Color.purple.opacity(0.2) : .white.opacity(0.05),
+                    in: Capsule()
+                )
+                .foregroundStyle(graphState.attractMode != .off ? .white : .white.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .help("Attractor: \(graphState.attractMode.rawValue)")
+
+            // Search field for AI mode.
+            if graphState.attractMode == .ai {
+                TextField("Attract concept...", text: gs.attractQuery)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white)
+                    .frame(width: 120)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.white.opacity(0.08), in: Capsule())
+                    .onChange(of: graphState.attractQuery) {
+                        updateAttractedNodes()
+                    }
+            }
+        }
+    }
+
+    private var attractIcon: String {
+        switch graphState.attractMode {
+        case .off:    return "magnet"
+        case .ai:     return "magnifyingglass"
+        case .manual: return "hand.draw"
+        }
+    }
+
+    /// Match node labels against the attract query and update attracted node IDs.
+    private func updateAttractedNodes() {
+        let query = graphState.attractQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else {
+            graphState.attractedNodeIds = []
+            graphState.pushAttractChange()
+            return
+        }
+
+        let matching = graphState.store.nodes.values
+            .filter { $0.label.lowercased().contains(query) }
+            .map(\.id)
+
+        graphState.attractedNodeIds = matching
+        graphState.pushAttractChange()
     }
 
     // MARK: - Force Settings

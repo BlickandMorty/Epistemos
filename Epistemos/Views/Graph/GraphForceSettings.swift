@@ -37,6 +37,9 @@ struct GraphForceSettings: View {
                 clusterSection(gs: $gs)
 
                 Divider().opacity(0.3)
+                attractorSection(gs: $gs)
+
+                Divider().opacity(0.3)
                 labelsSection(gs: $gs)
 
                 Divider().opacity(0.3)
@@ -239,6 +242,40 @@ struct GraphForceSettings: View {
                     graphState.pushClusterChange()
                 }
             }
+        }
+    }
+
+    // MARK: - Attractor
+
+    private func attractorSection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("Attractor", icon: "magnet")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Mode")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Picker("Attract Mode", selection: gs.attractMode) {
+                    ForEach(AttractMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .onChange(of: graphState.attractMode) {
+                    graphState.pushAttractChange()
+                }
+            }
+
+            forceSlider(
+                label: "Attract Strength",
+                value: gs.attractStrength,
+                range: 0...1,
+                format: "%.2f",
+                subtitle: "Pull force toward cursor",
+                onChange: { graphState.pushAttractChange() }
+            )
         }
     }
 

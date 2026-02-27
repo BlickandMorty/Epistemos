@@ -238,6 +238,7 @@ final class MetalGraphNSView: NSView {
     var lastExtendedForceConfigVersion: Int = 0
     var lastLabelConfigVersion: Int = 0
     var lastClusterConfigVersion: Int = 0
+    var lastAttractConfigVersion: Int = 0
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -277,6 +278,50 @@ final class MetalGraphNSView: NSView {
         guard let engine, let graphState else { return }
         graph_engine_set_cluster_params(engine, graphState.clusterStrength)
         graph_engine_set_center_mode(engine, graphState.centerMode)
+    }
+
+    func pushAttractParams() {
+        guard let engine, let graphState else { return }
+
+        // Set strength.
+        graph_engine_set_attract_strength(engine, graphState.attractStrength)
+
+        switch graphState.attractMode {
+        case .off:
+            graph_engine_clear_attract(engine)
+
+        case .manual:
+            // Manual mode: attract ALL nodes. Pass empty attracted list —
+            // the engine treats empty + active target as "attract all".
+            graph_engine_set_attracted_nodes(engine, nil, 0)
+
+        case .ai:
+            // AI mode: attract only matching nodes.
+            let ids = graphState.attractedNodeIds
+            if ids.isEmpty {
+                graph_engine_clear_attract(engine)
+            } else {
+                // Build a C array of null-terminated strings.
+                // Use withCString on each ID to ensure safe pointer lifetimes.
+                let cPtrs: [UnsafePointer<CChar>?] = ids.map { id in
+                    // strdup allocates a copy on the heap — freed below.
+                    strdup(id)
+                }
+                defer { cPtrs.forEach { if let p = $0 { free(UnsafeMutablePointer(mutating: p)) } } }
+
+                cPtrs.withUnsafeBufferPointer { buf in
+                    // Cast UnsafeBufferPointer<UnsafePointer<CChar>?> base to UnsafePointer<UnsafePointer<CChar>?>
+                    // The FFI expects `const char**` which maps to UnsafePointer<UnsafePointer<CChar>?>
+                    graph_engine_set_attracted_nodes(
+                        engine,
+                        buf.baseAddress,
+                        UInt32(ids.count)
+                    )
+                }
+            }
+        }
+
+        needsRender = true
     }
 
     // MARK: - Camera
@@ -382,6 +427,12 @@ final class MetalGraphNSView: NSView {
             pushClusterParams()
         }
 
+        // Sync attract params (mode, strength, attracted nodes).
+        if let graphState, lastAttractConfigVersion != graphState.attractConfigVersion {
+            lastAttractConfigVersion = graphState.attractConfigVersion
+            pushAttractParams()
+        }
+
         // Minimize request: post notification for the overlay to handle.
         if let graphState, graphState.pendingMinimize {
             graphState.pendingMinimize = false
@@ -455,7 +506,15 @@ final class MetalGraphNSView: NSView {
 
         let loc = convert(event.locationInWindow, from: nil)
         let scale = metalLayer?.contentsScale ?? 2.0
-        graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
+        let screenX = Float(loc.x * scale)
+        let screenY = Float((bounds.height - loc.y) * scale)
+        graph_engine_mouse_moved(engine, screenX, screenY)
+
+        // Keep attractor target updated during drag.
+        if let graphState, graphState.attractMode != .off {
+            graph_engine_set_attract_target_screen(engine, screenX, screenY)
+        }
+
         needsRender = true
     }
 
@@ -562,7 +621,14 @@ final class MetalGraphNSView: NSView {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
         let scale = metalLayer?.contentsScale ?? 2.0
-        graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
+        let screenX = Float(loc.x * scale)
+        let screenY = Float((bounds.height - loc.y) * scale)
+        graph_engine_mouse_moved(engine, screenX, screenY)
+
+        // When attractor is active, update target position.
+        if let graphState, graphState.attractMode != .off {
+            graph_engine_set_attract_target_screen(engine, screenX, screenY)
+        }
 
         // Update cursor based on hover state (only when not dragging).
         if !isDraggingNode && !isPanning {
