@@ -2,31 +2,61 @@ import Foundation
 import SwiftData
 
 // MARK: - GraphState
-// Observable coordinator that owns the graph engine components (store, filter, simulation).
+// Observable coordinator that owns the graph engine components (store, filter).
+// Physics and rendering are handled by the Rust engine via Metal.
 // Injected into the environment for the graph window and its subviews.
 
 @MainActor @Observable
 final class GraphState {
     let store = GraphStore()
     let filter = FilterEngine()
-    let simulation = ForceSimulation()
 
     var isLoaded = false
     var isScanning = false
     var scanProgress: Double = 0  // 0.0-1.0
     var scanStatus: String = ""
     var selectedNodeId: String?
+    private var isBuildingStructural = false
 
     /// Set to true when notes change — the graph window checks this on appear and refreshes structural data.
     var needsRefresh = false
 
     // MARK: - Pending Scene Actions
 
-    /// Set to true to request the SpriteKit scene reset its camera view.
+    /// Set to true to request the Metal canvas reset its camera view.
     var pendingResetView = false
 
-    /// Set to a node ID to request the SpriteKit scene center its camera on that node.
+    /// Set to a node ID to request the Metal canvas center its camera on that node.
     var pendingCenterNodeId: String?
+
+    // MARK: - Physics Settings (Obsidian-style adjustable forces)
+
+    /// Center force strength. Pulls nodes toward viewport center.
+    var physCenterForce: Float = 0.003
+
+    /// Repulsion force between nodes (Coulomb-like).
+    /// Lower base value than pre-overhaul because radius-aware repulsion amplifies force for large nodes.
+    var physRepelForce: Float = 800.0
+
+    /// Attraction force along edges (spring stiffness).
+    var physLinkForce: Float = 0.010
+
+    /// Natural resting length of edge springs.
+    /// Tighter base distance because radii provide extra spacing.
+    var physLinkDistance: Float = 150.0
+
+    /// Velocity damping per tick. Lower = more floaty drift.
+    var physVelocityDecay: Float = 0.55
+
+    /// Alpha decay rate. Lower = slower cooling, longer animation.
+    var physAlphaDecay: Float = 0.012
+
+    /// Incremented whenever a physics slider changes, so updateNSView can detect it.
+    var physicsConfigVersion: Int = 0
+
+    func pushPhysicsChange() {
+        physicsConfigVersion += 1
+    }
 
     // MARK: - Loading
 
@@ -38,31 +68,26 @@ final class GraphState {
             return
         }
 
-        // If empty, auto-build from structural data (notes, folders, ideas, chats, tags)
-        if store.nodeCount == 0 {
+        // If empty and not already building, auto-build from structural data.
+        // The guard prevents infinite recursion: buildStructuralGraph → loadGraph → buildStructuralGraph...
+        if store.nodeCount == 0, !isBuildingStructural {
             buildStructuralGraph(context: context)
-            return  // buildStructuralGraph calls loadGraph again
+            return
         }
 
-        // Feed topology into simulation and pre-settle before displaying
-        let simNodes = store.nodes.values.map { (id: $0.id, position: $0.position, weight: Float($0.weight)) }
-        let simEdges = store.edges.values.map { (source: $0.sourceNodeId, target: $0.targetNodeId, weight: Float($0.weight)) }
-        Task {
-            await simulation.load(nodes: simNodes, edges: simEdges)
-            let settledPositions = await simulation.settle(iterations: 200)
-            // Apply settled positions back to store
-            for (nodeId, pos) in settledPositions {
-                store.updatePosition(nodeId, position: pos)
-            }
-            isLoaded = true
-            pendingResetView = true
-        }
+        // Physics and rendering are driven by the Rust engine.
+        // Data is pushed to the engine via GraphBridge when the MetalGraphView appears.
+        isLoaded = true
     }
 
     // MARK: - Structural Graph
 
     /// Build the graph skeleton from existing structured data (no AI needed).
     func buildStructuralGraph(context: ModelContext) {
+        guard !isBuildingStructural else { return }
+        isBuildingStructural = true
+        defer { isBuildingStructural = false }
+
         let builder = StructuralGraphBuilder()
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)

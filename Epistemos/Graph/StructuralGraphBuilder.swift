@@ -66,9 +66,6 @@ final class StructuralGraphBuilder {
                 let ideaType: GraphNodeType = idea.type == .brainDump ? .brainDump : .idea
                 let ideaNode = SDGraphNode(type: ideaType, label: idea.title, sourceId: idea.id)
                 ideaNode.createdAt = idea.createdAt
-                var ideaMeta = GraphNodeMetadata()
-                ideaMeta.originNoteId = page.id
-                ideaNode.meta = ideaMeta
                 nodes.append(ideaNode)
                 sourceIdToNodeId[idea.id] = ideaNode.id
 

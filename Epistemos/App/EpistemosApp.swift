@@ -30,13 +30,9 @@ struct EpistemosApp: App {
                 .environment(bootstrap.graphState)
                 .onAppear {
                     StatusBar.shared.setup()
-                    // Request notification permission for breathing reminders.
-                    // Guarded: UNUserNotificationCenter asserts in test bundles.
-                    if Bundle.main.bundleIdentifier == "com.epistemos.app" {
-                        UNUserNotificationCenter.current().requestAuthorization(
-                            options: [.alert, .sound]
-                        ) { _, _ in }
-                    }
+                    // Notification permission deferred — entitlement not yet configured.
+                    // UNUserNotificationCenter.current() asserts in Debug builds without
+                    // the UserNotifications entitlement, causing a SIGABRT crash.
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(
@@ -52,6 +48,15 @@ struct EpistemosApp: App {
                 ui: bootstrap.uiState, chat: bootstrap.chatState, notesUI: bootstrap.notesUI,
                 vaultSync: bootstrap.vaultSync)
         }
+
+        Window("Knowledge Graph", id: "graph") {
+            GraphWindowView()
+                .environment(bootstrap.graphState)
+                .environment(bootstrap.uiState)
+                .environment(bootstrap.llmService)
+        }
+        .modelContainer(bootstrap.modelContainer)
+        .defaultSize(width: 1000, height: 700)
     }
 }
 
@@ -119,6 +124,7 @@ struct EpistemosCommands: Commands {
     let chat: ChatState
     let notesUI: NotesUIState
     let vaultSync: VaultSyncService
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandGroup(after: .sidebar) {
@@ -138,8 +144,10 @@ struct EpistemosCommands: Commands {
             Button("Show Library & Research") { UtilityWindowManager.shared.show(.library) }
                 .keyboardShortcut("3", modifiers: .command)
 
-            Button("Knowledge Graph") { UtilityWindowManager.shared.show(.graph) }
-                .keyboardShortcut("g", modifiers: .command)
+            Button("Knowledge Graph") {
+                openWindow(id: "graph")
+            }
+            .keyboardShortcut("g", modifiers: .command)
 
             Divider()
 

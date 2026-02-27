@@ -3,7 +3,7 @@ import SwiftData
 import SwiftUI
 
 // MARK: - GraphWindowView
-// Main graph window layout with sidebar, SpriteKit canvas, filter pills, and timeline scrubber.
+// Main graph window layout with sidebar, Metal canvas, filter pills, and timeline scrubber.
 
 struct GraphWindowView: View {
     @Environment(GraphState.self) private var graphState
@@ -13,8 +13,8 @@ struct GraphWindowView: View {
 
     @State private var showSidebar = true
     @State private var showTimeline = true
+    @State private var showPhysicsSettings = false
     @State private var sidebarTab: SidebarTab = .info
-    @State private var navigateSearchText: String = ""
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -34,7 +34,6 @@ struct GraphWindowView: View {
 
     // MARK: - Filter key lookup
 
-    /// Maps keyboard characters 1-9 to their corresponding GraphNodeType.
     private static let filterKeyMap: [Character: GraphNodeType] = {
         var map: [Character: GraphNodeType] = [:]
         for nodeType in GraphNodeType.allCases {
@@ -62,14 +61,9 @@ struct GraphWindowView: View {
 
             ZStack(alignment: .topTrailing) {
                 ZStack(alignment: .bottom) {
-                    // SpriteKit canvas — full size
-                    GraphSpriteView(
-                        graphState: graphState,
-                        onNodeRightClicked: { nodeId, screenPoint in
-                            showContextMenu(nodeId: nodeId, screenPoint: screenPoint)
-                        }
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Rust Metal canvas — replaces SpriteKit
+                    MetalGraphView(graphState: graphState)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // Timeline scrubber — bottom overlay
                     if showTimeline {
@@ -84,38 +78,10 @@ struct GraphWindowView: View {
                 GraphFilterPills()
                     .padding(.top, Spacing.md)
                     .padding(.trailing, Spacing.md)
-
-                // Scan progress overlay — top-center
-                if graphState.isScanning {
-                    VStack(spacing: 6) {
-                        Text(graphState.scanStatus)
-                            .font(.epCaption)
-                            .foregroundStyle(theme.foreground)
-                        ProgressView(value: graphState.scanProgress)
-                            .progressViewStyle(.linear)
-                            .tint(theme.accent)
-                            .frame(width: 200)
-                    }
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.vertical, Spacing.md)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .padding(.top, 60)
-                    .transition(.opacity)
-                }
             }
         }
         .onKeyPress(.space) {
             graphState.pendingResetView = true
-            return .handled
-        }
-        .onKeyPress(characters: CharacterSet(charactersIn: "f")) { _ in
-            if let nodeId = graphState.selectedNodeId {
-                graphState.pendingCenterNodeId = nodeId
-            }
             return .handled
         }
         .onKeyPress(characters: CharacterSet(charactersIn: "t")) { _ in
@@ -160,6 +126,16 @@ struct GraphWindowView: View {
                 .help("Reset View")
 
                 Button {
+                    showPhysicsSettings.toggle()
+                } label: {
+                    Image(systemName: "atom")
+                }
+                .help("Physics Settings")
+                .popover(isPresented: $showPhysicsSettings, arrowEdge: .bottom) {
+                    GraphPhysicsSettings()
+                }
+
+                Button {
                     graphState.refreshStructuralData(context: modelContext)
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -183,103 +159,13 @@ struct GraphWindowView: View {
         .onAppear {
             if !graphState.isLoaded {
                 graphState.loadGraph(context: modelContext)
-            } else if graphState.needsRefresh {
+            } else {
+                // Always refresh structural data on window reopen (Obsidian-style reset).
+                // The MetalGraphView coordinator's hasLoadedData is reset in
+                // viewDidMoveToWindow, so the next updateNSView pushes fresh data
+                // to the Rust engine → physics restart + fit-all camera.
                 graphState.refreshStructuralData(context: modelContext)
             }
-        }
-        .onChange(of: graphState.selectedNodeId) { _, newId in
-            if newId != nil, showSidebar {
-                withAnimation(Motion.quick) {
-                    sidebarTab = .info
-                }
-            }
-        }
-    }
-
-    // MARK: - Context Menu
-
-    private func showContextMenu(nodeId: String, screenPoint: CGPoint) {
-        guard let node = graphState.store.nodes[nodeId] else { return }
-
-        let menu = NSMenu(title: "Node Actions")
-
-        // Show Only Connected
-        let showConnected = NSMenuItem(title: "Show Only Connected", action: nil, keyEquivalent: "")
-        menu.addItem(showConnected)
-        showConnected.representedObject = ContextAction {
-            graphState.focusOnNode(nodeId)
-        }
-
-        // Open in Editor
-        let openItem = NSMenuItem(title: "Open in Editor", action: nil, keyEquivalent: "")
-        menu.addItem(openItem)
-        if node.type == .note, let sourceId = node.sourceId {
-            openItem.representedObject = ContextAction {
-                NoteWindowManager.shared.open(pageId: sourceId)
-            }
-        } else if node.type == .chat {
-            openItem.representedObject = ContextAction {
-                Log.app.info("Open chat not implemented yet")
-            }
-        } else if node.type == .idea || node.type == .brainDump,
-                  let noteId = node.metadata.originNoteId {
-            openItem.representedObject = ContextAction {
-                NoteWindowManager.shared.open(pageId: noteId)
-            }
-        } else if let sourceId = node.sourceId {
-            openItem.representedObject = ContextAction {
-                NoteWindowManager.shared.open(pageId: sourceId)
-            }
-        } else {
-            openItem.isEnabled = false
-        }
-
-        menu.addItem(.separator())
-
-        // Pin to Center
-        let pinItem = NSMenuItem(title: "Pin to Center", action: nil, keyEquivalent: "")
-        menu.addItem(pinItem)
-        pinItem.representedObject = ContextAction {
-            if let record = graphState.store.nodes[nodeId] {
-                Task { await graphState.simulation.pinNode(nodeId, at: record.position) }
-            }
-        }
-
-        // Hide This Node
-        let hideItem = NSMenuItem(title: "Hide This Node", action: nil, keyEquivalent: "")
-        menu.addItem(hideItem)
-        hideItem.representedObject = ContextAction {
-            graphState.filter.hideNode(nodeId)
-        }
-
-        menu.addItem(.separator())
-
-        // Clear Focus
-        let clearItem = NSMenuItem(title: "Clear Focus", action: nil, keyEquivalent: "")
-        menu.addItem(clearItem)
-        clearItem.representedObject = ContextAction {
-            graphState.clearFocus()
-            graphState.filter.clearHidden()
-        }
-
-        // Use ContextMenuDelegate to handle actions
-        let delegate = ContextMenuDelegate()
-        menu.delegate = delegate
-
-        // Present the menu — attach all items to the delegate for action dispatch
-        for item in menu.items where item.representedObject is ContextAction {
-            item.target = delegate
-            item.action = #selector(ContextMenuDelegate.performAction(_:))
-        }
-
-        // Pop up at mouse location in screen coordinates
-        // NSMenu.popUp needs a view and local point. Use the key window's content view.
-        if let window = NSApp.keyWindow, let contentView = window.contentView {
-            let windowPoint = window.convertPoint(fromScreen: screenPoint)
-            let localPoint = contentView.convert(windowPoint, from: nil)
-            // Retain delegate for duration of menu interaction
-            objc_setAssociatedObject(menu, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
-            menu.popUp(positioning: nil, at: localPoint, in: contentView)
         }
     }
 
@@ -287,7 +173,6 @@ struct GraphWindowView: View {
 
     private var sidebarView: some View {
         VStack(spacing: 0) {
-            // Tab picker
             Picker("", selection: $sidebarTab) {
                 ForEach(SidebarTab.allCases, id: \.self) { tab in
                     Label(tab.rawValue, systemImage: tab.icon)
@@ -302,12 +187,11 @@ struct GraphWindowView: View {
                 .fill(theme.border)
                 .frame(height: 0.5)
 
-            // Tab content
             switch sidebarTab {
             case .ideas:
                 IdeasPortalView()
             case .navigate:
-                navigateView
+                navigatePlaceholder
             case .info:
                 infoPanel
             }
@@ -317,87 +201,21 @@ struct GraphWindowView: View {
 
     // MARK: - Sidebar: Navigate
 
-    private var navigateView: some View {
-        VStack(spacing: 0) {
-            // Search field
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.textTertiary)
-                TextField("Search nodes...", text: $navigateSearchText)
-                    .textFieldStyle(.plain)
-                    .font(.epBody)
-                if !navigateSearchText.isEmpty {
-                    Button {
-                        navigateSearchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(theme.textTertiary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-            .background(theme.glassTint.opacity(0.3))
-
-            Rectangle()
-                .fill(theme.border)
-                .frame(height: 0.5)
-
-            // Node list
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(filteredNavigateNodes, id: \.id) { node in
-                        Button {
-                            graphState.selectNode(node.id)
-                            graphState.pendingCenterNodeId = node.id
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: node.type.icon)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(nodeColor(for: node.type))
-                                    .frame(width: 18)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(node.label)
-                                        .font(.epCaption)
-                                        .foregroundStyle(theme.foreground)
-                                        .lineLimit(1)
-                                    Text(node.type.displayName)
-                                        .font(.epSmall)
-                                        .foregroundStyle(theme.textTertiary)
-                                }
-                                Spacer()
-                                Text(String(format: "%.0f", node.weight))
-                                    .font(.epSmall)
-                                    .foregroundStyle(theme.textTertiary)
-                            }
-                            .padding(.horizontal, Spacing.md)
-                            .padding(.vertical, 6)
-                            .background(
-                                graphState.selectedNodeId == node.id
-                                    ? theme.accent.opacity(0.08)
-                                    : Color.clear
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
+    private var navigatePlaceholder: some View {
+        VStack(spacing: Spacing.md) {
+            Spacer()
+            Image(systemName: "scope")
+                .font(.system(size: 32))
+                .foregroundStyle(theme.textTertiary)
+            Text("Navigate")
+                .font(.epHeading)
+                .foregroundStyle(theme.textSecondary)
+            Text("Coming soon — search & browse graph")
+                .font(.epCaption)
+                .foregroundStyle(theme.textTertiary)
+            Spacer()
         }
-    }
-
-    private var filteredNavigateNodes: [GraphNodeRecord] {
-        let allNodes = Array(graphState.store.nodes.values)
-        let filtered: [GraphNodeRecord]
-        if navigateSearchText.isEmpty {
-            filtered = allNodes
-        } else {
-            let query = navigateSearchText.lowercased()
-            filtered = allNodes.filter { $0.label.lowercased().contains(query) }
-        }
-        return filtered.sorted { $0.weight > $1.weight }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Sidebar: Info Panel
@@ -434,7 +252,6 @@ struct GraphWindowView: View {
     @ViewBuilder
     private func nodeInfoView(_ node: GraphNodeRecord) -> some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            // Header
             HStack(spacing: Spacing.sm) {
                 Image(systemName: node.type.icon)
                     .font(.system(size: 20, weight: .medium))
@@ -461,7 +278,6 @@ struct GraphWindowView: View {
                 .fill(theme.border)
                 .frame(height: 0.5)
 
-            // Metadata fields
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 metadataRow("Weight", value: String(format: "%.1f", node.weight))
                 metadataRow("Created", value: node.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -491,7 +307,6 @@ struct GraphWindowView: View {
                 .fill(theme.border)
                 .frame(height: 0.5)
 
-            // Connections
             let neighbors = graphState.store.neighbors(of: node.id)
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 Text("Connections (\(neighbors.count))")
@@ -524,7 +339,6 @@ struct GraphWindowView: View {
                 }
             }
 
-            // Focus button
             Button {
                 graphState.focusOnNode(node.id)
             } label: {
@@ -580,23 +394,5 @@ struct GraphWindowView: View {
         case .quote:     return .cyan
         case .tag, .folder: return .gray
         }
-    }
-}
-
-// MARK: - Context Menu Support
-
-/// Wraps a closure for use as NSMenuItem.representedObject.
-private final class ContextAction {
-    let action: @MainActor () -> Void
-    init(_ action: @escaping @MainActor () -> Void) {
-        self.action = action
-    }
-}
-
-/// NSObject delegate that dispatches NSMenuItem actions by invoking the ContextAction closure.
-private final class ContextMenuDelegate: NSObject, NSMenuDelegate {
-    @objc func performAction(_ sender: NSMenuItem) {
-        guard let contextAction = sender.representedObject as? ContextAction else { return }
-        contextAction.action()
     }
 }
