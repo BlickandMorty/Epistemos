@@ -1,19 +1,21 @@
 import SwiftUI
 
 // MARK: - HologramSidebar
-// Floating left panel with two tabs: Search (live node filtering) and Browse (folder tree).
-// Integrated into the hologram overlay with Liquid Glass styling.
+// Floating left panel mirroring NotesSidebar structure for the graph overlay.
+// Three tabs: Search (live node filtering), Notes (folder tree — note nodes only),
+// and Knowledge (non-note types grouped by category: tags, ideas, sources, quotes, chats).
 
 struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
     @Binding var searchText: String
-    @State private var activeTab: SidebarTab = .search
+    @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
+    @State private var expandedTypes: Set<GraphNodeType> = [.tag]
 
     var onSearchChanged: (String) -> Void
     var onSelectNode: (String) -> Void
 
-    enum SidebarTab { case search, browse }
+    enum SidebarTab { case search, notes, knowledge }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,8 +25,10 @@ struct HologramSearchSidebar: View {
             switch activeTab {
             case .search:
                 searchContent
-            case .browse:
-                browseContent
+            case .notes:
+                notesContent
+            case .knowledge:
+                knowledgeContent
             }
         }
         .frame(width: 280)
@@ -41,7 +45,8 @@ struct HologramSearchSidebar: View {
     private var tabPills: some View {
         HStack(spacing: 4) {
             tabButton("Search", icon: "magnifyingglass", tab: .search)
-            tabButton("Browse", icon: "folder", tab: .browse)
+            tabButton("Notes", icon: "doc.text", tab: .notes)
+            tabButton("Knowledge", icon: "brain.head.profile", tab: .knowledge)
             Spacer()
         }
         .padding(.horizontal, 10)
@@ -51,8 +56,7 @@ struct HologramSearchSidebar: View {
     private func tabButton(_ label: String, icon: String, tab: SidebarTab) -> some View {
         Button {
             withAnimation(.smooth(duration: 0.2)) { activeTab = tab }
-            // Clear search highlighting when switching to browse.
-            if tab == .browse && !searchText.isEmpty {
+            if tab != .search && !searchText.isEmpty {
                 searchText = ""
                 onSearchChanged("")
             }
@@ -139,7 +143,7 @@ struct HologramSearchSidebar: View {
         }
     }
 
-    // MARK: - Browse Content
+    // MARK: - Notes Content (mirrors NotesSidebar: folders → loose files)
 
     private var folderNodes: [GraphNodeRecord] {
         graphState.store.nodes.values
@@ -147,44 +151,136 @@ struct HologramSearchSidebar: View {
             .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
     }
 
-    private func childrenOf(_ folderId: String) -> [GraphNodeRecord] {
+    private func noteChildrenOf(_ folderId: String) -> [GraphNodeRecord] {
         let neighborIds = graphState.store.adjacency[folderId] ?? []
         return neighborIds.compactMap { graphState.store.nodes[$0] }
-            .filter { $0.type != .folder } // Don't show sub-folders as children.
+            .filter { $0.type == .note }
             .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
     }
 
-    /// Top-level nodes not connected to any folder.
-    private var orphanNodes: [GraphNodeRecord] {
+    private var looseNotes: [GraphNodeRecord] {
         let folderIds = Set(folderNodes.map(\.id))
         return graphState.store.nodes.values
             .filter { node in
-                node.type != .folder &&
+                node.type == .note &&
                 !(graphState.store.adjacency[node.id] ?? []).contains(where: { folderIds.contains($0) })
             }
             .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
     }
 
-    private var browseContent: some View {
+    private var notesContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 2) {
+                // Folders with note children
                 ForEach(folderNodes, id: \.id) { folder in
-                    folderRow(folder)
+                    let noteChildren = noteChildrenOf(folder.id)
+                    if !noteChildren.isEmpty {
+                        folderRow(folder, children: noteChildren)
+                    }
                 }
 
-                if !orphanNodes.isEmpty {
-                    Divider().opacity(0.15).padding(.vertical, 4)
-                    hintText("Ungrouped")
-                    ForEach(orphanNodes.prefix(30), id: \.id) { node in
+                // Loose notes (not in any folder)
+                if !looseNotes.isEmpty {
+                    sectionHeader("Files")
+                    ForEach(looseNotes.prefix(50), id: \.id) { node in
                         nodeRow(node)
                     }
+                    if looseNotes.count > 50 {
+                        hintText("\(looseNotes.count - 50) more…")
+                    }
+                }
+
+                if folderNodes.isEmpty && looseNotes.isEmpty {
+                    emptyState("No notes in graph", icon: "doc.text")
                 }
             }
             .padding(.vertical, 6)
         }
     }
 
-    private func folderRow(_ folder: GraphNodeRecord) -> some View {
+    // MARK: - Knowledge Content (non-note types grouped by category)
+
+    private static let knowledgeTypes: [GraphNodeType] = [.tag, .idea, .source, .quote, .chat]
+
+    private func nodesOfType(_ type: GraphNodeType) -> [GraphNodeRecord] {
+        graphState.store.nodes.values
+            .filter { $0.type == type }
+            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+    }
+
+    private var knowledgeContent: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 2) {
+                ForEach(Self.knowledgeTypes, id: \.self) { type in
+                    let nodes = nodesOfType(type)
+                    if !nodes.isEmpty {
+                        typeSection(type, nodes: nodes)
+                    }
+                }
+
+                let totalKnowledge = Self.knowledgeTypes.reduce(0) { $0 + nodesOfType($1).count }
+                if totalKnowledge == 0 {
+                    emptyState("No knowledge nodes yet", icon: "brain.head.profile")
+                }
+            }
+            .padding(.vertical, 6)
+        }
+    }
+
+    private func typeSection(_ type: GraphNodeType, nodes: [GraphNodeRecord]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.smooth(duration: 0.2)) {
+                    if expandedTypes.contains(type) {
+                        expandedTypes.remove(type)
+                    } else {
+                        expandedTypes.insert(type)
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: expandedTypes.contains(type) ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .frame(width: 12)
+
+                    Image(systemName: type.icon)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(type.swiftUIColor)
+
+                    Text(type.displayName + "s")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .textCase(.uppercase)
+                        .tracking(0.4)
+
+                    Spacer()
+
+                    Text("\(nodes.count)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.25))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if expandedTypes.contains(type) {
+                ForEach(nodes.prefix(30), id: \.id) { node in
+                    nodeRow(node, indented: true)
+                }
+                if nodes.count > 30 {
+                    hintText("\(nodes.count - 30) more…")
+                        .padding(.leading, 20)
+                }
+            }
+        }
+    }
+
+    // MARK: - Folder Row
+
+    private func folderRow(_ folder: GraphNodeRecord, children: [GraphNodeRecord]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 withAnimation(.smooth(duration: 0.2)) {
@@ -212,12 +308,9 @@ struct HologramSearchSidebar: View {
 
                     Spacer()
 
-                    let count = childrenOf(folder.id).count
-                    if count > 0 {
-                        Text("\(count)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.25))
-                    }
+                    Text("\(children.count)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.25))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -229,7 +322,6 @@ struct HologramSearchSidebar: View {
             })
 
             if expandedFolders.contains(folder.id) {
-                let children = childrenOf(folder.id)
                 ForEach(children, id: \.id) { child in
                     nodeRow(child, indented: true)
                 }
@@ -237,7 +329,7 @@ struct HologramSearchSidebar: View {
         }
     }
 
-    // MARK: - Shared Row
+    // MARK: - Shared Components
 
     private func nodeRow(_ node: GraphNodeRecord, indented: Bool = false) -> some View {
         Button {
@@ -255,9 +347,11 @@ struct HologramSearchSidebar: View {
 
                 Spacer()
 
-                Text(node.type.displayName)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.3))
+                if !indented {
+                    Text(node.type.displayName)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
             }
             .padding(.leading, indented ? 32 : 12)
             .padding(.trailing, 12)
@@ -267,11 +361,35 @@ struct HologramSearchSidebar: View {
         .buttonStyle(.plain)
     }
 
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.3))
+            .textCase(.uppercase)
+            .tracking(0.6)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+    }
+
     private func hintText(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 11))
             .foregroundStyle(.white.opacity(0.3))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
+    }
+
+    private func emptyState(_ message: String, icon: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundStyle(.white.opacity(0.15))
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.3))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
     }
 }
