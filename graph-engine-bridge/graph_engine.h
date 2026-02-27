@@ -73,19 +73,14 @@ void graph_engine_mouse_moved(Engine* engine, float screen_x, float screen_y);
 void graph_engine_mouse_up(Engine* engine);
 
 /// Two-finger scroll: pan the camera.
-/// @param delta_x Horizontal scroll delta (screen points).
-/// @param delta_y Vertical scroll delta (screen points).
 void graph_engine_scroll(Engine* engine, float delta_x, float delta_y);
 
 /// Pinch-to-zoom toward cursor position.
-/// @param magnification Scale delta from NSEvent (e.g. +0.02 = 2% zoom in).
 void graph_engine_magnify(Engine* engine, float screen_x, float screen_y, float magnification);
 
 // ── Force Parameters ────────────────────────────────────────────────────────
 
 /// Update the 4 user-adjustable force parameters and reheat.
-/// LogSeq defaults: link_distance=180, charge_strength=-600,
-///                  charge_range=600, link_strength=0 (auto).
 void graph_engine_set_force_params(
     Engine* engine,
     float link_distance,
@@ -94,14 +89,12 @@ void graph_engine_set_force_params(
     float link_strength
 );
 
-/// Update extended physics parameters.
+/// Update extended physics parameters (velocity decay, center gravity, collision).
 void graph_engine_set_extended_force_params(
     Engine* engine,
     float velocity_decay,
     float center_strength,
-    float collision_radius,
-    float warmth,
-    float orbital
+    float collision_radius
 );
 
 // ── Highlighting ────────────────────────────────────────────────────────────
@@ -113,7 +106,6 @@ void graph_engine_highlight_neighbors(Engine* engine, const char* uuid);
 void graph_engine_clear_highlight(Engine* engine);
 
 /// Highlight nodes matching a search query (case-insensitive label match).
-/// Empty query clears highlighting.
 void graph_engine_search_highlight(Engine* engine, const char* query);
 
 // ── Camera ──────────────────────────────────────────────────────────────────
@@ -130,11 +122,9 @@ void graph_engine_zoom_to_fit(Engine* engine);
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
 /// Pause the engine: stop physics thread to free CPU.
-/// Call when hologram overlay is hidden.
 void graph_engine_pause(Engine* engine);
 
 /// Resume the engine: restart physics thread.
-/// Call when hologram overlay is shown again.
 void graph_engine_resume(Engine* engine);
 
 // ── Cluster Parameters ──────────────────────────────────────────────────────
@@ -145,31 +135,10 @@ void graph_engine_set_cluster_params(Engine* engine, float cluster_strength);
 /// Set center force mode: 0 = attract, 1 = off, 2 = repel.
 void graph_engine_set_center_mode(Engine* engine, uint8_t mode);
 
-// ── Cursor Attractor ────────────────────────────────────────────────────────
-
-/// Set the attractor target in world coordinates.
-void graph_engine_set_attract_target(Engine* engine, float x, float y);
-
-/// Set the attractor target from screen coordinates (auto-converts to world).
-void graph_engine_set_attract_target_screen(Engine* engine, float screen_x, float screen_y);
+// ── Coordinate Conversion ───────────────────────────────────────────────────
 
 /// Convert screen pixel coordinates to world coordinates.
-/// @param screen_x  Screen x in pixels.
-/// @param screen_y  Screen y in pixels.
-/// @param out_world_x  On return, receives the world-space x coordinate (may be NULL).
-/// @param out_world_y  On return, receives the world-space y coordinate (may be NULL).
 void graph_engine_screen_to_world(Engine *engine, float screen_x, float screen_y, float *out_world_x, float *out_world_y);
-
-/// Mark nodes (by UUID) as attracted to the current target.
-/// @param uuids  Array of null-terminated UTF-8 strings.
-/// @param count  Number of UUIDs in the array.
-void graph_engine_set_attracted_nodes(Engine* engine, const char** uuids, uint32_t count);
-
-/// Clear the attractor (target + attracted nodes).
-void graph_engine_clear_attract(Engine* engine);
-
-/// Set the attractor strength (0-1).
-void graph_engine_set_attract_strength(Engine* engine, float strength);
 
 // ── Visibility (Lightweight Filtering) ──────────────────────────────────────
 
@@ -178,7 +147,6 @@ void graph_engine_set_attract_strength(Engine* engine, float strength);
 void graph_engine_set_node_visible(Engine* engine, const char* uuid, uint8_t visible);
 
 /// Apply visibility changes: re-upload renderer + reload simulation.
-/// Preserves positions/velocities — lightweight alternative to full recommit.
 void graph_engine_refresh_visibility(Engine* engine);
 
 // ── Display Settings ────────────────────────────────────────────────────────
@@ -193,29 +161,22 @@ void graph_engine_set_light_mode(Engine* engine, uint8_t enabled);
 void graph_engine_set_mode(Engine* engine, uint8_t mode);
 
 /// Set the note window rect in screen pixels for page mode anchor positioning.
-/// Nodes will cluster near this rect instead of dead center.
 void graph_engine_set_anchor_rect(Engine* engine, float x, float y, float w, float h);
 
 // ── Queries ─────────────────────────────────────────────────────────────────
 
 /// Check if the simulation has settled.
-/// @return 1 if settled, 0 if still running.
 uint8_t graph_engine_is_settled(Engine* engine);
 
 /// Get the UUID of the currently hovered node.
-/// @return Null-terminated string, or NULL if no node hovered.
-///         Valid until the next UUID query call.
 const char* graph_engine_hovered_node_uuid(Engine* engine);
 
 /// Get the UUID of the currently selected node.
-/// @return Null-terminated string, or NULL if no node selected.
-///         Valid until the next UUID query call.
 const char* graph_engine_selected_node_uuid(Engine* engine);
 
 // ── Markdown Parser ────────────────────────────────────────────────────
 
 /// Style span returned by the markdown parser.
-/// Byte offsets are into the UTF-8 source text.
 typedef struct {
     uint32_t start;    ///< Byte offset (inclusive).
     uint32_t end;      ///< Byte offset (exclusive).
@@ -226,11 +187,6 @@ typedef struct {
 } StyleSpan;
 
 /// Parse markdown text and return an array of styled spans.
-/// @param text       Null-terminated UTF-8 string.
-/// @param text_len   Length in bytes (excluding null terminator). Currently unused.
-/// @param out_spans  On success, receives a pointer to the spans array (caller must free).
-/// @param out_count  On success, receives the number of spans.
-/// @return 0 on success, 1 on error (null input or invalid UTF-8).
 uint8_t markdown_parse(
     const char* text,
     uint32_t text_len,

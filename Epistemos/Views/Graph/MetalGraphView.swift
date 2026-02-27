@@ -278,7 +278,6 @@ final class MetalGraphNSView: NSView {
 
     var lastExtendedForceConfigVersion: Int = -1
     var lastClusterConfigVersion: Int = -1
-    var lastAttractConfigVersion: Int = -1
     var lastFilterVersion: Int = 0
 
     func pushForceParams() {
@@ -299,9 +298,7 @@ final class MetalGraphNSView: NSView {
             engine,
             graphState.velocityDecay,
             graphState.centerStrength,
-            graphState.collisionRadius,
-            graphState.warmth,
-            graphState.orbital
+            graphState.collisionRadius
         )
         needsRender = true
     }
@@ -310,56 +307,6 @@ final class MetalGraphNSView: NSView {
         guard let engine, let graphState else { return }
         graph_engine_set_cluster_params(engine, graphState.clusterStrength)
         graph_engine_set_center_mode(engine, graphState.centerMode)
-        needsRender = true
-    }
-
-    func pushAttractParams() {
-        guard let engine, let graphState else { return }
-
-        // Set strength.
-        graph_engine_set_attract_strength(engine, graphState.attractStrength)
-
-        switch graphState.attractMode {
-        case .off:
-            graph_engine_clear_attract(engine)
-
-        case .manual:
-            // Manual mode: attract ALL nodes toward the cursor.
-            // Set an initial target at viewport center so the force
-            // activates immediately (mouse move will update it).
-            let scale = metalLayer?.contentsScale ?? 2.0
-            let cx = Float(bounds.midX * scale)
-            let cy = Float(bounds.midY * scale)
-            graph_engine_set_attract_target_screen(engine, cx, cy)
-            graph_engine_set_attracted_nodes(engine, nil, 0)
-
-        case .ai:
-            // AI mode: attract only matching nodes toward viewport center.
-            let ids = graphState.attractedNodeIds
-            if ids.isEmpty {
-                graph_engine_clear_attract(engine)
-            } else {
-                // Set initial target at viewport center.
-                let scale = metalLayer?.contentsScale ?? 2.0
-                let cx = Float(bounds.midX * scale)
-                let cy = Float(bounds.midY * scale)
-                graph_engine_set_attract_target_screen(engine, cx, cy)
-
-                var cPtrs: [UnsafePointer<CChar>?] = ids.map { id in
-                    UnsafePointer(strdup(id))
-                }
-                defer { cPtrs.forEach { if let p = $0 { free(UnsafeMutablePointer(mutating: p)) } } }
-
-                cPtrs.withUnsafeMutableBufferPointer { buf in
-                    graph_engine_set_attracted_nodes(
-                        engine,
-                        buf.baseAddress,
-                        UInt32(ids.count)
-                    )
-                }
-            }
-        }
-
         needsRender = true
     }
 
@@ -459,12 +406,6 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastClusterConfigVersion != graphState.clusterConfigVersion {
             lastClusterConfigVersion = graphState.clusterConfigVersion
             pushClusterParams()
-        }
-
-        // Sync attract params (mode, strength, attracted nodes).
-        if let graphState, lastAttractConfigVersion != graphState.attractConfigVersion {
-            lastAttractConfigVersion = graphState.attractConfigVersion
-            pushAttractParams()
         }
 
         // Minimize request: post notification for the overlay to handle.
@@ -580,12 +521,6 @@ final class MetalGraphNSView: NSView {
         let screenX = Float(loc.x * scale)
         let screenY = Float((bounds.height - loc.y) * scale)
         graph_engine_mouse_moved(engine, screenX, screenY)
-
-        // Keep attractor target updated during drag.
-        if let graphState, graphState.attractMode != .off {
-            graph_engine_set_attract_target_screen(engine, screenX, screenY)
-        }
-
         needsRender = true
     }
 
@@ -858,11 +793,6 @@ final class MetalGraphNSView: NSView {
         let screenX = Float(loc.x * scale)
         let screenY = Float((bounds.height - loc.y) * scale)
         graph_engine_mouse_moved(engine, screenX, screenY)
-
-        // When attractor is active, update target position.
-        if let graphState, graphState.attractMode != .off {
-            graph_engine_set_attract_target_screen(engine, screenX, screenY)
-        }
 
         // Connection mode: override cursor to crosshair.
         if let graphState, graphState.isConnecting {

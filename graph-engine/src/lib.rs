@@ -219,11 +219,9 @@ pub extern "C" fn graph_engine_set_extended_force_params(
     velocity_decay: f32,
     center_strength: f32,
     collision_radius: f32,
-    warmth: f32,
-    orbital: f32,
 ) {
     ffi_engine!(engine);
-    engine.set_extended_force_params(velocity_decay, center_strength, collision_radius, warmth, orbital);
+    engine.set_extended_force_params(velocity_decay, center_strength, collision_radius);
 }
 
 // ── Highlighting ────────────────────────────────────────────────────────────
@@ -318,26 +316,7 @@ pub extern "C" fn graph_engine_set_center_mode(engine: *mut Engine, mode: u8) {
     engine.set_center_mode(mode);
 }
 
-// ── Cursor Attractor ────────────────────────────────────────────────────────
-
-/// Set the attractor target in world coordinates.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_attract_target(engine: *mut Engine, x: f32, y: f32) {
-    ffi_engine!(engine);
-    engine.set_attract_target(x, y);
-}
-
-/// Set the attractor target from screen coordinates (auto-converts to world).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_attract_target_screen(
-    engine: *mut Engine,
-    screen_x: f32,
-    screen_y: f32,
-) {
-    ffi_engine!(engine);
-    let (wx, wy) = engine.screen_to_world(screen_x, screen_y);
-    engine.set_attract_target(wx, wy);
-}
+// ── Coordinate Conversion ───────────────────────────────────────────────────
 
 /// Convert screen pixel coordinates to world coordinates.
 /// Writes world-space x/y into the out pointers.
@@ -355,42 +334,6 @@ pub extern "C" fn graph_engine_screen_to_world(
         if !out_world_x.is_null() { *out_world_x = wx; }
         if !out_world_y.is_null() { *out_world_y = wy; }
     }
-}
-
-/// Mark nodes (by UUID) as attracted to the current target.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_attracted_nodes(
-    engine: *mut Engine,
-    uuids: *const *const c_char,
-    count: u32,
-) {
-    ffi_engine!(engine);
-    if uuids.is_null() || count == 0 {
-        engine.set_attracted_nodes(&[]);
-        return;
-    }
-    let uuid_strs: Vec<&str> = (0..count as usize)
-        .filter_map(|i| {
-            let ptr = unsafe { *uuids.add(i) };
-            if ptr.is_null() { return None; }
-            unsafe { CStr::from_ptr(ptr) }.to_str().ok()
-        })
-        .collect();
-    engine.set_attracted_nodes(&uuid_strs);
-}
-
-/// Clear the attractor (target + attracted nodes).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_clear_attract(engine: *mut Engine) {
-    ffi_engine!(engine);
-    engine.clear_attract();
-}
-
-/// Set the attractor strength (0-1).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_attract_strength(engine: *mut Engine, strength: f32) {
-    ffi_engine!(engine);
-    engine.set_attract_strength(strength);
 }
 
 // ── Visibility (Lightweight Filtering) ──────────────────────────────────────

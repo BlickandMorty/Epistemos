@@ -49,23 +49,11 @@ pub struct ForceParams {
     pub collision_radius: f32,
     /// Number of collision resolution passes per tick (1-4).
     pub collision_iterations: u32,
-    /// Warmth: subtle random perturbation that keeps settled graphs alive.
-    /// 0 = dead still after settling, 1.0 = gentle drift.
-    pub warmth: f32,
-    /// Orbital drift: rotational micro-force around the graph centroid.
-    /// Creates a subtle "breathing" effect. 0 = off, 1.0 = gentle spin.
-    pub orbital: f32,
     /// Cluster cohesion strength: pulls nodes toward their cluster centroid.
     /// 0 = off (default), 1.0 = strong clustering.
     pub cluster_strength: f32,
     /// Center force mode: Attract (default), Off, or Repel.
     pub center_mode: CenterMode,
-
-    // ── Cosmic forces ──
-    /// Gravitational lensing strength (0-1). Hub nodes warp nearby trajectories.
-    pub lensing_strength: f32,
-    /// Dark energy amplitude (0-0.5). Modulates center force for cosmic breathing.
-    pub dark_energy_amplitude: f32,
 
     // ── Internal simulation state ──
     pub alpha: f32,
@@ -88,15 +76,8 @@ impl Default for ForceParams {
             center_strength: 0.005,
             collision_radius: 35.0,
             collision_iterations: 2,
-            warmth: 0.0,
-            orbital: 0.0,
             cluster_strength: 0.3,
             center_mode: CenterMode::Attract,
-
-            // Cosmic forces — off by default (prevent settling when active).
-            // Users enable via GraphForceSettings.
-            lensing_strength: 0.0,
-            dark_energy_amplitude: 0.0,
 
             // Simulation state
             alpha: 1.0,
@@ -137,26 +118,9 @@ pub struct Simulation {
     pub params: ForceParams,
     pub is_settled: bool,
 
-    /// Monotonic tick counter for deterministic warmth noise.
-    pub tick_counter: u32,
-
     /// Page mode: optional anchor center in world coordinates.
     /// When set, the center force pulls toward this point instead of (0, 0).
     pub anchor_center: Option<[f32; 2]>,
-
-    // ── Quantum Entanglement ──
-    /// Entangled node pairs (simulation indices) — nodes connected by 2+ edges.
-    pub entangled_pairs: Vec<(usize, usize)>,
-    /// Entanglement strength (0-1). Default 0.2.
-    pub entangle_strength: f32,
-
-    // ── Cursor Attractor ──
-    /// Target point for the attractor force (world coordinates).
-    pub attract_target: Option<[f32; 2]>,
-    /// Per-node flag: true if this node should be attracted to the target.
-    pub attracted_nodes: Vec<bool>,
-    /// Attractor strength (0-1 user-facing knob).
-    pub attract_strength: f32,
 }
 
 impl Default for Simulation {
@@ -183,13 +147,7 @@ impl Simulation {
             graph_indices: Vec::new(),
             params: ForceParams::default(),
             is_settled: false,
-            tick_counter: 0,
             anchor_center: None,
-            entangled_pairs: Vec::new(),
-            entangle_strength: 0.0,
-            attract_target: None,
-            attracted_nodes: Vec::new(),
-            attract_strength: 0.5,
         }
     }
 
@@ -209,7 +167,6 @@ impl Simulation {
         self.edges.clear();
         self.edge_weights.clear();
         self.graph_indices.clear();
-        self.entangled_pairs.clear();
 
         // Map graph node index → simulation index (only visible nodes).
         let mut graph_to_sim: Vec<Option<usize>> = vec![None; graph.nodes.len()];
@@ -258,36 +215,13 @@ impl Simulation {
             }
         }
 
-        // Detect entangled pairs: nodes connected by 2+ edges.
-        {
-            use std::collections::HashMap;
-            let mut edge_counts: HashMap<(usize, usize), u32> = HashMap::new();
-            for &(s, t) in &self.edges {
-                let key = if s < t { (s, t) } else { (t, s) };
-                *edge_counts.entry(key).or_default() += 1;
-            }
-            self.entangled_pairs = edge_counts.into_iter()
-                .filter(|(_, count)| *count >= 2)
-                .map(|(pair, _)| pair)
-                .collect();
-        }
-
         // Reset alpha for fresh simulation.
         self.params.alpha = 1.0;
         self.is_settled = false;
     }
 
-    /// Simple deterministic hash for warmth — avoids rand dependency.
-    fn warmth_noise(seed: u32) -> f32 {
-        let mut h = seed;
-        h ^= h >> 16;
-        h = h.wrapping_mul(0x45d9f3b);
-        h ^= h >> 16;
-        (h as f32 / u32::MAX as f32) * 2.0 - 1.0 // [-1, 1]
-    }
-
     /// One tick of the force simulation.
-    /// d3-style velocity Verlet with extended forces (warmth, orbital).
+    /// d3-style velocity Verlet: alpha decay → forces → integration.
     pub fn tick(&mut self) {
         if self.x.is_empty() {
             return;
@@ -295,35 +229,17 @@ impl Simulation {
 
         let n = self.x.len();
 
-        // 1. Alpha decay (with warmth floor — keeps graph gently alive)
+        // 1. Alpha decay
         self.params.alpha +=
             (self.params.alpha_target - self.params.alpha) * self.params.alpha_decay;
 
-        let warmth = self.params.warmth;
-        let alpha_floor = warmth * 0.03;
-        if self.params.alpha < self.params.alpha_min.max(alpha_floor) {
-            if warmth > 0.0 {
-                // Don't fully settle alpha — keep a tiny alpha for warmth forces.
-                self.params.alpha = alpha_floor;
-            } else {
-                self.is_settled = true;
-                return;
-            }
-        }
-
-        // Even with warmth, check if velocities are negligible.
-        // This prevents burning CPU when the graph is effectively still.
-        let max_vel = self.vx.iter().zip(self.vy.iter())
-            .map(|(vx, vy)| vx.abs().max(vy.abs()))
-            .fold(0.0f32, f32::max);
-        if max_vel < 0.05 && self.params.alpha <= alpha_floor + 0.001 {
+        if self.params.alpha < self.params.alpha_min {
             self.is_settled = true;
             return;
         }
         self.is_settled = false;
 
         let alpha = self.params.alpha;
-        self.tick_counter = self.tick_counter.wrapping_add(1);
 
         // 2. Apply forces in d3/LogSeq order: link → many-body → collide → center
 
@@ -362,24 +278,14 @@ impl Simulation {
         );
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
-        // Respects center_mode: Attract = normal, Off = disabled, Repel = inverted.
         let (cx, cy) = match self.anchor_center {
             Some([ax, ay]) => (ax, ay),
             None => (0.0, 0.0),
         };
-        let center_str_base = match self.params.center_mode {
+        let center_str = match self.params.center_mode {
             CenterMode::Attract => self.params.center_strength,
             CenterMode::Off => 0.0,
             CenterMode::Repel => -self.params.center_strength,
-        };
-        // Dark energy breathing: sinusoidal expansion modulates center force.
-        // Gated by alpha > 0.05 so the effect fades during cooldown, allowing settling.
-        let center_str = if self.params.dark_energy_amplitude > 0.001 && center_str_base.abs() > 0.0001 && alpha > 0.05 {
-            let time = self.tick_counter as f32 * 0.02; // ~42 second cycle at 60fps
-            let expansion = 1.0 + (time * 0.15).sin() * self.params.dark_energy_amplitude;
-            center_str_base / expansion
-        } else {
-            center_str_base
         };
         if center_str.abs() > 0.0001 {
             forces::force_center(
@@ -407,87 +313,7 @@ impl Simulation {
             );
         }
 
-        // Gravitational lensing: orbital paths around hub nodes.
-        // Gated by alpha > 0.01 to allow settling.
-        if self.params.lensing_strength > 0.001 && alpha > 0.01 {
-            forces::force_gravitational_lensing(
-                &self.x,
-                &self.y,
-                &mut self.vx,
-                &mut self.vy,
-                &self.degrees,
-                self.params.lensing_strength,
-                alpha,
-            );
-        }
-
-        // Quantum entanglement: mirrored velocity for paired nodes.
-        // Gated by alpha > 0.01 and strength check to allow settling.
-        if !self.entangled_pairs.is_empty() && self.entangle_strength > 0.001 && alpha > 0.01 {
-            forces::force_entanglement(
-                &mut self.vx,
-                &mut self.vy,
-                &self.entangled_pairs,
-                self.entangle_strength,
-            );
-        }
-
-        // Cursor attractor force.
-        if let Some([tx, ty]) = self.attract_target {
-            if !self.attracted_nodes.is_empty() {
-                forces::force_attract(
-                    &self.x,
-                    &self.y,
-                    &mut self.vx,
-                    &mut self.vy,
-                    &self.attracted_nodes,
-                    tx,
-                    ty,
-                    self.attract_strength,
-                    alpha,
-                );
-            }
-        }
-
-        // 3. Orbital drift — subtle rotational force around centroid
-        let orbital = self.params.orbital;
-        if orbital > 0.001 {
-            // Find centroid
-            let (mut avg_x, mut avg_y) = (0.0f32, 0.0f32);
-            for i in 0..n {
-                avg_x += self.x[i];
-                avg_y += self.y[i];
-            }
-            avg_x /= n as f32;
-            avg_y /= n as f32;
-
-            let orbital_strength = orbital * 0.15 * alpha;
-            for i in 0..n {
-                if self.fx[i].is_some() { continue; } // Skip fixed nodes
-                let dx = self.x[i] - avg_x;
-                let dy = self.y[i] - avg_y;
-                // Tangential force: perpendicular to radial direction
-                self.vx[i] += -dy * orbital_strength / (dx.hypot(dy).max(1.0));
-                self.vy[i] += dx * orbital_strength / (dx.hypot(dy).max(1.0));
-            }
-        }
-
-        // 4. Warmth — deterministic micro-perturbation that keeps the graph breathing.
-        //    Only active while alpha is above the floor so velocities can decay to
-        //    zero once structural forces have balanced, enabling settled detection.
-        if warmth > 0.001 && alpha > alpha_floor + 0.001 {
-            let warmth_mag = warmth * 0.5;
-            let tick = self.tick_counter;
-            for i in 0..n {
-                if self.fx[i].is_some() { continue; }
-                let seed_x = tick.wrapping_mul(31).wrapping_add(i as u32 * 7919);
-                let seed_y = tick.wrapping_mul(37).wrapping_add(i as u32 * 6971);
-                self.vx[i] += Self::warmth_noise(seed_x) * warmth_mag;
-                self.vy[i] += Self::warmth_noise(seed_y) * warmth_mag;
-            }
-        }
-
-        // 5. Velocity Verlet integration with decay
+        // 3. Velocity Verlet integration with decay
         for i in 0..n {
             if let Some(fx_val) = self.fx[i] {
                 self.x[i] = fx_val;
@@ -703,33 +529,8 @@ mod tests {
         assert_eq!(p.center_strength, 0.005);
         assert_eq!(p.collision_radius, 35.0);
         assert_eq!(p.collision_iterations, 2);
-        assert_eq!(p.warmth, 0.0);
-        assert_eq!(p.orbital, 0.0);
         assert_eq!(p.cluster_strength, 0.3);
         assert_eq!(p.center_mode, CenterMode::Attract);
-        assert_eq!(p.lensing_strength, 0.0);
-        assert_eq!(p.dark_energy_amplitude, 0.0);
-    }
-
-    #[test]
-    fn warmth_does_not_prevent_settling_when_velocities_zero() {
-        let graph = make_test_graph(5, true);
-        let mut sim = Simulation::new();
-        sim.load_from_graph(&graph);
-        sim.params.warmth = 0.5; // Would previously prevent settling
-
-        // Run until velocities are negligible.
-        for _ in 0..600 {
-            sim.tick();
-        }
-
-        // Check all velocities are near zero.
-        let max_vel = sim.vx.iter().zip(sim.vy.iter())
-            .map(|(vx, vy)| vx.abs().max(vy.abs()))
-            .fold(0.0f32, f32::max);
-
-        assert!(max_vel < 1.0, "velocities should be near zero, max was {}", max_vel);
-        assert!(sim.is_settled, "simulation should settle when velocities are near zero even with warmth");
     }
 
     #[test]
@@ -756,14 +557,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn dark_energy_modulates_alpha() {
-        let p1 = ForceParams { dark_energy_amplitude: 0.0, ..Default::default() };
-        let p2 = ForceParams { dark_energy_amplitude: 0.3, ..Default::default() };
-
-        // Both should have the same base center_strength
-        assert_eq!(p1.center_strength, p2.center_strength);
-        // dark_energy_amplitude should be set
-        assert_eq!(p2.dark_energy_amplitude, 0.3);
-    }
 }

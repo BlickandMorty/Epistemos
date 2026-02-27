@@ -32,16 +32,16 @@ struct LineEdgeInstance {
     color: [f32; 4],  // offset 16
 }
 
-/// Uniform data sent to all shaders (camera transform + animation + effects).
+/// Uniform data sent to all shaders (camera transform + animation).
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Uniforms {
     viewport_size: [f32; 2],
     camera_offset: [f32; 2],
     camera_zoom: f32,
-    time: f32,           // elapsed seconds — drives subtle breathing animation
-    ripple_origin: [f32; 2], // world position of last node grab (ripple center)
-    ripple_time: f32,        // seconds since ripple started (negative = inactive)
+    time: f32,               // elapsed seconds — drives breathing animation
+    _pad1: [f32; 2],         // was: ripple_origin (removed)
+    _pad_ripple: f32,        // was: ripple_time (removed)
     focal_length: f32,       // perspective focal distance (2.0 default)
     camera_velocity: [f32; 2], // camera offset delta (world units/frame)
     zoom_velocity: f32,        // zoom delta per frame (for motion blur)
@@ -134,8 +134,8 @@ struct Uniforms {
     float2 camera_offset;
     float camera_zoom;
     float time;
-    float2 ripple_origin;
-    float ripple_time;
+    float2 _pad1;
+    float _pad_ripple;
     float focal_length;
     float2 camera_velocity;
     float zoom_velocity;
@@ -183,21 +183,7 @@ vertex NodeVertexOut node_vertex(
     float perspective_scale = uniforms.focal_length / (uniforms.focal_length - depth);
     float effective_radius = inst.radius * perspective_scale;
 
-    // Ripple effect: radial shockwave from node grab point.
     float2 base_pos = inst.position;
-    if (uniforms.ripple_time >= 0.0) {
-        float2 to_node = base_pos - uniforms.ripple_origin;
-        float dist = length(to_node);
-        float ripple_radius = uniforms.ripple_time * 400.0;  // wave speed
-        float wave_dist = dist - ripple_radius;
-        // Decaying sine wave centered on the expanding ring.
-        float wave = sin(wave_dist * 0.08) * exp(-wave_dist * wave_dist * 0.0003);
-        // Amplitude decays over time and with distance from origin.
-        float amplitude = 18.0 * exp(-uniforms.ripple_time * 2.5) * exp(-dist * 0.003);
-        float2 dir = dist > 0.1 ? normalize(to_node) : float2(0, 0);
-        base_pos += dir * wave * amplitude;
-    }
-
     float2 world_pos = base_pos + corner * effective_radius;
 
     float2 screen = (world_pos - uniforms.camera_offset) * uniforms.camera_zoom;
@@ -467,11 +453,8 @@ pub struct Renderer {
     pub clear_color: [f64; 4],
     // Light mode: uses darker node colors for light backgrounds.
     pub light_mode: bool,
-    // Epoch for time uniform (drives breathing animation).
+    // Epoch for elapsed time tracking.
     pub start_time: std::time::Instant,
-    // Ripple effect state (triggered on node grab).
-    pub ripple_origin: [f32; 2],
-    pub ripple_start: Option<std::time::Instant>,
     // Motion blur (two-pass rendering).
     post_pipeline: RenderPipelineState,
     post_vertex_buf: Buffer,
@@ -595,8 +578,6 @@ impl Renderer {
             clear_color: [0.07, 0.07, 0.09, 1.0],
             light_mode: false,
             start_time: std::time::Instant::now(),
-            ripple_origin: [0.0, 0.0],
-            ripple_start: None,
             post_pipeline,
             post_vertex_buf,
             offscreen_texture: None,
@@ -1163,17 +1144,13 @@ impl Renderer {
                 None => return,
             };
 
-            let ripple_time = self.ripple_start
-                .map(|s| s.elapsed().as_secs_f32())
-                .unwrap_or(-1.0);
-
             let uniforms = Uniforms {
                 viewport_size: [viewport_width as f32, viewport_height as f32],
                 camera_offset: self.camera_offset,
                 camera_zoom: self.camera_zoom,
                 time: self.start_time.elapsed().as_secs_f32(),
-                ripple_origin: self.ripple_origin,
-                ripple_time,
+                _pad1: [0.0, 0.0],
+                _pad_ripple: -1.0,
                 focal_length: 2.0,
                 camera_velocity: cam_vel,
                 zoom_velocity: zoom_vel,

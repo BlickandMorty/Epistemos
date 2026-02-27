@@ -471,21 +471,13 @@ impl Engine {
             self.zoom_to_fit();
         }
 
-        // Auto-expire ripple effect after 1.5 seconds.
-        if let Some(start) = self.renderer.ripple_start {
-            if start.elapsed().as_secs_f32() > 1.5 {
-                self.renderer.ripple_start = None;
-            }
-        }
-
         // Animate camera (smooth lerp toward target).
         self.renderer.update_camera();
 
         // Request next frame only when something is animating.
         let sim_active = !self.sim.lock().is_settled;
         let camera_moving = self.renderer.is_animating;
-        let ripple_active = self.renderer.ripple_start.is_some();
-        let needs_frame = sim_active || camera_moving || ripple_active || entrance_active;
+        let needs_frame = sim_active || camera_moving || entrance_active;
 
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
@@ -553,13 +545,6 @@ impl Engine {
             }
 
             self.selected_id = Some(node_id);
-
-            // Trigger ripple shockwave from the grabbed node's position.
-            if let Some(&gi) = self.graph.id_to_index.get(&node_id) {
-                let node = &self.graph.nodes[gi];
-                self.renderer.ripple_origin = [node.x, node.y];
-                self.renderer.ripple_start = Some(Instant::now());
-            }
 
             // Start drag — set fx/fy in simulation (single lock acquisition).
             if let Some(&gi) = self.graph.id_to_index.get(&node_id) {
@@ -894,35 +879,23 @@ impl Engine {
         sim.reheat();
     }
 
-    /// Update extended physics parameters (velocity decay, center gravity, etc.).
+    /// Update extended physics parameters (velocity decay, center gravity, collision).
     pub fn set_extended_force_params(
         &mut self,
         velocity_decay: f32,
         center_strength: f32,
         collision_radius: f32,
-        warmth: f32,
-        orbital: f32,
     ) {
         self.idle_frame_count = 0;
         let mut sim = self.sim.lock();
         sim.params.velocity_decay = velocity_decay.clamp(0.0, 0.95);
         sim.params.center_strength = center_strength.clamp(0.0, 0.2);
         sim.params.collision_radius = collision_radius.clamp(0.0, 100.0);
-        sim.params.warmth = warmth.clamp(0.0, 1.0);
-        sim.params.orbital = orbital.clamp(0.0, 1.0);
 
         // Update collision radii for all nodes.
         let new_radius = sim.params.collision_radius;
         for r in &mut sim.collision_radii {
             *r = new_radius;
-        }
-
-        // Warmth or orbital changes reawaken a settled simulation.
-        if warmth > 0.001 || orbital > 0.001 {
-            if sim.is_settled {
-                sim.params.alpha = warmth * 0.03;
-                sim.is_settled = false;
-            }
         }
     }
 
@@ -938,58 +911,6 @@ impl Engine {
         let mut sim = self.sim.lock();
         sim.params.center_mode = crate::simulation::CenterMode::from_u8(mode);
         sim.reheat();
-    }
-
-    // ── Cursor Attractor ─────────────────────────────────────────────
-
-    /// Set the attractor target in world coordinates.
-    /// Reheats the simulation if it was settled.
-    pub fn set_attract_target(&mut self, x: f32, y: f32) {
-        self.idle_frame_count = 0;
-        let mut sim = self.sim.lock();
-        sim.attract_target = Some([x, y]);
-        if sim.is_settled {
-            sim.reheat();
-        }
-    }
-
-    /// Mark nodes (by UUID) as attracted to the current target.
-    /// Resolves UUIDs → graph node IDs → simulation indices.
-    /// Empty `uuids` means "attract ALL nodes" (manual mode).
-    pub fn set_attracted_nodes(&mut self, uuids: &[&str]) {
-        let mut sim = self.sim.lock();
-        let n = sim.x.len();
-        if uuids.is_empty() {
-            // Manual mode: attract every node.
-            sim.attracted_nodes = vec![true; n];
-        } else {
-            sim.attracted_nodes = vec![false; n];
-            for uuid in uuids {
-                if let Some(&id) = self.graph.uuid_to_id.get(*uuid) {
-                    if let Some(&gi) = self.graph.id_to_index.get(&id) {
-                        if let Some(si) = sim.graph_indices.iter().position(|&g| g == gi) {
-                            sim.attracted_nodes[si] = true;
-                        }
-                    }
-                }
-            }
-        }
-        if sim.is_settled {
-            sim.reheat();
-        }
-    }
-
-    /// Clear the attractor (target + attracted nodes).
-    pub fn clear_attract(&mut self) {
-        let mut sim = self.sim.lock();
-        sim.attract_target = None;
-        sim.attracted_nodes.clear();
-    }
-
-    /// Set the attractor strength (0-1).
-    pub fn set_attract_strength(&mut self, strength: f32) {
-        let mut sim = self.sim.lock();
-        sim.attract_strength = strength.clamp(0.0, 1.0);
     }
 
     // ── Accessors ────────────────────────────────────────────────────

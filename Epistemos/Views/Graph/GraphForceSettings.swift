@@ -37,11 +37,6 @@ struct GraphForceSettings: View {
                 clusterSection(gs: $gs)
 
                 Divider().opacity(0.3)
-                attractorSection(gs: $gs)
-
-                Divider().opacity(0.3)
-
-                Divider().opacity(0.3)
                 resetButton
             }
             .padding(16)
@@ -185,27 +180,6 @@ struct GraphForceSettings: View {
                 format: "%.0f px",
                 onChange: { graphState.pushExtendedForceChange(); selectedPreset = nil }
             )
-
-            Divider().opacity(0.2)
-            sectionHeader("Ambient Motion", icon: "wind")
-
-            forceSlider(
-                label: "Warmth",
-                value: gs.warmth,
-                range: 0...1,
-                format: "%.2f",
-                subtitle: "Keeps the graph breathing",
-                onChange: { graphState.pushExtendedForceChange(); selectedPreset = nil }
-            )
-
-            forceSlider(
-                label: "Orbital Drift",
-                value: gs.orbital,
-                range: 0...1,
-                format: "%.2f",
-                subtitle: "Gentle rotational flow",
-                onChange: { graphState.pushExtendedForceChange(); selectedPreset = nil }
-            )
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
@@ -241,40 +215,6 @@ struct GraphForceSettings: View {
                     graphState.pushClusterChange()
                 }
             }
-        }
-    }
-
-    // MARK: - Attractor
-
-    private func attractorSection(gs: Bindable<GraphState>) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("Attractor", icon: "magnet")
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Mode")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                Picker("Attract Mode", selection: gs.attractMode) {
-                    ForEach(AttractMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-                .onChange(of: graphState.attractMode) {
-                    graphState.pushAttractChange()
-                }
-            }
-
-            forceSlider(
-                label: "Attract Strength",
-                value: gs.attractStrength,
-                range: 0...1,
-                format: "%.2f",
-                subtitle: "Pull force toward cursor",
-                onChange: { graphState.pushAttractChange() }
-            )
         }
     }
 

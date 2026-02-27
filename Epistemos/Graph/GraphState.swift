@@ -96,34 +96,6 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .constellation: return 20
         }
     }
-    var warmth: Float {
-        switch self {
-        case .observatory:   return 0
-        case .nebula:        return 0.4
-        case .crystal:       return 0
-        case .fluid:         return 0.6
-        case .constellation: return 0.2
-        }
-    }
-    var orbital: Float {
-        switch self {
-        case .observatory:   return 0
-        case .nebula:        return 0.3
-        case .crystal:       return 0
-        case .fluid:         return 0.15
-        case .constellation: return 0.1
-        }
-    }
-}
-
-// MARK: - AttractMode
-// Three attractor modes for the cursor gravity well.
-// Off = disabled, AI = attract matching nodes to cursor, Manual = attract all nodes.
-
-enum AttractMode: String, CaseIterable {
-    case off = "Off"
-    case ai = "AI"
-    case manual = "Manual"
 }
 
 // MARK: - GraphInteractionMode
@@ -211,10 +183,6 @@ final class GraphState {
     var centerStrength: Float = 0.005
     /// Collision buffer zone in pixels.
     var collisionRadius: Float = 35.0
-    /// Warmth: subtle perturbation keeping settled graphs alive (0 = still, 1 = gentle drift).
-    var warmth: Float = 0.0
-    /// Orbital: rotational micro-force for breathing effect (0 = off, 1 = gentle spin).
-    var orbital: Float = 0.0
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
     var forceConfigVersion: Int = 0
@@ -236,19 +204,6 @@ final class GraphState {
     var clusterConfigVersion: Int = 0
     func pushClusterChange() { clusterConfigVersion += 1 }
 
-    // ── Attractor ──
-    /// Current attractor mode: off, AI (search-based), or manual (all nodes).
-    var attractMode: AttractMode = .off
-    /// Search query for AI attract mode — matches node labels.
-    var attractQuery: String = ""
-    /// Attractor pull strength (0 = none, 1 = max).
-    var attractStrength: Float = 0.5
-    /// UUIDs of nodes currently attracted (populated by AI search matching).
-    var attractedNodeIds: [String] = []
-
-    var attractConfigVersion: Int = 0
-    func pushAttractChange() { attractConfigVersion += 1 }
-
     /// Apply a named physics preset.
     func applyPreset(_ preset: PhysicsPreset) {
         linkDistance = preset.linkDistance
@@ -258,8 +213,6 @@ final class GraphState {
         velocityDecay = preset.velocityDecay
         centerStrength = preset.centerStrength
         collisionRadius = preset.collisionRadius
-        warmth = preset.warmth
-        orbital = preset.orbital
         pushForceChange()
         pushExtendedForceChange()
     }
