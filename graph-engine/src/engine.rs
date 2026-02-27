@@ -788,7 +788,7 @@ impl Engine {
         if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
             let node = &self.graph.nodes[node_id as usize];
             self.renderer.target_offset = [node.x, node.y];
-            self.renderer.target_zoom = 1.5; // Close-up zoom
+            self.renderer.target_zoom = 2.5; // Close-up zoom
             self.renderer.is_animating = true;
         }
     }
