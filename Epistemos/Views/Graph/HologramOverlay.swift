@@ -291,7 +291,7 @@ final class HologramOverlay {
         panel.hasShadow = false          // We use a custom glow instead
         panel.isMovableByWindowBackground = false  // Metal view handles its own drag
         panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isReleasedWhenClosed = false
         panel.minSize = NSSize(width: 320, height: 240)
         panel.maxSize = NSSize(width: 1200, height: 900)
@@ -351,7 +351,7 @@ final class HologramOverlay {
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
         panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isReleasedWhenClosed = false
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         panel.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
@@ -489,7 +489,7 @@ final class HologramOverlay {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.isReleasedWhenClosed = false
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         window.ignoresMouseEvents = false
         window.acceptsMouseMovedEvents = true
 
