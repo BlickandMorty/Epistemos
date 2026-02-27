@@ -133,7 +133,7 @@ struct GraphFloatingControls: View {
 
             // Search field for AI mode.
             if graphState.attractMode == .ai {
-                TextField("Attract concept...", text: gs.attractQuery)
+                TextField("Attract concept...", text: $gs.attractQuery)
                     .textFieldStyle(.plain)
                     .font(.system(size: 11))
                     .foregroundStyle(.white)

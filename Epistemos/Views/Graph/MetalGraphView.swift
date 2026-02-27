@@ -301,17 +301,12 @@ final class MetalGraphNSView: NSView {
             if ids.isEmpty {
                 graph_engine_clear_attract(engine)
             } else {
-                // Build a C array of null-terminated strings.
-                // Use withCString on each ID to ensure safe pointer lifetimes.
-                let cPtrs: [UnsafePointer<CChar>?] = ids.map { id in
-                    // strdup allocates a copy on the heap — freed below.
-                    strdup(id)
+                var cPtrs: [UnsafePointer<CChar>?] = ids.map { id in
+                    UnsafePointer(strdup(id))
                 }
                 defer { cPtrs.forEach { if let p = $0 { free(UnsafeMutablePointer(mutating: p)) } } }
 
-                cPtrs.withUnsafeBufferPointer { buf in
-                    // Cast UnsafeBufferPointer<UnsafePointer<CChar>?> base to UnsafePointer<UnsafePointer<CChar>?>
-                    // The FFI expects `const char**` which maps to UnsafePointer<UnsafePointer<CChar>?>
+                cPtrs.withUnsafeMutableBufferPointer { buf in
                     graph_engine_set_attracted_nodes(
                         engine,
                         buf.baseAddress,
