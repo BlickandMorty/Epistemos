@@ -216,40 +216,68 @@ vertex NodeVertexOut node_vertex(
 }
 
 fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
-    float dist = length(in.uv);
-    float alpha = 1.0 - smoothstep(0.85, 1.0, dist);
+    // ── Pixel art quantization ──
+    // pixel_art_strength: 0.0 = fully smooth, 1.0 = fully pixelated.
+    // Hardcoded at 0.6 for now (subtle but distinctive).
+    float pixel_strength = 0.6;
+
+    // Grid resolution: 12 cells per node diameter gives a tasteful retro look.
+    float grid = 12.0;
+    float2 quv = floor(in.uv * grid + 0.5) / grid;  // Snap UV to grid
+
+    // Blend between smooth UV and quantized UV
+    float2 final_uv = mix(in.uv, quv, pixel_strength);
+
+    float dist = length(final_uv);
+
+    // Hard pixel boundary instead of smoothstep (blended with smooth)
+    float smooth_alpha = 1.0 - smoothstep(0.85, 1.0, length(in.uv));
+    float pixel_alpha = dist < 0.92 ? 1.0 : 0.0;
+    float alpha = mix(smooth_alpha, pixel_alpha, pixel_strength);
     if (alpha < 0.01) discard_fragment();
 
-    // ── 3D sphere shading ──
-    // Treat the circle as a hemisphere: compute surface normal from UV coords.
-    float r2 = dist * dist;
-    float nz = sqrt(max(1.0 - r2, 0.0));  // hemisphere z-normal
+    // ── 3D sphere shading (on quantized coords) ──
+    float r2 = dot(final_uv, final_uv);
+    float nz = sqrt(max(1.0 - r2, 0.0));
 
-    // Diffuse lighting: light from upper-left
+    // Diffuse lighting
     float3 light_dir = normalize(float3(-0.35, -0.5, 0.8));
-    float3 normal = float3(in.uv.x, in.uv.y, nz);
+    float3 normal = float3(final_uv.x, final_uv.y, nz);
     float diffuse = max(dot(normal, light_dir), 0.0);
-    float lighting = 0.45 + 0.55 * diffuse;  // ambient + diffuse
+    float lighting = 0.45 + 0.55 * diffuse;
 
-    // Specular highlight: sharp white reflection
+    // ── Stepped lighting (pixel art bands) ──
+    float bands = 4.0;
+    float stepped_lighting = floor(lighting * bands + 0.5) / bands;
+    lighting = mix(lighting, stepped_lighting, pixel_strength);
+
+    // Specular highlight
     float3 view_dir = float3(0, 0, 1);
     float3 half_vec = normalize(light_dir + view_dir);
     float spec = pow(max(dot(normal, half_vec), 0.0), 32.0);
 
-    // Rim/Fresnel glow: edges of the sphere glow brighter
+    // ── Dithered specular (checkerboard pattern) ──
+    float2 grid_pos = floor(in.uv * grid + 0.5);
+    bool checker = fmod(grid_pos.x + grid_pos.y, 2.0) < 1.0;
+    float pixel_spec = (spec > 0.3 && checker) ? 0.4 : 0.0;
+    spec = mix(spec * 0.3, pixel_spec, pixel_strength);
+
+    // Rim/Fresnel glow
     float rim = 1.0 - nz;
     float rim_glow = pow(rim, 3.0) * 0.35;
 
-    // Combine: base color with lighting + specular + rim
-    float3 lit_color = in.color.rgb * lighting + spec * 0.3 + in.color.rgb * rim_glow;
+    // Combine
+    float3 lit_color = in.color.rgb * lighting + spec + in.color.rgb * rim_glow;
 
-    // Background nodes (negative depth) fade for atmospheric depth.
+    // Background depth fade
     float depth_fade = in.depth < -0.1 ? 0.65 : 1.0;
-    // Slight blur for background nodes (softer edges = depth of field feel)
     float edge_softness = in.depth < -0.1 ? 0.75 : 0.85;
-    float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, dist);
+    float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, length(in.uv));
 
-    return float4(lit_color, in.color.a * dof_alpha * depth_fade);
+    // Final alpha blends pixel boundary with depth-of-field
+    float final_alpha = mix(dof_alpha, alpha, pixel_strength);
+
+    return float4(lit_color, in.color.a * final_alpha * depth_fade);
 }
 
 // ── Straight-line edge shaders ─────────────────────────────────────
