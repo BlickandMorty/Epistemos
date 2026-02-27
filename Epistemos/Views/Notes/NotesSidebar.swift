@@ -107,6 +107,10 @@ private enum SidebarAction {
     case toggleFolder(String)
     case toggleJournalFolder
     case collapseAll
+    // Intelligence actions
+    case summarize(id: String, title: String)
+    case deepDive(id: String, title: String)
+    case openInGraph(id: String)
 }
 
 // MARK: - Notes Sidebar
@@ -121,6 +125,8 @@ struct NotesSidebar: View {
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(ChatState.self) private var chatState
+    @Environment(GraphState.self) private var graphState
     @Environment(\.modelContext) private var modelContext
 
     @State private var showOrganizer = false
@@ -715,6 +721,18 @@ struct NotesSidebar: View {
 
         case .collapseAll:
             withAnimation(Motion.snap) { notesUI.collapseAllFolders() }
+
+        case .summarize(_, let title):
+            chatState.submitQuery("Summarize \"\(title)\" — give me a concise overview of the key points, themes, and structure.")
+
+        case .deepDive(_, let title):
+            chatState.submitQuery("Deep dive into \"\(title)\" — perform a thorough analysis: identify the core arguments, evaluate the evidence, surface contradictions or gaps, and suggest areas for further exploration.")
+
+        case .openInGraph(let id):
+            HologramController.shared.show()
+            graphState.mode = .page(nodeId: id)
+            graphState.focusOnNode(id, depth: 2)
+            graphState.requestRecommit()
         }
     }
 
@@ -1012,6 +1030,22 @@ private struct FolderRow: View {
                 withAnimation(Motion.quick) { isDropTarget = targeted }
             }
             .contextMenu {
+                Button {
+                    onAction(.summarize(id: item.id, title: item.name))
+                } label: {
+                    Label("Summary", systemImage: "text.alignleft")
+                }
+                Button {
+                    onAction(.deepDive(id: item.id, title: item.name))
+                } label: {
+                    Label("Deep Dive", systemImage: "magnifyingglass.circle")
+                }
+                Button {
+                    onAction(.openInGraph(id: item.id))
+                } label: {
+                    Label("Open in Graph", systemImage: "point.3.connected.trianglepath.dotted")
+                }
+                Divider()
                 Button("Rename Folder") {
                     isRenaming = true
                     renameValue = item.name
@@ -1224,6 +1258,22 @@ private struct FileRow: View {
             .contextMenu {
                 Button("Open in New Window") {
                     onAction(.openPageInNewWindow(item.id))
+                }
+                Divider()
+                Button {
+                    onAction(.summarize(id: item.id, title: item.title))
+                } label: {
+                    Label("Summary", systemImage: "text.alignleft")
+                }
+                Button {
+                    onAction(.deepDive(id: item.id, title: item.title))
+                } label: {
+                    Label("Deep Dive", systemImage: "magnifyingglass.circle")
+                }
+                Button {
+                    onAction(.openInGraph(id: item.id))
+                } label: {
+                    Label("Open in Graph", systemImage: "point.3.connected.trianglepath.dotted")
                 }
                 Divider()
                 Button("Rename") {
