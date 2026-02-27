@@ -307,21 +307,32 @@ final class HologramOverlay {
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
-        // Content: fully transparent — no box, no blur. Just the raw graph.
-        // A subtle glow shadow gives the holographic floating feel.
+        // Frosted glass blur box with rounded corners.
         let content = NSView(frame: panel.contentView!.bounds)
         content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.clear.cgColor
-        // Holographic glow: theme-aware shadow
-        if isDark {
-            content.layer?.shadowColor = NSColor(white: 0.7, alpha: 1.0).cgColor
-            content.layer?.shadowOpacity = 0.4
-        } else {
-            content.layer?.shadowColor = NSColor.black.cgColor
-            content.layer?.shadowOpacity = 0.15
-        }
-        content.layer?.shadowOffset = .zero
-        content.layer?.shadowRadius = 30
+        content.layer?.cornerRadius = 16
+        content.layer?.masksToBounds = true
+
+        // Blur background — same material approach as the full-screen overlay.
+        let blur = NSVisualEffectView(frame: content.bounds)
+        blur.material = isDark ? .hudWindow : .sheet
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        blur.autoresizingMask = [.width, .height]
+        content.addSubview(blur)
+
+        // Subtle tint overlay for depth.
+        let tint = NSView(frame: content.bounds)
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = isDark
+            ? NSColor.black.withAlphaComponent(0.2).cgColor
+            : NSColor.white.withAlphaComponent(0.15).cgColor
+        tint.autoresizingMask = [.width, .height]
+        content.addSubview(tint)
+
+        // Soft shadow around the blur box.
+        panel.hasShadow = true
 
         panel.contentView = content
         return panel
@@ -345,12 +356,22 @@ final class HologramOverlay {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         panel.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
 
-        // Position: right of the mini graph panel
-        let graphFrame = graphPanel.frame
-        let x = graphFrame.maxX + 12
-        let y = graphFrame.origin.y
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
-        panel.setContentSize(NSSize(width: 380, height: graphFrame.height))
+        // Position: same as full-screen mode — top-right of screen with dock margin.
+        // This matches the inspector position users see in full-screen graph mode.
+        if let screen = NSScreen.main {
+            let dockInset = screen.frame.maxX - screen.visibleFrame.maxX
+            let rightMargin = max(dockInset + 16, 32)
+            let inspectorWidth: CGFloat = 380
+            let inspectorHeight: CGFloat = min(graphPanel.frame.height, screen.visibleFrame.height - 120)
+            let x = screen.visibleFrame.maxX - inspectorWidth - rightMargin
+            let y = screen.visibleFrame.maxY - inspectorHeight - 60
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+            panel.setContentSize(NSSize(width: inspectorWidth, height: inspectorHeight))
+        } else {
+            let graphFrame = graphPanel.frame
+            panel.setFrameOrigin(NSPoint(x: graphFrame.maxX + 12, y: graphFrame.origin.y))
+            panel.setContentSize(NSSize(width: 380, height: graphFrame.height))
+        }
 
         // Host the inspector SwiftUI view
         if let modelContainer {
