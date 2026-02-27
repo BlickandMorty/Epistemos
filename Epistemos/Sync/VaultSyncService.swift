@@ -235,6 +235,11 @@ final class VaultSyncService {
                 try await actor?.importVault(from: url)
                 log.info("Initial vault import complete")
 
+                // Signal the graph to rebuild with newly imported data
+                await MainActor.run {
+                    AppBootstrap.shared?.graphState.needsRefresh = true
+                }
+
                 // Bulk-index all imported pages into Spotlight.
                 await actor?.spotlightReindexAll()
             } catch {
@@ -438,6 +443,9 @@ final class VaultSyncService {
             log.error("Sync import failed: \(error.localizedDescription, privacy: .public)")
             return []
         }
+
+        // Signal the graph to rebuild with synced data
+        AppBootstrap.shared?.graphState.needsRefresh = true
 
         // After import, re-fetch pages and update hashes
         let descriptor = FetchDescriptor<SDPage>()

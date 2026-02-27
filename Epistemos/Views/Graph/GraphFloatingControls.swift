@@ -35,6 +35,12 @@ struct GraphFloatingControls: View {
             minimizeButton
 
             resetViewButton
+
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
+
+            rebuildGraphButton
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -218,6 +224,22 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .help("Zoom to fit")
+    }
+
+    // MARK: - Rebuild Graph
+
+    private var rebuildGraphButton: some View {
+        Button {
+            graphState.needsRefresh = true
+        } label: {
+            Image(systemName: "arrow.trianglehead.2.clockwise")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help("Rebuild Graph")
     }
 }
 
