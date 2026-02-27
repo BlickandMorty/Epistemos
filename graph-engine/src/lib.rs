@@ -16,11 +16,36 @@ pub mod cluster;
 //
 // Every function below is called from Swift via the C bridge header.
 // Convention: all functions take `*mut engine::Engine` as the first argument.
-// Pointers are never null under normal operation (Swift owns the lifecycle).
+// All pointer arguments are null-checked before dereference.
 
 use std::ffi::{c_char, c_void, CStr};
 
 use crate::engine::Engine;
+
+/// Null-guard for engine pointer in void-returning FFI functions.
+macro_rules! ffi_engine {
+    ($ptr:ident) => {
+        if $ptr.is_null() { return; }
+        #[allow(unused_unsafe)]
+        let $ptr = unsafe { &mut *$ptr };
+    };
+}
+
+/// Null-guard for engine pointer in value-returning FFI functions.
+macro_rules! ffi_engine_or {
+    ($ptr:ident, $default:expr) => {
+        if $ptr.is_null() { return $default; }
+        #[allow(unused_unsafe)]
+        let $ptr = unsafe { &mut *$ptr };
+    };
+}
+
+/// Null-guard for C string pointer — returns empty &str on null.
+macro_rules! ffi_cstr {
+    ($ptr:ident) => {{
+        if $ptr.is_null() { "" } else { unsafe { CStr::from_ptr($ptr) }.to_str().unwrap_or("") }
+    }};
+}
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -53,7 +78,7 @@ pub extern "C" fn graph_engine_destroy(engine: *mut Engine) {
 /// Clear all nodes and edges (call before re-populating).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.graph_mut().clear();
 }
 
@@ -71,15 +96,9 @@ pub extern "C" fn graph_engine_add_node(
     link_count: u32,
     label: *const c_char,
 ) {
-    let engine = unsafe { &mut *engine };
-    let uuid_str = unsafe { CStr::from_ptr(uuid) }
-        .to_str()
-        .unwrap_or("")
-        .to_owned();
-    let label_str = unsafe { CStr::from_ptr(label) }
-        .to_str()
-        .unwrap_or("")
-        .to_owned();
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid).to_owned();
+    let label_str = ffi_cstr!(label).to_owned();
     engine
         .graph_mut()
         .add_node(uuid_str, x, y, node_type, link_count, label_str);
@@ -93,13 +112,9 @@ pub extern "C" fn graph_engine_add_edge(
     target_uuid: *const c_char,
     weight: f32,
 ) {
-    let engine = unsafe { &mut *engine };
-    let src = unsafe { CStr::from_ptr(source_uuid) }
-        .to_str()
-        .unwrap_or("");
-    let tgt = unsafe { CStr::from_ptr(target_uuid) }
-        .to_str()
-        .unwrap_or("");
+    ffi_engine!(engine);
+    let src = ffi_cstr!(source_uuid);
+    let tgt = ffi_cstr!(target_uuid);
     engine.graph_mut().add_edge(src, tgt, weight);
 }
 
@@ -108,7 +123,7 @@ pub extern "C" fn graph_engine_add_edge(
 /// `entrance`: if 1, plays Obsidian-style entrance animation (nodes cluster at center, expand out).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_commit(engine: *mut Engine, entrance: u8) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.commit(entrance != 0);
 }
 
@@ -121,7 +136,7 @@ pub extern "C" fn graph_engine_render(
     width: u32,
     height: u32,
 ) -> u32 {
-    let engine = unsafe { &mut *engine };
+    ffi_engine_or!(engine, 0);
     engine.render(width, height)
 }
 
@@ -136,7 +151,7 @@ pub extern "C" fn graph_engine_mouse_down(
     screen_y: f32,
     shift: u8,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.mouse_down(screen_x, screen_y, shift != 0);
 }
 
@@ -147,14 +162,14 @@ pub extern "C" fn graph_engine_mouse_moved(
     screen_x: f32,
     screen_y: f32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.mouse_moved(screen_x, screen_y);
 }
 
 /// Mouse/trackpad button released.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_mouse_up(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.mouse_up();
 }
 
@@ -166,7 +181,7 @@ pub extern "C" fn graph_engine_scroll(
     delta_x: f32,
     delta_y: f32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.scroll(delta_x, delta_y);
 }
 
@@ -179,7 +194,7 @@ pub extern "C" fn graph_engine_magnify(
     screen_y: f32,
     magnification: f32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.magnify(screen_x, screen_y, magnification);
 }
 
@@ -194,7 +209,7 @@ pub extern "C" fn graph_engine_set_force_params(
     charge_range: f32,
     link_strength: f32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_force_params(link_distance, charge_strength, charge_range, link_strength);
 }
 
@@ -208,7 +223,7 @@ pub extern "C" fn graph_engine_set_extended_force_params(
     warmth: f32,
     orbital: f32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_extended_force_params(velocity_decay, center_strength, collision_radius, warmth, orbital);
 }
 
@@ -221,15 +236,15 @@ pub extern "C" fn graph_engine_highlight_neighbors(
     engine: *mut Engine,
     uuid: *const c_char,
 ) {
-    let engine = unsafe { &mut *engine };
-    let uuid_str = unsafe { CStr::from_ptr(uuid) }.to_str().unwrap_or("");
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid);
     engine.highlight_neighbors(uuid_str);
 }
 
 /// Clear neighbor highlighting.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear_highlight(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.clear_highlight();
 }
 
@@ -240,10 +255,8 @@ pub extern "C" fn graph_engine_search_highlight(
     engine: *mut Engine,
     query: *const c_char,
 ) {
-    let engine = unsafe { &mut *engine };
-    let query_str = unsafe { CStr::from_ptr(query) }
-        .to_str()
-        .unwrap_or("");
+    ffi_engine!(engine);
+    let query_str = ffi_cstr!(query);
     engine.search_highlight(query_str);
 }
 
@@ -252,7 +265,7 @@ pub extern "C" fn graph_engine_search_highlight(
 /// Animate camera to center on the centroid of visible nodes.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_center_camera(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.center_camera();
 }
 
@@ -262,17 +275,15 @@ pub extern "C" fn graph_engine_center_on_node(
     engine: *mut Engine,
     uuid: *const c_char,
 ) {
-    let engine = unsafe { &mut *engine };
-    let uuid_str = unsafe { CStr::from_ptr(uuid) }
-        .to_str()
-        .unwrap_or("");
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid);
     engine.center_on_node(uuid_str);
 }
 
 /// Zoom to fit all visible nodes in the viewport.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_zoom_to_fit(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.zoom_to_fit();
 }
 
@@ -281,14 +292,14 @@ pub extern "C" fn graph_engine_zoom_to_fit(engine: *mut Engine) {
 /// Pause the engine: stop physics thread to free CPU when overlay is hidden.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_pause(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.pause();
 }
 
 /// Resume the engine: restart physics thread when overlay is shown again.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_resume(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.resume();
 }
 
@@ -303,7 +314,7 @@ pub extern "C" fn graph_engine_set_label_params(
     font_size: f32,
     enabled: u8,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_label_params(fade_start, fade_end, font_size, enabled != 0);
 }
 
@@ -312,14 +323,14 @@ pub extern "C" fn graph_engine_set_label_params(
 /// Set cluster cohesion strength (0 = off, 1 = strong bubbles).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_cluster_params(engine: *mut Engine, cluster_strength: f32) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_cluster_params(cluster_strength);
 }
 
 /// Set center force mode: 0 = attract, 1 = off, 2 = repel.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_center_mode(engine: *mut Engine, mode: u8) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_center_mode(mode);
 }
 
@@ -328,7 +339,7 @@ pub extern "C" fn graph_engine_set_center_mode(engine: *mut Engine, mode: u8) {
 /// Set the attractor target in world coordinates.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_attract_target(engine: *mut Engine, x: f32, y: f32) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_attract_target(x, y);
 }
 
@@ -339,7 +350,7 @@ pub extern "C" fn graph_engine_set_attract_target_screen(
     screen_x: f32,
     screen_y: f32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     let (wx, wy) = engine.screen_to_world(screen_x, screen_y);
     engine.set_attract_target(wx, wy);
 }
@@ -351,9 +362,17 @@ pub extern "C" fn graph_engine_set_attracted_nodes(
     uuids: *const *const c_char,
     count: u32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
+    if uuids.is_null() || count == 0 {
+        engine.set_attracted_nodes(&[]);
+        return;
+    }
     let uuid_strs: Vec<&str> = (0..count as usize)
-        .filter_map(|i| unsafe { CStr::from_ptr(*uuids.add(i)).to_str().ok() })
+        .filter_map(|i| {
+            let ptr = unsafe { *uuids.add(i) };
+            if ptr.is_null() { return None; }
+            unsafe { CStr::from_ptr(ptr) }.to_str().ok()
+        })
         .collect();
     engine.set_attracted_nodes(&uuid_strs);
 }
@@ -361,14 +380,14 @@ pub extern "C" fn graph_engine_set_attracted_nodes(
 /// Clear the attractor (target + attracted nodes).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_clear_attract(engine: *mut Engine) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.clear_attract();
 }
 
 /// Set the attractor strength (0-1).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_attract_strength(engine: *mut Engine, strength: f32) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_attract_strength(strength);
 }
 
@@ -383,21 +402,21 @@ pub extern "C" fn graph_engine_set_clear_color(
     b: f64,
     a: f64,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_clear_color(r, g, b, a);
 }
 
 /// Set light mode (darker node colors for light backgrounds).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_light_mode(enabled != 0);
 }
 
 /// Set graph mode: 0 = global, 1 = page.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_mode(engine: *mut Engine, mode: u8) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_mode(mode);
 }
 
@@ -411,7 +430,7 @@ pub extern "C" fn graph_engine_set_anchor_rect(
     w: f32,
     h: f32,
 ) {
-    let engine = unsafe { &mut *engine };
+    ffi_engine!(engine);
     engine.set_anchor_rect(x, y, w, h);
 }
 
@@ -421,7 +440,7 @@ pub extern "C" fn graph_engine_set_anchor_rect(
 /// Returns 1 if settled, 0 if still running.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_is_settled(engine: *mut Engine) -> u8 {
-    let engine = unsafe { &*engine };
+    ffi_engine_or!(engine, 1);
     u8::from(engine.is_settled())
 }
 
@@ -430,7 +449,7 @@ pub extern "C" fn graph_engine_is_settled(engine: *mut Engine) -> u8 {
 /// The pointer is valid until the next call to any UUID query function.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_hovered_node_uuid(engine: *mut Engine) -> *const c_char {
-    let engine = unsafe { &mut *engine };
+    ffi_engine_or!(engine, std::ptr::null());
     match engine.hovered_id() {
         Some(id) => engine.node_uuid_by_id(id),
         None => std::ptr::null(),
@@ -442,7 +461,7 @@ pub extern "C" fn graph_engine_hovered_node_uuid(engine: *mut Engine) -> *const 
 /// The pointer is valid until the next call to any UUID query function.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_selected_node_uuid(engine: *mut Engine) -> *const c_char {
-    let engine = unsafe { &mut *engine };
+    ffi_engine_or!(engine, std::ptr::null());
     match engine.selected_id() {
         Some(id) => engine.node_uuid_by_id(id),
         None => std::ptr::null(),
