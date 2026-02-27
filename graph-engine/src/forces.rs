@@ -24,6 +24,9 @@ fn jiggle() -> f32 {
 /// which makes edges between high-degree hubs softer (d3 default behavior).
 ///
 /// If `link_strength_override` > 0, it overrides the per-edge auto strength.
+///
+/// `edge_weights` (parallel to `edges`): higher weight → shorter link distance
+/// and stronger spring. Weight 1.0 is neutral; weight 3.0 means 1/3 the distance.
 #[allow(clippy::too_many_arguments)]
 pub fn force_link(
     x: &[f32],
@@ -31,12 +34,13 @@ pub fn force_link(
     vx: &mut [f32],
     vy: &mut [f32],
     edges: &[(usize, usize)],
+    edge_weights: &[f32],
     degrees: &[u32],
     link_distance: f32,
     link_strength_override: f32,
     alpha: f32,
 ) {
-    for &(si, ti) in edges {
+    for (ei, &(si, ti)) in edges.iter().enumerate() {
         if si >= x.len() || ti >= x.len() {
             continue;
         }
@@ -47,15 +51,20 @@ pub fn force_link(
         dx /= dist;
         dy /= dist;
 
+        // Per-edge weight: higher weight = shorter distance, stronger spring.
+        let w = edge_weights.get(ei).copied().unwrap_or(1.0).max(0.1);
+        let edge_dist = link_distance / w;
+
         // Strength: 1 / min(degree(source), degree(target)), or override.
+        // Scaled by weight so containment edges pull harder.
         let strength = if link_strength_override > 0.0 {
-            link_strength_override
+            link_strength_override * w
         } else {
             let min_deg = degrees[si].min(degrees[ti]).max(1) as f32;
-            1.0 / min_deg
+            w / min_deg
         };
 
-        let displacement = (dist - link_distance) * alpha * strength;
+        let displacement = (dist - edge_dist) * alpha * strength;
 
         // Bias: distribute force proportional to degree (heavier nodes move less).
         let src_deg = degrees[si].max(1) as f32;
@@ -470,9 +479,10 @@ mod tests {
         let mut vx = vec![0.0, 0.0];
         let mut vy = vec![0.0, 0.0];
         let edges = vec![(0, 1)];
+        let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
 
         // Nodes at distance 200 with link_distance 180 → should attract slightly.
         // Node 0 should move rightward (positive vx), node 1 leftward (negative vx).
@@ -487,9 +497,10 @@ mod tests {
         let mut vx = vec![0.0, 0.0];
         let mut vy = vec![0.0, 0.0];
         let edges = vec![(0, 1)];
+        let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
 
         // Nodes at distance 50 with link_distance 180 → should push apart.
         assert!(vx[0] < 0.0, "node 0 should move left, got {}", vx[0]);
@@ -579,9 +590,10 @@ mod tests {
         let mut vx = vec![0.0, 0.0];
         let mut vy = vec![0.0, 0.0];
         let edges = vec![(0, 1)];
+        let weights = vec![1.0];
         let degrees = vec![10, 1]; // node 0 is a hub
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
 
         // Hub (degree 10) should move less than leaf (degree 1).
         assert!(
@@ -589,6 +601,31 @@ mod tests {
             "hub should move less: hub={}, leaf={}",
             vx[0].abs(),
             vx[1].abs()
+        );
+    }
+
+    #[test]
+    fn link_weight_shortens_distance() {
+        // Two nodes at distance 200. Weight=1 with link_distance=200 → equilibrium.
+        // Weight=3 → effective distance = 200/3 ≈ 67 → should attract strongly.
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx_w1 = vec![0.0, 0.0];
+        let mut vy_w1 = vec![0.0, 0.0];
+        let mut vx_w3 = vec![0.0, 0.0];
+        let mut vy_w3 = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx_w1, &mut vy_w1, &edges, &[1.0], &degrees, 200.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx_w3, &mut vy_w3, &edges, &[3.0], &degrees, 200.0, 0.0, 1.0);
+
+        // Weight=1 at exact distance → near zero force. Weight=3 → strong attraction.
+        assert!(
+            vx_w3[0].abs() > vx_w1[0].abs(),
+            "higher weight should produce stronger force: w1={}, w3={}",
+            vx_w1[0].abs(),
+            vx_w3[0].abs()
         );
     }
 

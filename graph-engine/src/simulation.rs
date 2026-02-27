@@ -125,8 +125,10 @@ pub struct Simulation {
     // Per-node cluster assignment (from Louvain community detection).
     pub cluster_ids: Vec<u32>,
 
-    // Edge topology (source_idx, target_idx)
+    // Edge topology (source_idx, target_idx) with per-edge weights.
     pub edges: Vec<(usize, usize)>,
+    /// Per-edge weight (parallel to `edges`). Higher weight = shorter link distance.
+    pub edge_weights: Vec<f32>,
 
     // Maps simulation index → graph node index (for filtered physics).
     pub graph_indices: Vec<usize>,
@@ -177,6 +179,7 @@ impl Simulation {
             collision_radii: Vec::new(),
             cluster_ids: Vec::new(),
             edges: Vec::new(),
+            edge_weights: Vec::new(),
             graph_indices: Vec::new(),
             params: ForceParams::default(),
             is_settled: false,
@@ -204,6 +207,7 @@ impl Simulation {
         self.collision_radii.clear();
         self.cluster_ids.clear();
         self.edges.clear();
+        self.edge_weights.clear();
         self.graph_indices.clear();
         self.entangled_pairs.clear();
 
@@ -241,6 +245,7 @@ impl Simulation {
 
             if let (Some(src), Some(tgt)) = (si_src, si_tgt) {
                 self.edges.push((src, tgt));
+                self.edge_weights.push(edge.weight);
                 self.degrees[src] += 1;
                 self.degrees[tgt] += 1;
             }
@@ -322,13 +327,14 @@ impl Simulation {
 
         // 2. Apply forces in d3/LogSeq order: link → many-body → collide → center
 
-        // Link force (springs along edges)
+        // Link force (springs along edges, per-edge weight modulates distance)
         forces::force_link(
             &self.x,
             &self.y,
             &mut self.vx,
             &mut self.vy,
             &self.edges,
+            &self.edge_weights,
             &self.degrees,
             self.params.link_distance,
             self.params.link_strength,

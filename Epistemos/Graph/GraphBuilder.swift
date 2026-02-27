@@ -70,8 +70,8 @@ final class GraphBuilder {
                 nodes.append(ideaNode)
                 sourceIdToNodeId[idea.id] = ideaNode.id
 
-                // idea → note (contains)
-                edges.append(SDGraphEdge(source: ideaNode.id, target: node.id, type: .contains))
+                // idea → note (contains) — weight 3 for tighter visual grouping
+                edges.append(SDGraphEdge(source: ideaNode.id, target: node.id, type: .contains, weight: 3.0))
             }
         }
 
@@ -113,7 +113,7 @@ final class GraphBuilder {
             guard let parentNodeId = sourceIdToNodeId[folder.id] else { continue }
             for child in children {
                 guard let childNodeId = sourceIdToNodeId[child.id] else { continue }
-                edges.append(SDGraphEdge(source: parentNodeId, target: childNodeId, type: .contains))
+                edges.append(SDGraphEdge(source: parentNodeId, target: childNodeId, type: .contains, weight: 3.0))
             }
         }
 
@@ -125,7 +125,7 @@ final class GraphBuilder {
                   let noteNodeId = sourceIdToNodeId[page.id],
                   let folderNodeId = sourceIdToNodeId[folder.id]
             else { continue }
-            edges.append(SDGraphEdge(source: folderNodeId, target: noteNodeId, type: .contains))
+            edges.append(SDGraphEdge(source: folderNodeId, target: noteNodeId, type: .contains, weight: 3.0))
         }
 
         // ────────────────────────────────────────────
