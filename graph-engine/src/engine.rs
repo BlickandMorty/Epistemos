@@ -301,8 +301,11 @@ impl Engine {
             sim.cluster_ids = cluster_ids;
         }
 
-        // Allocate renderer buffers and upload initial data.
+        // Allocate renderer buffers and upload initial data (nodes + edges).
         self.renderer.allocate_buffers(&self.graph, None);
+
+        // Upload labels immediately so they're available on the first frame.
+        self.renderer.upload_labels(&self.graph);
 
         // Build spatial index for hit testing.
         self.spatial.build(&self.graph.nodes);
