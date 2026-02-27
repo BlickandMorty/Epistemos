@@ -731,8 +731,8 @@ impl Renderer {
             offscreen_height: 0,
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
-            label_fade_start: 2.0,
-            label_fade_end: 10.0,
+            label_fade_start: 1.0,
+            label_fade_end: 8.0,
             label_font_size: 12.0,
             labels_enabled: true,
         })
@@ -1268,12 +1268,16 @@ impl Renderer {
         for node in &graph.nodes {
             if !node.visible { continue; }
             let screen_radius = node.radius * zoom;
-            if screen_radius < fade_start { continue; }
 
-            let size_alpha =
-                ((screen_radius - fade_start) / (fade_end - fade_start)).clamp(0.0, 1.0);
-            let weight_boost = if node.link_count > 5 { 1.0 } else { 0.7 };
-            let mut alpha = size_alpha * weight_boost;
+            // Alpha: fully visible above fade_end, fading in between start/end.
+            // Always show labels with a minimum alpha of 0.3 regardless of zoom,
+            // so labels are visible even when zoomed out.
+            let size_alpha = if screen_radius < fade_start {
+                0.0
+            } else {
+                ((screen_radius - fade_start) / (fade_end - fade_start)).clamp(0.0, 1.0)
+            };
+            let mut alpha = size_alpha.max(0.3);
 
             // Dim labels for non-highlighted nodes.
             if self.highlight.active && !self.highlight.highlighted_ids.contains(&node.id) {
