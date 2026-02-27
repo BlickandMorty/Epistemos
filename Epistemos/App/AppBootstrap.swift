@@ -154,57 +154,52 @@ final class AppBootstrap {
     private func wireDailyBrief() {
         dailyBriefState.onDailyBriefGenerate = { [weak self] prompt in
             guard let self else { return nil }
-            return try? await self.triageService.generateGeneral(
-                prompt: prompt,
-                systemPrompt: """
-                You are a senior research analyst preparing a daily intelligence brief for a knowledge worker. \
-                This person relies on your brief to orient their day — it must be comprehensive, specific, and actionable.
-
-                Rules:
-                - Reference actual note titles, conversation topics, and specific content — never be vague
-                - Identify patterns the user hasn't explicitly connected
-                - Flag stalled work and knowledge debts with urgency
-                - Recommended actions must be concrete and reference specific materials
-                - Write in flowing analytical prose, not shallow bullet lists
-                - Use markdown headers (###) to structure sections, **bold** for emphasis
-                - Aim for 600-1000 words — this is a deep brief, not a quick summary
-                - If the vault contains many notes, focus on recency and interconnection, not exhaustive coverage
-                """,
-                operation: .chatResponse(query: prompt),
-                contentLength: prompt.count
-            )
+            // Apple Intelligence first (fast, on-device)
+            let briefSystemPrompt = """
+            You are a concise research analyst preparing a daily intelligence brief. \
+            Reference actual note titles and specific content. Identify patterns the user hasn't connected. \
+            Flag stalled work. Recommend concrete actions referencing specific materials. \
+            Use markdown headers (###) and **bold**. Aim for 300-500 words.
+            """
+            do {
+                return try await AppleIntelligenceService.shared.generate(
+                    prompt: prompt,
+                    systemPrompt: briefSystemPrompt
+                )
+            } catch {
+                // Fallback to cloud API if Apple Intelligence unavailable
+                return try? await self.triageService.generateGeneral(
+                    prompt: prompt,
+                    systemPrompt: briefSystemPrompt,
+                    operation: .chatResponse(query: prompt),
+                    contentLength: prompt.count
+                )
+            }
         }
 
         dailyBriefState.onGoDeepGenerate = { [weak self] prompt in
             guard let self else { return nil }
-            return try? await self.triageService.generateGeneral(
-                prompt: prompt,
-                systemPrompt: """
-                You are a deep knowledge analyst performing a multi-perspective synthesis of the user's \
-                personal knowledge base. This is NOT a casual summary — it's a rigorous analytical deep-dive.
-
-                Analyze from these perspectives:
-                1. **Statistical Patterns** — What do the numbers reveal? Note lengths, edit frequency, \
-                tag distributions, chat confidence scores. What's the user spending the most time on?
-                2. **Thematic Clusters** — Group the notes and chats into emergent themes. What clusters form? \
-                Which themes are growing, which are dormant?
-                3. **Temporal Evolution** — How has the user's focus shifted over time? What topics appeared \
-                recently vs. weeks ago? What was abandoned mid-stream?
-                4. **Knowledge Gaps** — Based on what the user is researching, what adjacent topics are missing? \
-                What questions should they be asking but aren't?
-                5. **Unexpected Connections** — Find non-obvious links between seemingly unrelated notes and chats. \
-                Surprise the user with a connection they haven't noticed.
-
-                Be specific — cite actual note titles, chat topics, dates, word counts, and confidence scores. \
-                Include your own reflective thoughts: what does the pattern of activity *reveal* about the user's \
-                intellectual trajectory? End with 3-5 provocative questions the user should consider.
-
-                Format: Use markdown with **bold** for emphasis. Use ### headers for each analytical perspective. \
-                Keep it substantive and intellectually challenging — this is meant to push thinking forward.
-                """,
-                operation: .chatResponse(query: prompt),
-                contentLength: prompt.count
-            )
+            let deepSystemPrompt = """
+            You are a deep knowledge analyst performing multi-perspective synthesis. \
+            Analyze from: statistical patterns, thematic clusters, temporal evolution, \
+            knowledge gaps, unexpected connections. Cite actual note titles, dates, and details. \
+            Use ### headers per perspective. Be substantive and intellectually challenging. \
+            End with 3-5 provocative questions.
+            """
+            do {
+                return try await AppleIntelligenceService.shared.generate(
+                    prompt: prompt,
+                    systemPrompt: deepSystemPrompt
+                )
+            } catch {
+                // Fallback to cloud API if Apple Intelligence unavailable
+                return try? await self.triageService.generateGeneral(
+                    prompt: prompt,
+                    systemPrompt: deepSystemPrompt,
+                    operation: .chatResponse(query: prompt),
+                    contentLength: prompt.count
+                )
+            }
         }
 
         dailyBriefState.onDailyBriefSave = { [weak self] content, isDeep in
