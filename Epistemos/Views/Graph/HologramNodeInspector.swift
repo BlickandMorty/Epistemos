@@ -94,16 +94,24 @@ struct HologramNodeInspector: View {
                 }
             }
 
-            if inspectorState.isSummarizing && inspectorState.summaryText.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 40)
-            } else if !inspectorState.summaryText.isEmpty {
+            if inspectorState.summaryText.isEmpty {
+                if inspectorState.isSummarizing {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                } else {
+                    Text("No summary available.")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                }
+            } else {
                 ScrollView {
                     Text(inspectorState.summaryText)
                         .font(.callout)
                         .lineSpacing(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
+                        .transaction { $0.animation = nil } // Prevent layout jumps during streaming
                 }
             }
         }

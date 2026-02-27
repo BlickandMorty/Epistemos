@@ -45,12 +45,17 @@ final class NodeInspectorState {
             return
         }
 
-        selectedNodeId = node.id
-        selectedNode = node
-        summaryText = ""
+        // Set loading state BEFORE setting selectedNode —
+        // this ensures the spinner is ready when the panel animates in.
+        isSummarizing = true
         chatMessages = []
         chatInput = ""
         isChatStreaming = false
+
+        // Now set selection (triggers panel animation).
+        selectedNodeId = node.id
+        selectedNode = node
+        summaryText = ""
 
         summarizeNode(node, store: store, modelContext: modelContext)
     }
