@@ -65,6 +65,7 @@ struct MetalGraphView: NSViewRepresentable {
         // Push graph data to Rust engine when store is loaded and engine is ready
         if graphState.isLoaded, !coordinator.hasLoadedData, let engine = coordinator.engine {
             coordinator.loadGraphData(engine: engine, store: graphState.store)
+            coordinator.wake(nsView)   // Fresh data loaded → resume rendering
         }
 
         // Push visibility bitmask when filter state changes
@@ -76,6 +77,7 @@ struct MetalGraphView: NSViewRepresentable {
             if currentHash != coordinator.lastFilterHash {
                 coordinator.lastFilterHash = currentHash
                 coordinator.pushVisibility(engine: engine, filter: graphState.filter, store: graphState.store)
+                coordinator.wake(nsView)   // Visibility changed → resume rendering
             }
         }
 
@@ -93,6 +95,7 @@ struct MetalGraphView: NSViewRepresentable {
                     alpha_decay: graphState.physAlphaDecay
                 )
                 graph_engine_set_physics_config(engine, &cfg)
+                coordinator.wake(nsView)   // Physics reheated → resume rendering
             }
         }
 
@@ -100,12 +103,14 @@ struct MetalGraphView: NSViewRepresentable {
         if graphState.pendingResetView, let engine = coordinator.engine {
             graph_engine_reset_camera(engine)
             graphState.pendingResetView = false
+            coordinator.wake(nsView)   // Camera animating → resume rendering
         }
         if let nodeId = graphState.pendingCenterNodeId, let engine = coordinator.engine {
             nodeId.withCString { ptr in
                 graph_engine_center_on_node(engine, ptr)
             }
             graphState.pendingCenterNodeId = nil
+            coordinator.wake(nsView)   // Camera animating → resume rendering
         }
     }
 
@@ -138,7 +143,18 @@ struct MetalGraphView: NSViewRepresentable {
 
         func draw(in view: MTKView) {
             if let engine {
-                graph_engine_render(engine)
+                let needsMore = graph_engine_render(engine)
+                if needsMore == 0 {
+                    // Physics settled + camera static → stop burning GPU
+                    view.isPaused = true
+                }
+            }
+        }
+
+        /// Resume rendering — called by mouse/scroll/pinch events and config changes.
+        func wake(_ view: MTKView) {
+            if view.isPaused {
+                view.isPaused = false
             }
         }
 
@@ -267,6 +283,11 @@ class GraphMTKView: MTKView {
         Float(window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0)
     }
 
+    /// Resume MTKView rendering when the user interacts.
+    private func wakeRenderer() {
+        if isPaused { isPaused = false }
+    }
+
     override var acceptsFirstResponder: Bool { true }
 
     override func viewDidMoveToWindow() {
@@ -306,6 +327,7 @@ class GraphMTKView: MTKView {
 
     override func mouseDown(with event: NSEvent) {
         guard let engine else { return }
+        wakeRenderer()
         let loc = convert(event.locationInWindow, from: nil)
         let (px, py) = toDrawablePixels(loc)
         let hitNode = graph_engine_mouse_down(engine, px, py, 0)
@@ -323,6 +345,7 @@ class GraphMTKView: MTKView {
 
     override func mouseDragged(with event: NSEvent) {
         guard let engine else { return }
+        wakeRenderer()
         let point = convert(event.locationInWindow, from: nil)
         let s = scale
 
@@ -365,6 +388,7 @@ class GraphMTKView: MTKView {
 
     override func scrollWheel(with event: NSEvent) {
         guard let engine else { return }
+        wakeRenderer()
         let s = scale
         graph_engine_pan(engine, Float(event.scrollingDeltaX) * s, Float(event.scrollingDeltaY) * s)
     }
@@ -373,6 +397,7 @@ class GraphMTKView: MTKView {
 
     override func magnify(with event: NSEvent) {
         guard let engine else { return }
+        wakeRenderer()
         let loc = convert(event.locationInWindow, from: nil)
         let (px, py) = toDrawablePixels(loc)
         let factor = 1.0 + Float(event.magnification)

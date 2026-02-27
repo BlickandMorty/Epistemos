@@ -78,10 +78,17 @@ pub extern "C" fn graph_engine_destroy(ptr: *mut c_void) {
 // ── Render ──────────────────────────────────────────────────────────────────
 
 /// Render one frame. Called by MTKViewDelegate.draw().
+/// Returns 1 if the view needs to keep rendering (physics active or camera animating),
+/// 0 if the view can go idle (physics settled and camera static).
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_render(ptr: *mut c_void) {
+pub extern "C" fn graph_engine_render(ptr: *mut c_void) -> u8 {
     if let Some(engine) = get_engine(ptr) {
         engine.render();
+        let settled = engine.shared.settled.load(std::sync::atomic::Ordering::Relaxed);
+        let animating = engine.renderer.as_ref().is_some_and(|r| r.is_animating);
+        if settled && !animating { 0 } else { 1 }
+    } else {
+        0
     }
 }
 

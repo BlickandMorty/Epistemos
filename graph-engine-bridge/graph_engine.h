@@ -33,7 +33,9 @@ void graph_engine_resize(GraphEngine* engine, uint32_t width, uint32_t height);
 
 // ── Render ────────────────────────────────────────────────────────────────
 
-void graph_engine_render(GraphEngine* engine);
+/// Returns 1 if the view should keep rendering (physics active or camera animating),
+/// 0 if the view can go idle (settled).
+uint8_t graph_engine_render(GraphEngine* engine);
 
 // ── Data loading ──────────────────────────────────────────────────────────
 

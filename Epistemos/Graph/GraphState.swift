@@ -32,22 +32,24 @@ final class GraphState {
     // MARK: - Physics Settings (Obsidian-style adjustable forces)
 
     /// Center force strength. Pulls nodes toward viewport center.
-    var physCenterForce: Float = 0.01
+    var physCenterForce: Float = 0.003
 
     /// Repulsion force between nodes (Coulomb-like).
-    var physRepelForce: Float = 600.0
+    /// Lower base value than pre-overhaul because radius-aware repulsion amplifies force for large nodes.
+    var physRepelForce: Float = 800.0
 
     /// Attraction force along edges (spring stiffness).
-    var physLinkForce: Float = 0.008
+    var physLinkForce: Float = 0.010
 
     /// Natural resting length of edge springs.
-    var physLinkDistance: Float = 120.0
+    /// Tighter base distance because radii provide extra spacing.
+    var physLinkDistance: Float = 150.0
 
     /// Velocity damping per tick. Lower = more floaty drift.
     var physVelocityDecay: Float = 0.55
 
     /// Alpha decay rate. Lower = slower cooling, longer animation.
-    var physAlphaDecay: Float = 0.015
+    var physAlphaDecay: Float = 0.012
 
     /// Incremented whenever a physics slider changes, so updateNSView can detect it.
     var physicsConfigVersion: Int = 0
