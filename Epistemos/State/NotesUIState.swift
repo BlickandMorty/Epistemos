@@ -46,9 +46,13 @@ final class NotesUIState {
     /// Journal folder expanded state (separate from regular folders)
     var isJournalExpanded = false
 
+    /// Ideas folder expanded state
+    var isIdeasExpanded = false
+
     func collapseAllFolders() {
         expandedFolderIds.removeAll()
         isJournalExpanded = false
+        isIdeasExpanded = false
     }
 
     func toggleFolder(_ id: String) {
@@ -83,5 +87,6 @@ final class NotesUIState {
         debouncedSearchQuery = ""
         expandedFolderIds = []
         isJournalExpanded = false
+        isIdeasExpanded = false
     }
 }

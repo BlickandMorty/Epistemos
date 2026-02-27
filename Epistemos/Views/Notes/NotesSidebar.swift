@@ -75,6 +75,18 @@ private struct SidebarFolderItem: Identifiable, Equatable {
     }
 }
 
+private struct SidebarIdeaItem: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let type: NoteIdea.IdeaType
+    let pageId: String
+    let pageTitle: String
+    let pageEmoji: String
+    let createdAt: Date
+
+    var icon: String { type == .idea ? "lightbulb" : "brain" }
+}
+
 // MARK: - Sidebar Action Enum
 // All mutation actions are routed through this enum back to NotesSidebar,
 // which holds the @Environment services (modelContext, vaultSync, notesUI).
@@ -106,7 +118,10 @@ private enum SidebarAction {
     // Expansion
     case toggleFolder(String)
     case toggleJournalFolder
+    case toggleIdeasFolder
     case collapseAll
+    // Ideas
+    case openIdea(pageId: String)
     // Intelligence actions
     case summarize(id: String, title: String)
     case deepDive(id: String, title: String)
@@ -141,6 +156,7 @@ struct NotesSidebar: View {
     @State private var cachedPageItems: [SidebarPageItem] = []
     @State private var cachedFolderItems: [SidebarFolderItem] = []
     @State private var cachedFolderById: [String: SidebarFolderItem] = [:]
+    @State private var cachedIdeaItems: [SidebarIdeaItem] = []
     @State private var rebuildTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
@@ -185,6 +201,23 @@ struct NotesSidebar: View {
 
         cachedFolderById = Dictionary(
             cachedFolderItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+
+        // Collect ideas from all pages (JSON-decoded once per rebuild, not per render)
+        var ideaItems: [SidebarIdeaItem] = []
+        for page in allPages {
+            for idea in page.ideas {
+                ideaItems.append(SidebarIdeaItem(
+                    id: idea.id,
+                    title: idea.title,
+                    type: idea.type,
+                    pageId: page.id,
+                    pageTitle: page.title,
+                    pageEmoji: page.emoji,
+                    createdAt: idea.createdAt
+                ))
+            }
+        }
+        cachedIdeaItems = ideaItems.sorted { $0.createdAt > $1.createdAt }
     }
 
     // MARK: - Alert bindings
@@ -331,7 +364,7 @@ struct NotesSidebar: View {
         if let url = vaultSync.vaultURL {
             VaultHeader(
                 name: url.lastPathComponent,
-                hasExpandedFolders: !notesUI.expandedFolderIds.isEmpty || notesUI.isJournalExpanded,
+                hasExpandedFolders: !notesUI.expandedFolderIds.isEmpty || notesUI.isJournalExpanded || notesUI.isIdeasExpanded,
                 onAction: onAction
             )
         }
@@ -365,6 +398,15 @@ struct NotesSidebar: View {
             JournalFolderRow(
                 journals: journals,
                 isExpanded: notesUI.isJournalExpanded, onAction: onAction
+            )
+        }
+
+        // Ideas section — all ideas across the vault
+        if !cachedIdeaItems.isEmpty {
+            IdeasFolderRow(
+                ideas: cachedIdeaItems,
+                isExpanded: notesUI.isIdeasExpanded,
+                onAction: onAction
             )
         }
 
@@ -718,6 +760,12 @@ struct NotesSidebar: View {
 
         case .toggleJournalFolder:
             withAnimation(Motion.snap) { notesUI.isJournalExpanded.toggle() }
+
+        case .toggleIdeasFolder:
+            withAnimation(Motion.snap) { notesUI.isIdeasExpanded.toggle() }
+
+        case .openIdea(let pageId):
+            NoteWindowManager.shared.open(pageId: pageId)
 
         case .collapseAll:
             withAnimation(Motion.snap) { notesUI.collapseAllFolders() }
@@ -1171,6 +1219,104 @@ private struct JournalFolderRow: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+    }
+}
+
+// MARK: - Ideas Folder Row
+
+private struct IdeasFolderRow: View {
+    let ideas: [SidebarIdeaItem]
+    let isExpanded: Bool
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                onAction(.toggleIdeasFolder)
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.epSmall).fontWeight(.semibold)
+                        .foregroundStyle(theme.textTertiary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .frame(width: 10)
+
+                    Image(systemName: "lightbulb")
+                        .font(.epCaption)
+                        .foregroundStyle(.yellow.opacity(0.8))
+                        .frame(width: 14)
+
+                    Text("Ideas")
+                        .font(.epBody).fontWeight(.medium)
+                        .foregroundStyle(theme.foreground.opacity(0.9))
+
+                    Spacer()
+
+                    Text("\(ideas.count)")
+                        .font(.epSmall)
+                        .foregroundStyle(theme.textTertiary)
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 4)
+
+            if isExpanded {
+                ForEach(ideas.prefix(20)) { idea in
+                    IdeaRow(item: idea, onAction: onAction)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+}
+
+private struct IdeaRow: View {
+    let item: SidebarIdeaItem
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        Button {
+            onAction(.openIdea(pageId: item.pageId))
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: item.icon)
+                    .font(.system(size: 10))
+                    .foregroundStyle(item.type == .idea ? .yellow : .purple)
+                    .frame(width: 14)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.title.isEmpty ? "Untitled" : item.title)
+                        .font(.epBody)
+                        .foregroundStyle(theme.foreground.opacity(0.8))
+                        .lineLimit(1)
+
+                    let source = item.pageEmoji.isEmpty ? item.pageTitle : "\(item.pageEmoji) \(item.pageTitle)"
+                    Text(source)
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.leading, 30)
+            .padding(.trailing, 10)
+            .padding(.vertical, 3)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

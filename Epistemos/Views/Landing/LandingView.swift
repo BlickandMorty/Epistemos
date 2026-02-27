@@ -50,6 +50,13 @@ struct LandingView: View {
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
+
+            // Hidden ⌘I shortcut — quick idea capture
+            Button(action: { captureQuickIdea() }) {}
+                .keyboardShortcut("i", modifiers: .command)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
         }
         .onKeyPress(.escape) {
             if showingBrief {
@@ -107,6 +114,19 @@ struct LandingView: View {
                         .padding(.leading, 2)
                 }
                 .onTapGesture { createAndOpenNote() }
+
+                Circle()
+                    .fill(theme.textTertiary.opacity(0.3))
+                    .frame(width: 3, height: 3)
+
+                // ⌘I Quick Idea
+                HStack(spacing: 3) {
+                    Image(systemName: "command")
+                    Text("I")
+                    Text("Idea")
+                        .padding(.leading, 2)
+                }
+                .onTapGesture { captureQuickIdea() }
 
                 Circle()
                     .fill(theme.textTertiary.opacity(0.3))
@@ -237,6 +257,14 @@ struct LandingView: View {
     private func createAndOpenNote() {
         Task {
             if let pageId = await vaultSync.createPage(title: "New Note") {
+                NoteWindowManager.shared.open(pageId: pageId)
+            }
+        }
+    }
+
+    private func captureQuickIdea() {
+        Task {
+            if let pageId = await vaultSync.createPage(title: "New Idea", emoji: "💡") {
                 NoteWindowManager.shared.open(pageId: pageId)
             }
         }
