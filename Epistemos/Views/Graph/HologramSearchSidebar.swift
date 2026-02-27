@@ -143,27 +143,74 @@ struct HologramSearchSidebar: View {
         }
     }
 
-    // MARK: - Notes Content (mirrors NotesSidebar: folders → loose files)
+    // MARK: - Notes Content (mirrors NotesSidebar: recursive folder tree)
 
-    private var folderNodes: [GraphNodeRecord] {
-        graphState.store.nodes.values
-            .filter { $0.type == .folder }
+    /// All folder nodes in the graph.
+    private var allFolderNodes: [String: GraphNodeRecord] {
+        Dictionary(
+            uniqueKeysWithValues: graphState.store.nodes.values
+                .filter { $0.type == .folder }
+                .map { ($0.id, $0) }
+        )
+    }
+
+    /// Children of a folder (subfolders and notes) via directed "contains" edges.
+    /// Contains edges: source=parent, target=child.
+    private func containsChildrenOf(_ folderId: String) -> (folders: [GraphNodeRecord], notes: [GraphNodeRecord]) {
+        let edgeIds = graphState.store.edgesByNode[folderId] ?? []
+        var folders: [GraphNodeRecord] = []
+        var notes: [GraphNodeRecord] = []
+
+        for edgeId in edgeIds {
+            guard let edge = graphState.store.edges[edgeId],
+                  edge.sourceNodeId == folderId,
+                  edge.type == .contains else { continue }
+            guard let child = graphState.store.nodes[edge.targetNodeId] else { continue }
+
+            if child.type == .folder {
+                folders.append(child)
+            } else if child.type == .note {
+                notes.append(child)
+            }
+        }
+
+        folders.sort { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+        notes.sort { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+        return (folders, notes)
+    }
+
+    /// Root folders: folders that are NOT the target of any "contains" edge from another folder.
+    private var rootFolders: [GraphNodeRecord] {
+        let folderIds = allFolderNodes
+        var childFolderIds = Set<String>()
+
+        for (_, edge) in graphState.store.edges {
+            guard edge.type == .contains,
+                  folderIds[edge.sourceNodeId] != nil,
+                  folderIds[edge.targetNodeId] != nil else { continue }
+            childFolderIds.insert(edge.targetNodeId)
+        }
+
+        return folderIds.values
+            .filter { !childFolderIds.contains($0.id) }
             .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
     }
 
-    private func noteChildrenOf(_ folderId: String) -> [GraphNodeRecord] {
-        let neighborIds = graphState.store.adjacency[folderId] ?? []
-        return neighborIds.compactMap { graphState.store.nodes[$0] }
-            .filter { $0.type == .note }
-            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
-    }
-
+    /// Notes not contained in any folder.
     private var looseNotes: [GraphNodeRecord] {
-        let folderIds = Set(folderNodes.map(\.id))
+        let folderIds = Set(allFolderNodes.keys)
         return graphState.store.nodes.values
             .filter { node in
-                node.type == .note &&
-                !(graphState.store.adjacency[node.id] ?? []).contains(where: { folderIds.contains($0) })
+                guard node.type == .note else { return false }
+                // Check if any "contains" edge from a folder targets this note
+                let edgeIds = graphState.store.edgesByNode[node.id] ?? []
+                for edgeId in edgeIds {
+                    guard let edge = graphState.store.edges[edgeId] else { continue }
+                    if edge.type == .contains && edge.targetNodeId == node.id && folderIds.contains(edge.sourceNodeId) {
+                        return false
+                    }
+                }
+                return true
             }
             .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
     }
@@ -171,12 +218,9 @@ struct HologramSearchSidebar: View {
     private var notesContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 2) {
-                // Folders with note children
-                ForEach(folderNodes, id: \.id) { folder in
-                    let noteChildren = noteChildrenOf(folder.id)
-                    if !noteChildren.isEmpty {
-                        folderRow(folder, children: noteChildren)
-                    }
+                // Recursive folder tree
+                ForEach(rootFolders, id: \.id) { folder in
+                    recursiveFolderRow(folder, indent: 0)
                 }
 
                 // Loose notes (not in any folder)
@@ -190,7 +234,7 @@ struct HologramSearchSidebar: View {
                     }
                 }
 
-                if folderNodes.isEmpty && looseNotes.isEmpty {
+                if rootFolders.isEmpty && looseNotes.isEmpty {
                     emptyState("No notes in graph", icon: "doc.text")
                 }
             }
@@ -268,7 +312,7 @@ struct HologramSearchSidebar: View {
 
             if expandedTypes.contains(type) {
                 ForEach(nodes.prefix(30), id: \.id) { node in
-                    nodeRow(node, indented: true)
+                    nodeRow(node, indent: 1)
                 }
                 if nodes.count > 30 {
                     hintText("\(nodes.count - 30) more…")
@@ -278,9 +322,20 @@ struct HologramSearchSidebar: View {
         }
     }
 
-    // MARK: - Folder Row
+    // MARK: - Recursive Folder Row
 
-    private func folderRow(_ folder: GraphNodeRecord, children: [GraphNodeRecord]) -> some View {
+    /// Recursive total count of notes in this folder and all subfolders.
+    private func recursiveNoteCount(_ folderId: String) -> Int {
+        let (subfolders, notes) = containsChildrenOf(folderId)
+        return notes.count + subfolders.reduce(0) { $0 + recursiveNoteCount($1.id) }
+    }
+
+    @ViewBuilder
+    private func recursiveFolderRow(_ folder: GraphNodeRecord, indent: Int) -> some View {
+        let isExpanded = expandedFolders.contains(folder.id)
+        let (subfolders, notes) = containsChildrenOf(folder.id)
+        let count = recursiveNoteCount(folder.id)
+
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 withAnimation(.smooth(duration: 0.2)) {
@@ -292,27 +347,31 @@ struct HologramSearchSidebar: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: expandedFolders.contains(folder.id) ? "chevron.down" : "chevron.right")
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.35))
                         .frame(width: 12)
 
-                    Circle()
-                        .fill(GraphNodeType.folder.swiftUIColor)
-                        .frame(width: 7, height: 7)
+                    Image(systemName: isExpanded ? "folder.fill" : "folder")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(GraphNodeType.folder.swiftUIColor)
+                        .frame(width: 14)
 
-                    Text(folder.label)
+                    Text(folder.label.isEmpty ? "Untitled Folder" : folder.label)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(1)
 
                     Spacer()
 
-                    Text("\(children.count)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.25))
+                    if count > 0 {
+                        Text("\(count)")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.25))
+                    }
                 }
-                .padding(.horizontal, 12)
+                .padding(.leading, CGFloat(indent) * 16 + 12)
+                .padding(.trailing, 12)
                 .padding(.vertical, 6)
                 .contentShape(Rectangle())
             }
@@ -321,9 +380,23 @@ struct HologramSearchSidebar: View {
                 onSelectNode(folder.id)
             })
 
-            if expandedFolders.contains(folder.id) {
-                ForEach(children, id: \.id) { child in
-                    nodeRow(child, indented: true)
+            if isExpanded {
+                // Child subfolders first (recursive — use AnyView to break self-referential type)
+                ForEach(subfolders, id: \.id) { subfolder in
+                    AnyView(recursiveFolderRow(subfolder, indent: indent + 1))
+                }
+
+                // Child notes
+                ForEach(notes, id: \.id) { note in
+                    nodeRow(note, indent: indent + 1)
+                }
+
+                if subfolders.isEmpty && notes.isEmpty {
+                    Text("Empty folder")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.25))
+                        .padding(.leading, CGFloat(indent + 1) * 16 + 34)
+                        .padding(.vertical, 4)
                 }
             }
         }
@@ -331,7 +404,7 @@ struct HologramSearchSidebar: View {
 
     // MARK: - Shared Components
 
-    private func nodeRow(_ node: GraphNodeRecord, indented: Bool = false) -> some View {
+    private func nodeRow(_ node: GraphNodeRecord, indent: Int = 0) -> some View {
         Button {
             onSelectNode(node.id)
         } label: {
@@ -347,13 +420,13 @@ struct HologramSearchSidebar: View {
 
                 Spacer()
 
-                if !indented {
+                if indent == 0 {
                     Text(node.type.displayName)
                         .font(.system(size: 10))
                         .foregroundStyle(.white.opacity(0.3))
                 }
             }
-            .padding(.leading, indented ? 32 : 12)
+            .padding(.leading, CGFloat(indent) * 16 + 12)
             .padding(.trailing, 12)
             .padding(.vertical, 5)
             .contentShape(Rectangle())
