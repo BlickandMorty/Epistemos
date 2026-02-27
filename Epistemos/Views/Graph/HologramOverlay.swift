@@ -63,7 +63,7 @@ final class HologramOverlay {
     // MARK: - Show / Hide
 
     var isVisible: Bool {
-        (window?.isVisible ?? false) || isMinimized
+        (window?.isVisible == true) || isMinimized
     }
 
     func toggle() {
@@ -77,7 +77,24 @@ final class HologramOverlay {
     func show(noteWindow: NSWindow? = nil) {
         self.noteWindowFrame = noteWindow?.frame
 
-        // Always recreate from scratch (teardown destroys everything on hide).
+        // Fast path: if engine is still alive from a soft-hide, just resume + show.
+        if let window, let metalView {
+            if let screen = NSScreen.main {
+                window.setFrame(screen.frame, display: true)
+            }
+            window.alphaValue = 0
+            window.makeKeyAndOrderFront(nil)
+            window.makeFirstResponder(metalView)
+            metalView.resumeEngine()
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                window.animator().alphaValue = 1.0
+            }
+            return
+        }
+
+        // Cold start: create everything from scratch.
         createWindow()
 
         guard let window else { return }
@@ -157,15 +174,24 @@ final class HologramOverlay {
 
         guard let window else { return }
 
+        // Soft hide: pause engine + hide window, keep engine alive for fast re-show.
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.25
+            ctx.duration = 0.2
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             window.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             window.orderOut(nil)
-            // Full teardown: destroy engine + Metal resources to free all memory.
-            self?.teardown()
+            self?.metalView?.pauseEngine()
         })
+    }
+
+    /// Full teardown: destroy engine + Metal resources to free all memory.
+    /// Call when the overlay is being permanently dismissed (e.g. app quit).
+    func forceClose() {
+        if let window {
+            window.orderOut(nil)
+        }
+        teardown()
     }
 
     // MARK: - Minimize / Restore

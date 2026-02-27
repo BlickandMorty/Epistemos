@@ -239,9 +239,10 @@ final class MetalGraphNSView: NSView {
             }
         }
 
-        // First commit gets the entrance animation (nodes cluster at center then expand).
-        let entrance: UInt8 = isCommitted ? 0 : 1
+        // Entrance animation only on the very first graph open, not on re-opens.
+        let entrance: UInt8 = (graphState.hasPlayedEntrance || isCommitted) ? 0 : 1
         graph_engine_commit(engine, entrance)
+        if entrance == 1 { graphState.hasPlayedEntrance = true }
         pushForceParams()
 
         // Transparent background for hologram overlay mode.

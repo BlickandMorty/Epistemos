@@ -145,6 +145,8 @@ final class GraphState {
     let filter = FilterEngine()
 
     var isLoaded = false
+    /// True after the entrance animation has played once. Prevents replay on re-open.
+    var hasPlayedEntrance = false
     var isScanning = false
     var scanProgress: Double = 0  // 0.0-1.0
     var scanStatus: String = ""
@@ -302,7 +304,10 @@ final class GraphState {
         let builder = GraphBuilder()
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
-        loadGraph(context: context)
+
+        // Populate store directly from the built arrays — avoids a redundant SwiftData fetch.
+        store.loadDirect(nodes: result.nodes, edges: result.edges)
+        isLoaded = true
     }
 
     /// Lightweight refresh: re-runs the structural graph builder to pick up new/deleted pages.

@@ -104,6 +104,42 @@ final class GraphStore {
         let edgeDescriptor = FetchDescriptor<SDGraphEdge>()
         let sdEdges = try context.fetch(edgeDescriptor)
 
+        ingestEdges(sdEdges)
+    }
+
+    /// Populate store directly from in-memory arrays (skips SwiftData fetch).
+    /// Used by buildStructuralGraph() to avoid a redundant re-fetch after persist().
+    func loadDirect(nodes sdNodes: [SDGraphNode], edges sdEdges: [SDGraphEdge]) {
+        // Clear existing state
+        nodes = [:]
+        edges = [:]
+        adjacency = [:]
+        edgesByNode = [:]
+
+        for sdNode in sdNodes {
+            let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
+                ?? SIMD2<Float>(Float.random(in: -500...500), Float.random(in: -500...500))
+
+            let record = GraphNodeRecord(
+                id: sdNode.id,
+                type: sdNode.nodeType,
+                label: sdNode.label,
+                sourceId: sdNode.sourceId,
+                metadata: sdNode.meta,
+                weight: sdNode.weight,
+                createdAt: sdNode.createdAt,
+                position: position,
+                velocity: .zero
+            )
+            nodes[record.id] = record
+            adjacency[record.id] = []
+            edgesByNode[record.id] = []
+        }
+
+        ingestEdges(sdEdges)
+    }
+
+    private func ingestEdges(_ sdEdges: [SDGraphEdge]) {
         for sdEdge in sdEdges {
             let record = GraphEdgeRecord(
                 id: sdEdge.id,
