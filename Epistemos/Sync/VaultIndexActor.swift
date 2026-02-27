@@ -167,7 +167,7 @@ actor VaultIndexActor {
         }
 
         log.info(
-            "Vault import complete: \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted"
+            "Vault import complete: \(diskPaths.count) .md files on disk → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted"
         )
     }
 

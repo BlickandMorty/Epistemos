@@ -53,6 +53,10 @@ final class MetalGraphNSView: NSView {
     /// and after graph_engine_render() returns.
     nonisolated(unsafe) private let renderNeeded = Atomic<Bool>(true)
 
+    /// Set during deinit to prevent queued render callbacks from accessing
+    /// a destroyed engine. Checked in renderFrame() before any FFI call.
+    nonisolated(unsafe) private let isInvalidated = Atomic<Bool>(false)
+
     /// Convenience wrapper for main-thread code. Background thread should
     /// use renderNeeded directly for thread safety.
     private var needsRender: Bool {
@@ -149,9 +153,11 @@ final class MetalGraphNSView: NSView {
         // Also skip entirely when simulation is settled (renderNeeded = false) to save CPU.
         let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
             let view = Unmanaged<MetalGraphNSView>.fromOpaque(userInfo!).takeUnretainedValue()
+            guard !view.isInvalidated.load(ordering: .relaxed) else { return kCVReturnSuccess }
             if view.renderNeeded.load(ordering: .relaxed) && !view.framePending.load(ordering: .relaxed) {
                 view.framePending.store(true, ordering: .relaxed)
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak view] in
+                    guard let view, !view.isInvalidated.load(ordering: .relaxed) else { return }
                     view.framePending.store(false, ordering: .relaxed)
                     view.renderFrame()
                 }
@@ -424,7 +430,8 @@ final class MetalGraphNSView: NSView {
 
     /// Render one frame. Must be called on the main thread.
     private func renderFrame() {
-        guard let engine, isCommitted else { return }
+        guard !isInvalidated.load(ordering: .relaxed),
+              let engine, isCommitted else { return }
         guard let layer = metalLayer else { return }
 
         // Sync force params if GraphState changed (handles hologram overlay mode
@@ -966,6 +973,10 @@ final class MetalGraphNSView: NSView {
     // MARK: - Cleanup
 
     deinit {
+        // Mark invalidated FIRST so any in-flight DispatchQueue.main.async from
+        // the CVDisplayLink callback will skip renderFrame() and avoid
+        // accessing the destroyed engine pointer.
+        isInvalidated.store(true, ordering: .relaxed)
         stopDisplayLink()
         if let engine {
             graph_engine_destroy(engine)

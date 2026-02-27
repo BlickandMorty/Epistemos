@@ -154,7 +154,7 @@ final class GraphBuilder {
             sourceIdToNodeId[chat.id] = node.id
         }
 
-        Log.app.info("GraphBuilder: built \(nodes.count) nodes, \(edges.count) edges")
+        Log.app.info("GraphBuilder: \(pages.count) pages → \(nodes.count) nodes, \(edges.count) edges")
         return (nodes: nodes, edges: edges)
     }
 
