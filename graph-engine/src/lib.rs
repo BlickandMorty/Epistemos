@@ -307,6 +307,22 @@ pub extern "C" fn graph_engine_set_label_params(
     engine.set_label_params(fade_start, fade_end, font_size, enabled != 0);
 }
 
+// ── Cluster Parameters ──────────────────────────────────────────────────────
+
+/// Set cluster cohesion strength (0 = off, 1 = strong bubbles).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_cluster_params(engine: *mut Engine, cluster_strength: f32) {
+    let engine = unsafe { &mut *engine };
+    engine.set_cluster_params(cluster_strength);
+}
+
+/// Set center force mode: 0 = attract, 1 = off, 2 = repel.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_center_mode(engine: *mut Engine, mode: u8) {
+    let engine = unsafe { &mut *engine };
+    engine.set_center_mode(mode);
+}
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).

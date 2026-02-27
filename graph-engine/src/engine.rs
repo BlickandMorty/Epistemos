@@ -879,6 +879,20 @@ impl Engine {
         }
     }
 
+    // ── Cluster Parameters ───────────────────────────────────────────
+
+    pub fn set_cluster_params(&mut self, cluster_strength: f32) {
+        let mut sim = self.sim.lock();
+        sim.params.cluster_strength = cluster_strength;
+        sim.reheat();
+    }
+
+    pub fn set_center_mode(&mut self, mode: u8) {
+        let mut sim = self.sim.lock();
+        sim.params.center_mode = crate::simulation::CenterMode::from_u8(mode);
+        sim.reheat();
+    }
+
     // ── Label Parameters ─────────────────────────────────────────────
 
     pub fn set_label_params(&mut self, fade_start: f32, fade_end: f32, font_size: f32, enabled: bool) {

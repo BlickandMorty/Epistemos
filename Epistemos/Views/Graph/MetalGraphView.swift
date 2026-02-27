@@ -237,6 +237,7 @@ final class MetalGraphNSView: NSView {
 
     var lastExtendedForceConfigVersion: Int = 0
     var lastLabelConfigVersion: Int = 0
+    var lastClusterConfigVersion: Int = 0
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -270,6 +271,12 @@ final class MetalGraphNSView: NSView {
             graphState.labelFontSize,
             graphState.labelsEnabled ? 1 : 0
         )
+    }
+
+    func pushClusterParams() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_cluster_params(engine, graphState.clusterStrength)
+        graph_engine_set_center_mode(engine, graphState.centerMode)
     }
 
     // MARK: - Camera
@@ -367,6 +374,12 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastLabelConfigVersion != graphState.labelConfigVersion {
             lastLabelConfigVersion = graphState.labelConfigVersion
             pushLabelParams()
+        }
+
+        // Sync cluster params (cluster strength, center mode).
+        if let graphState, lastClusterConfigVersion != graphState.clusterConfigVersion {
+            lastClusterConfigVersion = graphState.clusterConfigVersion
+            pushClusterParams()
         }
 
         // Minimize request: post notification for the overlay to handle.

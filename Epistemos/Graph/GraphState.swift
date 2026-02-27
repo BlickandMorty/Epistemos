@@ -197,6 +197,13 @@ final class GraphState {
         extendedForceConfigVersion += 1
     }
 
+    // ── Cluster ──
+    var clusterStrength: Float = 0.0
+    var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
+
+    var clusterConfigVersion: Int = 0
+    func pushClusterChange() { clusterConfigVersion += 1 }
+
     // ── Labels ──
     var labelsEnabled: Bool = true
     var labelFadeStart: Float = 6.0

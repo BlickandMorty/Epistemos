@@ -34,6 +34,9 @@ struct GraphForceSettings: View {
                 }
 
                 Divider().opacity(0.3)
+                clusterSection(gs: $gs)
+
+                Divider().opacity(0.3)
                 labelsSection(gs: $gs)
 
                 Divider().opacity(0.3)
@@ -203,6 +206,40 @@ struct GraphForceSettings: View {
             )
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    // MARK: - Clustering
+
+    private func clusterSection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("Clustering", icon: "circle.grid.3x3")
+
+            forceSlider(
+                label: "Cluster Bubbles",
+                value: gs.clusterStrength,
+                range: 0...1,
+                format: "%.2f",
+                subtitle: "0 = off, 1 = strong bubbles",
+                onChange: { graphState.pushClusterChange() }
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Center Force")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Picker("Center Force", selection: gs.centerMode) {
+                    Text("Attract").tag(UInt8(0))
+                    Text("Off").tag(UInt8(1))
+                    Text("Repel").tag(UInt8(2))
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .onChange(of: graphState.centerMode) {
+                    graphState.pushClusterChange()
+                }
+            }
+        }
     }
 
     // MARK: - Labels

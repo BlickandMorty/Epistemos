@@ -146,6 +146,14 @@ void graph_engine_resume(Engine* engine);
 /// @param enabled    1 to show labels, 0 to hide.
 void graph_engine_set_label_params(Engine* engine, float fade_start, float fade_end, float font_size, uint8_t enabled);
 
+// ── Cluster Parameters ──────────────────────────────────────────────────────
+
+/// Set cluster cohesion strength (0 = off, 1 = strong bubbles).
+void graph_engine_set_cluster_params(Engine* engine, float cluster_strength);
+
+/// Set center force mode: 0 = attract, 1 = off, 2 = repel.
+void graph_engine_set_center_mode(Engine* engine, uint8_t mode);
+
 // ── Display Settings ────────────────────────────────────────────────────────
 
 /// Set the clear color (use transparent for hologram overlay).
