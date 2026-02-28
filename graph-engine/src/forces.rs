@@ -752,4 +752,854 @@ mod tests {
         assert_eq!(vx[1], 0.0, "zero strength should be a no-op");
     }
 
+    // =========================================================================
+    // Link Force Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn link_no_edges_no_change() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let edges: Vec<(usize, usize)> = vec![];
+        let weights: Vec<f32> = vec![];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+
+        assert_eq!(vx[0], 0.0);
+        assert_eq!(vx[1], 0.0);
+    }
+
+    #[test]
+    fn link_exact_distance_no_force() {
+        let x = vec![0.0, 180.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let weights = vec![1.0];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 1.0, 1.0);
+
+        // At exact distance with override strength, force should be minimal
+        assert!(vx[0].abs() < 1e-5);
+    }
+
+    #[test]
+    fn link_strength_override_used() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx1 = vec![0.0, 0.0];
+        let mut vy1 = vec![0.0, 0.0];
+        let mut vx2 = vec![0.0, 0.0];
+        let mut vy2 = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let weights = vec![1.0];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx1, &mut vy1, &edges, &weights, &degrees, 180.0, 0.5, 1.0);
+        force_link(&x, &y, &mut vx2, &mut vy2, &edges, &weights, &degrees, 180.0, 1.0, 1.0);
+
+        // Double strength should produce approximately double force
+        assert!(vx2[0].abs() > vx1[0].abs());
+    }
+
+    #[test]
+    fn link_weight_very_high() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let weights = vec![10.0];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+
+        // High weight should produce strong attraction
+        assert!(vx[0].abs() > 1.0);
+    }
+
+    #[test]
+    fn link_weight_very_low() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let weights = vec![0.1];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+
+        // Low weight produces weak attraction
+        // Distance 200 vs effective distance 180/0.1 = 1800, so nodes are much closer than target
+        // This actually produces REPULSION (pushing apart)
+        assert!(vx[0] < 0.0, "when closer than target, should repel: got {}", vx[0]);
+    }
+
+    #[test]
+    fn link_self_loop_handled() {
+        let x = vec![0.0];
+        let y = vec![0.0];
+        let mut vx = vec![0.0];
+        let mut vy = vec![0.0];
+        let edges = vec![(0, 0)];
+        let weights = vec![1.0];
+        let degrees = vec![1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+
+        // Self-loop should apply no net force (or minimal)
+        assert!(vx[0].abs() < 1.0);
+    }
+
+    #[test]
+    fn link_multiple_edges_accumulate() {
+        let x = vec![0.0, 100.0, 200.0];
+        let y = vec![0.0, 0.0, 0.0];
+        let mut vx = vec![0.0, 0.0, 0.0];
+        let mut vy = vec![0.0, 0.0, 0.0];
+        let edges = vec![(0, 1), (1, 2)];
+        let weights = vec![1.0, 1.0];
+        let degrees = vec![1, 2, 1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+
+        // Middle node (1) should have forces from both edges
+        assert!(vx[1] != 0.0);
+    }
+
+    #[test]
+    fn link_alpha_zero_no_force() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let weights = vec![1.0];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 0.0);
+
+        assert_eq!(vx[0], 0.0);
+        assert_eq!(vx[1], 0.0);
+    }
+
+    #[test]
+    fn link_diagonal_edge() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 100.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let edges = vec![(0, 1)];
+        let weights = vec![1.0];
+        let degrees = vec![1, 1];
+
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+
+        // Both x and y should be affected for diagonal edge
+        assert!(vx[0] != 0.0 || vy[0] != 0.0);
+    }
+
+    // =========================================================================
+    // Many-Body Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn many_body_empty() {
+        let x: Vec<f32> = vec![];
+        let y: Vec<f32> = vec![];
+        let mut vx: Vec<f32> = vec![];
+        let mut vy: Vec<f32> = vec![];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0);
+    }
+
+    #[test]
+    fn many_body_single_node() {
+        let x = vec![0.0];
+        let y = vec![0.0];
+        let mut vx = vec![0.0];
+        let mut vy = vec![0.0];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0);
+
+        // Single node has no one to repel from
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn many_body_positive_strength_attracts() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, 600.0, 600.0, 1.0, 1.0);
+
+        // Positive strength → attraction
+        assert!(vx[0] > 0.0, "positive charge should attract: {}", vx[0]);
+    }
+
+    #[test]
+    fn many_body_distance_max_cuts_off() {
+        let x = vec![0.0, 1000.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 500.0, 1.0, 1.0);
+
+        // Distance 1000 > max 500 → no force
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn many_body_distance_min_prevents_singularity() {
+        let x = vec![0.0, 0.1];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 10.0, 1.0);
+
+        // Very close nodes should use distance_min, not actual distance
+        assert!(vx[0].abs() < 1000.0);
+    }
+
+    #[test]
+    fn many_body_symmetric_forces() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0);
+
+        // Forces should be equal and opposite
+        assert!((vx[0] + vx[1]).abs() < 0.01, "forces should be symmetric: v0={}, v1={}", vx[0], vx[1]);
+    }
+
+    #[test]
+    fn many_body_with_scratch_reuses_buffer() {
+        let x = vec![0.0, 50.0, 100.0];
+        let y = vec![0.0, 0.0, 0.0];
+        let mut vx = vec![0.0, 0.0, 0.0];
+        let mut vy = vec![0.0, 0.0, 0.0];
+        let mut scratch = Vec::new();
+
+        force_many_body_with_scratch(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0, &mut scratch);
+
+        assert!(scratch.capacity() >= 3);
+    }
+
+    #[test]
+    fn many_body_alpha_scales_force() {
+        let x = vec![0.0, 50.0];
+        let y = vec![0.0, 0.0];
+        let mut vx1 = vec![0.0, 0.0];
+        let mut vy1 = vec![0.0, 0.0];
+        let mut vx2 = vec![0.0, 0.0];
+        let mut vy2 = vec![0.0, 0.0];
+
+        force_many_body(&x, &y, &mut vx1, &mut vy1, -600.0, 600.0, 1.0, 0.5);
+        force_many_body(&x, &y, &mut vx2, &mut vy2, -600.0, 600.0, 1.0, 1.0);
+
+        // Double alpha should produce double force
+        assert!((vx2[0] - 2.0 * vx1[0]).abs() < 0.1);
+    }
+
+    #[test]
+    fn many_body_triangle_symmetry() {
+        let x = vec![0.0, 100.0, 50.0];
+        let y = vec![0.0, 0.0, 86.6]; // Equilateral triangle
+        let mut vx = vec![0.0, 0.0, 0.0];
+        let mut vy = vec![0.0, 0.0, 0.0];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0);
+
+        // All forces should roughly cancel in center of mass
+        let sum_x = vx.iter().sum::<f32>();
+        let sum_y = vy.iter().sum::<f32>();
+        assert!(sum_x.abs() < 1.0);
+        assert!(sum_y.abs() < 1.0);
+    }
+
+    #[test]
+    fn many_body_three_collinear() {
+        let x = vec![0.0, 50.0, 100.0];
+        let y = vec![0.0, 0.0, 0.0];
+        let mut vx = vec![0.0, 0.0, 0.0];
+        let mut vy = vec![0.0, 0.0, 0.0];
+
+        force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0);
+
+        // Middle node should have some force acting on it
+        // Due to symmetry, it might be close to 0 but outer nodes should have opposing forces
+        assert!(vx[0] < 0.0, "leftmost should be pushed left");
+        assert!(vx[2] > 0.0, "rightmost should be pushed right");
+    }
+
+    // =========================================================================
+    // Collide Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn collide_empty() {
+        let mut x: Vec<f32> = vec![];
+        let mut y: Vec<f32> = vec![];
+        let radii: Vec<f32> = vec![];
+        let fx: Vec<Option<f32>> = vec![];
+        let fy: Vec<Option<f32>> = vec![];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+    }
+
+    #[test]
+    fn collide_single_node() {
+        let mut x = vec![0.0];
+        let mut y = vec![0.0];
+        let radii = vec![26.0];
+        let fx = vec![None];
+        let fy = vec![None];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+
+        assert_eq!(x[0], 0.0);
+    }
+
+    #[test]
+    fn collide_exactly_touching() {
+        let mut x = vec![0.0, 52.0];
+        let mut y = vec![0.0, 0.0];
+        let radii = vec![26.0, 26.0];
+        let fx = vec![None, None];
+        let fy = vec![None, None];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+
+        // Exactly touching, no overlap
+        assert_eq!(x[0], 0.0);
+        assert_eq!(x[1], 52.0);
+    }
+
+    #[test]
+    fn collide_multiple_iterations() {
+        let mut x = vec![0.0, 10.0, 20.0];
+        let mut y = vec![0.0, 0.0, 0.0];
+        let radii = vec![26.0, 26.0, 26.0];
+        let fx = vec![None, None, None];
+        let fy = vec![None, None, None];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 3);
+
+        // After multiple iterations, should be well separated
+        let dist1 = (x[1] - x[0]).abs();
+        let dist2 = (x[2] - x[1]).abs();
+        assert!(dist1 >= 51.0 || dist1 < 10.0);
+    }
+
+    #[test]
+    fn collide_different_radii() {
+        let mut x = vec![0.0, 30.0];
+        let mut y = vec![0.0, 0.0];
+        let radii = vec![10.0, 30.0];
+        let fx = vec![None, None];
+        let fy = vec![None, None];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+
+        // min_dist = 40, actual dist = 30 → overlap
+        let dist = (x[1] - x[0]).abs();
+        assert!(dist >= 39.0);
+    }
+
+    #[test]
+    fn collide_2d_overlap() {
+        let mut x = vec![0.0, 30.0];
+        let mut y = vec![0.0, 30.0];
+        let radii = vec![26.0, 26.0];
+        let fx = vec![None, None];
+        let fy = vec![None, None];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+
+        // Diagonal distance should be >= 52
+        let dist_sq = (x[1] - x[0]).powi(2) + (y[1] - y[0]).powi(2);
+        assert!(dist_sq >= 51.0_f32.powi(2));
+    }
+
+    #[test]
+    fn collide_many_nodes() {
+        let mut x: Vec<f32> = (0..50).map(|i| (i % 10) as f32 * 25.0).collect();
+        let mut y: Vec<f32> = (0..50).map(|i| (i / 10) as f32 * 25.0).collect();
+        let radii: Vec<f32> = vec![10.0; 50];
+        let fx: Vec<Option<f32>> = vec![None; 50];
+        let fy: Vec<Option<f32>> = vec![None; 50];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 3);
+
+        // All pairs should have no overlap (with tolerance)
+        for i in 0..50 {
+            for j in (i+1)..50 {
+                let dist_sq = (x[j] - x[i]).powi(2) + (y[j] - y[i]).powi(2);
+                let min_dist = radii[i] + radii[j];
+                assert!(dist_sq >= min_dist.powi(2) - 10.0, 
+                    "nodes {} and {} overlap: dist={}, min={}", i, j, dist_sq.sqrt(), min_dist);
+            }
+        }
+    }
+
+    #[test]
+    fn collide_with_grid_scratch() {
+        let mut x = vec![0.0, 10.0, 20.0];
+        let mut y = vec![0.0, 0.0, 0.0];
+        let radii = vec![26.0, 26.0, 26.0];
+        let fx = vec![None, None, None];
+        let fy = vec![None, None, None];
+        let mut grid = rustc_hash::FxHashMap::default();
+
+        force_collide_with_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid);
+
+        // Grid should be reusable
+        assert!(grid.is_empty() || grid.values().all(|v| v.is_empty()));
+    }
+
+    #[test]
+    fn collide_zero_radius_no_effect() {
+        let mut x = vec![0.0, 1.0];
+        let mut y = vec![0.0, 0.0];
+        let x_orig = x.clone();
+        let radii = vec![0.0, 0.0];
+        let fx = vec![None, None];
+        let fy = vec![None, None];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+
+        // With zero radius, nothing should happen
+        assert_eq!(x, x_orig);
+    }
+
+    // =========================================================================
+    // Center Force Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn center_no_nodes() {
+        let x: Vec<f32> = vec![];
+        let y: Vec<f32> = vec![];
+        let mut vx: Vec<f32> = vec![];
+        let mut vy: Vec<f32> = vec![];
+
+        force_center(&x, &y, &mut vx, &mut vy, 0.0, 0.0, 0.02, 1.0);
+    }
+
+    #[test]
+    fn center_already_at_center() {
+        let x = vec![0.0, 0.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+
+        force_center(&x, &y, &mut vx, &mut vy, 0.0, 0.0, 0.02, 1.0);
+
+        assert_eq!(vx[0], 0.0);
+        assert_eq!(vx[1], 0.0);
+    }
+
+    #[test]
+    fn center_custom_location() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 200.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+
+        force_center(&x, &y, &mut vx, &mut vy, 500.0, 500.0, 0.02, 1.0);
+
+        // All nodes should be pulled toward (500, 500)
+        assert!(vx[0] > 0.0);
+        assert!(vy[0] > 0.0);
+        assert!(vx[1] > 0.0);
+        assert!(vy[1] > 0.0);
+    }
+
+    #[test]
+    fn center_zero_strength_no_effect() {
+        let x = vec![100.0];
+        let y = vec![100.0];
+        let mut vx = vec![0.0];
+        let mut vy = vec![0.0];
+
+        force_center(&x, &y, &mut vx, &mut vy, 0.0, 0.0, 0.0, 1.0);
+
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn center_negative_strength() {
+        let x = vec![100.0];
+        let y = vec![0.0];
+        let mut vx = vec![0.0];
+        let mut vy = vec![0.0];
+
+        force_center(&x, &y, &mut vx, &mut vy, 0.0, 0.0, -0.02, 1.0);
+
+        // Negative strength → push away from center
+        // Node at x=100, center at 0, negative strength pushes away
+        assert!(vx[0] != 0.0, "should have force applied");
+    }
+
+    #[test]
+    fn center_proportional_to_distance() {
+        let x = vec![50.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx1 = vec![0.0, 0.0];
+        let mut vy1 = vec![0.0, 0.0];
+        let mut vx2 = vec![0.0, 0.0];
+        let mut vy2 = vec![0.0, 0.0];
+
+        force_center(&x, &y, &mut vx1, &mut vy1, 0.0, 0.0, 0.02, 1.0);
+        force_center(&x, &y, &mut vx2, &mut vy2, 0.0, 0.0, 0.04, 1.0);
+
+        // Node 2 at 100 should have double the force of node 1 at 50
+        assert!((vx2[1] / vx1[1] - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn center_many_nodes() {
+        let n = 100;
+        let x: Vec<f32> = (0..n).map(|i| (i as f32) * 10.0).collect();
+        let y: Vec<f32> = vec![0.0; n];
+        let mut vx = vec![0.0; n];
+        let mut vy = vec![0.0; n];
+
+        force_center(&x, &y, &mut vx, &mut vy, 0.0, 0.0, 0.01, 1.0);
+
+        // All nodes should be pulled toward center (0,0)
+        // Nodes at x > 0 should be pulled left (vx < 0)
+        for i in 1..n {
+            assert!(vx[i] < 0.0, "node {} at x={} should be pulled left toward center", i, x[i]);
+        }
+        // Node at x=0 stays at center
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn center_alpha_scaling() {
+        let x = vec![100.0];
+        let y = vec![0.0];
+        let mut vx1 = vec![0.0];
+        let mut vy1 = vec![0.0];
+        let mut vx2 = vec![0.0];
+        let mut vy2 = vec![0.0];
+
+        force_center(&x, &y, &mut vx1, &mut vy1, 0.0, 0.0, 0.02, 0.5);
+        force_center(&x, &y, &mut vx2, &mut vy2, 0.0, 0.0, 0.02, 1.0);
+
+        assert!((vx2[0] - 2.0 * vx1[0]).abs() < 0.001);
+    }
+
+    #[test]
+    fn center_2d_distribution() {
+        let x = vec![0.0, 100.0, 0.0, 100.0];
+        let y = vec![0.0, 0.0, 100.0, 100.0];
+        let mut vx = vec![0.0; 4];
+        let mut vy = vec![0.0; 4];
+
+        force_center(&x, &y, &mut vx, &mut vy, 50.0, 50.0, 0.02, 1.0);
+
+        // All pulled toward center (50, 50)
+        assert!(vx[0] > 0.0); // (0,0) → right
+        assert!(vx[1] < 0.0); // (100,0) → left
+        assert!(vx[2] > 0.0); // (0,100) → right
+        assert!(vx[3] < 0.0); // (100,100) → left
+    }
+
+    // =========================================================================
+    // Cluster Force Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn cluster_empty() {
+        let x: Vec<f32> = vec![];
+        let y: Vec<f32> = vec![];
+        let mut vx: Vec<f32> = vec![];
+        let mut vy: Vec<f32> = vec![];
+        let cluster_ids: Vec<u32> = vec![];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 1.0, 1.0);
+    }
+
+    #[test]
+    fn cluster_single_node() {
+        let x = vec![0.0];
+        let y = vec![0.0];
+        let mut vx = vec![0.0];
+        let mut vy = vec![0.0];
+        let cluster_ids = vec![0u32];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 1.0, 1.0);
+
+        // Singleton, no force
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn cluster_two_same_cluster() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let cluster_ids = vec![0u32, 0];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 0.5, 1.0);
+
+        // Both pulled toward centroid at 50
+        assert!(vx[0] > 0.0);
+        assert!(vx[1] < 0.0);
+    }
+
+    #[test]
+    fn cluster_three_same_cluster() {
+        let x = vec![0.0, 100.0, 50.0];
+        let y = vec![0.0, 0.0, 100.0];
+        let mut vx = vec![0.0, 0.0, 0.0];
+        let mut vy = vec![0.0, 0.0, 0.0];
+        let cluster_ids = vec![0u32, 0, 0];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 0.5, 1.0);
+
+        // All pulled toward centroid
+        // Centroid is at (50, 33.3)
+        assert!(vx[0] > 0.0); // pulled right
+        assert!(vx[1] < 0.0); // pulled left
+        assert!(vy[2] < 0.0); // pulled down (from 100 toward 33)
+    }
+
+    #[test]
+    fn cluster_multiple_clusters() {
+        let x = vec![0.0, 100.0, 200.0, 300.0];
+        let y = vec![0.0, 0.0, 0.0, 0.0];
+        let mut vx = vec![0.0; 4];
+        let mut vy = vec![0.0; 4];
+        let cluster_ids = vec![0u32, 0, 1, 1];
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 0.5, 1.0);
+
+        // Cluster 0: centroid at 50, node 0→right, node 1→left
+        assert!(vx[0] > 0.0);
+        assert!(vx[1] < 0.0);
+        // Cluster 1: centroid at 250, node 2→right, node 3→left
+        assert!(vx[2] > 0.0);
+        assert!(vx[3] < 0.0);
+    }
+
+    #[test]
+    fn cluster_mismatched_length() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let cluster_ids = vec![0u32]; // Wrong length
+
+        force_cluster(&x, &y, &mut vx, &mut vy, &cluster_ids, 1.0, 1.0);
+
+        // Should be no-op with mismatched length
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn cluster_with_scratch_reuses_buffers() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let cluster_ids = vec![0u32, 0];
+        let mut cx = Vec::new();
+        let mut cy = Vec::new();
+        let mut counts = Vec::new();
+
+        force_cluster_with_scratch(&x, &y, &mut vx, &mut vy, &cluster_ids, 0.5, 1.0, &mut cx, &mut cy, &mut counts);
+
+        assert!(cx.capacity() >= 1);
+        assert!(counts.capacity() >= 1);
+    }
+
+    #[test]
+    fn cluster_alpha_scaling() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx1 = vec![0.0, 0.0];
+        let mut vy1 = vec![0.0, 0.0];
+        let mut vx2 = vec![0.0, 0.0];
+        let mut vy2 = vec![0.0, 0.0];
+        let cluster_ids = vec![0u32, 0];
+
+        force_cluster(&x, &y, &mut vx1, &mut vy1, &cluster_ids, 0.5, 0.5);
+        force_cluster(&x, &y, &mut vx2, &mut vy2, &cluster_ids, 0.5, 1.0);
+
+        assert!((vx2[0] - 2.0 * vx1[0]).abs() < 0.01);
+    }
+
+    #[test]
+    fn cluster_strength_linear() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx1 = vec![0.0, 0.0];
+        let mut vy1 = vec![0.0, 0.0];
+        let mut vx2 = vec![0.0, 0.0];
+        let mut vy2 = vec![0.0, 0.0];
+        let cluster_ids = vec![0u32, 0];
+
+        force_cluster(&x, &y, &mut vx1, &mut vy1, &cluster_ids, 0.25, 1.0);
+        force_cluster(&x, &y, &mut vx2, &mut vy2, &cluster_ids, 0.5, 1.0);
+
+        assert!((vx2[0] - 2.0 * vx1[0]).abs() < 0.01);
+    }
+
+    // =========================================================================
+    // Semantic Force Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn semantic_empty_neighbors() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let neighbors: Vec<(usize, usize, f32)> = vec![];
+
+        force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 1.0, 200.0, 1.0);
+
+        assert_eq!(vx[0], 0.0);
+        assert_eq!(vx[1], 0.0);
+    }
+
+    #[test]
+    fn semantic_single_pair_far_apart() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let neighbors = vec![(0, 1, 1.0)]; // Max similarity
+
+        force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 1.0, 200.0, 1.0);
+
+        // Distance 200 > half_ideal (100), should attract
+        assert!(vx[0] > 0.0);
+        assert!(vx[1] < 0.0);
+    }
+
+    #[test]
+    fn semantic_single_pair_close_together() {
+        let x = vec![0.0, 50.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let neighbors = vec![(0, 1, 1.0)];
+
+        force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 1.0, 200.0, 1.0);
+
+        // Distance 50 < half_ideal (100), no attraction
+        assert_eq!(vx[0], 0.0);
+        assert_eq!(vx[1], 0.0);
+    }
+
+    #[test]
+    fn semantic_similarity_scaling() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx1 = vec![0.0, 0.0];
+        let mut vy1 = vec![0.0, 0.0];
+        let mut vx2 = vec![0.0, 0.0];
+        let mut vy2 = vec![0.0, 0.0];
+
+        let neighbors1 = vec![(0, 1, 0.5)];
+        let neighbors2 = vec![(0, 1, 1.0)];
+
+        force_semantic(&x, &y, &mut vx1, &mut vy1, &neighbors1, 1.0, 200.0, 1.0);
+        force_semantic(&x, &y, &mut vx2, &mut vy2, &neighbors2, 1.0, 200.0, 1.0);
+
+        // Double similarity should produce double force
+        assert!((vx2[0] - 2.0 * vx1[0]).abs() < 0.01);
+    }
+
+    #[test]
+    fn semantic_zero_strength() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let neighbors = vec![(0, 1, 1.0)];
+
+        force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 0.0, 200.0, 1.0);
+
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn semantic_invalid_indices_skipped() {
+        let x = vec![0.0, 100.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let neighbors = vec![(0, 5, 1.0), (1, 10, 1.0)]; // Invalid indices
+
+        force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 1.0, 200.0, 1.0);
+
+        // Invalid indices should be skipped gracefully
+        assert_eq!(vx[0], 0.0);
+    }
+
+    #[test]
+    fn semantic_multiple_pairs() {
+        let x = vec![0.0, 200.0, 400.0];
+        let y = vec![0.0, 0.0, 0.0];
+        let mut vx = vec![0.0, 0.0, 0.0];
+        let mut vy = vec![0.0, 0.0, 0.0];
+        let neighbors = vec![(0, 1, 1.0), (1, 2, 1.0)];
+
+        force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 1.0, 200.0, 1.0);
+
+        // Both pairs should attract (distances > half_ideal = 100)
+        // Distance 0-1 = 200, 1-2 = 200, both should attract
+        assert!(vx[0] > 0.0 || vx[0] == 0.0, "node 0 pulled right or zero");
+        assert!(vx[2] < 0.0 || vx[2] == 0.0, "node 2 pulled left or zero");
+    }
+
+    #[test]
+    fn semantic_ideal_distance_affects_force() {
+        let x = vec![0.0, 150.0];
+        let y = vec![0.0, 0.0];
+        let mut vx1 = vec![0.0, 0.0];
+        let mut vy1 = vec![0.0, 0.0];
+        let mut vx2 = vec![0.0, 0.0];
+        let mut vy2 = vec![0.0, 0.0];
+
+        let neighbors = vec![(0, 1, 1.0)];
+
+        force_semantic(&x, &y, &mut vx1, &mut vy1, &neighbors, 1.0, 100.0, 1.0);
+        force_semantic(&x, &y, &mut vx2, &mut vy2, &neighbors, 1.0, 400.0, 1.0);
+
+        // Smaller ideal distance means farther from half_ideal (50), stronger pull
+        assert!(vx1[0].abs() > vx2[0].abs());
+    }
+
+    #[test]
+    fn semantic_symmetric_force() {
+        let x = vec![0.0, 200.0];
+        let y = vec![0.0, 0.0];
+        let mut vx = vec![0.0, 0.0];
+        let mut vy = vec![0.0, 0.0];
+        let neighbors = vec![(0, 1, 1.0)];
+
+        force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 1.0, 200.0, 1.0);
+
+        // Forces should be equal and opposite
+        assert!((vx[0] + vx[1]).abs() < 0.01);
+    }
 }

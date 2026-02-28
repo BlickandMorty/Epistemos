@@ -354,6 +354,16 @@ final class GraphStore {
         edgesByNode.removeValue(forKey: nodeId)
     }
 
+    /// Remove a single edge by ID, cleaning up adjacency/edgesByNode.
+    func removeEdge(_ edgeId: String) {
+        guard let edge = edges[edgeId] else { return }
+        adjacency[edge.sourceNodeId]?.remove(edge.targetNodeId)
+        adjacency[edge.targetNodeId]?.remove(edge.sourceNodeId)
+        edgesByNode[edge.sourceNodeId]?.remove(edgeId)
+        edgesByNode[edge.targetNodeId]?.remove(edgeId)
+        edges.removeValue(forKey: edgeId)
+    }
+
     // MARK: - Fuzzy Search
 
     /// A scored search result from the in-memory fuzzy matcher.

@@ -951,8 +951,9 @@ final class MetalGraphNSView: NSView {
         ]
         for (_, label) in types { popup.addItem(withTitle: label) }
         alert.accessoryView = popup
-        if alert.runModal() == .alertFirstButtonReturn {
-            completion(types[popup.indexOfSelectedItem].0)
+        let idx = popup.indexOfSelectedItem
+        if alert.runModal() == .alertFirstButtonReturn, idx >= 0, idx < types.count {
+            completion(types[idx].0)
         } else { completion(nil) }
     }
 

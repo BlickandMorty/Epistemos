@@ -576,9 +576,9 @@ pub extern "C" fn graph_engine_search(
         })
         .collect();
 
-    ffi_results.shrink_to_fit(); // Ensure capacity == len for safe Vec::from_raw_parts in free
-    let ptr = ffi_results.as_mut_ptr();
-    std::mem::forget(ffi_results);
+    // into_boxed_slice guarantees capacity == len, avoiding UB in from_raw_parts.
+    let boxed = ffi_results.into_boxed_slice();
+    let ptr = Box::into_raw(boxed) as *mut search::SearchResult;
     ptr
 }
 
@@ -601,7 +601,8 @@ pub extern "C" fn graph_engine_free_search_results(
                 let _ = CString::from_raw(result.label as *mut _);
             }
         }
-        let _ = Vec::from_raw_parts(results, count as usize, count as usize);
+        // Reconstruct the boxed slice and drop it to free the allocation.
+        drop(Box::from_raw(std::slice::from_raw_parts_mut(results, count as usize)));
     }
 }
 
@@ -794,9 +795,8 @@ pub extern "C" fn graph_engine_semantic_search(
         })
         .collect();
 
-    ffi_results.shrink_to_fit(); // Ensure capacity == len for safe Vec::from_raw_parts in free
-    let ptr = ffi_results.as_mut_ptr();
-    std::mem::forget(ffi_results);
+    let boxed = ffi_results.into_boxed_slice();
+    let ptr = Box::into_raw(boxed) as *mut search::SearchResult;
     ptr
 }
 

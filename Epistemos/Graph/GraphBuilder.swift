@@ -82,8 +82,12 @@ final class GraphBuilder {
 
         // Pre-compute recursive page count for each folder so parent folders
         // are visually larger (more content = bigger node radius).
+        // Uses a visited set to guard against circular parent-child references
+        // which would otherwise cause infinite recursion → stack overflow.
         var folderContentCount: [String: Int] = [:]
+        var visitedFolders = Set<String>()
         func recursivePageCount(_ folder: SDFolder) -> Int {
+            guard visitedFolders.insert(folder.id).inserted else { return 0 }
             if let cached = folderContentCount[folder.id] { return cached }
             let directPages = (folder.pages ?? []).filter { !$0.isArchived }.count
             let childCount = (folder.children ?? []).reduce(0) { $0 + recursivePageCount($1) }
@@ -91,7 +95,9 @@ final class GraphBuilder {
             folderContentCount[folder.id] = total
             return total
         }
-        for folder in folders { _ = recursivePageCount(folder) }
+        for folder in folders {
+            _ = recursivePageCount(folder)
+        }
 
         for folder in folders {
             let folderKey = "folder-\(folder.id)"

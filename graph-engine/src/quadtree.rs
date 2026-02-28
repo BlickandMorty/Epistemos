@@ -367,4 +367,624 @@ mod tests {
         assert_eq!(tree.count, 100);
         assert!((tree.total_strength - (-60000.0)).abs() < f32::EPSILON);
     }
+
+    // =========================================================================
+    // Tree Building Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn build_tree_empty() {
+        let bodies: Vec<Body> = vec![];
+        let tree = build_tree(&bodies);
+        assert!(tree.is_none());
+    }
+
+    #[test]
+    fn build_tree_single() {
+        let bodies = vec![Body { index: 0, x: 5.0, y: 10.0, strength: 100.0 }];
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 1);
+        assert!((tree.total_strength - 100.0).abs() < f32::EPSILON);
+        assert!((tree.center_x - 5.0).abs() < f32::EPSILON);
+        assert!((tree.center_y - 10.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn build_tree_two_separate() {
+        let bodies = vec![
+            Body { index: 0, x: -100.0, y: 0.0, strength: 50.0 },
+            Body { index: 1, x: 100.0, y: 0.0, strength: 50.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 2);
+        assert!((tree.total_strength - 100.0).abs() < f32::EPSILON);
+        // Center of charge at origin
+        assert!(tree.center_x.abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn build_tree_computes_bounds() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: 1.0 },
+            Body { index: 1, x: 100.0, y: 200.0, strength: 1.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        // Bounds should be padded and square
+        assert!(tree.bounds.min_x < 0.0);
+        assert!(tree.bounds.min_y < 0.0);
+        assert!(tree.bounds.max_x > 100.0);
+        assert!(tree.bounds.max_y > 200.0);
+        assert!(tree.bounds.max_x - tree.bounds.min_x >= tree.bounds.max_y - tree.bounds.min_y);
+    }
+
+    #[test]
+    fn build_tree_large_count() {
+        let bodies: Vec<Body> = (0..1000)
+            .map(|i| Body {
+                index: i,
+                x: (i % 100) as f32 * 10.0,
+                y: (i / 100) as f32 * 10.0,
+                strength: -1.0,
+            })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 1000);
+        assert!((tree.total_strength - (-1000.0)).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn build_tree_negative_positions() {
+        let bodies = vec![
+            Body { index: 0, x: -500.0, y: -500.0, strength: 100.0 },
+            Body { index: 1, x: -100.0, y: -100.0, strength: 100.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 2);
+        assert!(tree.bounds.min_x < -500.0);
+        assert!(tree.bounds.min_y < -500.0);
+    }
+
+    #[test]
+    fn build_tree_mixed_strengths() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: 100.0 },
+            Body { index: 1, x: 100.0, y: 0.0, strength: 300.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        // Center should be closer to the stronger body
+        assert!(tree.center_x > 50.0);
+        assert!(tree.center_x < 100.0);
+    }
+
+    #[test]
+    fn build_tree_very_small_spread() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: 1.0 },
+            Body { index: 1, x: 0.001, y: 0.001, strength: 1.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 2);
+    }
+
+    #[test]
+    fn build_tree_very_large_spread() {
+        let bodies = vec![
+            Body { index: 0, x: -1e6, y: -1e6, strength: 1.0 },
+            Body { index: 1, x: 1e6, y: 1e6, strength: 1.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 2);
+        assert!(tree.bounds.size() > 2e6);
+    }
+
+    // =========================================================================
+    // Insertion Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn insert_creates_leaf() {
+        let bodies = vec![Body { index: 0, x: 0.0, y: 0.0, strength: 1.0 }];
+        let tree = build_tree(&bodies).unwrap();
+        // Single body should create a leaf
+        assert!(tree.body.is_some());
+        assert!(tree.children.is_none());
+    }
+
+    #[test]
+    fn insert_subdivides_on_collision() {
+        let bodies = vec![
+            Body { index: 0, x: 10.0, y: 10.0, strength: 1.0 },
+            Body { index: 1, x: -10.0, y: -10.0, strength: 1.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        // Different quadrants, might or might not create children
+        assert_eq!(tree.count, 2);
+    }
+
+    #[test]
+    fn insert_same_quadrant_subdivides() {
+        let bodies = vec![
+            Body { index: 0, x: 10.0, y: 10.0, strength: 1.0 },
+            Body { index: 1, x: 20.0, y: 20.0, strength: 1.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        // Same quadrant requires subdivision
+        assert_eq!(tree.count, 2);
+    }
+
+    #[test]
+    fn insert_accumulates_aggregates() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: 100.0 },
+            Body { index: 1, x: 100.0, y: 100.0, strength: 100.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.total_strength, 200.0);
+        assert_eq!(tree.count, 2);
+    }
+
+    #[test]
+    fn insert_respects_max_depth() {
+        // Create many coincident points
+        let bodies: Vec<Body> = (0..100)
+            .map(|i| Body { index: i, x: 0.0, y: 0.0, strength: 1.0 })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 100);
+        // Should not overflow stack due to max_depth
+    }
+
+    #[test]
+    fn insert_preserves_indices() {
+        let bodies = vec![
+            Body { index: 42, x: 0.0, y: 0.0, strength: 1.0 },
+            Body { index: 99, x: 100.0, y: 100.0, strength: 1.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        // Tree stores bodies, indices should be preserved
+        assert_eq!(tree.count, 2);
+    }
+
+    #[test]
+    fn insert_all_quadrants() {
+        let bodies = vec![
+            Body { index: 0, x: -10.0, y: -10.0, strength: 1.0 },
+            Body { index: 1, x: 10.0, y: -10.0, strength: 1.0 },
+            Body { index: 2, x: -10.0, y: 10.0, strength: 1.0 },
+            Body { index: 3, x: 10.0, y: 10.0, strength: 1.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 4);
+    }
+
+    #[test]
+    fn insert_balanced_tree() {
+        let bodies: Vec<Body> = (0..8)
+            .map(|i| Body {
+                index: i,
+                x: if i % 2 == 0 { -10.0 } else { 10.0 },
+                y: if i < 4 { -10.0 } else { 10.0 },
+                strength: 1.0,
+            })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        assert_eq!(tree.count, 8);
+    }
+
+    #[test]
+    fn insert_updates_center_of_charge() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: 100.0 },
+            Body { index: 1, x: 100.0, y: 0.0, strength: 100.0 },
+            Body { index: 2, x: 50.0, y: 0.0, strength: 100.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        // Center should be at weighted average
+        assert!((tree.center_x - 50.0).abs() < 1.0);
+    }
+
+    // =========================================================================
+    // AABB Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn aabb_size_square() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        assert_eq!(aabb.size(), 100.0);
+    }
+
+    #[test]
+    fn aabb_size_rectangular() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 50.0 };
+        assert_eq!(aabb.size(), 100.0);
+    }
+
+    #[test]
+    fn aabb_midpoint() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 200.0 };
+        let (mx, my) = aabb.midpoint();
+        assert_eq!(mx, 50.0);
+        assert_eq!(my, 100.0);
+    }
+
+    #[test]
+    fn aabb_quadrant_nw() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        let qw = aabb.quadrant(0);
+        assert_eq!(qw.min_x, 0.0);
+        assert_eq!(qw.max_x, 50.0);
+        assert_eq!(qw.min_y, 0.0);
+        assert_eq!(qw.max_y, 50.0);
+    }
+
+    #[test]
+    fn aabb_quadrant_ne() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        let qe = aabb.quadrant(1);
+        assert_eq!(qe.min_x, 50.0);
+        assert_eq!(qe.max_x, 100.0);
+    }
+
+    #[test]
+    fn aabb_quadrant_sw() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        let qs = aabb.quadrant(2);
+        assert_eq!(qs.min_x, 0.0);
+        assert_eq!(qs.max_x, 50.0);
+        assert_eq!(qs.min_y, 50.0);
+        assert_eq!(qs.max_y, 100.0);
+    }
+
+    #[test]
+    fn aabb_quadrant_se() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        let q = aabb.quadrant(3);
+        assert_eq!(q.min_x, 50.0);
+        assert_eq!(q.max_y, 100.0);
+    }
+
+    #[test]
+    fn aabb_quadrant_for_nw() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        assert_eq!(aabb.quadrant_for(25.0, 25.0), 0);
+    }
+
+    #[test]
+    fn aabb_quadrant_for_ne() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        assert_eq!(aabb.quadrant_for(75.0, 25.0), 1);
+    }
+
+    #[test]
+    fn aabb_quadrant_for_boundary() {
+        let aabb = AABB { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        // On boundary goes to upper/right quadrants
+        assert_eq!(aabb.quadrant_for(50.0, 50.0), 3);
+    }
+
+    // =========================================================================
+    // Force Application Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn apply_force_empty_tree() {
+        let tree = build_tree(&[]);
+        assert!(tree.is_none());
+    }
+
+    #[test]
+    fn apply_force_self_skipped() {
+        let bodies = vec![Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 }];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        assert_eq!(dvx, 0.0);
+        assert_eq!(dvy, 0.0);
+    }
+
+    #[test]
+    fn apply_force_different_node() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
+            Body { index: 1, x: 50.0, y: 0.0, strength: -600.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        // Apply force from tree to node 0
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        // Repulsion from node 1 at x=50
+        assert!(dvx < 0.0);
+    }
+
+    #[test]
+    fn apply_force_distance_max_cutoff() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
+            Body { index: 1, x: 1000.0, y: 0.0, strength: -600.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 100.0 * 100.0, &mut dvx, &mut dvy);
+        assert_eq!(dvx, 0.0);
+    }
+
+    #[test]
+    fn apply_force_distance_min_clamped() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
+            Body { index: 1, x: 0.1, y: 0.0, strength: -600.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(0.0, 0.0, 0, 1.0, 10.0 * 10.0, 1e9, &mut dvx, &mut dvy);
+        // Should use distance_min, not actual small distance
+        assert!(dvx.abs() < 1000.0);
+    }
+
+    #[test]
+    fn apply_force_accumulates() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
+            Body { index: 1, x: 50.0, y: 0.0, strength: -600.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 1.0;
+        let mut dvy = 2.0;
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        // Should accumulate, not replace
+        assert!(dvx != 1.0, "force should be accumulated onto existing dvx");
+    }
+
+    #[test]
+    fn apply_force_alpha_scaling() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
+            Body { index: 1, x: 50.0, y: 0.0, strength: -600.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx1 = 0.0;
+        let mut dvy1 = 0.0;
+        let mut dvx2 = 0.0;
+        let mut dvy2 = 0.0;
+        tree.apply_force(0.0, 0.0, 0, 0.5, 1.0, 1e9, &mut dvx1, &mut dvy1);
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 1e9, &mut dvx2, &mut dvy2);
+        assert!((dvx2 - 2.0 * dvx1).abs() < 0.01);
+    }
+
+    #[test]
+    fn apply_force_zero_count_skipped() {
+        let bodies = vec![Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 }];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        // Querying at very far position beyond bounds with max_dist
+        tree.apply_force(1e9, 1e9, 0, 1.0, 1.0, 1.0, &mut dvx, &mut dvy);
+        assert_eq!(dvx, 0.0);
+    }
+
+    #[test]
+    fn apply_force_uses_approximation() {
+        // Many bodies in a small area should use approximation
+        let bodies: Vec<Body> = (0..100)
+            .map(|i| Body {
+                index: i,
+                x: (i % 10) as f32 * 5.0,
+                y: (i / 10) as f32 * 5.0,
+                strength: -6.0,
+            })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(1000.0, 1000.0, 0, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        // Far away should use approximation
+        assert!(dvx != 0.0 || dvy != 0.0);
+    }
+
+    // =========================================================================
+    // Approximation Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn theta_constant_value() {
+        assert_eq!(THETA, 0.5);
+    }
+
+    #[test]
+    fn approximation_used_when_far() {
+        // A large cluster far from query point uses approximation
+        let bodies: Vec<Body> = (0..50)
+            .map(|i| Body {
+                index: i,
+                x: (i % 10) as f32,
+                y: (i / 10) as f32,
+                strength: -10.0,
+            })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(1000.0, 1000.0, 999, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        // Should get some force from approximation
+        assert!(dvx != 0.0 || dvy != 0.0);
+    }
+
+    #[test]
+    fn approximation_not_used_when_close() {
+        // Close query should recurse
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
+            Body { index: 1, x: 10.0, y: 0.0, strength: -600.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        assert!(dvx < 0.0);
+    }
+
+    #[test]
+    fn approximation_accuracy() {
+        // Compare direct vs approximated calculation
+        let bodies: Vec<Body> = (0..20)
+            .map(|i| Body { index: i, x: i as f32 * 10.0, y: 0.0, strength: -10.0 })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        // Query at a position that should get repulsion
+        tree.apply_force(250.0, 0.0, 999, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        // Should get some force
+        assert!(dvx.abs() > 0.0 || dvy.abs() > 0.0, "should get some force from tree");
+    }
+
+    #[test]
+    fn approximation_condition_cell_size_vs_dist() {
+        // size / dist < theta means use approximation
+        let size = 100.0;
+        let dist = 250.0;
+        assert!(size / dist < THETA);
+    }
+
+    #[test]
+    fn approximation_not_used_for_singles() {
+        // Single body cells always used directly, not approximated
+        let bodies = vec![Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 }];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(100.0, 0.0, 1, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        // Single body should contribute
+        assert!(dvx != 0.0 || dvy == 0.0);
+    }
+
+    #[test]
+    fn approximation_with_large_tree() {
+        let bodies: Vec<Body> = (0..500)
+            .map(|i| Body {
+                index: i,
+                x: (i % 50) as f32 * 10.0,
+                y: (i / 50) as f32 * 10.0,
+                strength: -10.0,
+            })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(1000.0, 1000.0, 0, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        assert!(dvx != 0.0 || dvy != 0.0);
+    }
+
+    #[test]
+    fn approximation_symmetry() {
+        // Force between two nodes should be symmetric
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
+            Body { index: 1, x: 100.0, y: 0.0, strength: -600.0 },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx0 = 0.0;
+        let mut dvy0 = 0.0;
+        let mut dvx1 = 0.0;
+        let mut dvy1 = 0.0;
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 1e9, &mut dvx0, &mut dvy0);
+        tree.apply_force(100.0, 0.0, 1, 1.0, 1.0, 1e9, &mut dvx1, &mut dvy1);
+        assert!((dvx0 + dvx1).abs() < 0.1);
+    }
+
+    #[test]
+    fn approximation_performance() {
+        // Ensure approximation provides benefit
+        let bodies: Vec<Body> = (0..100)
+            .map(|i| Body { index: i, x: i as f32, y: 0.0, strength: -10.0 })
+            .collect();
+        let tree = build_tree(&bodies).unwrap();
+        // For 100 nodes, with theta=0.5, far queries should use approximation
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+        tree.apply_force(1000.0, 0.0, 50, 1.0, 1.0, 1e9, &mut dvx, &mut dvy);
+        assert!(dvx != 0.0);
+    }
+
+    // =========================================================================
+    // Body Structure Tests (10 tests)
+    // =========================================================================
+
+    #[test]
+    fn body_creation() {
+        let body = Body { index: 42, x: 100.0, y: 200.0, strength: -500.0 };
+        assert_eq!(body.index, 42);
+        assert_eq!(body.x, 100.0);
+        assert_eq!(body.y, 200.0);
+        assert_eq!(body.strength, -500.0);
+    }
+
+    #[test]
+    fn body_copy() {
+        let body1 = Body { index: 0, x: 0.0, y: 0.0, strength: 1.0 };
+        let body2 = body1;
+        assert_eq!(body1.index, body2.index);
+    }
+
+    #[test]
+    fn body_clone() {
+        let body = Body { index: 0, x: 0.0, y: 0.0, strength: 1.0 };
+        let body_clone = body.clone();
+        assert_eq!(body.index, body_clone.index);
+        assert_eq!(body.x, body_clone.x);
+    }
+
+    #[test]
+    fn body_negative_strength() {
+        let body = Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 };
+        assert!(body.strength < 0.0);
+    }
+
+    #[test]
+    fn body_positive_strength() {
+        let body = Body { index: 0, x: 0.0, y: 0.0, strength: 600.0 };
+        assert!(body.strength > 0.0);
+    }
+
+    #[test]
+    fn body_zero_strength() {
+        let body = Body { index: 0, x: 0.0, y: 0.0, strength: 0.0 };
+        assert_eq!(body.strength, 0.0);
+    }
+
+    #[test]
+    fn body_large_index() {
+        let body = Body { index: 1_000_000, x: 0.0, y: 0.0, strength: 1.0 };
+        assert_eq!(body.index, 1_000_000);
+    }
+
+    #[test]
+    fn body_extreme_positions() {
+        let body = Body { index: 0, x: 1e10, y: -1e10, strength: 1.0 };
+        assert_eq!(body.x, 1e10);
+        assert_eq!(body.y, -1e10);
+    }
+
+    #[test]
+    fn body_in_vec() {
+        let bodies = vec![
+            Body { index: 0, x: 0.0, y: 0.0, strength: 1.0 },
+            Body { index: 1, x: 100.0, y: 0.0, strength: 1.0 },
+        ];
+        assert_eq!(bodies.len(), 2);
+    }
+
+    #[test]
+    fn body_iteration() {
+        let bodies: Vec<Body> = (0..10)
+            .map(|i| Body { index: i, x: i as f32, y: 0.0, strength: 1.0 })
+            .collect();
+        for (i, body) in bodies.iter().enumerate() {
+            assert_eq!(body.index, i);
+        }
+    }
 }

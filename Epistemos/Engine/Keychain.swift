@@ -47,6 +47,7 @@ enum Keychain {
             kSecAttrAccount as String:      key,
             kSecReturnData as String:       true,
             kSecMatchLimit as String:       kSecMatchLimitOne,
+            kSecUseAuthenticationUI as String: kSecUseAuthenticationUISkip,
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)

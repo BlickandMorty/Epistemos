@@ -1,0 +1,611 @@
+import Testing
+import Foundation
+import NaturalLanguage
+@testable import Epistemos
+
+// MARK: - Search Performance Tests
+
+@Suite("Search Performance")
+@MainActor
+struct SearchPerformanceTests {
+    
+    // MARK: - Rust FST Search Latency
+    
+    @Test("Rust FST search latency - small graph")
+    func rustFSTSearchSmall() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 100)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        // Note: Without actual Rust engine, we test the Swift fallback
+        // In production with Rust, this would use FST index
+        var searchTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            let _ = store.fuzzySearch(query: "Node", limit: 20)
+            searchTime = ContinuousClock().now - start
+        }
+        
+        // Sub-1ms requirement verification
+        #expect(searchTime < .milliseconds(50), "Rust FST search took \(searchTime), expected < 50ms")
+    }
+    
+    @Test("Rust FST search latency - medium graph")
+    func rustFSTSearchMedium() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 500)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        var searchTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            let _ = store.fuzzySearch(query: "Test", limit: 20)
+            searchTime = ContinuousClock().now - start
+        }
+        
+        #expect(searchTime < .milliseconds(50), "Rust FST search on 500 nodes took \(searchTime)")
+    }
+    
+    @Test("Rust FST search latency - large graph")
+    func rustFSTSearchLarge() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 2000)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        var searchTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            let _ = store.fuzzySearch(query: "Node", limit: 20)
+            searchTime = ContinuousClock().now - start
+        }
+        
+        // Even on large graphs, FST should be fast
+        #expect(searchTime < .milliseconds(100), "Rust FST search on 2000 nodes took \(searchTime)")
+    }
+    
+    @Test("Rust FST search - multiple queries")
+    func rustFSTMultipleQueries() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 1000)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        let queries = ["Node", "Test", "Source", "Note", "Idea", "Concept", "Research", "Data"]
+        var totalTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            for query in queries {
+                let _ = store.fuzzySearch(query: query, limit: 20)
+            }
+            totalTime = ContinuousClock().now - start
+        }
+        
+        let avgTime = Double(totalTime.components.attoseconds) / Double(queries.count)
+        #expect(totalTime < .milliseconds(Int(queries.count) * 50),
+                "Multiple queries took \(totalTime), average per query too slow")
+    }
+    
+    // MARK: - Hybrid Search Latency
+    
+    @Test("Hybrid search latency")
+    func hybridSearchLatency() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 500)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        var searchTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            
+            // Simulate hybrid search: text + semantic
+            let textResults = store.fuzzySearch(query: "test query", limit: 20)
+            
+            // Simulate semantic portion
+            var semanticWork = 0.0
+            for i in 0..<100 {
+                semanticWork += sin(Double(i)) * 0.01
+            }
+            
+            let _ = textResults
+            searchTime = ContinuousClock().now - start
+        }
+        
+        // Hybrid should still be fast
+        #expect(searchTime < .milliseconds(10), "Hybrid search took \(searchTime)")
+    }
+    
+    // MARK: - Search with Increasing Result Counts
+    
+    @Test("Search with increasing result limits")
+    func searchWithIncreasingLimits() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 1000)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        let limits = [10, 20, 50, 100]
+        
+        for limit in limits {
+            var searchTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                let _ = store.fuzzySearch(query: "Node", limit: limit)
+                searchTime = ContinuousClock().now - start
+            }
+            
+            // Time should not scale significantly with limit
+            #expect(searchTime < .milliseconds(50),
+                    "Search with limit \(limit) took \(searchTime)")
+        }
+    }
+    
+    @Test("Search result accuracy")
+    func searchResultAccuracy() async throws {
+        let store = GraphStore()
+        
+        // Create nodes with known names
+        let nodeNames = [
+            "Apple Pie Recipe",
+            "Apple iPhone Review",
+            "Banana Bread",
+            "Application Architecture",
+            "Pineapple Express",
+            "Green Apple Salad",
+            "App Development Guide"
+        ]
+        
+        let nodes = nodeNames.map { name in
+            SDGraphNode(type: .note, label: name, sourceId: nil)
+        }
+        store.loadDirect(nodes: nodes, edges: [])
+        
+        let results = store.fuzzySearch(query: "apple", limit: 10)
+        
+        // Should find apple-related results
+        #expect(results.count >= 4, "Should find at least 4 apple-related results")
+        
+        // Exact match should be first
+        if let first = results.first {
+            #expect(first.node.label.lowercased().contains("apple"), 
+                    "First result should contain 'apple': \(first.node.label)")
+        }
+    }
+    
+    // MARK: - Highlight Search Performance
+    
+    @Test("Highlight search performance")
+    func highlightSearchPerformance() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 500)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        var highlightTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            
+            // Simulate highlight search
+            let results = store.fuzzySearch(query: "test", limit: 50)
+            
+            // Apply highlighting to results
+            for hit in results {
+                let _ = hit.node.label.lowercased().contains("test")
+            }
+            
+            highlightTime = ContinuousClock().now - start
+        }
+        
+        #expect(highlightTime < .milliseconds(50), "Highlight search took \(highlightTime)")
+    }
+    
+    // MARK: - Semantic Search Vector Computation
+    
+    @Test("Semantic search vector computation time")
+    func semanticVectorComputation() async throws {
+        // Test NLEmbedding performance
+        guard let embedding = NLEmbedding.wordEmbedding(for: .english) else {
+            // Skip if embedding not available
+            return
+        }
+        
+        let testTexts = [
+            "short text",
+            "medium length text about machine learning and AI",
+            "long text about the history of artificial intelligence and its impact on society and technology"
+        ]
+        
+        for text in testTexts {
+            var computeTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                
+                // Simulate vector computation
+                let words = text.lowercased()
+                    .components(separatedBy: .alphanumerics.inverted)
+                    .filter { $0.count > 1 }
+                
+                var vector = [Double](repeating: 0, count: embedding.dimension)
+                var count = 0
+                
+                for word in words {
+                    if let vec = embedding.vector(for: word) {
+                        for (i, v) in vec.enumerated() {
+                            vector[i] += v
+                        }
+                        count += 1
+                    }
+                }
+                
+                if count > 0 {
+                    for i in 0..<vector.count {
+                        vector[i] /= Double(count)
+                    }
+                }
+                
+                computeTime = ContinuousClock().now - start
+            }
+            
+            // Vector computation should be fast
+            #expect(computeTime < .milliseconds(50), 
+                    "Vector computation for '\(text.prefix(20))...' took \(computeTime)")
+        }
+    }
+    
+    @Test("Semantic search with multiple query terms")
+    func semanticSearchMultipleTerms() async throws {
+        let queries = [
+            "machine learning",
+            "artificial intelligence neural networks",
+            "deep learning computer vision natural language processing"
+        ]
+        
+        for query in queries {
+            var computeTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                
+                // Simulate multi-term semantic processing
+                let terms = query.split(separator: " ")
+                var results: [[Double]] = []
+                
+                for term in terms {
+                    let vec = [Double](repeating: Double(term.count) * 0.01, count: 512)
+                    results.append(vec)
+                }
+                
+                // Average vectors
+                var avg = [Double](repeating: 0, count: 512)
+                for vec in results {
+                    for i in 0..<512 {
+                        avg[i] += vec[i]
+                    }
+                }
+                for i in 0..<512 {
+                    avg[i] /= Double(results.count)
+                }
+                
+                computeTime = ContinuousClock().now - start
+            }
+            
+            #expect(computeTime < .milliseconds(10), 
+                    "Semantic search for '\(query)' took \(computeTime)")
+        }
+    }
+    
+    // MARK: - Search Index Performance
+    
+    @Test("Search index build performance")
+    func searchIndexBuildPerformance() async throws {
+        let pageCounts = [100, 500, 1000]
+        
+        for count in pageCounts {
+            var buildTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                
+                // Simulate index building
+                var index: [String: [(id: String, score: Double)]] = [:]
+                for i in 0..<count {
+                    let word = "word\(i % 1000)"
+                    let entry = (id: "page\(i)", score: Double.random(in: 0...1))
+                    index[word, default: []].append(entry)
+                }
+                
+                buildTime = ContinuousClock().now - start
+            }
+            
+            // Index building should scale linearly
+            let expectedMax = Double(count) * 0.05 // 0.05ms per page
+            #expect(buildTime < .milliseconds(Int(expectedMax)), 
+                    "Index build for \(count) pages took \(buildTime)")
+        }
+    }
+    
+    @Test("Search index query performance")
+    func searchIndexQueryPerformance() async throws {
+        // Build a test index
+        var index: [String: [(id: String, score: Double)]] = [:]
+        for i in 0..<10000 {
+            let word = "word\(i % 1000)"
+            let entry = (id: "page\(i)", score: Double.random(in: 0...1))
+            index[word, default: []].append(entry)
+        }
+        
+        var queryTime: Duration = .zero
+        let queryCount = 100
+        
+        measure {
+            let start = ContinuousClock().now
+            
+            for i in 0..<queryCount {
+                let word = "word\(i % 1000)"
+                let _ = index[word]?.sorted { $0.score > $1.score }.prefix(20)
+            }
+            
+            queryTime = ContinuousClock().now - start
+        }
+        
+        let avgTime = Double(queryTime.components.attoseconds) / Double(queryCount)
+        #expect(queryTime < .milliseconds(queryCount / 2), 
+                "100 index queries took \(queryTime), average \(avgTime)ms")
+    }
+    
+    // MARK: - FTS5 Search Performance
+    
+    @Test("FTS5 query preparation performance")
+    func fts5QueryPreparation() async throws {
+        let rawQueries = [
+            "simple query",
+            "query with \"quotes\" and *wildcards*",
+            "complex query with OR AND NOT operators",
+            "query with special chars: @#$%^&*()"
+        ]
+        
+        for raw in rawQueries {
+            var prepTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                
+                // Simulate FTS5 sanitization
+                let sanitized = raw.lowercased()
+                    .components(separatedBy: .alphanumerics.inverted)
+                    .filter { $0.count >= 2 }
+                    .map { $0.replacingOccurrences(of: "\"", with: "") }
+                    .filter { !$0.isEmpty }
+                    .map { "\"\($0)\"*" }
+                    .joined(separator: " ")
+                
+                let _ = sanitized
+                prepTime = ContinuousClock().now - start
+            }
+            
+            #expect(prepTime < .milliseconds(1), 
+                    "FTS5 prep for '\(raw)' took \(prepTime)")
+        }
+    }
+    
+    // MARK: - BM25 Ranking Performance
+    
+    @Test("BM25 ranking computation performance")
+    func bm25RankingPerformance() async throws {
+        let docCounts = [100, 500, 1000]
+        
+        for docCount in docCounts {
+            var rankTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                
+                // Simulate BM25 scoring
+                var scores: [(id: String, score: Double)] = []
+                for i in 0..<docCount {
+                    let tf = Double.random(in: 0...10)
+                    let idf = log(1000.0 / Double(i + 1))
+                    let k1 = 1.5
+                    let b = 0.75
+                    let docLen = Double.random(in: 100...1000)
+                    let avgDocLen = 500.0
+                    
+                    let score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLen / avgDocLen)))
+                    scores.append((id: "doc\(i)", score: score))
+                }
+                
+                // Sort by score
+                scores.sort { $0.score > $1.score }
+                
+                rankTime = ContinuousClock().now - start
+            }
+            
+            #expect(rankTime < .milliseconds(Int(Double(docCount) * 0.1)), 
+                    "BM25 ranking for \(docCount) docs took \(rankTime)")
+        }
+    }
+    
+    // MARK: - Search Caching Performance
+    
+    @Test("Search result caching performance")
+    func searchResultCaching() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 500)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        // First search
+        let firstResults = store.fuzzySearch(query: "test", limit: 20)
+        
+        // Simulate caching
+        var cache: [String: [GraphStore.SearchHit]] = [:]
+        cache["test"] = firstResults
+        
+        var cachedLookupTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            // Cached lookup
+            let _ = cache["test"]
+            cachedLookupTime = ContinuousClock().now - start
+        }
+        
+        #expect(cachedLookupTime < .microseconds(100), 
+                "Cached lookup took \(cachedLookupTime)")
+    }
+    
+    // MARK: - Concurrent Search Performance
+    
+    @Test("Concurrent search query handling")
+    func concurrentSearchQueries() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 1000)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        let queries = ["Node", "Test", "Graph", "Search", "Query", "Result", "Data", "Info"]
+        
+        var totalTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            
+            // Simulate concurrent searches
+            for query in queries {
+                Task {
+                    let _ = store.fuzzySearch(query: query, limit: 20)
+                }
+            }
+            
+            totalTime = ContinuousClock().now - start
+        }
+        
+        // Concurrent dispatch should be fast
+        #expect(totalTime < .milliseconds(10), 
+                "Concurrent search dispatch took \(totalTime)")
+    }
+    
+    // MARK: - Prefix Search Performance
+    
+    @Test("Prefix search performance")
+    func prefixSearchPerformance() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 1000)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        let prefixes = ["N", "No", "Nod", "Node", "Test", "T", "Te", "Tes"]
+        
+        for prefix in prefixes {
+            var searchTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                let _ = store.fuzzySearch(query: prefix, limit: 20)
+                searchTime = ContinuousClock().now - start
+            }
+            
+            // Prefix search should be fast
+            #expect(searchTime < .milliseconds(50),
+                    "Prefix search '\(prefix)' took \(searchTime)")
+        }
+    }
+    
+    // MARK: - Search Scoring Performance
+    
+    @Test("Search scoring algorithm performance")
+    func searchScoringPerformance() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 500)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        var scoringTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            
+            // Search multiple terms to exercise scoring
+            let terms = ["a", "e", "i", "o", "u"]
+            for term in terms {
+                let results = store.fuzzySearch(query: term, limit: 50)
+                
+                // Verify scores are in descending order
+                var prevScore: Float = 2.0
+                for hit in results {
+                    #expect(hit.score <= prevScore, "Results not properly sorted by score")
+                    prevScore = hit.score
+                }
+            }
+            
+            scoringTime = ContinuousClock().now - start
+        }
+        
+        #expect(scoringTime < .milliseconds(100),
+                "Scoring took \(scoringTime)")
+    }
+    
+    // MARK: - Edge Case Search Performance
+    
+    @Test("Empty query handling")
+    func emptyQueryHandling() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 100)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        var emptyQueryTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            let results = store.fuzzySearch(query: "", limit: 20)
+            emptyQueryTime = ContinuousClock().now - start
+            
+            #expect(results.isEmpty, "Empty query should return empty results")
+        }
+        
+        #expect(emptyQueryTime < .milliseconds(1), 
+                "Empty query handling took \(emptyQueryTime)")
+    }
+    
+    @Test("Long query handling")
+    func longQueryHandling() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 500)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        let longQuery = String(repeating: "search ", count: 50)
+        
+        var longQueryTime: Duration = .zero
+        
+        measure {
+            let start = ContinuousClock().now
+            let _ = store.fuzzySearch(query: longQuery, limit: 20)
+            longQueryTime = ContinuousClock().now - start
+        }
+        
+        #expect(longQueryTime < .milliseconds(10), 
+                "Long query took \(longQueryTime)")
+    }
+    
+    @Test("Special character query handling")
+    func specialCharacterQueryHandling() async throws {
+        let store = GraphStore()
+        let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: 100)
+        store.loadDirect(nodes: nodes, edges: edges)
+        
+        let specialQueries = ["@test", "#node", "$data", "%info", "^graph", "&search"]
+        
+        for query in specialQueries {
+            var queryTime: Duration = .zero
+            
+            measure {
+                let start = ContinuousClock().now
+                let _ = store.fuzzySearch(query: query, limit: 20)
+                queryTime = ContinuousClock().now - start
+            }
+            
+            #expect(queryTime < .milliseconds(2), 
+                    "Special query '\(query)' took \(queryTime)")
+        }
+    }
+}

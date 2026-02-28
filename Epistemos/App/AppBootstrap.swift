@@ -159,6 +159,9 @@ final class AppBootstrap {
             self?.coordinator.cancelActiveQuery()
         }
 
+        // Set shared before wiring so that any callbacks can access it.
+        AppBootstrap.shared = self
+
         // Wire all events (pipeline, toast, vault, daily brief)
         appCoordinator.wireAll()
 
@@ -170,8 +173,6 @@ final class AppBootstrap {
 
         // Check Ollama availability in background
         Task { await llm.checkOllama() }
-
-        AppBootstrap.shared = self
 
         // One-time migration: move note bodies from inline SQLite to file storage (background).
         Task { @MainActor in migrateBodiesToFileStorage() }
@@ -314,12 +315,13 @@ final class AppBootstrap {
         if migrated > 0 {
             do {
                 try context.save()
+                UserDefaults.standard.set(true, forKey: migrationKey)
+                Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
             } catch {
-                Log.app.error("Body migration: failed to save after migrating \(migrated) pages: \(error.localizedDescription, privacy: .public)")
+                Log.app.error("Body migration: failed to save after migrating \(migrated) pages — will retry on next launch: \(error.localizedDescription, privacy: .public)")
             }
+        } else {
+            UserDefaults.standard.set(true, forKey: migrationKey)
         }
-
-        UserDefaults.standard.set(true, forKey: migrationKey)
-        Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
     }
 }

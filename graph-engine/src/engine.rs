@@ -685,9 +685,6 @@ impl Engine {
     /// Returns true if positions were updated (i.e., simulation is still running).
     fn sync_positions(&mut self) -> bool {
         let sim = self.sim.lock();
-        if sim.is_settled {
-            return false;
-        }
 
         for (si, &gi) in sim.graph_indices.iter().enumerate() {
             if gi < self.graph.nodes.len() {
@@ -697,7 +694,7 @@ impl Engine {
                 self.graph.nodes[gi].vy = sim.vy[si];
             }
         }
-        true
+        !sim.is_settled
     }
 
     /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.

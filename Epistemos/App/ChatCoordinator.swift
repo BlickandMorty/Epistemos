@@ -130,6 +130,7 @@ final class ChatCoordinator {
                     if !capturedIsIncognito {
                         self.persistEnrichment(
                             chatId: capturedChatId,
+                            messageId: pendingAssistantId,
                             dualMessage: dual,
                             truthAssessment: truth
                         )
@@ -486,21 +487,19 @@ final class ChatCoordinator {
 
     func persistEnrichment(
         chatId: String?,
+        messageId: String,
         dualMessage: DualMessage,
         truthAssessment: TruthAssessment
     ) {
         guard let chatId else { return }
         let context = modelContainer.mainContext
 
-        let predicate = #Predicate<SDChat> { $0.id == chatId }
-        let descriptor = FetchDescriptor<SDChat>(predicate: predicate)
-
-        guard let chat = try? context.fetch(descriptor).first,
-              let lastAssistant = (chat.messages ?? [])
-                  .filter({ $0.role == "assistant" })
-                  .max(by: { $0.createdAt < $1.createdAt })
-        else {
-            Log.db.warning("persistEnrichment: no assistant message found for chat \(chatId, privacy: .public)")
+        // Look up the specific message by ID, not the "latest assistant message",
+        // to avoid enrichment being saved to the wrong message during rapid queries.
+        let msgPredicate = #Predicate<SDMessage> { $0.id == messageId }
+        let msgDescriptor = FetchDescriptor<SDMessage>(predicate: msgPredicate)
+        guard let lastAssistant = try? context.fetch(msgDescriptor).first else {
+            Log.db.warning("persistEnrichment: no message found with id \(messageId.prefix(8), privacy: .public) for chat \(chatId, privacy: .public)")
             return
         }
 

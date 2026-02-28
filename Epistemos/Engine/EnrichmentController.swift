@@ -713,18 +713,29 @@ nonisolated enum EnrichmentController {
         cleaned = cleaned.replacingOccurrences(of: "```", with: "")
         cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // 3. Find the outermost { ... } — using balanced counting to handle
-        //    prose-before-JSON (model writes text then produces JSON block).
-        //    We scan forward from each '{' and check if it produces valid JSON.
-        guard let firstBrace = cleaned.firstIndex(of: "{"),
-            let lastBrace = cleaned.lastIndex(of: "}")
-        else {
+        // 3. Find the outermost { ... } using balanced brace counting.
+        //    Scans forward from the first '{', counting depth, and stops when depth returns to 0.
+        guard let firstBrace = cleaned.firstIndex(of: "{") else {
             Log.pipeline.info(
                 "🔬 extractJSON: no braces in \(cleaned.count) chars — first80=\(String(cleaned.prefix(80)))"
             )
             return nil
         }
-        var jsonStr = String(cleaned[firstBrace...lastBrace])
+        var depth = 0
+        var endBrace = firstBrace
+        for idx in cleaned[firstBrace...].indices {
+            let ch = cleaned[idx]
+            if ch == "{" { depth += 1 }
+            else if ch == "}" {
+                depth -= 1
+                if depth == 0 { endBrace = idx; break }
+            }
+        }
+        guard depth == 0 else {
+            Log.pipeline.info("🔬 extractJSON: unbalanced braces — depth=\(depth)")
+            return nil
+        }
+        var jsonStr = String(cleaned[firstBrace...endBrace])
 
         // 4. Strip trailing commas before } or ] — common with GPT/Gemini/Kimi.
         //    Standard JSON doesn't allow trailing commas; JSONSerialization rejects them.

@@ -516,6 +516,8 @@ final class GraphState {
 
     /// IDs of ephemeral nodes created for page mode (removed on mode switch).
     private(set) var ephemeralNodeIds = Set<String>()
+    /// IDs of ephemeral wikilink edges (between permanent nodes, not cleaned by removeNode).
+    private(set) var ephemeralEdgeIds = Set<String>()
 
     /// Build ephemeral quote and source nodes from the active note's markdown body.
     /// Wikilinks are resolved to existing graph nodes; blockquotes and links become new nodes.
@@ -632,6 +634,7 @@ final class GraphState {
             type: .reference, weight: 1.0, createdAt: createdAt
         )
         store.addEdge(edge)
+        ephemeralEdgeIds.insert(edgeId)
     }
 
     /// Remove all ephemeral nodes (and their edges) created for page mode.
@@ -640,6 +643,12 @@ final class GraphState {
             store.removeNode(nodeId)
         }
         ephemeralNodeIds.removeAll()
+
+        // Remove ephemeral wikilink edges (between permanent nodes, not cleaned by removeNode).
+        for edgeId in ephemeralEdgeIds {
+            store.removeEdge(edgeId)
+        }
+        ephemeralEdgeIds.removeAll()
     }
 
     // MARK: - Node / Edge Creation
