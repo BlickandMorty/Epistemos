@@ -28,6 +28,8 @@ struct ProseEditorView: View {
     @Environment(VaultSyncService.self) private var vaultSync
 
     @State private var bodyText: String = ""
+    /// Snapshot of the last body persisted to disk. Avoids disk reads on every keystroke.
+    @State private var lastPersistedBody: String = ""
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
 
@@ -35,7 +37,7 @@ struct ProseEditorView: View {
         ProseEditorRepresentable(
             text: $bodyText,
             pageId: page.id,
-            pageBody: page.loadBody(),
+            pageBody: bodyText,
             isFocused: isFocused,
             isDark: ui.theme.isDark,
             isEditable: isEditable,
@@ -48,24 +50,26 @@ struct ProseEditorView: View {
                 let desc = FetchDescriptor<SDPage>(
                     predicate: #Predicate<SDPage> { $0.id == oldPageId }
                 )
-                if let oldPage = try? modelContext.fetch(desc).first,
-                    oldPage.loadBody() != currentText
-                {
+                if let oldPage = try? modelContext.fetch(desc).first {
                     oldPage.saveBody(currentText)
                     oldPage.needsVaultSync = true
                 }
             }
         )
         .onAppear {
-            bodyText = page.loadBody()
+            let body = page.loadBody()
+            bodyText = body
+            lastPersistedBody = body
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
             saveTask?.cancel()
-            bodyText = page.loadBody()
+            let body = page.loadBody()
+            bodyText = body
+            lastPersistedBody = body
         }
         .onChange(of: bodyText) { _, newValue in
-            guard newValue != page.loadBody() else { return }
+            guard newValue != lastPersistedBody else { return }
             debouncedSave(newValue)
         }
         // Detect external body changes (restore-to-version, sync, etc.)
@@ -89,8 +93,9 @@ struct ProseEditorView: View {
 
     private func flushIfNeeded() {
         saveTask?.cancel()
-        if page.loadBody() != bodyText {
+        if lastPersistedBody != bodyText {
             page.saveBody(bodyText)
+            lastPersistedBody = bodyText
             page.needsVaultSync = true
         }
     }
@@ -113,8 +118,9 @@ struct ProseEditorView: View {
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
-            guard newValue != page.loadBody() else { return }
+            guard newValue != lastPersistedBody else { return }
             page.saveBody(newValue)
+            lastPersistedBody = newValue
         }
     }
 

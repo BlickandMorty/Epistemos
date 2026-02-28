@@ -1,6 +1,5 @@
 import CoreSpotlight
 import Foundation
-import PDFKit
 import SwiftData
 import os
 
@@ -83,6 +82,11 @@ actor VaultIndexActor {
         let batchSize = 200
 
         for case let fileURL as URL in enumerator {
+            // Allow cooperative cancellation during large vault imports
+            guard !Task.isCancelled else {
+                log.info("Vault import cancelled — indexed \(insertCount + updateCount) files before cancellation")
+                break
+            }
             // Skip developer artifact and system directory subtrees entirely
             let name = fileURL.lastPathComponent
             if excludedDirs.contains(name)
@@ -92,7 +96,7 @@ actor VaultIndexActor {
             }
 
             let ext = fileURL.pathExtension.lowercased()
-            guard ext == "md" || ext == "markdown" || ext == "txt" || ext == "pdf" else { continue }
+            guard ext == "md" || ext == "markdown" || ext == "txt" else { continue }
 
             let filePath = fileURL.path
             diskPaths.insert(filePath)
@@ -251,7 +255,9 @@ actor VaultIndexActor {
         log.info(
             "Synthesized \(foldersByPath.count) folders from \(uniquePaths.count) unique directory paths"
         )
-        NotificationCenter.default.post(name: vaultFoldersRepairedNotification, object: nil)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: vaultFoldersRepairedNotification, object: nil)
+        }
     }
 
     /// Lightweight repair: only runs when no files were inserted/deleted.
@@ -319,7 +325,9 @@ actor VaultIndexActor {
         if repaired > 0 || subfolderFixed > 0 {
             try modelContext.save()
             log.info("Repair: fixed \(subfolderFixed) missing subfolders, wired \(repaired) orphaned pages to folders")
-            NotificationCenter.default.post(name: vaultFoldersRepairedNotification, object: nil)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: vaultFoldersRepairedNotification, object: nil)
+            }
         }
     }
 
@@ -398,7 +406,11 @@ actor VaultIndexActor {
         )
         let existing = try modelContext.fetch(descriptor)
         for page in existing {
-            try? searchService?.delete(pageId: page.id)
+            do {
+                try searchService?.delete(pageId: page.id)
+            } catch {
+                log.error("FTS5 delete failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
             modelContext.delete(page)
         }
         try modelContext.save()
@@ -421,29 +433,18 @@ actor VaultIndexActor {
         }
 
         let filePath = fileURL.path
-        let isPDF = fileURL.pathExtension.lowercased() == "pdf"
 
         let content: String
-        if isPDF {
-            // Extract text from PDF using PDFKit
-            guard let doc = PDFDocument(url: fileURL) else {
-                log.warning("Skipping unreadable PDF: \(fileURL.lastPathComponent, privacy: .public)")
-                return false
-            }
-            content = (0..<doc.pageCount).compactMap { doc.page(at: $0)?.string }.joined(separator: "\n\n")
-        } else {
-            do {
-                content = try String(contentsOf: fileURL, encoding: .utf8)
-            } catch {
-                log.error(
-                    "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
-                )
-                return false  // Skip this file instead of crashing the entire import
-            }
+        do {
+            content = try String(contentsOf: fileURL, encoding: .utf8)
+        } catch {
+            log.error(
+                "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
+            )
+            return false  // Skip this file instead of crashing the entire import
         }
 
-        // Parse front-matter and body (PDFs and .txt files have no front-matter)
-        let (frontMatter, body) = isPDF ? ([:], content) : parseFrontMatter(content)
+        let (frontMatter, body) = parseFrontMatter(content)
 
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.filePath == filePath }
@@ -489,10 +490,14 @@ actor VaultIndexActor {
                     // folder relationship will be re-wired by synthesis/repair
                 }
 
-                try? searchService?.upsert(
-                    id: page.id, title: page.title, body: body,
-                    tags: page.tags.joined(separator: " "), updatedAt: page.updatedAt
-                )
+                do {
+                    try searchService?.upsert(
+                        id: page.id, title: page.title, body: body,
+                        tags: page.tags.joined(separator: " "), updatedAt: page.updatedAt
+                    )
+                } catch {
+                    log.error("FTS5 upsert failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
                 return true
             }
             return false
@@ -531,10 +536,14 @@ actor VaultIndexActor {
             page.templateId = frontMatter["template"]
 
             modelContext.insert(page)
-            try? searchService?.upsert(
-                id: page.id, title: page.title, body: body,
-                tags: page.tags.joined(separator: " "), updatedAt: page.updatedAt
-            )
+            do {
+                try searchService?.upsert(
+                    id: page.id, title: page.title, body: body,
+                    tags: page.tags.joined(separator: " "), updatedAt: page.updatedAt
+                )
+            } catch {
+                log.error("FTS5 insert failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
             return true
         }
     }

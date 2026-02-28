@@ -7,7 +7,7 @@
 //! and applies velocityDecay as a multiplier. There is no position-Verlet,
 //! no mass division, and no ambient Brownian motion.
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 use crate::forces;
 use crate::quadtree;
@@ -78,10 +78,11 @@ impl Default for ForceParams {
             link_strength: 0.0, // auto
 
             // Higher = more viscous/damped, less bouncy.
-            velocity_decay: 0.70,
+            // 0.60 = 40% damping per tick — settles faster with less oscillation.
+            velocity_decay: 0.60,
             center_strength: 0.005,
             collision_radius: 35.0,
-            collision_iterations: 2,
+            collision_iterations: 1,
             cluster_strength: 0.3,
             center_mode: CenterMode::Attract,
             semantic_strength: 0.0,
@@ -134,7 +135,7 @@ pub struct Simulation {
     pub semantic_neighbors: Vec<(usize, usize, f32)>,
 
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
-    collision_grid: HashMap<(i32, i32), Vec<usize>>,
+    collision_grid: FxHashMap<(i32, i32), Vec<usize>>,
     bodies_scratch: Vec<quadtree::Body>,
 }
 
@@ -164,7 +165,7 @@ impl Simulation {
             is_settled: false,
             anchor_center: None,
             semantic_neighbors: Vec::new(),
-            collision_grid: HashMap::new(),
+            collision_grid: FxHashMap::default(),
             bodies_scratch: Vec::new(),
         }
     }
@@ -251,7 +252,10 @@ impl Simulation {
         self.params.alpha +=
             (self.params.alpha_target - self.params.alpha) * self.params.alpha_decay;
 
-        if self.params.alpha < self.params.alpha_min {
+        // Don't settle while any node is fixed (being dragged) — neighbors
+        // still need forces applied to smoothly adjust around the dragged node.
+        let any_fixed = self.fx.iter().any(|f| f.is_some());
+        if self.params.alpha < self.params.alpha_min && !any_fixed {
             self.is_settled = true;
             return;
         }
@@ -290,6 +294,7 @@ impl Simulation {
         );
 
         // Collision force (position-based overlap prevention) — reuses scratch grid.
+        // Passes fx/fy so fixed (dragged) nodes don't get pushed by collision.
         for v in self.collision_grid.values_mut() {
             v.clear();
         }
@@ -297,6 +302,8 @@ impl Simulation {
             &mut self.x,
             &mut self.y,
             &self.collision_radii,
+            &self.fx,
+            &self.fy,
             self.params.collision_iterations,
             &mut self.collision_grid,
         );
@@ -396,10 +403,13 @@ impl Simulation {
     }
 
     /// Release a fixed node (end drag).
+    /// Zeroes velocity so the node doesn't fly off from residual force accumulation.
     pub fn unfix_node(&mut self, sim_index: usize) {
         if sim_index < self.x.len() {
             self.fx[sim_index] = None;
             self.fy[sim_index] = None;
+            self.vx[sim_index] = 0.0;
+            self.vy[sim_index] = 0.0;
         }
     }
 }
@@ -563,10 +573,10 @@ mod tests {
         assert_eq!(p.link_distance, 250.0);
         assert_eq!(p.charge_strength, -1200.0);
         assert_eq!(p.charge_range, 2000.0);
-        assert_eq!(p.velocity_decay, 0.70);
+        assert_eq!(p.velocity_decay, 0.60);
         assert_eq!(p.center_strength, 0.005);
         assert_eq!(p.collision_radius, 35.0);
-        assert_eq!(p.collision_iterations, 2);
+        assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.3);
         assert_eq!(p.center_mode, CenterMode::Attract);
     }

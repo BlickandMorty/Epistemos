@@ -21,6 +21,7 @@ struct CommandPaletteOverlay: View {
     // Search state
     @State private var searchText = ""
     @State private var inlineSelectedIndex = 0
+    @State private var searchHighlightTask: Task<Void, Never>?
     @FocusState private var isSearchFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
@@ -283,7 +284,13 @@ struct CommandPaletteOverlay: View {
         }
         .onChange(of: searchText) { _, newText in
             inlineSelectedIndex = 0
-            graphState.searchHighlight(newText)
+            // Debounce graph highlight FFI call (150ms) to avoid Rust call per keystroke.
+            searchHighlightTask?.cancel()
+            searchHighlightTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled else { return }
+                graphState.searchHighlight(newText)
+            }
         }
     }
 

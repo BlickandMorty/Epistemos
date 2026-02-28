@@ -173,8 +173,14 @@ final class AppBootstrap {
 
         AppBootstrap.shared = self
 
-        // One-time migration: move note bodies from inline SQLite to file storage.
-        migrateBodiesToFileStorage()
+        // One-time migration: move note bodies from inline SQLite to file storage (background).
+        Task { @MainActor in migrateBodiesToFileStorage() }
+
+        // Eagerly load graph store so command palette search works before the graph window opens.
+        Task { @MainActor in
+            graphState.loadGraph(context: container.mainContext)
+            graphState.modelContext = container.mainContext
+        }
 
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
@@ -205,11 +211,14 @@ final class AppBootstrap {
 
         // Also clean Epistemos subdirectory (search index, etc.)
         if let dir = appSupport?.appendingPathComponent("Epistemos") {
-            if let contents = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            do {
+                let contents = try fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
                 for file in contents where file.pathExtension == "sqlite"
                     || file.lastPathComponent.contains("default.store") {
                     try? fm.removeItem(at: file)
                 }
+            } catch {
+                Log.app.error("Failed to enumerate Epistemos directory during reset: \(error.localizedDescription, privacy: .public)")
             }
         }
         Log.app.info("Database reset complete — relaunching")

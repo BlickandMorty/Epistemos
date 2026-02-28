@@ -467,7 +467,8 @@ impl Renderer {
     /// +2 for highlight rings, +hub_count for glow instances.
     pub fn allocate_buffers(&mut self, graph: &Graph, entrance: Option<&[crate::engine::EntranceNodeState]>) {
         let hub_count = graph.nodes.iter().filter(|n| n.visible && n.link_count >= 9).count();
-        let node_count = graph.nodes.len() + 2 + hub_count;
+        let confidence_glow_count = graph.nodes.iter().filter(|n| n.visible && n.confidence > 0.0).count();
+        let node_count = graph.nodes.len() + 2 + hub_count + confidence_glow_count;
         let edge_count = graph.edges.len();
 
         if node_count > self.node_instance_capacity || self.node_instance_buf.is_none() {
@@ -708,7 +709,7 @@ impl Renderer {
                         }
                     }
 
-                    // Update glow instance (if this node has one).
+                    // Update glow instances (hub glow + confidence glow).
                     // Highlight dimming handled by GPU via highlight_flag_buf.
                     if node.link_count >= 9 && glow_idx < self.glow_count {
                         let glow = &mut *ptr.add(glow_idx);
@@ -716,6 +717,15 @@ impl Renderer {
                         glow.z = z - 0.1;
                         let base_glow = if self.light_mode { 0.15 } else { 0.08 };
                         glow.color[3] = base_glow * ent_alpha;
+                        glow_idx += 1;
+                    }
+                    if node.confidence > 0.0 && glow_idx < self.glow_count {
+                        let conf = node.confidence.clamp(0.0, 1.0);
+                        let glow = &mut *ptr.add(glow_idx);
+                        glow.position = pos;
+                        glow.z = z - 0.05;
+                        let base_alpha = 0.04 + conf * 0.10;
+                        glow.color[3] = base_alpha * ent_alpha;
                         glow_idx += 1;
                     }
 
@@ -826,7 +836,9 @@ impl Renderer {
         let mut idx = self.glow_count + self.node_count;
 
         if let Some(sel_id) = selected
-            && let Some(node) = graph.nodes.iter().find(|n| n.id == sel_id && n.visible)
+            && let Some(&gi) = graph.id_to_index.get(&sel_id)
+            && let Some(node) = graph.nodes.get(gi)
+            && node.visible
         {
             let color = self.node_color(&node.node_type);
             unsafe {
@@ -842,7 +854,9 @@ impl Renderer {
 
         if let Some(hov_id) = hovered
             && Some(hov_id) != selected
-            && let Some(node) = graph.nodes.iter().find(|n| n.id == hov_id && n.visible)
+            && let Some(&gi) = graph.id_to_index.get(&hov_id)
+            && let Some(node) = graph.nodes.get(gi)
+            && node.visible
         {
             unsafe {
                 *ptr.add(idx) = NodeInstance {
@@ -873,10 +887,17 @@ impl Renderer {
         let mut flags: Vec<u8> = Vec::with_capacity(total);
 
         if self.highlight.active {
-            // Glow flags
-            for node in graph.nodes.iter().filter(|n| n.visible && n.link_count >= 9) {
-                let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
-                flags.push(if dimmed { GLOW_DIM } else { 0 });
+            // Glow flags — must mirror upload_graph/update_positions per-node interleaved order:
+            // for each visible node: hub glow (if link_count >= 9), then confidence glow (if confidence > 0)
+            for node in graph.nodes.iter().filter(|n| n.visible) {
+                if node.link_count >= 9 {
+                    let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
+                    flags.push(if dimmed { GLOW_DIM } else { 0 });
+                }
+                if node.confidence > 0.0 {
+                    let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
+                    flags.push(if dimmed { GLOW_DIM } else { 0 });
+                }
             }
             // Regular node flags
             for node in graph.nodes.iter().filter(|n| n.visible) {

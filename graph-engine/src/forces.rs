@@ -7,12 +7,11 @@
 
 use crate::quadtree::{self, Body};
 
-/// Tiny random displacement to break symmetry on coincident nodes.
-/// d3 uses `(lcg() - 0.5) * 1e-6`.
-fn jiggle() -> f32 {
-    // Simple deterministic jiggle — not truly random but breaks symmetry.
-    // In practice, node positions are never exactly equal after initialization.
-    1e-6
+/// Tiny displacement to break symmetry on coincident nodes.
+/// d3 uses `(lcg() - 0.5) * 1e-6`. We use a seed-based approach
+/// so coincident pairs get pushed in different directions.
+fn jiggle(seed: usize) -> f32 {
+    if seed & 1 == 0 { 1e-6 } else { -1e-6 }
 }
 
 // ── Force: Link (Hooke's spring along edges) ────────────────────────────────
@@ -45,8 +44,8 @@ pub fn force_link(
             continue;
         }
 
-        let mut dx = x[ti] - x[si] + jiggle();
-        let mut dy = y[ti] - y[si] + jiggle();
+        let mut dx = x[ti] - x[si] + jiggle(ei);
+        let mut dy = y[ti] - y[si] + jiggle(ei + 1);
         let dist = (dx * dx + dy * dy).sqrt().max(1e-6);
         dx /= dist;
         dy /= dist;
@@ -165,14 +164,17 @@ pub fn force_many_body_with_scratch(
 /// size `2 × max_radius`, then only checks the 3×3 neighborhood.
 /// `iterations` = number of passes per tick (LogSeq: 2).
 /// `radii` = per-node collision radius (LogSeq uses fixed 26px).
+/// `fx`/`fy` = fixed position arrays — nodes with Some(fx) are immovable during collision.
 pub fn force_collide(
     x: &mut [f32],
     y: &mut [f32],
     radii: &[f32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
     iterations: u32,
 ) {
-    let mut grid = std::collections::HashMap::new();
-    force_collide_with_scratch(x, y, radii, iterations, &mut grid);
+    let mut grid = rustc_hash::FxHashMap::default();
+    force_collide_with_scratch(x, y, radii, fx, fy, iterations, &mut grid);
 }
 
 /// Like `force_collide` but reuses a caller-provided grid HashMap to avoid per-tick allocation.
@@ -180,8 +182,10 @@ pub fn force_collide_with_scratch(
     x: &mut [f32],
     y: &mut [f32],
     radii: &[f32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
     iterations: u32,
-    grid: &mut std::collections::HashMap<(i32, i32), Vec<usize>>,
+    grid: &mut rustc_hash::FxHashMap<(i32, i32), Vec<usize>>,
 ) {
     let n = x.len();
     if n < 2 {
@@ -190,7 +194,7 @@ pub fn force_collide_with_scratch(
 
     // Fall back to brute force for tiny graphs (grid overhead not worth it).
     if n <= 32 {
-        force_collide_brute(x, y, radii, iterations);
+        force_collide_brute(x, y, radii, fx, fy, iterations);
         return;
     }
 
@@ -228,7 +232,7 @@ pub fn force_collide_with_scratch(
             // Intra-cell pairs.
             for a in 0..cell.len() {
                 for b in (a + 1)..cell.len() {
-                    resolve_overlap(x, y, radii, cell[a], cell[b]);
+                    resolve_overlap(x, y, radii, fx, fy, cell[a], cell[b]);
                 }
             }
 
@@ -238,7 +242,7 @@ pub fn force_collide_with_scratch(
                 if let Some(neighbor) = grid.get(&nkey) {
                     for &i in cell.iter() {
                         for &j in neighbor.iter() {
-                            resolve_overlap(x, y, radii, i, j);
+                            resolve_overlap(x, y, radii, fx, fy, i, j);
                         }
                     }
                 }
@@ -247,9 +251,15 @@ pub fn force_collide_with_scratch(
     }
 }
 
-/// Resolve overlap between two nodes by pushing them apart equally.
+/// Resolve overlap between two nodes by pushing them apart.
+/// If one node is fixed (fx/fy set), apply 100% displacement to the other.
+/// If both are fixed, skip entirely (can't resolve).
 #[inline(always)]
-fn resolve_overlap(x: &mut [f32], y: &mut [f32], radii: &[f32], i: usize, j: usize) {
+fn resolve_overlap(
+    x: &mut [f32], y: &mut [f32], radii: &[f32],
+    fx: &[Option<f32>], fy: &[Option<f32>],
+    i: usize, j: usize,
+) {
     let mut dx = x[j] - x[i];
     let mut dy = y[j] - y[i];
     let dist_sq = dx * dx + dy * dy;
@@ -257,15 +267,36 @@ fn resolve_overlap(x: &mut [f32], y: &mut [f32], radii: &[f32], i: usize, j: usi
     let min_dist_sq = min_dist * min_dist;
 
     if dist_sq < min_dist_sq {
+        let i_fixed = fx.get(i).map_or(false, |f| f.is_some())
+            || fy.get(i).map_or(false, |f| f.is_some());
+        let j_fixed = fx.get(j).map_or(false, |f| f.is_some())
+            || fy.get(j).map_or(false, |f| f.is_some());
+
+        // Both fixed — can't resolve overlap.
+        if i_fixed && j_fixed { return; }
+
         let dist = dist_sq.sqrt().max(1e-6);
-        let overlap = (min_dist - dist) / dist * 0.5;
+        let overlap = (min_dist - dist) / dist;
         dx *= overlap;
         dy *= overlap;
 
-        x[j] += dx;
-        y[j] += dy;
-        x[i] -= dx;
-        y[i] -= dy;
+        if i_fixed {
+            // i is fixed — push j by 100% of displacement
+            x[j] += dx;
+            y[j] += dy;
+        } else if j_fixed {
+            // j is fixed — push i by 100% of displacement
+            x[i] -= dx;
+            y[i] -= dy;
+        } else {
+            // Neither fixed — split 50/50
+            let half_dx = dx * 0.5;
+            let half_dy = dy * 0.5;
+            x[j] += half_dx;
+            y[j] += half_dy;
+            x[i] -= half_dx;
+            y[i] -= half_dy;
+        }
     }
 }
 
@@ -274,13 +305,15 @@ fn force_collide_brute(
     x: &mut [f32],
     y: &mut [f32],
     radii: &[f32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
     iterations: u32,
 ) {
     let n = x.len();
     for _ in 0..iterations {
         for i in 0..n {
             for j in (i + 1)..n {
-                resolve_overlap(x, y, radii, i, j);
+                resolve_overlap(x, y, radii, fx, fy, i, j);
             }
         }
     }
@@ -469,8 +502,10 @@ mod tests {
         let mut x = vec![0.0, 10.0];
         let mut y = vec![0.0, 0.0];
         let radii = vec![26.0, 26.0]; // min_dist = 52, actual dist = 10
+        let fx = vec![None, None];
+        let fy = vec![None, None];
 
-        force_collide(&mut x, &mut y, &radii, 2);
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
 
         // After collision, nodes should be at least 52 apart.
         let dist = ((x[1] - x[0]).powi(2) + (y[1] - y[0]).powi(2)).sqrt();
@@ -487,10 +522,43 @@ mod tests {
         let mut y = vec![0.0, 0.0];
         let radii = vec![26.0, 26.0]; // min_dist = 52, actual dist = 100
         let x_orig = x.clone();
+        let fx = vec![None, None];
+        let fy = vec![None, None];
 
-        force_collide(&mut x, &mut y, &radii, 2);
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
 
         assert_eq!(x, x_orig, "nodes should not move when not overlapping");
+    }
+
+    #[test]
+    fn collide_respects_fixed_node() {
+        let mut x = vec![0.0, 10.0];
+        let mut y = vec![0.0, 0.0];
+        let radii = vec![26.0, 26.0]; // min_dist = 52, overlap
+        let fx = vec![Some(0.0), None]; // node 0 is fixed
+        let fy = vec![Some(0.0), None];
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+
+        // Node 0 should NOT have moved (it's fixed).
+        assert_eq!(x[0], 0.0, "fixed node should not move");
+        assert_eq!(y[0], 0.0, "fixed node should not move");
+        // Node 1 should have been pushed away by the full displacement.
+        assert!(x[1] > 50.0, "unfixed node should be pushed fully away, got {}", x[1]);
+    }
+
+    #[test]
+    fn collide_both_fixed_skipped() {
+        let mut x = vec![0.0, 10.0];
+        let mut y = vec![0.0, 0.0];
+        let radii = vec![26.0, 26.0];
+        let fx = vec![Some(0.0), Some(10.0)]; // both fixed
+        let fy = vec![Some(0.0), Some(0.0)];
+        let x_orig = x.clone();
+
+        force_collide(&mut x, &mut y, &radii, &fx, &fy, 2);
+
+        assert_eq!(x, x_orig, "both fixed → no movement");
     }
 
     #[test]

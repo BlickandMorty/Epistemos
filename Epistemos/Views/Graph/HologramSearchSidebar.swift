@@ -11,6 +11,8 @@ struct HologramSearchSidebar: View {
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
     @State private var expandedTypes: Set<GraphNodeType> = [.tag]
+    @State private var cachedSearchResults: [GraphStore.SearchHit] = []
+    @State private var searchDebounceTask: Task<Void, Never>?
 
     var onSearchChanged: (String) -> Void
     var onSelectNode: (String) -> Void
@@ -99,12 +101,23 @@ struct HologramSearchSidebar: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
                 .onChange(of: searchText) { _, newValue in
-                    onSearchChanged(newValue)
+                    // Debounce search: 150ms delay to avoid Rust FFI call per keystroke
+                    searchDebounceTask?.cancel()
+                    searchDebounceTask = Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(150))
+                        guard !Task.isCancelled else { return }
+                        cachedSearchResults = newValue.isEmpty
+                            ? []
+                            : graphState.rustSearch(query: newValue, limit: 50)
+                        onSearchChanged(newValue)
+                    }
                 }
 
             if !searchText.isEmpty {
                 Button {
+                    searchDebounceTask?.cancel()
                     searchText = ""
+                    cachedSearchResults = []
                     onSearchChanged("")
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -118,20 +131,15 @@ struct HologramSearchSidebar: View {
         .padding(.vertical, 10)
     }
 
-    private var searchResults: [GraphStore.SearchHit] {
-        guard !searchText.isEmpty else { return [] }
-        return graphState.rustSearch(query: searchText, limit: 50)
-    }
-
     private var searchResultsList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 2) {
                 if searchText.isEmpty {
                     hintText("Type to search notes, ideas, tags…")
-                } else if searchResults.isEmpty {
+                } else if cachedSearchResults.isEmpty {
                     hintText("No matching nodes")
                 } else {
-                    ForEach(searchResults, id: \.id) { hit in
+                    ForEach(cachedSearchResults, id: \.id) { hit in
                         nodeRow(hit.node)
                     }
                 }
@@ -145,9 +153,10 @@ struct HologramSearchSidebar: View {
     /// All folder nodes in the graph.
     private var allFolderNodes: [String: GraphNodeRecord] {
         Dictionary(
-            uniqueKeysWithValues: graphState.store.nodes.values
+            graphState.store.nodes.values
                 .filter { $0.type == .folder }
-                .map { ($0.id, $0) }
+                .map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
         )
     }
 

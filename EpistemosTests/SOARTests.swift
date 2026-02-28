@@ -63,25 +63,23 @@ struct SOARTests {
             #expect(SOARDetector.hardDomains.contains(.psychology))
         }
 
-        @Test("at-edge requires difficulty above floor AND 2+ signal triggers")
+        @Test("at-edge requires 2+ signal triggers — 1 signal is not enough")
         func edgeRequirements() {
             let analysis = QueryAnalyzer.analyze(query: "What color is the sky?")
-            let highThresholds = LearnabilityThresholds(
-                confidenceFloor: 0.99,
-                entropyCeiling: 0.01,
-                dissonanceCeiling: 0.01,
+            // Set thresholds so only confidence triggers (floor very high)
+            // but entropy and dissonance do NOT trigger (ceilings very high)
+            let oneSignalThresholds = LearnabilityThresholds(
+                confidenceFloor: 0.99,     // will trigger (confidence < 0.99)
+                entropyCeiling: 0.99,      // won't trigger (entropy < 0.99)
+                dissonanceCeiling: 0.99,   // won't trigger (dissonance < 0.99)
                 difficultyFloor: 0.01
             )
-            // Even with very loose difficulty floor, signals need to trigger
             let probe = SOARDetector.probeLearnability(
                 queryAnalysis: analysis,
-                thresholds: highThresholds
+                thresholds: oneSignalThresholds
             )
-            // Simple query should have high confidence, so not below confidenceFloor of 0.99 always
-            // This tests the 2/3 signal trigger gate
-            if probe.atEdge {
-                #expect(probe.recommendedDepth >= 2)
-            }
+            // Only 1/3 signals triggered — need 2+ to be at edge
+            #expect(!probe.atEdge, "Only 1 signal trigger should not put query at edge")
         }
 
         @Test("recommended depth is 3 for all-trigger edge")
@@ -101,9 +99,8 @@ struct SOARTests {
                 priorSignals: lowSignals,
                 thresholds: .default
             )
-            if probe.atEdge {
-                #expect(probe.recommendedDepth == 3)
-            }
+            #expect(probe.atEdge, "Complex query with low prior signals should be at edge")
+            #expect(probe.recommendedDepth == 3, "All 3 triggers active → depth should be 3")
         }
 
         @Test("difficulty clamped to [0, 1]")

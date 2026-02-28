@@ -253,8 +253,9 @@ struct NotesSidebar: View {
             preWarmRecentPages()
             // Deferred rebuild: VaultIndexActor may still be wiring folder relationships
             // when the sidebar first appears. Rebuild again after context merge settles.
+            // 200ms is enough for SwiftData background→main context merge.
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(800))
+                try? await Task.sleep(for: .milliseconds(200))
                 rebuildCache()
             }
         }
@@ -266,7 +267,7 @@ struct NotesSidebar: View {
             // The notification fires from VaultIndexActor (background ModelActor) — the main
             // context @Query results may not have updated yet when the notification arrives.
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(500))
+                try? await Task.sleep(for: .milliseconds(200))
                 rebuildCache()
             }
         }

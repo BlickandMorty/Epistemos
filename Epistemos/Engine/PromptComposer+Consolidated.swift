@@ -1,9 +1,9 @@
 import Foundation
 import os
 
-// MARK: - Consolidated Enrichment (Passes 3-6 in one call)
-// Replaces 4 sequential LLM calls with a single structured JSON call.
-// Raw analysis (Pass 2) still runs separately as it's the heaviest pass.
+// MARK: - Consolidated Enrichment (Call 3)
+// Single structured JSON call that produces summary + critique + arbitration + truth.
+// Receives the raw analysis from Call 2 as input.
 
 extension EnrichmentController {
 

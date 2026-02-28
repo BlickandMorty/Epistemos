@@ -291,6 +291,11 @@ final class ChatState {
     func appendStreamingText(_ text: String) {
         if isReasoning { endReasoning() }
         pendingStreamTokens += text
+        // Safety: flush immediately if buffer grows too large (>64KB).
+        if pendingStreamTokens.utf8.count > 65_536 {
+            flushStreamingTokens()
+            return
+        }
         guard streamFlushTask == nil else { return }
         streamFlushTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(60))
@@ -330,6 +335,10 @@ final class ChatState {
 
     func appendReasoningText(_ text: String) {
         pendingReasoningTokens += text
+        if pendingReasoningTokens.utf8.count > 65_536 {
+            flushReasoningTokens()
+            return
+        }
         guard reasoningFlushTask == nil else { return }
         reasoningFlushTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(60))
@@ -383,6 +392,12 @@ final class ChatState {
         // Calculate elapsed duration from the message's own research start time
         if let start = updated.researchStartTime {
             updated.researchDuration = Date().timeIntervalSince(start)
+        }
+        // Guard against stale index — messages array may have changed between
+        // firstIndex lookup and this write (e.g., user started new chat).
+        guard idx < messages.count, messages[idx].id == id else {
+            log.warning("[enrich] Message \(id) moved or removed during enrichment — skipping")
+            return
         }
         messages[idx] = updated
 

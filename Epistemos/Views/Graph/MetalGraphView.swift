@@ -17,21 +17,9 @@ struct MetalGraphView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: MetalGraphNSView, context: Context) {
-        // Push force params if changed.
-        if nsView.lastForceConfigVersion != graphState.forceConfigVersion {
-            nsView.lastForceConfigVersion = graphState.forceConfigVersion
-            nsView.pushForceParams()
-        }
-
-        // Handle pending actions.
-        if graphState.pendingResetView {
-            graphState.pendingResetView = false
-            nsView.resetCamera()
-        }
-        if let nodeId = graphState.pendingCenterNodeId {
-            graphState.pendingCenterNodeId = nil
-            nsView.centerOnNode(nodeId)
-        }
+        // Intentionally empty — all GraphState sync is handled inside renderFrame()
+        // on the CVDisplayLink cadence. This avoids SwiftUI calling updateNSView
+        // on every @Observable property change (60+ properties on GraphState).
     }
 }
 
@@ -395,7 +383,9 @@ final class MetalGraphNSView: NSView {
 
     func centerOnNode(_ nodeId: String) {
         guard let engine else { return }
-        graph_engine_center_camera(engine)
+        nodeId.withCString { ptr in
+            graph_engine_center_on_node(engine, ptr)
+        }
         needsRender = true
     }
 
@@ -495,6 +485,13 @@ final class MetalGraphNSView: NSView {
         if let graphState, graphState.pendingResetView {
             graphState.pendingResetView = false
             graph_engine_zoom_to_fit(engine)
+            needsRender = true
+        }
+
+        // Center on a specific node (e.g. from command palette selection).
+        if let graphState, let nodeId = graphState.pendingCenterNodeId {
+            graphState.pendingCenterNodeId = nil
+            centerOnNode(nodeId)
             needsRender = true
         }
 

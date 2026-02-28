@@ -34,9 +34,10 @@ nonisolated enum PipelineError: LocalizedError {
 }
 
 // MARK: - Pipeline Service
-// Orchestrates the 10-stage analytical pipeline with 6-pass enrichment.
-// Pass 1: Streaming direct answer (user sees immediately)
-// Passes 2-6: Background enrichment (Lucid Lens — analysis, layman summary, reflection, arbitration, truth assessment)
+// Orchestrates the analytical pipeline with 3 API calls total:
+// Call 1: Streaming direct answer (Pass 1 — user sees immediately)
+// Call 2: Deep research analysis (Pass 2 — Epistemic Lens, background)
+// Call 3: Consolidated enrichment (summary + reflection + arbitration + truth, background)
 
 @MainActor
 final class PipelineService {
@@ -78,7 +79,7 @@ final class PipelineService {
     // MARK: - Run Pipeline
 
     /// Execute the full analytical pipeline for a user query.
-    /// When `skipEnrichment` is true, Passes 2-6 are skipped entirely (no Lucid Lens API calls).
+    /// When `skipEnrichment` is true, enrichment calls 2-3 are skipped entirely (no Lucid Lens API calls).
     /// `conversationHistory` provides prior User/Assistant turns for multi-turn context.
     /// `onEnriched` delivers enrichment results directly (bypasses the stream) so results
     /// survive query cancellation — the callback is captured by the detached enrichment task.
@@ -348,12 +349,12 @@ final class PipelineService {
                     continuation.yield(.completed(minimalDualMessage, nil))
                     pipelineState.completeProcessing()
 
-                    // ── Passes 2-6: Background enrichment ─────────
+                    // ── Calls 2-3: Background enrichment ─────────
                     // Skip enrichment entirely when the user has toggled it off.
-                    // This saves 5 API calls per query.
+                    // This saves 2 API calls per query.
                     guard !skipEnrichment else {
                         Log.pipeline.info(
-                            "🔬 Enrichment: SKIPPED (regular mode) — no Passes 2-6"
+                            "🔬 Enrichment: SKIPPED (regular mode) — no enrichment calls"
                         )
                         // Regular mode: no enrichment. Don't emit fake arbitration or
                         // placeholder truth — those are research-only features.
@@ -370,12 +371,12 @@ final class PipelineService {
                     let capturedRawAnswerBuffer = rawAnswerBuffer
                     // Enrichment always uses Anthropic if a key is available.
                     // Kimi/OpenAI/Google produce thin or schema-non-compliant output for
-                    // the complex JSON passes (2–6). The chat provider is independent.
+                    // the complex JSON enrichment. The chat provider is independent.
                     let capturedLLM = llmService.enrichmentSnapshot()
 
                     // Early exit: if the enrichment snapshot has no usable API key
                     // (and isn't a local provider), skip enrichment entirely to avoid
-                    // 5 failing HTTP requests that all return fallback values anyway.
+                    // 2 failing HTTP requests that all return fallback values anyway.
                     // Ollama and Apple Intelligence don't need API keys — they run locally.
                     let enrichmentKeyValid =
                         !capturedLLM.apiKey.isEmpty
@@ -404,12 +405,10 @@ final class PipelineService {
                     // Strong capture: PipelineService is held by AppBootstrap — no retain cycle.
                     // [weak self] caused silent enrichment death if momentary deallocation occurred.
                     let enrichTask = Task.detached(priority: .userInitiated) {
-                        // Prevent macOS App Nap from suspending in-process network requests
-                        // while enrichment is running. Without this, switching away from the
-                        // app mid-enrichment can throttle or cancel URLSession requests.
+                        // Prevent macOS App Nap from suspending in-process network requests.
                         let napActivity = ProcessInfo.processInfo.beginActivity(
                             options: [.userInitiated, .idleSystemSleepDisabled],
-                            reason: "Epistemos research enrichment (Passes 2-6)"
+                            reason: "Epistemos research enrichment (Calls 2-3)"
                         )
                         defer { ProcessInfo.processInfo.endActivity(napActivity) }
 
@@ -444,12 +443,11 @@ final class PipelineService {
                         }
 
                         let enrichmentStart = CFAbsoluteTimeGetCurrent()
-                        Log.pipeline.info("🔬 Enrichment: starting Pass 2 (Epistemic Lens analysis)")
+                        Log.pipeline.info("🔬 Enrichment: starting Call 2 (Epistemic Lens analysis)")
 
                         // Safety timeout: 360s (6 min) global cutoff as a last resort.
-                        // Pass 2 (180s) + Consolidated 3-6 (300s) = 480s theoretical max,
-                        // but individual timeouts should fire first. 360s catches edge cases
-                        // where both passes are slow but neither individually times out.
+                        // Call 2 (180s) + Call 3 (300s) = 480s theoretical max,
+                        // but individual timeouts should fire first. 360s catches edge cases.
                         let timeoutTask = Task {
                             try await Task.sleep(for: .seconds(360))
                             guard !Task.isCancelled else { return }
@@ -475,16 +473,11 @@ final class PipelineService {
                         }
                         defer { timeoutTask.cancel() }
 
-                        // Emit enrichment stage events for progress tracking
-                        continuation.yield(
-                            .stageAdvanced(
-                                .metaAnalysis,
-                                StageResult(
-                                    stage: .metaAnalysis, status: .running,
-                                    detail: "Epistemic Lens analysis")))
+                        // Note: stage progress for enrichment is NOT yielded to the stream
+                        // because the stream is already finished at this point.
+                        // Enrichment results are delivered via the onEnriched callback.
 
-                        // Pass 2: Deep research prose (180s timeout — heaviest pass, ~6000 tokens)
-                        // This pass legitimately takes 30-120s on complex queries. 180s catches hangs.
+                        // Call 2: Deep research prose (180s timeout — heaviest pass, ~6000 tokens)
                         let pass2Start = CFAbsoluteTimeGetCurrent()
                         let rawAnalysis = await PipelineService.withTimeout(seconds: 180) {
                             await EnrichmentController.generateRawAnalysisAsync(
@@ -499,12 +492,12 @@ final class PipelineService {
                         } ?? ""
                         let pass2Duration = CFAbsoluteTimeGetCurrent() - pass2Start
                         Log.pipeline.info(
-                            "🔬 Pass 2 done in \(String(format: "%.1f", pass2Duration))s — \(rawAnalysis.isEmpty ? "EMPTY (failed)" : "\(rawAnalysis.count) chars")"
+                            "🔬 Call 2 done in \(String(format: "%.1f", pass2Duration))s — \(rawAnalysis.isEmpty ? "EMPTY (failed)" : "\(rawAnalysis.count) chars")"
                         )
 
                         guard !Task.isCancelled else {
                             Log.pipeline.info(
-                                "Enrichment: cancelled after Pass 2 — delivering partial+fallback")
+                                "Enrichment: cancelled after Call 2 — delivering partial+fallback")
                             let fallbackDual = DualMessage(
                                 rawAnalysis: rawAnalysis,
                                 uncertaintyTags: EnrichmentController.extractUncertaintyTags(
@@ -524,27 +517,12 @@ final class PipelineService {
                             return
                         }
 
-                        // Use Pass 2 output if available; fall back to Pass 1 text ONLY for
-                        // feeding into downstream passes (layman summary needs input text).
-                        // The rawAnalysis field on the DualMessage stays as whatever Pass 2 returned.
+                        // Use Call 2 output if available; fall back to Call 1 text
                         let analysisText =
                             rawAnalysis.isEmpty ? capturedRawAnswerBuffer : rawAnalysis
 
-                        continuation.yield(
-                            .stageAdvanced(
-                                .metaAnalysis,
-                                StageResult(
-                                    stage: .metaAnalysis, status: .completed,
-                                    detail: "Epistemic Lens analysis complete")))
-                        // ── Consolidated Passes 3-6 (single LLM call) ──
-                        // Replaces 4 sequential/parallel calls with one structured JSON call.
-                        // Reduces latency (~60%) and cost (~75% fewer input tokens).
-                        continuation.yield(
-                            .stageAdvanced(
-                                .synthesis,
-                                StageResult(
-                                    stage: .synthesis, status: .running,
-                                    detail: "Consolidated enrichment (summary + critique + arbitration + truth)")))
+                        // ── Call 3: Consolidated Enrichment (single LLM call) ──
+                        // Produces summary + critique + arbitration + truth in one JSON response.
 
                         let consolidatedStart = CFAbsoluteTimeGetCurrent()
                         let consolidated = await PipelineService.withTimeout(seconds: 300) {
@@ -555,7 +533,7 @@ final class PipelineService {
                                 signals: capturedSignals,
                                 llm: capturedLLM
                             )
-                        } ?? nil // Flatten ConsolidatedEnrichment?? → ConsolidatedEnrichment?
+                        } ?? nil
                         let consolidatedDuration = CFAbsoluteTimeGetCurrent() - consolidatedStart
 
                         // Extract results — use consolidated if available, fall back per-field
@@ -572,21 +550,6 @@ final class PipelineService {
                             "🔬 Consolidated enrichment done in \(String(format: "%.1f", consolidatedDuration))s — \(consolidated != nil ? "SUCCESS" : "FAILED (using fallbacks)") truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%"
                         )
 
-                        continuation.yield(
-                            .stageAdvanced(
-                                .synthesis,
-                                StageResult(stage: .synthesis, status: .completed, detail: "Summary complete")))
-                        continuation.yield(
-                            .stageAdvanced(
-                                .adversarial,
-                                StageResult(stage: .adversarial, status: .completed, detail: "Deliberation complete")))
-                        continuation.yield(
-                            .stageAdvanced(
-                                .calibration,
-                                StageResult(stage: .calibration, status: .completed, detail: "Assessment complete")))
-
-                        // Use raw Pass 2 result for display. analysisText (which falls back to
-                        // Pass 1 when Pass 2 is empty) is only used as input to downstream passes.
                         let enrichedDual = DualMessage(
                             rawAnalysis: rawAnalysis,
                             uncertaintyTags: EnrichmentController.extractUncertaintyTags(from: analysisText),
@@ -598,7 +561,7 @@ final class PipelineService {
 
                         let totalEnrichment = CFAbsoluteTimeGetCurrent() - enrichmentStart
                         Log.pipeline.info(
-                            "🔬 Enrichment: ALL PASSES COMPLETE in \(String(format: "%.1f", totalEnrichment))s — rawLen=\(rawAnalysis.count) layman=\(laymanSummary.whatWasTried.prefix(40)) reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%"
+                            "🔬 Enrichment: COMPLETE in \(String(format: "%.1f", totalEnrichment))s — rawLen=\(rawAnalysis.count) layman=\(laymanSummary.whatWasTried.prefix(40)) reflection=\(reflection.selfCriticalQuestions.count)q arbitration=\(arbitration.votes.count)v truth=\(Int(truthAssessment.overallTruthLikelihood * 100))%"
                         )
                         if deliveryGuard.tryFinish() {
                             await onEnriched?(enrichedDual, truthAssessment)

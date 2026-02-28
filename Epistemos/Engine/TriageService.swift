@@ -389,7 +389,7 @@ final class TriageService {
         let llm = self.llmService
 
         return AsyncThrowingStream { continuation in
-            let task = Task {
+            let task = Task { [weak self] in
                 do {
                     let cloudStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
                     for try await chunk in cloudStream {
@@ -407,8 +407,8 @@ final class TriageService {
                     }
                     Log.engine.warning("Cloud API auth error, falling back to Apple Intelligence: \(error.localizedDescription, privacy: .public)")
                     await MainActor.run {
-                        self.lastDecision = .appleIntelligence
-                        self.inference.appleIntelligenceAvailable = aiFresh.available
+                        self?.lastDecision = .appleIntelligence
+                        self?.inference.appleIntelligenceAvailable = aiFresh.available
                     }
                     // Seamless fallback — user sees Apple Intelligence response instead of error
                     do {
@@ -449,7 +449,7 @@ final class TriageService {
         let llm = self.llmService
 
         return AsyncThrowingStream { continuation in
-            let task = Task {
+            let task = Task { [weak self] in
                 do {
                     let result = try await AppleIntelligenceService.shared.generate(
                         prompt: prompt,
@@ -459,7 +459,7 @@ final class TriageService {
                     // Check for refusal, truncation, or suspiciously short response
                     if Self.shouldFallbackToAPI(result) {
                         Log.engine.info("Apple Intelligence response inadequate (stream), falling back to API silently")
-                        await MainActor.run { self.lastDecision = .apiProvider }
+                        await MainActor.run { self?.lastDecision = .apiProvider }
                         // Don't yield the bad response — go straight to API
                         let fallbackStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
                         for try await chunk in fallbackStream {
@@ -473,7 +473,7 @@ final class TriageService {
                     continuation.finish()
                 } catch {
                     Log.engine.warning("Apple Intelligence failed (stream), falling back to API silently: \(error.localizedDescription, privacy: .public)")
-                    await MainActor.run { self.lastDecision = .apiProvider }
+                    await MainActor.run { self?.lastDecision = .apiProvider }
                     // Seamless fallback — user sees nothing from the failed attempt
                     let fallbackStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
                     do {

@@ -250,10 +250,14 @@ final class VaultSyncService {
             // Diff-sync FTS5 index with SwiftData (catches stale/missing search.sqlite)
             if let svc, let actor {
                 let timestamps = await actor.allPageTimestamps()
-                try? await svc.diffSync(
-                    swiftDataPages: timestamps,
-                    fullPageProvider: { id in await actor.fullPageData(for: id) }
-                )
+                do {
+                    try await svc.diffSync(
+                        swiftDataPages: timestamps,
+                        fullPageProvider: { id in await actor.fullPageData(for: id) }
+                    )
+                } catch {
+                    log.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
 
@@ -361,7 +365,11 @@ final class VaultSyncService {
         isIndexing = true
         Task {
             let pages = await actor.allPagesForRebuild()
-            try? svc.rebuildFromSwiftData(pages)
+            do {
+                try svc.rebuildFromSwiftData(pages)
+            } catch {
+                log.error("FTS5 index rebuild failed: \(error.localizedDescription, privacy: .public)")
+            }
             isIndexing = false
         }
     }
@@ -451,12 +459,7 @@ final class VaultSyncService {
         let descriptor = FetchDescriptor<SDPage>()
         guard let updatedPages = try? context.fetch(descriptor) else { return [] }
 
-        for page in updatedPages where page.lastSyncedBodyHash == nil {
-            page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
-            page.lastSyncedAt = .now
-        }
-
-        // Update hashes for all pages
+        // Update hashes for all pages (single pass — avoids reading each body from disk twice)
         for page in updatedPages {
             page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
             page.lastSyncedAt = .now

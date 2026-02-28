@@ -593,13 +593,24 @@ impl Engine {
 
             self.selected_id = Some(node_id);
 
-            // Start drag — set fx/fy in simulation (single lock acquisition).
+            // Start drag — D3 canonical pattern:
+            //   1. Anchor to node's OWN position (no jolt from cursor offset)
+            //   2. Set alphaTarget=0.3 for gradual warmup (not alpha directly)
+            //   3. Neighbors adjust smoothly as alpha converges
             if let Some(&gi) = self.graph.id_to_index.get(&node_id) {
                 let mut sim = self.sim.lock();
                 if let Some(sim_index) = sim.graph_indices.iter().position(|&g| g == gi) {
-                    sim.fix_node(sim_index, wx, wy);
+                    // Anchor to node's current position first — prevents initial jolt
+                    // if cursor isn't perfectly centered on the node.
+                    let node_x = sim.x[sim_index];
+                    let node_y = sim.y[sim_index];
+                    sim.fix_node(sim_index, node_x, node_y);
+                    // D3 alphaTarget pattern: gradual warmup instead of force spike.
+                    // alpha converges toward 0.3 via exponential decay (~10 ticks).
+                    sim.params.alpha_target = 0.3;
                     if sim.is_settled {
-                        sim.reheat();
+                        sim.params.alpha = 0.05; // Seed with small value so tick() doesn't skip
+                        sim.is_settled = false;
                     }
                     drop(sim);
                     self.drag = Some(DragState {
@@ -666,9 +677,10 @@ impl Engine {
     pub fn mouse_up(&mut self) {
         self.idle_frame_count = 0;
         if let Some(drag) = self.drag.take() {
-            // D3 behavior: unfix node on release (no fling).
+            // D3 behavior: unfix node on release, reset alphaTarget so sim cools down.
             let mut sim = self.sim.lock();
             sim.unfix_node(drag.sim_index);
+            sim.params.alpha_target = 0.0; // Resume normal cooldown
             drop(sim);
 
             // Click (not a real drag) → isolate node and focus on its connections.
@@ -846,10 +858,12 @@ impl Engine {
     /// Center camera on a specific node by UUID, zooming in moderately.
     pub fn center_on_node(&mut self, uuid: &str) {
         if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
-            let node = &self.graph.nodes[node_id as usize];
-            self.renderer.target_offset = [node.x, node.y];
-            self.renderer.target_zoom = 2.5; // Close-up zoom
-            self.renderer.is_animating = true;
+            if let Some(&idx) = self.graph.id_to_index.get(&node_id) {
+                let node = &self.graph.nodes[idx];
+                self.renderer.target_offset = [node.x, node.y];
+                self.renderer.target_zoom = 2.5; // Close-up zoom
+                self.renderer.is_animating = true;
+            }
         }
     }
 
@@ -925,6 +939,7 @@ impl Engine {
         for r in &mut sim.collision_radii {
             *r = new_radius;
         }
+        sim.reheat();
     }
 
     // ── Cluster Parameters ───────────────────────────────────────────
@@ -1094,9 +1109,9 @@ impl Engine {
     pub fn node_uuid_by_id(&mut self, node_id: u32) -> *const std::ffi::c_char {
         self.uuid_buf = self
             .graph
-            .nodes
-            .iter()
-            .find(|n| n.id == node_id)
+            .id_to_index
+            .get(&node_id)
+            .and_then(|&idx| self.graph.nodes.get(idx))
             .and_then(|n| CString::new(n.uuid.as_str()).ok());
         self.uuid_buf
             .as_ref()
@@ -1105,7 +1120,10 @@ impl Engine {
 
     /// Look up a node's internal array index by UUID.
     pub fn node_index_by_uuid(&self, uuid: &str) -> Option<usize> {
-        self.graph.nodes.iter().position(|n| n.uuid == uuid)
+        self.graph
+            .uuid_to_id
+            .get(uuid)
+            .and_then(|&id| self.graph.id_to_index.get(&id).copied())
     }
 
     /// Read-only access to the graph.

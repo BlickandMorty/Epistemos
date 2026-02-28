@@ -477,6 +477,7 @@ pub extern "C" fn graph_engine_search(
         })
         .collect();
 
+    ffi_results.shrink_to_fit(); // Ensure capacity == len for safe Vec::from_raw_parts in free
     let ptr = ffi_results.as_mut_ptr();
     std::mem::forget(ffi_results);
     ptr
@@ -694,6 +695,7 @@ pub extern "C" fn graph_engine_semantic_search(
         })
         .collect();
 
+    ffi_results.shrink_to_fit(); // Ensure capacity == len for safe Vec::from_raw_parts in free
     let ptr = ffi_results.as_mut_ptr();
     std::mem::forget(ffi_results);
     ptr

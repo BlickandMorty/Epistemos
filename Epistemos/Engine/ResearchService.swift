@@ -70,7 +70,8 @@ final class ResearchService {
     // MARK: - DOI Import
 
     func importDOI(_ doi: String) async throws -> SavedPaper {
-        guard let url = URL(string: "https://api.semanticscholar.org/graph/v1/paper/DOI:\(doi)?fields=title,authors,year,journal,abstract,citationCount") else {
+        guard let encodedDOI = doi.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "https://api.semanticscholar.org/graph/v1/paper/DOI:\(encodedDOI)?fields=title,authors,year,journal,abstract,citationCount") else {
             throw ResearchError.invalidQuery
         }
         let (data, response) = try await URLSession.shared.data(from: url)

@@ -364,7 +364,7 @@ final class GraphState {
         // Try Rust-side search via FFI
         if let engine = engineHandle {
             var count: UInt32 = 0
-            let cQuery = query.cString(using: .utf8)!
+            guard let cQuery = query.cString(using: .utf8) else { return store.fuzzySearch(query: query, limit: limit) }
             let results = graph_engine_search(engine, cQuery, UInt32(limit), &count)
             defer { graph_engine_free_search_results(results, count) }
 
@@ -642,7 +642,7 @@ final class GraphState {
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
-                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
+                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: safeLabel) {
                     sdNode.sourceId = pageId
                     do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
                 }
@@ -691,7 +691,7 @@ final class GraphState {
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
-                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
+                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: safeLabel) {
                     sdNode.sourceId = pageId
                     do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
                 }
@@ -763,8 +763,11 @@ final class GraphState {
 
     // MARK: - AI Entity Extraction
 
+    private var scanTask: Task<Void, Never>?
+
     func scanVault(context: ModelContext, llmService: any LLMClientProtocol) {
-        Task {
+        scanTask?.cancel()
+        scanTask = Task {
             let extractor = EntityExtractor(graphState: self)
             await extractor.scanVault(context: context, llmService: llmService)
         }

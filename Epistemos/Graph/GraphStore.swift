@@ -196,10 +196,12 @@ final class GraphStore {
 
         var visited = Set<String>()
         var queue: [(id: String, depth: Int)] = [(nodeId, 0)]
+        var head = 0 // Index-based queue to avoid O(n) removeFirst
         visited.insert(nodeId)
 
-        while !queue.isEmpty {
-            let (currentId, depth) = queue.removeFirst()
+        while head < queue.count {
+            let (currentId, depth) = queue[head]
+            head += 1
             guard depth < maxDepth else { continue }
 
             for neighborId in adjacency[currentId] ?? [] {
@@ -252,25 +254,41 @@ final class GraphStore {
     }
 
     /// BFS shortest path returning the ordered path of nodes (inclusive).
+    /// Uses predecessor map for O(n) memory instead of storing full paths at each node.
     private func shortestPath(from startId: String, to endId: String, maxHops: Int) -> [GraphNodeRecord] {
         guard nodes[startId] != nil, nodes[endId] != nil else { return [] }
         if startId == endId { return [nodes[startId]!] }
 
         var visited = Set<String>([startId])
-        var queue: [(id: String, path: [String])] = [(startId, [startId])]
+        var predecessor: [String: String] = [:]  // child → parent
+        var queue: [(id: String, depth: Int)] = [(startId, 0)]
+        var head = 0
 
-        while !queue.isEmpty {
-            let (currentId, path) = queue.removeFirst()
-            guard path.count <= maxHops else { continue }
+        while head < queue.count {
+            let (currentId, depth) = queue[head]
+            head += 1
+            guard depth < maxHops else { continue }
 
             for neighborId in adjacency[currentId] ?? [] {
                 if neighborId == endId {
-                    let fullPath = path + [endId]
-                    return fullPath.compactMap { nodes[$0] }
+                    // Reconstruct path via predecessor chain with cycle guard
+                    predecessor[endId] = currentId
+                    var path: [String] = [endId]
+                    var cur = currentId
+                    var seen = Set<String>([endId])
+                    while cur != startId {
+                        guard seen.insert(cur).inserted else { return [] } // cycle detected
+                        path.append(cur)
+                        cur = predecessor[cur] ?? startId
+                    }
+                    path.append(startId)
+                    path.reverse()
+                    return path.compactMap { nodes[$0] }
                 }
                 if !visited.contains(neighborId) {
                     visited.insert(neighborId)
-                    queue.append((neighborId, path + [neighborId]))
+                    predecessor[neighborId] = currentId
+                    queue.append((neighborId, depth + 1))
                 }
             }
         }

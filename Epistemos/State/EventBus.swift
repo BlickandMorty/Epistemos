@@ -65,10 +65,14 @@ final class EventBus {
     // MARK: - Emit
 
     func emit(_ event: AppEvent) {
-        for handler in handlers.values {
+        // Snapshot before iterating — a handler could trigger subscribe/unsubscribe
+        // which would mutate the dictionary during iteration (runtime crash).
+        let handlerSnapshot = Array(handlers.values)
+        let continuationSnapshot = Array(continuations.values)
+        for handler in handlerSnapshot {
             handler(event)
         }
-        for continuation in continuations.values {
+        for continuation in continuationSnapshot {
             continuation.yield(event)
         }
     }

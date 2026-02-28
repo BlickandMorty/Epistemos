@@ -21,7 +21,7 @@ enum SemanticClusterService {
         let nodes = Array(store.nodes.values)
         guard nodes.count >= 4 else {
             // Too few nodes to cluster meaningfully
-            return Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, UInt32(0)) })
+            return Dictionary(nodes.map { ($0.id, UInt32(0)) }, uniquingKeysWith: { first, _ in first })
         }
 
         // 1. Compute embeddings for each node
@@ -34,7 +34,7 @@ enum SemanticClusterService {
         }
 
         guard validPairs.count >= 4 else {
-            return Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, UInt32(0)) })
+            return Dictionary(nodes.map { ($0.id, UInt32(0)) }, uniquingKeysWith: { first, _ in first })
         }
 
         // 2. Run k-means

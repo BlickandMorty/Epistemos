@@ -2,7 +2,7 @@ import Foundation
 import os
 
 // MARK: - Enrichment Controller
-// Namespace for all enrichment passes (2-6) and their helpers.
+// Namespace for enrichment API calls (Call 2: analysis, Call 3: consolidated) and helpers.
 // Every method is static and nonisolated — no instance state, no Sendable concerns.
 
 nonisolated enum EnrichmentController {
@@ -12,7 +12,7 @@ nonisolated enum EnrichmentController {
     /// Slim preamble — identity + epistemic contract only. No math, no methodology.
     /// Every pass gets this. Pass-specific math is injected where needed.
     static let systemPreamble = """
-        You are Epistemos, a research-grade analytical reasoning engine built on a 10-stage internal pipeline followed by 6-pass enrichment. Each pass serves a distinct purpose — follow the specific instructions for THIS pass precisely.
+        You are Epistemos, a research-grade analytical reasoning engine built on a multi-stage analytical pipeline with structured enrichment. Each section serves a distinct purpose — follow the specific instructions precisely.
 
         EPISTEMIC CONTRACT (applies to every pass):
         - Distinguish what is known vs. assumed vs. modeled vs. genuinely uncertain — and say which.
@@ -698,12 +698,14 @@ nonisolated enum EnrichmentController {
     /// Handles: markdown code fences (```json...```), <thinking> blocks,
     /// prose-before-JSON, and trailing commas (common with GPT/Gemini).
     static func extractJSON(from text: String) -> [String: Any]? {
-        // 1. Strip <thinking> blocks (extended thinking models)
-        var cleaned = text.replacingOccurrences(
-            of: "<thinking>[\\s\\S]*?</thinking>",
-            with: "",
-            options: .regularExpression
-        )
+        // 1. Strip <thinking> blocks (extended thinking models).
+        // Use manual range search instead of regex to avoid catastrophic
+        // backtracking on malformed input (unclosed <thinking> tag).
+        var cleaned = text
+        while let startRange = cleaned.range(of: "<thinking>"),
+              let endRange = cleaned.range(of: "</thinking>", range: startRange.upperBound..<cleaned.endIndex) {
+            cleaned.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+        }
         // 2. Strip markdown code fences — LLMs commonly wrap JSON in ```json ... ```
         //    This is the #1 cause of JSON parse failures (observed in Passes 4, 5).
         cleaned = cleaned.replacingOccurrences(

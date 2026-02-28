@@ -40,6 +40,10 @@ final class EntityExtractor {
 
         let batchSize = 5
         for batchStart in stride(from: 0, to: pages.count, by: batchSize) {
+            guard !Task.isCancelled else {
+                Log.app.info("EntityExtractor: scan cancelled during note extraction")
+                break
+            }
             let batchEnd = min(batchStart + batchSize, pages.count)
             let batch = Array(pages[batchStart..<batchEnd])
 
@@ -97,6 +101,10 @@ final class EntityExtractor {
         let substantiveChats = allChats.filter { ($0.messages ?? []).count > 2 }
 
         for chat in substantiveChats {
+            guard !Task.isCancelled else {
+                Log.app.info("EntityExtractor: scan cancelled during chat extraction")
+                break
+            }
             let sorted = chat.sortedMessages
             var messagesText = ""
             for msg in sorted {
@@ -207,7 +215,7 @@ final class EntityExtractor {
         // Cross-note semantic links — connect notes within the batch that
         // support, contradict, expand, or question each other.
         if let links = extraction.crossNoteLinks {
-            let pageTitles = Dictionary(uniqueKeysWithValues: sourcePages.map { ($0.title, $0.id) })
+            let pageTitles = Dictionary(sourcePages.map { ($0.title, $0.id) }, uniquingKeysWith: { first, _ in first })
             for link in links {
                 guard let fromPageId = pageTitles[link.from],
                       let toPageId = pageTitles[link.to],
