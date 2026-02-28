@@ -1,3 +1,4 @@
+import Accelerate
 import Foundation
 import NaturalLanguage
 
@@ -6,6 +7,9 @@ import NaturalLanguage
 // then runs k-means clustering to assign semantic cluster IDs.
 // Disconnected notes about the same topic will cluster together,
 // complementing the Louvain topology-based clustering in Rust.
+//
+// All vector math uses Apple Accelerate (vDSP + BLAS) to offload
+// computation to the AMX coprocessor on Apple Silicon.
 //
 // Wave 4.2 — Epistemos v2 roadmap.
 
@@ -20,7 +24,6 @@ enum SemanticClusterService {
     static func computeClusters(store: GraphStore) -> [String: UInt32] {
         let nodes = Array(store.nodes.values)
         guard nodes.count >= 4 else {
-            // Too few nodes to cluster meaningfully
             return Dictionary(nodes.map { ($0.id, UInt32(0)) }, uniquingKeysWith: { first, _ in first })
         }
 
@@ -37,7 +40,7 @@ enum SemanticClusterService {
             return Dictionary(nodes.map { ($0.id, UInt32(0)) }, uniquingKeysWith: { first, _ in first })
         }
 
-        // 2. Run k-means
+        // 2. Run k-means (AMX-accelerated distance computation)
         let k = max(2, min(validPairs.count / 3, Int(sqrt(Double(validPairs.count)))))
         let vectors = validPairs.map { $0.1 }
         let assignments = kmeans(vectors: vectors, k: k, maxIterations: 30)
@@ -57,10 +60,10 @@ enum SemanticClusterService {
         return result
     }
 
-    // MARK: - Embedding Computation
+    // MARK: - Embedding Computation (AMX-accelerated)
 
     /// Compute averaged word embeddings for each node using Apple NLEmbedding.
-    /// Uses the node label (+ body snippet for notes via metadata).
+    /// Vector accumulation uses vDSP (routes through NEON SIMD on Apple Silicon).
     private static func computeEmbeddings(for nodes: [GraphNodeRecord]) -> [String: [Float]] {
         guard let embedding = NLEmbedding.wordEmbedding(for: .english) else {
             Log.app.error("SemanticClusterService: NLEmbedding unavailable for English")
@@ -70,8 +73,9 @@ enum SemanticClusterService {
         let dimension = embedding.dimension
 
         var result: [String: [Float]] = [:]
+        var floatBuffer = [Float](repeating: 0, count: dimension)
+
         for node in nodes {
-            // Build text to embed: label + abstract/description if available
             var text = node.label
             if let abstract = node.metadata.abstract, !abstract.isEmpty {
                 text += " " + abstract
@@ -80,7 +84,6 @@ enum SemanticClusterService {
                 text += " " + theme
             }
 
-            // Tokenize and average word vectors
             let words = text.lowercased()
                 .components(separatedBy: .alphanumerics.inverted)
                 .filter { $0.count > 1 }
@@ -90,70 +93,106 @@ enum SemanticClusterService {
 
             for word in words {
                 if let vec = embedding.vector(for: word) {
-                    for (i, v) in vec.enumerated() {
-                        sumVector[i] += Float(v)
-                    }
+                    // Convert Double → Float into reusable buffer
+                    vDSP.convertElements(of: vec, to: &floatBuffer)
+                    // AMX/NEON vectorized: sumVector += floatBuffer
+                    vDSP.add(sumVector, floatBuffer, result: &sumVector)
                     count += 1
                 }
             }
 
             if count > 0 {
+                // AMX/NEON vectorized: sumVector *= (1/count)
+                var scaled = [Float](repeating: 0, count: dimension)
                 let scale = 1.0 / Float(count)
-                result[node.id] = sumVector.map { $0 * scale }
+                vDSP.multiply(scale, sumVector, result: &scaled)
+                result[node.id] = scaled
             }
         }
 
         return result
     }
 
-    // MARK: - K-Means Clustering
+    // MARK: - K-Means Clustering (AMX-accelerated via BLAS)
 
-    /// Simple k-means clustering on float vectors.
-    /// Returns an array of cluster assignments (0-based) parallel to `vectors`.
+    /// K-means clustering using cblas_sgemm for distance computation.
+    /// The N×K distance matrix is computed in one AMX-accelerated matmul.
     private static func kmeans(vectors: [[Float]], k: Int, maxIterations: Int) -> [Int] {
         let n = vectors.count
         guard n > 0, k > 0 else { return [] }
         let dim = vectors[0].count
 
-        // Initialize centroids with k-means++ seeding
+        // Flatten vectors to contiguous array for BLAS (row-major: N × D)
+        var flat = [Float](repeating: 0, count: n * dim)
+        for (i, vec) in vectors.enumerated() {
+            flat.replaceSubrange((i * dim)..<((i + 1) * dim), with: vec)
+        }
+
         var centroids = kmeansppInit(vectors: vectors, k: k)
+        var flatCentroids = [Float](repeating: 0, count: k * dim)
         var assignments = [Int](repeating: 0, count: n)
 
+        // Precompute squared norms of vectors (constant across iterations)
+        var vecNormsSq = [Float](repeating: 0, count: n)
+        for i in 0..<n {
+            vecNormsSq[i] = vDSP.sumOfSquares(Array(flat[(i * dim)..<((i + 1) * dim)]))
+        }
+
         for _ in 0..<maxIterations {
-            // Assignment step: assign each vector to nearest centroid
+            // Flatten centroids for BLAS
+            for (c, centroid) in centroids.enumerated() {
+                flatCentroids.replaceSubrange((c * dim)..<((c + 1) * dim), with: centroid)
+            }
+
+            // AMX-accelerated: cross = -2 * V × C^T  (N×K matrix)
+            // dist(i,c) = ||v_i||² + ||c_c||² + cross[i,c]
+            var cross = [Float](repeating: 0, count: n * k)
+            cblas_sgemm(
+                CblasRowMajor, CblasNoTrans, CblasTrans,
+                Int32(n), Int32(k), Int32(dim),
+                -2.0, flat, Int32(dim),
+                flatCentroids, Int32(dim),
+                0.0, &cross, Int32(k)
+            )
+
+            // Centroid squared norms
+            var centNormsSq = [Float](repeating: 0, count: k)
+            for c in 0..<k {
+                centNormsSq[c] = vDSP.sumOfSquares(centroids[c])
+            }
+
+            // Assignment step: argmin over distance
             var changed = false
             for i in 0..<n {
-                var bestCluster = 0
+                var bestC = 0
                 var bestDist = Float.infinity
                 for c in 0..<k {
-                    let dist = squaredDistance(vectors[i], centroids[c])
+                    let dist = vecNormsSq[i] + centNormsSq[c] + cross[i * k + c]
                     if dist < bestDist {
                         bestDist = dist
-                        bestCluster = c
+                        bestC = c
                     }
                 }
-                if assignments[i] != bestCluster {
-                    assignments[i] = bestCluster
+                if assignments[i] != bestC {
+                    assignments[i] = bestC
                     changed = true
                 }
             }
 
             if !changed { break }
 
-            // Update step: recompute centroids
+            // Update centroids using vDSP
             var sums = [[Float]](repeating: [Float](repeating: 0, count: dim), count: k)
             var counts = [Int](repeating: 0, count: k)
             for i in 0..<n {
                 let c = assignments[i]
                 counts[c] += 1
-                for d in 0..<dim {
-                    sums[c][d] += vectors[i][d]
-                }
+                vDSP.add(sums[c], vectors[i], result: &sums[c])
             }
             for c in 0..<k {
                 if counts[c] > 0 {
                     let scale = 1.0 / Float(counts[c])
-                    centroids[c] = sums[c].map { $0 * scale }
+                    vDSP.multiply(scale, sums[c], result: &centroids[c])
                 }
             }
         }
@@ -167,22 +206,19 @@ enum SemanticClusterService {
         guard n > 0, k > 0 else { return [] }
 
         var centroids: [[Float]] = []
-        // Pick first centroid randomly
         centroids.append(vectors[Int.random(in: 0..<n)])
 
         for _ in 1..<k {
-            // Compute distance from each point to nearest centroid
             var distances = [Float](repeating: Float.infinity, count: n)
             var totalDist: Float = 0
             for i in 0..<n {
                 for c in centroids {
-                    let d = squaredDistance(vectors[i], c)
+                    let d = vDSP.distanceSquared(vectors[i], c)
                     distances[i] = min(distances[i], d)
                 }
                 totalDist += distances[i]
             }
 
-            // Weighted random selection proportional to squared distance
             var threshold = Float.random(in: 0..<totalDist)
             var selected = 0
             for i in 0..<n {
@@ -196,15 +232,5 @@ enum SemanticClusterService {
         }
 
         return centroids
-    }
-
-    /// Squared Euclidean distance between two vectors.
-    private static func squaredDistance(_ a: [Float], _ b: [Float]) -> Float {
-        var sum: Float = 0
-        for i in 0..<min(a.count, b.count) {
-            let d = a[i] - b[i]
-            sum += d * d
-        }
-        return sum
     }
 }

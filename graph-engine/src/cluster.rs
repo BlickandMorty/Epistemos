@@ -1,6 +1,8 @@
 //! Louvain community detection for cluster physics.
 //! Detects densely connected subgraphs and assigns cluster IDs.
 
+use rustc_hash::FxHashMap;
+
 /// Detect communities using Louvain modularity optimization.
 /// Returns a Vec<u32> where result[i] = cluster_id for node i.
 /// Only operates on the provided edge list (simulation indices).
@@ -8,6 +10,9 @@
 /// Uses the standard modularity gain formula: a node moves to a neighboring
 /// community only when the gain ΔQ > 0. This prevents single bridge edges
 /// from merging distinct dense subgraphs.
+///
+/// Max iterations scale with graph size to keep commit() responsive:
+/// <500 nodes → 20 passes, 500-2000 → 10, 2000+ → 5.
 pub fn detect_communities(
     n: usize,
     edges: &[(usize, usize)],
@@ -30,12 +35,15 @@ pub fn detect_communities(
 
     let degree: Vec<f64> = (0..n).map(|i| adj[i].len() as f64).collect();
 
-    for _ in 0..20 {
+    // Scale max iterations with graph size to keep commit() responsive.
+    let max_passes = if n < 500 { 20 } else if n < 2000 { 10 } else { 5 };
+
+    for _ in 0..max_passes {
         let mut improved = false;
 
         // Σ_tot: sum of degrees per community — computed ONCE per pass, not per node.
         // Incrementally updated when a node moves communities.
-        let mut sigma: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
+        let mut sigma: FxHashMap<u32, f64> = FxHashMap::default();
         for j in 0..n {
             *sigma.entry(community[j]).or_default() += degree[j];
         }
@@ -45,7 +53,7 @@ pub fn detect_communities(
             let current = community[i];
 
             // Edges from i to each neighboring community
-            let mut ki_to: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
+            let mut ki_to: FxHashMap<u32, f64> = FxHashMap::default();
             for &j in &adj[i] {
                 *ki_to.entry(community[j]).or_default() += 1.0;
             }
@@ -84,7 +92,7 @@ pub fn detect_communities(
     }
 
     // Renumber communities to be contiguous (0, 1, 2, ...).
-    let mut renumber: std::collections::HashMap<u32, u32> = std::collections::HashMap::new();
+    let mut renumber: FxHashMap<u32, u32> = FxHashMap::default();
     let mut next_id = 0u32;
     for c in &mut community {
         let new_id = renumber.entry(*c).or_insert_with(|| {

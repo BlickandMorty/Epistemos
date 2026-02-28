@@ -115,11 +115,17 @@ struct ProseEditorView: View {
         // Set dirty flag immediately so isDirtyVault reflects the edit
         // even before the 5s debounce flushes body to SwiftData.
         page.needsVaultSync = true
+        let pageId = page.id
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
             guard newValue != lastPersistedBody else { return }
-            page.saveBody(newValue)
+            // File write off main thread (nonisolated NoteFileStorage is thread-safe).
+            await Task.detached(priority: .utility) {
+                NoteFileStorage.writeBody(pageId: pageId, content: newValue)
+            }.value
+            // SwiftData mutation stays on main thread.
+            if !page.body.isEmpty { page.body = "" }
             lastPersistedBody = newValue
         }
     }

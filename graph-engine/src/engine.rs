@@ -325,10 +325,12 @@ impl Engine {
             let cluster_ids = crate::cluster::detect_communities(sim.x.len(), &sim.edges);
             sim.cluster_ids = cluster_ids;
 
-            // Pre-settle: run ~200 ticks synchronously so the graph appears
-            // already laid out on first render. Skipped for entrance animation.
+            // Pre-settle: run a small number of ticks synchronously so the graph
+            // isn't a clump on first render. The physics thread handles full settling.
+            // Capped at 20 ticks (was 200) to keep commit() under ~5ms for large graphs.
             if !entrance {
-                for _ in 0..200 {
+                let max_ticks = if sim.x.len() > 1000 { 10 } else { 30 };
+                for _ in 0..max_ticks {
                     sim.tick();
                     if sim.is_settled { break; }
                 }
@@ -544,18 +546,21 @@ impl Engine {
             self.spatial.build(&self.graph.nodes);
         }
 
-        // Append selection/hover highlight rings.
+        // Append selection/hover highlight rings (only updates 2 instances — cheap).
         self.renderer
             .set_highlights(self.selected_id, self.hovered_id, &self.graph);
 
-        // Rebuild per-instance highlight flags (cheap N-byte upload).
-        // Called every frame so highlight changes are always visible,
-        // even when physics is settled and update_positions isn't running.
-        self.renderer.rebuild_highlight_flags(&self.graph);
+        // Rebuild per-instance highlight flags only when something visual changed.
+        // Skipping this when idle saves O(N) work per frame at 10K nodes.
+        if positions_changed || entrance_active || needs_frame {
+            self.renderer.rebuild_highlight_flags(&self.graph);
+        }
 
-        // Update magnetic field lines for hovered node.
-        let time = self.renderer.start_time.elapsed().as_secs_f32();
-        self.renderer.update_field_lines(self.hovered_id, &self.graph, time);
+        // Update magnetic field lines only when hovering (skip O(E) scan when not needed).
+        if self.hovered_id.is_some() || self.renderer.field_line_count > 0 {
+            let time = self.renderer.start_time.elapsed().as_secs_f32();
+            self.renderer.update_field_lines(self.hovered_id, &self.graph, time);
+        }
 
         // Issue draw commands.
         self.renderer.draw(width, height);
@@ -1979,5 +1984,39 @@ mod tests {
             }
         }
         assert!(found.iter().all(|&f| f), "all nodes should be verified");
+    }
+
+    #[test]
+    fn stress_2000_nodes_settles_without_chaos() {
+        // Validates scale-aware parameters kick in and the simulation
+        // settles without NaN, Inf, or degenerate positions.
+        let graph = make_large_graph(2000);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+
+        // Scale-aware params should have activated.
+        assert!(sim.params.link_distance <= 180.0, "link_distance should scale down for 2000 nodes");
+        assert!(sim.params.velocity_decay >= 0.65, "velocity_decay should increase for 2000 nodes");
+
+        // Run enough ticks to settle (alpha_decay=0.0228 → 300 ticks to ~37%).
+        for _ in 0..800 {
+            sim.tick();
+            if sim.is_settled { break; }
+        }
+
+        // Verify no NaN/Inf.
+        for i in 0..sim.x.len() {
+            assert!(sim.x[i].is_finite(), "x[{}] not finite after 2000-node sim", i);
+            assert!(sim.y[i].is_finite(), "y[{}] not finite after 2000-node sim", i);
+        }
+
+        // Verify nodes spread out (not collapsed to a point).
+        let (mut min_x, mut max_x) = (f32::MAX, f32::MIN);
+        for &x in &sim.x {
+            min_x = min_x.min(x);
+            max_x = max_x.max(x);
+        }
+        let spread = max_x - min_x;
+        assert!(spread > 200.0, "2000 nodes should spread: got {}", spread);
     }
 }

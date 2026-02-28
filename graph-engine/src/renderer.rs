@@ -351,9 +351,13 @@ pub struct Renderer {
     highlight_flag_capacity: usize,
     // Magnetic field lines (hover interaction).
     field_line_buf: Option<Buffer>,
-    field_line_count: usize,
+    pub(crate) field_line_count: usize,
     field_line_capacity: usize,
     field_line_hovered_id: Option<u32>,
+    // Reusable scratch buffer for field line segments (avoids per-frame allocation).
+    field_line_scratch: Vec<LineEdgeInstance>,
+    // Reusable highlight flag vector (avoids per-frame allocation).
+    highlight_flag_scratch: Vec<u8>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
     // Light mode: uses darker node colors for light backgrounds.
@@ -451,10 +455,12 @@ impl Renderer {
             highlight: HighlightState::new(),
             highlight_flag_buf: None,
             highlight_flag_capacity: 0,
+            highlight_flag_scratch: Vec::new(),
             field_line_buf: None,
             field_line_count: 0,
             field_line_capacity: 0,
             field_line_hovered_id: None,
+            field_line_scratch: Vec::new(),
             clear_color: [0.07, 0.07, 0.09, 1.0],
             light_mode: false,
             start_time: std::time::Instant::now(),
@@ -884,7 +890,9 @@ impl Renderer {
         const NODE_DIM: u8 = 38;   // 0.15 * 255 ≈ 38
         const GLOW_DIM: u8 = 14;   // glow dim factor ≈ 0.055
 
-        let mut flags: Vec<u8> = Vec::with_capacity(total);
+        // Reuse pre-allocated scratch buffer (avoids heap allocation every frame).
+        self.highlight_flag_scratch.clear();
+        self.highlight_flag_scratch.reserve(total);
 
         if self.highlight.active {
             // Glow flags — must mirror upload_graph/update_positions per-node interleaved order:
@@ -892,30 +900,30 @@ impl Renderer {
             for node in graph.nodes.iter().filter(|n| n.visible) {
                 if node.link_count >= 9 {
                     let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
-                    flags.push(if dimmed { GLOW_DIM } else { 0 });
+                    self.highlight_flag_scratch.push(if dimmed { GLOW_DIM } else { 0 });
                 }
                 if node.confidence > 0.0 {
                     let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
-                    flags.push(if dimmed { GLOW_DIM } else { 0 });
+                    self.highlight_flag_scratch.push(if dimmed { GLOW_DIM } else { 0 });
                 }
             }
             // Regular node flags
             for node in graph.nodes.iter().filter(|n| n.visible) {
                 let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
-                flags.push(if dimmed { NODE_DIM } else { 0 });
+                self.highlight_flag_scratch.push(if dimmed { NODE_DIM } else { 0 });
             }
         } else {
             // No highlight — all normal
-            flags.resize(self.glow_count + self.node_count, 0);
+            self.highlight_flag_scratch.resize(self.glow_count + self.node_count, 0);
         }
 
         // Highlight rings — never dimmed
         for _ in 0..self.highlight_count {
-            flags.push(0);
+            self.highlight_flag_scratch.push(0);
         }
 
         // Upload to GPU buffer
-        let needed = flags.len();
+        let needed = self.highlight_flag_scratch.len();
         if needed > self.highlight_flag_capacity || self.highlight_flag_buf.is_none() {
             let capacity = (needed * 3 / 2).max(64);
             self.highlight_flag_buf = Some(
@@ -926,7 +934,7 @@ impl Renderer {
         if let Some(buf) = &self.highlight_flag_buf {
             unsafe {
                 std::ptr::copy_nonoverlapping(
-                    flags.as_ptr(),
+                    self.highlight_flag_scratch.as_ptr(),
                     buf.contents() as *mut u8,
                     needed,
                 );
@@ -946,25 +954,30 @@ impl Renderer {
 
         let Some(hov_id) = hovered else {
             self.field_line_count = 0;
-            // Keep buffer allocated — just zero the count to avoid GPU alloc churn.
             return;
         };
 
-        let Some(hov_node) = graph.nodes.iter().find(|n| n.id == hov_id && n.visible) else {
+        // O(1) lookup via id_to_index instead of O(N) linear scan.
+        let Some(&hov_idx) = graph.id_to_index.get(&hov_id) else {
             self.field_line_count = 0;
-            // Keep buffer allocated — just zero the count to avoid GPU alloc churn.
             return;
         };
+        let hov_node = &graph.nodes[hov_idx];
+        if !hov_node.visible {
+            self.field_line_count = 0;
+            return;
+        }
 
         let hov_pos = [hov_node.x, hov_node.y];
         let hov_color = self.node_color(&hov_node.node_type);
         let field_color = [hov_color[0], hov_color[1], hov_color[2], 0.12];
 
-        let mut segments: Vec<LineEdgeInstance> = Vec::new();
+        // Reuse scratch buffer for field line segments.
+        self.field_line_scratch.clear();
         const FIELD_LINES_PER_NEIGHBOR: usize = 3;
         const FIELD_SEGMENTS: usize = 6;
 
-        // Find neighbors.
+        // Find neighbors — scan edges for this node.
         for edge in &graph.edges {
             let neighbor_id = if edge.source == hov_id {
                 edge.target
@@ -974,9 +987,10 @@ impl Renderer {
                 continue;
             };
 
-            let Some(neighbor) = graph.nodes.iter().find(|n| n.id == neighbor_id && n.visible) else {
-                continue;
-            };
+            // O(1) lookup instead of O(N) linear scan.
+            let Some(&n_idx) = graph.id_to_index.get(&neighbor_id) else { continue; };
+            let neighbor = &graph.nodes[n_idx];
+            if !neighbor.visible { continue; }
 
             let n_pos = [neighbor.x, neighbor.y];
             let dx = n_pos[0] - hov_pos[0];
@@ -988,7 +1002,6 @@ impl Renderer {
             // Generate multiple field lines with different offsets.
             for line_i in 0..FIELD_LINES_PER_NEIGHBOR {
                 let offset_t = (line_i as f32 - 1.0) * dist * 0.15;
-                // Animate with time for shimmering.
                 let shimmer = (time * 0.8 + line_i as f32 * 1.5).sin() * dist * 0.04;
                 let cp_offset = offset_t + shimmer;
 
@@ -997,12 +1010,11 @@ impl Renderer {
                     (hov_pos[1] + n_pos[1]) * 0.5 + py * cp_offset,
                 ];
 
-                // Tessellate this field line.
                 let mut prev = hov_pos;
                 for seg in 1..=FIELD_SEGMENTS {
                     let t = seg as f32 / FIELD_SEGMENTS as f32;
                     let next = bezier_point(hov_pos, cp, n_pos, t);
-                    segments.push(LineEdgeInstance {
+                    self.field_line_scratch.push(LineEdgeInstance {
                         p0: prev,
                         p1: next,
                         color: field_color,
@@ -1012,9 +1024,8 @@ impl Renderer {
             }
         }
 
-        self.field_line_count = segments.len();
+        self.field_line_count = self.field_line_scratch.len();
         if self.field_line_count > 0 {
-            // Re-allocate buffer only if capacity is exceeded.
             if self.field_line_count > self.field_line_capacity || self.field_line_buf.is_none() {
                 let capacity = (self.field_line_count * 3 / 2).max(64);
                 let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
@@ -1023,18 +1034,15 @@ impl Renderer {
                 );
                 self.field_line_capacity = capacity;
             }
-            // Write field line data into pre-allocated buffer in-place.
             if let Some(buf) = &self.field_line_buf {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
-                        segments.as_ptr(),
+                        self.field_line_scratch.as_ptr(),
                         buf.contents() as *mut LineEdgeInstance,
                         self.field_line_count,
                     );
                 }
             }
-        } else {
-            // Keep buffer allocated — just zero the count to avoid GPU alloc churn.
         }
     }
 

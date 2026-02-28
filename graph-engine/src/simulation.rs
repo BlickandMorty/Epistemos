@@ -234,6 +234,20 @@ impl Simulation {
             }
         }
 
+        // Scale force parameters for large graphs to prevent chaos and improve settling.
+        let node_count = self.x.len();
+        if node_count > 2000 {
+            // Large graph: tighter layout, more damping, reduced repulsion.
+            self.params.link_distance = self.params.link_distance.min(120.0);
+            self.params.charge_strength = self.params.charge_strength.max(-800.0);
+            self.params.velocity_decay = self.params.velocity_decay.max(0.70);
+            self.params.collision_iterations = self.params.collision_iterations.max(2);
+        } else if node_count > 500 {
+            // Medium graph: moderate scaling.
+            self.params.link_distance = self.params.link_distance.min(180.0);
+            self.params.velocity_decay = self.params.velocity_decay.max(0.65);
+        }
+
         // Reset alpha for fresh simulation.
         self.params.alpha = 1.0;
         self.is_settled = false;
