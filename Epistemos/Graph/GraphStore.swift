@@ -213,6 +213,71 @@ final class GraphStore {
         return visited
     }
 
+    // MARK: - Graph Query DSL
+
+    /// Structured queries for exploring the knowledge graph.
+    enum GraphQuery {
+        /// Nodes connected via "supports" edges from/to this node.
+        case supportsOf(nodeId: String)
+        /// Nodes connected via "contradicts" edges from/to this node.
+        case contradictsOf(nodeId: String)
+        /// Nodes connected via a specific edge type.
+        case nodesWithEdgeType(GraphEdgeType, from: String)
+        /// Shortest path between two nodes (BFS, max hops).
+        case pathBetween(from: String, to: String, maxHops: Int)
+    }
+
+    /// Execute a structured graph query.
+    func query(_ predicate: GraphQuery) -> [GraphNodeRecord] {
+        switch predicate {
+        case .supportsOf(let nodeId):
+            return nodesLinkedBy(.supports, to: nodeId)
+        case .contradictsOf(let nodeId):
+            return nodesLinkedBy(.contradicts, to: nodeId)
+        case .nodesWithEdgeType(let edgeType, let nodeId):
+            return nodesLinkedBy(edgeType, to: nodeId)
+        case .pathBetween(let fromId, let toId, let maxHops):
+            return shortestPath(from: fromId, to: toId, maxHops: maxHops)
+        }
+    }
+
+    /// Nodes linked to `nodeId` via edges of the given type (either direction).
+    private func nodesLinkedBy(_ edgeType: GraphEdgeType, to nodeId: String) -> [GraphNodeRecord] {
+        edges(for: nodeId)
+            .filter { $0.type == edgeType }
+            .compactMap { edge in
+                let otherId = edge.sourceNodeId == nodeId ? edge.targetNodeId : edge.sourceNodeId
+                return nodes[otherId]
+            }
+    }
+
+    /// BFS shortest path returning the ordered path of nodes (inclusive).
+    private func shortestPath(from startId: String, to endId: String, maxHops: Int) -> [GraphNodeRecord] {
+        guard nodes[startId] != nil, nodes[endId] != nil else { return [] }
+        if startId == endId { return [nodes[startId]!] }
+
+        var visited = Set<String>([startId])
+        var queue: [(id: String, path: [String])] = [(startId, [startId])]
+
+        while !queue.isEmpty {
+            let (currentId, path) = queue.removeFirst()
+            guard path.count <= maxHops else { continue }
+
+            for neighborId in adjacency[currentId] ?? [] {
+                if neighborId == endId {
+                    let fullPath = path + [endId]
+                    return fullPath.compactMap { nodes[$0] }
+                }
+                if !visited.contains(neighborId) {
+                    visited.insert(neighborId)
+                    queue.append((neighborId, path + [neighborId]))
+                }
+            }
+        }
+
+        return [] // No path found
+    }
+
     // MARK: - Mutators
 
     /// Add a node to the store, initializing its adjacency entries.

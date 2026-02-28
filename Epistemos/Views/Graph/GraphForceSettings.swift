@@ -199,6 +199,15 @@ struct GraphForceSettings: View {
                 onChange: { graphState.pushClusterChange() }
             )
 
+            forceSlider(
+                label: "Semantic Attraction",
+                value: gs.semanticStrength,
+                range: 0...1,
+                format: "%.2f",
+                subtitle: "0 = off, 1 = strong",
+                onChange: { graphState.pushSemanticChange() }
+            )
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("Center Force")
                     .font(.system(size: 11, weight: .medium))

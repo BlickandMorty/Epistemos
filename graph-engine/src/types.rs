@@ -133,6 +133,12 @@ pub struct Node {
     pub radius: f32,
     pub label: String,
     pub visible: bool,
+    /// Creation timestamp (Unix epoch seconds). 0.0 = not set (always visible in time filter).
+    pub created_at: f64,
+    /// Last update timestamp (Unix epoch seconds). 0.0 = not set.
+    pub updated_at: f64,
+    /// Confidence score (0.0–1.0) from enrichment pipeline. 0.0 = not set.
+    pub confidence: f32,
 }
 
 #[derive(Clone)]
@@ -203,6 +209,9 @@ impl Graph {
             radius,
             label,
             visible: true,
+            created_at: 0.0,
+            updated_at: 0.0,
+            confidence: 0.0,
         };
         let index = self.nodes.len();
         self.uuid_to_id.insert(uuid, id);
@@ -314,5 +323,26 @@ mod tests {
             let color = NodeType::from_u8(v).color();
             assert_eq!(color[3], 1.0, "alpha should be 1.0 for type {}", v);
         }
+    }
+
+    #[test]
+    fn node_timestamps_default_zero() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        assert_eq!(g.nodes[0].created_at, 0.0);
+        assert_eq!(g.nodes[0].updated_at, 0.0);
+        assert_eq!(g.nodes[0].confidence, 0.0);
+    }
+
+    #[test]
+    fn node_timestamps_settable() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        g.nodes[0].created_at = 1700000000.0;
+        g.nodes[0].updated_at = 1700001000.0;
+        g.nodes[0].confidence = 0.85;
+        assert_eq!(g.nodes[0].created_at, 1700000000.0);
+        assert_eq!(g.nodes[0].updated_at, 1700001000.0);
+        assert!((g.nodes[0].confidence - 0.85).abs() < 0.001);
     }
 }

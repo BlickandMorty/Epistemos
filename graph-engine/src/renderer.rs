@@ -62,7 +62,8 @@ fn z_for_link_count(link_count: u32) -> f32 {
 
 /// Highlighted edge color: brighter accent.
 const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.65, 0.85, 1.00, 0.6];
-/// Dimmed node alpha when highlight is active.
+/// Dimmed node alpha when highlight is active (used in shader via flag buffer).
+#[allow(dead_code)]
 const DIM_ALPHA: f32 = 0.15;
 /// Dimmed edge alpha when highlight is active.
 const EDGE_DIM_ALPHA: f32 = 0.05;
@@ -110,13 +111,15 @@ struct NodeVertexOut {
     float4 color;
     float2 uv;
     float  depth;
+    float  highlight_dim;  // 1.0 = normal, DIM_ALPHA = dimmed
 };
 
 vertex NodeVertexOut node_vertex(
     uint vertex_id [[vertex_id]],
     uint instance_id [[instance_id]],
     constant NodeInstance* instances [[buffer(0)]],
-    constant Uniforms& uniforms [[buffer(1)]]
+    constant Uniforms& uniforms [[buffer(1)]],
+    constant uchar* highlight_flags [[buffer(2)]]
 ) {
     float2 corners[6] = {
         float2(-1, -1), float2( 1, -1), float2(-1,  1),
@@ -146,11 +149,17 @@ vertex NodeVertexOut node_vertex(
     // Depth-based NDC z for proper draw ordering (closer = smaller z = in front).
     float ndc_z = 0.5 - depth * 0.1;
 
+    // Highlight dimming: flag 0 = normal, non-zero = dimmed.
+    // Dim factor is encoded as flag/255 when non-zero, 1.0 when zero.
+    uchar flag = highlight_flags[instance_id];
+    float highlight_dim = flag == 0 ? 1.0 : (float(flag) / 255.0);
+
     NodeVertexOut out;
     out.position = float4(ndc, ndc_z, 1.0);
     out.color = inst.color;
     out.uv = corner;
     out.depth = depth;
+    out.highlight_dim = highlight_dim;
     return out;
 }
 
@@ -216,7 +225,7 @@ fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
     // Final alpha blends pixel boundary with depth-of-field
     float final_alpha = mix(dof_alpha, alpha, pixel_strength);
 
-    return float4(lit_color, in.color.a * final_alpha * depth_fade);
+    return float4(lit_color, in.color.a * final_alpha * depth_fade * in.highlight_dim);
 }
 
 // ── Straight-line edge shaders ─────────────────────────────────────
@@ -337,6 +346,9 @@ pub struct Renderer {
     highlight_count: usize,
     // Highlight
     pub highlight: HighlightState,
+    // Per-instance highlight flag buffer (one u8 per instance: 0=normal, non-zero=dim factor×255).
+    highlight_flag_buf: Option<Buffer>,
+    highlight_flag_capacity: usize,
     // Magnetic field lines (hover interaction).
     field_line_buf: Option<Buffer>,
     field_line_count: usize,
@@ -437,6 +449,8 @@ impl Renderer {
             edge_instance_count: 0,
             highlight_count: 0,
             highlight: HighlightState::new(),
+            highlight_flag_buf: None,
+            highlight_flag_capacity: 0,
             field_line_buf: None,
             field_line_count: 0,
             field_line_capacity: 0,
@@ -487,10 +501,8 @@ impl Renderer {
         for (gi, node) in graph.nodes.iter().enumerate() {
             if !node.visible { continue; }
             let mut color = self.node_color(&node.node_type);
-            // Apply dimming if highlight is active and this node isn't highlighted.
-            if self.highlight.active && !self.highlight.highlighted_ids.contains(&node.id) {
-                color[3] = DIM_ALPHA;
-            }
+            // Highlight dimming is handled by the GPU via highlight_flag_buf (buffer(2)).
+            // Colors are always at full alpha here.
 
             let mut z = z_for_link_count(node.link_count);
             let mut pos = [node.x, node.y];
@@ -506,16 +518,9 @@ impl Renderer {
             }
 
             // Hub glow: foreground nodes (9+ links) get a faint radial glow behind them.
+            // Glow dimming is also handled by the highlight flag buffer.
             if node.link_count >= 9 {
-                let glow_alpha = if self.highlight.active
-                    && !self.highlight.highlighted_ids.contains(&node.id)
-                {
-                    DIM_ALPHA * 0.3
-                } else if self.light_mode {
-                    0.15
-                } else {
-                    0.08
-                };
+                let glow_alpha = if self.light_mode { 0.15 } else { 0.08 };
                 // Apply entrance alpha to glow too.
                 let ent_alpha = entrance
                     .and_then(|e| e.get(gi))
@@ -524,6 +529,24 @@ impl Renderer {
                     position: pos,
                     radius: node.radius * 4.0,
                     z: z - 0.15,
+                    color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
+                });
+            }
+
+            // Confidence glow: nodes with confidence > 0 get a soft radial glow.
+            // High confidence (>0.7) = bright, expansive; low (<0.3) = subtle.
+            if node.confidence > 0.0 {
+                let conf = node.confidence.clamp(0.0, 1.0);
+                let glow_radius = node.radius * (2.0 + conf * 2.0); // 2x-4x
+                let glow_alpha_base = if self.light_mode { 0.06 } else { 0.04 };
+                let glow_alpha = glow_alpha_base + conf * (if self.light_mode { 0.19 } else { 0.21 });
+                let ent_alpha = entrance
+                    .and_then(|e| e.get(gi))
+                    .map_or(1.0, |s| s.alpha);
+                glow_instances.push(NodeInstance {
+                    position: pos,
+                    radius: glow_radius,
+                    z: z - 0.12,
                     color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
                 });
             }
@@ -686,13 +709,13 @@ impl Renderer {
                     }
 
                     // Update glow instance (if this node has one).
+                    // Highlight dimming handled by GPU via highlight_flag_buf.
                     if node.link_count >= 9 && glow_idx < self.glow_count {
                         let glow = &mut *ptr.add(glow_idx);
                         glow.position = pos;
                         glow.z = z - 0.1;
-                        glow.color[3] = if self.highlight.active
-                            && !self.highlight.highlighted_ids.contains(&node.id)
-                        { DIM_ALPHA * 0.3 } else { 0.08 } * ent_alpha;
+                        let base_glow = if self.light_mode { 0.15 } else { 0.08 };
+                        glow.color[3] = base_glow * ent_alpha;
                         glow_idx += 1;
                     }
 
@@ -701,11 +724,8 @@ impl Renderer {
                     inst.position = pos;
                     inst.z = z;
 
-                    // Update color for highlight + entrance alpha.
+                    // Colors at full alpha — highlight dimming via GPU flag buffer.
                     let mut color = self.node_color(&node.node_type);
-                    if self.highlight.active && !self.highlight.highlighted_ids.contains(&node.id) {
-                        color[3] = DIM_ALPHA;
-                    }
                     color[3] *= ent_alpha;
                     inst.color = color;
 
@@ -836,6 +856,61 @@ impl Renderer {
         }
 
         self.highlight_count = idx - self.glow_count - self.node_count;
+    }
+
+    /// Rebuild the per-instance highlight flag buffer.
+    /// Called every frame — cheap (N bytes) and ensures highlight changes are always visible,
+    /// even when physics is settled and update_positions isn't running.
+    pub fn rebuild_highlight_flags(&mut self, graph: &Graph) {
+        let total = self.glow_count + self.node_count + self.highlight_count;
+        if total == 0 { return; }
+
+        // Encode dim factor: 0 = normal (1.0), non-zero = dim (value/255).
+        // DIM_ALPHA (0.15) → 38, glow dim (DIM_ALPHA * 0.375 ≈ 0.056) → 14.
+        const NODE_DIM: u8 = 38;   // 0.15 * 255 ≈ 38
+        const GLOW_DIM: u8 = 14;   // glow dim factor ≈ 0.055
+
+        let mut flags: Vec<u8> = Vec::with_capacity(total);
+
+        if self.highlight.active {
+            // Glow flags
+            for node in graph.nodes.iter().filter(|n| n.visible && n.link_count >= 9) {
+                let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
+                flags.push(if dimmed { GLOW_DIM } else { 0 });
+            }
+            // Regular node flags
+            for node in graph.nodes.iter().filter(|n| n.visible) {
+                let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
+                flags.push(if dimmed { NODE_DIM } else { 0 });
+            }
+        } else {
+            // No highlight — all normal
+            flags.resize(self.glow_count + self.node_count, 0);
+        }
+
+        // Highlight rings — never dimmed
+        for _ in 0..self.highlight_count {
+            flags.push(0);
+        }
+
+        // Upload to GPU buffer
+        let needed = flags.len();
+        if needed > self.highlight_flag_capacity || self.highlight_flag_buf.is_none() {
+            let capacity = (needed * 3 / 2).max(64);
+            self.highlight_flag_buf = Some(
+                self.device.new_buffer(capacity as u64, MTLResourceOptions::StorageModeShared),
+            );
+            self.highlight_flag_capacity = capacity;
+        }
+        if let Some(buf) = &self.highlight_flag_buf {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    flags.as_ptr(),
+                    buf.contents() as *mut u8,
+                    needed,
+                );
+            }
+        }
     }
 
     /// Generate magnetic field lines for a hovered node.
@@ -1048,6 +1123,18 @@ impl Renderer {
                 encoder.set_render_pipeline_state(&self.node_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
+                // Bind highlight flag buffer (buffer(2)). If not yet allocated,
+                // allocate a zero-filled default buffer so the shader reads 0 (normal).
+                if self.highlight_flag_buf.is_none() {
+                    let cap = total_instances.max(64);
+                    let buf = self.device.new_buffer(cap as u64, MTLResourceOptions::StorageModeShared);
+                    // Zero-fill (StorageModeShared is zero-initialized on macOS).
+                    self.highlight_flag_buf = Some(buf);
+                    self.highlight_flag_capacity = cap;
+                }
+                if let Some(flag_buf) = &self.highlight_flag_buf {
+                    encoder.set_vertex_buffer(2, Some(flag_buf), 0);
+                }
                 encoder.draw_primitives_instanced(
                     MTLPrimitiveType::Triangle,
                     0,

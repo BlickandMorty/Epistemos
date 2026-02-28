@@ -91,8 +91,7 @@ struct SOARTests {
                 confidence: 0.1,    // below floor 0.35
                 entropy: 0.9,       // above ceiling 0.7
                 dissonance: 0.8,    // above ceiling 0.6
-                healthScore: 0.3,
-                persistenceEntropy: 0.5
+                healthScore: 0.3
             )
             let analysis = QueryAnalyzer.analyze(
                 query: "How does the paradox of consciousness relate to free will in the context of undecidable propositions, ecological fallacy, and Simpson's paradox?"
@@ -128,8 +127,8 @@ struct SOARTests {
 
         @Test("positive confidence delta produces positive reward")
         func positiveConfidenceReward() {
-            let baseline = BaselineSignals(confidence: 0.3, entropy: 0.7, dissonance: 0.5, healthScore: 0.5, persistenceEntropy: 0.5)
-            let current = BaselineSignals(confidence: 0.6, entropy: 0.7, dissonance: 0.5, healthScore: 0.5, persistenceEntropy: 0.5)
+            let baseline = BaselineSignals(confidence: 0.3, entropy: 0.7, dissonance: 0.5, healthScore: 0.5)
+            let current = BaselineSignals(confidence: 0.6, entropy: 0.7, dissonance: 0.5, healthScore: 0.5)
             let reward = SOARRewardCalculator.computeReward(baseline: baseline, current: current, weights: .default)
             #expect(reward.deltaConfidence > 0)
             #expect(reward.composite > 0)
@@ -138,8 +137,8 @@ struct SOARTests {
 
         @Test("decreased entropy contributes positively")
         func decreasedEntropyPositive() {
-            let baseline = BaselineSignals(confidence: 0.5, entropy: 0.8, dissonance: 0.5, healthScore: 0.5, persistenceEntropy: 0.5)
-            let current = BaselineSignals(confidence: 0.5, entropy: 0.3, dissonance: 0.5, healthScore: 0.5, persistenceEntropy: 0.5)
+            let baseline = BaselineSignals(confidence: 0.5, entropy: 0.8, dissonance: 0.5, healthScore: 0.5)
+            let current = BaselineSignals(confidence: 0.5, entropy: 0.3, dissonance: 0.5, healthScore: 0.5)
             let reward = SOARRewardCalculator.computeReward(baseline: baseline, current: current, weights: .default)
             #expect(reward.composite > 0)
             #expect(reward.improved)
@@ -147,7 +146,7 @@ struct SOARTests {
 
         @Test("no change yields not improved")
         func noChangeNotImproved() {
-            let signals = BaselineSignals(confidence: 0.5, entropy: 0.5, dissonance: 0.5, healthScore: 0.5, persistenceEntropy: 0.5)
+            let signals = BaselineSignals(confidence: 0.5, entropy: 0.5, dissonance: 0.5, healthScore: 0.5)
             let reward = SOARRewardCalculator.computeReward(baseline: signals, current: signals, weights: .default)
             #expect(reward.composite == 0)
             #expect(!reward.improved)
@@ -155,8 +154,8 @@ struct SOARTests {
 
         @Test("worsening signals produce negative composite")
         func worseningNegative() {
-            let baseline = BaselineSignals(confidence: 0.8, entropy: 0.3, dissonance: 0.2, healthScore: 0.8, persistenceEntropy: 0.3)
-            let current = BaselineSignals(confidence: 0.2, entropy: 0.9, dissonance: 0.8, healthScore: 0.2, persistenceEntropy: 0.9)
+            let baseline = BaselineSignals(confidence: 0.8, entropy: 0.3, dissonance: 0.2, healthScore: 0.8)
+            let current = BaselineSignals(confidence: 0.2, entropy: 0.9, dissonance: 0.8, healthScore: 0.2)
             let reward = SOARRewardCalculator.computeReward(baseline: baseline, current: current, weights: .default)
             #expect(reward.composite < 0)
             #expect(!reward.improved)
@@ -164,9 +163,9 @@ struct SOARTests {
 
         @Test("improved threshold is composite > 0.01")
         func improvedThreshold() {
-            let baseline = BaselineSignals(confidence: 0.5, entropy: 0.5, dissonance: 0.5, healthScore: 0.5, persistenceEntropy: 0.5)
+            let baseline = BaselineSignals(confidence: 0.5, entropy: 0.5, dissonance: 0.5, healthScore: 0.5)
             // Tiny improvement
-            let current = BaselineSignals(confidence: 0.503, entropy: 0.5, dissonance: 0.5, healthScore: 0.5, persistenceEntropy: 0.5)
+            let current = BaselineSignals(confidence: 0.503, entropy: 0.5, dissonance: 0.5, healthScore: 0.5)
             let reward = SOARRewardCalculator.computeReward(baseline: baseline, current: current, weights: .default)
             // confidence weight = 0.35, delta = 0.003, composite = 0.00105 < 0.01
             #expect(!reward.improved)
@@ -236,7 +235,7 @@ struct SOARTests {
     @Test("default reward weights sum to 1")
     func rewardWeightsSum() {
         let w = RewardWeights.default
-        let sum = w.confidence + w.entropy + w.dissonance + w.health + w.tda
+        let sum = w.confidence + w.entropy + w.dissonance + w.health
         #expect(abs(sum - 1.0) < 0.001)
     }
 }

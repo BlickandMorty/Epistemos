@@ -295,6 +295,68 @@ private struct InferenceDetailView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
+
+            Section("API Cost Tracking") {
+                let cost = CostTracker.shared
+
+                LabeledContent("Today's Calls") {
+                    Text("\(cost.todayUsage.callCount)")
+                        .font(.system(size: 13, design: .monospaced))
+                }
+                LabeledContent("Input Tokens") {
+                    Text(formatTokenCount(cost.todayUsage.inputTokens))
+                        .font(.system(size: 13, design: .monospaced))
+                }
+                LabeledContent("Output Tokens") {
+                    Text(formatTokenCount(cost.todayUsage.outputTokens))
+                        .font(.system(size: 13, design: .monospaced))
+                }
+                LabeledContent("Est. Cost") {
+                    Text("$\(String(format: "%.4f", cost.todayUsage.estimatedCostUSD))")
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(cost.budgetExceeded ? .red : .primary)
+                }
+
+                if !cost.providerBreakdown.isEmpty {
+                    ForEach(Array(cost.providerBreakdown.keys.sorted(by: { $0.rawValue < $1.rawValue })), id: \.self) { provider in
+                        if let usage = cost.providerBreakdown[provider], usage.callCount > 0 {
+                            LabeledContent(provider.rawValue.capitalized) {
+                                Text("\(usage.callCount) calls · $\(String(format: "%.4f", usage.estimatedCostUSD))")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                LabeledContent("Daily Budget") {
+                    HStack(spacing: 8) {
+                        if cost.dailyBudgetUSD > 0 {
+                            Text("$\(String(format: "%.2f", cost.dailyBudgetUSD))")
+                                .font(.system(size: 13, design: .monospaced))
+                        } else {
+                            Text("Unlimited")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                        Stepper("", value: Bindable(cost).dailyBudgetUSD, in: 0...100, step: 0.50)
+                            .labelsHidden()
+                    }
+                }
+
+                HStack {
+                    if cost.budgetExceeded {
+                        Label("Budget exceeded — API calls paused", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                    Spacer()
+                    Button("Reset") { cost.resetToday() }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -308,6 +370,12 @@ private struct InferenceDetailView: View {
             apiKeyDraft = inference.apiKey
             connectionStatus = nil
         }
+    }
+
+    private func formatTokenCount(_ count: Int) -> String {
+        if count >= 1_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
+        if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
+        return "\(count)"
     }
 }
 

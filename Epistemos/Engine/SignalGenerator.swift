@@ -56,12 +56,9 @@ enum SignalGenerator {
             healthScore: max(0.5, 1 - entropy * 0.3 - dissonance * 0.2),
             safetyState: safetyState,
             riskScore: riskScore,
-            tda: TDASnapshot(betti0: 1, betti1: 0, persistenceEntropy: 0.5, maxPersistence: 0.3),
             focusDepth: controls.focusDepthOverride ?? (3 + c * 5),
             temperatureScale: controls.temperatureOverride ?? (queryAnalysis.isPhilosophical ? 0.8 : 0.7),
             concepts: concepts,
-            activeChordProduct: 1,
-            harmonyKeyDistance: 0,
             grade: confidence > 0.5 ? .b : .c,
             mode: mode
         )
@@ -77,12 +74,9 @@ struct GeneratedSignals: Sendable {
     var healthScore: Double
     var safetyState: SafetyState
     var riskScore: Double
-    var tda: TDASnapshot
     var focusDepth: Double
     var temperatureScale: Double
     var concepts: [String]
-    var activeChordProduct: Double
-    var harmonyKeyDistance: Double
     var grade: EvidenceGrade
     var mode: AnalysisMode
 }

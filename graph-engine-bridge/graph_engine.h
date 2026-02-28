@@ -211,6 +211,84 @@ void graph_engine_set_cluster_ids(
     uint32_t count
 );
 
+// ── Embeddings ──────────────────────────────────────────────────────────────
+
+/// Set the embedding vector for a node.
+/// @param uuid  Node UUID.
+/// @param data  Pointer to `dim` contiguous f32 values.
+/// @param dim   Embedding dimension (must match store, typically 512).
+void graph_engine_set_node_embedding(
+    Engine* engine,
+    const char* uuid,
+    const float* data,
+    uint32_t dim
+);
+
+/// Set semantic attraction strength (0 = off, 1 = strong).
+void graph_engine_set_semantic_strength(Engine* engine, float strength);
+
+/// Recompute semantic neighbor pairs from current embeddings.
+/// Call after batch-setting embeddings. Results drive semantic attraction force.
+/// @param k         Number of neighbors per node (typically 8).
+/// @param threshold Minimum cosine similarity (typically 0.3).
+void graph_engine_recompute_semantic_neighbors(
+    Engine* engine,
+    uint32_t k,
+    float threshold
+);
+
+// ── Temporal Index ──────────────────────────────────────────────────────────
+
+/// Set timestamps for a node (Unix epoch seconds). 0.0 = not set.
+void graph_engine_set_node_time(
+    Engine* engine,
+    const char* uuid,
+    double created_at,
+    double updated_at
+);
+
+/// Apply time filter: nodes with created_at outside [min_ts, max_ts] become invisible.
+/// Nodes with created_at == 0.0 remain always visible.
+/// Pass (0.0, 1e18) to clear the filter.
+void graph_engine_set_time_filter(Engine* engine, double min_ts, double max_ts);
+
+// ── Confidence ─────────────────────────────────────────────────────────────
+
+/// Set a node's confidence score (0.0–1.0).
+void graph_engine_set_node_confidence(
+    Engine* engine,
+    const char* uuid,
+    float confidence
+);
+
+// ── Version Chain ──────────────────────────────────────────────────────────
+
+/// Add a version to a node's hash-linked version chain.
+/// Returns 1 on success, 0 if orphan/duplicate rejected.
+uint8_t graph_engine_add_version(
+    Engine* engine,
+    const char* node_uuid,
+    uint64_t hash,
+    uint64_t parent_hash,
+    double timestamp
+);
+
+/// Get the number of versions in a node's chain.
+uint32_t graph_engine_get_version_count(
+    Engine* engine,
+    const char* node_uuid
+);
+
+/// Semantic search: find nodes most similar to a query embedding.
+/// Returns same SearchResult type as text search. Free with graph_engine_free_search_results.
+GraphSearchResult* graph_engine_semantic_search(
+    Engine* engine,
+    const float* query_data,
+    uint32_t dim,
+    uint32_t limit,
+    uint32_t* out_count
+);
+
 // ── Markdown Parser ────────────────────────────────────────────────────
 
 /// Style span returned by the markdown parser.

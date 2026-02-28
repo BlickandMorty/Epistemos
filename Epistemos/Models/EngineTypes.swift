@@ -217,12 +217,9 @@ struct SignalUpdate: Codable, Sendable {
     var healthScore: Double?
     var safetyState: SafetyState?
     var riskScore: Double?
-    var tda: TDASnapshot?
     var focusDepth: Double?
     var temperatureScale: Double?
     var concepts: [String]?
-    var activeChordProduct: Double?
-    var harmonyKeyDistance: Double?
 
     init(
         confidence: Double? = nil,
@@ -231,12 +228,9 @@ struct SignalUpdate: Codable, Sendable {
         healthScore: Double? = nil,
         safetyState: SafetyState? = nil,
         riskScore: Double? = nil,
-        tda: TDASnapshot? = nil,
         focusDepth: Double? = nil,
         temperatureScale: Double? = nil,
-        concepts: [String]? = nil,
-        activeChordProduct: Double? = nil,
-        harmonyKeyDistance: Double? = nil
+        concepts: [String]? = nil
     ) {
         self.confidence = confidence
         self.entropy = entropy
@@ -244,12 +238,9 @@ struct SignalUpdate: Codable, Sendable {
         self.healthScore = healthScore
         self.safetyState = safetyState
         self.riskScore = riskScore
-        self.tda = tda
         self.focusDepth = focusDepth
         self.temperatureScale = temperatureScale
         self.concepts = concepts
-        self.activeChordProduct = activeChordProduct
-        self.harmonyKeyDistance = harmonyKeyDistance
     }
 }
 
@@ -260,12 +251,6 @@ enum SafetyState: String, Codable, Sendable {
     case red
 }
 
-struct TDASnapshot: Codable, Sendable {
-    var betti0: Int
-    var betti1: Int
-    var persistenceEntropy: Double
-    var maxPersistence: Double
-}
 
 struct SignalHistoryEntry: Codable, Sendable {
     var timestamp: Date

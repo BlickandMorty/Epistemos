@@ -142,6 +142,7 @@ struct CommandPaletteOverlay: View {
             }
             .buttonStyle(.plain)
             .help(chat.isResearchMode ? "Research Mode On — full pipeline" : "Enable Research Mode")
+            .accessibilityLabel(chat.isResearchMode ? "Research mode on" : "Enable research mode")
 
             // Incognito toggle
             Button {
@@ -188,12 +189,12 @@ struct CommandPaletteOverlay: View {
                 })
         }
 
-        // Real-time vault search — uses 5-tier fuzzy matching from GraphStore
-        // when the graph is loaded, with SwiftData substring fallback otherwise.
+        // Real-time vault search — Rust FST fuzzy search with Levenshtein typo correction.
+        // Falls back to Swift GraphStore search when engine isn't available.
         if !searchText.isEmpty {
             if graphState.isLoaded {
-                // Fuzzy search across ALL graph nodes (notes, tags, ideas, sources…)
-                let hits = graphState.store.fuzzySearch(query: searchText, limit: 8)
+                // Rust-powered search: FST Levenshtein + 5-tier scoring
+                let hits = graphState.rustSearch(query: searchText, limit: 8)
                 for hit in hits {
                     let node = hit.node
                     let icon = node.type == .note ? "doc.text" : node.type.icon
@@ -280,7 +281,10 @@ struct CommandPaletteOverlay: View {
             inlineMoveSelection(by: 1)
             return .handled
         }
-        .onChange(of: searchText) { _, _ in inlineSelectedIndex = 0 }
+        .onChange(of: searchText) { _, newText in
+            inlineSelectedIndex = 0
+            graphState.searchHighlight(newText)
+        }
     }
 
     private func inlineMoveSelection(by delta: Int) {
@@ -295,6 +299,7 @@ struct CommandPaletteOverlay: View {
         isSearchFocused = false
         searchText = ""
         inlineSelectedIndex = 0
+        graphState.searchHighlight("")
         ui.dismissCommandPalette()
     }
 

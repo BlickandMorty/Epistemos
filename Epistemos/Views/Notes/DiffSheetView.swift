@@ -115,16 +115,12 @@ struct DiffSheetView: View {
 
             Spacer()
 
-            // Version picker
+            // Version timeline (horizontal dots with sparkline)
             if !versions.isEmpty {
-                Picker("Version", selection: $selectedVersionId) {
-                    ForEach(versions) { version in
-                        Text(versionLabel(version))
-                            .tag(Optional(version.id))
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(maxWidth: 200)
+                VersionTimeline(
+                    versions: versions,
+                    selectedVersionId: $selectedVersionId
+                )
                 .onChange(of: selectedVersionId) { _, _ in
                     expandedSections.removeAll()
                     currentChunkIdx = 0

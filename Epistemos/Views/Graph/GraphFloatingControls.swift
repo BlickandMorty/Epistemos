@@ -11,50 +11,59 @@ struct GraphFloatingControls: View {
     @State private var showForceSettings = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            typeFilterPills
+        VStack(spacing: 8) {
+            if graphState.showTimeSlider {
+                TimeSliderOverlay()
+                    .environment(graphState)
+            }
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+            HStack(spacing: 12) {
+                typeFilterPills
 
-            modeToggle
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                modeToggle
 
-            semanticClusterToggle
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                semanticClusterToggle
 
-            forceSettingsButton
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            minimizeButton
+                forceSettingsButton
 
-            resetViewButton
+                timeSliderButton
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                minimizeButton
 
-            rebuildGraphButton
+                resetViewButton
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            closeButton
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .glassEffect(.regular.interactive(), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
-        .popover(isPresented: $showForceSettings, arrowEdge: .top) {
-            GraphForceSettings()
-                .environment(graphState)
+                rebuildGraphButton
+
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
+
+                closeButton
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .glassEffect(.regular.interactive(), in: Capsule())
+            .overlay(Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
+            .popover(isPresented: $showForceSettings, arrowEdge: .top) {
+                GraphForceSettings()
+                    .environment(graphState)
+            }
         }
     }
 
@@ -143,9 +152,34 @@ struct GraphFloatingControls: View {
         .buttonStyle(.plain)
         .foregroundStyle(graphState.useSemanticClustering ? .white : .white.opacity(0.5))
         .help(graphState.useSemanticClustering ? "Semantic Clustering On" : "Enable Semantic Clustering")
+        .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
     }
 
     // MARK: - Force Settings
+
+    // MARK: - Time Slider
+
+    private var timeSliderButton: some View {
+        Button {
+            withAnimation(.smooth(duration: 0.2)) {
+                if graphState.showTimeSlider {
+                    graphState.clearTimeFilter()
+                } else {
+                    graphState.computeTimeRange()
+                    graphState.showTimeSlider = true
+                }
+            }
+        } label: {
+            Image(systemName: graphState.showTimeSlider ? "clock.fill" : "clock")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(graphState.showTimeSlider ? .white : .white.opacity(0.6))
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help("Time Travel")
+        .accessibilityLabel("Time travel slider")
+    }
 
     private var forceSettingsButton: some View {
         Button {
@@ -158,6 +192,8 @@ struct GraphFloatingControls: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .help("Force Settings")
+        .accessibilityLabel("Force settings")
     }
 
     // MARK: - Minimize
@@ -174,6 +210,7 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .help("Minimize to floating window")
+        .accessibilityLabel("Minimize to floating window")
     }
 
     // MARK: - Reset View
@@ -190,6 +227,7 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .help("Zoom to fit")
+        .accessibilityLabel("Zoom to fit")
     }
 
     // MARK: - Rebuild Graph
@@ -206,6 +244,7 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .help("Rebuild Graph")
+        .accessibilityLabel("Rebuild graph")
     }
 
     // MARK: - Close
@@ -227,6 +266,7 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .help("Close Graph (Esc)")
+        .accessibilityLabel("Close graph")
     }
 }
 
@@ -253,6 +293,7 @@ private struct FilterPill: View {
             .foregroundStyle(isActive ? .white : .white.opacity(0.35))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(type.displayName) filter \(isActive ? "on" : "off")")
     }
 }
 

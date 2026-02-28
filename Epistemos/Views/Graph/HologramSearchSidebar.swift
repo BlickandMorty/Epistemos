@@ -15,7 +15,7 @@ struct HologramSearchSidebar: View {
     var onSearchChanged: (String) -> Void
     var onSelectNode: (String) -> Void
 
-    enum SidebarTab { case search, notes, knowledge }
+    enum SidebarTab { case search, notes, knowledge, query }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,6 +29,8 @@ struct HologramSearchSidebar: View {
                 notesContent
             case .knowledge:
                 knowledgeContent
+            case .query:
+                queryContent
             }
         }
         .frame(width: 280)
@@ -47,6 +49,7 @@ struct HologramSearchSidebar: View {
             tabButton("Search", icon: "magnifyingglass", tab: .search)
             tabButton("Notes", icon: "doc.text", tab: .notes)
             tabButton("Knowledge", icon: "brain.head.profile", tab: .knowledge)
+            tabButton("Query", icon: "point.3.connected.trianglepath.dotted", tab: .query)
             Spacer()
         }
         .padding(.horizontal, 10)
@@ -117,7 +120,7 @@ struct HologramSearchSidebar: View {
 
     private var searchResults: [GraphStore.SearchHit] {
         guard !searchText.isEmpty else { return [] }
-        return graphState.store.fuzzySearch(query: searchText, limit: 50)
+        return graphState.rustSearch(query: searchText, limit: 50)
     }
 
     private var searchResultsList: some View {
@@ -394,6 +397,111 @@ struct HologramSearchSidebar: View {
                 }
             }
         }
+    }
+
+    // MARK: - Query Content
+
+    @State private var queryResults: [GraphNodeRecord] = []
+    @State private var activeQueryLabel: String?
+
+    private var queryContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let selectedId = graphState.selectedNodeId, let node = graphState.store.nodes[selectedId] {
+                // Context: which node we're querying about
+                HStack(spacing: 6) {
+                    Circle().fill(node.type.swiftUIColor).frame(width: 6, height: 6)
+                    Text(node.label)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+
+                Divider().opacity(0.2)
+
+                // Query buttons
+                ScrollView {
+                    VStack(spacing: 4) {
+                        queryButton("Supports", icon: "checkmark.circle", color: .green) {
+                            graphState.store.query(.supportsOf(nodeId: selectedId))
+                        }
+                        queryButton("Contradicts", icon: "xmark.circle", color: .red) {
+                            graphState.store.query(.contradictsOf(nodeId: selectedId))
+                        }
+                        queryButton("Expands", icon: "arrow.up.left.and.arrow.down.right", color: .blue) {
+                            graphState.store.query(.nodesWithEdgeType(.expands, from: selectedId))
+                        }
+                        queryButton("Questions", icon: "questionmark.circle", color: .orange) {
+                            graphState.store.query(.nodesWithEdgeType(.questions, from: selectedId))
+                        }
+                        queryButton("Cites", icon: "quote.opening", color: .purple) {
+                            graphState.store.query(.nodesWithEdgeType(.cites, from: selectedId))
+                        }
+                        queryButton("References", icon: "arrow.right", color: .secondary) {
+                            graphState.store.query(.nodesWithEdgeType(.reference, from: selectedId))
+                        }
+                        queryButton("Contains", icon: "folder", color: Color(red: 0.64, green: 0.52, blue: 0.37)) {
+                            graphState.store.query(.nodesWithEdgeType(.contains, from: selectedId))
+                        }
+
+                        if !queryResults.isEmpty {
+                            Divider().opacity(0.2).padding(.vertical, 4)
+
+                            if let label = activeQueryLabel {
+                                Text("\(label) (\(queryResults.count))")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.4))
+                                    .textCase(.uppercase)
+                                    .tracking(0.4)
+                                    .padding(.horizontal, 12)
+                                    .padding(.bottom, 2)
+                            }
+
+                            ForEach(queryResults, id: \.id) { node in
+                                nodeRow(node)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+            } else {
+                emptyState("Select a node to query its relationships", icon: "point.3.connected.trianglepath.dotted")
+            }
+        }
+    }
+
+    private func queryButton(_ label: String, icon: String, color: Color, query: @escaping () -> [GraphNodeRecord]) -> some View {
+        Button {
+            queryResults = query()
+            activeQueryLabel = label
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(color)
+                    .frame(width: 16)
+
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.8))
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.2))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                activeQueryLabel == label ? color.opacity(0.12) : .clear,
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Shared Components

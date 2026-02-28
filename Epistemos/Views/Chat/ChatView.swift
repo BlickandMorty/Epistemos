@@ -105,7 +105,8 @@ struct ChatView: View {
         panel.nameFieldStringValue = "chat-export-\(Date().formatted(.iso8601.year().month().day())).md"
         panel.begin { response in
             if response == .OK, let url = panel.url {
-                try? md.write(to: url, atomically: true, encoding: .utf8)
+                do { try md.write(to: url, atomically: true, encoding: .utf8) }
+                catch { Log.app.error("Chat export failed: \(error.localizedDescription)") }
             }
         }
     }

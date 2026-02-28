@@ -205,26 +205,4 @@ struct SignalGeneratorTests {
         #expect(validGrades.contains(signals.grade))
     }
 
-    // MARK: - TDA Snapshot
-
-    @Test("TDA betti0 is at least 1")
-    func tdaBetti0() {
-        let analysis = makeAnalysis()
-        let signals = SignalGenerator.generate(queryAnalysis: analysis)
-        #expect(signals.tda.betti0 >= 1)
-    }
-
-    @Test("TDA betti1 is non-negative")
-    func tdaBetti1() {
-        let analysis = makeAnalysis()
-        let signals = SignalGenerator.generate(queryAnalysis: analysis)
-        #expect(signals.tda.betti1 >= 0)
-    }
-
-    @Test("TDA persistence entropy is positive")
-    func tdaPersistenceEntropy() {
-        let analysis = makeAnalysis()
-        let signals = SignalGenerator.generate(queryAnalysis: analysis)
-        #expect(signals.tda.persistenceEntropy > 0)
-    }
 }

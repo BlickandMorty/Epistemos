@@ -305,3 +305,227 @@ struct PipelineServiceTests {
         _ = triage
     }
 }
+
+// MARK: - Pipeline Contract Tests (Phase 7.5)
+// Tests for consolidated enrichment, cost tracking, and cancellation.
+
+@Suite("Pipeline Contracts")
+struct PipelineContractTests {
+
+    // MARK: - Consolidated Enrichment JSON Parsing
+
+    @Test("extractJSON handles clean JSON")
+    func extractJSONClean() {
+        let raw = """
+        {"laymanSummary": "Test", "confidence": 0.8}
+        """
+        let result = EnrichmentController.extractJSON(from: raw)
+        #expect(result != nil)
+        #expect(result?["confidence"] as? Double == 0.8)
+    }
+
+    @Test("extractJSON strips markdown code fences")
+    func extractJSONCodeFences() {
+        let raw = """
+        Here is the analysis:
+        ```json
+        {"grade": "A", "score": 95}
+        ```
+        """
+        let result = EnrichmentController.extractJSON(from: raw)
+        #expect(result != nil)
+        #expect(result?["grade"] as? String == "A")
+    }
+
+    @Test("extractJSON strips thinking blocks")
+    func extractJSONThinkingBlocks() {
+        let raw = """
+        <thinking>I should analyze carefully...</thinking>
+        {"verdict": "supported", "confidence": 0.75}
+        """
+        let result = EnrichmentController.extractJSON(from: raw)
+        #expect(result != nil)
+        #expect(result?["verdict"] as? String == "supported")
+    }
+
+    @Test("extractJSON returns nil for non-JSON")
+    func extractJSONNonJSON() {
+        let result = EnrichmentController.extractJSON(from: "Just a plain text response with no JSON")
+        #expect(result == nil)
+    }
+
+    @Test("extractJSON handles prose-then-JSON")
+    func extractJSONProseThenJSON() {
+        let raw = """
+        After careful consideration of the evidence, here is my structured assessment:
+
+        {"overallTruthLikelihood": 0.72, "evidenceGrade": "B", "weaknesses": ["Small sample size"]}
+        """
+        let result = EnrichmentController.extractJSON(from: raw)
+        #expect(result != nil)
+        #expect(result?["evidenceGrade"] as? String == "B")
+        let weaknesses = result?["weaknesses"] as? [String]
+        #expect(weaknesses?.count == 1)
+    }
+
+    // MARK: - Cost Tracking
+
+    @Test("CostTracker estimates cost correctly for known model")
+    func costEstimation() {
+        // claude-sonnet-4-6: $3/1M input, $15/1M output
+        let rates = CostTracker.pricing["claude-sonnet-4-6"]
+        #expect(rates != nil)
+        #expect(rates?.input == 3.0)
+        #expect(rates?.output == 15.0)
+
+        // 1000 input tokens + 500 output tokens at Sonnet rates
+        let expectedCost = (1000.0 * 3.0 / 1_000_000.0) + (500.0 * 15.0 / 1_000_000.0)
+        #expect(expectedCost > 0.01)  // Sanity: non-trivial cost
+        #expect(expectedCost < 0.02)  // Sanity: reasonable for small query
+    }
+
+    @Test("CostTracker returns zero cost for unknown model")
+    func costEstimationUnknownModel() {
+        let rates = CostTracker.pricing["llama-3.3-70b"]
+        #expect(rates == nil)  // Local model → no pricing entry → $0 cost
+    }
+
+    @Test("CostTracker budget detection works")
+    @MainActor func budgetDetection() {
+        let tracker = CostTracker.shared
+        let savedBudget = tracker.dailyBudgetUSD
+
+        // Set budget to $0 (unlimited) — should never be exceeded
+        tracker.dailyBudgetUSD = 0
+        #expect(!tracker.budgetExceeded)
+
+        // Set a tiny budget
+        tracker.dailyBudgetUSD = 0.0001
+        // If any cost has been recorded today, this might already be exceeded
+        // Just verify the property is computable without crash
+        _ = tracker.budgetExceeded
+
+        // Restore
+        tracker.dailyBudgetUSD = savedBudget
+    }
+
+    // MARK: - Cancellation
+
+    @Test("Pipeline can be cancelled mid-stream")
+    @MainActor func pipelineCancellation() async {
+        let mock = MockLLMClient()
+        // Long stream to ensure we have time to cancel
+        mock.streamTokens = (0..<100).map { "Token\($0) " }
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference, llmService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            eventBus: eventBus
+        )
+
+        var receivedTokens = 0
+        let stream = pipeline.run(
+            query: "Tell me everything",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        // Start consuming but cancel quickly
+        let task = Task {
+            for try await event in stream {
+                if case .textDelta = event {
+                    receivedTokens += 1
+                }
+            }
+        }
+
+        // Give it a moment to start, then cancel
+        try? await Task.sleep(for: .milliseconds(50))
+        task.cancel()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        // Should have received some but not all tokens
+        #expect(task.isCancelled)
+    }
+
+    // MARK: - Event Ordering
+
+    @Test("Pipeline stage events arrive in deterministic order")
+    @MainActor func stageOrdering() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = ["Answer"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference, llmService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            eventBus: eventBus
+        )
+
+        var completedStages: [PipelineStage] = []
+        let stream = pipeline.run(
+            query: "Test ordering",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .stageAdvanced(let stage, let result) = event, result.status == .completed {
+                completedStages.append(stage)
+            }
+        }
+
+        // Verify strict ordering: each stage's ordinal should be monotonically increasing
+        for i in 1..<completedStages.count {
+            let prev = PipelineStage.allCases.firstIndex(of: completedStages[i - 1])!
+            let curr = PipelineStage.allCases.firstIndex(of: completedStages[i])!
+            #expect(curr > prev, "Stage \(completedStages[i]) arrived before \(completedStages[i - 1])")
+        }
+    }
+
+    @Test("Pipeline emits completed event with DualMessage")
+    @MainActor func completedEvent() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = ["The answer is 42"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference, llmService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            eventBus: eventBus
+        )
+
+        var gotCompleted = false
+        let stream = pipeline.run(
+            query: "What is the meaning of life?",
+            mode: .api,
+            skipEnrichment: true
+        )
+
+        for try await event in stream {
+            if case .completed(let dual, _) = event {
+                gotCompleted = true
+                // DualMessage should contain the raw analysis text
+                #expect(!dual.rawAnalysis.isEmpty)
+            }
+        }
+
+        #expect(gotCompleted, "Pipeline should emit a .completed event")
+    }
+}

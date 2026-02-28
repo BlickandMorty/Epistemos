@@ -53,14 +53,12 @@ struct RewardWeights: Codable, Sendable {
     var entropy: Double
     var dissonance: Double
     var health: Double
-    var tda: Double
 
     static let `default` = RewardWeights(
-        confidence: 0.35,
+        confidence: 0.40,
         entropy: 0.25,
         dissonance: 0.20,
-        health: 0.15,
-        tda: 0.05
+        health: 0.15
     )
 
     static let defaults = RewardWeights.default
@@ -126,7 +124,6 @@ struct SOARReward: Codable, Sendable {
     var deltaEntropy: Double
     var deltaDissonance: Double
     var deltaHealth: Double
-    var deltaPersistenceEntropy: Double
     var composite: Double
     var improved: Bool
 }
@@ -136,7 +133,6 @@ struct BaselineSignals: Codable, Sendable {
     var entropy: Double
     var dissonance: Double
     var healthScore: Double
-    var persistenceEntropy: Double
 }
 
 // MARK: - Contradiction Detection

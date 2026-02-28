@@ -585,6 +585,11 @@ extension LLMService {
                 timeout: effectiveTimeout
             )
             let response = try JSONDecoder().decode(AnthropicResponse.self, from: data)
+            CostTracker.recordFromBackground(CostTracker.TokenUsage(
+                inputTokens: response.usage?.input_tokens ?? 0,
+                outputTokens: response.usage?.output_tokens ?? 0,
+                provider: .anthropic, model: snapshot.model
+            ))
             return response.content.first?.text ?? ""
 
         case .openai:
@@ -602,6 +607,11 @@ extension LLMService {
                 timeout: effectiveTimeout
             )
             let response = try JSONDecoder().decode(OpenAIResponse.self, from: data)
+            CostTracker.recordFromBackground(CostTracker.TokenUsage(
+                inputTokens: response.usage?.prompt_tokens ?? 0,
+                outputTokens: response.usage?.completion_tokens ?? 0,
+                provider: .openai, model: snapshot.model
+            ))
             return response.choices.first?.message.content ?? ""
 
         case .google:
@@ -618,6 +628,11 @@ extension LLMService {
                 "x-goog-api-key": snapshot.apiKey
             ], timeout: effectiveTimeout)
             let response = try JSONDecoder().decode(GeminiResponse.self, from: data)
+            CostTracker.recordFromBackground(CostTracker.TokenUsage(
+                inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
+                outputTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
+                provider: .google, model: snapshot.model
+            ))
             return response.candidates.first?.content.parts.first?.text ?? ""
 
         case .kimi:
@@ -635,6 +650,11 @@ extension LLMService {
                 timeout: effectiveTimeout
             )
             let kimiResponse = try JSONDecoder().decode(OpenAIResponse.self, from: kimiData)
+            CostTracker.recordFromBackground(CostTracker.TokenUsage(
+                inputTokens: kimiResponse.usage?.prompt_tokens ?? 0,
+                outputTokens: kimiResponse.usage?.completion_tokens ?? 0,
+                provider: .kimi, model: snapshot.model
+            ))
             return kimiResponse.choices.first?.message.content ?? ""
 
         case .ollama:
@@ -644,6 +664,11 @@ extension LLMService {
             let body = OllamaRequest(model: snapshot.model, prompt: prompt, system: systemPrompt, stream: false)
             let data = try await postJSONStatic(url: url, body: body, headers: ["content-type": "application/json"], timeout: effectiveTimeout)
             let response = try JSONDecoder().decode(OllamaResponse.self, from: data)
+            CostTracker.recordFromBackground(CostTracker.TokenUsage(
+                inputTokens: response.prompt_eval_count ?? 0,
+                outputTokens: response.eval_count ?? 0,
+                provider: .ollama, model: snapshot.model
+            ))
             return response.response
 
         case .appleIntelligence:
@@ -746,6 +771,12 @@ private nonisolated struct AnthropicMessage: Encodable {
 
 private nonisolated struct AnthropicResponse: Decodable {
     let content: [AnthropicContent]
+    let usage: AnthropicUsage?
+}
+
+private nonisolated struct AnthropicUsage: Decodable {
+    let input_tokens: Int?
+    let output_tokens: Int?
 }
 
 private nonisolated struct AnthropicContent: Decodable {
@@ -781,6 +812,12 @@ private nonisolated struct OpenAIMessage: Codable {
 
 private nonisolated struct OpenAIResponse: Decodable {
     let choices: [OpenAIChoice]
+    let usage: OpenAIUsage?
+}
+
+private nonisolated struct OpenAIUsage: Decodable {
+    let prompt_tokens: Int?
+    let completion_tokens: Int?
 }
 
 private nonisolated struct OpenAIChoice: Decodable {
@@ -820,6 +857,12 @@ private nonisolated struct GeminiGenerationConfig: Encodable {
 
 private nonisolated struct GeminiResponse: Decodable {
     let candidates: [GeminiCandidate]
+    let usageMetadata: GeminiUsage?
+}
+
+private nonisolated struct GeminiUsage: Decodable {
+    let promptTokenCount: Int?
+    let candidatesTokenCount: Int?
 }
 
 private nonisolated struct GeminiCandidate: Decodable {
@@ -845,6 +888,8 @@ private nonisolated struct OllamaRequest: Encodable {
 
 private nonisolated struct OllamaResponse: Decodable {
     let response: String
+    let prompt_eval_count: Int?
+    let eval_count: Int?
 }
 
 private nonisolated struct OllamaStreamChunk: Decodable {

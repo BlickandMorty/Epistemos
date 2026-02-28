@@ -195,8 +195,7 @@ actor SOAREngine {
                 confidence: finalAttempt.confidence,
                 entropy: finalAttempt.entropy,
                 dissonance: finalAttempt.dissonance,
-                healthScore: finalAttempt.healthScore,
-                persistenceEntropy: currentSignals.persistenceEntropy * (1 - 0.05 * Double(iteration + 1))
+                healthScore: finalAttempt.healthScore
             )
 
             let reward = SOARRewardCalculator.computeReward(
@@ -275,8 +274,7 @@ actor SOAREngine {
                 confidence: best.confidence,
                 entropy: best.entropy,
                 dissonance: best.dissonance,
-                healthScore: best.healthScore,
-                persistenceEntropy: currentSignals.persistenceEntropy
+                healthScore: best.healthScore
             )
         }
 

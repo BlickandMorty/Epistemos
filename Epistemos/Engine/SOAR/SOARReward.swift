@@ -17,21 +17,18 @@ nonisolated enum SOARRewardCalculator {
         let deltaEntropy = baseline.entropy - current.entropy
         let deltaDissonance = baseline.dissonance - current.dissonance
         let deltaHealth = current.healthScore - baseline.healthScore
-        let deltaPersistenceEntropy = baseline.persistenceEntropy - current.persistenceEntropy
 
         let composite =
             weights.confidence * deltaConfidence +
             weights.entropy * deltaEntropy +
             weights.dissonance * deltaDissonance +
-            weights.health * deltaHealth +
-            weights.tda * deltaPersistenceEntropy
+            weights.health * deltaHealth
 
         return SOARReward(
             deltaConfidence: deltaConfidence,
             deltaEntropy: -deltaEntropy,
             deltaDissonance: -deltaDissonance,
             deltaHealth: deltaHealth,
-            deltaPersistenceEntropy: -deltaPersistenceEntropy,
             composite: composite,
             improved: composite > 0.01
         )

@@ -268,6 +268,9 @@ mod tests {
             label: format!("Node {}", id),
             radius,
             visible: true,
+            created_at: 0.0,
+            updated_at: 0.0,
+            confidence: 0.0,
         }
     }
 

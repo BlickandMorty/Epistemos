@@ -5,13 +5,8 @@ import os
 import SwiftData
 
 // MARK: - App Bootstrap
-// One-time initialization on app launch.
-// Creates state objects, services, and wires the dependency graph.
-//
-// Extensions:
-//   AppBootstrap+ChatOrchestration.swift — query flow, pipeline events, title generation
-//   AppBootstrap+NotesContext.swift      — vault context building, action markers
-//   AppBootstrap+Persistence.swift       — SwiftData chat/enrichment persistence
+// Pure state/service factory. Creates state objects, services, and the dependency graph.
+// All behavioral orchestration is delegated to AppCoordinator and ChatCoordinator.
 
 @MainActor
 final class AppBootstrap {
@@ -20,6 +15,9 @@ final class AppBootstrap {
 
     // MARK: - Model Container
     let modelContainer: ModelContainer
+    /// Non-nil when the on-disk database failed to load and we fell back to in-memory.
+    /// RootView shows a recovery alert when this is set.
+    var databaseError: Error?
 
     // MARK: - State
     let eventBus = EventBus()
@@ -53,6 +51,9 @@ final class AppBootstrap {
     let pipelineService: PipelineService
     let soarService: SOARService
 
+    // MARK: - Coordinators
+    private(set) var coordinator: AppCoordinator!
+
     init() {
         // Register custom fonts (RetroGaming, etc.)
         EpistemosFont.registerFonts()
@@ -64,8 +65,10 @@ final class AppBootstrap {
             reason: "Epistemos — keep AI pipelines alive when app loses focus"
         )
 
-        // Create model container with versioned schema and migration plan
+        // Create model container with versioned schema and migration plan.
+        // Falls back to in-memory container on failure (corrupt DB, migration error).
         let container: ModelContainer
+        let dbError: Error?
         do {
             let schema = Schema(versionedSchema: EpistemosSchemaV2.self)
             container = try ModelContainer(
@@ -73,10 +76,16 @@ final class AppBootstrap {
                 migrationPlan: EpistemosMigrationPlan.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: false)
             )
+            dbError = nil
         } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
+            Log.app.error("Database failed to load, falling back to in-memory: \(error.localizedDescription, privacy: .public)")
+            let schema = Schema(versionedSchema: EpistemosSchemaV2.self)
+            // swiftlint:disable:next force_try — in-memory container cannot fail
+            container = try! ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+            dbError = error
         }
         self.modelContainer = container
+        self.databaseError = dbError
 
         // InferenceState reads Keychain + checks Apple Intelligence availability
         let inference = InferenceState()
@@ -113,33 +122,52 @@ final class AppBootstrap {
         // Wire event bus to chat state
         chatState.eventBus = eventBus
 
+        // Create coordinators
+        let chatCoordinator = ChatCoordinator(
+            bootstrap: self,
+            chatState: chatState,
+            pipelineService: pipeline,
+            inferenceState: inference,
+            soarState: soarState,
+            vaultSync: vaultSync,
+            modelContainer: container,
+            eventBus: eventBus,
+            llmService: llm,
+            researchState: researchState,
+            notesUI: notesUI
+        )
+
+        let appCoordinator = AppCoordinator(
+            bootstrap: self,
+            chatCoordinator: chatCoordinator,
+            eventBus: eventBus,
+            uiState: uiState,
+            chatState: chatState,
+            dailyBriefState: dailyBriefState,
+            triageService: triage,
+            vaultSync: vaultSync,
+            pipelineService: pipeline,
+            modelContainer: container,
+            notesUI: notesUI
+        )
+        self.coordinator = appCoordinator
+
         // Wire stop button → cancel active pipeline query
         chatState.onStopRequested = { [weak self] in
-            self?.cancelActiveQuery()
+            self?.coordinator.cancelActiveQuery()
         }
 
-        // Wire EventBus: querySubmitted → PipelineService
-        subscribeToPipelineEvents(pipeline: pipeline, chatState: chatState)
+        // Wire all events (pipeline, toast, vault, daily brief)
+        appCoordinator.wireAll()
 
         // Evict old disk style cache entries in background (filesystem I/O).
         Task { DiskStyleCache.shared.evictIfNeeded() }
-
-        // Wire Daily Brief overlay
-        wireDailyBrief()
-
-        // Wire toast/error display
-        subscribeToToastEvents()
-
-        // Wire vault change events → ambient manifest refresh
-        subscribeToVaultEvents()
 
         // Give VaultSyncService access to EventBus for change notifications
         vaultSync.setEventBus(eventBus)
 
         // Check Ollama availability in background
-        Task {
-            await llm.checkOllama()
-        }
+        Task { await llm.checkOllama() }
 
         AppBootstrap.shared = self
 
@@ -152,138 +180,37 @@ final class AppBootstrap {
         Log.app.info("AppBootstrap: initialized — provider: \(inference.apiProvider.rawValue, privacy: .public)")
     }
 
-    // MARK: - Daily Brief Wiring
+    // MARK: - Forwarding (for external callers that reference AppBootstrap directly)
 
-    private func wireDailyBrief() {
-        dailyBriefState.onDailyBriefGenerate = { [weak self] prompt in
-            guard let self else { return nil }
-            // Apple Intelligence first (fast, on-device)
-            let briefSystemPrompt = """
-            You are a concise research analyst preparing a daily intelligence brief. \
-            Reference actual note titles and specific content. Identify patterns the user hasn't connected. \
-            Flag stalled work. Recommend concrete actions referencing specific materials. \
-            Use markdown headers (###) and **bold**. Aim for 300-500 words.
-            """
-            do {
-                return try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: briefSystemPrompt
-                )
-            } catch {
-                // Fallback to cloud API if Apple Intelligence unavailable
-                return try? await self.triageService.generateGeneral(
-                    prompt: prompt,
-                    systemPrompt: briefSystemPrompt,
-                    operation: .chatResponse(query: prompt),
-                    contentLength: prompt.count
-                )
-            }
-        }
+    func cancelActiveQuery() { coordinator.cancelActiveQuery() }
+    func refreshAmbientManifest() { coordinator.refreshAmbientManifest() }
+    func loadChat(chatId: String) { coordinator.loadChat(chatId: chatId) }
+    func requestVaultBriefing(chatState: ChatState) { coordinator.requestVaultBriefing(chatState: chatState) }
+    static func gradeFromConfidence(_ confidence: Double) -> EvidenceGrade { ChatCoordinator.gradeFromConfidence(confidence) }
 
-        dailyBriefState.onGoDeepGenerate = { [weak self] prompt in
-            guard let self else { return nil }
-            let deepSystemPrompt = """
-            You are a deep knowledge analyst performing multi-perspective synthesis. \
-            Analyze from: statistical patterns, thematic clusters, temporal evolution, \
-            knowledge gaps, unexpected connections. Cite actual note titles, dates, and details. \
-            Use ### headers per perspective. Be substantive and intellectually challenging. \
-            End with 3-5 provocative questions.
-            """
-            do {
-                return try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: deepSystemPrompt
-                )
-            } catch {
-                // Fallback to cloud API if Apple Intelligence unavailable
-                return try? await self.triageService.generateGeneral(
-                    prompt: prompt,
-                    systemPrompt: deepSystemPrompt,
-                    operation: .chatResponse(query: prompt),
-                    contentLength: prompt.count
-                )
-            }
-        }
+    // MARK: - Database Recovery
 
-        dailyBriefState.onDailyBriefSave = { [weak self] content, isDeep in
-            guard let self else { return }
-            self.saveDailyBrief(content: content, isDeep: isDeep)
-        }
-    }
-
-    /// Persist daily brief as a note in the "Daily Briefs" folder.
-    private func saveDailyBrief(content: String, isDeep: Bool) {
-        let context = modelContainer.mainContext
-
-        // Find or create "Daily Briefs" folder
-        let folderPred = #Predicate<SDFolder> { $0.name == "Daily Briefs" }
-        let folderDesc = FetchDescriptor<SDFolder>(predicate: folderPred)
-        let folder: SDFolder
-        if let existing = try? context.fetch(folderDesc).first {
-            folder = existing
-        } else {
-            folder = SDFolder(name: "Daily Briefs", emoji: "🌅")
-            folder.isCollection = true
-            context.insert(folder)
-            CollectionRegistry.shared.setCollection("Daily Briefs", true)
-        }
-
-        let dateStr = Date.now.formatted(date: .abbreviated, time: .omitted)
-        let title = isDeep ? "Deep Brief — \(dateStr)" : "Daily Brief — \(dateStr)"
-        let emoji = isDeep ? "🔬" : "🌅"
-
-        // Check for duplicate (same title = already saved today)
-        let dupPred = #Predicate<SDPage> { $0.title == title }
-        let dupDesc = FetchDescriptor<SDPage>(predicate: dupPred)
-        let alreadySaved = (try? context.fetch(dupDesc))?.isEmpty == false
-        guard !alreadySaved else { return }
-
-        Task {
-            if let pageId = await self.vaultSync.createPage(
-                title: title,
-                body: content,
-                emoji: emoji,
-                subfolder: "Daily Briefs"
-            ) {
-                let pagePred = #Predicate<SDPage> { $0.id == pageId }
-                let pageQuery = FetchDescriptor<SDPage>(predicate: pagePred)
-                if let page = try? context.fetch(pageQuery).first {
-                    page.folder = folder
-                    page.tags = ["daily-brief"]
-                    do {
-                        try context.save()
-                    } catch {
-                        Log.pipeline.error("Failed to save daily brief page: \(error.localizedDescription, privacy: .public)")
-                    }
-                }
-            } else {
-                let page = SDPage(title: title, emoji: emoji)
-                page.saveBody(content)
-                page.subfolder = "Daily Briefs"
-                page.wordCount = content.split(separator: " ").count
-                page.folder = folder
-                page.tags = ["daily-brief"]
-                context.insert(page)
-                do {
-                    try context.save()
-                } catch {
-                    Log.pipeline.error("Failed to save daily brief fallback: \(error.localizedDescription, privacy: .public)")
+    func resetDatabaseAndRelaunch() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        if let dir = appSupport?.appendingPathComponent("Epistemos") {
+            let fm = FileManager.default
+            if let contents = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                for file in contents where file.pathExtension == "sqlite"
+                    || file.lastPathComponent.contains("default.store") {
+                    try? fm.removeItem(at: file)
                 }
             }
+        }
+        Log.app.info("Database reset complete — relaunching")
+        let url = Bundle.main.bundleURL
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
         }
     }
 
     // MARK: - Full Reset
-
-    /// Wipe all persisted data except on-disk vault files, then show setup screen.
-    /// Rebuild the ambient vault manifest from current SwiftData state.
-    /// Called on vault attach, vault changes, and periodic refresh.
-    func refreshAmbientManifest() {
-        Task {
-            ambientManifest = await vaultSync.buildAmbientManifest()
-            Log.app.info("Ambient manifest refreshed: \(self.ambientManifest?.entries.count ?? 0) entries")
-        }
-    }
 
     func resetAllData() {
         queryTask?.cancel()
@@ -347,12 +274,8 @@ final class AppBootstrap {
         Log.pipeline.info("Reset: All data cleared. Setup screen shown.")
     }
 
-    // MARK: - Chat Navigation
-
     // MARK: - Body File Storage Migration
 
-    /// One-time migration: move note bodies from inline SQLite to external .md files.
-    /// After migration, SDPage.body is cleared to "" — all reads go through loadBody().
     private func migrateBodiesToFileStorage() {
         let migrationKey = "v2_body_migration_complete"
         guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
@@ -378,40 +301,5 @@ final class AppBootstrap {
 
         UserDefaults.standard.set(true, forKey: migrationKey)
         Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
-    }
-
-    /// Load a chat by ID and navigate to it. Used by library provenance links.
-    func loadChat(chatId: String) {
-        let descriptor = FetchDescriptor<SDChat>(
-            predicate: #Predicate<SDChat> { $0.id == chatId }
-        )
-        guard let sdChat = try? modelContainer.mainContext.fetch(descriptor).first else { return }
-        let sorted = sdChat.sortedMessages
-        let messages = sorted.map { msg in
-            let dual = msg.dualMessageData.flatMap { try? JSONDecoder().decode(DualMessage.self, from: $0) }
-            let isResearch = dual?.laymanSummary != nil
-            return ChatMessage(
-                id: msg.id,
-                chatId: sdChat.id,
-                role: msg.role == "user" ? .user : .assistant,
-                content: msg.content,
-                dualMessage: dual,
-                truthAssessment: msg.truthAssessmentData.flatMap { try? JSONDecoder().decode(TruthAssessment.self, from: $0) },
-                confidence: msg.confidenceScore,
-                evidenceGrade: msg.evidenceGrade.flatMap { EvidenceGrade(rawValue: $0) },
-                mode: msg.inferenceMode.flatMap { InferenceMode(rawValue: $0) },
-                createdAt: msg.createdAt,
-                isResearchResult: isResearch
-            )
-        }
-        chatState.setCurrentChat(sdChat.id)
-        chatState.chatTitle = sdChat.title
-        chatState.loadMessages(messages)
-        uiState.setActivePanel(.home)
-        // Bring the main window to front — Library is a separate window,
-        // so the user needs to see the main window where the chat lives.
-        if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-            main.makeKeyAndOrderFront(nil)
-        }
     }
 }

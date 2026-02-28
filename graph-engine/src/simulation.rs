@@ -57,6 +57,9 @@ pub struct ForceParams {
     pub cluster_strength: f32,
     /// Center force mode: Attract (default), Off, or Repel.
     pub center_mode: CenterMode,
+    /// Semantic attraction strength: pulls nodes with similar embeddings together.
+    /// 0 = off, 1.0 = strong. Default 0.0 (off until embeddings are loaded).
+    pub semantic_strength: f32,
 
     // ── Internal simulation state ──
     pub alpha: f32,
@@ -81,6 +84,7 @@ impl Default for ForceParams {
             collision_iterations: 2,
             cluster_strength: 0.3,
             center_mode: CenterMode::Attract,
+            semantic_strength: 0.0,
 
             // Simulation state
             alpha: 1.0,
@@ -125,6 +129,10 @@ pub struct Simulation {
     /// When set, the center force pulls toward this point instead of (0, 0).
     pub anchor_center: Option<[f32; 2]>,
 
+    /// Pre-computed semantic neighbor pairs: (sim_idx_a, sim_idx_b, similarity).
+    /// Updated from Engine when embeddings change — NOT per-tick.
+    pub semantic_neighbors: Vec<(usize, usize, f32)>,
+
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
     collision_grid: HashMap<(i32, i32), Vec<usize>>,
     bodies_scratch: Vec<quadtree::Body>,
@@ -155,6 +163,7 @@ impl Simulation {
             params: ForceParams::default(),
             is_settled: false,
             anchor_center: None,
+            semantic_neighbors: Vec::new(),
             collision_grid: HashMap::new(),
             bodies_scratch: Vec::new(),
         }
@@ -324,6 +333,20 @@ impl Simulation {
                 &mut self.vy,
                 &self.cluster_ids,
                 self.params.cluster_strength,
+                alpha,
+            );
+        }
+
+        // Semantic attraction force (embedding similarity).
+        if self.params.semantic_strength > 0.001 && !self.semantic_neighbors.is_empty() {
+            forces::force_semantic(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                &self.semantic_neighbors,
+                self.params.semantic_strength,
+                self.params.link_distance,
                 alpha,
             );
         }

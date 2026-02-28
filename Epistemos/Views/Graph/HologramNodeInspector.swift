@@ -33,6 +33,14 @@ struct HologramNodeInspector: View {
             Divider()
             summarySection
             Divider()
+            RelationshipBrowser(
+                nodeId: node.id,
+                store: graphState.store,
+                onNavigate: { targetId in
+                    graphState.selectNode(targetId)
+                }
+            )
+            Divider()
             chatSection
         }
         .frame(width: 380)

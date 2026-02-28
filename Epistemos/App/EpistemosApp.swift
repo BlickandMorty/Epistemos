@@ -11,7 +11,10 @@ struct EpistemosApp: App {
 
     var body: some Scene {
         Window("Epistemos", id: "main") {
-            RootView()
+            RootView(
+                databaseError: bootstrap.databaseError,
+                onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
+            )
                 .withAppEnvironment(bootstrap)
                 .onAppear {
                     StatusBar.shared.setup()

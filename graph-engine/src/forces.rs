@@ -365,6 +365,50 @@ pub fn force_cluster(
     }
 }
 
+// ── Semantic Attraction ─────────────────────────────────────────────────────
+
+/// Pulls semantically similar nodes toward each other.
+/// Operates on pre-computed KNN pairs (not computed per-tick).
+/// Uses a spring model: attracts only when nodes are farther than 50% of ideal_distance.
+pub fn force_semantic(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    neighbors: &[(usize, usize, f32)], // (sim_idx_a, sim_idx_b, similarity)
+    strength: f32,
+    ideal_distance: f32,
+    alpha: f32,
+) {
+    if strength < 0.001 || neighbors.is_empty() {
+        return;
+    }
+    let n = x.len();
+    let half_ideal = ideal_distance * 0.5;
+    let effective = strength * 0.1 * alpha;
+
+    for &(a, b, similarity) in neighbors {
+        if a >= n || b >= n {
+            continue;
+        }
+        let dx = x[b] - x[a];
+        let dy = y[b] - y[a];
+        let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+
+        // Only attract when beyond half of ideal distance (prevents piling)
+        if dist <= half_ideal {
+            continue;
+        }
+
+        // Force proportional to similarity and excess distance
+        let pull = effective * similarity * (dist - half_ideal) / dist;
+        vx[a] += dx * pull;
+        vy[a] += dy * pull;
+        vx[b] -= dx * pull;
+        vy[b] -= dy * pull;
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]

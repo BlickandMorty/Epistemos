@@ -697,7 +697,7 @@ nonisolated enum EnrichmentController {
     /// Extracts the outermost JSON object from a string.
     /// Handles: markdown code fences (```json...```), <thinking> blocks,
     /// prose-before-JSON, and trailing commas (common with GPT/Gemini).
-    private static func extractJSON(from text: String) -> [String: Any]? {
+    static func extractJSON(from text: String) -> [String: Any]? {
         // 1. Strip <thinking> blocks (extended thinking models)
         var cleaned = text.replacingOccurrences(
             of: "<thinking>[\\s\\S]*?</thinking>",
@@ -751,14 +751,14 @@ nonisolated enum EnrichmentController {
         }
     }
 
-    private struct TagCounts {
+    struct TagCounts {
         var data = 0
         var model = 0
         var uncertain = 0
         var conflict = 0
     }
 
-    private static func countEpistemicTags(in text: String) -> TagCounts {
+    static func countEpistemicTags(in text: String) -> TagCounts {
         var counts = TagCounts()
         counts.data = text.components(separatedBy: "[DATA]").count - 1
         counts.model = text.components(separatedBy: "[MODEL]").count - 1

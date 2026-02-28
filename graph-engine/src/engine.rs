@@ -17,10 +17,12 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use rustc_hash::FxHashSet;
 
+use crate::embedding::EmbeddingStore;
 use crate::renderer::Renderer;
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
 use crate::types::Graph;
+use crate::version::VersionStore;
 
 /// Physics thread target rate — 60Hz is sufficient for force simulation.
 const PHYSICS_HZ: f64 = 60.0;
@@ -238,6 +240,21 @@ pub struct Engine {
 
     /// Fuzzy search index over node labels, rebuilt on commit().
     pub(crate) search_index: crate::search::SearchIndex,
+
+    /// Embedding vectors for semantic similarity (SIMD-accelerated cosine).
+    pub(crate) embedding_store: EmbeddingStore,
+
+    /// Pre-computed KNN pairs for semantic attraction force.
+    /// Recomputed only when embeddings change, not per-tick.
+    pub(crate) semantic_neighbors: Vec<(u32, u32, f32)>,
+
+    /// Active time filter: (min_ts, max_ts). Nodes with created_at outside
+    /// this range become invisible. Nodes with created_at == 0.0 are always visible.
+    /// None = no filter active (all nodes visible).
+    time_filter: Option<(f64, f64)>,
+
+    /// Merkle-like version chains per node (pure data, no render/physics cost).
+    pub(crate) version_store: VersionStore,
 }
 
 impl Engine {
@@ -266,6 +283,10 @@ impl Engine {
             uuid_buf: None,
             idle_frame_count: 0,
             search_index: crate::search::SearchIndex::new(),
+            embedding_store: EmbeddingStore::new(crate::embedding::DEFAULT_DIM),
+            semantic_neighbors: Vec::new(),
+            time_filter: None,
+            version_store: VersionStore::new(),
         })
     }
 
@@ -526,6 +547,11 @@ impl Engine {
         // Append selection/hover highlight rings.
         self.renderer
             .set_highlights(self.selected_id, self.hovered_id, &self.graph);
+
+        // Rebuild per-instance highlight flags (cheap N-byte upload).
+        // Called every frame so highlight changes are always visible,
+        // even when physics is settled and update_positions isn't running.
+        self.renderer.rebuild_highlight_flags(&self.graph);
 
         // Update magnetic field lines for hovered node.
         let time = self.renderer.start_time.elapsed().as_secs_f32();
@@ -939,6 +965,34 @@ impl Engine {
         sim.reheat();
     }
 
+    /// Push semantic neighbor pairs to the simulation thread.
+    /// Maps graph-level node indices to simulation-level indices.
+    pub fn sync_semantic_neighbors(&mut self) {
+        let mut sim = self.sim.lock();
+        // Build graph_index → sim_index reverse map
+        let mut graph_to_sim: rustc_hash::FxHashMap<usize, usize> = rustc_hash::FxHashMap::default();
+        for (si, &gi) in sim.graph_indices.iter().enumerate() {
+            graph_to_sim.insert(gi, si);
+        }
+
+        sim.semantic_neighbors = self
+            .semantic_neighbors
+            .iter()
+            .filter_map(|&(ga, gb, sim_val)| {
+                let sa = *graph_to_sim.get(&(ga as usize))?;
+                let sb = *graph_to_sim.get(&(gb as usize))?;
+                Some((sa, sb, sim_val))
+            })
+            .collect();
+    }
+
+    /// Set semantic strength parameter and push to simulation.
+    pub fn set_semantic_strength(&mut self, strength: f32) {
+        let mut sim = self.sim.lock();
+        sim.params.semantic_strength = strength;
+        sim.reheat();
+    }
+
     // ── Accessors ────────────────────────────────────────────────────
 
     /// Mutable reference to the graph (for FFI data loading).
@@ -1047,6 +1101,78 @@ impl Engine {
         self.uuid_buf
             .as_ref()
             .map_or(std::ptr::null(), |cs| cs.as_ptr())
+    }
+
+    /// Look up a node's internal array index by UUID.
+    pub fn node_index_by_uuid(&self, uuid: &str) -> Option<usize> {
+        self.graph.nodes.iter().position(|n| n.uuid == uuid)
+    }
+
+    /// Read-only access to the graph.
+    pub fn graph(&self) -> &Graph {
+        &self.graph
+    }
+
+    /// Reheat the physics simulation (after embeddings change, etc.).
+    pub fn reheat(&mut self) {
+        self.sync_semantic_neighbors();
+        let sim = self.sim.clone();
+        let mut sim = sim.lock();
+        sim.reheat();
+        self.idle_frame_count = 0;
+    }
+
+    // ── Temporal Index ──────────────────────────────────────────────
+
+    /// Set timestamps for a node by UUID.
+    pub fn set_node_time(&mut self, uuid: &str, created_at: f64, updated_at: f64) {
+        if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
+            if let Some(&idx) = self.graph.id_to_index.get(&id) {
+                self.graph.nodes[idx].created_at = created_at;
+                self.graph.nodes[idx].updated_at = updated_at;
+            }
+        }
+    }
+
+    /// Apply a time filter: nodes with created_at outside [min_ts, max_ts] become invisible.
+    /// Nodes with created_at == 0.0 (no timestamp) remain always visible.
+    /// Pass (0.0, f64::MAX) to clear the filter.
+    pub fn set_time_filter(&mut self, min_ts: f64, max_ts: f64) {
+        // Check if clearing filter
+        if min_ts <= 0.0 && max_ts >= 1e18 {
+            if self.time_filter.is_none() {
+                return; // Already cleared
+            }
+            self.time_filter = None;
+            // Restore all nodes to visible
+            for node in &mut self.graph.nodes {
+                node.visible = true;
+            }
+        } else {
+            self.time_filter = Some((min_ts, max_ts));
+            // Apply filter: nodes with timestamp outside range become invisible
+            for node in &mut self.graph.nodes {
+                if node.created_at == 0.0 {
+                    // No timestamp — always visible
+                    node.visible = true;
+                } else {
+                    node.visible = node.created_at >= min_ts && node.created_at <= max_ts;
+                }
+            }
+        }
+        // Refresh simulation + renderer with new visibility
+        self.refresh_visibility();
+    }
+
+    // ── Confidence ──────────────────────────────────────────────────
+
+    /// Set a node's confidence score (0.0–1.0).
+    pub fn set_node_confidence(&mut self, uuid: &str, confidence: f32) {
+        if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
+            if let Some(&idx) = self.graph.id_to_index.get(&id) {
+                self.graph.nodes[idx].confidence = confidence.clamp(0.0, 1.0);
+            }
+        }
     }
 }
 

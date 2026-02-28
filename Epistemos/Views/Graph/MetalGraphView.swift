@@ -138,6 +138,9 @@ final class MetalGraphNSView: NSView {
         let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
         engine = graph_engine_create(devicePtr, layerPtr)
 
+        // Share the engine handle with GraphState for Rust-side search/queries.
+        graphState?.engineHandle = engine
+
         startDisplayLink()
     }
 
@@ -253,6 +256,35 @@ final class MetalGraphNSView: NSView {
 
         isCommitted = true
         needsRender = true
+
+        // Push node timestamps and confidence to Rust.
+        for (_, node) in store.nodes {
+            guard filter.isNodeVisible(node) else { continue }
+            let createdAt = node.createdAt.timeIntervalSince1970
+            // Map evidence grade → confidence: A=1.0, B=0.8, C=0.6, D=0.4, F=0.2
+            let confidence: Float = switch node.metadata.evidenceGrade?.uppercased() {
+            case "A": 1.0
+            case "B": 0.8
+            case "C": 0.6
+            case "D": 0.4
+            case "F": 0.2
+            default: 0.0
+            }
+            node.id.withCString { uuidPtr in
+                graph_engine_set_node_time(engine, uuidPtr, createdAt, createdAt)
+                if confidence > 0.0 {
+                    graph_engine_set_node_confidence(engine, uuidPtr, confidence)
+                }
+            }
+        }
+
+        // Pre-compute time range for time-travel slider.
+        graphState.computeTimeRange()
+
+        // Compute embeddings and push to Rust for semantic force + search.
+        graphState.embeddingService.computeAndPush(
+            store: graphState.store, engineHandle: engine
+        )
     }
 
     // MARK: - Lightweight Filter Sync

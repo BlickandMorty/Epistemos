@@ -1,4 +1,4 @@
-.PHONY: test test-rust test-swift build-rust build clean
+.PHONY: test test-rust test-swift build-rust build-rust-release build deploy-rust build clean
 
 # Run all tests (Rust + Swift)
 test: test-rust test-swift
@@ -21,10 +21,18 @@ build-rust:
 build-rust-release:
 	cd graph-engine && cargo build --release
 
+# Build + deploy Rust release binary to both link paths
+deploy-rust: build-rust-release
+	cp graph-engine/target/release/libgraph_engine.a graph-engine-bridge/libgraph_engine.a
+	cp graph-engine/target/release/libgraph_engine.a build-rust/libgraph_engine.a
+
 # Full Xcode build
 build:
 	xcodebuild -project Epistemos.xcodeproj -scheme Epistemos \
 		-destination 'platform=macOS' build 2>&1 | tail -5
+
+# Full release: Rust release + Xcode build
+release: deploy-rust build
 
 # Clean build artifacts
 clean:

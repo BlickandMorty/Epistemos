@@ -11,6 +11,8 @@ pub mod engine;
 pub mod markdown;
 pub mod cluster;
 pub mod search;
+pub mod embedding;
+pub mod version;
 
 // ── FFI Boundary ────────────────────────────────────────────────────────────
 //
@@ -541,4 +543,190 @@ pub extern "C" fn graph_engine_set_cluster_ids(
     }
 
     engine.set_cluster_ids(&uuid_to_cluster);
+}
+
+// ── Embeddings ──────────────────────────────────────────────────────────────
+
+/// Set the embedding vector for a node (identified by UUID).
+/// `data`: pointer to `dim` contiguous f32 values.
+/// `dim`: dimension of the embedding (must match store dimension, typically 512).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_node_embedding(
+    engine: *mut Engine,
+    uuid: *const c_char,
+    data: *const f32,
+    dim: u32,
+) {
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid);
+    if data.is_null() || dim == 0 {
+        return;
+    }
+    let slice = unsafe { std::slice::from_raw_parts(data, dim as usize) };
+    if let Some(idx) = engine.node_index_by_uuid(uuid_str) {
+        engine.embedding_store.set(idx as u32, slice);
+    }
+}
+
+/// Recompute the semantic neighbor pairs (KNN) from current embeddings.
+/// Call this after batch-setting embeddings. The pairs are used by the
+/// semantic attraction force each physics tick.
+///
+/// `k`: number of neighbors per node (typically 8).
+/// `threshold`: minimum cosine similarity to include (typically 0.3).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_recompute_semantic_neighbors(
+    engine: *mut Engine,
+    k: u32,
+    threshold: f32,
+) {
+    ffi_engine!(engine);
+    engine.semantic_neighbors = engine
+        .embedding_store
+        .all_knn_pairs(k as usize, threshold);
+    // Reheat physics so the new attraction forces take effect.
+    engine.reheat();
+}
+
+/// Set semantic attraction strength (0 = off, 1 = strong).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_semantic_strength(
+    engine: *mut Engine,
+    strength: f32,
+) {
+    ffi_engine!(engine);
+    engine.set_semantic_strength(strength);
+}
+
+// ── Temporal Index ──────────────────────────────────────────────────────────
+
+/// Set timestamps for a node by UUID (Unix epoch seconds).
+/// Pass 0.0 for created_at or updated_at to leave unset.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_node_time(
+    engine: *mut Engine,
+    uuid: *const c_char,
+    created_at: f64,
+    updated_at: f64,
+) {
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid);
+    engine.set_node_time(uuid_str, created_at, updated_at);
+}
+
+/// Apply a time filter: nodes with created_at outside [min_ts, max_ts] become invisible.
+/// Nodes with created_at == 0.0 (no timestamp) remain always visible.
+/// Pass (0.0, very large number) to clear the filter.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_time_filter(
+    engine: *mut Engine,
+    min_ts: f64,
+    max_ts: f64,
+) {
+    ffi_engine!(engine);
+    engine.set_time_filter(min_ts, max_ts);
+}
+
+// ── Confidence ─────────────────────────────────────────────────────────────
+
+/// Set a node's confidence score (0.0–1.0) from enrichment pipeline.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_node_confidence(
+    engine: *mut Engine,
+    uuid: *const c_char,
+    confidence: f32,
+) {
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid);
+    engine.set_node_confidence(uuid_str, confidence);
+}
+
+/// Semantic search: find nodes most similar to a query embedding.
+/// Returns a C array of SearchResult (same type as text search).
+/// Caller must free with `graph_engine_free_search_results`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_semantic_search(
+    engine: *mut Engine,
+    query_data: *const f32,
+    dim: u32,
+    limit: u32,
+    out_count: *mut u32,
+) -> *mut search::SearchResult {
+    ffi_engine_or!(engine, std::ptr::null_mut());
+    if query_data.is_null() || dim == 0 {
+        unsafe {
+            if !out_count.is_null() {
+                *out_count = 0;
+            }
+        }
+        return std::ptr::null_mut();
+    }
+
+    let query_vec = unsafe { std::slice::from_raw_parts(query_data, dim as usize) };
+    let hits = engine
+        .embedding_store
+        .search(query_vec, limit as usize, 0.0);
+
+    unsafe {
+        if !out_count.is_null() {
+            *out_count = hits.len() as u32;
+        }
+    }
+
+    if hits.is_empty() {
+        return std::ptr::null_mut();
+    }
+
+    let mut ffi_results: Vec<search::SearchResult> = hits
+        .into_iter()
+        .filter_map(|hit| {
+            let node = engine.graph().nodes.get(hit.node_index as usize)?;
+            Some(search::SearchResult {
+                uuid: CString::new(node.uuid.as_str())
+                    .unwrap_or_default()
+                    .into_raw(),
+                label: CString::new(node.label.as_str())
+                    .unwrap_or_default()
+                    .into_raw(),
+                node_type: node.node_type as u8,
+                score: hit.similarity,
+            })
+        })
+        .collect();
+
+    let ptr = ffi_results.as_mut_ptr();
+    std::mem::forget(ffi_results);
+    ptr
+}
+
+// ── Version Chain ──────────────────────────────────────────────────────────
+
+/// Add a version to a node's hash-linked version chain.
+/// Returns 1 on success, 0 if orphan/duplicate rejected.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_add_version(
+    engine: *mut Engine,
+    node_uuid: *const c_char,
+    hash: u64,
+    parent_hash: u64,
+    timestamp: f64,
+) -> u8 {
+    ffi_engine_or!(engine, 0);
+    let uuid = ffi_cstr!(node_uuid);
+    if engine.version_store.add_version(uuid, hash, parent_hash, timestamp) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Get the number of versions in a node's chain.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_get_version_count(
+    engine: *mut Engine,
+    node_uuid: *const c_char,
+) -> u32 {
+    ffi_engine_or!(engine, 0);
+    let uuid = ffi_cstr!(node_uuid);
+    engine.version_store.version_count(uuid)
 }

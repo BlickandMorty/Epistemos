@@ -22,7 +22,12 @@ enum NoteFileStorage {
 
     /// Base directory: ~/Library/Application Support/Epistemos/note-bodies/
     nonisolated static func storageDirectory() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            logger.error("Application Support directory not found — falling back to temporary directory")
+            let fallback = FileManager.default.temporaryDirectory.appendingPathComponent("Epistemos/note-bodies", isDirectory: true)
+            try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+            return fallback
+        }
         let dir = appSupport.appendingPathComponent("Epistemos/note-bodies", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir

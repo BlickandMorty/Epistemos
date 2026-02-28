@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 import SwiftData
 
 // MARK: - GraphMode
@@ -116,6 +117,13 @@ final class GraphState {
     let store = GraphStore()
     let filter = FilterEngine()
 
+    /// Rust engine handle set by MetalGraphNSView after engine creation.
+    /// Used for Rust-side search and other FFI calls from Swift.
+    var engineHandle: OpaquePointer?
+
+    /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
+    let embeddingService = EmbeddingService()
+
     var isLoaded = false
     /// True after the entrance animation has played once. Prevents replay on re-open.
     var hasPlayedEntrance = false
@@ -200,9 +208,55 @@ final class GraphState {
     // ── Cluster ──
     var clusterStrength: Float = 0.3
     var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
+    var semanticStrength: Float = 0.0
+
+    // ── Time-Travel ──
+    /// Computed date range of all graph nodes. Set during commit.
+    var timeRangeStart: Date = .distantPast
+    var timeRangeEnd: Date = .now
+    /// Whether the time slider is currently visible.
+    var showTimeSlider = false
+    /// Current time filter cutoff. Nodes created after this are hidden.
+    var timeCutoff: Date = .distantFuture
 
     var clusterConfigVersion: Int = 0
     func pushClusterChange() { clusterConfigVersion += 1 }
+    func pushSemanticChange() {
+        guard let engine = engineHandle else { return }
+        graph_engine_set_semantic_strength(engine, semanticStrength)
+    }
+
+    /// Compute the date range of all nodes in the store (for time slider bounds).
+    func computeTimeRange() {
+        var earliest: Date = .distantFuture
+        var latest: Date = .distantPast
+        for (_, node) in store.nodes {
+            if node.createdAt < earliest { earliest = node.createdAt }
+            if node.createdAt > latest { latest = node.createdAt }
+        }
+        if earliest > latest {
+            earliest = .distantPast
+            latest = .now
+        }
+        timeRangeStart = earliest
+        timeRangeEnd = latest
+        timeCutoff = latest
+    }
+
+    /// Apply time filter to the Rust engine. Nodes created after cutoff are hidden.
+    func applyTimeFilter(_ cutoff: Date) {
+        timeCutoff = cutoff
+        guard let engine = engineHandle else { return }
+        graph_engine_set_time_filter(engine, 0.0, cutoff.timeIntervalSince1970)
+    }
+
+    /// Clear the time filter (show all nodes).
+    func clearTimeFilter() {
+        timeCutoff = .distantFuture
+        showTimeSlider = false
+        guard let engine = engineHandle else { return }
+        graph_engine_set_time_filter(engine, 0.0, 1e18)
+    }
 
     /// Apply a named physics preset.
     func applyPreset(_ preset: PhysicsPreset) {
@@ -298,6 +352,115 @@ final class GraphState {
     func refreshStructuralData(context: ModelContext) {
         needsRefresh = false
         buildStructuralGraph(context: context)
+    }
+
+    // MARK: - Rust Search
+
+    /// Search node labels via the Rust engine's FST index (sub-1ms, typo-tolerant).
+    /// Falls back to Swift-side `GraphStore.fuzzySearch()` when engine isn't available.
+    func rustSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
+        guard !query.isEmpty else { return [] }
+
+        // Try Rust-side search via FFI
+        if let engine = engineHandle {
+            var count: UInt32 = 0
+            let cQuery = query.cString(using: .utf8)!
+            let results = graph_engine_search(engine, cQuery, UInt32(limit), &count)
+            defer { graph_engine_free_search_results(results, count) }
+
+            if let results, count > 0 {
+                var hits: [GraphStore.SearchHit] = []
+                for i in 0..<Int(count) {
+                    let r = results[i]
+                    let uuid = r.uuid.map { String(cString: $0) } ?? ""
+                    let score = r.score
+
+                    // Look up the GraphNodeRecord by matching sourceId or id
+                    if let node = store.nodes[uuid] {
+                        hits.append(GraphStore.SearchHit(id: node.id, node: node, score: score))
+                    }
+                }
+                return hits
+            }
+        }
+
+        // Fallback to Swift-side search
+        return store.fuzzySearch(query: query, limit: limit)
+    }
+
+    /// Hybrid search: combines text (Rust FST) + semantic (embedding cosine) results.
+    /// Semantic-only matches get 0.7× score weight (text match is stronger signal).
+    func hybridSearch(query: String, limit: Int = 20) -> [GraphStore.SearchHit] {
+        guard !query.isEmpty else { return [] }
+
+        // Text search
+        let textHits = rustSearch(query: query, limit: limit)
+        var hitMap: [String: GraphStore.SearchHit] = [:]
+        for hit in textHits {
+            hitMap[hit.id] = hit
+        }
+
+        // Semantic search: embed the query text, then ask Rust for similar nodes
+        if let engine = engineHandle, embeddingService.dimension > 0,
+           let nlEmbedding = NLEmbedding.wordEmbedding(for: .english)
+        {
+            let words = query.lowercased()
+                .components(separatedBy: .alphanumerics.inverted)
+                .filter { $0.count > 1 }
+
+            var queryVec = [Float](repeating: 0, count: embeddingService.dimension)
+            var wordCount = 0
+            for word in words {
+                if let vec = nlEmbedding.vector(for: word) {
+                    for (i, v) in vec.enumerated() {
+                        queryVec[i] += Float(v)
+                    }
+                    wordCount += 1
+                }
+            }
+
+            if wordCount > 0 {
+                let scale = 1.0 / Float(wordCount)
+                queryVec = queryVec.map { $0 * scale }
+
+                var count: UInt32 = 0
+                let results = queryVec.withUnsafeBufferPointer { buf in
+                    graph_engine_semantic_search(
+                        engine, buf.baseAddress!, UInt32(embeddingService.dimension),
+                        UInt32(limit), &count
+                    )
+                }
+                defer { graph_engine_free_search_results(results, count) }
+
+                if let results, count > 0 {
+                    for i in 0..<Int(count) {
+                        let r = results[i]
+                        let uuid = r.uuid.map { String(cString: $0) } ?? ""
+                        if hitMap[uuid] == nil, let node = store.nodes[uuid] {
+                            // Semantic-only match: 0.7× weight
+                            hitMap[uuid] = GraphStore.SearchHit(
+                                id: node.id, node: node, score: r.score * 0.7
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sort by score descending, limit
+        return Array(hitMap.values)
+            .sorted { $0.score > $1.score }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    /// Highlight search matches in the graph — dims non-matching nodes.
+    /// Pass empty string to clear highlight.
+    func searchHighlight(_ query: String) {
+        guard let engine = engineHandle else { return }
+        if let cQuery = query.cString(using: .utf8) {
+            graph_engine_search_highlight(engine, cQuery)
+        }
     }
 
     // MARK: - Selection
@@ -481,13 +644,13 @@ final class GraphState {
             Task { @MainActor in
                 if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
                     sdNode.sourceId = pageId
-                    try? context.save()
+                    do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
                 }
                 buildStructuralGraph(context: context)
                 requestRecommit()
             }
         } else {
-            try? context.save()
+            do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
             // Manual non-note nodes don't affect structural data — just add to store and recommit.
             let record = GraphNodeRecord(
                 id: sdNode.id,
@@ -530,13 +693,13 @@ final class GraphState {
             Task { @MainActor in
                 if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
                     sdNode.sourceId = pageId
-                    try? context.save()
+                    do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
                 }
                 buildStructuralGraph(context: context)
                 requestRecommit()
             }
         } else {
-            try? context.save()
+            do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
             // Manual non-note nodes don't affect structural data — add directly to store.
             let record = GraphNodeRecord(
                 id: sdNode.id,
@@ -582,7 +745,7 @@ final class GraphState {
         let sdEdge = SDGraphEdge(source: sourceId, target: targetId, type: edgeType)
         sdEdge.isManual = true
         context.insert(sdEdge)
-        try? context.save()
+        do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
 
         // Manual edge — add directly to store without full structural rebuild.
         let edgeRecord = GraphEdgeRecord(

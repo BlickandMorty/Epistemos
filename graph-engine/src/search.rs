@@ -1,7 +1,14 @@
 //! Fuzzy search over node labels using Finite State Transducers (FST).
 //! Built during commit(), queried via FFI for sub-1ms results.
+//!
+//! Two-phase search:
+//! 1. FST Levenshtein automaton for typo-tolerant matching (O(|query|) in automaton size)
+//! 2. Linear scan with 5-tier scoring for ranking (exact > prefix > word-start > contains > subsequence)
+//! FST hits get a bonus score boost to surface typo corrections.
 
-use fst::{Set, SetBuilder};
+use fst::automaton::Levenshtein;
+use fst::{IntoStreamer, Set, SetBuilder, Streamer};
+use rustc_hash::FxHashMap;
 
 /// Search result returned via FFI.
 #[repr(C)]
@@ -14,9 +21,11 @@ pub struct SearchResult {
 
 /// Search index built from graph node labels.
 pub struct SearchIndex {
-    /// FST set of lowercased labels (for future inverted-index / automaton use).
-    _fst_set: Option<Set<Vec<u8>>>,
-    /// Parallel arrays for label->node mapping.
+    /// FST set of lowercased labels for Levenshtein automaton queries.
+    fst_set: Option<Set<Vec<u8>>>,
+    /// Reverse index: lowercased label → list of entry indices.
+    label_to_entries: FxHashMap<String, Vec<usize>>,
+    /// Parallel arrays for label→node mapping.
     entries: Vec<SearchEntry>,
 }
 
@@ -30,7 +39,8 @@ struct SearchEntry {
 impl SearchIndex {
     pub fn new() -> Self {
         Self {
-            _fst_set: None,
+            fst_set: None,
+            label_to_entries: FxHashMap::default(),
             entries: Vec::new(),
         }
     }
@@ -39,54 +49,81 @@ impl SearchIndex {
     /// Call this after commit() completes.
     pub fn build(&mut self, nodes: &[crate::types::Node]) {
         self.entries.clear();
+        self.label_to_entries.clear();
 
         // Collect entries from all visible nodes.
         for node in nodes {
             if !node.visible {
                 continue;
             }
+            let label_lower = node.label.to_lowercase();
+            let idx = self.entries.len();
+            self.label_to_entries
+                .entry(label_lower.clone())
+                .or_default()
+                .push(idx);
             self.entries.push(SearchEntry {
                 uuid: node.uuid.clone(),
                 label: node.label.clone(),
-                label_lower: node.label.to_lowercase(),
+                label_lower,
                 node_type: node.node_type as u8,
             });
         }
 
-        // Sort entries by lowercase label (FST requires sorted input).
-        self.entries
-            .sort_by(|a, b| a.label_lower.cmp(&b.label_lower));
+        // Build FST set from deduplicated, sorted labels.
+        let mut labels: Vec<&str> = self.label_to_entries.keys().map(|s| s.as_str()).collect();
+        labels.sort_unstable();
 
-        // Build FST set from deduplicated labels (FST is a set, not a map).
         let mut builder = SetBuilder::memory();
-        let mut prev_label = String::new();
-        for entry in &self.entries {
-            if entry.label_lower != prev_label {
-                let _ = builder.insert(&entry.label_lower);
-                prev_label = entry.label_lower.clone();
-            }
+        for label in &labels {
+            let _ = builder.insert(label);
         }
 
-        self._fst_set = Some(builder.into_set());
+        self.fst_set = Some(builder.into_set());
     }
 
     /// Search for nodes matching the query. Returns up to `limit` results.
-    /// Uses a combination of:
-    /// 1. Exact match (highest priority)
-    /// 2. Prefix match
-    /// 3. Word-start match (e.g., "ml" matches "machine learning")
-    /// 4. Substring/contains match
-    /// 5. Subsequence match (fuzzy -- letters appear in order but not contiguous)
+    /// Combines FST Levenshtein matching with 5-tier scoring.
     pub fn search(&self, query: &str, limit: usize) -> Vec<(String, String, u8, f32)> {
         if query.is_empty() {
             return Vec::new();
         }
 
         let query_lower = query.to_lowercase();
+
+        // Phase 1: Collect FST Levenshtein hits for typo-tolerant matching.
+        let mut fst_hits: FxHashMap<usize, f32> = FxHashMap::default();
+        if let Some(ref fst) = self.fst_set {
+            // Edit distance: 1 for short queries (≤4 chars), 2 for longer.
+            let max_dist = if query_lower.len() <= 4 { 1u32 } else { 2 };
+            if let Ok(lev) = Levenshtein::new(&query_lower, max_dist) {
+                let mut stream = fst.search(&lev).into_stream();
+                while let Some(key) = stream.next() {
+                    if let Ok(label) = std::str::from_utf8(key) {
+                        if let Some(indices) = self.label_to_entries.get(label) {
+                            for &idx in indices {
+                                // FST bonus: 0.25 for edit-distance matches not caught by linear scan.
+                                fst_hits.insert(idx, 0.25);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase 2: Linear scan with 5-tier scoring.
         let mut scored: Vec<(usize, f32)> = Vec::new();
 
         for (i, entry) in self.entries.iter().enumerate() {
-            let score = Self::score_match(&entry.label_lower, &query_lower);
+            let mut score = Self::score_match(&entry.label_lower, &query_lower);
+
+            // Boost from FST Levenshtein if not already matched by linear scoring.
+            if let Some(&fst_bonus) = fst_hits.get(&i) {
+                if score == 0.0 {
+                    score = fst_bonus;
+                }
+            }
+
             if score > 0.0 {
                 scored.push((i, score));
             }
@@ -196,6 +233,9 @@ mod tests {
             radius: 8.0,
             label: label.to_string(),
             visible: true,
+            created_at: 0.0,
+            updated_at: 0.0,
+            confidence: 0.0,
         }
     }
 
@@ -297,5 +337,42 @@ mod tests {
         assert_eq!(results[1].0, "prefix");
         assert_eq!(results[2].0, "contains");
         assert_eq!(results[3].0, "subseq");
+    }
+
+    #[test]
+    fn fst_levenshtein_matches_typos() {
+        let mut idx = SearchIndex::new();
+        idx.build(&[
+            make_node("a", "Quantum Computing", 0),
+            make_node("b", "Machine Learning", 0),
+            make_node("c", "Neural Networks", 0),
+        ]);
+        // "quantm" is edit distance 1 from "quantum" — FST should catch it
+        let results = idx.search("quantm", 10);
+        assert!(!results.is_empty(), "FST Levenshtein should match 'quantm' → 'quantum computing'");
+        assert_eq!(results[0].0, "a");
+    }
+
+    #[test]
+    fn fst_levenshtein_edit_distance_2() {
+        let mut idx = SearchIndex::new();
+        idx.build(&[
+            make_node("a", "reinforcement learning", 0),
+        ]);
+        // "reinfrcement" has 2 edits from "reinforcement" — should match with longer query
+        let results = idx.search("reinfrcement", 10);
+        assert!(!results.is_empty(), "FST Levenshtein dist=2 should match longer queries");
+    }
+
+    #[test]
+    fn fst_prefix_still_works() {
+        let mut idx = SearchIndex::new();
+        idx.build(&[
+            make_node("a", "Artificial Intelligence", 0),
+        ]);
+        let results = idx.search("artif", 10);
+        assert!(!results.is_empty());
+        // Prefix match should still score 0.9
+        assert!(results[0].3 >= 0.9);
     }
 }

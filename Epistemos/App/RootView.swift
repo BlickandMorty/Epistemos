@@ -11,9 +11,15 @@ struct RootView: View {
     @Environment(ChatState.self) private var chat
     @Environment(VaultSyncService.self) private var vaultSync
 
+    /// Set by EpistemosApp when AppBootstrap detected a database error.
+    var databaseError: Error?
+    /// Callback to reset database and relaunch.
+    var onResetDatabase: (() -> Void)?
+
     @State private var appearanceObserver = SystemAppearanceObserver()
     /// Delayed flag — prevents toolbar glass from flashing during landing→chat transition.
     @State private var showToolbarGlass = false
+    @State private var showDatabaseAlert = false
 
     var body: some View {
         ZStack {
@@ -170,6 +176,16 @@ struct RootView: View {
             }
         }
         .animation(Motion.smooth, value: ui.needsSetup)
+        .onAppear {
+            if databaseError != nil { showDatabaseAlert = true }
+        }
+        .alert("Database Error", isPresented: $showDatabaseAlert) {
+            Button("Continue Empty") { }
+            Button("Reset Database", role: .destructive) { onResetDatabase?() }
+            Button("Quit") { NSApp.terminate(nil) }
+        } message: {
+            Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
+        }
     }
 }
 
