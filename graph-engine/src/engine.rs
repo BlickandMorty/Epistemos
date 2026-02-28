@@ -26,8 +26,8 @@ use crate::version::VersionStore;
 
 /// Physics thread target rate — 60Hz is sufficient for force simulation.
 const PHYSICS_HZ: f64 = 60.0;
-/// Sleep duration when simulation is settled (avoids spinning).
-const SETTLED_SLEEP_MS: u64 = 200;
+/// Sleep duration (ms) when simulation is settled (avoids spinning).
+const SETTLED_SLEEP_MS: u64 = 50;
 
 // ── Wormhole Entrance Animation ─────────────────────────────────────────────
 
@@ -508,6 +508,9 @@ impl Engine {
     }
 
     fn start_physics(&mut self) {
+        // Ensure any existing physics thread is joined first to prevent
+        // zombie threads holding Arc<Mutex<Simulation>> references.
+        self.stop_physics();
         self.stop_flag.store(false, Ordering::Relaxed);
         let sim = Arc::clone(&self.sim);
         let stop = Arc::clone(&self.stop_flag);
@@ -546,8 +549,12 @@ impl Engine {
         {
             let mut sim = self.sim.lock();
             sim.load_from_graph(&self.graph);
-            let cluster_ids = crate::cluster::detect_communities(sim.x.len(), &sim.edges);
-            sim.cluster_ids = cluster_ids;
+            // Louvain is O(E*passes) — skip for large graphs to avoid blocking main thread.
+            let n = sim.x.len();
+            if n < 5_000 {
+                let cluster_ids = crate::cluster::detect_communities(n, &sim.edges);
+                sim.cluster_ids = cluster_ids;
+            }
             sim.reheat();
         }
 
@@ -561,6 +568,11 @@ impl Engine {
 
         // Rebuild spatial index so invisible nodes aren't hittable.
         self.spatial.build(&self.graph.nodes);
+
+        // Invalidate drag state — sim indices are stale after reload.
+        // The dragged node's fx/fy constraints will be cleared by load_from_graph
+        // which resets all simulation arrays, so no explicit unfix needed.
+        self.drag = None;
 
         // Wake rendering + restart physics if it was stopped.
         self.idle_frame_count = 0;
@@ -615,11 +627,13 @@ impl Engine {
         // Entrance animation: compute per-node states each frame.
         let entrance_active = self.entrance.is_some();
         let mut entrance_just_completed = false;
+        let mut was_wormhole = false;
         match &self.entrance {
             Some(ActiveEntrance::Wormhole(anim)) => {
                 self.entrance_states = anim.compute();
                 if anim.is_complete() {
                     entrance_just_completed = true;
+                    was_wormhole = true;
                 }
             }
             Some(ActiveEntrance::Reveal(anim)) => {
@@ -630,9 +644,6 @@ impl Engine {
             }
             None => {}
         }
-
-        // Track whether physics needs to be started on completion.
-        let was_wormhole = matches!(&self.entrance, Some(ActiveEntrance::Wormhole(_)));
 
         // Handle entrance completion outside the borrow.
         if entrance_just_completed {
@@ -649,6 +660,11 @@ impl Engine {
             }
             // else: progressive reveal — physics was already running since commit.
 
+            // Re-upload graph to renderer: during entrance, edge buffers were sized
+            // for the suppressed edge count (alpha < 0.7 hidden). Now that all edges
+            // are visible, we need full-capacity buffers to avoid overflow.
+            self.renderer.upload_graph(&self.graph, None);
+
             // Smooth zoom-to-fit as physics spreads nodes outward.
             self.zoom_to_fit();
         }
@@ -664,7 +680,7 @@ impl Engine {
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
         if !needs_frame {
-            self.idle_frame_count += 1;
+            self.idle_frame_count = self.idle_frame_count.saturating_add(1);
             if self.idle_frame_count > 3 {
                 return 0;
             }
@@ -1365,7 +1381,10 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
         };
 
         if settled {
-            // Sleep longer when settled — wake periodically to check for reheat.
+            // Check stop flag before committing to sleep.
+            if stop.load(Ordering::Relaxed) {
+                break;
+            }
             std::thread::sleep(Duration::from_millis(SETTLED_SLEEP_MS));
             continue;
         }

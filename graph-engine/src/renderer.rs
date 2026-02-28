@@ -112,6 +112,7 @@ struct NodeVertexOut {
     float2 uv;
     float  depth;
     float  highlight_dim;  // 1.0 = normal, DIM_ALPHA = dimmed
+    float  is_lite;        // 1.0 = lite mode, 0.0 = full mode
 };
 
 vertex NodeVertexOut node_vertex(
@@ -164,22 +165,17 @@ vertex NodeVertexOut node_vertex(
     out.uv = corner;
     out.depth = depth;
     out.highlight_dim = highlight_dim;
+    out.is_lite = uniforms.lite_mode;
     return out;
 }
 
 fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
     float dist = length(in.uv);
 
-    // ── Lite mode: flat colored circle, ~3 ALU ops ──
-    if (in.depth == 0.0 && in.color.a < 0.99) {
-        // Glow instances have alpha < 1.0 — in lite mode they shouldn't exist,
-        // but guard anyway.
-    }
     if (in.highlight_dim < 0.001) discard_fragment();
 
-    // Check for lite mode via depth == 0 and simple path.
-    // When lite_mode is on, depth is always 0.0 and we use a flat circle.
-    if (in.depth == 0.0) {
+    // ── Lite mode: flat colored circle, ~3 ALU ops ──
+    if (in.is_lite > 0.5) {
         float alpha = 1.0 - smoothstep(0.85, 1.0, dist);
         if (alpha < 0.01) discard_fragment();
         return float4(in.color.rgb, in.color.a * alpha * in.highlight_dim);
@@ -588,8 +584,9 @@ impl Renderer {
         }
 
         // Re-allocate node buffer if too small (graph grew since last allocate_buffers).
-        if total_node_instances > self.node_instance_capacity || self.node_instance_buf.is_none() {
-            let capacity = (total_node_instances * 3 / 2).max(64);
+        // +2 for highlight ring instances appended by set_highlights().
+        if total_node_instances + 2 > self.node_instance_capacity || self.node_instance_buf.is_none() {
+            let capacity = ((total_node_instances + 2) * 3 / 2).max(64);
             let buf_size = (capacity * std::mem::size_of::<NodeInstance>()) as u64;
             self.node_instance_buf = Some(
                 self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
@@ -827,7 +824,10 @@ impl Renderer {
                             }
                         }
 
-                        // Write straight-line edge in-place.
+                        // Bounds check: during entrance, more edges may become visible
+                        // than were allocated in upload_graph(). Clamp to capacity.
+                        if inst_idx >= self.edge_instance_capacity { break; }
+
                         let inst = &mut *ptr.add(inst_idx);
                         inst.p0 = p0;
                         inst.p1 = p1;
@@ -847,8 +847,10 @@ impl Renderer {
         let Some(buf) = &self.node_instance_buf else { return };
         let ptr = buf.contents() as *mut NodeInstance;
         let mut idx = self.glow_count + self.node_count;
+        let capacity = self.node_instance_capacity;
 
-        if let Some(sel_id) = selected
+        if idx < capacity
+            && let Some(sel_id) = selected
             && let Some(&gi) = graph.id_to_index.get(&sel_id)
             && let Some(node) = graph.nodes.get(gi)
             && node.visible
@@ -865,7 +867,8 @@ impl Renderer {
             idx += 1;
         }
 
-        if let Some(hov_id) = hovered
+        if idx < capacity
+            && let Some(hov_id) = hovered
             && Some(hov_id) != selected
             && let Some(&gi) = graph.id_to_index.get(&hov_id)
             && let Some(node) = graph.nodes.get(gi)

@@ -388,16 +388,17 @@ final class GraphEngine {
         let uuids = Array(clusterMap.keys)
         let ids = uuids.map { clusterMap[$0]! }
 
-        var cStrings = uuids.map { strdup($0)! }
-        defer { cStrings.forEach { free($0) } }
+        let cPtrs: [UnsafeMutablePointer<CChar>] = uuids.compactMap { strdup($0) }
+        guard cPtrs.count == uuids.count else {
+            cPtrs.forEach { free($0) }
+            return
+        }
+        defer { cPtrs.forEach { free($0) } }
 
-        cStrings.withUnsafeMutableBufferPointer { uuidBuffer in
-            let uuidPtrs = uuidBuffer.baseAddress!
-            ids.withUnsafeBufferPointer { idsBuffer in
-                // Cast UnsafeMutablePointer<CChar> to UnsafePointer<CChar> for the FFI
-                uuidPtrs.withMemoryRebound(to: UnsafePointer<CChar>?.self, capacity: uuids.count) { reboundPtr in
-                    graph_engine_set_cluster_ids(h, reboundPtr, idsBuffer.baseAddress!, UInt32(uuids.count))
-                }
+        var optPtrs: [UnsafePointer<CChar>?] = cPtrs.map { UnsafePointer($0) }
+        optPtrs.withUnsafeMutableBufferPointer { uuidBuf in
+            ids.withUnsafeBufferPointer { idsBuf in
+                graph_engine_set_cluster_ids(h, uuidBuf.baseAddress, idsBuf.baseAddress!, UInt32(uuids.count))
             }
         }
     }

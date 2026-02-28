@@ -119,10 +119,18 @@ final class GraphState {
 
     /// Rust engine handle set by MetalGraphNSView after engine creation.
     /// Used for Rust-side search and other FFI calls from Swift.
-    var engineHandle: OpaquePointer?
+    /// Marked nonisolated(unsafe) so MetalGraphNSView.deinit can nil it synchronously
+    /// before calling graph_engine_destroy, preventing use-after-free races.
+    nonisolated(unsafe) var engineHandle: OpaquePointer?
 
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
-    let embeddingService = EmbeddingService()
+    let embeddingService: EmbeddingService
+
+    init() {
+        let svc = EmbeddingService()
+        self.embeddingService = svc
+        svc.graphState = self
+    }
 
     var isLoaded = false
     /// True after the entrance animation has played once. Prevents replay on re-open.

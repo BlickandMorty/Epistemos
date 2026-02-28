@@ -167,9 +167,11 @@ struct GraphFloatingControls: View {
         HStack(spacing: 2) {
             modeButton(label: "Full", icon: "sparkles", isSelected: !graphState.liteMode) {
                 graphState.liteMode = false
+                graphState.requestRecommit()
             }
             modeButton(label: "Lite", icon: "circle", isSelected: graphState.liteMode) {
                 graphState.liteMode = true
+                graphState.requestRecommit()
             }
         }
     }

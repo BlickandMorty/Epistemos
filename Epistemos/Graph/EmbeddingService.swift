@@ -10,13 +10,6 @@ private struct EmbeddingNodeSnapshot: Sendable {
     let text: String
 }
 
-/// Wraps an OpaquePointer for safe cross-isolation transfer.
-/// The pointer is only dereferenced back on MainActor (never on the background thread).
-private struct SendablePointer: @unchecked Sendable {
-    let pointer: OpaquePointer?
-    init(_ pointer: OpaquePointer?) { self.pointer = pointer }
-}
-
 // MARK: - EmbeddingService
 // Generates word embeddings using Apple NLEmbedding and pushes them to the Rust engine
 // for SIMD-accelerated cosine similarity, KNN search, and semantic attraction force.
@@ -34,11 +27,17 @@ final class EmbeddingService {
     /// Embedding dimension (from NLEmbedding — typically 512).
     private(set) var dimension: Int = 0
 
-    private var computeTask: Task<Void, Never>?
+    /// The compute task handle. Marked nonisolated(unsafe) so deinit can cancel it
+    /// synchronously without requiring @MainActor isolation.
+    nonisolated(unsafe) private var computeTask: Task<Void, Never>?
+
+    /// Weak reference to owning GraphState — used to read the live engine handle
+    /// inside MainActor.run instead of capturing a stale pointer by value.
+    weak var graphState: GraphState?
 
     /// Compute embeddings for all graph nodes and push to the Rust engine.
     /// Call after commitGraphData() when the graph has been loaded.
-    func computeAndPush(store: GraphStore, engineHandle: OpaquePointer?) {
+    func computeAndPush(store: GraphStore) {
         computeTask?.cancel()
 
         // Snapshot node data for background processing (pure-value copy, no shared refs).
@@ -53,10 +52,6 @@ final class EmbeddingService {
             return EmbeddingNodeSnapshot(id: node.id, text: text)
         }
         guard nodeSnapshots.count >= 2 else { return }
-
-        // Wrap engine pointer for safe cross-isolation transfer.
-        // Only dereferenced back on MainActor in the completion block.
-        let engineWrapper = SendablePointer(engineHandle)
 
         // Heavy compute on background thread — NLEmbedding word lookups + vector math.
         // Task.detached escapes @MainActor isolation so this doesn't block rendering.
@@ -98,13 +93,14 @@ final class EmbeddingService {
             guard !Task.isCancelled else { return }
 
             // Hop back to MainActor for state update + FFI push.
-            // Engine pointer accessed ONLY here — never leaves MainActor isolation.
+            // Read the LIVE engine handle from GraphState — never use a captured copy.
+            // If the engine was destroyed, engineHandle will be nil and we skip FFI.
             await MainActor.run { [weak self] in
                 guard let self, !Task.isCancelled else { return }
                 self.embeddings = newEmbeddings
                 self.dimension = dim
 
-                guard let engine = engineWrapper.pointer else { return }
+                guard let engine = self.graphState?.engineHandle else { return }
                 for (uuid, vector) in newEmbeddings {
                     vector.withUnsafeBufferPointer { buf in
                         guard let base = buf.baseAddress else { return }
@@ -119,6 +115,13 @@ final class EmbeddingService {
                 Log.app.info("EmbeddingService: pushed \(newEmbeddings.count) embeddings (dim=\(dim)) to Rust")
             }
         }
+    }
+
+    /// Cancel any in-flight background embedding computation.
+    /// Safe to call from any isolation domain (nonisolated).
+    nonisolated func cancelPendingTask() {
+        computeTask?.cancel()
+        computeTask = nil
     }
 
     /// Get embedding for a specific node (for hybrid search).

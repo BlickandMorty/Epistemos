@@ -17,9 +17,11 @@ struct MetalGraphView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: MetalGraphNSView, context: Context) {
-        // Intentionally empty — all GraphState sync is handled inside renderFrame()
-        // on the CVDisplayLink cadence. This avoids SwiftUI calling updateNSView
-        // on every @Observable property change (60+ properties on GraphState).
+        // Wake the render loop whenever SwiftUI detects a GraphState change.
+        // This ensures version-based syncs in renderFrame() (lite mode, force params,
+        // cluster params, etc.) fire even when physics is settled and renderNeeded=false.
+        // Cost: one atomic store + at most one extra render frame per SwiftUI update.
+        nsView.needsRender = true
     }
 }
 
@@ -29,7 +31,7 @@ struct MetalGraphView: NSViewRepresentable {
 
 final class MetalGraphNSView: NSView {
     nonisolated(unsafe) private var engine: OpaquePointer?
-    private var displayLink: CVDisplayLink?
+    nonisolated(unsafe) private var displayLink: CVDisplayLink?
     private var metalLayer: CAMetalLayer?
 
     /// Frame coalescing: prevents queuing multiple render dispatches.
@@ -47,12 +49,21 @@ final class MetalGraphNSView: NSView {
 
     /// Convenience wrapper for main-thread code. Background thread should
     /// use renderNeeded directly for thread safety.
-    private var needsRender: Bool {
+    fileprivate var needsRender: Bool {
         get { renderNeeded.load(ordering: .relaxed) }
         set { renderNeeded.store(newValue, ordering: .relaxed) }
     }
 
-    var graphState: GraphState?
+    var graphState: GraphState? {
+        didSet {
+            // Share engine handle with GraphState for Rust-side search/queries.
+            // graphState is nil during setupMetal() and set later in makeNSView(),
+            // so this didSet is the first point where both engine and graphState exist.
+            if graphState?.engineHandle == nil, let engine {
+                graphState?.engineHandle = engine
+            }
+        }
+    }
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastLiteModeVersion = -1
@@ -221,36 +232,36 @@ final class MetalGraphNSView: NSView {
 
         // Batch-add all nodes in a single FFI call.
         if !nodeIds.isEmpty {
-            // Convert String arrays to C string pointer arrays.
-            let uuidCStrs = nodeIds.map { $0.utf8CString }
-            let labelCStrs = nodeLabels.map { $0.utf8CString }
-            uuidCStrs.withUnsafeBufferPointer { uuidBufs in
-                labelCStrs.withUnsafeBufferPointer { labelBufs in
-                    // Build pointer arrays.
-                    var uuidPtrs: [UnsafePointer<CChar>?] = uuidBufs.map { buf in
-                        buf.withUnsafeBufferPointer { $0.baseAddress }
-                    }
-                    var labelPtrs: [UnsafePointer<CChar>?] = labelBufs.map { buf in
-                        buf.withUnsafeBufferPointer { $0.baseAddress }
-                    }
-                    uuidPtrs.withUnsafeMutableBufferPointer { uPtrs in
-                        labelPtrs.withUnsafeMutableBufferPointer { lPtrs in
-                            nodeXs.withUnsafeBufferPointer { xs in
-                                nodeYs.withUnsafeBufferPointer { ys in
-                                    nodeTypes.withUnsafeBufferPointer { types in
-                                        nodeLinkCounts.withUnsafeBufferPointer { links in
-                                            graph_engine_add_nodes_batch(
-                                                engine,
-                                                uPtrs.baseAddress,
-                                                xs.baseAddress,
-                                                ys.baseAddress,
-                                                types.baseAddress,
-                                                links.baseAddress,
-                                                lPtrs.baseAddress,
-                                                UInt32(nodeIds.count)
-                                            )
-                                        }
-                                    }
+            // strdup keeps C strings alive until free() — safe across FFI boundary.
+            let uuidCPtrs: [UnsafeMutablePointer<CChar>] = nodeIds.compactMap { strdup($0) }
+            let labelCPtrs: [UnsafeMutablePointer<CChar>] = nodeLabels.compactMap { strdup($0) }
+            guard uuidCPtrs.count == nodeIds.count, labelCPtrs.count == nodeLabels.count else {
+                uuidCPtrs.forEach { free($0) }
+                labelCPtrs.forEach { free($0) }
+                return
+            }
+            defer {
+                uuidCPtrs.forEach { free($0) }
+                labelCPtrs.forEach { free($0) }
+            }
+            var uuidPtrs: [UnsafePointer<CChar>?] = uuidCPtrs.map { UnsafePointer($0) }
+            var labelPtrs: [UnsafePointer<CChar>?] = labelCPtrs.map { UnsafePointer($0) }
+            uuidPtrs.withUnsafeMutableBufferPointer { uPtrs in
+                labelPtrs.withUnsafeMutableBufferPointer { lPtrs in
+                    nodeXs.withUnsafeBufferPointer { xs in
+                        nodeYs.withUnsafeBufferPointer { ys in
+                            nodeTypes.withUnsafeBufferPointer { types in
+                                nodeLinkCounts.withUnsafeBufferPointer { links in
+                                    graph_engine_add_nodes_batch(
+                                        engine,
+                                        uPtrs.baseAddress,
+                                        xs.baseAddress,
+                                        ys.baseAddress,
+                                        types.baseAddress,
+                                        links.baseAddress,
+                                        lPtrs.baseAddress,
+                                        UInt32(nodeIds.count)
+                                    )
                                 }
                             }
                         }
@@ -277,30 +288,31 @@ final class MetalGraphNSView: NSView {
 
         // Batch-add all edges in a single FFI call.
         if !edgeSrcs.isEmpty {
-            let srcCStrs = edgeSrcs.map { $0.utf8CString }
-            let tgtCStrs = edgeTgts.map { $0.utf8CString }
-            srcCStrs.withUnsafeBufferPointer { srcBufs in
-                tgtCStrs.withUnsafeBufferPointer { tgtBufs in
-                    var srcPtrs: [UnsafePointer<CChar>?] = srcBufs.map { buf in
-                        buf.withUnsafeBufferPointer { $0.baseAddress }
-                    }
-                    var tgtPtrs: [UnsafePointer<CChar>?] = tgtBufs.map { buf in
-                        buf.withUnsafeBufferPointer { $0.baseAddress }
-                    }
-                    srcPtrs.withUnsafeMutableBufferPointer { sPtrs in
-                        tgtPtrs.withUnsafeMutableBufferPointer { tPtrs in
-                            edgeWeights.withUnsafeBufferPointer { wts in
-                                edgeTypes.withUnsafeBufferPointer { types in
-                                    graph_engine_add_edges_batch(
-                                        engine,
-                                        sPtrs.baseAddress,
-                                        tPtrs.baseAddress,
-                                        wts.baseAddress,
-                                        types.baseAddress,
-                                        UInt32(edgeSrcs.count)
-                                    )
-                                }
-                            }
+            let srcCPtrs: [UnsafeMutablePointer<CChar>] = edgeSrcs.compactMap { strdup($0) }
+            let tgtCPtrs: [UnsafeMutablePointer<CChar>] = edgeTgts.compactMap { strdup($0) }
+            guard srcCPtrs.count == edgeSrcs.count, tgtCPtrs.count == edgeTgts.count else {
+                srcCPtrs.forEach { free($0) }
+                tgtCPtrs.forEach { free($0) }
+                return
+            }
+            defer {
+                srcCPtrs.forEach { free($0) }
+                tgtCPtrs.forEach { free($0) }
+            }
+            var srcPtrs: [UnsafePointer<CChar>?] = srcCPtrs.map { UnsafePointer($0) }
+            var tgtPtrs: [UnsafePointer<CChar>?] = tgtCPtrs.map { UnsafePointer($0) }
+            srcPtrs.withUnsafeMutableBufferPointer { sPtrs in
+                tgtPtrs.withUnsafeMutableBufferPointer { tPtrs in
+                    edgeWeights.withUnsafeBufferPointer { wts in
+                        edgeTypes.withUnsafeBufferPointer { types in
+                            graph_engine_add_edges_batch(
+                                engine,
+                                sPtrs.baseAddress,
+                                tPtrs.baseAddress,
+                                wts.baseAddress,
+                                types.baseAddress,
+                                UInt32(edgeSrcs.count)
+                            )
                         }
                     }
                 }
@@ -313,8 +325,9 @@ final class MetalGraphNSView: NSView {
         if entrance == 1 { graphState.hasPlayedEntrance = true }
         pushForceParams()
 
-        // Push lite mode to Rust.
+        // Push lite mode to Rust and sync version tracker.
         graph_engine_set_lite_mode(engine, graphState.liteMode ? 1 : 0)
+        lastLiteModeVersion = graphState.liteModeVersion
 
         // Transparent background for hologram overlay mode.
         if isOverlayMode {
@@ -350,9 +363,7 @@ final class MetalGraphNSView: NSView {
         graphState.computeTimeRange()
 
         // Compute embeddings and push to Rust for semantic force + search.
-        graphState.embeddingService.computeAndPush(
-            store: graphState.store, engineHandle: engine
-        )
+        graphState.embeddingService.computeAndPush(store: graphState.store)
     }
 
     // MARK: - Lightweight Filter Sync
@@ -419,18 +430,19 @@ final class MetalGraphNSView: NSView {
         let uuids = Array(clusterMap.keys)
         let ids = uuids.map { clusterMap[$0]! }
 
-        var cStrings = uuids.map { strdup($0)! }
-        defer { cStrings.forEach { free($0) } }
+        let cPtrs: [UnsafeMutablePointer<CChar>] = uuids.compactMap { strdup($0) }
+        guard cPtrs.count == uuids.count else {
+            cPtrs.forEach { free($0) }
+            return
+        }
+        defer { cPtrs.forEach { free($0) } }
+        var optPtrs: [UnsafePointer<CChar>?] = cPtrs.map { UnsafePointer($0) }
 
-        cStrings.withUnsafeMutableBufferPointer { uuidBuffer in
+        optPtrs.withUnsafeMutableBufferPointer { uuidBuf in
             ids.withUnsafeBufferPointer { idsBuffer in
-                uuidBuffer.baseAddress!.withMemoryRebound(
-                    to: UnsafePointer<CChar>?.self, capacity: uuids.count
-                ) { reboundPtr in
-                    graph_engine_set_cluster_ids(
-                        engine, reboundPtr, idsBuffer.baseAddress!, UInt32(uuids.count)
-                    )
-                }
+                graph_engine_set_cluster_ids(
+                    engine, uuidBuf.baseAddress, idsBuffer.baseAddress!, UInt32(uuids.count)
+                )
             }
         }
         needsRender = true
@@ -1081,7 +1093,17 @@ final class MetalGraphNSView: NSView {
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.
         isInvalidated.store(true, ordering: .relaxed)
-        stopDisplayLink()
+        // Inline CVDisplayLink stop — can't call @MainActor stopDisplayLink() from nonisolated deinit.
+        // Safe: no other references exist during deallocation.
+        if let link = displayLink {
+            CVDisplayLinkStop(link)
+        }
+        // Cancel embedding task synchronously BEFORE destroying the engine.
+        // cancelPendingTask() is nonisolated — safe to call from deinit.
+        graphState?.embeddingService.cancelPendingTask()
+        // Nil out engineHandle synchronously so any already-enqueued MainActor.run block
+        // sees nil and skips FFI calls. engineHandle is nonisolated(unsafe) for this reason.
+        graphState?.engineHandle = nil
         if let engine {
             graph_engine_destroy(engine)
         }

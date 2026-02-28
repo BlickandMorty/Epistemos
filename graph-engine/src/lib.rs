@@ -139,7 +139,13 @@ pub extern "C" fn graph_engine_add_nodes_batch(
 ) {
     ffi_engine!(engine);
     let count = count as usize;
-    if count == 0 || uuids.is_null() || labels.is_null() { return; }
+    if count == 0
+        || uuids.is_null() || labels.is_null()
+        || xs.is_null() || ys.is_null()
+        || node_types.is_null() || link_counts.is_null()
+    {
+        return;
+    }
     let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
     let label_ptrs = unsafe { std::slice::from_raw_parts(labels, count) };
     let xs = unsafe { std::slice::from_raw_parts(xs, count) };
@@ -171,7 +177,12 @@ pub extern "C" fn graph_engine_add_edges_batch(
 ) {
     ffi_engine!(engine);
     let count = count as usize;
-    if count == 0 || source_uuids.is_null() || target_uuids.is_null() { return; }
+    if count == 0
+        || source_uuids.is_null() || target_uuids.is_null()
+        || weights.is_null() || edge_types.is_null()
+    {
+        return;
+    }
     let src_ptrs = unsafe { std::slice::from_raw_parts(source_uuids, count) };
     let tgt_ptrs = unsafe { std::slice::from_raw_parts(target_uuids, count) };
     let wts = unsafe { std::slice::from_raw_parts(weights, count) };

@@ -140,6 +140,7 @@ pub struct Simulation {
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
     collision_grid: FxHashMap<(i32, i32), Vec<usize>>,
     bodies_scratch: Vec<quadtree::Body>,
+    tick_count: u32,
 }
 
 impl Default for Simulation {
@@ -171,6 +172,7 @@ impl Simulation {
             lite_mode: false,
             collision_grid: FxHashMap::default(),
             bodies_scratch: Vec::new(),
+            tick_count: 0,
         }
     }
 
@@ -335,8 +337,14 @@ impl Simulation {
 
         // Collision force (position-based overlap prevention) — reuses scratch grid.
         // Passes fx/fy so fixed (dragged) nodes don't get pushed by collision.
-        for v in self.collision_grid.values_mut() {
-            v.clear();
+        // Full clear every 120 ticks to prevent stale key accumulation.
+        self.tick_count = self.tick_count.wrapping_add(1);
+        if self.tick_count % 120 == 0 {
+            self.collision_grid.clear();
+        } else {
+            for v in self.collision_grid.values_mut() {
+                v.clear();
+            }
         }
         forces::force_collide_with_scratch(
             &mut self.x,
