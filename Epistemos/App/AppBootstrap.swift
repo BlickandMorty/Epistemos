@@ -65,23 +65,25 @@ final class AppBootstrap {
             reason: "Epistemos — keep AI pipelines alive when app loses focus"
         )
 
-        // Create model container with versioned schema and migration plan.
-        // Falls back to in-memory container on failure (corrupt DB, migration error).
+        // Create model container with implicit lightweight migration.
+        // SwiftData auto-handles adding defaulted properties without an explicit MigrationPlan.
+        // Falls back to in-memory container on failure (corrupt DB, schema mismatch).
+        let schema = Schema(EpistemosSchema.models)
         let container: ModelContainer
         let dbError: Error?
         do {
-            let schema = Schema(versionedSchema: EpistemosSchemaV2.self)
             container = try ModelContainer(
                 for: schema,
-                migrationPlan: EpistemosMigrationPlan.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: false)
             )
             dbError = nil
         } catch {
             Log.app.error("Database failed to load, falling back to in-memory: \(error.localizedDescription, privacy: .public)")
-            let schema = Schema(versionedSchema: EpistemosSchemaV2.self)
             // swiftlint:disable:next force_try — in-memory container cannot fail
-            container = try! ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+            container = try! ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            )
             dbError = error
         }
         self.modelContainer = container
