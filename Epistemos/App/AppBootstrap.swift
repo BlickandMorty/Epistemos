@@ -193,9 +193,18 @@ final class AppBootstrap {
     // MARK: - Database Recovery
 
     func resetDatabaseAndRelaunch() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let fm = FileManager.default
+        let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+
+        // SwiftData default.store lives at the Application Support root (no subdirectory)
+        if let dir = appSupport {
+            for name in ["default.store", "default.store-shm", "default.store-wal"] {
+                try? fm.removeItem(at: dir.appendingPathComponent(name))
+            }
+        }
+
+        // Also clean Epistemos subdirectory (search index, etc.)
         if let dir = appSupport?.appendingPathComponent("Epistemos") {
-            let fm = FileManager.default
             if let contents = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
                 for file in contents where file.pathExtension == "sqlite"
                     || file.lastPathComponent.contains("default.store") {
