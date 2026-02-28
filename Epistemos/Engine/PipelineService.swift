@@ -44,14 +44,14 @@ final class PipelineService {
     // MARK: - Dependencies
 
     private let pipelineState: PipelineState
-    private let llmService: LLMService
+    private let llmService: any LLMClientProtocol
     private let triageService: TriageService
     private let eventBus: EventBus
     private var soarService: SOARService?
 
     init(
         pipelineState: PipelineState,
-        llmService: LLMService,
+        llmService: any LLMClientProtocol,
         triageService: TriageService,
         eventBus: EventBus,
         soarService: SOARService? = nil

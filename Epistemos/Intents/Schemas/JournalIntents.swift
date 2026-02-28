@@ -45,7 +45,7 @@ struct JournalEntity: AppEntity {
                 .filter {
                     $0.isJournal
                         && ($0.title.lowercased().contains(query)
-                            || $0.body.lowercased().contains(query))
+                            || $0.loadBody().lowercased().contains(query))
                 }
                 .prefix(10)
                 .map { $0.toJournalEntity() }
@@ -118,7 +118,7 @@ struct CreateJournalIntent: AppIntent {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         if let page = (try? context.fetch(descriptor))?.first {
             page.isJournal = true
-            page.body = bodyText
+            page.saveBody(bodyText)
             page.needsVaultSync = true
             do {
                 try context.save()
@@ -157,7 +157,7 @@ struct SearchJournalIntent: AppIntent {
             .filter {
                 $0.isJournal
                     && ($0.title.lowercased().contains(query)
-                        || $0.body.lowercased().contains(query))
+                        || $0.loadBody().lowercased().contains(query))
             }
             .prefix(20)
             .map { $0.toJournalEntity() }
@@ -175,7 +175,7 @@ extension SDPage {
             title: title.isEmpty ? "Journal Entry" : title
         )
         entity.entryDate = createdAt
-        entity.message = try? AttributedString(markdown: String(body.prefix(500)))
+        entity.message = try? AttributedString(markdown: String(loadBody().prefix(500)))
         return entity
     }
 }

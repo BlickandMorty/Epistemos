@@ -44,7 +44,7 @@ struct WriterModeView: View {
         }
         .animation(.spring(duration: 0.3), value: isDark)
         .onAppear {
-            bodyText = page.body
+            bodyText = page.loadBody()
             formatState.load(from: page.frontMatter)
             formatState.loadTitlePageDefaults()
 
@@ -80,8 +80,8 @@ struct WriterModeView: View {
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
-            guard newValue != page.body else { return }
-            page.body = newValue
+            guard newValue != page.loadBody() else { return }
+            page.saveBody(newValue)
             page.updatedAt = .now
         }
     }
@@ -90,8 +90,8 @@ struct WriterModeView: View {
 
     private func flushIfNeeded() {
         saveTask?.cancel()
-        if page.body != bodyText {
-            page.body = bodyText
+        if page.loadBody() != bodyText {
+            page.saveBody(bodyText)
             page.needsVaultSync = true
             page.updatedAt = .now
         }

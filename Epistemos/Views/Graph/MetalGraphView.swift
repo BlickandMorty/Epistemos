@@ -234,7 +234,7 @@ final class MetalGraphNSView: NSView {
 
             edge.sourceNodeId.withCString { srcPtr in
                 edge.targetNodeId.withCString { tgtPtr in
-                    graph_engine_add_edge(engine, srcPtr, tgtPtr, Float(edge.weight))
+                    graph_engine_add_edge(engine, srcPtr, tgtPtr, Float(edge.weight), edge.type.rustIndex)
                 }
             }
         }
@@ -278,6 +278,7 @@ final class MetalGraphNSView: NSView {
 
     var lastExtendedForceConfigVersion: Int = -1
     var lastClusterConfigVersion: Int = -1
+    var lastSemanticClusterVersion: Int = -1
     var lastFilterVersion: Int = 0
 
     func pushForceParams() {
@@ -307,6 +308,31 @@ final class MetalGraphNSView: NSView {
         guard let engine, let graphState else { return }
         graph_engine_set_cluster_params(engine, graphState.clusterStrength)
         graph_engine_set_center_mode(engine, graphState.centerMode)
+        needsRender = true
+    }
+
+    func pushSemanticClusters() {
+        guard let engine, let graphState else { return }
+        let clusterMap = graphState.semanticClusterIds
+        guard !clusterMap.isEmpty else { return }
+
+        let uuids = Array(clusterMap.keys)
+        let ids = uuids.map { clusterMap[$0]! }
+
+        var cStrings = uuids.map { strdup($0)! }
+        defer { cStrings.forEach { free($0) } }
+
+        cStrings.withUnsafeMutableBufferPointer { uuidBuffer in
+            ids.withUnsafeBufferPointer { idsBuffer in
+                uuidBuffer.baseAddress!.withMemoryRebound(
+                    to: UnsafePointer<CChar>?.self, capacity: uuids.count
+                ) { reboundPtr in
+                    graph_engine_set_cluster_ids(
+                        engine, reboundPtr, idsBuffer.baseAddress!, UInt32(uuids.count)
+                    )
+                }
+            }
+        }
         needsRender = true
     }
 
@@ -406,6 +432,13 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastClusterConfigVersion != graphState.clusterConfigVersion {
             lastClusterConfigVersion = graphState.clusterConfigVersion
             pushClusterParams()
+        }
+
+        // Sync semantic cluster IDs when they change.
+        if let graphState, lastSemanticClusterVersion != graphState.semanticClusterVersion,
+           graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
+            lastSemanticClusterVersion = graphState.semanticClusterVersion
+            pushSemanticClusters()
         }
 
         // Minimize request: post notification for the overlay to handle.
@@ -607,7 +640,7 @@ final class MetalGraphNSView: NSView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        guard let engine else { return nil }
+        guard let engine, isCommitted else { return nil }
 
         // Move hover to click location so Rust knows which node is under the cursor.
         let loc = convert(event.locationInWindow, from: nil)
@@ -778,6 +811,8 @@ final class MetalGraphNSView: NSView {
             (.reference, "Reference"), (.related, "Related"),
             (.contains, "Contains"), (.tagged, "Tagged"),
             (.mentions, "Mentions"), (.cites, "Cites"),
+            (.supports, "Supports"), (.contradicts, "Contradicts"),
+            (.expands, "Expands"), (.questions, "Questions"),
         ]
         for (_, label) in types { popup.addItem(withTitle: label) }
         alert.accessoryView = popup

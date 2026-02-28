@@ -58,7 +58,7 @@ struct SummarizeNoteIntent: AppIntent {
             return .result(dialog: "Could not find the active note.")
         }
 
-        let content = page.body
+        let content = page.loadBody()
 
         guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .result(dialog: "The note \"\(page.title)\" is empty — nothing to summarize.")
@@ -161,7 +161,7 @@ struct SearchDocumentsIntent: AppIntent {
             pages
             .filter {
                 $0.title.lowercased().contains(queryLower)
-                    || $0.body.lowercased().contains(queryLower)
+                    || $0.loadBody().lowercased().contains(queryLower)
                     || $0.tags.contains(where: { $0.lowercased().contains(queryLower) })
             }
             .prefix(20)

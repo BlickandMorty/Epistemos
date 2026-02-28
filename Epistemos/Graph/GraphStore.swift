@@ -261,6 +261,71 @@ final class GraphStore {
         edgesByNode.removeValue(forKey: nodeId)
     }
 
+    // MARK: - Fuzzy Search
+
+    /// A scored search result from the in-memory fuzzy matcher.
+    struct SearchHit: Identifiable {
+        let id: String       // GraphNodeRecord.id
+        let node: GraphNodeRecord
+        let score: Float     // 0.0–1.0 relevance score
+    }
+
+    /// 5-tier fuzzy search matching the Rust FST scoring algorithm:
+    /// exact (1.0) > prefix (0.9) > word-start (0.8) > contains (0.6) > subsequence (0.3).
+    func fuzzySearch(query: String, limit: Int = 20) -> [SearchHit] {
+        let q = query.lowercased()
+        guard !q.isEmpty else { return [] }
+
+        var hits: [SearchHit] = []
+        for node in nodes.values {
+            let label = node.label.lowercased()
+            let score: Float
+
+            if label == q {
+                score = 1.0                              // exact
+            } else if label.hasPrefix(q) {
+                score = 0.9                              // prefix
+            } else if wordStartMatch(query: q, in: label) {
+                score = 0.8                              // word-start (e.g. "gst" matches "graph store tests")
+            } else if label.contains(q) {
+                score = 0.6                              // substring
+            } else if subsequenceMatch(query: q, in: label) {
+                score = 0.3                              // subsequence (e.g. "grph" matches "graph")
+            } else {
+                continue
+            }
+
+            hits.append(SearchHit(id: node.id, node: node, score: score))
+        }
+
+        // Sort by score descending, then alphabetically
+        hits.sort { lhs, rhs in
+            if lhs.score != rhs.score { return lhs.score > rhs.score }
+            return lhs.node.label.localizedCaseInsensitiveCompare(rhs.node.label) == .orderedAscending
+        }
+
+        return Array(hits.prefix(limit))
+    }
+
+    /// Check if query characters match the start of words in the label.
+    /// "gst" matches "Graph Store Tests" (G-raph S-tore T-ests).
+    private func wordStartMatch(query: String, in label: String) -> Bool {
+        let words = label.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        let wordStarts = words.compactMap { $0.first.map { String($0).lowercased() } }
+        let initials = wordStarts.joined()
+        return initials.contains(query)
+    }
+
+    /// Check if all query characters appear in order in the label.
+    private func subsequenceMatch(query: String, in label: String) -> Bool {
+        var labelIdx = label.startIndex
+        for qChar in query {
+            guard let found = label[labelIdx...].firstIndex(of: qChar) else { return false }
+            labelIdx = label.index(after: found)
+        }
+        return true
+    }
+
     // MARK: - Link Count (for Rust FFI)
 
     /// Number of edges touching this node (degree).

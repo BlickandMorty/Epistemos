@@ -105,12 +105,12 @@ struct FindGapsIntent: AppIntent {
         let pages = (try? context.fetch(descriptor)) ?? []
         let relevantPages: [SDPage]
         if let topic = topic?.lowercased() {
-            relevantPages = Array(pages.filter { $0.title.lowercased().contains(topic) || $0.body.lowercased().contains(topic) }.prefix(10))
+            relevantPages = Array(pages.filter { $0.title.lowercased().contains(topic) || $0.loadBody().lowercased().contains(topic) }.prefix(10))
         } else {
             relevantPages = Array(pages.prefix(10))
         }
 
-        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.body.prefix(300)))" }.joined(separator: "\n")
+        let notesSummary = relevantPages.map { "- \($0.title): \(String($0.loadBody().prefix(300)))" }.joined(separator: "\n")
 
         // Inject vault manifest for full vault awareness
         let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""

@@ -33,6 +33,13 @@ pub fn detect_communities(
     for _ in 0..20 {
         let mut improved = false;
 
+        // Σ_tot: sum of degrees per community — computed ONCE per pass, not per node.
+        // Incrementally updated when a node moves communities.
+        let mut sigma: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
+        for j in 0..n {
+            *sigma.entry(community[j]).or_default() += degree[j];
+        }
+
         for i in 0..n {
             let ki = degree[i];
             let current = community[i];
@@ -41,12 +48,6 @@ pub fn detect_communities(
             let mut ki_to: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
             for &j in &adj[i] {
                 *ki_to.entry(community[j]).or_default() += 1.0;
-            }
-
-            // Σ_tot: sum of degrees per community
-            let mut sigma: std::collections::HashMap<u32, f64> = std::collections::HashMap::new();
-            for j in 0..n {
-                *sigma.entry(community[j]).or_default() += degree[j];
             }
 
             let ki_in_current = ki_to.get(&current).copied().unwrap_or(0.0);
@@ -71,6 +72,9 @@ pub fn detect_communities(
             }
 
             if best_comm != current {
+                // Incrementally update sigma: remove ki from old, add to new.
+                *sigma.entry(current).or_default() -= ki;
+                *sigma.entry(best_comm).or_default() += ki;
                 community[i] = best_comm;
                 improved = true;
             }

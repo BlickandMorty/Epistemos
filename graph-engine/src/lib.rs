@@ -10,6 +10,7 @@ pub mod renderer;
 pub mod engine;
 pub mod markdown;
 pub mod cluster;
+pub mod search;
 
 // ── FFI Boundary ────────────────────────────────────────────────────────────
 //
@@ -17,7 +18,7 @@ pub mod cluster;
 // Convention: all functions take `*mut engine::Engine` as the first argument.
 // All pointer arguments are null-checked before dereference.
 
-use std::ffi::{c_char, c_void, CStr};
+use std::ffi::{c_char, c_void, CStr, CString};
 
 use crate::engine::Engine;
 
@@ -104,17 +105,19 @@ pub extern "C" fn graph_engine_add_node(
 }
 
 /// Add an edge between two nodes by UUID.
+/// `edge_type`: 0-11 matching GraphEdgeType enum (0=reference, 4=cites, 9=contradicts, etc.).
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_add_edge(
     engine: *mut Engine,
     source_uuid: *const c_char,
     target_uuid: *const c_char,
     weight: f32,
+    edge_type: u8,
 ) {
     ffi_engine!(engine);
     let src = ffi_cstr!(source_uuid);
     let tgt = ffi_cstr!(target_uuid);
-    engine.graph_mut().add_edge(src, tgt, weight);
+    engine.graph_mut().add_edge(src, tgt, weight, edge_type);
 }
 
 /// Commit the graph: loads data into simulation, starts physics.
@@ -434,4 +437,108 @@ pub extern "C" fn graph_engine_selected_node_uuid(engine: *mut Engine) -> *const
         Some(id) => engine.node_uuid_by_id(id),
         None => std::ptr::null(),
     }
+}
+
+// ── Search ──────────────────────────────────────────────────────────────────
+
+/// Search node labels with fuzzy matching. Returns a C array of results.
+/// Caller must free with `graph_engine_free_search_results`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_search(
+    engine: *mut Engine,
+    query: *const c_char,
+    limit: u32,
+    out_count: *mut u32,
+) -> *mut search::SearchResult {
+    ffi_engine_or!(engine, std::ptr::null_mut());
+    let query_str = ffi_cstr!(query);
+
+    let results = engine.search_index.search(query_str, limit as usize);
+
+    unsafe {
+        if !out_count.is_null() {
+            *out_count = results.len() as u32;
+        }
+    }
+
+    if results.is_empty() {
+        return std::ptr::null_mut();
+    }
+
+    let mut ffi_results: Vec<search::SearchResult> = results
+        .into_iter()
+        .map(|(uuid, label, node_type, score)| search::SearchResult {
+            uuid: CString::new(uuid).unwrap_or_default().into_raw(),
+            label: CString::new(label).unwrap_or_default().into_raw(),
+            node_type,
+            score,
+        })
+        .collect();
+
+    let ptr = ffi_results.as_mut_ptr();
+    std::mem::forget(ffi_results);
+    ptr
+}
+
+/// Free search results allocated by `graph_engine_search`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_free_search_results(
+    results: *mut search::SearchResult,
+    count: u32,
+) {
+    if results.is_null() {
+        return;
+    }
+    unsafe {
+        let slice = std::slice::from_raw_parts_mut(results, count as usize);
+        for result in slice.iter() {
+            if !result.uuid.is_null() {
+                let _ = CString::from_raw(result.uuid as *mut _);
+            }
+            if !result.label.is_null() {
+                let _ = CString::from_raw(result.label as *mut _);
+            }
+        }
+        let _ = Vec::from_raw_parts(results, count as usize, count as usize);
+    }
+}
+
+// ── Semantic Clustering ─────────────────────────────────────────────────────
+
+/// Set semantic cluster IDs from Swift. Maps UUIDs to simulation indices
+/// and overrides the Louvain-detected cluster_ids.
+/// After setting, the existing force_cluster() will use these IDs.
+///
+/// `uuids`: array of `count` null-terminated UUID C strings.
+/// `cluster_ids`: parallel array of `count` cluster IDs.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_cluster_ids(
+    engine: *mut Engine,
+    uuids: *const *const c_char,
+    cluster_ids: *const u32,
+    count: u32,
+) {
+    ffi_engine!(engine);
+    let count = count as usize;
+    if count == 0 || uuids.is_null() || cluster_ids.is_null() {
+        return;
+    }
+
+    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+    let ids = unsafe { std::slice::from_raw_parts(cluster_ids, count) };
+
+    // Build UUID → cluster_id map.
+    let mut uuid_to_cluster = std::collections::HashMap::new();
+    for i in 0..count {
+        if uuid_ptrs[i].is_null() {
+            continue;
+        }
+        let uuid_str = unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+            .to_str()
+            .unwrap_or("")
+            .to_owned();
+        uuid_to_cluster.insert(uuid_str, ids[i]);
+    }
+
+    engine.set_cluster_ids(&uuid_to_cluster);
 }

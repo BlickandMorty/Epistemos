@@ -199,7 +199,8 @@ final class NodeInspectorState {
             return node.label
         }
 
-        return page.body.isEmpty ? (page.summary.isEmpty ? node.label : page.summary) : page.body
+        let pageBody = page.loadBody()
+        return pageBody.isEmpty ? (page.summary.isEmpty ? node.label : page.summary) : pageBody
     }
 
     private func fetchFolderContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) -> String {

@@ -24,6 +24,12 @@ struct GraphFloatingControls: View {
                 .frame(height: 20)
                 .opacity(0.3)
 
+            semanticClusterToggle
+
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
+
             forceSettingsButton
 
             minimizeButton
@@ -108,6 +114,35 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
+    }
+
+    // MARK: - Semantic Clustering Toggle
+
+    private var semanticClusterToggle: some View {
+        Button {
+            graphState.useSemanticClustering.toggle()
+            if graphState.useSemanticClustering {
+                graphState.computeSemanticClusters()
+            } else {
+                graphState.requestRecommit()
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: graphState.useSemanticClustering ? "brain.head.profile.fill" : "brain.head.profile")
+                    .font(.system(size: 10, weight: .medium))
+                Text("Semantic")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                graphState.useSemanticClustering ? Color.purple.opacity(0.25) : .clear,
+                in: Capsule()
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(graphState.useSemanticClustering ? .white : .white.opacity(0.5))
+        .help(graphState.useSemanticClustering ? "Semantic Clustering On" : "Enable Semantic Clustering")
     }
 
     // MARK: - Force Settings

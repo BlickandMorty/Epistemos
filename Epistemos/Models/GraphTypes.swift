@@ -69,7 +69,7 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
 }
 
 // MARK: - GraphEdgeType
-// 8 relationship types, reduced from 23.
+// 12 relationship types: 8 structural + 4 semantic.
 
 nonisolated enum GraphEdgeType: String, Codable, Sendable {
     case reference
@@ -80,6 +80,10 @@ nonisolated enum GraphEdgeType: String, Codable, Sendable {
     case authored
     case related
     case quotes
+    case supports      // Note A provides evidence for Note B
+    case contradicts   // Note A contradicts claims in Note B
+    case expands       // Note A expands on ideas in Note B
+    case questions     // Note A raises questions about Note B
 
     /// Migration from legacy 23-type system.
     init(legacy rawValue: String) {
@@ -103,6 +107,24 @@ nonisolated enum GraphEdgeType: String, Codable, Sendable {
             self = .quotes
         default:
             self = GraphEdgeType(rawValue: rawValue) ?? .reference
+        }
+    }
+
+    /// Index matching Rust EdgeType enum (0-11) for FFI.
+    var rustIndex: UInt8 {
+        switch self {
+        case .reference:   return 0
+        case .contains:    return 1
+        case .tagged:      return 2
+        case .mentions:    return 3
+        case .cites:       return 4
+        case .authored:    return 5
+        case .related:     return 6
+        case .quotes:      return 7
+        case .supports:    return 8
+        case .contradicts: return 9
+        case .expands:     return 10
+        case .questions:   return 11
         }
     }
 }

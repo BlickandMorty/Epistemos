@@ -4,7 +4,7 @@ use metal::foreign_types::ForeignType;
 use metal::*;
 use objc::rc::autoreleasepool;
 
-use crate::types::Graph;
+use crate::types::{Graph, edge_type_color, edge_type_color_light};
 
 // Direct Objective-C runtime call — avoids macro import issues with Rust 2024 edition.
 unsafe extern "C" {
@@ -60,10 +60,6 @@ fn z_for_link_count(link_count: u32) -> f32 {
     }
 }
 
-/// Number of line segments to tessellate each bezier edge into.
-const EDGE_SEGMENTS: usize = 8;
-/// Default edge color: subtle gray at 30% opacity (LogSeq style).
-const EDGE_COLOR: [f32; 4] = [0.55, 0.55, 0.60, 0.3];
 /// Highlighted edge color: brighter accent.
 const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.65, 0.85, 1.00, 0.6];
 /// Dimmed node alpha when highlight is active.
@@ -71,56 +67,14 @@ const DIM_ALPHA: f32 = 0.15;
 /// Dimmed edge alpha when highlight is active.
 const EDGE_DIM_ALPHA: f32 = 0.05;
 
-/// Compute the quadratic bezier control point for a gravitational arc edge.
-/// The curve bends toward the heavier node (more links = more mass).
-fn gravitational_control_point(
-    p0: [f32; 2], p1: [f32; 2],
-    mass0: u32, mass1: u32,
-) -> [f32; 2] {
-    let mx = (p0[0] + p1[0]) * 0.5;
-    let my = (p0[1] + p1[1]) * 0.5;
-    let dx = p1[0] - p0[0];
-    let dy = p1[1] - p0[1];
-    let len = (dx * dx + dy * dy).sqrt().max(1.0);
-    // Perpendicular direction.
-    let px = -dy / len;
-    let py = dx / len;
-    // Mass ratio determines curvature magnitude and direction.
-    // Positive = bend toward p1 (heavier), negative = toward p0.
-    let m0 = (mass0.max(1) as f32).cbrt();
-    let m1 = (mass1.max(1) as f32).cbrt();
-    let bias = (m1 - m0) / (m0 + m1); // range [-1, 1]
-    let curvature = len * 0.12 * bias;
-    [mx + px * curvature, my + py * curvature]
-}
-
-/// Evaluate a quadratic bezier at parameter t ∈ [0, 1].
+/// Evaluate a quadratic bezier at parameter t in [0, 1].
+/// Retained for field-line tessellation only (edges are now straight lines).
 fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
     let s = 1.0 - t;
     [
         s * s * p0[0] + 2.0 * s * t * cp[0] + t * t * p1[0],
         s * s * p0[1] + 2.0 * s * t * cp[1] + t * t * p1[1],
     ]
-}
-
-/// Tessellate a quadratic bezier into N line segments.
-fn tessellate_bezier(
-    p0: [f32; 2], cp: [f32; 2], p1: [f32; 2],
-    color: [f32; 4],
-    out: &mut Vec<LineEdgeInstance>,
-) {
-    let n = EDGE_SEGMENTS;
-    let mut prev = p0;
-    for i in 1..=n {
-        let t = i as f32 / n as f32;
-        let next = bezier_point(p0, cp, p1, t);
-        out.push(LineEdgeInstance {
-            p0: prev,
-            p1: next,
-            color,
-        });
-        prev = next;
-    }
 }
 
 // ── Metal Shader Source ─────────────────────────────────────────────────────
@@ -329,68 +283,6 @@ fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
     return float4(in.color.rgb, in.color.a * alpha);
 }
 
-// ── Post-process motion blur ──────────────────────────────────────────
-
-struct PostVertexOut {
-    float4 position [[position]];
-    float2 uv;
-};
-
-vertex PostVertexOut post_vertex(uint vid [[vertex_id]],
-                                 constant float2* verts [[buffer(0)]]) {
-    PostVertexOut out;
-    out.position = float4(verts[vid], 0.0, 1.0);
-    out.uv = verts[vid] * 0.5 + 0.5;
-    out.uv.y = 1.0 - out.uv.y;
-    return out;
-}
-
-fragment float4 post_blur(PostVertexOut in [[stage_in]],
-                          texture2d<float> current [[texture(0)]],
-                          texture2d<float> previous [[texture(1)]],
-                          constant Uniforms& u [[buffer(0)]]) {
-    constexpr sampler s(filter::linear);
-    float4 color = current.sample(s, in.uv);
-
-    // Camera velocity magnitude → blur intensity.
-    float speed = length(u.camera_velocity) * u.camera_zoom + abs(u.zoom_velocity) * 500.0;
-    float blur_strength = clamp(speed * 0.002, 0.0, 0.35);
-
-    if (blur_strength > 0.01) {
-        // Radial blur: sample along direction from center.
-        float2 center = float2(0.5, 0.5);
-        float2 dir = in.uv - center;
-        float zoom_sign = sign(u.zoom_velocity);
-        float radial_scale = blur_strength * zoom_sign;
-
-        // 4 radial taps.
-        float4 blur_accum = float4(0);
-        for (int i = 1; i <= 4; i++) {
-            float t = float(i) * 0.008 * radial_scale;
-            blur_accum += current.sample(s, in.uv + dir * t);
-        }
-        blur_accum *= 0.25;
-
-        // Pan blur: directional based on camera velocity.
-        float2 pan_dir = u.camera_velocity * 0.0003;
-        float4 pan_accum = float4(0);
-        for (int i = 1; i <= 3; i++) {
-            float t = float(i);
-            pan_accum += current.sample(s, in.uv + pan_dir * t);
-        }
-        pan_accum /= 3.0;
-
-        // Blend: current + radial/directional + temporal (previous frame).
-        float radial_weight = abs(u.zoom_velocity) > 0.001 ? 0.5 : 0.2;
-        float pan_weight = 1.0 - radial_weight;
-        float4 blurred = blur_accum * radial_weight + pan_accum * pan_weight;
-        color = mix(color, blurred, blur_strength * 0.6);
-        float4 prev = previous.sample(s, in.uv);
-        color = mix(color, prev, blur_strength * 0.4);
-    }
-
-    return color;
-}
 "#;
 
 // ── Highlight State ─────────────────────────────────────────────────────────
@@ -448,6 +340,7 @@ pub struct Renderer {
     // Magnetic field lines (hover interaction).
     field_line_buf: Option<Buffer>,
     field_line_count: usize,
+    field_line_capacity: usize,
     field_line_hovered_id: Option<u32>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
@@ -455,14 +348,10 @@ pub struct Renderer {
     pub light_mode: bool,
     // Epoch for elapsed time tracking.
     pub start_time: std::time::Instant,
-    // Motion blur (two-pass rendering).
-    post_pipeline: RenderPipelineState,
-    post_vertex_buf: Buffer,
-    offscreen_texture: Option<Texture>,
-    prev_frame_texture: Option<Texture>,
-    offscreen_width: u32,
-    offscreen_height: u32,
+    // Previous-frame camera state (retained for future effects / velocity computation).
+    #[allow(dead_code)]
     prev_camera_zoom: f32,
+    #[allow(dead_code)]
     prev_camera_offset: [f32; 2],
 }
 
@@ -521,30 +410,6 @@ impl Renderer {
         let node_pipeline = make_pipeline(&node_vert, &node_frag);
         let edge_pipeline = make_pipeline(&edge_vert, &edge_frag);
 
-        // Post-process motion blur pipeline (no blending — writes final color).
-        let post_vert = library.get_function("post_vertex", None).unwrap();
-        let post_frag = library.get_function("post_blur", None).unwrap();
-        let post_desc = RenderPipelineDescriptor::new();
-        post_desc.set_vertex_function(Some(&post_vert));
-        post_desc.set_fragment_function(Some(&post_frag));
-        let post_color = post_desc.color_attachments().object_at(0).unwrap();
-        post_color.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
-        post_color.set_blending_enabled(false);
-        let post_pipeline = device
-            .new_render_pipeline_state(&post_desc)
-            .expect("Failed to create post-process pipeline");
-
-        // Full-screen quad (2 triangles, NDC coordinates).
-        let quad_verts: [f32; 12] = [
-            -1.0, -1.0, 1.0, -1.0, -1.0, 1.0,
-            -1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
-        ];
-        let post_vertex_buf = device.new_buffer_with_data(
-            quad_verts.as_ptr() as *const c_void,
-            (quad_verts.len() * std::mem::size_of::<f32>()) as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
-
         let uniform_buf = device.new_buffer(
             std::mem::size_of::<Uniforms>() as u64,
             MTLResourceOptions::StorageModeShared,
@@ -574,16 +439,11 @@ impl Renderer {
             highlight: HighlightState::new(),
             field_line_buf: None,
             field_line_count: 0,
+            field_line_capacity: 0,
             field_line_hovered_id: None,
             clear_color: [0.07, 0.07, 0.09, 1.0],
             light_mode: false,
             start_time: std::time::Instant::now(),
-            post_pipeline,
-            post_vertex_buf,
-            offscreen_texture: None,
-            prev_frame_texture: None,
-            offscreen_width: 0,
-            offscreen_height: 0,
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
         })
@@ -605,9 +465,8 @@ impl Renderer {
             self.node_instance_capacity = capacity;
         }
 
-        let edge_segment_count = edge_count * EDGE_SEGMENTS;
-        if edge_segment_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
-            let capacity = (edge_segment_count * 3 / 2).max(64);
+        if edge_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+            let capacity = (edge_count * 3 / 2).max(64);
             let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
             self.edge_instance_buf = Some(
                 self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
@@ -712,10 +571,10 @@ impl Renderer {
             }
         }
 
-        // Gravitational arc edge instances (bezier tessellated into segments).
+        // Straight-line edge instances (one LineEdgeInstance per edge).
         // During entrance, edges only appear when both endpoints have mostly arrived.
         let mut edge_instances: Vec<LineEdgeInstance> =
-            Vec::with_capacity(graph.edges.len() * EDGE_SEGMENTS);
+            Vec::with_capacity(graph.edges.len());
 
         for edge in &graph.edges {
             let si = graph.id_to_index.get(&edge.source);
@@ -735,16 +594,22 @@ impl Renderer {
                     edge_alpha = ((min_a - 0.7) / 0.3).clamp(0.0, 1.0);
                 }
 
+                // Edge type color: use semantic color based on edge type.
+                let base_edge = if self.light_mode {
+                    edge_type_color_light(edge.edge_type)
+                } else {
+                    edge_type_color(edge.edge_type)
+                };
                 let mut color = if self.highlight.active {
                     let src_lit = self.highlight.highlighted_ids.contains(&src.id);
                     let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
                     if src_lit && tgt_lit {
                         EDGE_HIGHLIGHT_COLOR
                     } else {
-                        [EDGE_COLOR[0], EDGE_COLOR[1], EDGE_COLOR[2], EDGE_DIM_ALPHA]
+                        [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
                     }
                 } else {
-                    EDGE_COLOR
+                    base_edge
                 };
                 color[3] *= edge_alpha;
 
@@ -762,8 +627,7 @@ impl Renderer {
                     }
                 }
 
-                let cp = gravitational_control_point(p0, p1, src.link_count, tgt.link_count);
-                tessellate_bezier(p0, cp, p1, color, &mut edge_instances);
+                edge_instances.push(LineEdgeInstance { p0, p1, color });
             }
         }
 
@@ -856,7 +720,7 @@ impl Renderer {
             return;
         }
 
-        // Update gravitational arc edge positions (re-tessellate bezier curves).
+        // Update straight-line edge positions in-place.
         // During entrance, edges fade in as both endpoints arrive.
         if let Some(buf) = &self.edge_instance_buf {
             let mut inst_idx = 0usize;
@@ -880,11 +744,11 @@ impl Renderer {
                             edge_alpha = ((min_a - 0.7) / 0.3).clamp(0.0, 1.0);
                         }
 
-                        // Light mode: darker edges for light backgrounds.
+                        // Edge type color: use semantic color based on edge type.
                         let base_edge = if self.light_mode {
-                            [0.30, 0.30, 0.35, 0.45]
+                            edge_type_color_light(edge.edge_type)
                         } else {
-                            EDGE_COLOR
+                            edge_type_color(edge.edge_type)
                         };
                         let hi_edge = if self.light_mode {
                             [0.10, 0.40, 0.70, 0.65]
@@ -920,20 +784,12 @@ impl Renderer {
                             }
                         }
 
-                        let cp = gravitational_control_point(p0, p1, src.link_count, tgt.link_count);
-
-                        // Write tessellated segments in-place.
-                        let mut prev = p0;
-                        for seg in 1..=EDGE_SEGMENTS {
-                            let t = seg as f32 / EDGE_SEGMENTS as f32;
-                            let next = bezier_point(p0, cp, p1, t);
-                            let inst = &mut *ptr.add(inst_idx);
-                            inst.p0 = prev;
-                            inst.p1 = next;
-                            inst.color = color;
-                            prev = next;
-                            inst_idx += 1;
-                        }
+                        // Write straight-line edge in-place.
+                        let inst = &mut *ptr.add(inst_idx);
+                        inst.p0 = p0;
+                        inst.p1 = p1;
+                        inst.color = color;
+                        inst_idx += 1;
                     }
                 }
             }
@@ -994,13 +850,13 @@ impl Renderer {
 
         let Some(hov_id) = hovered else {
             self.field_line_count = 0;
-            self.field_line_buf = None;
+            // Keep buffer allocated — just zero the count to avoid GPU alloc churn.
             return;
         };
 
         let Some(hov_node) = graph.nodes.iter().find(|n| n.id == hov_id && n.visible) else {
             self.field_line_count = 0;
-            self.field_line_buf = None;
+            // Keep buffer allocated — just zero the count to avoid GPU alloc churn.
             return;
         };
 
@@ -1062,14 +918,27 @@ impl Renderer {
 
         self.field_line_count = segments.len();
         if self.field_line_count > 0 {
-            let buf_size = (self.field_line_count * std::mem::size_of::<LineEdgeInstance>()) as u64;
-            self.field_line_buf = Some(self.device.new_buffer_with_data(
-                segments.as_ptr() as *const c_void,
-                buf_size,
-                MTLResourceOptions::StorageModeShared,
-            ));
+            // Re-allocate buffer only if capacity is exceeded.
+            if self.field_line_count > self.field_line_capacity || self.field_line_buf.is_none() {
+                let capacity = (self.field_line_count * 3 / 2).max(64);
+                let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
+                self.field_line_buf = Some(
+                    self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                );
+                self.field_line_capacity = capacity;
+            }
+            // Write field line data into pre-allocated buffer in-place.
+            if let Some(buf) = &self.field_line_buf {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        segments.as_ptr(),
+                        buf.contents() as *mut LineEdgeInstance,
+                        self.field_line_count,
+                    );
+                }
+            }
         } else {
-            self.field_line_buf = None;
+            // Keep buffer allocated — just zero the count to avoid GPU alloc churn.
         }
     }
 
@@ -1101,43 +970,7 @@ impl Renderer {
         }
     }
 
-    /// Ensure offscreen textures exist and match viewport size.
-    fn ensure_offscreen_textures(&mut self, w: u32, h: u32) {
-        if self.offscreen_width == w && self.offscreen_height == h
-            && self.offscreen_texture.is_some()
-        {
-            return;
-        }
-        let desc = TextureDescriptor::new();
-        desc.set_texture_type(MTLTextureType::D2);
-        desc.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
-        desc.set_width(w as u64);
-        desc.set_height(h as u64);
-        desc.set_storage_mode(MTLStorageMode::Private);
-        desc.set_usage(MTLTextureUsage::RenderTarget | MTLTextureUsage::ShaderRead);
-        self.offscreen_texture = Some(self.device.new_texture(&desc));
-        self.prev_frame_texture = Some(self.device.new_texture(&desc));
-        self.offscreen_width = w;
-        self.offscreen_height = h;
-    }
-
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
-        // Pre-compute state before entering autoreleasepool (avoids borrow conflicts).
-        let cam_vel = [
-            self.camera_offset[0] - self.prev_camera_offset[0],
-            self.camera_offset[1] - self.prev_camera_offset[1],
-        ];
-        let zoom_vel = self.camera_zoom - self.prev_camera_zoom;
-        self.prev_camera_offset = self.camera_offset;
-        self.prev_camera_zoom = self.camera_zoom;
-
-        // Ensure offscreen textures before getting drawable (avoids &self / &mut self conflict).
-        self.ensure_offscreen_textures(viewport_width, viewport_height);
-
-        let has_motion = cam_vel[0].abs() > 0.01
-            || cam_vel[1].abs() > 0.01
-            || zoom_vel.abs() > 0.0005;
-
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
                 Some(d) => d,
@@ -1152,8 +985,8 @@ impl Renderer {
                 _pad1: [0.0, 0.0],
                 _pad_ripple: -1.0,
                 focal_length: 2.0,
-                camera_velocity: cam_vel,
-                zoom_velocity: zoom_vel,
+                camera_velocity: [0.0, 0.0],
+                zoom_velocity: 0.0,
                 _pad2: 0.0,
             };
             unsafe {
@@ -1161,17 +994,10 @@ impl Renderer {
                 *ptr = uniforms;
             }
 
-            // Determine scene render target: offscreen if motion blur active, drawable otherwise.
-            let scene_texture = if has_motion {
-                if let Some(ref tex) = self.offscreen_texture { tex } else { drawable.texture() }
-            } else {
-                drawable.texture()
-            };
-
-            // ── Pass 1: Scene render ──
+            // Render directly to drawable texture (no offscreen pass).
             let render_desc = RenderPassDescriptor::new();
             let color = render_desc.color_attachments().object_at(0).unwrap();
-            color.set_texture(Some(scene_texture));
+            color.set_texture(Some(drawable.texture()));
             color.set_load_action(MTLLoadAction::Clear);
             color.set_clear_color(MTLClearColor::new(
                 self.clear_color[0],
@@ -1231,45 +1057,6 @@ impl Renderer {
             }
 
             encoder.end_encoding();
-
-            // ── Pass 2: Motion blur composite (only when camera is moving) ──
-            if has_motion {
-                if let (Some(offscreen), Some(prev)) =
-                    (&self.offscreen_texture, &self.prev_frame_texture)
-                {
-                    let blur_desc = RenderPassDescriptor::new();
-                    let blur_color = blur_desc.color_attachments().object_at(0).unwrap();
-                    blur_color.set_texture(Some(drawable.texture()));
-                    blur_color.set_load_action(MTLLoadAction::DontCare);
-                    blur_color.set_store_action(MTLStoreAction::Store);
-
-                    let blur_enc = cmd_buf.new_render_command_encoder(blur_desc);
-                    blur_enc.set_render_pipeline_state(&self.post_pipeline);
-                    blur_enc.set_vertex_buffer(0, Some(&self.post_vertex_buf), 0);
-                    blur_enc.set_fragment_buffer(0, Some(&self.uniform_buf), 0);
-                    blur_enc.set_fragment_texture(0, Some(offscreen));
-                    blur_enc.set_fragment_texture(1, Some(prev));
-                    blur_enc.draw_primitives(MTLPrimitiveType::Triangle, 0, 6);
-                    blur_enc.end_encoding();
-                }
-
-                // Copy current offscreen to prev_frame for next frame's temporal blend.
-                if let (Some(offscreen), Some(prev)) =
-                    (&self.offscreen_texture, &self.prev_frame_texture)
-                {
-                    let blit = cmd_buf.new_blit_command_encoder();
-                    blit.copy_from_texture(
-                        offscreen,
-                        0, 0,
-                        MTLOrigin { x: 0, y: 0, z: 0 },
-                        MTLSize { width: viewport_width as u64, height: viewport_height as u64, depth: 1 },
-                        prev,
-                        0, 0,
-                        MTLOrigin { x: 0, y: 0, z: 0 },
-                    );
-                    blit.end_encoding();
-                }
-            }
 
             cmd_buf.present_drawable(drawable);
             cmd_buf.commit();

@@ -21,7 +21,7 @@ enum SpotlightIndexer {
     static func index(_ page: SDPage) {
         let id = page.id
         let title = page.title
-        let body = page.body
+        let body = page.loadBody()
         let tags = page.tags
         let updatedAt = page.updatedAt
         let createdAt = page.createdAt
@@ -75,9 +75,10 @@ enum SpotlightIndexer {
                 let attrs = CSSearchableItemAttributeSet(contentType: .text)
                 attrs.title = page.title
                 // Truncate body for Spotlight — full text isn't needed for search ranking
-                attrs.textContent = String(page.body.prefix(500))
+                let pageBody = page.loadBody(mapped: true)
+                attrs.textContent = String(pageBody.prefix(500))
                 attrs.contentDescription = page.tags.isEmpty
-                    ? String(page.body.prefix(200))
+                    ? String(pageBody.prefix(200))
                     : "Tags: \(page.tags.joined(separator: ", "))"
                 attrs.keywords = page.tags
                 attrs.contentModificationDate = page.updatedAt

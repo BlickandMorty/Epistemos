@@ -8,12 +8,14 @@ nonisolated struct ExtractionResult: Codable, Sendable {
     var sources: [ExtractedSource]
     var quotes: [ExtractedQuote]
     var tags: [ExtractedTag]
+    var crossNoteLinks: [CrossNoteLink]?
 
     nonisolated struct ExtractedSource: Codable, Sendable {
         var name: String
         var url: String?
         var title: String?
         var type: String?
+        var relationship: String?
     }
 
     nonisolated struct ExtractedQuote: Codable, Sendable {
@@ -25,6 +27,13 @@ nonisolated struct ExtractionResult: Codable, Sendable {
     nonisolated struct ExtractedTag: Codable, Sendable {
         var name: String
         var description: String?
+    }
+
+    nonisolated struct CrossNoteLink: Codable, Sendable {
+        var from: String
+        var to: String
+        var relationship: String
+        var reason: String?
     }
 }
 

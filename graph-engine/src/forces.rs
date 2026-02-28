@@ -97,22 +97,38 @@ pub fn force_many_body(
     distance_min: f32,
     alpha: f32,
 ) {
+    let mut bodies = Vec::new();
+    force_many_body_with_scratch(x, y, vx, vy, charge_strength, distance_max, distance_min, alpha, &mut bodies);
+}
+
+/// Like `force_many_body` but reuses a caller-provided scratch buffer for `Body` allocations.
+#[allow(clippy::too_many_arguments)]
+pub fn force_many_body_with_scratch(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    charge_strength: f32,
+    distance_max: f32,
+    distance_min: f32,
+    alpha: f32,
+    bodies: &mut Vec<Body>,
+) {
     let n = x.len();
     if n < 2 {
         return;
     }
 
-    // Build Barnes-Hut tree with all nodes.
-    let bodies: Vec<Body> = (0..n)
-        .map(|i| Body {
-            index: i,
-            x: x[i],
-            y: y[i],
-            strength: charge_strength,
-        })
-        .collect();
+    // Build Barnes-Hut tree with all nodes, reusing scratch buffer.
+    bodies.clear();
+    bodies.extend((0..n).map(|i| Body {
+        index: i,
+        x: x[i],
+        y: y[i],
+        strength: charge_strength,
+    }));
 
-    let tree = match quadtree::build_tree(&bodies) {
+    let tree = match quadtree::build_tree(bodies) {
         Some(t) => t,
         None => return,
     };
@@ -155,6 +171,18 @@ pub fn force_collide(
     radii: &[f32],
     iterations: u32,
 ) {
+    let mut grid = std::collections::HashMap::new();
+    force_collide_with_scratch(x, y, radii, iterations, &mut grid);
+}
+
+/// Like `force_collide` but reuses a caller-provided grid HashMap to avoid per-tick allocation.
+pub fn force_collide_with_scratch(
+    x: &mut [f32],
+    y: &mut [f32],
+    radii: &[f32],
+    iterations: u32,
+    grid: &mut std::collections::HashMap<(i32, i32), Vec<usize>>,
+) {
     let n = x.len();
     if n < 2 {
         return;
@@ -175,10 +203,12 @@ pub fn force_collide(
     let inv_cell = 1.0 / cell_size;
 
     for _ in 0..iterations {
-        // Build grid: hash (cell_x, cell_y) → list of node indices.
-        use std::collections::HashMap;
-        let mut grid: HashMap<(i32, i32), Vec<usize>> = HashMap::with_capacity(n);
+        // Clear grid, reusing allocated inner Vecs.
+        for v in grid.values_mut() {
+            v.clear();
+        }
 
+        // Build grid: hash (cell_x, cell_y) → list of node indices.
         for i in 0..n {
             let cx = (x[i] * inv_cell).floor() as i32;
             let cy = (y[i] * inv_cell).floor() as i32;
@@ -193,6 +223,7 @@ pub fn force_collide(
 
         for key in &keys {
             let cell = &grid[key];
+            if cell.is_empty() { continue; }
 
             // Intra-cell pairs.
             for a in 0..cell.len() {

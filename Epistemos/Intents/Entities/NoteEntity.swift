@@ -57,7 +57,7 @@ struct NoteEntityQuery: EntityStringQuery {
         let pages = (try? context.fetch(descriptor)) ?? []
         let matched = pages.filter {
             $0.title.lowercased().contains(query) ||
-            $0.body.lowercased().contains(query) ||
+            $0.loadBody().lowercased().contains(query) ||
             $0.tags.contains(where: { $0.lowercased().contains(query) })
         }
         return IntentItemCollection(items: matched.prefix(20).map { $0.toNoteEntity() })
@@ -80,10 +80,11 @@ struct NoteEntityQuery: EntityStringQuery {
 
 extension SDPage {
     func toNoteEntity() -> NoteEntity {
-        NoteEntity(
+        let pageBody = loadBody()
+        return NoteEntity(
             id: id,
             title: title.isEmpty ? "Untitled" : title,
-            content: body.isEmpty ? nil : String(body.prefix(500)),
+            content: pageBody.isEmpty ? nil : String(pageBody.prefix(500)),
             createdAt: createdAt,
             updatedAt: updatedAt
         )

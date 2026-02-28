@@ -158,28 +158,203 @@ final class GraphBuilder {
         return (nodes: nodes, edges: edges)
     }
 
-    // MARK: - Persist
+    // MARK: - Persist (Diff-Based)
 
-    /// Delete all existing graph data and insert the freshly built nodes and edges.
-    func persist(nodes: [SDGraphNode], edges: [SDGraphEdge], context: ModelContext) {
-        // Wipe existing graph (fresh rebuild)
-        do {
-            try context.delete(model: SDGraphEdge.self, where: #Predicate<SDGraphEdge> { !$0.isManual })
-            try context.delete(model: SDGraphNode.self, where: #Predicate<SDGraphNode> { !$0.isManual })
-        } catch {
-            Log.app.error("GraphBuilder: failed to delete existing graph: \(error.localizedDescription, privacy: .public)")
+    /// Diff-based persist: compare expected nodes/edges against current SwiftData state
+    /// and apply only inserts, updates, and deletes. Manual nodes/edges are never touched.
+    func persist(nodes expectedNodes: [SDGraphNode], edges expectedEdges: [SDGraphEdge], context: ModelContext) {
+        var inserted = 0
+        var updated = 0
+        var deleted = 0
+
+        // ── 1. Fetch current non-manual entities ──
+
+        let currentNodeDesc = FetchDescriptor<SDGraphNode>(
+            predicate: #Predicate<SDGraphNode> { !$0.isManual }
+        )
+        let currentEdgeDesc = FetchDescriptor<SDGraphEdge>(
+            predicate: #Predicate<SDGraphEdge> { !$0.isManual }
+        )
+
+        let currentNodes = (try? context.fetch(currentNodeDesc)) ?? []
+        let currentEdges = (try? context.fetch(currentEdgeDesc)) ?? []
+
+        // ── 2. Build lookup maps for nodes ──
+        // Key: "type-sourceId" for uniqueness across types.
+
+        func nodeKey(_ type: String, _ sourceId: String?) -> String {
+            "\(type)-\(sourceId ?? "")"
         }
 
-        for node in nodes {
-            context.insert(node)
+        let currentNodeMap = Dictionary(
+            currentNodes.compactMap { node -> (String, SDGraphNode)? in
+                guard let sid = node.sourceId else { return nil }
+                return (nodeKey(node.type, sid), node)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        let expectedNodeMap = Dictionary(
+            expectedNodes.compactMap { node -> (String, SDGraphNode)? in
+                guard let sid = node.sourceId else { return nil }
+                return (nodeKey(node.type, sid), node)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        // Maps expected (ephemeral build) node ID -> persisted node ID.
+        // Needed to remap edge source/target before diffing edges.
+        var buildIdToPersistedId: [String: String] = [:]
+
+        // ── 3. Diff nodes ──
+
+        for (key, expected) in expectedNodeMap {
+            if let existing = currentNodeMap[key] {
+                // Node exists — update if changed.
+                buildIdToPersistedId[expected.id] = existing.id
+                var changed = false
+                if existing.label != expected.label {
+                    existing.label = expected.label
+                    changed = true
+                }
+                if existing.type != expected.type {
+                    existing.type = expected.type
+                    changed = true
+                }
+                if existing.weight != expected.weight {
+                    existing.weight = expected.weight
+                    changed = true
+                }
+                if existing.metadata != expected.metadata {
+                    existing.metadata = expected.metadata
+                    changed = true
+                }
+                if changed {
+                    existing.updatedAt = Date()
+                    updated += 1
+                }
+            } else {
+                // New node — insert.
+                context.insert(expected)
+                buildIdToPersistedId[expected.id] = expected.id
+                inserted += 1
+            }
         }
-        for edge in edges {
-            context.insert(edge)
+
+        // Delete removed nodes.
+        for (key, existing) in currentNodeMap where expectedNodeMap[key] == nil {
+            context.delete(existing)
+            deleted += 1
         }
+
+        // ── 4. Diff edges ──
+        // Edge unique key: (sourceNodeSourceId, targetNodeSourceId, type).
+        // We resolve node IDs to sourceIds for stable comparison.
+
+        // Build a lookup from persisted node ID -> (type, sourceId) for current edges.
+        let currentNodeIdToKey: [String: String] = Dictionary(
+            currentNodes.compactMap { node -> (String, String)? in
+                guard let sid = node.sourceId else { return nil }
+                return (node.id, nodeKey(node.type, sid))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        // Also include newly inserted nodes (their build ID == persisted ID).
+        let expectedNodeIdToKey: [String: String] = Dictionary(
+            expectedNodes.compactMap { node -> (String, String)? in
+                guard let sid = node.sourceId else { return nil }
+                return (node.id, nodeKey(node.type, sid))
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        typealias EdgeKey = String  // "sourceNodeKey|targetNodeKey|type"
+
+        func edgeKey(sourceNodeKey: String, targetNodeKey: String, type: String) -> EdgeKey {
+            "\(sourceNodeKey)|\(targetNodeKey)|\(type)"
+        }
+
+        // Map current edges by their resolved key.
+        var currentEdgeMap: [EdgeKey: SDGraphEdge] = [:]
+        for edge in currentEdges {
+            guard let srcKey = currentNodeIdToKey[edge.sourceNodeId],
+                  let tgtKey = currentNodeIdToKey[edge.targetNodeId]
+            else { continue }
+            let key = edgeKey(sourceNodeKey: srcKey, targetNodeKey: tgtKey, type: edge.type)
+            currentEdgeMap[key] = edge
+        }
+
+        // Map expected edges by their resolved key, remapping node IDs to persisted IDs.
+        struct ExpectedEdgeInfo {
+            let edge: SDGraphEdge
+            let persistedSourceId: String
+            let persistedTargetId: String
+        }
+
+        var expectedEdgeMap: [EdgeKey: ExpectedEdgeInfo] = [:]
+        for edge in expectedEdges {
+            guard let srcKey = expectedNodeIdToKey[edge.sourceNodeId],
+                  let tgtKey = expectedNodeIdToKey[edge.targetNodeId]
+            else { continue }
+            let key = edgeKey(sourceNodeKey: srcKey, targetNodeKey: tgtKey, type: edge.type)
+            let persistedSrc = buildIdToPersistedId[edge.sourceNodeId] ?? edge.sourceNodeId
+            let persistedTgt = buildIdToPersistedId[edge.targetNodeId] ?? edge.targetNodeId
+            expectedEdgeMap[key] = ExpectedEdgeInfo(
+                edge: edge, persistedSourceId: persistedSrc, persistedTargetId: persistedTgt
+            )
+        }
+
+        var edgeInserted = 0
+        var edgeUpdated = 0
+        var edgeDeleted = 0
+
+        // Insert new edges, update changed ones.
+        for (key, info) in expectedEdgeMap {
+            if let existing = currentEdgeMap[key] {
+                // Edge exists — update weight if changed, remap node IDs if needed.
+                var changed = false
+                if existing.sourceNodeId != info.persistedSourceId {
+                    existing.sourceNodeId = info.persistedSourceId
+                    changed = true
+                }
+                if existing.targetNodeId != info.persistedTargetId {
+                    existing.targetNodeId = info.persistedTargetId
+                    changed = true
+                }
+                if existing.weight != info.edge.weight {
+                    existing.weight = info.edge.weight
+                    changed = true
+                }
+                if changed { edgeUpdated += 1 }
+            } else {
+                // New edge — remap to persisted node IDs and insert.
+                let newEdge = SDGraphEdge(
+                    source: info.persistedSourceId,
+                    target: info.persistedTargetId,
+                    type: GraphEdgeType(legacy: info.edge.type),
+                    weight: info.edge.weight
+                )
+                context.insert(newEdge)
+                edgeInserted += 1
+            }
+        }
+
+        // Delete removed edges.
+        for (key, existing) in currentEdgeMap where expectedEdgeMap[key] == nil {
+            context.delete(existing)
+            edgeDeleted += 1
+        }
+
+        // ── 5. Save ──
 
         do {
             try context.save()
-            Log.app.info("GraphBuilder: persisted \(nodes.count) nodes, \(edges.count) edges")
+            Log.app.info("""
+                GraphBuilder: diff persist — \
+                nodes: +\(inserted) ~\(updated) -\(deleted), \
+                edges: +\(edgeInserted) ~\(edgeUpdated) -\(edgeDeleted)
+                """)
         } catch {
             Log.app.error("GraphBuilder: failed to save graph: \(error.localizedDescription, privacy: .public)")
         }

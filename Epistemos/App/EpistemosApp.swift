@@ -12,21 +12,7 @@ struct EpistemosApp: App {
     var body: some Scene {
         Window("Epistemos", id: "main") {
             RootView()
-                .environment(bootstrap.uiState)
-                .environment(bootstrap.chatState)
-                .environment(bootstrap.pipelineState)
-                .environment(bootstrap.notesUI)
-                .environment(bootstrap.researchState)
-                .environment(bootstrap.soarState)
-                .environment(bootstrap.eventBus)
-                .environment(bootstrap.inferenceState)
-                .environment(bootstrap.llmService)
-                .environment(bootstrap.triageService)
-                .environment(bootstrap.researchService)
-                .environment(bootstrap.vaultSync)
-                .environment(bootstrap.dailyBriefState)
-                .environment(bootstrap.threadState)
-                .environment(bootstrap.graphState)
+                .withAppEnvironment(bootstrap)
                 .onAppear {
                     StatusBar.shared.setup()
                     HologramController.shared.setup(graphState: bootstrap.graphState, modelContainer: bootstrap.modelContainer)

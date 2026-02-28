@@ -285,14 +285,14 @@ struct LandingView: View {
             allPages
             .filter {
                 $0.templateId == nil
-                    && !$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && !$0.loadBody().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             }
             .prefix(18)
 
         if !recentNotes.isEmpty {
             var notesSection = "## Recent Notes (\(recentNotes.count) most recent)\n"
             for note in recentNotes {
-                let snippet = String(note.body.prefix(500))
+                let snippet = String(note.loadBody().prefix(500))
                     .replacingOccurrences(of: "\n", with: " ")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 let tags = note.tags.isEmpty ? "" : " [tags: \(note.tags.joined(separator: ", "))]"

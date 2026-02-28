@@ -35,7 +35,7 @@ struct ProseEditorView: View {
         ProseEditorRepresentable(
             text: $bodyText,
             pageId: page.id,
-            pageBody: page.body,
+            pageBody: page.loadBody(),
             isFocused: isFocused,
             isDark: ui.theme.isDark,
             isEditable: isEditable,
@@ -49,28 +49,29 @@ struct ProseEditorView: View {
                     predicate: #Predicate<SDPage> { $0.id == oldPageId }
                 )
                 if let oldPage = try? modelContext.fetch(desc).first,
-                    oldPage.body != currentText
+                    oldPage.loadBody() != currentText
                 {
-                    oldPage.body = currentText
+                    oldPage.saveBody(currentText)
                     oldPage.needsVaultSync = true
                 }
             }
         )
         .onAppear {
-            bodyText = page.body
+            bodyText = page.loadBody()
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
             saveTask?.cancel()
-            bodyText = page.body
+            bodyText = page.loadBody()
         }
         .onChange(of: bodyText) { _, newValue in
-            guard newValue != page.body else { return }
+            guard newValue != page.loadBody() else { return }
             debouncedSave(newValue)
         }
         // Detect external body changes (restore-to-version, sync, etc.)
         // page.body can change via DiffSheetView restore or VaultSync —
         // update bodyText so the NSTextView picks it up in updateNSView.
+        // NOTE: post-migration body is always "" so this fires once and is harmless.
         .onChange(of: page.body) { _, newBody in
             guard newBody != bodyText else { return }
             saveTask?.cancel()
@@ -88,8 +89,8 @@ struct ProseEditorView: View {
 
     private func flushIfNeeded() {
         saveTask?.cancel()
-        if page.body != bodyText {
-            page.body = bodyText
+        if page.loadBody() != bodyText {
+            page.saveBody(bodyText)
             page.needsVaultSync = true
         }
     }
@@ -112,8 +113,8 @@ struct ProseEditorView: View {
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
-            guard newValue != page.body else { return }
-            page.body = newValue
+            guard newValue != page.loadBody() else { return }
+            page.saveBody(newValue)
         }
     }
 

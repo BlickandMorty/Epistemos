@@ -467,7 +467,7 @@ private struct MiniChatInputBar: View {
                 $0.id != activeId && !titleIds.contains($0.id)
             }
             let bodyMatches = candidates.filter { page in
-                let body = page.body.lowercased()
+                let body = page.loadBody().lowercased()
                 return terms.contains { body.contains($0) }
             }
             matches.append(contentsOf: bodyMatches)
@@ -475,7 +475,7 @@ private struct MiniChatInputBar: View {
 
         return Array(matches
             .prefix(3)
-            .map { (title: $0.title, snippet: String($0.body.prefix(300))) })
+            .map { (title: $0.title, snippet: String($0.loadBody().prefix(300))) })
     }
 
     // MARK: - Quick Action Execution
@@ -485,7 +485,7 @@ private struct MiniChatInputBar: View {
     private func runQuickAction(_ action: QuickAction) {
         guard let page = activePage(), !isProcessing else { return }
         let pageTitle = page.title
-        let snippet = String(page.body.prefix(2000))
+        let snippet = String(page.loadBody().prefix(2000))
 
         let actionLabel: String
         let prompt: String
@@ -654,8 +654,8 @@ private struct MiniChatInputBar: View {
                 var contextParts: [String] = []
                 let page = activePage()
 
-                if let page, !page.body.isEmpty {
-                    contextParts.append("## Active Note: \(page.title)\nTags: [\(page.tags.joined(separator: ", "))]\n\(String(page.body.prefix(2000)))")
+                if let page, !page.loadBody().isEmpty {
+                    contextParts.append("## Active Note: \(page.title)\nTags: [\(page.tags.joined(separator: ", "))]\n\(String(page.loadBody().prefix(2000)))")
                 }
 
                 let vaultSnippets = searchVault(query: trimmed)

@@ -235,6 +235,9 @@ pub struct Engine {
     /// Counts consecutive frames where the engine reported "no more frames needed."
     /// Used to throttle render calls when idle.
     idle_frame_count: u32,
+
+    /// Fuzzy search index over node labels, rebuilt on commit().
+    pub(crate) search_index: crate::search::SearchIndex,
 }
 
 impl Engine {
@@ -262,6 +265,7 @@ impl Engine {
             entrance_camera_frame: 0,
             uuid_buf: None,
             idle_frame_count: 0,
+            search_index: crate::search::SearchIndex::new(),
         })
     }
 
@@ -299,6 +303,20 @@ impl Engine {
             // Run Louvain community detection and assign cluster IDs.
             let cluster_ids = crate::cluster::detect_communities(sim.x.len(), &sim.edges);
             sim.cluster_ids = cluster_ids;
+
+            // Pre-settle: run ~200 ticks synchronously so the graph appears
+            // already laid out on first render. Skipped for entrance animation.
+            if !entrance {
+                for _ in 0..200 {
+                    sim.tick();
+                    if sim.is_settled { break; }
+                }
+            }
+        }
+
+        // Copy pre-settled positions back to graph nodes for rendering.
+        if !entrance {
+            self.sync_positions();
         }
 
         // Allocate renderer buffers and upload initial data (nodes + edges).
@@ -306,6 +324,9 @@ impl Engine {
 
         // Build spatial index for hit testing.
         self.spatial.build(&self.graph.nodes);
+
+        // Build fuzzy search index over node labels.
+        self.search_index.build(&self.graph.nodes);
 
         // Clear interaction state.
         self.selected_id = None;
@@ -576,10 +597,7 @@ impl Engine {
             if self.renderer.highlight.active {
                 self.renderer.highlight.active = false;
                 self.renderer.highlight.highlighted_ids.clear();
-                {
-                let ent = if self.entrance_states.is_empty() { None } else { Some(self.entrance_states.as_slice()) };
-                self.renderer.upload_graph(&self.graph, ent);
-            };
+                self.idle_frame_count = 0;
                 self.zoom_to_fit();
             }
         }
@@ -654,10 +672,7 @@ impl Engine {
         // Activate highlight (dims everything else).
         self.renderer.highlight.highlighted_ids = ids.clone();
         self.renderer.highlight.active = true;
-        {
-                let ent = if self.entrance_states.is_empty() { None } else { Some(self.entrance_states.as_slice()) };
-                self.renderer.upload_graph(&self.graph, ent);
-            };
+        self.idle_frame_count = 0;
 
         // Compute bounding box of the highlighted cluster.
         let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
@@ -735,10 +750,7 @@ impl Engine {
 
         self.renderer.highlight.highlighted_ids = ids;
         self.renderer.highlight.active = true;
-        {
-                let ent = if self.entrance_states.is_empty() { None } else { Some(self.entrance_states.as_slice()) };
-                self.renderer.upload_graph(&self.graph, ent);
-            };
+        self.idle_frame_count = 0;
     }
 
     /// Highlight neighbors of a node by UUID (called from FFI).
@@ -753,10 +765,7 @@ impl Engine {
         if self.renderer.highlight.active {
             self.renderer.highlight.active = false;
             self.renderer.highlight.highlighted_ids.clear();
-            {
-                let ent = if self.entrance_states.is_empty() { None } else { Some(self.entrance_states.as_slice()) };
-                self.renderer.upload_graph(&self.graph, ent);
-            };
+            self.idle_frame_count = 0;
         }
     }
 
@@ -781,18 +790,11 @@ impl Engine {
             // No matches — keep highlight active but with empty set (dims everything).
             self.renderer.highlight.highlighted_ids.clear();
             self.renderer.highlight.active = true;
-            {
-                let ent = if self.entrance_states.is_empty() { None } else { Some(self.entrance_states.as_slice()) };
-                self.renderer.upload_graph(&self.graph, ent);
-            };
         } else {
             self.renderer.highlight.highlighted_ids = ids;
             self.renderer.highlight.active = true;
-            {
-                let ent = if self.entrance_states.is_empty() { None } else { Some(self.entrance_states.as_slice()) };
-                self.renderer.upload_graph(&self.graph, ent);
-            };
         }
+        self.idle_frame_count = 0;
     }
 
     // ── Camera Commands ──────────────────────────────────────────────
@@ -910,6 +912,30 @@ impl Engine {
     pub fn set_center_mode(&mut self, mode: u8) {
         let mut sim = self.sim.lock();
         sim.params.center_mode = crate::simulation::CenterMode::from_u8(mode);
+        sim.reheat();
+    }
+
+    /// Override cluster IDs from a UUID → cluster_id map (semantic clustering).
+    /// Maps UUIDs to simulation indices via `graph_indices`, then overwrites
+    /// `cluster_ids` for matched nodes. Unmatched nodes keep their existing
+    /// cluster assignment. Reheats the simulation so new clusters settle.
+    pub fn set_cluster_ids(&mut self, uuid_to_cluster: &std::collections::HashMap<String, u32>) {
+        let mut sim = self.sim.lock();
+        let n = sim.x.len();
+        if sim.cluster_ids.len() != n {
+            sim.cluster_ids = vec![0; n];
+        }
+
+        for si in 0..n {
+            let gi = sim.graph_indices[si];
+            if gi < self.graph.nodes.len() {
+                let uuid = &self.graph.nodes[gi].uuid;
+                if let Some(&cid) = uuid_to_cluster.get(uuid) {
+                    sim.cluster_ids[si] = cid;
+                }
+            }
+        }
+
         sim.reheat();
     }
 
@@ -1034,14 +1060,15 @@ impl Drop for Engine {
 
 fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
     let target_dt = Duration::from_secs_f64(1.0 / PHYSICS_HZ);
+    let slow_dt = Duration::from_secs_f64(1.0 / 30.0); // 30Hz when nearly settled
 
     while !stop.load(Ordering::Relaxed) {
         let start = Instant::now();
 
-        let settled = {
+        let (settled, alpha) = {
             let mut sim = sim.lock();
             sim.tick();
-            sim.is_settled
+            (sim.is_settled, sim.params.alpha)
         };
 
         if settled {
@@ -1050,9 +1077,11 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
             continue;
         }
 
+        // Throttle to 30Hz when alpha is low (nearly settled) to reduce CPU.
+        let frame_dt = if alpha < 0.05 { slow_dt } else { target_dt };
         let elapsed = start.elapsed();
-        if elapsed < target_dt {
-            std::thread::sleep(target_dt - elapsed);
+        if elapsed < frame_dt {
+            std::thread::sleep(frame_dt - elapsed);
         }
     }
 }
@@ -1069,8 +1098,8 @@ mod tests {
         g.add_node("a".into(), -50.0, 0.0, 0, 2, "Alpha".into());
         g.add_node("b".into(), 50.0, 0.0, 1, 2, "Beta".into());
         g.add_node("c".into(), 0.0, 50.0, 2, 1, "Gamma".into());
-        g.add_edge("a", "b", 1.0);
-        g.add_edge("b", "c", 1.0);
+        g.add_edge("a", "b", 1.0, 0);
+        g.add_edge("b", "c", 1.0, 0);
         g
     }
 
@@ -1239,10 +1268,10 @@ mod tests {
         // Ring + random shortcuts for realistic topology.
         for i in 0..n {
             let j = (i + 1) % n;
-            g.add_edge(&format!("node-{}", i), &format!("node-{}", j), 1.0);
+            g.add_edge(&format!("node-{}", i), &format!("node-{}", j), 1.0, 0);
             if i % 5 == 0 {
                 let k = (i + n / 3) % n;
-                g.add_edge(&format!("node-{}", i), &format!("node-{}", k), 0.5);
+                g.add_edge(&format!("node-{}", i), &format!("node-{}", k), 0.5, 0);
             }
         }
         g
@@ -1552,7 +1581,7 @@ mod tests {
         // "hub" has 10 links, "leaf" has 1 link.
         graph.add_node("hub".into(), 0.0, 0.0, 0, 10, "Hub".into());
         graph.add_node("leaf".into(), 100.0, 0.0, 0, 1, "Leaf".into());
-        graph.add_edge("hub", "leaf", 1.0);
+        graph.add_edge("hub", "leaf", 1.0, 0);
 
         let animator = EntranceAnimator::from_graph(&graph);
         assert_eq!(animator.stagger_delays.len(), 2);
@@ -1577,9 +1606,9 @@ mod tests {
         graph.add_node("b".into(), 10.0, 0.0, 0, 2, "B".into());
         graph.add_node("c".into(), 20.0, 0.0, 0, 2, "C".into());
         graph.add_node("d".into(), 30.0, 0.0, 0, 1, "D".into());
-        graph.add_edge("a", "b", 1.0);
-        graph.add_edge("b", "c", 1.0);
-        graph.add_edge("c", "d", 1.0);
+        graph.add_edge("a", "b", 1.0, 0);
+        graph.add_edge("b", "c", 1.0, 0);
+        graph.add_edge("c", "d", 1.0, 0);
 
         let animator = EntranceAnimator::from_graph(&graph);
         // A is hero (most links). BFS depths: A=0, B=1, C=2, D=3
@@ -1677,5 +1706,134 @@ mod tests {
                 state.dy
             );
         }
+    }
+
+    // ── Semantic Cluster Override Tests ──────────────────────────────
+
+    #[test]
+    fn set_cluster_ids_overrides_louvain() {
+        // Build a graph with 4 nodes.
+        let mut graph = Graph::new();
+        graph.add_node("uuid-a".into(), -50.0, 0.0, 0, 2, "A".into());
+        graph.add_node("uuid-b".into(), 50.0, 0.0, 0, 2, "B".into());
+        graph.add_node("uuid-c".into(), 0.0, -50.0, 0, 2, "C".into());
+        graph.add_node("uuid-d".into(), 0.0, 50.0, 0, 2, "D".into());
+        graph.add_edge("uuid-a", "uuid-b", 1.0, 0);
+        graph.add_edge("uuid-c", "uuid-d", 1.0, 0);
+
+        let sim = Arc::new(Mutex::new(Simulation::new()));
+        {
+            let mut s = sim.lock();
+            s.load_from_graph(&graph);
+            // Simulate Louvain output: all in cluster 0.
+            s.cluster_ids = vec![0; s.x.len()];
+        }
+
+        // Build UUID → cluster_id override map (semantic clusters).
+        // Put A,B in cluster 10, C,D in cluster 20.
+        let uuid_to_cluster: std::collections::HashMap<String, u32> = [
+            ("uuid-a".to_owned(), 10),
+            ("uuid-b".to_owned(), 10),
+            ("uuid-c".to_owned(), 20),
+            ("uuid-d".to_owned(), 20),
+        ]
+        .into_iter()
+        .collect();
+
+        // Apply override using the Engine helper (same logic as the FFI path).
+        // We test the logic directly since Engine::new requires Metal.
+        {
+            let mut s = sim.lock();
+            let n = s.x.len();
+            if s.cluster_ids.len() != n {
+                s.cluster_ids = vec![0; n];
+            }
+            for si in 0..n {
+                let gi = s.graph_indices[si];
+                if gi < graph.nodes.len() {
+                    let uuid = &graph.nodes[gi].uuid;
+                    if let Some(&cid) = uuid_to_cluster.get(uuid) {
+                        s.cluster_ids[si] = cid;
+                    }
+                }
+            }
+            s.reheat();
+        }
+
+        // Verify cluster IDs were overridden.
+        let s = sim.lock();
+        assert_eq!(s.cluster_ids.len(), 4);
+        for (si, &gi) in s.graph_indices.iter().enumerate() {
+            let uuid = &graph.nodes[gi].uuid;
+            match uuid.as_str() {
+                "uuid-a" | "uuid-b" => {
+                    assert_eq!(s.cluster_ids[si], 10, "{} should be in cluster 10", uuid);
+                }
+                "uuid-c" | "uuid-d" => {
+                    assert_eq!(s.cluster_ids[si], 20, "{} should be in cluster 20", uuid);
+                }
+                _ => panic!("unexpected uuid: {}", uuid),
+            }
+        }
+
+        // Verify reheat happened.
+        assert!(!s.is_settled, "simulation should be unsettled after reheat");
+        assert!(s.params.alpha > 0.1, "alpha should be reheated");
+    }
+
+    #[test]
+    fn set_cluster_ids_partial_override() {
+        // Only override some nodes -- others keep their existing cluster ID.
+        let mut graph = Graph::new();
+        graph.add_node("n1".into(), 0.0, 0.0, 0, 1, "N1".into());
+        graph.add_node("n2".into(), 10.0, 0.0, 0, 1, "N2".into());
+        graph.add_node("n3".into(), 20.0, 0.0, 0, 1, "N3".into());
+
+        let sim = Arc::new(Mutex::new(Simulation::new()));
+        {
+            let mut s = sim.lock();
+            s.load_from_graph(&graph);
+            s.cluster_ids = vec![5, 5, 5]; // Louvain: all in cluster 5.
+        }
+
+        // Only override n1 -> cluster 99. n2 and n3 should remain 5.
+        let uuid_to_cluster: std::collections::HashMap<String, u32> =
+            [("n1".to_owned(), 99)].into_iter().collect();
+
+        {
+            let mut s = sim.lock();
+            let n = s.x.len();
+            for si in 0..n {
+                let gi = s.graph_indices[si];
+                if gi < graph.nodes.len() {
+                    let uuid = &graph.nodes[gi].uuid;
+                    if let Some(&cid) = uuid_to_cluster.get(uuid) {
+                        s.cluster_ids[si] = cid;
+                    }
+                }
+            }
+        }
+
+        let s = sim.lock();
+        let mut found = [false; 3];
+        for (si, &gi) in s.graph_indices.iter().enumerate() {
+            let uuid = &graph.nodes[gi].uuid;
+            match uuid.as_str() {
+                "n1" => {
+                    assert_eq!(s.cluster_ids[si], 99);
+                    found[0] = true;
+                }
+                "n2" => {
+                    assert_eq!(s.cluster_ids[si], 5);
+                    found[1] = true;
+                }
+                "n3" => {
+                    assert_eq!(s.cluster_ids[si], 5);
+                    found[2] = true;
+                }
+                _ => {}
+            }
+        }
+        assert!(found.iter().all(|&f| f), "all nodes should be verified");
     }
 }

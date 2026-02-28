@@ -71,11 +71,11 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
 
     var velocityDecay: Float {
         switch self {
-        case .observatory:   return 0.55
-        case .nebula:        return 0.35
-        case .crystal:       return 0.75
-        case .fluid:         return 0.30
-        case .constellation: return 0.45
+        case .observatory:   return 0.70
+        case .nebula:        return 0.50
+        case .crystal:       return 0.80
+        case .fluid:         return 0.40
+        case .constellation: return 0.55
         }
     }
     var centerStrength: Float {
@@ -178,7 +178,7 @@ final class GraphState {
 
     // ── Extended ──
     /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous).
-    var velocityDecay: Float = 0.55
+    var velocityDecay: Float = 0.70
     /// Center gravity pull strength (0 = none, 0.2 = strong).
     var centerStrength: Float = 0.005
     /// Collision buffer zone in pixels.
@@ -215,6 +215,23 @@ final class GraphState {
         collisionRadius = preset.collisionRadius
         pushForceChange()
         pushExtendedForceChange()
+    }
+
+    // MARK: - Semantic Clustering
+
+    /// When true, uses NLEmbedding-based semantic clusters instead of Louvain topology clusters.
+    var useSemanticClustering = false
+
+    /// Cached semantic cluster IDs (nodeId → clusterId). Recomputed when graph data changes.
+    private(set) var semanticClusterIds: [String: UInt32] = [:]
+
+    /// Incremented when semantic cluster IDs change, so MetalGraphNSView can push them to Rust.
+    var semanticClusterVersion: Int = 0
+
+    /// Compute semantic clusters from the current graph store and cache the result.
+    func computeSemanticClusters() {
+        semanticClusterIds = SemanticClusterService.computeClusters(store: store)
+        semanticClusterVersion += 1
     }
 
     // MARK: - Interactive Creation
@@ -267,8 +284,13 @@ final class GraphState {
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
 
-        // Populate store directly from the built arrays — avoids a redundant SwiftData fetch.
-        store.loadDirect(nodes: result.nodes, edges: result.edges)
+        // Reload from SwiftData to get the actual persisted state (diff-based persist
+        // keeps existing node IDs stable, so we must fetch the real persisted objects).
+        do {
+            try store.load(context: context)
+        } catch {
+            Log.app.error("GraphState: failed to reload graph after rebuild: \(error.localizedDescription, privacy: .public)")
+        }
         isLoaded = true
     }
 
@@ -310,7 +332,7 @@ final class GraphState {
         guard let page = try? context.fetch(descriptor).first else { return }
         guard let pageNodeId = store.node(bySourceId: pageId, type: .note)?.id else { return }
 
-        let body = page.body
+        let body = page.loadBody()
         guard !body.isEmpty else { return }
         guard let cStr = body.cString(using: .utf8) else { return }
 
@@ -428,6 +450,17 @@ final class GraphState {
 
     // MARK: - Node / Edge Creation
 
+    /// Sanitize a user-provided label for safe use as a node name and C string.
+    private func sanitizeLabel(_ raw: String) -> String? {
+        let trimmed = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\0", with: "")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+        let capped = String(trimmed.prefix(200))
+        return capped.isEmpty ? nil : capped
+    }
+
     /// Create an orphan node at a world position.
     func createNode(
         type: GraphNodeType,
@@ -435,7 +468,8 @@ final class GraphState {
         atWorldPosition position: SIMD2<Float>,
         context: ModelContext
     ) {
-        let sdNode = SDGraphNode(type: type, label: label)
+        guard let safeLabel = sanitizeLabel(label) else { return }
+        let sdNode = SDGraphNode(type: type, label: safeLabel)
         sdNode.isManual = true
         context.insert(sdNode)
 
@@ -443,7 +477,7 @@ final class GraphState {
         store.positionHints[sdNode.id] = position
 
         if type == .note {
-            // Notes need a backing .md file
+            // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
                 if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
                     sdNode.sourceId = pageId
@@ -454,7 +488,19 @@ final class GraphState {
             }
         } else {
             try? context.save()
-            buildStructuralGraph(context: context)
+            // Manual non-note nodes don't affect structural data — just add to store and recommit.
+            let record = GraphNodeRecord(
+                id: sdNode.id,
+                type: sdNode.nodeType,
+                label: sdNode.label,
+                sourceId: sdNode.sourceId,
+                metadata: sdNode.meta,
+                weight: sdNode.weight,
+                createdAt: sdNode.createdAt,
+                position: position,
+                velocity: .zero
+            )
+            store.addNode(record)
             requestRecommit()
         }
     }
@@ -468,7 +514,8 @@ final class GraphState {
         atWorldPosition position: SIMD2<Float>,
         context: ModelContext
     ) {
-        let sdNode = SDGraphNode(type: type, label: label)
+        guard let safeLabel = sanitizeLabel(label) else { return }
+        let sdNode = SDGraphNode(type: type, label: safeLabel)
         sdNode.isManual = true
         context.insert(sdNode)
 
@@ -479,6 +526,7 @@ final class GraphState {
         store.positionHints[sdNode.id] = position
 
         if type == .note {
+            // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
                 if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: label) {
                     sdNode.sourceId = pageId
@@ -489,7 +537,28 @@ final class GraphState {
             }
         } else {
             try? context.save()
-            buildStructuralGraph(context: context)
+            // Manual non-note nodes don't affect structural data — add directly to store.
+            let record = GraphNodeRecord(
+                id: sdNode.id,
+                type: sdNode.nodeType,
+                label: sdNode.label,
+                sourceId: sdNode.sourceId,
+                metadata: sdNode.meta,
+                weight: sdNode.weight,
+                createdAt: sdNode.createdAt,
+                position: position,
+                velocity: .zero
+            )
+            store.addNode(record)
+            let edgeRecord = GraphEdgeRecord(
+                id: sdEdge.id,
+                sourceNodeId: sdEdge.sourceNodeId,
+                targetNodeId: sdEdge.targetNodeId,
+                type: sdEdge.edgeType,
+                weight: sdEdge.weight,
+                createdAt: sdEdge.createdAt
+            )
+            store.addEdge(edgeRecord)
             requestRecommit()
         }
     }
@@ -501,6 +570,10 @@ final class GraphState {
         edgeType: GraphEdgeType,
         context: ModelContext
     ) {
+        guard sourceId != targetId else {
+            interactionMode = .idle
+            return
+        }
         guard store.nodes[sourceId] != nil, store.nodes[targetId] != nil else {
             interactionMode = .idle
             return
@@ -511,14 +584,23 @@ final class GraphState {
         context.insert(sdEdge)
         try? context.save()
 
-        buildStructuralGraph(context: context)
+        // Manual edge — add directly to store without full structural rebuild.
+        let edgeRecord = GraphEdgeRecord(
+            id: sdEdge.id,
+            sourceNodeId: sdEdge.sourceNodeId,
+            targetNodeId: sdEdge.targetNodeId,
+            type: sdEdge.edgeType,
+            weight: sdEdge.weight,
+            createdAt: sdEdge.createdAt
+        )
+        store.addEdge(edgeRecord)
         requestRecommit()
         interactionMode = .idle
     }
 
     // MARK: - AI Entity Extraction
 
-    func scanVault(context: ModelContext, llmService: LLMService) {
+    func scanVault(context: ModelContext, llmService: any LLMClientProtocol) {
         Task {
             let extractor = EntityExtractor(graphState: self)
             await extractor.scanVault(context: context, llmService: llmService)

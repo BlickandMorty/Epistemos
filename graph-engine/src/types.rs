@@ -74,6 +74,46 @@ pub fn radius_for_link_count(link_count: u32) -> f32 {
     (count.cbrt() * BASE_RADIUS).clamp(MIN_RADIUS, MAX_RADIUS)
 }
 
+/// RGBA color for an edge type (dark mode — subtle pastels on dark background).
+/// 12 types: 0=reference, 1=contains, 2=tagged, 3=mentions, 4=cites,
+/// 5=authored, 6=related, 7=quotes, 8=supports, 9=contradicts, 10=expands, 11=questions.
+pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
+    match edge_type {
+        0  => [0.55, 0.55, 0.60, 0.35],  // reference — light gray
+        1  => [0.50, 0.40, 0.30, 0.35],  // contains — brown
+        2  => [0.46, 0.46, 0.50, 0.30],  // tagged — gray
+        3  => [0.40, 0.70, 0.90, 0.40],  // mentions — light blue
+        4  => [0.20, 0.78, 0.35, 0.45],  // cites — green
+        5  => [1.00, 0.62, 0.04, 0.40],  // authored — orange
+        6  => [0.69, 0.32, 0.87, 0.40],  // related — purple
+        7  => [1.00, 0.84, 0.04, 0.40],  // quotes — yellow
+        8  => [0.30, 0.90, 0.40, 0.50],  // supports — bright green
+        9  => [0.95, 0.25, 0.25, 0.50],  // contradicts — red
+        10 => [0.30, 0.85, 0.85, 0.45],  // expands — cyan
+        11 => [0.95, 0.75, 0.10, 0.45],  // questions — amber
+        _  => [0.55, 0.55, 0.60, 0.30],  // default — gray
+    }
+}
+
+/// RGBA color for an edge type (light mode — deeper/more saturated for readability on light backgrounds).
+pub fn edge_type_color_light(edge_type: u8) -> [f32; 4] {
+    match edge_type {
+        0  => [0.35, 0.35, 0.40, 0.45],  // reference — dark gray
+        1  => [0.40, 0.28, 0.15, 0.45],  // contains — dark brown
+        2  => [0.30, 0.30, 0.35, 0.40],  // tagged — dark gray
+        3  => [0.15, 0.45, 0.70, 0.50],  // mentions — deep blue
+        4  => [0.08, 0.55, 0.20, 0.55],  // cites — forest green
+        5  => [0.80, 0.42, 0.00, 0.50],  // authored — burnt orange
+        6  => [0.48, 0.18, 0.65, 0.50],  // related — deep purple
+        7  => [0.72, 0.58, 0.00, 0.50],  // quotes — deep gold
+        8  => [0.10, 0.65, 0.20, 0.55],  // supports — dark green
+        9  => [0.75, 0.12, 0.12, 0.55],  // contradicts — dark red
+        10 => [0.10, 0.60, 0.60, 0.50],  // expands — dark cyan
+        11 => [0.70, 0.52, 0.05, 0.50],  // questions — dark amber
+        _  => [0.35, 0.35, 0.40, 0.40],  // default — dark gray
+    }
+}
+
 /// A node in the knowledge graph.
 /// Uses d3-force's explicit velocity model (vx/vy stored directly).
 #[derive(Clone)]
@@ -100,6 +140,7 @@ pub struct Edge {
     pub source: u32,
     pub target: u32,
     pub weight: f32,
+    pub edge_type: u8,
 }
 
 #[derive(Clone)]
@@ -169,7 +210,7 @@ impl Graph {
         self.nodes.push(node);
     }
 
-    pub fn add_edge(&mut self, source_uuid: &str, target_uuid: &str, weight: f32) {
+    pub fn add_edge(&mut self, source_uuid: &str, target_uuid: &str, weight: f32, edge_type: u8) {
         if let (Some(&src), Some(&tgt)) = (
             self.uuid_to_id.get(source_uuid),
             self.uuid_to_id.get(target_uuid),
@@ -178,6 +219,7 @@ impl Graph {
                 source: src,
                 target: tgt,
                 weight,
+                edge_type,
             });
         }
     }
@@ -216,20 +258,45 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 10.0, 0.0, 1, 2, "B".into());
-        g.add_edge("a", "b", 1.0);
+        g.add_edge("a", "b", 1.0, 0);
 
         assert_eq!(g.nodes.len(), 2);
         assert_eq!(g.edges.len(), 1);
         assert_eq!(g.edges[0].source, 0);
         assert_eq!(g.edges[0].target, 1);
+        assert_eq!(g.edges[0].edge_type, 0);
+    }
+
+    #[test]
+    fn graph_add_edge_with_type() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        g.add_node("b".into(), 10.0, 0.0, 1, 2, "B".into());
+        g.add_edge("a", "b", 1.0, 9); // contradicts
+
+        assert_eq!(g.edges[0].edge_type, 9);
     }
 
     #[test]
     fn graph_edge_unknown_uuid_skipped() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        g.add_edge("a", "nonexistent", 1.0);
+        g.add_edge("a", "nonexistent", 1.0, 0);
         assert_eq!(g.edges.len(), 0);
+    }
+
+    #[test]
+    fn edge_type_colors_valid() {
+        // All 12 types should return non-zero alpha.
+        for t in 0..=11u8 {
+            let c = super::edge_type_color(t);
+            assert!(c[3] > 0.0, "dark alpha should be > 0 for type {}", t);
+            let cl = super::edge_type_color_light(t);
+            assert!(cl[3] > 0.0, "light alpha should be > 0 for type {}", t);
+        }
+        // Default (unknown type) should also work.
+        let def = super::edge_type_color(255);
+        assert!(def[3] > 0.0);
     }
 
     #[test]

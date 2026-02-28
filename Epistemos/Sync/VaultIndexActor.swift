@@ -376,7 +376,7 @@ actor VaultIndexActor {
 
         // Build content — markdown with front-matter for .md files, plain text for .txt
         let ext = fileURL.pathExtension.lowercased()
-        let output = (ext == "txt") ? page.body : buildMarkdown(for: page)
+        let output = (ext == "txt") ? page.loadBody() : buildMarkdown(for: page)
         try coordinatedWrite(output, to: fileURL)
 
         // Persist filePath back to the store so subsequent exports use the same path.
@@ -460,11 +460,11 @@ actor VaultIndexActor {
 
         if let page = existing.first {
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
-            if page.body != body || page.title != parsedTitle || page.tags != parsedTags
+            if page.loadBody(mapped: true) != body || page.title != parsedTitle || page.tags != parsedTags
                 || page.emoji != parsedEmoji || page.frontMatter != frontMatter
                 || page.wordCount != parsedWordCount
             {
-                page.body = body
+                page.saveBody(body)
                 page.updatedAt = .now
                 page.wordCount = parsedWordCount
                 page.title = Self.sanitizeTitle(parsedTitle)
@@ -506,7 +506,7 @@ actor VaultIndexActor {
                 page.id = savedId
             }
 
-            page.body = body
+            page.saveBody(body)
             page.filePath = filePath
             page.wordCount = parsedWordCount
             page.emoji = parsedEmoji
@@ -614,7 +614,7 @@ actor VaultIndexActor {
         }
         lines.append("---")
         lines.append("")
-        lines.append(page.body)
+        lines.append(page.loadBody())
         return lines.joined(separator: "\n")
     }
 
@@ -690,7 +690,7 @@ actor VaultIndexActor {
     func fullPageData(for pageId: String) -> (title: String, body: String, tags: String, updatedAt: Date)? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = try? modelContext.fetch(descriptor).first else { return nil }
-        return (page.title, page.body, page.tags.joined(separator: " "), page.updatedAt)
+        return (page.title, page.loadBody(mapped: true), page.tags.joined(separator: " "), page.updatedAt)
     }
 
     /// All pages formatted for a full FTS5 rebuild.
@@ -699,7 +699,7 @@ actor VaultIndexActor {
             predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
         )
         guard let pages = try? modelContext.fetch(descriptor) else { return [] }
-        return pages.map { ($0.id, $0.title, $0.body, $0.tags.joined(separator: " "), $0.updatedAt) }
+        return pages.map { ($0.id, $0.title, $0.loadBody(mapped: true), $0.tags.joined(separator: " "), $0.updatedAt) }
     }
 
     // MARK: - Vault Context for Chat Pipeline
@@ -773,7 +773,7 @@ actor VaultIndexActor {
             // Body matches: only for recent pages, and only if title gave partial signal
             // or this is in the body-scan window. Each body match: +1 base + length bonus
             if bodyScanIds.contains(page.id), score < 8 {
-                let bodyLower = String(page.body.lowercased().prefix(1500))
+                let bodyLower = String(page.loadBody(mapped: true).lowercased().prefix(1500))
                 for term in terms where bodyLower.contains(term) {
                     if !titleLower.contains(term) { matchedTerms += 1 }
                     score += 1.0 + Double(term.count - 4) * 0.3
@@ -799,7 +799,7 @@ actor VaultIndexActor {
 
         // ── 6. Format matched notes as context ──────────────────────────
         let notesSection = relevant.map { scored in
-            "### \(scored.page.title)\nTags: [\(scored.page.tags.joined(separator: ", "))]\n\(String(scored.page.body.prefix(500)))"
+            "### \(scored.page.title)\nTags: [\(scored.page.tags.joined(separator: ", "))]\n\(String(scored.page.loadBody(mapped: true).prefix(500)))"
         }.joined(separator: "\n\n")
 
         // Build folder list for action instructions
@@ -884,7 +884,7 @@ actor VaultIndexActor {
             VaultManifest.NoteBody(
                 pageId: page.id,
                 title: page.title,
-                body: String(page.body.prefix(2000))
+                body: String(page.loadBody(mapped: true).prefix(2000))
             )
         }
 
@@ -908,7 +908,7 @@ actor VaultIndexActor {
             )
             if let page = try? modelContext.fetch(descriptor).first {
                 results.append(VaultManifest.NoteBody(
-                    pageId: page.id, title: page.title, body: page.body
+                    pageId: page.id, title: page.title, body: page.loadBody(mapped: true)
                 ))
             }
         }
@@ -968,10 +968,11 @@ actor VaultIndexActor {
             let items = batch.map { page -> CSSearchableItem in
                 let attrs = CSSearchableItemAttributeSet(contentType: .text)
                 attrs.title = page.title
-                attrs.textContent = String(page.body.prefix(500))
+                let pageBody = page.loadBody(mapped: true)
+                attrs.textContent = String(pageBody.prefix(500))
                 attrs.contentDescription =
                     page.tags.isEmpty
-                    ? String(page.body.prefix(200))
+                    ? String(pageBody.prefix(200))
                     : "Tags: \(page.tags.joined(separator: ", "))"
                 attrs.keywords = page.tags
                 attrs.contentModificationDate = page.updatedAt

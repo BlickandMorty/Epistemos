@@ -212,7 +212,7 @@ struct VaultOrganizerView: View {
 
             let pagesJSON = batch.enumerated().map { i, page in
                 """
-                {"index": \(i), "title": "\(page.title.replacingOccurrences(of: "\"", with: "'"))", "snippet": "\(String(page.body.prefix(200)).replacingOccurrences(of: "\"", with: "'").replacingOccurrences(of: "\n", with: " "))"}
+                {"index": \(i), "title": "\(page.title.replacingOccurrences(of: "\"", with: "'"))", "snippet": "\(String(page.loadBody().prefix(200)).replacingOccurrences(of: "\"", with: "'").replacingOccurrences(of: "\n", with: " "))"}
                 """
             }.joined(separator: ",\n")
 
@@ -302,7 +302,7 @@ struct VaultOrganizerView: View {
             let batch = Array(pages[batchStart..<batchEnd])
 
             let pagesJSON = batch.enumerated().map { i, page in
-                let snippet = String(page.body.prefix(150)).replacingOccurrences(of: "\"", with: "'").replacingOccurrences(of: "\n", with: " ")
+                let snippet = String(page.loadBody().prefix(150)).replacingOccurrences(of: "\"", with: "'").replacingOccurrences(of: "\n", with: " ")
                 return """
                 {"index": \(i), "title": "\(page.title.replacingOccurrences(of: "\"", with: "'"))", "snippet": "\(snippet)"}
                 """
@@ -337,7 +337,7 @@ struct VaultOrganizerView: View {
 
     private func generateNewFolderSuggestions(for pages: [SDPage]) async {
         let titlesWithSnippets = pages.prefix(20).map { page in
-            let snippet = String(page.body.prefix(100)).replacingOccurrences(of: "\n", with: " ")
+            let snippet = String(page.loadBody().prefix(100)).replacingOccurrences(of: "\n", with: " ")
             return "\"\(page.title)\" — \(snippet)"
         }
 

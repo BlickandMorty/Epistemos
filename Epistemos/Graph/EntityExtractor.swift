@@ -20,7 +20,7 @@ final class EntityExtractor {
 
     // MARK: - Scan Vault
 
-    func scanVault(context: ModelContext, llmService: LLMService) async {
+    func scanVault(context: ModelContext, llmService: any LLMClientProtocol) async {
         graphState.isScanning = true
         graphState.scanProgress = 0
         graphState.scanStatus = "Rebuilding structural graph..."
@@ -46,23 +46,30 @@ final class EntityExtractor {
             // Concatenate batch: title + first 2000 chars of body
             var batchContent = ""
             for page in batch {
-                let bodySnippet = String(page.body.prefix(2000))
+                let bodySnippet = String(page.loadBody(mapped: true).prefix(2000))
                 batchContent += "--- Note: \(page.title) ---\n\(bodySnippet)\n\n"
             }
 
-            // Build extraction prompt (7-type model: sources, quotes, tags)
+            // Build extraction prompt with semantic relationship classification
             let prompt = """
-                Extract entities from the following notes. Return ONLY valid JSON matching this exact schema:
-                {"sources": [{"name": "string", "url": "string or null", "title": "string or null", "type": "string or null"}],
+                Extract entities and relationships from the following notes. Return ONLY valid JSON:
+                {"sources": [{"name": "string", "url": "string or null", "title": "string or null", "type": "string or null", "relationship": "cites|supports|contradicts|expands|questions"}],
                  "quotes": [{"text": "string", "attribution": "string or null", "context": "string or null"}],
-                 "tags": [{"name": "string", "description": "string or null"}]}
+                 "tags": [{"name": "string", "description": "string or null"}],
+                 "crossNoteLinks": [{"from": "Note Title", "to": "Note Title", "relationship": "supports|contradicts|expands|questions", "reason": "brief explanation"}]}
 
                 Rules:
-                - Sources: Named people (philosophers, scientists, authors), URLs, papers, books. Include the person/work name.
+                - Sources: Named people, URLs, papers, books. Classify the relationship:
+                  - cites: neutral reference
+                  - supports: note agrees with or provides evidence for the source
+                  - contradicts: note disagrees with or challenges the source
+                  - expands: note builds on ideas from the source
+                  - questions: note raises doubts about the source
                 - Quotes: Direct quotations with clear attribution.
                 - Tags: Abstract themes or concepts that appear substantively.
-                - Empty array [] if none found.
-                - Deduplicate within batch.
+                - crossNoteLinks: Semantic relationships BETWEEN notes in this batch.
+                  Only include when one note clearly supports, contradicts, expands, or questions another.
+                - Default relationship to "cites" if unclear. Empty array [] if none found.
 
                 Content:
                 \(batchContent)
@@ -146,7 +153,7 @@ final class EntityExtractor {
             findSDGraphNode(type: .note, sourceId: page.id, context: context)?.id
         }
 
-        // Sources (absorbs thinkers, papers, books)
+        // Sources — with semantic relationship classification
         for source in extraction.sources {
             let node = findOrCreateSourceNode(
                 url: source.url,
@@ -158,8 +165,9 @@ final class EntityExtractor {
                 meta.clusterTheme = sourceType
                 node.meta = meta
             }
+            let edgeType = Self.edgeType(from: source.relationship, default: .cites)
             for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: node.id, target: sourceId, type: .cites, context: context)
+                createEdgeIfNeeded(source: node.id, target: sourceId, type: edgeType, context: context)
             }
         }
 
@@ -193,6 +201,20 @@ final class EntityExtractor {
             }
             for sourceId in sourceNodeIds {
                 createEdgeIfNeeded(source: sourceId, target: node.id, type: .tagged, context: context)
+            }
+        }
+
+        // Cross-note semantic links — connect notes within the batch that
+        // support, contradict, expand, or question each other.
+        if let links = extraction.crossNoteLinks {
+            let pageTitles = Dictionary(uniqueKeysWithValues: sourcePages.map { ($0.title, $0.id) })
+            for link in links {
+                guard let fromPageId = pageTitles[link.from],
+                      let toPageId = pageTitles[link.to],
+                      let fromNode = findSDGraphNode(type: .note, sourceId: fromPageId, context: context),
+                      let toNode = findSDGraphNode(type: .note, sourceId: toPageId, context: context) else { continue }
+                let edgeType = Self.edgeType(from: link.relationship, default: .related)
+                createEdgeIfNeeded(source: fromNode.id, target: toNode.id, type: edgeType, context: context)
             }
         }
 
@@ -340,6 +362,21 @@ final class EntityExtractor {
 
         let edge = SDGraphEdge(source: source, target: target, type: type)
         context.insert(edge)
+    }
+
+    // MARK: - Relationship Mapping
+
+    private static func edgeType(from relationship: String?, default fallback: GraphEdgeType) -> GraphEdgeType {
+        guard let rel = relationship?.lowercased() else { return fallback }
+        switch rel {
+        case "supports": return .supports
+        case "contradicts": return .contradicts
+        case "expands": return .expands
+        case "questions": return .questions
+        case "cites": return .cites
+        case "related": return .related
+        default: return fallback
+        }
     }
 
     // MARK: - JSON Parsing

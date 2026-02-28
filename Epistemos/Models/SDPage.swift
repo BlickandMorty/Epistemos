@@ -25,7 +25,7 @@ final class SDPage {
     // MARK: - Content
     var title: String = ""
     var emoji: String = ""
-    var body: String = ""  // Full markdown content — stored inline in SQLite
+    var body: String = ""  // Legacy inline body — post-migration always "". Use loadBody()/saveBody().
     var summary: String = ""  // AI-generated summary (TriageService)
 
     // MARK: - Metadata
@@ -144,6 +144,29 @@ final class SDPage {
             _ideasCache = newValue
             ideasData = try? JSONEncoder().encode(newValue)
         }
+    }
+
+    // MARK: - File-Based Body Access
+
+    /// Load the note body from disk (or fall back to inline body for pre-migration data).
+    ///
+    /// - Parameter mapped: When `true`, uses mmap for zero-copy reading.
+    ///   Use for bulk operations (indexing, hashing, search) that read many notes in a loop.
+    ///   Default `false` for interactive use (editing, display) where the String is long-lived.
+    func loadBody(mapped: Bool = false) -> String {
+        let diskBody = NoteFileStorage.readBody(pageId: id, mapped: mapped)
+        // Fallback: if no file exists but inline body has content (pre-migration), use inline.
+        if diskBody.isEmpty && !body.isEmpty {
+            return body
+        }
+        return diskBody
+    }
+
+    /// Save the note body to disk. Also clears the inline body (post-migration).
+    func saveBody(_ content: String) {
+        NoteFileStorage.writeBody(pageId: id, content: content)
+        // Clear inline body to keep SQLite rows small.
+        if !body.isEmpty { body = "" }
     }
 
     /// SHA256 hash prefix (16 hex chars) for dirty detection.

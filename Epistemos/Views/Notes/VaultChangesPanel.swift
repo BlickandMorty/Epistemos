@@ -67,7 +67,7 @@ struct VaultChangesPanel: View {
                 DiffSheetView(
                     pageId: page.id,
                     currentTitle: page.title,
-                    currentBody: page.body
+                    currentBody: page.loadBody()
                 )
             }
         }

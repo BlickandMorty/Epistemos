@@ -244,10 +244,12 @@ actor SearchIndexService {
 
     // MARK: - FTS5 Query Sanitization
 
-    private nonisolated static func sanitizeFTS5Query(_ raw: String) -> String {
+    nonisolated static func sanitizeFTS5Query(_ raw: String) -> String {
         let words = raw.lowercased()
             .components(separatedBy: .alphanumerics.inverted)
             .filter { $0.count >= 2 }
+            .map { $0.replacingOccurrences(of: "\"", with: "") }
+            .filter { !$0.isEmpty }
         guard !words.isEmpty else { return "" }
         return words.map { "\"\($0)\"*" }.joined(separator: " ")
     }

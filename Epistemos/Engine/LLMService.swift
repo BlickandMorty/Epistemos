@@ -2,6 +2,27 @@ import Foundation
 import Observation
 import os
 
+// MARK: - LLMClientProtocol
+// Protocol for LLM generation — enables mock injection for testing.
+
+@MainActor
+protocol LLMClientProtocol: AnyObject {
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error>
+    func testConnection() async -> ConnectionTestResult
+    func configSnapshot() -> LLMSnapshot
+    func enrichmentSnapshot() -> LLMSnapshot
+}
+
+extension LLMClientProtocol {
+    func generate(prompt: String, systemPrompt: String? = nil, maxTokens: Int = 4096) async throws -> String {
+        try await generate(prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens)
+    }
+    func stream(prompt: String, systemPrompt: String? = nil, maxTokens: Int = 0) -> AsyncThrowingStream<String, Error> {
+        stream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens)
+    }
+}
+
 // MARK: - LLM Service
 // Provider-agnostic LLM interface.
 // Anthropic, OpenAI, Google: URLSession REST.
@@ -9,7 +30,7 @@ import os
 // Apple Intelligence: handled by AppleIntelligenceService.
 
 @MainActor @Observable
-final class LLMService {
+final class LLMService: LLMClientProtocol {
 
     private let inference: InferenceState
 

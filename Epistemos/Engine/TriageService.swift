@@ -111,7 +111,7 @@ nonisolated enum TriageDecision: Sendable, Equatable {
 final class TriageService {
 
     private let inference: InferenceState
-    private let llmService: LLMService
+    private let llmService: any LLMClientProtocol
 
     private let complexityThreshold: Double = 0.25
     private let maxAppleIntelligenceContentLength: Int = 6_000
@@ -189,7 +189,7 @@ final class TriageService {
         isRefusalResponse(text) || isTruncatedResponse(text)
     }
 
-    init(inference: InferenceState, llmService: LLMService) {
+    init(inference: InferenceState, llmService: any LLMClientProtocol) {
         self.inference = inference
         self.llmService = llmService
     }

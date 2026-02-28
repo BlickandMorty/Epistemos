@@ -115,12 +115,9 @@ struct HologramSearchSidebar: View {
         .padding(.vertical, 10)
     }
 
-    private var searchResults: [GraphNodeRecord] {
+    private var searchResults: [GraphStore.SearchHit] {
         guard !searchText.isEmpty else { return [] }
-        let query = searchText.lowercased()
-        return graphState.store.nodes.values
-            .filter { $0.label.lowercased().contains(query) }
-            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+        return graphState.store.fuzzySearch(query: searchText, limit: 50)
     }
 
     private var searchResultsList: some View {
@@ -131,11 +128,8 @@ struct HologramSearchSidebar: View {
                 } else if searchResults.isEmpty {
                     hintText("No matching nodes")
                 } else {
-                    ForEach(searchResults.prefix(50), id: \.id) { node in
-                        nodeRow(node)
-                    }
-                    if searchResults.count > 50 {
-                        hintText("\(searchResults.count - 50) more…")
+                    ForEach(searchResults, id: \.id) { hit in
+                        nodeRow(hit.node)
                     }
                 }
             }

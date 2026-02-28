@@ -64,13 +64,13 @@ final class AppBootstrap {
             reason: "Epistemos — keep AI pipelines alive when app loses focus"
         )
 
-        // Create model container for all SwiftData types
+        // Create model container with versioned schema and migration plan
         let container: ModelContainer
         do {
+            let schema = Schema(versionedSchema: EpistemosSchemaV2.self)
             container = try ModelContainer(
-                for: SDPage.self, SDFolder.self,
-                     SDChat.self, SDMessage.self, SDPageVersion.self,
-                     SDGraphNode.self, SDGraphEdge.self,
+                for: schema,
+                migrationPlan: EpistemosMigrationPlan.self,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: false)
             )
         } catch {
@@ -142,6 +142,9 @@ final class AppBootstrap {
         }
 
         AppBootstrap.shared = self
+
+        // One-time migration: move note bodies from inline SQLite to file storage.
+        migrateBodiesToFileStorage()
 
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
@@ -255,7 +258,7 @@ final class AppBootstrap {
                 }
             } else {
                 let page = SDPage(title: title, emoji: emoji)
-                page.body = content
+                page.saveBody(content)
                 page.subfolder = "Daily Briefs"
                 page.wordCount = content.split(separator: " ").count
                 page.folder = folder
@@ -345,6 +348,37 @@ final class AppBootstrap {
     }
 
     // MARK: - Chat Navigation
+
+    // MARK: - Body File Storage Migration
+
+    /// One-time migration: move note bodies from inline SQLite to external .md files.
+    /// After migration, SDPage.body is cleared to "" — all reads go through loadBody().
+    private func migrateBodiesToFileStorage() {
+        let migrationKey = "v2_body_migration_complete"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>()
+        guard let pages = try? context.fetch(descriptor) else { return }
+
+        var migrated = 0
+        for page in pages where !page.body.isEmpty {
+            NoteFileStorage.writeBody(pageId: page.id, content: page.body)
+            page.body = ""
+            migrated += 1
+        }
+
+        if migrated > 0 {
+            do {
+                try context.save()
+            } catch {
+                Log.app.error("Body migration: failed to save after migrating \(migrated) pages: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
+        Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
+    }
 
     /// Load a chat by ID and navigate to it. Used by library provenance links.
     func loadChat(chatId: String) {

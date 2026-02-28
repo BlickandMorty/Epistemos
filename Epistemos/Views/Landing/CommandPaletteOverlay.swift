@@ -13,6 +13,7 @@ struct CommandPaletteOverlay: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
+    @Environment(GraphState.self) private var graphState
 
     // Vault search — in-memory title filter from SwiftData @Query
     @Query(SDPage.activePagesDescriptor) private var allPages: [SDPage]
@@ -187,36 +188,63 @@ struct CommandPaletteOverlay: View {
                 })
         }
 
-        // Real-time vault search — deduplicate by page ID to prevent
-        // SwiftUI FAULT-level duplicate ID errors during SwiftData merges.
+        // Real-time vault search — uses 5-tier fuzzy matching from GraphStore
+        // when the graph is loaded, with SwiftData substring fallback otherwise.
         if !searchText.isEmpty {
-            let q = searchText.lowercased()
-            var seenIds = Set<String>()
-            let matchingNotes =
-                allPages
-                .filter { $0.title.lowercased().contains(q) && seenIds.insert($0.id).inserted }
-                .prefix(8)
-            for page in matchingNotes {
-                let pageId = page.id
-                let label = page.emoji.isEmpty ? page.title : "\(page.emoji) \(page.title)"
-                base.append(
-                    LandingCommandItem(
-                        id: "note-\(pageId)", label: label, icon: "doc.text", category: "Notes"
-                    ) { [self] in
-                        dismiss()
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    })
+            if graphState.isLoaded {
+                // Fuzzy search across ALL graph nodes (notes, tags, ideas, sources…)
+                let hits = graphState.store.fuzzySearch(query: searchText, limit: 8)
+                for hit in hits {
+                    let node = hit.node
+                    let icon = node.type == .note ? "doc.text" : node.type.icon
+                    let category = node.type == .note ? "Notes" : node.type.displayName
+                    let nodeId = node.id
+                    let sourceId = node.sourceId
+                    base.append(
+                        LandingCommandItem(
+                            id: "graph-\(nodeId)", label: node.label, icon: icon, category: category
+                        ) { [self] in
+                            dismiss()
+                            if node.type == .note, let pageId = sourceId {
+                                NoteWindowManager.shared.open(pageId: pageId)
+                            } else {
+                                // Non-note nodes: open graph and focus
+                                HologramController.shared.show()
+                                graphState.selectNode(nodeId)
+                                graphState.pendingCenterNodeId = nodeId
+                            }
+                        })
+                }
+            } else {
+                // Fallback: substring filter on SwiftData pages
+                let q = searchText.lowercased()
+                var seenIds = Set<String>()
+                let matchingNotes =
+                    allPages
+                    .filter { $0.title.lowercased().contains(q) && seenIds.insert($0.id).inserted }
+                    .prefix(8)
+                for page in matchingNotes {
+                    let pageId = page.id
+                    let label = page.emoji.isEmpty ? page.title : "\(page.emoji) \(page.title)"
+                    base.append(
+                        LandingCommandItem(
+                            id: "note-\(pageId)", label: label, icon: "doc.text", category: "Notes"
+                        ) { [self] in
+                            dismiss()
+                            NoteWindowManager.shared.open(pageId: pageId)
+                        })
+                }
             }
         }
 
-        let q = searchText.lowercased()
         let commands = makeCommands()
-        let filtered =
-            searchText.isEmpty
-            ? commands
-            : commands.filter {
-                $0.label.lowercased().contains(q) || $0.category.lowercased().contains(q)
-            }
+        if searchText.isEmpty {
+            return base + commands
+        }
+        let q = searchText.lowercased()
+        let filtered = commands.filter {
+            $0.label.lowercased().contains(q) || $0.category.lowercased().contains(q)
+        }
         return base + filtered
     }
 

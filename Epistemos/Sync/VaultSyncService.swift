@@ -380,7 +380,7 @@ final class VaultSyncService {
 
         var migrated = 0
         for page in pages where page.lastSyncedBodyHash == nil {
-            page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
+            page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
             page.lastSyncedAt = .now
             page.needsVaultSync = false
             migrated += 1
@@ -452,13 +452,13 @@ final class VaultSyncService {
         guard let updatedPages = try? context.fetch(descriptor) else { return [] }
 
         for page in updatedPages where page.lastSyncedBodyHash == nil {
-            page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
+            page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
             page.lastSyncedAt = .now
         }
 
         // Update hashes for all pages
         for page in updatedPages {
-            page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
+            page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
             page.lastSyncedAt = .now
             page.needsVaultSync = false
         }
@@ -504,7 +504,7 @@ final class VaultSyncService {
                 await MainActor.run {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
                     if let page = try? context.fetch(desc).first {
-                        page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
+                        page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody())
                         page.lastSyncedAt = .now
                         page.needsVaultSync = false
                         do {
@@ -569,7 +569,7 @@ final class VaultSyncService {
                 for pageId in dirtyIds {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
                     if let page = try? context.fetch(desc).first {
-                        page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
+                        page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
                         page.lastSyncedAt = .now
                         page.needsVaultSync = false
                         SpotlightIndexer.index(page)
@@ -632,7 +632,9 @@ final class VaultSyncService {
     func captureVersionIfNeeded(pageId: String) {
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? context.fetch(descriptor).first, !page.body.isEmpty else { return }
+        guard let page = try? context.fetch(descriptor).first else { return }
+        let currentBody = page.loadBody()
+        guard !currentBody.isEmpty else { return }
 
         // Check if body actually changed since last version
         let pid = page.id
@@ -641,9 +643,9 @@ final class VaultSyncService {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         versionDesc.fetchLimit = 1
-        if let latest = try? context.fetch(versionDesc).first, latest.body == page.body { return }
+        if let latest = try? context.fetch(versionDesc).first, latest.body == currentBody { return }
 
-        let version = SDPageVersion(pageId: pageId, title: page.title, body: page.body, wordCount: page.wordCount)
+        let version = SDPageVersion(pageId: pageId, title: page.title, body: currentBody, wordCount: page.wordCount)
         context.insert(version)
         do {
             try context.save()
@@ -710,7 +712,7 @@ final class VaultSyncService {
         }
 
         let page = SDPage(title: title, emoji: emoji)
-        page.body = body
+        page.saveBody(body)
         page.subfolder = subfolder
         page.wordCount = body.split(separator: " ").count
 
@@ -725,7 +727,7 @@ final class VaultSyncService {
 
         // Index in Spotlight
         SpotlightIndexer.index(page)
-        page.lastSyncedBodyHash = SDPage.bodyHash(page.body)
+        page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody())
         page.lastSyncedAt = .now
         page.needsVaultSync = false
 

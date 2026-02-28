@@ -371,17 +371,18 @@ struct DiffSheetView: View {
         guard let page = try? modelContext.fetch(desc).first else { return }
 
         // Save current body as a new version before overwriting
+        let currentBody = page.loadBody()
         let snapshot = SDPageVersion(
             pageId: page.id, title: page.title,
-            body: page.body, wordCount: page.wordCount
+            body: currentBody, wordCount: page.wordCount
         )
         modelContext.insert(snapshot)
 
         // Store for Cmd+Z undo
-        preRestoreBody = page.body
+        preRestoreBody = currentBody
 
         // Overwrite page body with the selected version
-        page.body = version.body
+        page.saveBody(version.body)
         page.wordCount = version.body.split(separator: " ").count
         do {
             try modelContext.save()
@@ -407,7 +408,7 @@ struct DiffSheetView: View {
         let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = try? modelContext.fetch(desc).first else { return }
 
-        page.body = oldBody
+        page.saveBody(oldBody)
         page.wordCount = oldBody.split(separator: " ").count
         do {
             try modelContext.save()

@@ -65,16 +65,16 @@ struct AskAboutNotesIntent: AppIntent {
 
         let relevantPages = pages.filter { page in
             let titleLower = page.title.lowercased()
-            let bodyLower = page.body.lowercased()
+            let bodyLower = page.loadBody().lowercased()
             return keywords.contains(where: { titleLower.contains($0) || bodyLower.contains($0) })
         }.prefix(5)
 
         let deepContext: String
         if relevantPages.isEmpty {
             let recent = pages.prefix(5)
-            deepContext = recent.map { "## \($0.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
+            deepContext = recent.map { "## \($0.title)\n\(String($0.loadBody().prefix(500)))" }.joined(separator: "\n\n")
         } else {
-            deepContext = relevantPages.map { "## \($0.title)\n\(String($0.body.prefix(500)))" }.joined(separator: "\n\n")
+            deepContext = relevantPages.map { "## \($0.title)\n\(String($0.loadBody().prefix(500)))" }.joined(separator: "\n\n")
         }
 
         let fullContext = manifestContext.isEmpty ? deepContext : "\(manifestContext)\n\n## Relevant Note Bodies\n\(deepContext)"

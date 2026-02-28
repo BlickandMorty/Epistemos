@@ -7,7 +7,10 @@
 //! and applies velocityDecay as a multiplier. There is no position-Verlet,
 //! no mass division, and no ambient Brownian motion.
 
+use std::collections::HashMap;
+
 use crate::forces;
+use crate::quadtree;
 
 /// Center force behavior: attract toward origin, off, or repel away.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,8 +74,8 @@ impl Default for ForceParams {
             charge_range: 2000.0,
             link_strength: 0.0, // auto
 
-            // Smooth defaults
-            velocity_decay: 0.55,
+            // Higher = more viscous/damped, less bouncy.
+            velocity_decay: 0.70,
             center_strength: 0.005,
             collision_radius: 35.0,
             collision_iterations: 2,
@@ -121,6 +124,10 @@ pub struct Simulation {
     /// Page mode: optional anchor center in world coordinates.
     /// When set, the center force pulls toward this point instead of (0, 0).
     pub anchor_center: Option<[f32; 2]>,
+
+    // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
+    collision_grid: HashMap<(i32, i32), Vec<usize>>,
+    bodies_scratch: Vec<quadtree::Body>,
 }
 
 impl Default for Simulation {
@@ -148,6 +155,8 @@ impl Simulation {
             params: ForceParams::default(),
             is_settled: false,
             anchor_center: None,
+            collision_grid: HashMap::new(),
+            bodies_scratch: Vec::new(),
         }
     }
 
@@ -257,8 +266,9 @@ impl Simulation {
             alpha,
         );
 
-        // Many-body force (Barnes-Hut repulsion)
-        forces::force_many_body(
+        // Many-body force (Barnes-Hut repulsion) — reuses scratch buffer.
+        self.bodies_scratch.clear();
+        forces::force_many_body_with_scratch(
             &self.x,
             &self.y,
             &mut self.vx,
@@ -267,14 +277,19 @@ impl Simulation {
             self.params.charge_range,
             1.0, // distance_min (d3 default)
             alpha,
+            &mut self.bodies_scratch,
         );
 
-        // Collision force (position-based overlap prevention)
-        forces::force_collide(
+        // Collision force (position-based overlap prevention) — reuses scratch grid.
+        for v in self.collision_grid.values_mut() {
+            v.clear();
+        }
+        forces::force_collide_with_scratch(
             &mut self.x,
             &mut self.y,
             &self.collision_radii,
             self.params.collision_iterations,
+            &mut self.collision_grid,
         );
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
@@ -392,7 +407,7 @@ mod tests {
                 let j = (i + 1) % n;
                 let uuid_i = format!("node-{}", i);
                 let uuid_j = format!("node-{}", j);
-                g.add_edge(&uuid_i, &uuid_j, 1.0);
+                g.add_edge(&uuid_i, &uuid_j, 1.0, 0);
             }
         }
         g
@@ -525,7 +540,7 @@ mod tests {
         assert_eq!(p.link_distance, 250.0);
         assert_eq!(p.charge_strength, -1200.0);
         assert_eq!(p.charge_range, 2000.0);
-        assert_eq!(p.velocity_decay, 0.55);
+        assert_eq!(p.velocity_decay, 0.70);
         assert_eq!(p.center_strength, 0.005);
         assert_eq!(p.collision_radius, 35.0);
         assert_eq!(p.collision_iterations, 2);
@@ -538,7 +553,7 @@ mod tests {
         let mut graph = Graph::new();
         graph.add_node("a".into(), -100.0, 0.0, 0, 1, "A".into());
         graph.add_node("b".into(), 100.0, 0.0, 0, 1, "B".into());
-        graph.add_edge("a", "b", 1.0);
+        graph.add_edge("a", "b", 1.0, 0);
 
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);

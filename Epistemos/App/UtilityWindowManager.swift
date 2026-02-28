@@ -207,21 +207,7 @@ final class UtilityWindowManager {
         // This ensures background + colorScheme are reactive — plain function calls bake values
         // in at call time and never update when the theme changes.
         ThemedUtilityRoot(kind: kind)
-            .environment(bootstrap.uiState)
-            .environment(bootstrap.chatState)
-            .environment(bootstrap.pipelineState)
-            .environment(bootstrap.notesUI)
-            .environment(bootstrap.researchState)
-            .environment(bootstrap.soarState)
-            .environment(bootstrap.eventBus)
-            .environment(bootstrap.inferenceState)
-            .environment(bootstrap.llmService)
-            .environment(bootstrap.triageService)
-            .environment(bootstrap.researchService)
-            .environment(bootstrap.vaultSync)
-            .environment(bootstrap.threadState)
-            .environment(bootstrap.dailyBriefState)
-            .environment(bootstrap.graphState)
+            .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
     }
 }

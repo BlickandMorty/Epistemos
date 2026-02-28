@@ -42,11 +42,13 @@ void graph_engine_add_node(
 );
 
 /// Add an edge between two nodes by UUID.
+/// @param edge_type 0-11 matching GraphEdgeType (0=reference, 4=cites, 9=contradicts, etc.).
 void graph_engine_add_edge(
     Engine* engine,
     const char* source_uuid,
     const char* target_uuid,
-    float weight
+    float weight,
+    uint8_t edge_type
 );
 
 /// Commit the graph: loads data into simulation, starts physics.
@@ -173,6 +175,41 @@ const char* graph_engine_hovered_node_uuid(Engine* engine);
 
 /// Get the UUID of the currently selected node.
 const char* graph_engine_selected_node_uuid(Engine* engine);
+
+// ── Search ──────────────────────────────────────────────────────────────────
+
+/// Search result from graph_engine_search.
+typedef struct {
+    const char* uuid;
+    const char* label;
+    uint8_t node_type;
+    float score;
+} GraphSearchResult;
+
+/// Search node labels with fuzzy matching. Returns array of results.
+/// Caller must free with graph_engine_free_search_results.
+GraphSearchResult* graph_engine_search(
+    Engine* engine,
+    const char* query,
+    uint32_t limit,
+    uint32_t* out_count
+);
+
+/// Free search results.
+void graph_engine_free_search_results(GraphSearchResult* results, uint32_t count);
+
+// ── Semantic Clustering ─────────────────────────────────────────────────────
+
+/// Set semantic cluster IDs. Overrides Louvain-detected clusters.
+/// @param uuids       Array of null-terminated UUID strings.
+/// @param cluster_ids Parallel array of cluster IDs.
+/// @param count       Number of entries in both arrays.
+void graph_engine_set_cluster_ids(
+    Engine* engine,
+    const char** uuids,
+    const uint32_t* cluster_ids,
+    uint32_t count
+);
 
 // ── Markdown Parser ────────────────────────────────────────────────────
 

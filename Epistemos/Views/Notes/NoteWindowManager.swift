@@ -328,7 +328,7 @@ private struct NoteTabView: View {
                             WriterModeView(page: page, isDark: ui.theme.isDark, theme: ui.theme, isLocked: page.isLocked)
                                 .frame(minWidth: 400, minHeight: 300)
                         } else if showPreview {
-                            NotePreviewView(body: page.body, isDark: ui.theme.isDark)
+                            NotePreviewView(body: page.loadBody(), isDark: ui.theme.isDark)
                                 .frame(minWidth: 400, minHeight: 300)
                         } else {
                             ProseEditorView(page: page, isEditable: !page.isLocked)
@@ -355,7 +355,7 @@ private struct NoteTabView: View {
                 if showTableOfContents, let page = pages.first {
                     Divider()
                     NoteTableOfContents(
-                        markdown: page.body,
+                        markdown: page.loadBody(),
                         isDark: ui.theme.isDark,
                         onNavigate: { charOffset in
                             scrollEditorTo(charOffset: charOffset)
@@ -527,7 +527,7 @@ private struct NoteTabView: View {
         }
         .sheet(isPresented: $showDiffSheet) {
             if let page = pages.first {
-                DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.body)
+                DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.loadBody())
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)) { _ in
@@ -610,8 +610,8 @@ private struct NoteTabView: View {
         // Get full document text — handles both single-view (ProseEditor) and
         // multi-container (Writer/PageTileView) via the shared text storage.
         let fullText = responder.layoutManager?.textStorage?.string ?? responder.string
-        if fullText != page.body {
-            page.body = fullText
+        if fullText != page.loadBody() {
+            page.saveBody(fullText)
             page.needsVaultSync = true
             page.updatedAt = .now
             // Mark graph for structural refresh when next viewed
@@ -668,7 +668,7 @@ private struct NoteTabView: View {
         isTransitioning = true
 
         // Scale hold time for larger documents — more text = more layout work.
-        let bodyLength = pages.first?.body.count ?? 0
+        let bodyLength = pages.first?.loadBody().count ?? 0
         let holdTime: Double = bodyLength > 20_000 ? 1.4 : bodyLength > 5_000 ? 1.0 : 0.70
 
         // Instantly opaque — no animation, no insertion delay.
@@ -780,8 +780,9 @@ private struct NoteTabView: View {
     // MARK: - Info Panel
 
     private func noteInfoPanel(page: SDPage) -> some View {
-        let wordCount = page.body.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
-        let charCount = page.body.count
+        let currentBody = page.loadBody()
+        let wordCount = currentBody.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
+        let charCount = currentBody.count
         let readingTime = max(1, wordCount / 200)
 
         return VStack(alignment: .leading, spacing: 8) {
@@ -810,7 +811,7 @@ private struct NoteTabView: View {
     // MARK: - Share
 
     private func shareNote(_ page: SDPage) {
-        let text = "# \(page.title)\n\n\(page.body)" as NSString
+        let text = "# \(page.title)\n\n\(page.loadBody())" as NSString
         // Use NSApp.keyWindow directly (not from toolbar menu context where it can be nil).
         // Fall back to the note tab group windows.
         let window = NSApp.keyWindow
@@ -830,7 +831,7 @@ private struct NoteTabView: View {
         guard let page = pages.first else { return }
         isScanningCitations = true
 
-        let fullText = "# \(page.title)\n\n\(page.body)"
+        let fullText = "# \(page.title)\n\n\(page.loadBody())"
         let papers = CitationExtractor.extract(from: fullText, source: "note-scan",
                                                 originNoteTitle: page.title)
 
@@ -974,7 +975,7 @@ private struct IdeasPanel: View {
                                 item: item,
                                 isBusy: busyItemId == item.id,
                                 theme: theme,
-                                pageBody: page.body,
+                                pageBody: page.loadBody(),
                                 onGoToLine: { goToLine(item.lineAnchor) },
                                 onInsert: { insertIdea(item) },
                                 onIntegrate: { integrateWithAI(item) },
@@ -1236,7 +1237,7 @@ private struct IdeasPanel: View {
         let ideaText = item.formattedBody ?? item.body
         guard !ideaText.isEmpty else { return }
 
-        let fullBody = page.body
+        let fullBody = page.loadBody()
         let noteTitle = page.title
 
         // Use the selection captured before the popover opened
