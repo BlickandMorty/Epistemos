@@ -6,6 +6,8 @@ build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+*.profraw
+*.profdata
 
 # Swift Package Manager
 .build/
