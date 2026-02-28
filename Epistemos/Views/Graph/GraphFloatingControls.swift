@@ -161,19 +161,33 @@ struct GraphFloatingControls: View {
         .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
     }
 
-    // MARK: - Lite Mode Toggle
+    // MARK: - Quality Preset Toggle
 
     private var liteModeToggle: some View {
         HStack(spacing: 2) {
-            modeButton(label: "Full", icon: "sparkles", isSelected: !graphState.liteMode) {
-                graphState.liteMode = false
-                graphState.requestRecommit()
-            }
-            modeButton(label: "Lite", icon: "circle", isSelected: graphState.liteMode) {
-                graphState.liteMode = true
-                graphState.requestRecommit()
-            }
+            qualityButton(label: "Cine", icon: "sparkles", level: 0)
+            qualityButton(label: "Balanced", icon: "circle.grid.2x1", level: 1)
+            qualityButton(label: "Perf", icon: "hare", level: 2)
         }
+    }
+
+    private func qualityButton(label: String, icon: String, level: UInt8) -> some View {
+        let isSelected = graphState.qualityLevel == level
+        return Button {
+            graphState.qualityLevel = level
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(isSelected ? .white.opacity(0.15) : .clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
     }
 
     // MARK: - Force Settings

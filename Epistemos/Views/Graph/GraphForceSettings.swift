@@ -12,37 +12,85 @@ struct GraphForceSettings: View {
     @State private var selectedPreset: PhysicsPreset? = .observatory
     @State private var showAdvanced = false
 
+    private var isStatic: Bool { graphState.isStaticLayout }
+
     var body: some View {
         @Bindable var gs = graphState
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // ── Static Layout Banner ──
+                if isStatic {
+                    staticLayoutBanner
+                }
+
                 // ── Presets ──
                 presetSection
+                    .opacity(isStatic ? 0.4 : 1.0)
+                    .allowsHitTesting(!isStatic)
 
                 Divider().opacity(0.3)
 
                 // ── Basic Forces ──
                 basicSection(gs: $gs)
+                    .opacity(isStatic ? 0.4 : 1.0)
+                    .allowsHitTesting(!isStatic)
 
                 // ── Advanced Toggle ──
                 advancedToggle
+                    .opacity(isStatic ? 0.4 : 1.0)
+                    .allowsHitTesting(!isStatic)
 
                 if showAdvanced {
                     Divider().opacity(0.3)
                     advancedSection(gs: $gs)
+                        .opacity(isStatic ? 0.4 : 1.0)
+                        .allowsHitTesting(!isStatic)
                 }
 
                 Divider().opacity(0.3)
                 clusterSection(gs: $gs)
+                    .opacity(isStatic ? 0.4 : 1.0)
+                    .allowsHitTesting(!isStatic)
 
                 Divider().opacity(0.3)
                 resetButton
+                    .opacity(isStatic ? 0.4 : 1.0)
+                    .allowsHitTesting(!isStatic)
+
+                Divider().opacity(0.3)
+                qualitySection
             }
             .padding(16)
         }
         .frame(width: 280)
-        .frame(maxHeight: 560)
+        .frame(maxHeight: 620)
+    }
+
+    // MARK: - Static Layout Banner
+
+    private var staticLayoutBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "gauge.with.dots.needle.0percent")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Physics Paused")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("Graph exceeds \(GraphState.staticLayoutThreshold) nodes. Focus on a node to enable physics for that cluster.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(0.2), lineWidth: 1)
+        )
     }
 
     // MARK: - Presets
@@ -239,6 +287,44 @@ struct GraphForceSettings: View {
             .font(.system(size: 11))
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Rendering Quality
+
+    private var qualitySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Rendering", icon: "gpu")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Quality")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Picker("Quality", selection: Binding(
+                    get: { graphState.qualityLevel },
+                    set: { graphState.qualityLevel = $0 }
+                )) {
+                    Text("Cinematic").tag(UInt8(0))
+                    Text("Balanced").tag(UInt8(1))
+                    Text("Performance").tag(UInt8(2))
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+
+                Text(qualityDescription)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var qualityDescription: String {
+        switch graphState.qualityLevel {
+        case 0: "Glow, breathing, perspective depth, field lines, depth-of-field."
+        case 1: "Sphere shading, no animated effects. Good balance of look and speed."
+        default: "Flat circles, minimal GPU usage. Best for large graphs."
         }
     }
 

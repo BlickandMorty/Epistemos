@@ -71,24 +71,23 @@ pub struct ForceParams {
 impl Default for ForceParams {
     fn default() -> Self {
         Self {
-            // Tuned for observatory layout: more spread, less clumping.
-            link_distance: 250.0,
-            charge_strength: -1200.0,
-            charge_range: 2000.0,
+            // Calm defaults — Logseq-style. Moderate spread, gentle repulsion.
+            link_distance: 200.0,
+            charge_strength: -400.0,
+            charge_range: 1500.0,
             link_strength: 0.0, // auto
 
-            // Higher = more viscous/damped, less bouncy.
-            // 0.60 = 40% damping per tick — settles faster with less oscillation.
-            velocity_decay: 0.60,
+            // High damping = viscous, calm movement. Nodes glide, don't bounce.
+            velocity_decay: 0.85,
             center_strength: 0.005,
-            collision_radius: 35.0,
+            collision_radius: 20.0,
             collision_iterations: 1,
-            cluster_strength: 0.3,
+            cluster_strength: 0.15,
             center_mode: CenterMode::Attract,
             semantic_strength: 0.0,
 
-            // Simulation state
-            alpha: 1.0,
+            // Simulation state — start at lower alpha for gentler onset.
+            alpha: 0.3,
             alpha_min: 0.001,
             // d3 default: 1 - pow(0.001, 1/300) ≈ 0.0228
             alpha_decay: 0.0228,
@@ -137,9 +136,18 @@ pub struct Simulation {
     /// Lite mode: skip cluster and semantic forces for faster physics at scale.
     pub lite_mode: bool,
 
+    /// Static layout: physics completely disabled for large graphs (> 1500 nodes).
+    /// Nodes keep their initial positions. Re-evaluated on every `load_from_graph()`,
+    /// so focusing on a small subset automatically re-enables physics.
+    pub static_layout: bool,
+
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
     collision_grid: FxHashMap<(i32, i32), Vec<usize>>,
     bodies_scratch: Vec<quadtree::Body>,
+    // Pre-allocated cluster centroid buffers (avoids per-tick allocation in force_cluster).
+    cluster_cx: Vec<f32>,
+    cluster_cy: Vec<f32>,
+    cluster_counts: Vec<u32>,
     tick_count: u32,
 }
 
@@ -170,8 +178,12 @@ impl Simulation {
             anchor_center: None,
             semantic_neighbors: Vec::new(),
             lite_mode: false,
+            static_layout: false,
             collision_grid: FxHashMap::default(),
             bodies_scratch: Vec::new(),
+            cluster_cx: Vec::new(),
+            cluster_cy: Vec::new(),
+            cluster_counts: Vec::new(),
             tick_count: 0,
         }
     }
@@ -214,7 +226,52 @@ impl Simulation {
             self.collision_radii.push(self.params.collision_radius);
         }
 
+        // Static layout for large graphs: no physics at all.
+        // Skip expensive edge processing — nodes keep spiral/loaded positions.
+        // When user focuses on a subset, visible count drops below threshold
+        // and physics re-enables automatically via the next load_from_graph().
+        let node_count = self.x.len();
+        const STATIC_LAYOUT_THRESHOLD: usize = 1500;
+        if node_count > STATIC_LAYOUT_THRESHOLD {
+            self.static_layout = true;
+            self.is_settled = true;
+            self.params.alpha = 0.0;
+            // Zero out all velocities — no residual drift.
+            for v in &mut self.vx { *v = 0.0; }
+            for v in &mut self.vy { *v = 0.0; }
+            // Still compute degrees from raw edge data (needed for node radius sizing)
+            // but skip sorting/capping since physics won't run.
+            for edge in &graph.edges {
+                let si_src = graph
+                    .id_to_index
+                    .get(&edge.source)
+                    .and_then(|&gi| graph_to_sim[gi]);
+                let si_tgt = graph
+                    .id_to_index
+                    .get(&edge.target)
+                    .and_then(|&gi| graph_to_sim[gi]);
+                if let (Some(src), Some(tgt)) = (si_src, si_tgt) {
+                    self.degrees[src] += 1;
+                    self.degrees[tgt] += 1;
+                }
+            }
+            for d in &mut self.degrees {
+                if *d == 0 { *d = 1; }
+            }
+            return;
+        }
+
+        self.static_layout = false;
+
         // Re-index edges to simulation indices, compute degrees.
+        // Cap physics edges per node to prevent jitter from hyper-connected nodes.
+        // Data stays in SwiftData — only the physics simulation is simplified.
+        // Edge cap values tuned empirically: enough structure to see clusters,
+        // few enough to prevent competing-force jitter.
+        let max_physics_edges_per_node: u32 = if node_count > 500 { 12 } else { 20 };
+
+        // First pass: collect and sort edges by weight (highest first = structural edges kept).
+        let mut candidate_edges: Vec<(usize, usize, f32)> = Vec::with_capacity(graph.edges.len());
         for edge in &graph.edges {
             let si_src = graph
                 .id_to_index
@@ -226,11 +283,26 @@ impl Simulation {
                 .and_then(|&gi| graph_to_sim[gi]);
 
             if let (Some(src), Some(tgt)) = (si_src, si_tgt) {
-                self.edges.push((src, tgt));
-                self.edge_weights.push(edge.weight);
-                self.degrees[src] += 1;
-                self.degrees[tgt] += 1;
+                candidate_edges.push((src, tgt, edge.weight));
             }
+        }
+        // Sort descending by weight — structural/containment edges (weight > 1) come first.
+        candidate_edges.sort_unstable_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Second pass: add edges, skipping if either endpoint is over the cap.
+        let mut edge_counts: Vec<u32> = vec![0; self.x.len()];
+        for (src, tgt, weight) in candidate_edges {
+            if edge_counts[src] >= max_physics_edges_per_node
+                && edge_counts[tgt] >= max_physics_edges_per_node
+            {
+                continue; // Both endpoints saturated — skip entirely.
+            }
+            self.edges.push((src, tgt));
+            self.edge_weights.push(weight);
+            self.degrees[src] += 1;
+            self.degrees[tgt] += 1;
+            edge_counts[src] += 1;
+            edge_counts[tgt] += 1;
         }
 
         // Ensure minimum degree of 1 for link strength calculation.
@@ -240,51 +312,25 @@ impl Simulation {
             }
         }
 
-        // Scale force parameters for large graphs to prevent chaos and improve settling.
-        // Larger graphs need tighter layout, more damping, and faster alpha decay
-        // so the physics settle quickly instead of bouncing for 5+ seconds.
-        let node_count = self.x.len();
-        if node_count > 10_000 {
-            // Massive graph (10K-30K+): very tight, very viscous, fast settle.
-            self.params.link_distance = self.params.link_distance.min(60.0);
-            self.params.charge_strength = self.params.charge_strength.max(-300.0);
-            self.params.charge_range = self.params.charge_range.min(500.0);
-            self.params.velocity_decay = self.params.velocity_decay.max(0.88);
-            self.params.collision_iterations = self.params.collision_iterations.max(3);
-            self.params.collision_radius = self.params.collision_radius.min(12.0);
-            self.params.center_strength = self.params.center_strength.max(0.02);
-            // Fast alpha decay: settle in ~80 ticks instead of 300.
-            self.params.alpha_decay = self.params.alpha_decay.max(0.06);
-        } else if node_count > 5000 {
-            // Large graph (5K-10K): tight, damped, faster settle.
-            self.params.link_distance = self.params.link_distance.min(80.0);
-            self.params.charge_strength = self.params.charge_strength.max(-500.0);
-            self.params.charge_range = self.params.charge_range.min(800.0);
-            self.params.velocity_decay = self.params.velocity_decay.max(0.82);
-            self.params.collision_iterations = self.params.collision_iterations.max(2);
-            self.params.collision_radius = self.params.collision_radius.min(20.0);
-            self.params.alpha_decay = self.params.alpha_decay.max(0.045);
-        } else if node_count > 2000 {
-            self.params.link_distance = self.params.link_distance.min(120.0);
-            self.params.charge_strength = self.params.charge_strength.max(-800.0);
-            self.params.velocity_decay = self.params.velocity_decay.max(0.70);
-            self.params.collision_iterations = self.params.collision_iterations.max(2);
-            self.params.alpha_decay = self.params.alpha_decay.max(0.035);
-        } else if node_count > 500 {
+        // Scale force parameters for medium graphs (500-1500 nodes).
+        if node_count > 500 {
             self.params.link_distance = self.params.link_distance.min(180.0);
-            self.params.velocity_decay = self.params.velocity_decay.max(0.65);
+            self.params.velocity_decay = self.params.velocity_decay.max(0.85);
         }
 
-        // Reset alpha for fresh simulation.
-        // At very large scales, start with lower alpha to avoid explosive first ticks.
-        self.params.alpha = if node_count > 10_000 { 0.5 } else { 1.0 };
+        // Reset alpha for fresh simulation — calm start.
+        self.params.alpha = if node_count > 500 {
+            0.2
+        } else {
+            0.3
+        };
         self.is_settled = false;
     }
 
     /// One tick of the force simulation.
     /// d3-style velocity Verlet: alpha decay → forces → integration.
     pub fn tick(&mut self) {
-        if self.x.is_empty() {
+        if self.x.is_empty() || self.static_layout {
             return;
         }
 
@@ -380,8 +426,9 @@ impl Simulation {
         }
 
         // Cluster cohesion force (skipped in lite mode).
+        // Uses pre-allocated centroid buffers to avoid per-tick allocation.
         if !self.lite_mode && self.params.cluster_strength > 0.001 && !self.cluster_ids.is_empty() {
-            forces::force_cluster(
+            forces::force_cluster_with_scratch(
                 &self.x,
                 &self.y,
                 &mut self.vx,
@@ -389,6 +436,9 @@ impl Simulation {
                 &self.cluster_ids,
                 self.params.cluster_strength,
                 alpha,
+                &mut self.cluster_cx,
+                &mut self.cluster_cy,
+                &mut self.cluster_counts,
             );
         }
 
@@ -406,51 +456,124 @@ impl Simulation {
             );
         }
 
-        // 3. Velocity Verlet integration with decay
+        // 3. Velocity Verlet integration with decay.
+        // High-degree nodes get extra damping via smoothstep to prevent jitter.
         for i in 0..n {
+            let decay = if self.degrees[i] >= 10 {
+                // Smoothstep: gradual onset from degree 10, saturates at degree 40.
+                let t = ((self.degrees[i] - 10) as f32 / 30.0).min(1.0);
+                let smooth = t * t * (3.0 - 2.0 * t); // Hermite smoothstep
+                self.params.velocity_decay + smooth * (0.95 - self.params.velocity_decay)
+            } else {
+                self.params.velocity_decay
+            };
+
             if let Some(fx_val) = self.fx[i] {
                 self.x[i] = fx_val;
                 self.vx[i] = 0.0;
             } else {
-                self.vx[i] *= self.params.velocity_decay;
+                self.vx[i] *= decay;
                 self.x[i] += self.vx[i];
             }
             if let Some(fy_val) = self.fy[i] {
                 self.y[i] = fy_val;
                 self.vy[i] = 0.0;
             } else {
-                self.vy[i] *= self.params.velocity_decay;
+                self.vy[i] *= decay;
                 self.y[i] += self.vy[i];
             }
         }
     }
 
     /// Reheat the simulation (for user parameter changes or data reload).
+    /// No-op when in static layout mode (large graphs with physics disabled).
     pub fn reheat(&mut self) {
+        if self.static_layout {
+            return;
+        }
         self.params.alpha = 0.3;
         self.is_settled = false;
     }
 
-    /// Configure simulation for entrance animation (Obsidian-style calm build-out).
-    /// Lower alpha = gentler forces; higher velocity_decay = more damping (nodes move slowly);
-    /// slower alpha_decay = animation lasts longer before settling.
+    /// Configure simulation for calm entrance (Obsidian-style slow build-out).
+    ///
+    /// Nodes start in a phyllotaxis spiral at near-equilibrium spacing.
+    /// Physics begins at very low alpha (gentle forces) with high damping
+    /// (viscous movement). Alpha ramps up gradually via `entrance_tick()`.
+    /// Result: nodes drift smoothly into clusters instead of exploding.
     pub fn set_entrance_mode(&mut self) {
         let n = self.x.len();
         if n > 10_000 {
-            // Massive graph: start very low energy, settle fast.
-            self.params.alpha = 0.15;
-            self.params.velocity_decay = self.params.velocity_decay.max(0.88);
-            self.params.alpha_decay = 0.04;
+            // Massive graph: barely visible forces, very viscous.
+            self.params.alpha = 0.03;
+            self.params.velocity_decay = self.params.velocity_decay.max(0.92);
+            self.params.alpha_decay = 0.0;  // Manual ramp, not auto-decay.
         } else if n > 5000 {
-            self.params.alpha = 0.20;
-            self.params.velocity_decay = self.params.velocity_decay.max(0.80);
-            self.params.alpha_decay = 0.025;
+            self.params.alpha = 0.04;
+            self.params.velocity_decay = self.params.velocity_decay.max(0.90);
+            self.params.alpha_decay = 0.0;
+        } else if n > 1000 {
+            self.params.alpha = 0.05;
+            self.params.velocity_decay = self.params.velocity_decay.max(0.88);
+            self.params.alpha_decay = 0.0;
         } else {
-            self.params.alpha = 0.25;
-            self.params.velocity_decay = 0.72;
-            self.params.alpha_decay = 0.012;
+            // Small graph: slightly more energy, still very damped.
+            self.params.alpha = 0.06;
+            self.params.velocity_decay = 0.85;
+            self.params.alpha_decay = 0.0;
         }
+        self.tick_count = 0;
         self.is_settled = false;
+    }
+
+    /// One tick during entrance: gradually ramps alpha from whisper to cruise,
+    /// then switches to normal alpha decay for settling. Call this instead of
+    /// `tick()` during the entrance phase.
+    pub fn entrance_tick(&mut self) {
+        if self.x.is_empty() || self.static_layout {
+            return;
+        }
+
+        // Use tick_count for phase detection. Note: tick() also increments tick_count,
+        // so we read BEFORE calling tick() to get consistent phase timing.
+        // tick_count is incremented inside tick() (line ~387), not here.
+        let t = self.tick_count.wrapping_add(1);
+
+        // Phase 1 (ticks 0–60, ~1s): ramp alpha gently from starting value to cruise.
+        // Phase 2 (ticks 61–180, ~2s): hold at cruise alpha.
+        // Phase 3 (ticks 181+): switch to normal alpha decay for settling.
+        let n = self.x.len();
+        let (cruise_alpha, ramp_ticks, hold_ticks) = if n > 10_000 {
+            (0.15, 90u32, 120u32)
+        } else if n > 5000 {
+            (0.20, 75, 100)
+        } else if n > 1000 {
+            (0.25, 60, 90)
+        } else {
+            (0.30, 45, 70)
+        };
+
+        if t <= ramp_ticks {
+            // Smooth ease-in: cubic ramp from start_alpha to cruise_alpha.
+            let progress = t as f32 / ramp_ticks as f32;
+            let eased = progress * progress * (3.0 - 2.0 * progress); // smoothstep
+            let start_alpha = if n > 10_000 { 0.03 } else if n > 5000 { 0.04 } else if n > 1000 { 0.05 } else { 0.06 };
+            self.params.alpha = start_alpha + (cruise_alpha - start_alpha) * eased;
+            self.params.alpha_decay = 0.0;
+        } else if t <= ramp_ticks + hold_ticks {
+            // Hold at cruise alpha — forces are stable, nodes organize.
+            self.params.alpha = cruise_alpha;
+            self.params.alpha_decay = 0.0;
+        } else {
+            // Switch to normal decay for final settling.
+            if self.params.alpha_decay < 0.001 {
+                self.params.alpha = cruise_alpha;
+                self.params.alpha_decay = if n > 5000 { 0.035 } else { 0.0228 };
+            }
+        }
+
+        // Run the actual physics tick.
+        self.tick();
     }
 
     /// Set fixed position for a node (drag constraint, d3 style).
@@ -630,14 +753,14 @@ mod tests {
     #[test]
     fn default_params_match_observatory() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 250.0);
-        assert_eq!(p.charge_strength, -1200.0);
-        assert_eq!(p.charge_range, 2000.0);
-        assert_eq!(p.velocity_decay, 0.60);
+        assert_eq!(p.link_distance, 200.0);
+        assert_eq!(p.charge_strength, -400.0);
+        assert_eq!(p.charge_range, 1500.0);
+        assert_eq!(p.velocity_decay, 0.85);
         assert_eq!(p.center_strength, 0.005);
-        assert_eq!(p.collision_radius, 35.0);
+        assert_eq!(p.collision_radius, 20.0);
         assert_eq!(p.collision_iterations, 1);
-        assert_eq!(p.cluster_strength, 0.3);
+        assert_eq!(p.cluster_strength, 0.15);
         assert_eq!(p.center_mode, CenterMode::Attract);
     }
 

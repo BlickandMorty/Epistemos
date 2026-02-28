@@ -68,7 +68,7 @@ final class GraphStore {
     // MARK: - Loading from SwiftData
 
     /// Fetch all SDGraphNode and SDGraphEdge from the given context,
-    /// build the in-memory adjacency list, and assign random initial positions.
+    /// build the in-memory adjacency list, and assign phyllotaxis spiral positions.
     func load(context: ModelContext) throws {
         // Clear existing state
         nodes = [:]
@@ -80,9 +80,14 @@ final class GraphStore {
         let nodeDescriptor = FetchDescriptor<SDGraphNode>()
         let sdNodes = try context.fetch(nodeDescriptor)
 
-        for sdNode in sdNodes {
+        let golden = Float.pi * (3.0 - sqrt(5.0))
+        for (index, sdNode) in sdNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
-                ?? SIMD2<Float>(Float.random(in: -500...500), Float.random(in: -500...500))
+                ?? {
+                    let r: Float = 120.0 * sqrt(Float(index))
+                    let theta = Float(index) * golden
+                    return SIMD2<Float>(r * cos(theta), r * sin(theta))
+                }()
 
             let record = GraphNodeRecord(
                 id: sdNode.id,
@@ -116,9 +121,14 @@ final class GraphStore {
         adjacency = [:]
         edgesByNode = [:]
 
-        for sdNode in sdNodes {
+        let golden = Float.pi * (3.0 - sqrt(5.0))
+        for (index, sdNode) in sdNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
-                ?? SIMD2<Float>(Float.random(in: -500...500), Float.random(in: -500...500))
+                ?? {
+                    let r: Float = 120.0 * sqrt(Float(index))
+                    let theta = Float(index) * golden
+                    return SIMD2<Float>(r * cos(theta), r * sin(theta))
+                }()
 
             let record = GraphNodeRecord(
                 id: sdNode.id,

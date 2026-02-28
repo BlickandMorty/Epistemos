@@ -476,6 +476,14 @@ pub extern "C" fn graph_engine_set_lite_mode(engine: *mut Engine, enabled: u8) {
     engine.set_lite_mode(enabled != 0);
 }
 
+/// Set quality level: 0 = Cinematic (full effects), 1 = Balanced (sphere shading, no glow/breathing),
+/// 2 = Performance (flat circles). Replaces the binary lite_mode for finer control.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_quality_level(engine: *mut Engine, level: u8) {
+    ffi_engine!(engine);
+    engine.set_quality_level(level);
+}
+
 /// Set the note window rect in screen pixels for page mode anchor positioning.
 /// Nodes will cluster near this rect instead of dead center.
 #[unsafe(no_mangle)]
@@ -498,6 +506,14 @@ pub extern "C" fn graph_engine_set_anchor_rect(
 pub extern "C" fn graph_engine_is_settled(engine: *mut Engine) -> u8 {
     ffi_engine_or!(engine, 1);
     u8::from(engine.is_settled())
+}
+
+/// Check if physics is completely disabled (static layout for large graphs).
+/// Returns 1 if static (physics off), 0 if physics is active.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_is_static_layout(engine: *mut Engine) -> u8 {
+    ffi_engine_or!(engine, 0);
+    u8::from(engine.is_static_layout())
 }
 
 /// Get the UUID of the currently hovered node.

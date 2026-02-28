@@ -82,7 +82,19 @@ impl ProgressiveRevealAnimator {
         ranked.sort_unstable_by(|a, b| b.1.cmp(&a.1));
 
         // Spread duration scales with node count for a smooth cascade.
-        let spread = if n > 10_000 { 3.5f32 } else { 2.5 };
+        // Small vaults get a faster reveal — the whole animation should feel snappy.
+        // Large vaults get a longer spread so it doesn't overwhelm.
+        let spread = if n > 10_000 {
+            3.5f32
+        } else if n > 1000 {
+            2.5
+        } else if n > 200 {
+            1.8
+        } else if n > 50 {
+            1.2
+        } else {
+            0.8  // Small vaults: fast, punchy reveal
+        };
 
         let mut delays = vec![0.0f32; n];
         for (rank, &(gi, _)) in ranked.iter().enumerate() {
@@ -126,8 +138,9 @@ impl ProgressiveRevealAnimator {
 }
 
 /// Active entrance animation variant.
+#[allow(dead_code)]
 enum ActiveEntrance {
-    /// Full wormhole animation for small graphs (<5K nodes).
+    /// Full wormhole animation (retained for tests, not used in commit).
     Wormhole(EntranceAnimator),
     /// Lightweight progressive reveal for large graphs (5K+ nodes).
     Reveal(ProgressiveRevealAnimator),
@@ -135,6 +148,8 @@ enum ActiveEntrance {
 
 /// Drives the wormhole entrance animation: hero node races forward,
 /// neighbors cascade behind in BFS-ordered waves with spiral rotation.
+/// Retained for tests — not used in production commit path.
+#[allow(dead_code)]
 struct EntranceAnimator {
     /// Per-node stagger delay (seconds). Index = graph node index.
     stagger_delays: Vec<f32>,
@@ -153,6 +168,7 @@ fn ease_out_cubic(t: f32) -> f32 {
     1.0 - s * s * s
 }
 
+#[allow(dead_code)]
 impl EntranceAnimator {
     /// Compute per-node entrance offsets for the current frame.
     fn compute(&self) -> Vec<EntranceNodeState> {
@@ -344,8 +360,8 @@ pub struct Engine {
     /// Merkle-like version chains per node (pure data, no render/physics cost).
     pub(crate) version_store: VersionStore,
 
-    /// Lite rendering mode: flat 2D circles, no glow, no breathing, simplified physics.
-    pub(crate) lite_mode: bool,
+    /// Quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
+    pub(crate) quality_level: u8,
 }
 
 impl Engine {
@@ -378,12 +394,13 @@ impl Engine {
             semantic_neighbors: Vec::new(),
             time_filter: None,
             version_store: VersionStore::new(),
-            lite_mode: false,
+            quality_level: 0,  // Cinematic
         })
     }
 
     /// Commit graph data. Replaces all simulation state, restarts physics.
-    /// If `entrance` is true, plays the wormhole entrance animation.
+    /// If `entrance` is true, plays a calm Obsidian-style entrance animation
+    /// with gradual force ramp and progressive node reveal.
     pub fn commit(&mut self, entrance: bool) {
         // Wake rendering for the new graph data.
         self.idle_frame_count = 0;
@@ -391,67 +408,105 @@ impl Engine {
         // Stop existing physics thread.
         self.stop_physics();
 
-        // Entrance: cluster nodes at center with jitter. For large graphs, use wider
-        // initial spread so physics has room to work during the progressive reveal.
+        let n = self.graph.nodes.len();
+
+        // ── Initial Layout ──────────────────────────────────────────────
+        // Phyllotaxis (golden-angle) spiral gives well-separated initial positions.
+        // Spacing scales with graph size: small vaults get a tighter spiral so nodes
+        // fill the viewport from the start, large vaults spread more to avoid overlap.
         if entrance {
-            let n = self.graph.nodes.len();
-            let nf = n as f32;
-            // Large graphs get wider initial spread (physics + center force will pull in).
-            let jitter_range = if n > 5000 {
-                (nf.sqrt() * 4.0).max(500.0)
+            let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());
+            let spacing = if n > 5000 {
+                60.0_f32
+            } else if n > 500 {
+                80.0
+            } else if n > 100 {
+                50.0
             } else {
-                (nf.sqrt() * 2.0).max(20.0)
+                30.0  // Small vaults: tight spiral, fills screen nicely
             };
             for (i, node) in self.graph.nodes.iter_mut().enumerate() {
-                let hash = ((i as u32).wrapping_mul(2654435761)) as f32 / u32::MAX as f32;
-                let hash2 = (((i as u32 + 7919).wrapping_mul(2246822519))) as f32 / u32::MAX as f32;
-                node.x = (hash - 0.5) * jitter_range;
-                node.y = (hash2 - 0.5) * jitter_range;
+                let r = spacing * (i as f32).sqrt();
+                let theta = i as f32 * golden_angle;
+                node.x = r * theta.cos();
+                node.y = r * theta.sin();
                 node.vx = 0.0;
                 node.vy = 0.0;
             }
         }
 
-        // Load graph into simulation (but don't start physics during entrance —
-        // the z-animation and spiral handle visuals; physics starts after entrance completes).
+        // ── Load Simulation ─────────────────────────────────────────────
         {
             let mut sim = self.sim.lock();
             sim.load_from_graph(&self.graph);
 
-            // Run Louvain community detection and assign cluster IDs.
-            // At very large scales (5K+), skip Louvain entirely — the O(N×E) cost
-            // is too high for a synchronous commit. The physics thread will settle
-            // nodes into natural positions without explicit cluster assignment.
-            let n = sim.x.len();
-            if n < 5000 {
-                let cluster_ids = crate::cluster::detect_communities(n, &sim.edges);
-                sim.cluster_ids = cluster_ids;
-            } else {
-                // Assign each node to its own cluster — cluster force is disabled
-                // at this scale anyway (too expensive).
-                sim.cluster_ids = (0..n as u32).collect();
+            // Page mode always gets full physics — it shows a small subset
+            // (focal node + 1-hop neighbors) regardless of total vault size.
+            if self.mode == 1 && sim.static_layout {
+                sim.static_layout = false;
+                sim.is_settled = false;
+                sim.params.alpha = 0.3;
             }
 
-            // Pre-settle: run a small number of ticks synchronously so the graph
-            // isn't a clump on first render. The physics thread handles full settling.
-            // At 5K+ nodes, skip pre-settle entirely — each tick is expensive and
-            // the physics thread can do it without blocking the main thread.
-            if !entrance && n < 5000 {
-                let max_ticks = if n > 1000 { 10 } else { 30 };
-                for _ in 0..max_ticks {
-                    sim.tick();
-                    if sim.is_settled { break; }
+            // Skip expensive operations for static layout (> 1500 nodes).
+            if !sim.static_layout {
+                // Louvain community detection (O(N×E) — skip for large graphs).
+                let sn = sim.x.len();
+                if sn < 5000 {
+                    let cluster_ids = crate::cluster::detect_communities(sn, &sim.edges);
+                    sim.cluster_ids = cluster_ids;
+                } else {
+                    sim.cluster_ids = (0..sn as u32).collect();
+                }
+
+                // Configure entrance mode: low alpha, zero decay, reset tick counter.
+                // entrance_tick() relies on tick_count starting at 0 for phase detection.
+                if entrance {
+                    sim.set_entrance_mode();
+                }
+
+                // Brief pre-settle for recommits (filter changes, non-entrance).
+                if !entrance && sn < 1000 {
+                    let max_ticks = 30;
+                    for _ in 0..max_ticks {
+                        sim.tick();
+                        if sim.is_settled { break; }
+                    }
                 }
             }
         }
 
-        // Copy pre-settled positions back to graph nodes for rendering.
+        // Copy positions back to graph nodes for rendering + spatial index.
         if !entrance {
             self.sync_positions();
         }
 
-        // Allocate renderer buffers and upload initial data (nodes + edges).
-        self.renderer.allocate_buffers(&self.graph, None);
+        // ── Entrance Animation Setup (before buffer allocation) ──────
+        // Create entrance states BEFORE allocate_buffers so the initial GPU upload
+        // starts with alpha=0 (invisible). Otherwise there's a 1-frame flash.
+        self.entrance_camera_frame = 0;
+        let sim_is_static = self.sim.lock().static_layout;
+
+        if entrance && !sim_is_static {
+            let reveal = ProgressiveRevealAnimator::from_graph(&self.graph);
+            self.entrance_states = vec![
+                EntranceNodeState { z_offset: 0.0, alpha: 0.0, dx: 0.0, dy: 0.0 };
+                n
+            ];
+            self.entrance = Some(ActiveEntrance::Reveal(reveal));
+        } else {
+            self.entrance = None;
+            self.entrance_states = Vec::new();
+        }
+
+        // Allocate renderer buffers and upload initial data.
+        // Pass entrance states so the initial upload uses alpha=0 (no flash).
+        let ent_for_alloc = if self.entrance_states.is_empty() {
+            None
+        } else {
+            Some(self.entrance_states.as_slice())
+        };
+        self.renderer.allocate_buffers(&self.graph, ent_for_alloc);
 
         // Build spatial index for hit testing.
         self.spatial.build(&self.graph.nodes);
@@ -466,43 +521,11 @@ impl Engine {
         self.renderer.highlight.active = false;
         self.renderer.highlight.highlighted_ids.clear();
 
-        if entrance {
-            let node_count = self.graph.nodes.len();
-            self.entrance_states = Vec::new();
-            self.entrance_camera_frame = 0;
-
-            // Camera at moderate zoom centered on origin — nodes materialize and grow.
-            self.renderer.camera_offset = [0.0, 0.0];
-            self.renderer.target_offset = [0.0, 0.0];
-            self.renderer.camera_zoom = 1.0;
-            self.renderer.target_zoom = 1.0;
-            self.renderer.is_animating = false;
-
-            if node_count < 5000 {
-                // Small graph: full wormhole entrance (BFS + spiral + z-depth).
-                // Physics starts after wormhole completes (in render()).
-                self.entrance = Some(ActiveEntrance::Wormhole(
-                    EntranceAnimator::from_graph(&self.graph),
-                ));
-            } else {
-                // Large graph: lightweight progressive reveal (alpha fade by link_count rank).
-                // Physics runs concurrently — the reveal is purely visual.
-                self.entrance = Some(ActiveEntrance::Reveal(
-                    ProgressiveRevealAnimator::from_graph(&self.graph),
-                ));
-                {
-                    let mut sim = self.sim.lock();
-                    sim.set_entrance_mode();
-                }
-                self.start_physics();
-                self.zoom_to_fit();
-            }
+        // ── Start Physics ────────────────────────────────────────────
+        if self.entrance.is_some() {
+            self.zoom_to_fit_immediate();
+            self.start_entrance_physics();
         } else {
-            self.entrance = None;
-            self.entrance_states = Vec::new();
-            self.entrance_camera_frame = 0;
-
-            // Start physics thread immediately for non-entrance commits.
             self.start_physics();
         }
     }
@@ -519,11 +542,69 @@ impl Engine {
         }));
     }
 
+    /// Start physics thread in entrance mode: uses `entrance_tick()` for
+    /// gradual alpha ramp instead of normal `tick()`. Once the simulation
+    /// switches to normal decay mode internally, falls through to regular
+    /// `tick()` behavior automatically.
+    fn start_entrance_physics(&mut self) {
+        self.stop_physics();
+        self.stop_flag.store(false, Ordering::Relaxed);
+        let sim = Arc::clone(&self.sim);
+        let stop = Arc::clone(&self.stop_flag);
+        self.physics_handle = Some(std::thread::spawn(move || {
+            entrance_physics_loop(sim, stop);
+        }));
+    }
+
     fn stop_physics(&mut self) {
         self.stop_flag.store(true, Ordering::Relaxed);
         if let Some(handle) = self.physics_handle.take() {
             let _ = handle.join();
         }
+    }
+
+    /// Immediately set camera to fit all visible nodes (no animation).
+    /// Used at entrance start so the spiral is visible from frame 1.
+    fn zoom_to_fit_immediate(&mut self) {
+        let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
+        let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
+        let mut visible_count = 0u32;
+
+        for n in &self.graph.nodes {
+            if !n.visible { continue; }
+            visible_count += 1;
+            min_x = min_x.min(n.x - n.radius);
+            min_y = min_y.min(n.y - n.radius);
+            max_x = max_x.max(n.x + n.radius);
+            max_y = max_y.max(n.y + n.radius);
+        }
+        if visible_count == 0 { return; }
+
+        let cx = (min_x + max_x) * 0.5;
+        let cy = (min_y + max_y) * 0.5;
+        let graph_w = (max_x - min_x).max(1.0);
+        let graph_h = (max_y - min_y).max(1.0);
+        let w = self.viewport_width as f32;
+        let h = self.viewport_height as f32;
+
+        // Tighter zoom for small graphs so nodes fill the viewport.
+        // Large graphs get more padding to prevent edge nodes from being cut off.
+        let padding = if visible_count < 50 {
+            1.2  // Small: zoom in closer, nodes fill screen
+        } else if visible_count < 200 {
+            1.0
+        } else {
+            0.85  // Large: more padding to see the full graph
+        };
+        let zoom = (w / graph_w).min(h / graph_h) * padding;
+
+        // Snap camera instantly (no lerp).
+        let clamped_zoom = zoom.clamp(0.05, 10.0);
+        self.renderer.camera_offset = [cx, cy];
+        self.renderer.target_offset = [cx, cy];
+        self.renderer.camera_zoom = clamped_zoom;
+        self.renderer.target_zoom = clamped_zoom;
+        self.renderer.is_animating = false;
     }
 
     // ── Visibility (Lightweight Filtering) ──────────────────────────
@@ -555,7 +636,9 @@ impl Engine {
                 let cluster_ids = crate::cluster::detect_communities(n, &sim.edges);
                 sim.cluster_ids = cluster_ids;
             }
-            sim.reheat();
+            if self.entrance.is_none() {
+                sim.reheat();
+            }
         }
 
         // Re-upload graph to renderer (only visible nodes are drawn).
@@ -627,13 +710,11 @@ impl Engine {
         // Entrance animation: compute per-node states each frame.
         let entrance_active = self.entrance.is_some();
         let mut entrance_just_completed = false;
-        let mut was_wormhole = false;
         match &self.entrance {
             Some(ActiveEntrance::Wormhole(anim)) => {
                 self.entrance_states = anim.compute();
                 if anim.is_complete() {
                     entrance_just_completed = true;
-                    was_wormhole = true;
                 }
             }
             Some(ActiveEntrance::Reveal(anim)) => {
@@ -645,27 +726,30 @@ impl Engine {
             None => {}
         }
 
+        // During entrance: gentle periodic zoom-to-fit every ~30 frames
+        // so camera smoothly tracks the expanding graph.
+        if entrance_active && !entrance_just_completed {
+            self.entrance_camera_frame += 1;
+            if self.entrance_camera_frame % 30 == 0 {
+                self.zoom_to_fit();
+            }
+        }
+
         // Handle entrance completion outside the borrow.
         if entrance_just_completed {
             self.entrance = None;
             self.entrance_states.clear();
 
-            if was_wormhole {
-                // Wormhole: physics wasn't running — start it now with gentle mode.
-                {
-                    let mut sim = self.sim.lock();
-                    sim.set_entrance_mode();
-                }
-                self.start_physics();
-            }
-            // else: progressive reveal — physics was already running since commit.
+            // Transition: stop entrance physics, restart normal physics.
+            // The simulation's alpha_decay is already non-zero (set by entrance_tick),
+            // so the normal physics_loop will continue settling.
+            self.stop_physics();
+            self.start_physics();
 
-            // Re-upload graph to renderer: during entrance, edge buffers were sized
-            // for the suppressed edge count (alpha < 0.7 hidden). Now that all edges
-            // are visible, we need full-capacity buffers to avoid overflow.
+            // Re-upload graph to renderer with full edge buffers.
             self.renderer.upload_graph(&self.graph, None);
 
-            // Smooth zoom-to-fit as physics spreads nodes outward.
+            // Final zoom-to-fit for settled positions.
             self.zoom_to_fit();
         }
 
@@ -711,7 +795,8 @@ impl Engine {
         }
 
         // Update magnetic field lines only when hovering (skip in lite mode entirely).
-        if !self.lite_mode && (self.hovered_id.is_some() || self.renderer.field_line_count > 0) {
+        // Field lines only in Cinematic mode (quality_level == 0).
+        if self.quality_level == 0 && (self.hovered_id.is_some() || self.renderer.field_line_count > 0) {
             let time = self.renderer.start_time.elapsed().as_secs_f32();
             self.renderer.update_field_lines(self.hovered_id, &self.graph, time);
         }
@@ -1077,7 +1162,11 @@ impl Engine {
         sim.params.charge_strength = charge_strength;
         sim.params.charge_range = charge_range;
         sim.params.link_strength = link_strength;
-        sim.reheat();
+        // Don't reheat during entrance — it would blow away the carefully
+        // tuned alpha ramp. The entrance physics thread handles energy levels.
+        if self.entrance.is_none() {
+            sim.reheat();
+        }
     }
 
     /// Update extended physics parameters (velocity decay, center gravity, collision).
@@ -1089,7 +1178,11 @@ impl Engine {
     ) {
         self.idle_frame_count = 0;
         let mut sim = self.sim.lock();
-        sim.params.velocity_decay = velocity_decay.clamp(0.0, 0.95);
+        // During entrance, only store link_distance/charge/range but DON'T
+        // override velocity_decay — the entrance ramp controls damping.
+        if self.entrance.is_none() {
+            sim.params.velocity_decay = velocity_decay.clamp(0.0, 0.95);
+        }
         sim.params.center_strength = center_strength.clamp(0.0, 0.2);
         sim.params.collision_radius = collision_radius.clamp(0.0, 100.0);
 
@@ -1098,7 +1191,9 @@ impl Engine {
         for r in &mut sim.collision_radii {
             *r = new_radius;
         }
-        sim.reheat();
+        if self.entrance.is_none() {
+            sim.reheat();
+        }
     }
 
     // ── Cluster Parameters ───────────────────────────────────────────
@@ -1106,13 +1201,17 @@ impl Engine {
     pub fn set_cluster_params(&mut self, cluster_strength: f32) {
         let mut sim = self.sim.lock();
         sim.params.cluster_strength = cluster_strength;
-        sim.reheat();
+        if self.entrance.is_none() {
+            sim.reheat();
+        }
     }
 
     pub fn set_center_mode(&mut self, mode: u8) {
         let mut sim = self.sim.lock();
         sim.params.center_mode = crate::simulation::CenterMode::from_u8(mode);
-        sim.reheat();
+        if self.entrance.is_none() {
+            sim.reheat();
+        }
     }
 
     /// Override cluster IDs from a UUID → cluster_id map (semantic clustering).
@@ -1136,7 +1235,9 @@ impl Engine {
             }
         }
 
-        sim.reheat();
+        if self.entrance.is_none() {
+            sim.reheat();
+        }
     }
 
     /// Push semantic neighbor pairs to the simulation thread.
@@ -1164,7 +1265,9 @@ impl Engine {
     pub fn set_semantic_strength(&mut self, strength: f32) {
         let mut sim = self.sim.lock();
         sim.params.semantic_strength = strength;
-        sim.reheat();
+        if self.entrance.is_none() {
+            sim.reheat();
+        }
     }
 
     // ── Accessors ────────────────────────────────────────────────────
@@ -1186,6 +1289,11 @@ impl Engine {
         self.sim.lock().is_settled
     }
 
+    /// Returns true when physics is completely disabled (large graph above threshold).
+    pub fn is_static_layout(&self) -> bool {
+        self.sim.lock().static_layout
+    }
+
     pub fn set_mode(&mut self, mode: u8) {
         self.idle_frame_count = 0;
         self.mode = mode;
@@ -1197,15 +1305,17 @@ impl Engine {
             sim.params.charge_range = 800.0;
             sim.params.center_strength = 0.02;
         } else {
-            // Global mode: restore defaults.
+            // Global mode: restore calm defaults.
             self.anchor_rect = None;
             sim.anchor_center = None;
-            sim.params.link_distance = 250.0;
-            sim.params.charge_strength = -1200.0;
-            sim.params.charge_range = 2000.0;
+            sim.params.link_distance = 200.0;
+            sim.params.charge_strength = -400.0;
+            sim.params.charge_range = 1500.0;
             sim.params.center_strength = 0.005;
         }
-        sim.reheat();
+        if self.entrance.is_none() {
+            sim.reheat();
+        }
     }
 
     pub fn mode(&self) -> u8 {
@@ -1264,9 +1374,18 @@ impl Engine {
     }
 
     pub fn set_lite_mode(&mut self, enabled: bool) {
-        self.lite_mode = enabled;
-        self.renderer.lite_mode = enabled;
+        let level = if enabled { 2u8 } else { 0 };
+        self.quality_level = level;
+        self.renderer.quality_level = level;
         self.sim.lock().lite_mode = enabled;
+    }
+
+    /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
+    pub fn set_quality_level(&mut self, level: u8) {
+        let clamped = level.min(2);
+        self.quality_level = clamped;
+        self.renderer.quality_level = clamped;
+        self.sim.lock().lite_mode = clamped >= 2;
     }
 
     /// Look up a node's UUID by its internal ID and store in the reusable buffer.
@@ -1298,6 +1417,9 @@ impl Engine {
 
     /// Reheat the physics simulation (after embeddings change, etc.).
     pub fn reheat(&mut self) {
+        if self.entrance.is_some() {
+            return; // Don't reheat during entrance — let the alpha ramp control forces.
+        }
         self.sync_semantic_neighbors();
         let sim = self.sim.clone();
         let mut sim = sim.lock();
@@ -1367,34 +1489,90 @@ impl Drop for Engine {
 
 // ── Physics Thread ──────────────────────────────────────────────────────────
 
-fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
-    let target_dt = Duration::from_secs_f64(1.0 / PHYSICS_HZ);
-    let slow_dt = Duration::from_secs_f64(1.0 / 30.0); // 30Hz when nearly settled
+/// Entrance physics loop: uses `entrance_tick()` for gradual alpha ramp.
+/// Once alpha_decay becomes non-zero (entrance_tick switches to decay mode),
+/// falls through to normal tick() behavior automatically.
+fn entrance_physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let target_dt = Duration::from_secs_f64(1.0 / PHYSICS_HZ);
+        let slow_dt = Duration::from_secs_f64(1.0 / 30.0);
 
-    while !stop.load(Ordering::Relaxed) {
-        let start = Instant::now();
+        while !stop.load(Ordering::Relaxed) {
+            let start = Instant::now();
 
-        let (settled, alpha) = {
-            let mut sim = sim.lock();
-            sim.tick();
-            (sim.is_settled, sim.params.alpha)
-        };
+            let (settled, alpha) = {
+                let mut sim = sim.lock();
+                sim.entrance_tick();
+                (sim.is_settled, sim.params.alpha)
+            };
 
-        if settled {
-            // Check stop flag before committing to sleep.
-            if stop.load(Ordering::Relaxed) {
-                break;
+            if settled {
+                if stop.load(Ordering::Relaxed) { break; }
+                std::thread::sleep(Duration::from_millis(SETTLED_SLEEP_MS));
+                continue;
             }
-            std::thread::sleep(Duration::from_millis(SETTLED_SLEEP_MS));
-            continue;
-        }
 
-        // Throttle to 30Hz when alpha is low (nearly settled) to reduce CPU.
-        let frame_dt = if alpha < 0.05 { slow_dt } else { target_dt };
-        let elapsed = start.elapsed();
-        if elapsed < frame_dt {
-            std::thread::sleep(frame_dt - elapsed);
+            let frame_dt = if alpha < 0.05 { slow_dt } else { target_dt };
+            let elapsed = start.elapsed();
+            if elapsed < frame_dt {
+                std::thread::sleep(frame_dt - elapsed);
+            }
         }
+    }));
+    if let Err(e) = result {
+        let msg = if let Some(s) = e.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = e.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "unknown panic".to_string()
+        };
+        eprintln!("[graph-engine] PANIC in entrance_physics_loop: {msg}");
+        stop.store(true, Ordering::Relaxed);
+    }
+}
+
+fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let target_dt = Duration::from_secs_f64(1.0 / PHYSICS_HZ);
+        let slow_dt = Duration::from_secs_f64(1.0 / 30.0); // 30Hz when nearly settled
+
+        while !stop.load(Ordering::Relaxed) {
+            let start = Instant::now();
+
+            let (settled, alpha) = {
+                let mut sim = sim.lock();
+                sim.tick();
+                (sim.is_settled, sim.params.alpha)
+            };
+
+            if settled {
+                // Check stop flag before committing to sleep.
+                if stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(SETTLED_SLEEP_MS));
+                continue;
+            }
+
+            // Throttle to 30Hz when alpha is low (nearly settled) to reduce CPU.
+            let frame_dt = if alpha < 0.05 { slow_dt } else { target_dt };
+            let elapsed = start.elapsed();
+            if elapsed < frame_dt {
+                std::thread::sleep(frame_dt - elapsed);
+            }
+        }
+    }));
+    if let Err(e) = result {
+        let msg = if let Some(s) = e.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = e.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "unknown panic".to_string()
+        };
+        eprintln!("[graph-engine] PANIC in physics_loop: {msg}");
+        stop.store(true, Ordering::Relaxed);
     }
 }
 
@@ -1842,14 +2020,29 @@ mod tests {
         sim.load_from_graph(&graph);
         sim.set_entrance_mode();
 
-        // Entrance mode: lower alpha (0.25), higher damping (0.72).
-        assert!((sim.params.alpha - 0.25).abs() < f32::EPSILON);
-        assert!((sim.params.velocity_decay - 0.72).abs() < f32::EPSILON);
+        // Entrance mode: low alpha for calm onset, high damping.
+        assert!(sim.params.alpha < 0.10, "entrance alpha should start low, got {}", sim.params.alpha);
+        assert!(sim.params.velocity_decay >= 0.85, "entrance should be heavily damped, got {}", sim.params.velocity_decay);
+        assert_eq!(sim.params.alpha_decay, 0.0, "entrance uses manual ramp, not auto-decay");
 
-        for _ in 0..800 {
+        // Check alpha ramp at midpoint (tick 50 — during ramp/hold phase).
+        for _ in 0..50 {
+            sim.entrance_tick();
+        }
+        assert!(sim.params.alpha > 0.1, "alpha should have ramped up by tick 50, got {}", sim.params.alpha);
+
+        // Continue entrance ticks to transition to normal decay.
+        for _ in 0..250 {
+            sim.entrance_tick();
+        }
+        // Alpha decay should now be active (switched from manual ramp).
+        assert!(sim.params.alpha_decay > 0.0, "should have switched to normal decay");
+
+        // Let normal physics settle.
+        for _ in 0..500 {
             sim.tick();
         }
-        assert!(sim.is_settled, "entrance mode should settle within 800 ticks");
+        assert!(sim.is_settled, "entrance mode should settle within 800 total ticks");
     }
 
     #[test]
@@ -2228,36 +2421,37 @@ mod tests {
     }
 
     #[test]
-    fn stress_2000_nodes_settles_without_chaos() {
-        // Validates scale-aware parameters kick in and the simulation
-        // settles without NaN, Inf, or degenerate positions.
+    fn stress_2000_nodes_static_layout() {
+        // 2000 nodes exceeds static layout threshold (1500).
+        // Physics should be completely disabled.
         let graph = make_large_graph(2000);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
 
-        // Scale-aware params should have activated.
-        assert!(sim.params.link_distance <= 180.0, "link_distance should scale down for 2000 nodes");
-        assert!(sim.params.velocity_decay >= 0.65, "velocity_decay should increase for 2000 nodes");
+        // Static layout should be active.
+        assert!(sim.static_layout, "2000 nodes should trigger static layout");
+        assert!(sim.is_settled, "static layout should be settled");
+        assert_eq!(sim.params.alpha, 0.0, "alpha should be 0 for static layout");
 
-        // Run enough ticks to settle (alpha_decay=0.0228 → 300 ticks to ~37%).
-        for _ in 0..800 {
-            sim.tick();
-            if sim.is_settled { break; }
-        }
+        // Edges should NOT be in simulation (skipped for performance).
+        assert!(sim.edges.is_empty(), "static layout should not load physics edges");
 
-        // Verify no NaN/Inf.
+        // Degrees should still be computed (needed for node radius sizing).
+        let total_deg: u32 = sim.degrees.iter().sum();
+        assert!(total_deg > 0, "degrees should be computed for static layout");
+
+        // tick() should be a no-op.
+        let x_before: Vec<f32> = sim.x.clone();
+        sim.tick();
+        assert_eq!(sim.x, x_before, "tick() should not modify positions in static layout");
+
+        // Verify no NaN/Inf in positions.
         for i in 0..sim.x.len() {
-            assert!(sim.x[i].is_finite(), "x[{}] not finite after 2000-node sim", i);
-            assert!(sim.y[i].is_finite(), "y[{}] not finite after 2000-node sim", i);
+            assert!(sim.x[i].is_finite(), "x[{}] not finite", i);
+            assert!(sim.y[i].is_finite(), "y[{}] not finite", i);
         }
 
-        // Verify nodes spread out (not collapsed to a point).
-        let (mut min_x, mut max_x) = (f32::MAX, f32::MIN);
-        for &x in &sim.x {
-            min_x = min_x.min(x);
-            max_x = max_x.max(x);
-        }
-        let spread = max_x - min_x;
-        assert!(spread > 200.0, "2000 nodes should spread: got {}", spread);
+        // All velocities should be zero.
+        assert!(sim.vx.iter().all(|&v| v == 0.0), "velocities should be zero");
     }
 }

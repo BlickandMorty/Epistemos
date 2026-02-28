@@ -50,6 +50,11 @@ final class VaultSyncService {
     private var versionCaptureTask: Task<Void, Never>?
     private var manifestRefreshTask: Task<Void, Never>?
 
+    // MARK: - File Watching
+    private var fileWatcherSource: DispatchSourceFileSystemObject?
+    private var fileWatcherFD: Int32 = -1
+    private var fileWatchDebounceTask: Task<Void, Never>?
+
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
     }
@@ -267,6 +272,7 @@ final class VaultSyncService {
         restartAutoSaveTimer()
         startVersionCaptureTimer()
         startManifestRefreshTimer()
+        startFileWatcher()
 
         // Build ambient manifest eagerly after import completes
         AppBootstrap.shared?.refreshAmbientManifest()
@@ -287,6 +293,7 @@ final class VaultSyncService {
         versionCaptureTask = nil
         manifestRefreshTask?.cancel()
         manifestRefreshTask = nil
+        stopFileWatcher()
         indexActor = nil
         searchService = nil
 
@@ -623,6 +630,87 @@ final class VaultSyncService {
                 try? await Task.sleep(for: .seconds(300))
                 guard !Task.isCancelled, let self else { return }
                 AppBootstrap.shared?.refreshAmbientManifest()
+            }
+        }
+    }
+
+    // MARK: - File System Watcher
+
+    /// Monitor the vault directory for external changes (creates, modifies, deletes, renames).
+    /// Uses GCD DispatchSource for efficient kernel-level notifications.
+    /// Debounces rapid changes (e.g. editor auto-save) with a 2-second delay.
+    private func startFileWatcher() {
+        guard let url = vaultURL else { return }
+        stopFileWatcher()
+
+        let fd = open(url.path, O_EVTONLY)
+        guard fd >= 0 else {
+            log.warning("File watcher: failed to open vault directory for monitoring")
+            return
+        }
+        fileWatcherFD = fd
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend, .rename, .delete, .link, .attrib],
+            queue: .global(qos: .utility)
+        )
+
+        source.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.handleFileSystemChange()
+            }
+        }
+
+        source.setCancelHandler { [fd] in
+            close(fd)
+        }
+
+        source.resume()
+        fileWatcherSource = source
+        log.info("File watcher started for: \(url.lastPathComponent, privacy: .public)")
+    }
+
+    private func stopFileWatcher() {
+        fileWatchDebounceTask?.cancel()
+        fileWatchDebounceTask = nil
+        if let source = fileWatcherSource {
+            source.cancel()
+            fileWatcherSource = nil
+            fileWatcherFD = -1
+        }
+    }
+
+    /// Debounced handler for file system change events.
+    /// Waits 2 seconds after the last change before re-importing, so rapid
+    /// saves (e.g. typing in an external editor) don't trigger 50 reimports.
+    private func handleFileSystemChange() {
+        fileWatchDebounceTask?.cancel()
+        fileWatchDebounceTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, let self, let vaultURL, let actor = indexActor else { return }
+
+            log.info("File watcher: vault changed externally — re-importing")
+            do {
+                try await actor.importVault(from: vaultURL)
+                log.info("File watcher: re-import complete")
+
+                // Rebuild graph with new/changed data
+                AppBootstrap.shared?.graphState.needsRefresh = true
+
+                // Refresh ambient manifest
+                AppBootstrap.shared?.refreshAmbientManifest()
+
+                // Diff-sync FTS5 search index
+                if let svc = searchService {
+                    let timestamps = await actor.allPageTimestamps()
+                    try await svc.diffSync(
+                        swiftDataPages: timestamps,
+                        fullPageProvider: { id in await actor.fullPageData(for: id) }
+                    )
+                }
+            } catch {
+                log.error("File watcher: re-import failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

@@ -43,40 +43,40 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
 
     var linkDistance: Float {
         switch self {
-        case .observatory:   return 250
-        case .nebula:        return 350
+        case .observatory:   return 200
+        case .nebula:        return 280
         case .crystal:       return 120
-        case .fluid:         return 200
-        case .constellation: return 400
+        case .fluid:         return 180
+        case .constellation: return 350
         }
     }
     var chargeStrength: Float {
         switch self {
-        case .observatory:   return -1200
-        case .nebula:        return -800
-        case .crystal:       return -2000
-        case .fluid:         return -1000
-        case .constellation: return -600
+        case .observatory:   return -400
+        case .nebula:        return -250
+        case .crystal:       return -600
+        case .fluid:         return -350
+        case .constellation: return -200
         }
     }
     var chargeRange: Float {
         switch self {
-        case .observatory:   return 2000
-        case .nebula:        return 1500
-        case .crystal:       return 1000
-        case .fluid:         return 1200
-        case .constellation: return 2000
+        case .observatory:   return 1500
+        case .nebula:        return 1200
+        case .crystal:       return 800
+        case .fluid:         return 1000
+        case .constellation: return 1500
         }
     }
     var linkStrength: Float { 0 } // Always auto
 
     var velocityDecay: Float {
         switch self {
-        case .observatory:   return 0.70
-        case .nebula:        return 0.50
-        case .crystal:       return 0.80
-        case .fluid:         return 0.40
-        case .constellation: return 0.55
+        case .observatory:   return 0.85
+        case .nebula:        return 0.80
+        case .crystal:       return 0.90
+        case .fluid:         return 0.75
+        case .constellation: return 0.82
         }
     }
     var centerStrength: Float {
@@ -90,11 +90,11 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var collisionRadius: Float {
         switch self {
-        case .observatory:   return 35
-        case .nebula:        return 25
-        case .crystal:       return 45
-        case .fluid:         return 30
-        case .constellation: return 20
+        case .observatory:   return 20
+        case .nebula:        return 15
+        case .crystal:       return 30
+        case .fluid:         return 18
+        case .constellation: return 12
         }
     }
 }
@@ -122,6 +122,13 @@ final class GraphState {
     /// Marked nonisolated(unsafe) so MetalGraphNSView.deinit can nil it synchronously
     /// before calling graph_engine_destroy, preventing use-after-free races.
     nonisolated(unsafe) var engineHandle: OpaquePointer?
+
+    /// True when physics is completely disabled (graph > 1500 visible nodes).
+    /// Updated after each commit/refresh cycle. UI uses this to grey out physics controls.
+    var isStaticLayout: Bool = false
+
+    /// The threshold above which physics is disabled. Shown in the UI tooltip.
+    static let staticLayoutThreshold = 1500
 
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
     let embeddingService: EmbeddingService
@@ -177,14 +184,20 @@ final class GraphState {
     /// Set to true to request the overlay close completely.
     var pendingClose = false
 
-    // MARK: - Lite Mode
+    // MARK: - Quality Level
 
-    /// When true, the graph uses flat 2D circles, no glow, no breathing, simplified physics.
-    /// Persisted to UserDefaults for cross-session consistency.
-    var liteMode: Bool = UserDefaults.standard.bool(forKey: "epistemos.graph.liteMode") {
-        didSet { UserDefaults.standard.set(liteMode, forKey: "epistemos.graph.liteMode"); liteModeVersion += 1 }
+    /// Graph rendering quality: 0 = Cinematic, 1 = Balanced, 2 = Performance.
+    /// Cinematic: all effects (glow, breathing, perspective, field lines).
+    /// Balanced: sphere shading, no animation/glow.
+    /// Performance: flat circles, minimal GPU cost.
+    var qualityLevel: UInt8 = UInt8(UserDefaults.standard.integer(forKey: "epistemos.graph.qualityLevel")) {
+        didSet { UserDefaults.standard.set(Int(qualityLevel), forKey: "epistemos.graph.qualityLevel"); liteModeVersion += 1 }
     }
-    /// Incremented when liteMode changes so MetalGraphView can detect and push to Rust.
+
+    /// Backwards-compatible getter for code that checks liteMode.
+    var liteMode: Bool { qualityLevel >= 2 }
+
+    /// Incremented when quality changes so MetalGraphView can detect and push to Rust.
     var liteModeVersion: Int = 0
 
     // MARK: - Force Parameters
@@ -194,21 +207,21 @@ final class GraphState {
 
     // ── Core ──
     /// Natural resting length of edge springs.
-    var linkDistance: Float = 250.0
+    var linkDistance: Float = 200.0
     /// Many-body charge strength (negative = repulsion).
-    var chargeStrength: Float = -1200.0
+    var chargeStrength: Float = -400.0
     /// Maximum range for many-body repulsion.
-    var chargeRange: Float = 2000.0
+    var chargeRange: Float = 1500.0
     /// Link spring strength. 0 = auto (1 / min(degree)).
     var linkStrength: Float = 0.0
 
     // ── Extended ──
     /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous).
-    var velocityDecay: Float = 0.70
+    var velocityDecay: Float = 0.85
     /// Center gravity pull strength (0 = none, 0.2 = strong).
     var centerStrength: Float = 0.005
     /// Collision buffer zone in pixels.
-    var collisionRadius: Float = 35.0
+    var collisionRadius: Float = 20.0
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
     var forceConfigVersion: Int = 0
@@ -224,7 +237,7 @@ final class GraphState {
     }
 
     // ── Cluster ──
-    var clusterStrength: Float = 0.3
+    var clusterStrength: Float = 0.15
     var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
     var semanticStrength: Float = 0.0
 

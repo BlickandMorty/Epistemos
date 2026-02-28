@@ -45,7 +45,7 @@ struct Uniforms {
     focal_length: f32,       // perspective focal distance (2.0 default)
     camera_velocity: [f32; 2], // camera offset delta (world units/frame)
     zoom_velocity: f32,        // zoom delta per frame (for motion blur)
-    lite_mode: f32,            // 0.0 = full, 1.0 = lite (flat 2D, no effects)
+    lite_mode: f32,            // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
 }
 
 /// Compute z-depth from link count using 3 discrete tiers (Observatory layered planes).
@@ -94,7 +94,7 @@ struct Uniforms {
     float focal_length;
     float2 camera_velocity;
     float zoom_velocity;
-    float lite_mode;
+    float lite_mode;   // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
 };
 
 // ── Node shaders (instanced circles with depth perspective) ──────────
@@ -132,12 +132,17 @@ vertex NodeVertexOut node_vertex(
 
     float depth;
     float effective_radius;
-    if (uniforms.lite_mode > 0.5) {
-        // Lite mode: flat 2D, no breathing, no perspective.
+    if (uniforms.lite_mode > 1.5) {
+        // Performance: flat 2D, no breathing, no perspective.
         depth = 0.0;
         effective_radius = inst.radius;
+    } else if (uniforms.lite_mode > 0.5) {
+        // Balanced: sphere shading but no breathing/perspective animation.
+        // Use static depth for z-ordering only (no animated parallax).
+        depth = inst.z;
+        effective_radius = inst.radius;
     } else {
-        // Full mode: breathing animation + perspective depth.
+        // Cinematic: breathing animation + perspective depth.
         float breath_speed = inst.z > 0.2 ? 0.7 : (inst.z > -0.1 ? 0.5 : 0.3);
         float breath = sin(uniforms.time * breath_speed + float(instance_id) * 2.39996) * 0.18;
         depth = inst.z + breath;
@@ -174,14 +179,14 @@ fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
 
     if (in.highlight_dim < 0.001) discard_fragment();
 
-    // ── Lite mode: flat colored circle, ~3 ALU ops ──
-    if (in.is_lite > 0.5) {
+    // ── Performance: flat colored circle, ~3 ALU ops ──
+    if (in.is_lite > 1.5) {
         float alpha = 1.0 - smoothstep(0.85, 1.0, dist);
         if (alpha < 0.01) discard_fragment();
         return float4(in.color.rgb, in.color.a * alpha * in.highlight_dim);
     }
 
-    // ── Full mode: pixel art + sphere shading ──
+    // ── Balanced + Cinematic: pixel art + sphere shading ──
     float pixel_strength = 0.6;
     float grid = 12.0;
     float2 quv = floor(in.uv * grid + 0.5) / grid;
@@ -218,8 +223,10 @@ fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
     float rim_glow = pow(rim, 3.0) * 0.35;
     float3 lit_color = in.color.rgb * lighting + spec + in.color.rgb * rim_glow;
 
-    float depth_fade = in.depth < -0.1 ? 0.65 : 1.0;
-    float edge_softness = in.depth < -0.1 ? 0.75 : 0.85;
+    // Balanced: no depth-of-field fade (all nodes same opacity).
+    // Cinematic: far nodes fade slightly for depth effect.
+    float depth_fade = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.65 : 1.0;
+    float edge_softness = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.75 : 0.85;
     float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, dist);
     float final_alpha = mix(dof_alpha, alpha, pixel_strength);
 
@@ -360,8 +367,9 @@ pub struct Renderer {
     pub clear_color: [f64; 4],
     // Light mode: uses darker node colors for light backgrounds.
     pub light_mode: bool,
-    // Lite mode: flat 2D circles, no glow, no breathing, no field lines.
-    pub lite_mode: bool,
+    // Quality level: 0 = Cinematic (full effects), 1 = Balanced (sphere shading, no animation),
+    // 2 = Performance (flat circles, no effects). Replaces binary lite_mode.
+    pub quality_level: u8,
     // Epoch for elapsed time tracking.
     pub start_time: std::time::Instant,
     // Previous-frame camera state (retained for future effects / velocity computation).
@@ -463,7 +471,7 @@ impl Renderer {
             field_line_scratch: Vec::new(),
             clear_color: [0.07, 0.07, 0.09, 1.0],
             light_mode: false,
-            lite_mode: false,
+            quality_level: 0,  // Cinematic by default
             start_time: std::time::Instant::now(),
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
@@ -512,12 +520,15 @@ impl Renderer {
             // Highlight dimming is handled by the GPU via highlight_flag_buf (buffer(2)).
             // Colors are always at full alpha here.
 
-            // Lite mode: flat 2D (z=0), no entrance offsets, no glow.
-            let mut z = if self.lite_mode { 0.0 } else { z_for_link_count(node.link_count) };
+            // Performance: flat 2D (z=0), no entrance offsets, no glow.
+            let is_performance = self.quality_level >= 2;
+            let is_cinematic = self.quality_level == 0;
+            let mut z = if is_performance { 0.0 } else { z_for_link_count(node.link_count) };
             let mut pos = [node.x, node.y];
 
             // Apply entrance animation offsets (z-depth, alpha, spiral displacement).
-            if !self.lite_mode {
+            // Available in Cinematic and Balanced modes.
+            if !is_performance {
                 if let Some(ent) = entrance {
                     if let Some(state) = ent.get(gi) {
                         z += state.z_offset;
@@ -528,7 +539,8 @@ impl Renderer {
                 }
             }
 
-            if !self.lite_mode {
+            // Glow effects: only in Cinematic mode (not Balanced or Performance).
+            if is_cinematic {
                 // Hub glow: foreground nodes (9+ links) get a faint radial glow behind them.
                 if node.link_count >= 9 {
                     let glow_alpha = if self.light_mode { 0.15 } else { 0.08 };
@@ -1056,7 +1068,8 @@ impl Renderer {
         }
     }
 
-    const CAMERA_LAMBDA: f32 = 8.0;
+    /// Camera smoothing factor. Higher = faster. 3.0 = gentle cinematic glide.
+    const CAMERA_LAMBDA: f32 = 3.0;
 
     pub fn update_camera(&mut self) {
         let now = std::time::Instant::now();
@@ -1101,7 +1114,7 @@ impl Renderer {
                 focal_length: 2.0,
                 camera_velocity: [0.0, 0.0],
                 zoom_velocity: 0.0,
-                lite_mode: if self.lite_mode { 1.0 } else { 0.0 },
+                lite_mode: self.quality_level as f32,
             };
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;

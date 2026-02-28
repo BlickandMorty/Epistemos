@@ -188,6 +188,9 @@ void graph_engine_set_mode(Engine* engine, uint8_t mode);
 /// Set lite rendering mode: 0 = full (3D, effects), 1 = lite (2D flat, no glow).
 void graph_engine_set_lite_mode(Engine* engine, uint8_t enabled);
 
+/// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
+void graph_engine_set_quality_level(Engine* engine, uint8_t level);
+
 /// Set the note window rect in screen pixels for page mode anchor positioning.
 void graph_engine_set_anchor_rect(Engine* engine, float x, float y, float w, float h);
 
@@ -195,6 +198,10 @@ void graph_engine_set_anchor_rect(Engine* engine, float x, float y, float w, flo
 
 /// Check if the simulation has settled.
 uint8_t graph_engine_is_settled(Engine* engine);
+
+/// Check if physics is disabled (static layout for graphs > 1500 nodes).
+/// Returns 1 if static (physics off), 0 if physics is active.
+uint8_t graph_engine_is_static_layout(Engine* engine);
 
 /// Get the UUID of the currently hovered node.
 const char* graph_engine_hovered_node_uuid(Engine* engine);

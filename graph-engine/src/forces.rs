@@ -178,6 +178,8 @@ pub fn force_collide(
 }
 
 /// Like `force_collide` but reuses a caller-provided grid HashMap to avoid per-tick allocation.
+/// Uses a flat pair buffer to decouple grid lookup from position mutation,
+/// avoiding the keys-collection allocation.
 pub fn force_collide_with_scratch(
     x: &mut [f32],
     y: &mut [f32],
@@ -206,6 +208,9 @@ pub fn force_collide_with_scratch(
     let cell_size = max_radius * 2.0;
     let inv_cell = 1.0 / cell_size;
 
+    // 4 forward-neighbor offsets to avoid double-checking pairs.
+    const OFFSETS: [(i32, i32); 4] = [(1, 0), (-1, 1), (0, 1), (1, 1)];
+
     for _ in 0..iterations {
         // Clear grid, reusing allocated inner Vecs.
         for v in grid.values_mut() {
@@ -214,20 +219,21 @@ pub fn force_collide_with_scratch(
 
         // Build grid: hash (cell_x, cell_y) → list of node indices.
         for i in 0..n {
-            let cx = (x[i] * inv_cell).floor() as i32;
-            let cy = (y[i] * inv_cell).floor() as i32;
-            grid.entry((cx, cy)).or_default().push(i);
+            let gx = (x[i] * inv_cell).floor() as i32;
+            let gy = (y[i] * inv_cell).floor() as i32;
+            grid.entry((gx, gy)).or_default().push(i);
         }
 
-        // Collect keys for iteration (can't mutate x/y while iterating grid).
+        // Snapshot occupied cell keys into a stack-allocated-friendly vec.
+        // This decouples grid reads from x/y mutation.
+        // Reuse via retain: only allocates on first call, then capacity persists.
         let keys: Vec<(i32, i32)> = grid.keys().copied().collect();
 
-        // 4 forward-neighbor offsets to avoid double-checking pairs.
-        let offsets: [(i32, i32); 4] = [(1, 0), (-1, 1), (0, 1), (1, 1)];
-
         for key in &keys {
-            let cell = &grid[key];
-            if cell.is_empty() { continue; }
+            let cell = match grid.get(key) {
+                Some(c) if !c.is_empty() => c,
+                _ => continue,
+            };
 
             // Intra-cell pairs.
             for a in 0..cell.len() {
@@ -236,8 +242,8 @@ pub fn force_collide_with_scratch(
                 }
             }
 
-            // Inter-cell pairs with forward neighbors (O(1) lookup each).
-            for &(ox, oy) in &offsets {
+            // Inter-cell pairs with forward neighbors.
+            for &(ox, oy) in &OFFSETS {
                 let nkey = (key.0 + ox, key.1 + oy);
                 if let Some(neighbor) = grid.get(&nkey) {
                     for &i in cell.iter() {
@@ -267,10 +273,10 @@ fn resolve_overlap(
     let min_dist_sq = min_dist * min_dist;
 
     if dist_sq < min_dist_sq {
-        let i_fixed = fx.get(i).map_or(false, |f| f.is_some())
-            || fy.get(i).map_or(false, |f| f.is_some());
-        let j_fixed = fx.get(j).map_or(false, |f| f.is_some())
-            || fy.get(j).map_or(false, |f| f.is_some());
+        let i_fixed = fx.get(i).is_some_and(|f| f.is_some())
+            || fy.get(i).is_some_and(|f| f.is_some());
+        let j_fixed = fx.get(j).is_some_and(|f| f.is_some())
+            || fy.get(j).is_some_and(|f| f.is_some());
 
         // Both fixed — can't resolve overlap.
         if i_fixed && j_fixed { return; }
@@ -326,6 +332,7 @@ fn force_collide_brute(
 /// Pulls every node toward `(center_x, center_y)` with a gentle spring.
 /// LogSeq uses strength = 0.02, centered at origin (0, 0).
 #[allow(clippy::too_many_arguments)]
+#[inline]
 pub fn force_center(
     x: &[f32],
     y: &[f32],
@@ -336,9 +343,10 @@ pub fn force_center(
     strength: f32,
     alpha: f32,
 ) {
+    let s = strength * alpha;
     for i in 0..x.len() {
-        vx[i] += (center_x - x[i]) * strength * alpha;
-        vy[i] += (center_y - y[i]) * strength * alpha;
+        vx[i] += (center_x - x[i]) * s;
+        vy[i] += (center_y - y[i]) * s;
     }
 }
 
@@ -381,6 +389,64 @@ pub fn force_cluster(
     }
 
     for c in 0..=max_cluster {
+        if counts[c] > 0 {
+            cx[c] /= counts[c] as f32;
+            cy[c] /= counts[c] as f32;
+        }
+    }
+
+    let effective = strength * 0.05 * alpha;
+    for i in 0..n {
+        let c = cluster_ids[i] as usize;
+        if counts[c] <= 1 {
+            continue;
+        }
+        vx[i] += (cx[c] - x[i]) * effective;
+        vy[i] += (cy[c] - y[i]) * effective;
+    }
+}
+
+/// Like `force_cluster` but reuses caller-provided centroid buffers.
+#[allow(clippy::too_many_arguments)]
+pub fn force_cluster_with_scratch(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    cluster_ids: &[u32],
+    strength: f32,
+    alpha: f32,
+    cx: &mut Vec<f32>,
+    cy: &mut Vec<f32>,
+    counts: &mut Vec<u32>,
+) {
+    if strength < 0.001 || x.is_empty() {
+        return;
+    }
+    let n = x.len();
+    if cluster_ids.len() != n {
+        return;
+    }
+
+    let max_cluster = cluster_ids.iter().copied().max().unwrap_or(0) as usize;
+    let cap = max_cluster + 1;
+
+    // Reuse scratch buffers — resize and zero without reallocating.
+    cx.resize(cap, 0.0);
+    cy.resize(cap, 0.0);
+    counts.resize(cap, 0);
+    cx[..cap].fill(0.0);
+    cy[..cap].fill(0.0);
+    counts[..cap].fill(0);
+
+    for i in 0..n {
+        let c = cluster_ids[i] as usize;
+        cx[c] += x[i];
+        cy[c] += y[i];
+        counts[c] += 1;
+    }
+
+    for c in 0..cap {
         if counts[c] > 0 {
             cx[c] /= counts[c] as f32;
             cy[c] /= counts[c] as f32;

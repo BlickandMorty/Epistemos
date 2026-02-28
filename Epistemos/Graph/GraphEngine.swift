@@ -347,6 +347,12 @@ final class GraphEngine {
         return graph_engine_is_settled(h) != 0
     }
 
+    /// Whether physics is completely disabled (static layout for large graphs > 1500 nodes).
+    var isStaticLayout: Bool {
+        guard let h = handle else { return false }
+        return graph_engine_is_static_layout(h) != 0
+    }
+
     // MARK: - Search
 
     /// A search result from the Rust FST fuzzy matcher.

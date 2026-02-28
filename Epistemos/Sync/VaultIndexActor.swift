@@ -507,8 +507,19 @@ actor VaultIndexActor {
 
             // Restore persisted ID so parent-child references survive reimport.
             // Without this, every reimport generates new UUIDs and breaks `parent: <id>` links.
+            // Guard: if another SDPage already owns this ID (at a different filePath),
+            // this is a Finder-duplicated file — keep the fresh UUID to avoid collisions.
             if let savedId = frontMatter["id"], !savedId.isEmpty {
-                page.id = savedId
+                let idDescriptor = FetchDescriptor<SDPage>(
+                    predicate: #Predicate { $0.id == savedId }
+                )
+                let existingWithId = (try? modelContext.fetch(idDescriptor)) ?? []
+                let isOwnedByAnotherFile = existingWithId.contains { $0.filePath != filePath }
+                if isOwnedByAnotherFile {
+                    log.info("Duplicate file detected for page \(savedId, privacy: .public) — assigning new ID")
+                } else {
+                    page.id = savedId
+                }
             }
 
             page.saveBody(body)

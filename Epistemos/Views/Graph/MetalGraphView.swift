@@ -323,10 +323,14 @@ final class MetalGraphNSView: NSView {
         let entrance: UInt8 = (graphState.hasPlayedEntrance || isCommitted) ? 0 : 1
         graph_engine_commit(engine, entrance)
         if entrance == 1 { graphState.hasPlayedEntrance = true }
+
+        // Update static layout flag — physics controls grey out when true.
+        graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
+
         pushForceParams()
 
-        // Push lite mode to Rust and sync version tracker.
-        graph_engine_set_lite_mode(engine, graphState.liteMode ? 1 : 0)
+        // Push quality level to Rust and sync version tracker.
+        graph_engine_set_quality_level(engine, graphState.qualityLevel)
         lastLiteModeVersion = graphState.liteModeVersion
 
         // Transparent background for hologram overlay mode.
@@ -382,6 +386,10 @@ final class MetalGraphNSView: NSView {
             }
         }
         graph_engine_refresh_visibility(engine)
+
+        // Re-check static layout — focusing on a subset may re-enable physics.
+        graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
+
         needsRender = true
     }
 
@@ -542,10 +550,10 @@ final class MetalGraphNSView: NSView {
             pushExtendedForceParams()
         }
 
-        // Sync lite mode when toggled.
+        // Sync quality level when changed.
         if let graphState, engine != nil, lastLiteModeVersion != graphState.liteModeVersion {
             lastLiteModeVersion = graphState.liteModeVersion
-            graph_engine_set_lite_mode(engine, graphState.liteMode ? 1 : 0)
+            graph_engine_set_quality_level(engine, graphState.qualityLevel)
         }
 
         // Sync cluster params (cluster strength, center mode).
