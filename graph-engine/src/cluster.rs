@@ -36,7 +36,8 @@ pub fn detect_communities(
     let degree: Vec<f64> = (0..n).map(|i| adj[i].len() as f64).collect();
 
     // Scale max iterations with graph size to keep commit() responsive.
-    let max_passes = if n < 500 { 20 } else if n < 2000 { 10 } else { 5 };
+    // Above 5K we skip Louvain entirely (handled in engine.rs), but guard here too.
+    let max_passes = if n < 500 { 20 } else if n < 2000 { 10 } else if n < 5000 { 5 } else { 2 };
 
     for _ in 0..max_passes {
         let mut improved = false;

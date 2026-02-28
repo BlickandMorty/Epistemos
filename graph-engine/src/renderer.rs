@@ -45,7 +45,7 @@ struct Uniforms {
     focal_length: f32,       // perspective focal distance (2.0 default)
     camera_velocity: [f32; 2], // camera offset delta (world units/frame)
     zoom_velocity: f32,        // zoom delta per frame (for motion blur)
-    _pad2: f32,                // 16-byte alignment
+    lite_mode: f32,            // 0.0 = full, 1.0 = lite (flat 2D, no effects)
 }
 
 /// Compute z-depth from link count using 3 discrete tiers (Observatory layered planes).
@@ -94,7 +94,7 @@ struct Uniforms {
     float focal_length;
     float2 camera_velocity;
     float zoom_velocity;
-    float _pad2;
+    float lite_mode;
 };
 
 // ── Node shaders (instanced circles with depth perspective) ──────────
@@ -129,16 +129,20 @@ vertex NodeVertexOut node_vertex(
     NodeInstance inst = instances[instance_id];
     float2 corner = corners[vertex_id];
 
-    // Breathing animation — tier-based speed: background slowest (stars barely twinkle),
-    // foreground fastest (bright stars pulse visibly). Cosmic observatory feel.
-    float breath_speed = inst.z > 0.2 ? 0.7 : (inst.z > -0.1 ? 0.5 : 0.3);
-    float breath = sin(uniforms.time * breath_speed + float(instance_id) * 2.39996) * 0.18;
-    float depth = inst.z + breath;
-
-    // Perspective division: focal/(focal-depth). Works for any depth range.
-    // Positive depth = closer (larger), negative depth = farther (smaller).
-    float perspective_scale = uniforms.focal_length / (uniforms.focal_length - depth);
-    float effective_radius = inst.radius * perspective_scale;
+    float depth;
+    float effective_radius;
+    if (uniforms.lite_mode > 0.5) {
+        // Lite mode: flat 2D, no breathing, no perspective.
+        depth = 0.0;
+        effective_radius = inst.radius;
+    } else {
+        // Full mode: breathing animation + perspective depth.
+        float breath_speed = inst.z > 0.2 ? 0.7 : (inst.z > -0.1 ? 0.5 : 0.3);
+        float breath = sin(uniforms.time * breath_speed + float(instance_id) * 2.39996) * 0.18;
+        depth = inst.z + breath;
+        float perspective_scale = uniforms.focal_length / (uniforms.focal_length - depth);
+        effective_radius = inst.radius * perspective_scale;
+    }
 
     float2 base_pos = inst.position;
     float2 world_pos = base_pos + corner * effective_radius;
@@ -164,65 +168,63 @@ vertex NodeVertexOut node_vertex(
 }
 
 fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
-    // ── Pixel art quantization ──
-    // pixel_art_strength: 0.0 = fully smooth, 1.0 = fully pixelated.
-    // Hardcoded at 0.6 for now (subtle but distinctive).
+    float dist = length(in.uv);
+
+    // ── Lite mode: flat colored circle, ~3 ALU ops ──
+    if (in.depth == 0.0 && in.color.a < 0.99) {
+        // Glow instances have alpha < 1.0 — in lite mode they shouldn't exist,
+        // but guard anyway.
+    }
+    if (in.highlight_dim < 0.001) discard_fragment();
+
+    // Check for lite mode via depth == 0 and simple path.
+    // When lite_mode is on, depth is always 0.0 and we use a flat circle.
+    if (in.depth == 0.0) {
+        float alpha = 1.0 - smoothstep(0.85, 1.0, dist);
+        if (alpha < 0.01) discard_fragment();
+        return float4(in.color.rgb, in.color.a * alpha * in.highlight_dim);
+    }
+
+    // ── Full mode: pixel art + sphere shading ──
     float pixel_strength = 0.6;
-
-    // Grid resolution: 12 cells per node diameter gives a tasteful retro look.
     float grid = 12.0;
-    float2 quv = floor(in.uv * grid + 0.5) / grid;  // Snap UV to grid
-
-    // Blend between smooth UV and quantized UV
+    float2 quv = floor(in.uv * grid + 0.5) / grid;
     float2 final_uv = mix(in.uv, quv, pixel_strength);
+    float qdist = length(final_uv);
 
-    float dist = length(final_uv);
-
-    // Hard pixel boundary instead of smoothstep (blended with smooth)
-    float smooth_alpha = 1.0 - smoothstep(0.85, 1.0, length(in.uv));
-    float pixel_alpha = dist < 0.92 ? 1.0 : 0.0;
+    float smooth_alpha = 1.0 - smoothstep(0.85, 1.0, dist);
+    float pixel_alpha = qdist < 0.92 ? 1.0 : 0.0;
     float alpha = mix(smooth_alpha, pixel_alpha, pixel_strength);
     if (alpha < 0.01) discard_fragment();
 
-    // ── 3D sphere shading (on quantized coords) ──
     float r2 = dot(final_uv, final_uv);
     float nz = sqrt(max(1.0 - r2, 0.0));
 
-    // Diffuse lighting
     float3 light_dir = normalize(float3(-0.35, -0.5, 0.8));
     float3 normal = float3(final_uv.x, final_uv.y, nz);
     float diffuse = max(dot(normal, light_dir), 0.0);
     float lighting = 0.45 + 0.55 * diffuse;
 
-    // ── Stepped lighting (pixel art bands) ──
     float bands = 4.0;
     float stepped_lighting = floor(lighting * bands + 0.5) / bands;
     lighting = mix(lighting, stepped_lighting, pixel_strength);
 
-    // Specular highlight
     float3 view_dir = float3(0, 0, 1);
     float3 half_vec = normalize(light_dir + view_dir);
     float spec = pow(max(dot(normal, half_vec), 0.0), 32.0);
 
-    // ── Dithered specular (checkerboard pattern) ──
     float2 grid_pos = floor(in.uv * grid + 0.5);
     bool checker = fmod(grid_pos.x + grid_pos.y, 2.0) < 1.0;
     float pixel_spec = (spec > 0.3 && checker) ? 0.4 : 0.0;
     spec = mix(spec * 0.3, pixel_spec, pixel_strength);
 
-    // Rim/Fresnel glow
     float rim = 1.0 - nz;
     float rim_glow = pow(rim, 3.0) * 0.35;
-
-    // Combine
     float3 lit_color = in.color.rgb * lighting + spec + in.color.rgb * rim_glow;
 
-    // Background depth fade
     float depth_fade = in.depth < -0.1 ? 0.65 : 1.0;
     float edge_softness = in.depth < -0.1 ? 0.75 : 0.85;
-    float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, length(in.uv));
-
-    // Final alpha blends pixel boundary with depth-of-field
+    float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, dist);
     float final_alpha = mix(dof_alpha, alpha, pixel_strength);
 
     return float4(lit_color, in.color.a * final_alpha * depth_fade * in.highlight_dim);
@@ -362,6 +364,8 @@ pub struct Renderer {
     pub clear_color: [f64; 4],
     // Light mode: uses darker node colors for light backgrounds.
     pub light_mode: bool,
+    // Lite mode: flat 2D circles, no glow, no breathing, no field lines.
+    pub lite_mode: bool,
     // Epoch for elapsed time tracking.
     pub start_time: std::time::Instant,
     // Previous-frame camera state (retained for future effects / velocity computation).
@@ -463,6 +467,7 @@ impl Renderer {
             field_line_scratch: Vec::new(),
             clear_color: [0.07, 0.07, 0.09, 1.0],
             light_mode: false,
+            lite_mode: false,
             start_time: std::time::Instant::now(),
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
@@ -511,51 +516,53 @@ impl Renderer {
             // Highlight dimming is handled by the GPU via highlight_flag_buf (buffer(2)).
             // Colors are always at full alpha here.
 
-            let mut z = z_for_link_count(node.link_count);
+            // Lite mode: flat 2D (z=0), no entrance offsets, no glow.
+            let mut z = if self.lite_mode { 0.0 } else { z_for_link_count(node.link_count) };
             let mut pos = [node.x, node.y];
 
             // Apply entrance animation offsets (z-depth, alpha, spiral displacement).
-            if let Some(ent) = entrance {
-                if let Some(state) = ent.get(gi) {
-                    z += state.z_offset;
-                    color[3] *= state.alpha;
-                    pos[0] += state.dx;
-                    pos[1] += state.dy;
+            if !self.lite_mode {
+                if let Some(ent) = entrance {
+                    if let Some(state) = ent.get(gi) {
+                        z += state.z_offset;
+                        color[3] *= state.alpha;
+                        pos[0] += state.dx;
+                        pos[1] += state.dy;
+                    }
                 }
             }
 
-            // Hub glow: foreground nodes (9+ links) get a faint radial glow behind them.
-            // Glow dimming is also handled by the highlight flag buffer.
-            if node.link_count >= 9 {
-                let glow_alpha = if self.light_mode { 0.15 } else { 0.08 };
-                // Apply entrance alpha to glow too.
-                let ent_alpha = entrance
-                    .and_then(|e| e.get(gi))
-                    .map_or(1.0, |s| s.alpha);
-                glow_instances.push(NodeInstance {
-                    position: pos,
-                    radius: node.radius * 4.0,
-                    z: z - 0.15,
-                    color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
-                });
-            }
+            if !self.lite_mode {
+                // Hub glow: foreground nodes (9+ links) get a faint radial glow behind them.
+                if node.link_count >= 9 {
+                    let glow_alpha = if self.light_mode { 0.15 } else { 0.08 };
+                    let ent_alpha = entrance
+                        .and_then(|e| e.get(gi))
+                        .map_or(1.0, |s| s.alpha);
+                    glow_instances.push(NodeInstance {
+                        position: pos,
+                        radius: node.radius * 4.0,
+                        z: z - 0.15,
+                        color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
+                    });
+                }
 
-            // Confidence glow: nodes with confidence > 0 get a soft radial glow.
-            // High confidence (>0.7) = bright, expansive; low (<0.3) = subtle.
-            if node.confidence > 0.0 {
-                let conf = node.confidence.clamp(0.0, 1.0);
-                let glow_radius = node.radius * (2.0 + conf * 2.0); // 2x-4x
-                let glow_alpha_base = if self.light_mode { 0.06 } else { 0.04 };
-                let glow_alpha = glow_alpha_base + conf * (if self.light_mode { 0.19 } else { 0.21 });
-                let ent_alpha = entrance
-                    .and_then(|e| e.get(gi))
-                    .map_or(1.0, |s| s.alpha);
-                glow_instances.push(NodeInstance {
-                    position: pos,
-                    radius: glow_radius,
-                    z: z - 0.12,
-                    color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
-                });
+                // Confidence glow: nodes with confidence > 0 get a soft radial glow.
+                if node.confidence > 0.0 {
+                    let conf = node.confidence.clamp(0.0, 1.0);
+                    let glow_radius = node.radius * (2.0 + conf * 2.0);
+                    let glow_alpha_base = if self.light_mode { 0.06 } else { 0.04 };
+                    let glow_alpha = glow_alpha_base + conf * (if self.light_mode { 0.19 } else { 0.21 });
+                    let ent_alpha = entrance
+                        .and_then(|e| e.get(gi))
+                        .map_or(1.0, |s| s.alpha);
+                    glow_instances.push(NodeInstance {
+                        position: pos,
+                        radius: glow_radius,
+                        z: z - 0.12,
+                        color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
+                    });
+                }
             }
 
             instances.push(NodeInstance {
@@ -1091,7 +1098,7 @@ impl Renderer {
                 focal_length: 2.0,
                 camera_velocity: [0.0, 0.0],
                 zoom_velocity: 0.0,
-                _pad2: 0.0,
+                lite_mode: if self.lite_mode { 1.0 } else { 0.0 },
             };
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;

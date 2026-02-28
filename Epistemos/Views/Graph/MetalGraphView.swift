@@ -55,6 +55,7 @@ final class MetalGraphNSView: NSView {
     var graphState: GraphState?
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
+    var lastLiteModeVersion = -1
     /// Current search query text (bound by the search sidebar).
     var searchQuery: String = ""
 
@@ -191,6 +192,8 @@ final class MetalGraphNSView: NSView {
     // MARK: - Graph Data Commit
 
     /// Load all visible nodes and edges from the GraphStore into the Rust engine.
+    /// Uses batch FFI to send all nodes/edges in a single call each instead of
+    /// N individual calls (critical for 10K+ node performance).
     func commitGraphData() {
         guard let engine, let graphState else { return }
         let store = graphState.store
@@ -198,34 +201,108 @@ final class MetalGraphNSView: NSView {
 
         graph_engine_clear(engine)
 
-        // Add visible nodes with link_count for radius sizing.
+        // Collect visible nodes into batch arrays.
+        var nodeIds: [String] = []
+        var nodeXs: [Float] = []
+        var nodeYs: [Float] = []
+        var nodeTypes: [UInt8] = []
+        var nodeLinkCounts: [UInt32] = []
+        var nodeLabels: [String] = []
+
         for (_, node) in store.nodes {
             guard filter.isNodeVisible(node) else { continue }
+            nodeIds.append(node.id)
+            nodeXs.append(node.position.x)
+            nodeYs.append(node.position.y)
+            nodeTypes.append(node.type.rustIndex)
+            nodeLinkCounts.append(store.linkCount(for: node.id))
+            nodeLabels.append(node.label)
+        }
 
-            node.id.withCString { uuidPtr in
-                node.label.withCString { labelPtr in
-                    graph_engine_add_node(
-                        engine,
-                        uuidPtr,
-                        node.position.x,
-                        node.position.y,
-                        node.type.rustIndex,
-                        store.linkCount(for: node.id),
-                        labelPtr
-                    )
+        // Batch-add all nodes in a single FFI call.
+        if !nodeIds.isEmpty {
+            // Convert String arrays to C string pointer arrays.
+            let uuidCStrs = nodeIds.map { $0.utf8CString }
+            let labelCStrs = nodeLabels.map { $0.utf8CString }
+            uuidCStrs.withUnsafeBufferPointer { uuidBufs in
+                labelCStrs.withUnsafeBufferPointer { labelBufs in
+                    // Build pointer arrays.
+                    var uuidPtrs: [UnsafePointer<CChar>?] = uuidBufs.map { buf in
+                        buf.withUnsafeBufferPointer { $0.baseAddress }
+                    }
+                    var labelPtrs: [UnsafePointer<CChar>?] = labelBufs.map { buf in
+                        buf.withUnsafeBufferPointer { $0.baseAddress }
+                    }
+                    uuidPtrs.withUnsafeMutableBufferPointer { uPtrs in
+                        labelPtrs.withUnsafeMutableBufferPointer { lPtrs in
+                            nodeXs.withUnsafeBufferPointer { xs in
+                                nodeYs.withUnsafeBufferPointer { ys in
+                                    nodeTypes.withUnsafeBufferPointer { types in
+                                        nodeLinkCounts.withUnsafeBufferPointer { links in
+                                            graph_engine_add_nodes_batch(
+                                                engine,
+                                                uPtrs.baseAddress,
+                                                xs.baseAddress,
+                                                ys.baseAddress,
+                                                types.baseAddress,
+                                                links.baseAddress,
+                                                lPtrs.baseAddress,
+                                                UInt32(nodeIds.count)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // Add edges (only between visible nodes).
+        // Collect visible edges into batch arrays.
+        var edgeSrcs: [String] = []
+        var edgeTgts: [String] = []
+        var edgeWeights: [Float] = []
+        var edgeTypes: [UInt8] = []
+
         for (_, edge) in store.edges {
             let srcVisible = store.nodes[edge.sourceNodeId].map { filter.isNodeVisible($0) } ?? false
             let tgtVisible = store.nodes[edge.targetNodeId].map { filter.isNodeVisible($0) } ?? false
             guard filter.isEdgeVisible(edge, sourceVisible: srcVisible, targetVisible: tgtVisible) else { continue }
+            edgeSrcs.append(edge.sourceNodeId)
+            edgeTgts.append(edge.targetNodeId)
+            edgeWeights.append(Float(edge.weight))
+            edgeTypes.append(edge.type.rustIndex)
+        }
 
-            edge.sourceNodeId.withCString { srcPtr in
-                edge.targetNodeId.withCString { tgtPtr in
-                    graph_engine_add_edge(engine, srcPtr, tgtPtr, Float(edge.weight), edge.type.rustIndex)
+        // Batch-add all edges in a single FFI call.
+        if !edgeSrcs.isEmpty {
+            let srcCStrs = edgeSrcs.map { $0.utf8CString }
+            let tgtCStrs = edgeTgts.map { $0.utf8CString }
+            srcCStrs.withUnsafeBufferPointer { srcBufs in
+                tgtCStrs.withUnsafeBufferPointer { tgtBufs in
+                    var srcPtrs: [UnsafePointer<CChar>?] = srcBufs.map { buf in
+                        buf.withUnsafeBufferPointer { $0.baseAddress }
+                    }
+                    var tgtPtrs: [UnsafePointer<CChar>?] = tgtBufs.map { buf in
+                        buf.withUnsafeBufferPointer { $0.baseAddress }
+                    }
+                    srcPtrs.withUnsafeMutableBufferPointer { sPtrs in
+                        tgtPtrs.withUnsafeMutableBufferPointer { tPtrs in
+                            edgeWeights.withUnsafeBufferPointer { wts in
+                                edgeTypes.withUnsafeBufferPointer { types in
+                                    graph_engine_add_edges_batch(
+                                        engine,
+                                        sPtrs.baseAddress,
+                                        tPtrs.baseAddress,
+                                        wts.baseAddress,
+                                        types.baseAddress,
+                                        UInt32(edgeSrcs.count)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -236,6 +313,9 @@ final class MetalGraphNSView: NSView {
         if entrance == 1 { graphState.hasPlayedEntrance = true }
         pushForceParams()
 
+        // Push lite mode to Rust.
+        graph_engine_set_lite_mode(engine, graphState.liteMode ? 1 : 0)
+
         // Transparent background for hologram overlay mode.
         if isOverlayMode {
             graph_engine_set_clear_color(engine, 0, 0, 0, 0)
@@ -245,11 +325,11 @@ final class MetalGraphNSView: NSView {
         isCommitted = true
         needsRender = true
 
-        // Push node timestamps and confidence to Rust.
+        // Push node timestamps and confidence to Rust (batch via individual calls —
+        // these are lightweight per-node metadata, not the expensive graph data).
         for (_, node) in store.nodes {
             guard filter.isNodeVisible(node) else { continue }
             let createdAt = node.createdAt.timeIntervalSince1970
-            // Map evidence grade → confidence: A=1.0, B=0.8, C=0.6, D=0.4, F=0.2
             let confidence: Float = switch node.metadata.evidenceGrade?.uppercased() {
             case "A": 1.0
             case "B": 0.8
@@ -448,6 +528,12 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastExtendedForceConfigVersion != graphState.extendedForceConfigVersion {
             lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
             pushExtendedForceParams()
+        }
+
+        // Sync lite mode when toggled.
+        if let graphState, engine != nil, lastLiteModeVersion != graphState.liteModeVersion {
+            lastLiteModeVersion = graphState.liteModeVersion
+            graph_engine_set_lite_mode(engine, graphState.liteMode ? 1 : 0)
         }
 
         // Sync cluster params (cluster strength, center mode).

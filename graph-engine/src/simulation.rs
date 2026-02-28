@@ -134,6 +134,9 @@ pub struct Simulation {
     /// Updated from Engine when embeddings change — NOT per-tick.
     pub semantic_neighbors: Vec<(usize, usize, f32)>,
 
+    /// Lite mode: skip cluster and semantic forces for faster physics at scale.
+    pub lite_mode: bool,
+
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
     collision_grid: FxHashMap<(i32, i32), Vec<usize>>,
     bodies_scratch: Vec<quadtree::Body>,
@@ -165,6 +168,7 @@ impl Simulation {
             is_settled: false,
             anchor_center: None,
             semantic_neighbors: Vec::new(),
+            lite_mode: false,
             collision_grid: FxHashMap::default(),
             bodies_scratch: Vec::new(),
         }
@@ -235,21 +239,43 @@ impl Simulation {
         }
 
         // Scale force parameters for large graphs to prevent chaos and improve settling.
+        // Larger graphs need tighter layout, more damping, and faster alpha decay
+        // so the physics settle quickly instead of bouncing for 5+ seconds.
         let node_count = self.x.len();
-        if node_count > 2000 {
-            // Large graph: tighter layout, more damping, reduced repulsion.
+        if node_count > 10_000 {
+            // Massive graph (10K-30K+): very tight, very viscous, fast settle.
+            self.params.link_distance = self.params.link_distance.min(60.0);
+            self.params.charge_strength = self.params.charge_strength.max(-300.0);
+            self.params.charge_range = self.params.charge_range.min(500.0);
+            self.params.velocity_decay = self.params.velocity_decay.max(0.88);
+            self.params.collision_iterations = self.params.collision_iterations.max(3);
+            self.params.collision_radius = self.params.collision_radius.min(12.0);
+            self.params.center_strength = self.params.center_strength.max(0.02);
+            // Fast alpha decay: settle in ~80 ticks instead of 300.
+            self.params.alpha_decay = self.params.alpha_decay.max(0.06);
+        } else if node_count > 5000 {
+            // Large graph (5K-10K): tight, damped, faster settle.
+            self.params.link_distance = self.params.link_distance.min(80.0);
+            self.params.charge_strength = self.params.charge_strength.max(-500.0);
+            self.params.charge_range = self.params.charge_range.min(800.0);
+            self.params.velocity_decay = self.params.velocity_decay.max(0.82);
+            self.params.collision_iterations = self.params.collision_iterations.max(2);
+            self.params.collision_radius = self.params.collision_radius.min(20.0);
+            self.params.alpha_decay = self.params.alpha_decay.max(0.045);
+        } else if node_count > 2000 {
             self.params.link_distance = self.params.link_distance.min(120.0);
             self.params.charge_strength = self.params.charge_strength.max(-800.0);
             self.params.velocity_decay = self.params.velocity_decay.max(0.70);
             self.params.collision_iterations = self.params.collision_iterations.max(2);
+            self.params.alpha_decay = self.params.alpha_decay.max(0.035);
         } else if node_count > 500 {
-            // Medium graph: moderate scaling.
             self.params.link_distance = self.params.link_distance.min(180.0);
             self.params.velocity_decay = self.params.velocity_decay.max(0.65);
         }
 
         // Reset alpha for fresh simulation.
-        self.params.alpha = 1.0;
+        // At very large scales, start with lower alpha to avoid explosive first ticks.
+        self.params.alpha = if node_count > 10_000 { 0.5 } else { 1.0 };
         self.is_settled = false;
     }
 
@@ -345,8 +371,8 @@ impl Simulation {
             );
         }
 
-        // Cluster cohesion force.
-        if self.params.cluster_strength > 0.001 && !self.cluster_ids.is_empty() {
+        // Cluster cohesion force (skipped in lite mode).
+        if !self.lite_mode && self.params.cluster_strength > 0.001 && !self.cluster_ids.is_empty() {
             forces::force_cluster(
                 &self.x,
                 &self.y,
@@ -358,8 +384,8 @@ impl Simulation {
             );
         }
 
-        // Semantic attraction force (embedding similarity).
-        if self.params.semantic_strength > 0.001 && !self.semantic_neighbors.is_empty() {
+        // Semantic attraction force (skipped in lite mode).
+        if !self.lite_mode && self.params.semantic_strength > 0.001 && !self.semantic_neighbors.is_empty() {
             forces::force_semantic(
                 &self.x,
                 &self.y,
@@ -401,9 +427,21 @@ impl Simulation {
     /// Lower alpha = gentler forces; higher velocity_decay = more damping (nodes move slowly);
     /// slower alpha_decay = animation lasts longer before settling.
     pub fn set_entrance_mode(&mut self) {
-        self.params.alpha = 0.25;
-        self.params.velocity_decay = 0.72;
-        self.params.alpha_decay = 0.012;
+        let n = self.x.len();
+        if n > 10_000 {
+            // Massive graph: start very low energy, settle fast.
+            self.params.alpha = 0.15;
+            self.params.velocity_decay = self.params.velocity_decay.max(0.88);
+            self.params.alpha_decay = 0.04;
+        } else if n > 5000 {
+            self.params.alpha = 0.20;
+            self.params.velocity_decay = self.params.velocity_decay.max(0.80);
+            self.params.alpha_decay = 0.025;
+        } else {
+            self.params.alpha = 0.25;
+            self.params.velocity_decay = 0.72;
+            self.params.alpha_decay = 0.012;
+        }
         self.is_settled = false;
     }
 

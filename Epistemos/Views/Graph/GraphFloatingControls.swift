@@ -36,6 +36,12 @@ struct GraphFloatingControls: View {
                     .frame(height: 20)
                     .opacity(0.3)
 
+                liteModeToggle
+
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
+
                 forceSettingsButton
 
                 timeSliderButton
@@ -153,6 +159,19 @@ struct GraphFloatingControls: View {
         .foregroundStyle(graphState.useSemanticClustering ? .white : .white.opacity(0.5))
         .help(graphState.useSemanticClustering ? "Semantic Clustering On" : "Enable Semantic Clustering")
         .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
+    }
+
+    // MARK: - Lite Mode Toggle
+
+    private var liteModeToggle: some View {
+        HStack(spacing: 2) {
+            modeButton(label: "Full", icon: "sparkles", isSelected: !graphState.liteMode) {
+                graphState.liteMode = false
+            }
+            modeButton(label: "Lite", icon: "circle", isSelected: graphState.liteMode) {
+                graphState.liteMode = true
+            }
+        }
     }
 
     // MARK: - Force Settings

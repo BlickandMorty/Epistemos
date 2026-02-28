@@ -45,6 +45,94 @@ pub struct EntranceNodeState {
     pub dy: f32,
 }
 
+/// Lightweight progressive reveal for large graphs (5K+ nodes).
+/// Nodes fade in from most-connected to least-connected while physics runs.
+/// No BFS, no spiral, no z-offset — just alpha fading by link_count rank.
+struct ProgressiveRevealAnimator {
+    /// Per-node stagger delay (seconds). Index = graph node index.
+    delays: Vec<f32>,
+    /// Animation start time.
+    start: Instant,
+    /// Duration for a single node's alpha fade (seconds).
+    fade_duration: f32,
+    /// Max delay across all nodes (for is_complete check).
+    max_delay: f32,
+}
+
+impl ProgressiveRevealAnimator {
+    /// Build from graph: sort nodes by link_count descending, assign stagger delays.
+    fn from_graph(graph: &Graph) -> Self {
+        let n = graph.nodes.len();
+        if n == 0 {
+            return Self {
+                delays: vec![],
+                start: Instant::now(),
+                fade_duration: 0.5,
+                max_delay: 0.0,
+            };
+        }
+
+        // Rank visible nodes by link_count descending (most connected appear first).
+        let mut ranked: Vec<(usize, u32)> = graph
+            .nodes
+            .iter()
+            .enumerate()
+            .map(|(i, node)| (i, if node.visible { node.link_count } else { 0 }))
+            .collect();
+        ranked.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+
+        // Spread duration scales with node count for a smooth cascade.
+        let spread = if n > 10_000 { 3.5f32 } else { 2.5 };
+
+        let mut delays = vec![0.0f32; n];
+        for (rank, &(gi, _)) in ranked.iter().enumerate() {
+            delays[gi] = (rank as f32 / n as f32) * spread;
+        }
+
+        let max_delay = delays.iter().copied().fold(0.0f32, f32::max);
+
+        Self {
+            delays,
+            start: Instant::now(),
+            fade_duration: 0.5,
+            max_delay,
+        }
+    }
+
+    /// Compute per-node entrance states into a reusable buffer.
+    fn compute(&self, out: &mut Vec<EntranceNodeState>) {
+        let elapsed = self.start.elapsed().as_secs_f32();
+        out.clear();
+        out.extend(self.delays.iter().map(|&delay| {
+            let t = ((elapsed - delay) / self.fade_duration).clamp(0.0, 1.0);
+            let alpha = ease_out_cubic(t);
+            EntranceNodeState {
+                z_offset: 0.0,
+                alpha,
+                dx: 0.0,
+                dy: 0.0,
+            }
+        }));
+    }
+
+    /// True when every node has fully faded in.
+    fn is_complete(&self) -> bool {
+        if self.delays.is_empty() {
+            return true;
+        }
+        let elapsed = self.start.elapsed().as_secs_f32();
+        elapsed >= self.max_delay + self.fade_duration + 0.1
+    }
+}
+
+/// Active entrance animation variant.
+enum ActiveEntrance {
+    /// Full wormhole animation for small graphs (<5K nodes).
+    Wormhole(EntranceAnimator),
+    /// Lightweight progressive reveal for large graphs (5K+ nodes).
+    Reveal(ProgressiveRevealAnimator),
+}
+
 /// Drives the wormhole entrance animation: hero node races forward,
 /// neighbors cascade behind in BFS-ordered waves with spiral rotation.
 struct EntranceAnimator {
@@ -224,8 +312,8 @@ pub struct Engine {
     // Used to bias the center force toward the note window edge.
     anchor_rect: Option<[f32; 4]>,
 
-    // Wormhole entrance animation.
-    entrance: Option<EntranceAnimator>,
+    // Entrance animation (wormhole for small graphs, progressive reveal for large).
+    entrance: Option<ActiveEntrance>,
     /// Cached per-frame entrance states (recomputed each render call).
     entrance_states: Vec<EntranceNodeState>,
     /// Frame counter for entrance camera zoom-to-fit delay.
@@ -255,6 +343,9 @@ pub struct Engine {
 
     /// Merkle-like version chains per node (pure data, no render/physics cost).
     pub(crate) version_store: VersionStore,
+
+    /// Lite rendering mode: flat 2D circles, no glow, no breathing, simplified physics.
+    pub(crate) lite_mode: bool,
 }
 
 impl Engine {
@@ -287,6 +378,7 @@ impl Engine {
             semantic_neighbors: Vec::new(),
             time_filter: None,
             version_store: VersionStore::new(),
+            lite_mode: false,
         })
     }
 
@@ -299,12 +391,17 @@ impl Engine {
         // Stop existing physics thread.
         self.stop_physics();
 
-        // Wormhole entrance: cluster nodes at center with small jitter.
-        // The visual drama comes from per-node z-offset + spiral in EntranceAnimator,
-        // not from the initial positions (which are just for physics seeding).
+        // Entrance: cluster nodes at center with jitter. For large graphs, use wider
+        // initial spread so physics has room to work during the progressive reveal.
         if entrance {
-            let n = self.graph.nodes.len() as f32;
-            let jitter_range = (n.sqrt() * 2.0).max(20.0);
+            let n = self.graph.nodes.len();
+            let nf = n as f32;
+            // Large graphs get wider initial spread (physics + center force will pull in).
+            let jitter_range = if n > 5000 {
+                (nf.sqrt() * 4.0).max(500.0)
+            } else {
+                (nf.sqrt() * 2.0).max(20.0)
+            };
             for (i, node) in self.graph.nodes.iter_mut().enumerate() {
                 let hash = ((i as u32).wrapping_mul(2654435761)) as f32 / u32::MAX as f32;
                 let hash2 = (((i as u32 + 7919).wrapping_mul(2246822519))) as f32 / u32::MAX as f32;
@@ -322,14 +419,25 @@ impl Engine {
             sim.load_from_graph(&self.graph);
 
             // Run Louvain community detection and assign cluster IDs.
-            let cluster_ids = crate::cluster::detect_communities(sim.x.len(), &sim.edges);
-            sim.cluster_ids = cluster_ids;
+            // At very large scales (5K+), skip Louvain entirely — the O(N×E) cost
+            // is too high for a synchronous commit. The physics thread will settle
+            // nodes into natural positions without explicit cluster assignment.
+            let n = sim.x.len();
+            if n < 5000 {
+                let cluster_ids = crate::cluster::detect_communities(n, &sim.edges);
+                sim.cluster_ids = cluster_ids;
+            } else {
+                // Assign each node to its own cluster — cluster force is disabled
+                // at this scale anyway (too expensive).
+                sim.cluster_ids = (0..n as u32).collect();
+            }
 
             // Pre-settle: run a small number of ticks synchronously so the graph
             // isn't a clump on first render. The physics thread handles full settling.
-            // Capped at 20 ticks (was 200) to keep commit() under ~5ms for large graphs.
-            if !entrance {
-                let max_ticks = if sim.x.len() > 1000 { 10 } else { 30 };
+            // At 5K+ nodes, skip pre-settle entirely — each tick is expensive and
+            // the physics thread can do it without blocking the main thread.
+            if !entrance && n < 5000 {
+                let max_ticks = if n > 1000 { 10 } else { 30 };
                 for _ in 0..max_ticks {
                     sim.tick();
                     if sim.is_settled { break; }
@@ -359,8 +467,7 @@ impl Engine {
         self.renderer.highlight.highlighted_ids.clear();
 
         if entrance {
-            // Build BFS-based wormhole entrance animator.
-            self.entrance = Some(EntranceAnimator::from_graph(&self.graph));
+            let node_count = self.graph.nodes.len();
             self.entrance_states = Vec::new();
             self.entrance_camera_frame = 0;
 
@@ -371,8 +478,25 @@ impl Engine {
             self.renderer.target_zoom = 1.0;
             self.renderer.is_animating = false;
 
-            // Don't start physics yet — entrance animation handles visuals.
-            // Physics starts when entrance completes (in render()).
+            if node_count < 5000 {
+                // Small graph: full wormhole entrance (BFS + spiral + z-depth).
+                // Physics starts after wormhole completes (in render()).
+                self.entrance = Some(ActiveEntrance::Wormhole(
+                    EntranceAnimator::from_graph(&self.graph),
+                ));
+            } else {
+                // Large graph: lightweight progressive reveal (alpha fade by link_count rank).
+                // Physics runs concurrently — the reveal is purely visual.
+                self.entrance = Some(ActiveEntrance::Reveal(
+                    ProgressiveRevealAnimator::from_graph(&self.graph),
+                ));
+                {
+                    let mut sim = self.sim.lock();
+                    sim.set_entrance_mode();
+                }
+                self.start_physics();
+                self.zoom_to_fit();
+            }
         } else {
             self.entrance = None;
             self.entrance_states = Vec::new();
@@ -488,28 +612,42 @@ impl Engine {
 
         let positions_changed = self.sync_positions();
 
-        // Wormhole entrance: compute per-node states each frame.
+        // Entrance animation: compute per-node states each frame.
         let entrance_active = self.entrance.is_some();
         let mut entrance_just_completed = false;
-        if let Some(ref entrance) = self.entrance {
-            self.entrance_states = entrance.compute();
-
-            if entrance.is_complete() {
-                entrance_just_completed = true;
+        match &self.entrance {
+            Some(ActiveEntrance::Wormhole(anim)) => {
+                self.entrance_states = anim.compute();
+                if anim.is_complete() {
+                    entrance_just_completed = true;
+                }
             }
+            Some(ActiveEntrance::Reveal(anim)) => {
+                anim.compute(&mut self.entrance_states);
+                if anim.is_complete() {
+                    entrance_just_completed = true;
+                }
+            }
+            None => {}
         }
+
+        // Track whether physics needs to be started on completion.
+        let was_wormhole = matches!(&self.entrance, Some(ActiveEntrance::Wormhole(_)));
 
         // Handle entrance completion outside the borrow.
         if entrance_just_completed {
             self.entrance = None;
             self.entrance_states.clear();
 
-            // Now start physics with gentle entrance mode — nodes spread to equilibrium.
-            {
-                let mut sim = self.sim.lock();
-                sim.set_entrance_mode();
+            if was_wormhole {
+                // Wormhole: physics wasn't running — start it now with gentle mode.
+                {
+                    let mut sim = self.sim.lock();
+                    sim.set_entrance_mode();
+                }
+                self.start_physics();
             }
-            self.start_physics();
+            // else: progressive reveal — physics was already running since commit.
 
             // Smooth zoom-to-fit as physics spreads nodes outward.
             self.zoom_to_fit();
@@ -556,8 +694,8 @@ impl Engine {
             self.renderer.rebuild_highlight_flags(&self.graph);
         }
 
-        // Update magnetic field lines only when hovering (skip O(E) scan when not needed).
-        if self.hovered_id.is_some() || self.renderer.field_line_count > 0 {
+        // Update magnetic field lines only when hovering (skip in lite mode entirely).
+        if !self.lite_mode && (self.hovered_id.is_some() || self.renderer.field_line_count > 0) {
             let time = self.renderer.start_time.elapsed().as_secs_f32();
             self.renderer.update_field_lines(self.hovered_id, &self.graph, time);
         }
@@ -1107,6 +1245,12 @@ impl Engine {
     /// Set light mode (darker node colors for light backgrounds).
     pub fn set_light_mode(&mut self, enabled: bool) {
         self.renderer.light_mode = enabled;
+    }
+
+    pub fn set_lite_mode(&mut self, enabled: bool) {
+        self.lite_mode = enabled;
+        self.renderer.lite_mode = enabled;
+        self.sim.lock().lite_mode = enabled;
     }
 
     /// Look up a node's UUID by its internal ID and store in the reusable buffer.
@@ -1855,6 +1999,84 @@ mod tests {
                 state.dy
             );
         }
+    }
+
+    // ── Progressive Reveal Tests ───────────────────────────────────
+
+    #[test]
+    fn progressive_reveal_hub_nodes_appear_first() {
+        // Build a graph with distinct link_count tiers for clear ordering.
+        let mut graph = Graph::new();
+        graph.add_node("hub".into(), 0.0, 0.0, 0, 20, "Hub".into());
+        graph.add_node("bridge".into(), 50.0, 0.0, 0, 5, "Bridge".into());
+        graph.add_node("leaf".into(), 100.0, 0.0, 0, 1, "Leaf".into());
+
+        let reveal = ProgressiveRevealAnimator::from_graph(&graph);
+
+        // Hub (link_count=20) should appear first (lowest delay).
+        let hub_delay = reveal.delays[0];
+        let bridge_delay = reveal.delays[1];
+        let leaf_delay = reveal.delays[2];
+
+        assert!(
+            hub_delay < bridge_delay,
+            "hub should appear before bridge: hub={}, bridge={}",
+            hub_delay, bridge_delay
+        );
+        assert!(
+            bridge_delay < leaf_delay,
+            "bridge should appear before leaf: bridge={}, leaf={}",
+            bridge_delay, leaf_delay
+        );
+    }
+
+    #[test]
+    fn progressive_reveal_completes() {
+        let graph = make_large_graph(50);
+        let mut reveal = ProgressiveRevealAnimator::from_graph(&graph);
+
+        // At start: should not be complete.
+        assert!(!reveal.is_complete());
+
+        // After 10s: should be complete (spread + fade < 10s).
+        reveal.start = Instant::now() - Duration::from_secs(10);
+        assert!(reveal.is_complete(), "reveal should be complete after 10s");
+    }
+
+    #[test]
+    fn progressive_reveal_compute_alpha_values() {
+        let graph = make_large_graph(20);
+        let mut reveal = ProgressiveRevealAnimator::from_graph(&graph);
+        let mut states = Vec::new();
+
+        // All alpha should be 0 or positive at start.
+        reveal.compute(&mut states);
+        assert_eq!(states.len(), graph.nodes.len());
+        for s in &states {
+            assert!(s.alpha >= 0.0 && s.alpha <= 1.0);
+            assert_eq!(s.z_offset, 0.0); // no z animation
+            assert_eq!(s.dx, 0.0); // no spiral
+            assert_eq!(s.dy, 0.0);
+        }
+
+        // After full animation: all alpha should be 1.0.
+        reveal.start = Instant::now() - Duration::from_secs(10);
+        reveal.compute(&mut states);
+        for s in &states {
+            assert!(
+                (s.alpha - 1.0).abs() < 0.01,
+                "alpha should be ~1.0 after completion, got {}",
+                s.alpha
+            );
+        }
+    }
+
+    #[test]
+    fn progressive_reveal_empty_graph() {
+        let graph = Graph::new();
+        let reveal = ProgressiveRevealAnimator::from_graph(&graph);
+        assert!(reveal.is_complete(), "empty graph reveal is immediately complete");
+        assert!(reveal.delays.is_empty());
     }
 
     // ── Semantic Cluster Override Tests ──────────────────────────────

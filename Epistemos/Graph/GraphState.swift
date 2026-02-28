@@ -169,6 +169,16 @@ final class GraphState {
     /// Set to true to request the overlay close completely.
     var pendingClose = false
 
+    // MARK: - Lite Mode
+
+    /// When true, the graph uses flat 2D circles, no glow, no breathing, simplified physics.
+    /// Persisted to UserDefaults for cross-session consistency.
+    var liteMode: Bool = UserDefaults.standard.bool(forKey: "epistemos.graph.liteMode") {
+        didSet { UserDefaults.standard.set(liteMode, forKey: "epistemos.graph.liteMode"); liteModeVersion += 1 }
+    }
+    /// Incremented when liteMode changes so MetalGraphView can detect and push to Rust.
+    var liteModeVersion: Int = 0
+
     // MARK: - Force Parameters
     // Core 4 params (basic panel) + 5 extended params (advanced panel).
     // The Rust engine receives core via graph_engine_set_force_params(),

@@ -51,6 +51,29 @@ void graph_engine_add_edge(
     uint8_t edge_type
 );
 
+/// Batch-add nodes to the graph in a single FFI call.
+/// All arrays must have length `count`.
+void graph_engine_add_nodes_batch(
+    Engine* engine,
+    const char** uuids,
+    const float* xs,
+    const float* ys,
+    const uint8_t* node_types,
+    const uint32_t* link_counts,
+    const char** labels,
+    uint32_t count
+);
+
+/// Batch-add edges to the graph in a single FFI call.
+void graph_engine_add_edges_batch(
+    Engine* engine,
+    const char** source_uuids,
+    const char** target_uuids,
+    const float* weights,
+    const uint8_t* edge_types,
+    uint32_t count
+);
+
 /// Commit the graph: loads data into simulation, starts physics.
 /// Call after clear + add_node/add_edge sequence.
 /// @param entrance 1 for Obsidian-style entrance animation (nodes start clustered at center).
@@ -161,6 +184,9 @@ void graph_engine_set_light_mode(Engine* engine, uint8_t enabled);
 
 /// Set graph mode: 0 = global, 1 = page.
 void graph_engine_set_mode(Engine* engine, uint8_t mode);
+
+/// Set lite rendering mode: 0 = full (3D, effects), 1 = lite (2D flat, no glow).
+void graph_engine_set_lite_mode(Engine* engine, uint8_t enabled);
 
 /// Set the note window rect in screen pixels for page mode anchor positioning.
 void graph_engine_set_anchor_rect(Engine* engine, float x, float y, float w, float h);

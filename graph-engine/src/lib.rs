@@ -122,6 +122,71 @@ pub extern "C" fn graph_engine_add_edge(
     engine.graph_mut().add_edge(src, tgt, weight, edge_type);
 }
 
+/// Batch-add nodes to the graph in a single FFI call.
+/// All arrays must have length `count`. `uuids` and `labels` are arrays of
+/// null-terminated UTF-8 C strings. `xs`, `ys`, `node_types`, `link_counts`
+/// are parallel arrays of the same length.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_add_nodes_batch(
+    engine: *mut Engine,
+    uuids: *const *const c_char,
+    xs: *const f32,
+    ys: *const f32,
+    node_types: *const u8,
+    link_counts: *const u32,
+    labels: *const *const c_char,
+    count: u32,
+) {
+    ffi_engine!(engine);
+    let count = count as usize;
+    if count == 0 || uuids.is_null() || labels.is_null() { return; }
+    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+    let label_ptrs = unsafe { std::slice::from_raw_parts(labels, count) };
+    let xs = unsafe { std::slice::from_raw_parts(xs, count) };
+    let ys = unsafe { std::slice::from_raw_parts(ys, count) };
+    let types = unsafe { std::slice::from_raw_parts(node_types, count) };
+    let links = unsafe { std::slice::from_raw_parts(link_counts, count) };
+
+    let graph = engine.graph_mut();
+    for i in 0..count {
+        let uuid_str = if uuid_ptrs[i].is_null() { String::new() }
+            else { unsafe { CStr::from_ptr(uuid_ptrs[i]) }.to_str().unwrap_or("").to_owned() };
+        let label_str = if label_ptrs[i].is_null() { String::new() }
+            else { unsafe { CStr::from_ptr(label_ptrs[i]) }.to_str().unwrap_or("").to_owned() };
+        graph.add_node(uuid_str, xs[i], ys[i], types[i], links[i], label_str);
+    }
+}
+
+/// Batch-add edges to the graph in a single FFI call.
+/// `source_uuids` and `target_uuids` are arrays of `count` null-terminated C strings.
+/// `weights` and `edge_types` are parallel arrays.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_add_edges_batch(
+    engine: *mut Engine,
+    source_uuids: *const *const c_char,
+    target_uuids: *const *const c_char,
+    weights: *const f32,
+    edge_types: *const u8,
+    count: u32,
+) {
+    ffi_engine!(engine);
+    let count = count as usize;
+    if count == 0 || source_uuids.is_null() || target_uuids.is_null() { return; }
+    let src_ptrs = unsafe { std::slice::from_raw_parts(source_uuids, count) };
+    let tgt_ptrs = unsafe { std::slice::from_raw_parts(target_uuids, count) };
+    let wts = unsafe { std::slice::from_raw_parts(weights, count) };
+    let types = unsafe { std::slice::from_raw_parts(edge_types, count) };
+
+    let graph = engine.graph_mut();
+    for i in 0..count {
+        let src = if src_ptrs[i].is_null() { "" }
+            else { unsafe { CStr::from_ptr(src_ptrs[i]) }.to_str().unwrap_or("") };
+        let tgt = if tgt_ptrs[i].is_null() { "" }
+            else { unsafe { CStr::from_ptr(tgt_ptrs[i]) }.to_str().unwrap_or("") };
+        graph.add_edge(src, tgt, wts[i], types[i]);
+    }
+}
+
 /// Commit the graph: loads data into simulation, starts physics.
 /// Call after `graph_engine_clear` + `add_node`/`add_edge` sequence.
 /// `entrance`: if 1, plays Obsidian-style entrance animation (nodes cluster at center, expand out).
@@ -391,6 +456,13 @@ pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) 
 pub extern "C" fn graph_engine_set_mode(engine: *mut Engine, mode: u8) {
     ffi_engine!(engine);
     engine.set_mode(mode);
+}
+
+/// Set lite rendering mode: 0 = full (3D, effects), 1 = lite (2D flat, no glow).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_lite_mode(engine: *mut Engine, enabled: u8) {
+    ffi_engine!(engine);
+    engine.set_lite_mode(enabled != 0);
 }
 
 /// Set the note window rect in screen pixels for page mode anchor positioning.
