@@ -65,12 +65,11 @@ final class PipelineService {
     }
 
     // MARK: - Active Tasks
-    // pipelineTask: cancelled on new query or stop.
-    // enrichmentTask: only cancelled on explicit stop — survives new queries.
+    // Both tasks are cancelled when a new query starts to prevent zombie API calls.
     private var pipelineTask: Task<Void, Never>?
     private var enrichmentTask: Task<Void, Never>?
 
-    /// Cancel enrichment explicitly (stop button). New queries do NOT cancel enrichment.
+    /// Cancel enrichment explicitly (stop button).
     func cancelAllEnrichment() {
         enrichmentTask?.cancel()
         enrichmentTask = nil
@@ -96,10 +95,13 @@ final class PipelineService {
         conversationHistory: String? = nil,
         onEnriched: (@MainActor @Sendable (DualMessage, TruthAssessment) -> Void)? = nil
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
-        // Cancel the previous Pass 1 generation, but NOT enrichment —
-        // previous enrichment continues in the background and delivers via callback.
+        // Cancel the previous Pass 1 generation AND any in-flight enrichment.
+        // Without cancelling enrichment, rapid queries spawn zombie background tasks
+        // that silently consume API tokens (5 queries = 5 concurrent enrichment calls).
         pipelineTask?.cancel()
         pipelineTask = nil
+        enrichmentTask?.cancel()
+        enrichmentTask = nil
 
         // Thread-safe guard: ensures continuation.finish() is called exactly once.
         let finisher = FinishOnce()
