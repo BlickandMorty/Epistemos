@@ -28,3 +28,6 @@ Packages/
 # Rust
 graph-engine/target/
 build-rust/
+
+# Reference repos
+logseq/
