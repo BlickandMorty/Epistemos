@@ -317,6 +317,8 @@ final class VaultSyncService {
     private func clearVaultData() {
         let context = modelContainer.mainContext
         do {
+            try context.delete(model: SDBlock.self)
+            try context.delete(model: SDPageVersion.self)
             try context.delete(model: SDPage.self)
             try context.delete(model: SDFolder.self)
             try context.delete(model: SDGraphNode.self)
