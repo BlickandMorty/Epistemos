@@ -2,11 +2,11 @@
 Last updated: 2026-03-01 22:40
 
 ## Current Position
-Working deferred items. Next: W1.12 (Incremental FFI Graph Updates)
+Working deferred items. Next: W7.4 (Graph Store Memory Explosion)
 
 ## Session Stats
-Tests before: 549 (Rust) + 228 suites (Swift) | Tests after: 549 (Rust) + 229 suites (Swift) | New tests: 10
-Fixes this session: 13 | Deferred: 6
+Tests before: 549 (Rust) + 228 suites (Swift) | Tests after: 549 (Rust) + 231 suites (Swift) | New tests: 30
+Fixes this session: 16 | Deferred: 4
 
 ## Pre-Audit Fixes
 - [x] Keychain Data Protection migration (commit efd2ab6) — not audit item
@@ -60,8 +60,8 @@ Fixes this session: 13 | Deferred: 6
 
 ## Deferred (needs human or design decision)
 - [x] 1.8: Background Graph Loading — FIXED (commit 83fa3a4, BackgroundGraphActor @ModelActor)
-- [ ] 1.12: Incremental FFI Graph Updates — Needs new Rust FFI functions + protocol design
-- [ ] 7.1: Unbounded Version Storage — Needs design decision on global limit
+- [x] 1.12: Incremental FFI Graph Updates — FIXED (commit 97f4a59, pending queue + render loop drain)
+- [x] 7.1: Unbounded Version Storage — FIXED (commit 79be726, 10K global limit)
 - [ ] 7.4: Graph Store Memory Explosion — Architecture change (compact indices)
 - [ ] 12.1: Zero-State Handling — UI feature (EmptyStateView component)
 - [ ] 13.2: Fuzzy Search Scalability — Architecture change (trigram index)
@@ -77,11 +77,11 @@ Fixes this session: 13 | Deferred: 6
 ## Summary
 | Category | Count |
 |----------|-------|
-| Items reviewed | 44 |
-| Fixed with commit | 13 |
+| Items reviewed | 46 |
+| Fixed with commit | 16 |
 | Already implemented | 9 |
 | Not a bug / mitigated | 15 |
-| Deferred | 6 |
+| Deferred | 4 |
 | Out of scope | ~50+ (features) |
 
 ## Current Session Log
@@ -129,3 +129,5 @@ Fixes this session: 13 | Deferred: 6
 | 40 | 17.13 | Crash creating note | — | DEFERRED | — |
 | 41 | 17.14 | Password prompt | — | FIXED | a13307a |
 | 42 | 1.8 | Background graph loading | 4/4 | FIXED | 83fa3a4 |
+| 43 | 7.1 | Global version pruning | 4/4 | FIXED | 79be726 |
+| 44 | 1.12 | Incremental FFI updates | 4/4 | FIXED | 97f4a59 |
