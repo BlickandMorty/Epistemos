@@ -178,6 +178,25 @@ final class GraphState {
 
     func requestRecommit() { graphDataVersion += 1 }
 
+    // MARK: - Incremental FFI Updates
+
+    /// Nodes added since the last engine commit. MetalGraphView drains these
+    /// with individual `graph_engine_add_node` calls instead of a full recommit.
+    var pendingNodeAdds: [GraphNodeRecord] = []
+
+    /// Edges added since the last engine commit.
+    var pendingEdgeAdds: [GraphEdgeRecord] = []
+
+    /// Queue a single node for incremental FFI commit (avoids O(N) full recommit).
+    func requestIncrementalAdd(node: GraphNodeRecord) {
+        pendingNodeAdds.append(node)
+    }
+
+    /// Queue a single edge for incremental FFI commit.
+    func requestIncrementalAddEdge(_ edge: GraphEdgeRecord) {
+        pendingEdgeAdds.append(edge)
+    }
+
     /// Incremented when filter toggles require a lightweight visibility refresh.
     /// Unlike graphDataVersion (full recommit), this only toggles node visibility in Rust.
     var filterVersion: Int = 0
@@ -785,7 +804,7 @@ final class GraphState {
                 velocity: .zero
             )
             store.addNode(record)
-            requestRecommit()
+            requestIncrementalAdd(node: record)
         }
     }
 
@@ -843,7 +862,8 @@ final class GraphState {
                 createdAt: sdEdge.createdAt
             )
             store.addEdge(edgeRecord)
-            requestRecommit()
+            requestIncrementalAdd(node: record)
+            requestIncrementalAddEdge(edgeRecord)
         }
     }
 
@@ -878,7 +898,7 @@ final class GraphState {
             createdAt: sdEdge.createdAt
         )
         store.addEdge(edgeRecord)
-        requestRecommit()
+        requestIncrementalAddEdge(edgeRecord)
         interactionMode = .idle
     }
 

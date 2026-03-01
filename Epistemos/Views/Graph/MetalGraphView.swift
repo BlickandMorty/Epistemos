@@ -356,6 +356,49 @@ final class MetalGraphNSView: NSView {
         graphState.embeddingService.computeAndPush(store: graphState.store)
     }
 
+    // MARK: - Incremental FFI Adds
+
+    /// Send pending node/edge additions to the Rust engine individually.
+    /// O(k) where k = pending items, vs O(N) for a full recommit.
+    private func commitIncrementalAdds(graphState: GraphState) {
+        guard let engine else { return }
+        let store = graphState.store
+        let filter = graphState.filter
+
+        for node in graphState.pendingNodeAdds {
+            guard filter.isNodeVisible(node) else { continue }
+            let linkCount = store.linkCount(for: node.id)
+            node.id.withCString { uuidPtr in
+                node.label.withCString { labelPtr in
+                    graph_engine_add_node(
+                        engine, uuidPtr,
+                        node.position.x, node.position.y,
+                        node.type.rustIndex, linkCount,
+                        labelPtr
+                    )
+                }
+            }
+        }
+
+        for edge in graphState.pendingEdgeAdds {
+            let srcVisible = store.nodes[edge.sourceNodeId].map { filter.isNodeVisible($0) } ?? false
+            let tgtVisible = store.nodes[edge.targetNodeId].map { filter.isNodeVisible($0) } ?? false
+            guard filter.isEdgeVisible(edge, sourceVisible: srcVisible, targetVisible: tgtVisible) else { continue }
+            edge.sourceNodeId.withCString { srcPtr in
+                edge.targetNodeId.withCString { tgtPtr in
+                    graph_engine_add_edge(engine, srcPtr, tgtPtr, Float(edge.weight), edge.type.rustIndex)
+                }
+            }
+        }
+
+        if !graphState.pendingNodeAdds.isEmpty || !graphState.pendingEdgeAdds.isEmpty {
+            graph_engine_commit(engine, 0)
+        }
+
+        graphState.pendingNodeAdds.removeAll()
+        graphState.pendingEdgeAdds.removeAll()
+    }
+
     // MARK: - Lightweight Filter Sync
 
     /// Toggle node visibility in Rust to match the current filter state.
@@ -594,6 +637,12 @@ final class MetalGraphNSView: NSView {
                 graphState.refreshStructuralData(context: context)
                 graphState.requestRecommit()
             }
+        }
+
+        // Drain incremental node/edge additions (avoids full O(N) recommit).
+        if let graphState,
+           !graphState.pendingNodeAdds.isEmpty || !graphState.pendingEdgeAdds.isEmpty {
+            commitIncrementalAdds(graphState: graphState)
         }
 
         // Re-commit graph data when mode/filter changes (e.g. Global↔Page toggle).
