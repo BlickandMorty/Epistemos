@@ -23,7 +23,6 @@ struct CommandPaletteOverlay: View {
     @State private var searchText = ""
     @State private var inlineSelectedIndex = 0
     @State private var searchHighlightTask: Task<Void, Never>?
-    @State private var searchDebounceTask: Task<Void, Never>?
     @State private var cachedSearchResults: [LandingCommandItem] = []
     @FocusState private var isSearchFocused: Bool
 
@@ -313,26 +312,21 @@ struct CommandPaletteOverlay: View {
             return .handled
         }
         .onChange(of: searchText) { _, newText in
-            inlineSelectedIndex = 0
-
             // Clear search results immediately on empty
             if newText.isEmpty {
-                searchDebounceTask?.cancel()
                 searchHighlightTask?.cancel()
                 cachedSearchResults = []
+                inlineSelectedIndex = 0
                 graphState.searchHighlight("")
                 return
             }
 
-            // Debounce search results (Rust FFI + SwiftData) — 150ms
-            searchDebounceTask?.cancel()
-            searchDebounceTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                guard !Task.isCancelled else { return }
-                cachedSearchResults = computeSearchResults(for: newText)
-            }
+            // Compute search results synchronously — Rust FFI is sub-1ms,
+            // SwiftData title filter is in-memory. No debounce needed.
+            cachedSearchResults = computeSearchResults(for: newText)
+            inlineSelectedIndex = 0
 
-            // Debounce graph highlight FFI call (150ms)
+            // Debounce graph highlight FFI call (150ms) — this is visual only
             searchHighlightTask?.cancel()
             searchHighlightTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(150))
@@ -354,7 +348,6 @@ struct CommandPaletteOverlay: View {
         isSearchFocused = false
         searchText = ""
         inlineSelectedIndex = 0
-        searchDebounceTask?.cancel()
         searchHighlightTask?.cancel()
         cachedSearchResults = []
         graphState.searchHighlight("")

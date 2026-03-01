@@ -12,7 +12,6 @@ struct HologramSearchSidebar: View {
     @State private var expandedFolders: Set<String> = []
     @State private var expandedTypes: Set<GraphNodeType> = [.tag]
     @State private var cachedSearchResults: [GraphStore.SearchHit] = []
-    @State private var searchDebounceTask: Task<Void, Never>?
 
     var onSearchChanged: (String) -> Void
     var onSelectNode: (String) -> Void
@@ -102,21 +101,15 @@ struct HologramSearchSidebar: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.primary)
                 .onChange(of: searchText) { _, newValue in
-                    // Debounce search: 150ms delay to avoid Rust FFI call per keystroke
-                    searchDebounceTask?.cancel()
-                    searchDebounceTask = Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(150))
-                        guard !Task.isCancelled else { return }
-                        cachedSearchResults = newValue.isEmpty
-                            ? []
-                            : graphState.rustSearch(query: newValue, limit: 50)
-                        onSearchChanged(newValue)
-                    }
+                    // Synchronous search — Rust FFI is sub-1ms, no debounce needed.
+                    cachedSearchResults = newValue.isEmpty
+                        ? []
+                        : graphState.rustSearch(query: newValue, limit: 50)
+                    onSearchChanged(newValue)
                 }
 
             if !searchText.isEmpty {
                 Button {
-                    searchDebounceTask?.cancel()
                     searchText = ""
                     cachedSearchResults = []
                     onSearchChanged("")
