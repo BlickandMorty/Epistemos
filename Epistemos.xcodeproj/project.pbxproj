@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		03080C020849EDF12EF27D59 /* PipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 818ABA625E1915138186C72C /* PipelineService.swift */; };
+		036A5D4AC164253635DB8168 /* VersionPruningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0793E801105A00644A5B437 /* VersionPruningTests.swift */; };
 		040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */; };
 		0421C1D3B7F67F34F49539E3 /* GradeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12DE96DC3ED4E824BEB4BC4F /* GradeTests.swift */; };
 		05DF67064FF54B3C374F4211 /* SDPageVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B436566D022F335FA30747 /* SDPageVersion.swift */; };
@@ -399,6 +400,7 @@
 		AF46DAB33CBAB7EE4D4A9134 /* GraphStoreComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphStoreComprehensiveTests.swift; sourceTree = "<group>"; };
 		B01501774D229B160DB423DA /* MiniChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniChatView.swift; sourceTree = "<group>"; };
 		B04D63187FD2C7EC9B1445BB /* NotesUIState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesUIState.swift; sourceTree = "<group>"; };
+		B0793E801105A00644A5B437 /* VersionPruningTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VersionPruningTests.swift; sourceTree = "<group>"; };
 		B0DF0CDCC7411AB9F8BE227E /* AnalysisIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisIntents.swift; sourceTree = "<group>"; };
 		B2BE019EBF82F600C1F8D16F /* SDGraphNode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SDGraphNode.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* HologramNodeInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HologramNodeInspector.swift; sourceTree = "<group>"; };
@@ -920,6 +922,7 @@
 				EFA2B6DA618AC656F9587C8C /* SearchPerformanceTests.swift */,
 				01E39AEBA6CCBE938F617A0F /* SignalGeneratorComprehensiveTests.swift */,
 				4FA7B5A24349310264B8DAEB /* BackgroundGraphLoadingTests.swift */,
+				B0793E801105A00644A5B437 /* VersionPruningTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -1145,6 +1148,7 @@
 				WIRE00000000000000000005 /* PipelinePerformanceTests.swift in Sources */,
 				WIRE00000000000000000006 /* QueryAnalyzerComprehensiveTests.swift in Sources */,
 				834CF5029A7749D8D8438673 /* BackgroundGraphLoadingTests.swift in Sources */,
+				036A5D4AC164253635DB8168 /* VersionPruningTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

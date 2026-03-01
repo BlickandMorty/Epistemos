@@ -734,6 +734,7 @@ final class VaultSyncService {
     // MARK: - Version Capture
 
     private static let maxVersionsPerPage = 50
+    static let maxTotalVersions = 10_000
 
     /// Capture a snapshot of the current page body as a version, if it changed.
     func captureVersionIfNeeded(pageId: String) {
@@ -761,6 +762,7 @@ final class VaultSyncService {
         }
         log.info("Captured version for page \(pageId.prefix(8))")
         pruneVersions(pageId: pageId)
+        pruneVersionsGlobal()
     }
 
     /// Keep only the most recent N versions per page.
@@ -779,6 +781,29 @@ final class VaultSyncService {
             Log.vault.error("Failed to save after pruning versions for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
         log.info("Pruned \(old.count) old versions for page \(pageId.prefix(8))")
+    }
+
+    /// Delete the oldest versions across all pages when total exceeds the global limit.
+    /// Called after every per-page prune to keep storage bounded.
+    func pruneVersionsGlobal() {
+        let context = modelContainer.mainContext
+        let countDesc = FetchDescriptor<SDPageVersion>()
+        guard let totalCount = try? context.fetchCount(countDesc),
+              totalCount > Self.maxTotalVersions else { return }
+
+        let excess = totalCount - Self.maxTotalVersions
+        var oldestDesc = FetchDescriptor<SDPageVersion>(
+            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+        )
+        oldestDesc.fetchLimit = excess
+        guard let oldest = try? context.fetch(oldestDesc), !oldest.isEmpty else { return }
+        for version in oldest { context.delete(version) }
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error("Failed to save after global version prune: \(error.localizedDescription, privacy: .public)")
+        }
+        log.info("Global version prune: removed \(oldest.count) oldest versions (total was \(totalCount))")
     }
 
     /// Start a 10-minute timer that captures versions for all dirty pages.
