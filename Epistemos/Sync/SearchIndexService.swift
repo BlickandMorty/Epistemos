@@ -245,11 +245,14 @@ actor SearchIndexService {
     // MARK: - FTS5 Query Sanitization
 
     nonisolated static func sanitizeFTS5Query(_ raw: String) -> String {
-        let words = raw.lowercased()
+        // Limit input length to prevent DoS via extremely long queries.
+        let capped = raw.count > 500 ? String(raw.prefix(500)) : raw
+        let words = capped.lowercased()
             .components(separatedBy: .alphanumerics.inverted)
             .filter { $0.count >= 2 }
             .map { $0.replacingOccurrences(of: "\"", with: "") }
             .filter { !$0.isEmpty }
+            .prefix(20)  // Cap word count to prevent complex FTS5 evaluation
         guard !words.isEmpty else { return "" }
         return words.map { "\"\($0)\"*" }.joined(separator: " ")
     }
