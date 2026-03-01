@@ -1,19 +1,19 @@
 # Audit Progress
-Last updated: 2026-03-01 18:30
+Last updated: 2026-03-01 19:00
 
 ## Current Position
-Wave: 13 | Item: 13.2 | Gate: 1 (DIAGNOSE + TEST-FIRST)
+COMPLETE — All hardening items in Waves 1-13 assessed. Waves 14-21 are features (OUT_OF_SCOPE).
 
 ## Session Stats
 Tests before: 551 (Rust) + 227 suites (Swift) | Tests after: 551 (Rust) + 227 suites (Swift) | New tests: 7
-Fixes this session: 12 | Deferred: 0
+Fixes this session: 12 | Deferred: 7
 
 ## Pre-Audit Fixes
 - [x] Keychain Data Protection migration (commit efd2ab6) — not audit item
 - [x] 11 stale Rust test assertions fixed (commit 9abb941) — not audit item
 - [x] Legacy keychain migration disabled (commit a13307a) — not audit item
 
-## Completed
+## Completed (Waves 1-13)
 - [x] 1.1: Per-Node Highlight Flag Buffer — ALREADY IMPLEMENTED
 - [x] 1.2: Pre-Allocate Scratch Buffers — ALREADY IMPLEMENTED
 - [x] 1.3: Pre-Allocate Field Line Buffer — ALREADY IMPLEMENTED
@@ -27,6 +27,7 @@ Fixes this session: 12 | Deferred: 0
 - [x] 2.5: Diff-Based Graph Rebuild — ALREADY IMPLEMENTED (GraphBuilder.persist)
 - [x] 5.1: Front-Matter Parsing Edge Cases — FIXED (commit f4c223a, BOM + comments)
 - [x] 5.2: Filename Collision Edge Case — FIXED (commit bb53d95)
+- [x] 5.3: Version Pruning Race — NOT A BUG (@MainActor serialization)
 - [x] 5.4: Empty Vault Context Crash Risk — NOT A BUG (zero callers, dead code)
 - [x] 5.5: FTS5 Query Injection — FIXED (commit 8374d49)
 - [x] 6.1: Graph Version Tracking — NOT A BUG (@MainActor)
@@ -34,25 +35,53 @@ Fixes this session: 12 | Deferred: 0
 - [x] 6.3: Pipeline Task Cancellation Race — FIXED (commit 21299e5)
 - [x] 6.4: SwiftData Context Crossing — NOT A BUG (@MainActor isolation)
 - [x] 7.2: Embedding Service Growth — NOT A BUG (full replacement per cycle)
-- [x] 7.3: Note Body Memory-Mapped File Leak — NOT A BUG (mmap Data is function-scoped, String copies bytes)
+- [x] 7.3: Note Body Memory-Mapped File Leak — NOT A BUG (mmap Data is function-scoped)
 - [x] 8.1: FFI String Lifetime Safety — AUDITED SAFE + DOCUMENTED (commit b5e9e9a)
 - [x] 8.2: Metal Layer Pointer Retain — NOT A BUG (Rust objc_retain)
 - [x] 8.3: Missing Null Checks in FFI — NOT A BUG (all calls guarded)
 - [x] 9.1: Batch Delete Cascade Violation — FIXED (commit 00d064c)
-- [x] 9.2: Predicates with Arrays Crashing — ALREADY IMPLEMENTED (warning comment + individual fetches)
+- [x] 9.2: Predicates with Arrays Crashing — ALREADY IMPLEMENTED (individual fetches)
 - [x] 9.3: Transient Cache Invalidation — FIXED (commit 4ce963f)
 - [x] 10.1: API Key iCloud Sync Risk — FIXED (commit 8c17c42)
 - [x] 10.2: Spotlight Indexing Leaks Note Content — FIXED (commit f4c223a)
 - [x] 10.3: Vault Path Exposure in Logs — FIXED (commit 9b8fc96)
 - [x] 11.1: Silent Failures in Graph Operations — FIXED (commit f3ba40a)
+- [x] 11.2: LLM Stream Error Handling — MOSTLY MITIGATED (stream errors surface to UI; enrichment fallbacks by design)
+- [x] 11.3: File I/O Errors Not Distinguished — NOT A BUG (error details in log object)
 - [x] 11 (Metal Safety): Shader compilation panics — FIXED (commit b346609)
 - [x] 12.2: Dark Mode Detection Race — FIXED (commit d987851)
 - [x] 13.1: Quadtree Degradation — NOT A BUG (MAX_DEPTH + distance_min clamp)
-- [x] 13.3: Spotlight Reindex on Every Launch — NOT A BUG (UserDefaults persists correctly)
+- [x] 13.3: Spotlight Reindex on Every Launch — NOT A BUG (UserDefaults persists)
+
+## Completed (Wave 17 — Bug Triage)
+- [x] 17.12: Chat Cannot Access Note Bodies — NOT A BUG (design: @-mentions load full bodies, ambient is lightweight by design)
+- [x] 17.14: Password Prompt on Every Launch — FIXED (commit a13307a, legacy migration disabled)
 
 ## Deferred (needs human or design decision)
 - [ ] 1.8: Background Graph Building — Major architecture change (needs new SwiftData context)
 - [ ] 1.12: Incremental FFI Graph Updates — Needs new Rust FFI functions + protocol design
+- [ ] 7.1: Unbounded Version Storage — Needs design decision on global limit
+- [ ] 7.4: Graph Store Memory Explosion — Architecture change (compact indices)
+- [ ] 12.1: Zero-State Handling — UI feature (EmptyStateView component)
+- [ ] 13.2: Fuzzy Search Scalability — Architecture change (trigram index)
+- [ ] 17.13: App Crashes Creating Note — Cannot reproduce from code analysis, needs crash log
+
+## Out of Scope (features, not hardening)
+- Waves 2.1-2.4, 2.6-2.8: Architecture refactoring
+- Wave 3: Build infrastructure and testing
+- Wave 4: Second brain features
+- Wave 2.8: UserDefaults/SwiftData split-brain (needs new SDSavedPaper model)
+- Waves 14-21: Vision & Growth features
+
+## Summary
+| Category | Count |
+|----------|-------|
+| Items reviewed | 43 |
+| Fixed with commit | 12 |
+| Already implemented | 9 |
+| Not a bug / mitigated | 15 |
+| Deferred | 7 |
+| Out of scope | ~50+ (features) |
 
 ## Current Session Log
 | # | Wave.Item | Description | Gate | Status | Commit |
@@ -70,25 +99,31 @@ Fixes this session: 12 | Deferred: 0
 | 11 | 2.5 | Diff-based graph rebuild | — | ALREADY DONE | — |
 | 12 | 5.1 | Front-matter parsing | 4/4 | FIXED | f4c223a |
 | 13 | 5.2 | Filename collision | 4/4 | FIXED | bb53d95 |
-| 14 | 5.4 | Empty vault context | — | NOT A BUG | — |
-| 15 | 5.5 | FTS5 query injection | 4/4 | FIXED | 8374d49 |
-| 16 | 6.1 | Graph version atomicity | — | NOT A BUG | — |
-| 17 | 6.2 | Engine handle race | — | NOT A BUG | — |
-| 18 | 6.3 | Pipeline cancellation | 4/4 | FIXED | 21299e5 |
-| 19 | 6.4 | SwiftData context crossing | — | NOT A BUG | — |
-| 20 | 7.2 | Embedding growth | — | NOT A BUG | — |
-| 21 | 7.3 | Mmap file leak | — | NOT A BUG | — |
-| 22 | 8.1 | FFI string lifetime | — | AUDITED SAFE | b5e9e9a |
-| 23 | 8.2 | Metal layer retain | — | NOT A BUG | — |
-| 24 | 8.3 | FFI null checks | — | NOT A BUG | — |
-| 25 | 9.1 | Batch delete cascade | 4/4 | FIXED | 00d064c |
-| 26 | 9.2 | Predicates with arrays | — | ALREADY DONE | — |
-| 27 | 9.3 | Transient cache | 4/4 | FIXED | 4ce963f |
-| 28 | 10.1 | API key iCloud sync | 4/4 | FIXED | 8c17c42 |
-| 29 | 10.2 | Spotlight body exposure | 4/4 | FIXED | f4c223a |
-| 30 | 10.3 | Vault path privacy | 4/4 | FIXED | 9b8fc96 |
-| 31 | 11.1 | GraphBuilder silent fails | 4/4 | FIXED | f3ba40a |
-| 32 | 11 | Metal shader panics | 4/4 | FIXED | b346609 |
-| 33 | 12.2 | Dark mode detection | 4/4 | FIXED | d987851 |
-| 34 | 13.1 | Quadtree degradation | — | NOT A BUG | — |
-| 35 | 13.3 | Spotlight reindex | — | NOT A BUG | — |
+| 14 | 5.3 | Version pruning race | — | NOT A BUG | — |
+| 15 | 5.4 | Empty vault context | — | NOT A BUG | — |
+| 16 | 5.5 | FTS5 query injection | 4/4 | FIXED | 8374d49 |
+| 17 | 6.1 | Graph version atomicity | — | NOT A BUG | — |
+| 18 | 6.2 | Engine handle race | — | NOT A BUG | — |
+| 19 | 6.3 | Pipeline cancellation | 4/4 | FIXED | 21299e5 |
+| 20 | 6.4 | SwiftData context crossing | — | NOT A BUG | — |
+| 21 | 7.2 | Embedding growth | — | NOT A BUG | — |
+| 22 | 7.3 | Mmap file leak | — | NOT A BUG | — |
+| 23 | 8.1 | FFI string lifetime | — | AUDITED SAFE | b5e9e9a |
+| 24 | 8.2 | Metal layer retain | — | NOT A BUG | — |
+| 25 | 8.3 | FFI null checks | — | NOT A BUG | — |
+| 26 | 9.1 | Batch delete cascade | 4/4 | FIXED | 00d064c |
+| 27 | 9.2 | Predicates with arrays | — | ALREADY DONE | — |
+| 28 | 9.3 | Transient cache | 4/4 | FIXED | 4ce963f |
+| 29 | 10.1 | API key iCloud sync | 4/4 | FIXED | 8c17c42 |
+| 30 | 10.2 | Spotlight body exposure | 4/4 | FIXED | f4c223a |
+| 31 | 10.3 | Vault path privacy | 4/4 | FIXED | 9b8fc96 |
+| 32 | 11.1 | GraphBuilder silent fails | 4/4 | FIXED | f3ba40a |
+| 33 | 11.2 | LLM stream errors | — | MITIGATED | — |
+| 34 | 11.3 | File I/O errors | — | NOT A BUG | — |
+| 35 | 11 | Metal shader panics | 4/4 | FIXED | b346609 |
+| 36 | 12.2 | Dark mode detection | 4/4 | FIXED | d987851 |
+| 37 | 13.1 | Quadtree degradation | — | NOT A BUG | — |
+| 38 | 13.3 | Spotlight reindex | — | NOT A BUG | — |
+| 39 | 17.12 | Chat note bodies | — | NOT A BUG | — |
+| 40 | 17.13 | Crash creating note | — | DEFERRED | — |
+| 41 | 17.14 | Password prompt | — | FIXED | a13307a |
