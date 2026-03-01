@@ -138,6 +138,11 @@ final class MetalGraphNSView: NSView {
         let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
         engine = graph_engine_create(devicePtr, layerPtr)
 
+        // Sync light mode state that may have been set before engine creation.
+        if let engine {
+            graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
+        }
+
         // Share the engine handle with GraphState for Rust-side search/queries.
         graphState?.engineHandle = engine
 
