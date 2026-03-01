@@ -2418,15 +2418,15 @@ mod tests {
     }
 
     #[test]
-    fn stress_2000_nodes_static_layout() {
-        // 2000 nodes exceeds static layout threshold (1500).
+    fn stress_3000_nodes_static_layout() {
+        // 3000 nodes exceeds static layout threshold (2500).
         // Physics should be completely disabled.
-        let graph = make_large_graph(2000);
+        let graph = make_large_graph(3000);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
 
         // Static layout should be active.
-        assert!(sim.static_layout, "2000 nodes should trigger static layout");
+        assert!(sim.static_layout, "3000 nodes should trigger static layout");
         assert!(sim.is_settled, "static layout should be settled");
         assert_eq!(sim.params.alpha, 0.0, "alpha should be 0 for static layout");
 

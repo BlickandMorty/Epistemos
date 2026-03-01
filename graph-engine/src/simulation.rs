@@ -756,12 +756,12 @@ mod tests {
     #[test]
     fn default_params_match_observatory() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 200.0);
-        assert_eq!(p.charge_strength, -400.0);
-        assert_eq!(p.charge_range, 1500.0);
-        assert_eq!(p.velocity_decay, 0.85);
-        assert_eq!(p.center_strength, 0.005);
-        assert_eq!(p.collision_radius, 20.0);
+        assert_eq!(p.link_distance, 250.0);
+        assert_eq!(p.charge_strength, -300.0);
+        assert_eq!(p.charge_range, 1200.0);
+        assert_eq!(p.velocity_decay, 0.80);
+        assert_eq!(p.center_strength, 0.003);
+        assert_eq!(p.collision_radius, 18.0);
         assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.15);
         assert_eq!(p.center_mode, CenterMode::Attract);
@@ -867,7 +867,7 @@ mod tests {
         let sim = Simulation::new();
         assert_eq!(sim.params.alpha, 0.3);
         assert_eq!(sim.params.alpha_min, 0.001);
-        assert_eq!(sim.params.velocity_decay, 0.85);
+        assert_eq!(sim.params.velocity_decay, 0.80);
     }
 
     #[test]
@@ -1206,7 +1206,7 @@ mod tests {
     #[test]
     fn is_settled_with_static_layout() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -1244,16 +1244,16 @@ mod tests {
     #[test]
     fn parameters_default_values() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 200.0);
-        assert_eq!(p.charge_strength, -400.0);
-        assert_eq!(p.charge_range, 1500.0);
-        assert_eq!(p.velocity_decay, 0.85);
-        assert_eq!(p.center_strength, 0.005);
-        assert_eq!(p.collision_radius, 20.0);
+        assert_eq!(p.link_distance, 250.0);
+        assert_eq!(p.charge_strength, -300.0);
+        assert_eq!(p.charge_range, 1200.0);
+        assert_eq!(p.velocity_decay, 0.80);
+        assert_eq!(p.center_strength, 0.003);
+        assert_eq!(p.collision_radius, 18.0);
         assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.15);
         assert_eq!(p.center_mode, CenterMode::Attract);
-        assert_eq!(p.semantic_strength, 0.0);
+        assert_eq!(p.semantic_strength, 0.3);
         assert_eq!(p.alpha, 0.3);
         assert_eq!(p.alpha_min, 0.001);
     }
@@ -2216,7 +2216,7 @@ mod tests {
     #[test]
     fn static_layout_triggered_for_many_nodes() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2228,7 +2228,7 @@ mod tests {
     #[test]
     fn static_layout_no_physics() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2243,7 +2243,7 @@ mod tests {
     #[test]
     fn static_layout_velocities_zero() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
             graph.nodes[i].vx = 100.0;
         }
@@ -2257,7 +2257,7 @@ mod tests {
     #[test]
     fn static_layout_alpha_zero() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2268,7 +2268,7 @@ mod tests {
     #[test]
     fn static_layout_reheat_no_effect() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2281,7 +2281,7 @@ mod tests {
     #[test]
     fn static_layout_preserves_positions() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 5.0, (i as f32) * 3.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2295,7 +2295,7 @@ mod tests {
     #[test]
     fn static_layout_below_threshold_disabled() {
         let mut graph = Graph::new();
-        for i in 0..1000 {
+        for i in 0..2000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2306,7 +2306,7 @@ mod tests {
     #[test]
     fn static_layout_at_threshold_disabled() {
         let mut graph = Graph::new();
-        for i in 0..1500 {
+        for i in 0..2500 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2317,7 +2317,7 @@ mod tests {
     #[test]
     fn static_layout_computes_degrees() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         for i in 0..100 {
@@ -2332,7 +2332,7 @@ mod tests {
     #[test]
     fn static_layout_min_degree_one() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2763,7 +2763,7 @@ mod tests {
     #[test]
     fn tick_count_with_static_layout() {
         let mut graph = Graph::new();
-        for i in 0..1600 {
+        for i in 0..3000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
