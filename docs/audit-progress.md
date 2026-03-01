@@ -1,12 +1,12 @@
 # Audit Progress
-Last updated: 2026-03-01 19:00
+Last updated: 2026-03-01 22:40
 
 ## Current Position
-COMPLETE — All hardening items in Waves 1-13 assessed. Waves 14-21 are features (OUT_OF_SCOPE).
+Working deferred items. Next: W1.12 (Incremental FFI Graph Updates)
 
 ## Session Stats
-Tests before: 551 (Rust) + 227 suites (Swift) | Tests after: 551 (Rust) + 227 suites (Swift) | New tests: 7
-Fixes this session: 12 | Deferred: 7
+Tests before: 549 (Rust) + 228 suites (Swift) | Tests after: 549 (Rust) + 229 suites (Swift) | New tests: 10
+Fixes this session: 13 | Deferred: 6
 
 ## Pre-Audit Fixes
 - [x] Keychain Data Protection migration (commit efd2ab6) — not audit item
@@ -21,6 +21,7 @@ Fixes this session: 12 | Deferred: 7
 - [x] 1.5: Remove Motion Blur — ALREADY IMPLEMENTED
 - [x] 1.6: List Virtualization — ALREADY IMPLEMENTED
 - [x] 1.7: Search Debouncing — FIXED (commit d6204c4)
+- [x] 1.8: Background Graph Loading — FIXED (commit 83fa3a4)
 - [x] 1.9: Search Result Caching — NOT A BUG (150ms debounce + Rust FFI already mitigate)
 - [x] 1.10: Frustum Culling — NOT A BUG (instanced rendering, GPU clips automatically)
 - [x] 1.11: SwiftData Prefetch Relationships — FIXED (commit 3252068)
@@ -58,7 +59,7 @@ Fixes this session: 12 | Deferred: 7
 - [x] 17.14: Password Prompt on Every Launch — FIXED (commit a13307a, legacy migration disabled)
 
 ## Deferred (needs human or design decision)
-- [ ] 1.8: Background Graph Building — Major architecture change (needs new SwiftData context)
+- [x] 1.8: Background Graph Loading — FIXED (commit 83fa3a4, BackgroundGraphActor @ModelActor)
 - [ ] 1.12: Incremental FFI Graph Updates — Needs new Rust FFI functions + protocol design
 - [ ] 7.1: Unbounded Version Storage — Needs design decision on global limit
 - [ ] 7.4: Graph Store Memory Explosion — Architecture change (compact indices)
@@ -76,11 +77,11 @@ Fixes this session: 12 | Deferred: 7
 ## Summary
 | Category | Count |
 |----------|-------|
-| Items reviewed | 43 |
-| Fixed with commit | 12 |
+| Items reviewed | 44 |
+| Fixed with commit | 13 |
 | Already implemented | 9 |
 | Not a bug / mitigated | 15 |
-| Deferred | 7 |
+| Deferred | 6 |
 | Out of scope | ~50+ (features) |
 
 ## Current Session Log
@@ -127,3 +128,4 @@ Fixes this session: 12 | Deferred: 7
 | 39 | 17.12 | Chat note bodies | — | NOT A BUG | — |
 | 40 | 17.13 | Crash creating note | — | DEFERRED | — |
 | 41 | 17.14 | Password prompt | — | FIXED | a13307a |
+| 42 | 1.8 | Background graph loading | 4/4 | FIXED | 83fa3a4 |
