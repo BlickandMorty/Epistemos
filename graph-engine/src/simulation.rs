@@ -71,20 +71,20 @@ pub struct ForceParams {
 impl Default for ForceParams {
     fn default() -> Self {
         Self {
-            // Calm fluid defaults — gentle repulsion, wide spacing, smooth settling.
-            link_distance: 250.0,
-            charge_strength: -300.0,
-            charge_range: 1200.0,
-            link_strength: 0.0, // auto
+            // Dense clustered layout — strong repulsion, tight charge range, visible links.
+            link_distance: 243.0,
+            charge_strength: -2792.0,
+            charge_range: 218.0,
+            link_strength: 0.44,
 
             // Low friction = calm, fluid drift. Nodes float gently.
             velocity_decay: 0.05,
-            center_strength: 0.003,
+            center_strength: 0.0,
             collision_radius: 50.0,
             collision_iterations: 1,
-            cluster_strength: 0.15,
+            cluster_strength: 0.83,
             center_mode: CenterMode::Attract,
-            semantic_strength: 0.3,
+            semantic_strength: 1.0,
 
             // Simulation state — start at lower alpha for gentler onset.
             alpha: 0.3,
@@ -756,14 +756,14 @@ mod tests {
     #[test]
     fn default_params_match_observatory() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 250.0);
-        assert_eq!(p.charge_strength, -300.0);
-        assert_eq!(p.charge_range, 1200.0);
+        assert_eq!(p.link_distance, 243.0);
+        assert_eq!(p.charge_strength, -2792.0);
+        assert_eq!(p.charge_range, 218.0);
         assert_eq!(p.velocity_decay, 0.05);
-        assert_eq!(p.center_strength, 0.003);
+        assert_eq!(p.center_strength, 0.0);
         assert_eq!(p.collision_radius, 50.0);
         assert_eq!(p.collision_iterations, 1);
-        assert_eq!(p.cluster_strength, 0.15);
+        assert_eq!(p.cluster_strength, 0.83);
         assert_eq!(p.center_mode, CenterMode::Attract);
     }
 
@@ -1244,16 +1244,16 @@ mod tests {
     #[test]
     fn parameters_default_values() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 250.0);
-        assert_eq!(p.charge_strength, -300.0);
-        assert_eq!(p.charge_range, 1200.0);
+        assert_eq!(p.link_distance, 243.0);
+        assert_eq!(p.charge_strength, -2792.0);
+        assert_eq!(p.charge_range, 218.0);
         assert_eq!(p.velocity_decay, 0.05);
-        assert_eq!(p.center_strength, 0.003);
+        assert_eq!(p.center_strength, 0.0);
         assert_eq!(p.collision_radius, 50.0);
         assert_eq!(p.collision_iterations, 1);
-        assert_eq!(p.cluster_strength, 0.15);
+        assert_eq!(p.cluster_strength, 0.83);
         assert_eq!(p.center_mode, CenterMode::Attract);
-        assert_eq!(p.semantic_strength, 0.3);
+        assert_eq!(p.semantic_strength, 1.0);
         assert_eq!(p.alpha, 0.3);
         assert_eq!(p.alpha_min, 0.001);
     }
@@ -1329,8 +1329,8 @@ mod tests {
     #[test]
     fn semantic_strength_parameter() {
         let mut p = ForceParams::default();
-        p.semantic_strength = 0.3;
-        assert_eq!(p.semantic_strength, 0.3);
+        p.semantic_strength = 1.0;
+        assert_eq!(p.semantic_strength, 1.0);
     }
 
     // =========================================================================

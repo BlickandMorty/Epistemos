@@ -716,9 +716,9 @@ struct PhysicsPresetEdgeCaseTests {
     @Test("Observatory is balanced preset")
     func observatoryPreset() {
         let preset = PhysicsPreset.observatory
-        #expect(preset.linkDistance == 200)
-        #expect(preset.chargeStrength == -400)
-        #expect(preset.velocityDecay == 0.85)
+        #expect(preset.linkDistance == 243)
+        #expect(preset.chargeStrength == -2792)
+        #expect(preset.velocityDecay == 0.05)
     }
     
     @Test("Crystal is tight preset")

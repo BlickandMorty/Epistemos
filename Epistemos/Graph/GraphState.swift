@@ -43,7 +43,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
 
     var linkDistance: Float {
         switch self {
-        case .observatory:   return 200
+        case .observatory:   return 243
         case .nebula:        return 280
         case .crystal:       return 120
         case .fluid:         return 180
@@ -52,7 +52,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var chargeStrength: Float {
         switch self {
-        case .observatory:   return -400
+        case .observatory:   return -2792
         case .nebula:        return -250
         case .crystal:       return -600
         case .fluid:         return -350
@@ -61,14 +61,22 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var chargeRange: Float {
         switch self {
-        case .observatory:   return 1500
+        case .observatory:   return 218
         case .nebula:        return 1200
         case .crystal:       return 800
         case .fluid:         return 1000
         case .constellation: return 1500
         }
     }
-    var linkStrength: Float { 0 } // Always auto
+    var linkStrength: Float {
+        switch self {
+        case .observatory:   return 0.44
+        case .nebula:        return 0
+        case .crystal:       return 0
+        case .fluid:         return 0
+        case .constellation: return 0
+        }
+    }
 
     var velocityDecay: Float {
         switch self {
@@ -81,7 +89,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var centerStrength: Float {
         switch self {
-        case .observatory:   return 0.005
+        case .observatory:   return 0
         case .nebula:        return 0.002
         case .crystal:       return 0.02
         case .fluid:         return 0.008
@@ -207,21 +215,21 @@ final class GraphState {
     // extended via graph_engine_set_extended_force_params().
 
     // ── Core ──
-    // Defaults: Calm fluid — gentle repulsion, wide spacing, smooth settling.
+    // Defaults: Dense clustered layout — strong repulsion, tight charge range, visible links.
     /// Natural resting length of edge springs.
-    var linkDistance: Float = 250.0
-    /// Many-body charge strength (negative = repulsion). Gentle to avoid node pressure.
-    var chargeStrength: Float = -300.0
-    /// Maximum range for many-body repulsion.
-    var chargeRange: Float = 1200.0
+    var linkDistance: Float = 243.0
+    /// Many-body charge strength (negative = repulsion). Strong for tight clustering.
+    var chargeStrength: Float = -2792.0
+    /// Maximum range for many-body repulsion. Short range keeps clusters compact.
+    var chargeRange: Float = 218.0
     /// Link spring strength. 0 = auto (1 / min(degree)).
-    var linkStrength: Float = 0.0
+    var linkStrength: Float = 0.44
 
     // ── Extended ──
     /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous). Low = calm, fluid drift.
     var velocityDecay: Float = 0.05
     /// Center gravity pull strength (0 = none, 0.2 = strong).
-    var centerStrength: Float = 0.003
+    var centerStrength: Float = 0.0
     /// Collision buffer zone in pixels. ~50 gives nodes breathing room without over-spreading.
     var collisionRadius: Float = 50.0
 
@@ -262,7 +270,7 @@ final class GraphState {
 
     /// Restore force parameters from UserDefaults. No-op if never saved.
     /// Uses a version key to force reset when defaults change across app updates.
-    private static let physicsVersion = 2  // Bump to force reset on next launch
+    private static let physicsVersion = 3  // Bump to force reset on next launch
     private func restorePhysicsSettings() {
         let d = UserDefaults.standard
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }
@@ -286,9 +294,9 @@ final class GraphState {
     }
 
     // ── Cluster ──
-    var clusterStrength: Float = 0.15
+    var clusterStrength: Float = 0.83
     var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
-    var semanticStrength: Float = 0.3
+    var semanticStrength: Float = 1.0
 
     // ── Time-Travel ──
     /// Computed date range of all graph nodes. Set during commit.

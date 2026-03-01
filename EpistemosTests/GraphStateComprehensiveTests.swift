@@ -56,34 +56,34 @@ struct GraphStatePhysicsPresetTests {
         let state = GraphState()
         state.applyPreset(.observatory)
         
-        #expect(state.linkDistance == 200)
-        #expect(state.chargeStrength == -400)
-        #expect(state.chargeRange == 1500)
-        #expect(state.linkStrength == 0)
-        #expect(state.velocityDecay == 0.85)
-        #expect(state.centerStrength == 0.005)
-        #expect(state.collisionRadius == 20)
+        #expect(state.linkDistance == 243)
+        #expect(state.chargeStrength == -2792)
+        #expect(state.chargeRange == 218)
+        #expect(state.linkStrength == Float(0.44))
+        #expect(state.velocityDecay == 0.05)
+        #expect(state.centerStrength == 0)
+        #expect(state.collisionRadius == 50)
     }
-    
+
     @Test("nebula preset applies correct values")
     func nebulaPreset() {
         let state = GraphState()
         state.applyPreset(.nebula)
-        
+
         #expect(state.linkDistance == 280)
         #expect(state.chargeStrength == -250)
         #expect(state.chargeRange == 1200)
         #expect(state.linkStrength == 0)
-        #expect(state.velocityDecay == 0.80)
+        #expect(state.velocityDecay == 0.10)
         #expect(state.centerStrength == 0.002)
-        #expect(state.collisionRadius == 15)
+        #expect(state.collisionRadius == 40)
     }
-    
+
     @Test("crystal preset applies correct values")
     func crystalPreset() {
         let state = GraphState()
         state.applyPreset(.crystal)
-        
+
         #expect(state.linkDistance == 120)
         #expect(state.chargeStrength == -600)
         #expect(state.chargeRange == 800)
@@ -92,33 +92,33 @@ struct GraphStatePhysicsPresetTests {
         #expect(state.centerStrength == 0.02)
         #expect(state.collisionRadius == 30)
     }
-    
+
     @Test("fluid preset applies correct values")
     func fluidPreset() {
         let state = GraphState()
         state.applyPreset(.fluid)
-        
+
         #expect(state.linkDistance == 180)
         #expect(state.chargeStrength == -350)
         #expect(state.chargeRange == 1000)
         #expect(state.linkStrength == 0)
-        #expect(state.velocityDecay == 0.75)
+        #expect(state.velocityDecay == 0.20)
         #expect(state.centerStrength == 0.008)
-        #expect(state.collisionRadius == 18)
+        #expect(state.collisionRadius == 45)
     }
-    
+
     @Test("constellation preset applies correct values")
     func constellationPreset() {
         let state = GraphState()
         state.applyPreset(.constellation)
-        
+
         #expect(state.linkDistance == 350)
         #expect(state.chargeStrength == -200)
         #expect(state.chargeRange == 1500)
         #expect(state.linkStrength == 0)
-        #expect(state.velocityDecay == 0.82)
+        #expect(state.velocityDecay == 0.08)
         #expect(state.centerStrength == 0.001)
-        #expect(state.collisionRadius == 12)
+        #expect(state.collisionRadius == 35)
     }
     
     @Test("preset application increments force config versions")
@@ -142,13 +142,13 @@ struct GraphStateForceParameterTests {
     func defaultForceValues() {
         let state = GraphState()
         
-        #expect(state.linkDistance == 200.0)
-        #expect(state.chargeStrength == -400.0)
-        #expect(state.chargeRange == 1500.0)
-        #expect(state.linkStrength == 0.0)
-        #expect(state.velocityDecay == 0.85)
-        #expect(state.centerStrength == 0.005)
-        #expect(state.collisionRadius == 20.0)
+        #expect(state.linkDistance == 243.0)
+        #expect(state.chargeStrength == -2792.0)
+        #expect(state.chargeRange == 218.0)
+        #expect(state.linkStrength == Float(0.44))
+        #expect(state.velocityDecay == 0.05)
+        #expect(state.centerStrength == 0.0)
+        #expect(state.collisionRadius == 50.0)
     }
     
     @Test("pushForceChange increments forceConfigVersion")
