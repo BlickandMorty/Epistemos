@@ -16,6 +16,8 @@ This document is the single source of truth for ALL planned improvements, bugs, 
 - Gemini "Epistemos Manifesto" — cognitive exoskeleton roadmap
 - Gemini Logseq architecture analysis (block outlining, queries, transclusion)
 - Personal brainstorm & feature requests (2026-02-28)
+- Gemini physics UI analysis — Rapier integration, relativistic lensing, quantum SOAR collapse
+- Epistemos Retro Edition architecture — Tauri + Rust + Next.js Windows port
 
 **How to use this document:** Work through items by priority (P0 → P5). Each item has a checkbox. Mark `[x]` when complete. Items within each wave are ordered by impact.
 
@@ -47,11 +49,13 @@ This document is the single source of truth for ALL planned improvements, bugs, 
 19. [Wave 18: Interactive & Live Features](#wave-18-interactive--live-features)
 20. [Wave 19: Infrastructure & Comprehensive Testing](#wave-19-infrastructure--comprehensive-testing)
 21. [Wave 20: Advanced Architecture & Platform](#wave-20-advanced-architecture--platform)
+22. [Wave 21: Epistemos Retro Edition (Windows/Cross-Platform)](#wave-21-epistemos-retro-edition-windowscross-platform)
 
 **Reference:**
-22. [Logseq Comparison & Scalability](#logseq-comparison--scalability)
-23. [UI/UX Audit Findings](#uiux-audit-findings)
-24. [Master Priority Order](#master-priority-order)
+23. [Logseq Comparison & Scalability](#logseq-comparison--scalability)
+24. [Physics UI Analysis — Rapier & Cognitive Exoskeleton](#physics-ui-analysis--rapier--cognitive-exoskeleton)
+25. [UI/UX Audit Findings](#uiux-audit-findings)
+26. [Master Priority Order](#master-priority-order)
 
 ---
 
@@ -1276,6 +1280,70 @@ These are longer-term features from the Gemini brainstorm that elevate Epistemos
 
 ---
 
+## WAVE 21: EPISTEMOS RETRO EDITION (WINDOWS/CROSS-PLATFORM)
+
+**Platform:** Tauri 2.x + Next.js (existing web frontend) + Rust backend
+**Codename:** Epistemos Retro Edition
+**macOS app codename:** Epistemos Opulent Edition
+
+The Retro Edition fuses the web frontend's layout/design with the macOS app's logic/features, compiled as a native desktop app via Tauri. All backend logic in Rust. The graph-engine becomes a Cargo workspace member — no FFI bridge, direct `use graph_engine;`.
+
+### 21.1 Tauri Project Scaffold
+- **Priority:** P3
+- **Description:** Create `epistemos-retro/` project with Tauri 2.x, Next.js frontend (adapted from brainiacv2), Rust backend with graph-engine as workspace member. Set up tauri.conf.json, window config, permissions.
+- **Key Decision:** Use `rapier3d` for graph physics on Windows instead of the current custom force simulation. Rapier 3D gives true rigid body dynamics in volumetric space, collision detection, impulse joints (springs), and mass-based gravity — enabling the "cognitive exoskeleton" vision where node importance maps to physical mass. 3D chosen over 2D because: (a) enables camera orbiting, depth clustering, volumetric space; (b) 3D ⊃ 2D (set z=0 for flat mode); (c) performance overhead is marginal (~1.5x for 10K bodies, still <1ms/tick); (d) required for relativistic lensing, DNA helix, hologram features.
+- **Status:** [ ] NOT STARTED
+
+### 21.2 Rapier Physics Engine Integration
+- **Priority:** P3
+- **Source:** Gemini physics UI analysis
+- **Description:** Replace or augment the current force-directed graph with `rapier3d` (Rust). Every cognitive node becomes a 3D RigidBody. Important nodes (higher word count, page rank) get higher Mass. Links become ImpulseJointSet springs. This enables physically accurate clustering, collision, and the "bones vs fluid" paradigm where high-confidence nodes feel heavy and uncertain nodes feel light. Volumetric 3D space enables camera orbiting, depth-based clustering, and the full "cognitive exoskeleton" vision.
+- **Architecture:** Embed `rapier3d` within `Engine` struct. Expose same FFI surface but with richer physics semantics. For macOS: optional migration path. For Windows (Retro Edition): default physics engine. Target hardware: RTX 4060 class GPU for rendering; Rapier physics runs on CPU (~1ms/tick for 10K bodies).
+- **Benefits:** True collision detection, mass-based gravity, restitution (bounce), joint constraints, deterministic simulation, sleeping bodies for performance.
+- **Status:** [ ] NOT STARTED
+
+### 21.3 Rust Backend — Pipeline Port
+- **Priority:** P3
+- **Description:** Port the SOAR pipeline from Swift to Rust. 3-pass system: (1) streaming direct answer, (2) deep research analysis, (3) truth assessment. 10 pipeline stages with signal updates. LLM client abstraction (Anthropic, OpenAI, Google, Ollama). Tauri commands expose pipeline to frontend via `invoke()`.
+- **Key Crates:** `reqwest` (HTTP), `tokio` (async), `serde_json` (structured output), `rusqlite` (storage), `notify` (file watching for vault sync).
+- **Status:** [ ] NOT STARTED
+
+### 21.4 Tauri Bridge — Frontend Adaptation
+- **Priority:** P3
+- **Description:** Adapt the existing Next.js frontend: replace `fetch('/api/...')` with `invoke('command_name', { ... })`. Replace SSE streaming with Tauri event listeners (`listen('chat-stream', callback)`). Keep all Zustand state management, Tailwind styling, Framer Motion animations, D3 visualizations as-is.
+- **Scope of changes:** ~20 API call sites need `invoke()` wrapping. Everything else unchanged.
+- **Status:** [ ] NOT STARTED
+
+### 21.5 Storage Layer — rusqlite + Vault Sync
+- **Priority:** P3
+- **Description:** Implement persistence in Rust using `rusqlite`. Schema mirrors SwiftData models (Page, Block, Chat, Message, GraphNode, GraphEdge, Folder, PageVersion). Vault sync via `notify` crate file watcher + bidirectional .md sync (same logic as NoteFileStorage/VaultSyncService).
+- **Status:** [ ] NOT STARTED
+
+### 21.6 Graph Rendering — WebGPU/wgpu or Canvas
+- **Priority:** P4
+- **Description:** For graph visualization in the Tauri webview, options: (a) wgpu with Rapier physics rendered to a texture and composited into the web view, (b) D3.js with Rapier coordinates streamed via Tauri events at 60fps, (c) WebGPU shaders in the webview. Option (b) is simplest — Rust computes physics, streams `{id, x, y}[]` to D3 at 60fps.
+- **Status:** [ ] NOT STARTED
+
+### 21.7 Relativistic Lensing Shader (Vision)
+- **Priority:** P5
+- **Source:** Gemini physics UI analysis
+- **Description:** When a node is focal point ("Black Hole"), curve digital spacetime around it. Rust calculates semantic "Gravity Vector Field" — center coordinates + mass of important nodes. Pass to GPU shader that distorts UV coordinates using simplified Schwarzschild radius equation. On macOS: Metal `.layerEffect` shader. On Windows: WebGPU/WGSL fragment shader.
+- **Status:** [ ] NOT STARTED
+
+### 21.8 Quantum SOAR Collapse Visualization (Vision)
+- **Priority:** P5
+- **Source:** Gemini physics UI analysis
+- **Description:** When SOAR pipeline is reasoning, render the node as a probabilistic particle cloud (alpha/spread proportional to entropy). As confidence increases and entropy drops, particles tighten and "collapse" into a solid high-mass RigidBody sphere. Ties existing SOARSession metrics directly to visual parameters.
+- **Status:** [ ] NOT STARTED
+
+### 21.9 Physics-Driven UI Elements (Vision)
+- **Priority:** P5
+- **Source:** Gemini physics UI analysis
+- **Description:** Buttons and panels are physically simulated entities in Rapier. When AI response finishes streaming, the result panel "drops" into layout with Rapier restitution (bounce). Panning/flicking the graph imparts velocity impulse to simulated camera body. Haptic feedback synchronized to collision frames.
+- **Status:** [ ] NOT STARTED
+
+---
+
 ## LOGSEQ COMPARISON & SCALABILITY
 
 ### Executive Comparison
@@ -1328,6 +1396,44 @@ These are longer-term features from the Gemini brainstorm that elevate Epistemos
 | Graph load (15K notes) | 3s freeze | 500ms | 6x faster |
 | List scroll (10K items) | 5fps | 60fps | 12x smoother |
 | Memory usage | 800MB | 400MB | 2x reduction |
+
+---
+
+## PHYSICS UI ANALYSIS — RAPIER & COGNITIVE EXOSKELETON
+
+**Source:** Gemini deep analysis (`physics_ui_analysis.md.resolved`)
+
+### Core Metaphor: Bones vs. Fluid
+LLMs are "high-potential fluid" — the UI provides "rigid bone structures." High-confidence/low-entropy SOAR results feel physically heavy. High-entropy results feel light, fluid, susceptible to gravitational pull of other nodes. This is the paradigm shift from "software as tool" to "software as environment."
+
+### Rapier Integration Strategy
+- **Use `rapier3d`** — volumetric 3D space for camera orbiting, depth clustering, and the full vision
+- Every cognitive node → 3D `RigidBody` with mass proportional to importance (word count, page rank, link count)
+- Links → `ImpulseJointSet` (spring constraints in 3D)
+- Benefits: true collision, sleeping bodies (performance), deterministic simulation, restitution (bounce), ball joints
+- Performance: ~1ms/tick for 10K bodies (rapier3d), leaving 15ms/frame for rendering. RTX 4060 class GPU handles 3D rendering trivially.
+- Can always constrain `z = 0` for flat 2D mode — 3D ⊃ 2D
+- **Phase 1:** Swap graph_engine.rs backend to rapier3d. Prove 10K rigid bodies at 120fps via zero-copy buffers.
+- **Phase 2:** Spacetime shader — Metal `.layerEffect` (macOS) or WGSL (Windows) distorts UV around focal node using simplified Schwarzschild radius.
+- **Phase 3:** Quantum SOAR collapse — tie entropy/confidence to particle shader alpha/spread.
+
+### Zero-Copy FFI Architecture
+- Define `#[repr(C)]` transform structs in Rust (position, rotation, scale)
+- Share memory pointer directly with renderer — zero CPU copies
+- On macOS: Rust writes, Metal reads same `MTLBuffer` bytes
+- On Windows: Rust writes, WebGPU reads same shared buffer
+- This is the only way to achieve 120Hz physics syncing without battery drain
+
+### Platform-Specific Rendering
+| Feature | macOS (Opulent) | Windows (Retro) |
+|---------|----------------|-----------------|
+| Graph renderer | Metal + MSL shaders | WebGPU + WGSL shaders or D3 + Rapier coordinates |
+| Lensing shader | `.layerEffect` in SwiftUI | WGSL fragment shader in webview |
+| Physics engine | Current custom OR Rapier3D | **Rapier3D (mandatory)** |
+| UI physics | SwiftUI + GeometryGroup | Framer Motion + Tauri events |
+
+### Key Recommendation
+**Use Rapier3D for the Windows Retro Edition.** The current custom force simulation is sufficient for macOS but Rapier3D provides the rigid body dynamics needed for the "cognitive exoskeleton" vision — physics-driven UI, mass-based clustering, collision, bounce, joints, volumetric 3D space. 3D chosen over 2D: marginal perf overhead (~1.5x), enables full vision (camera orbiting, depth clustering, DNA helix, hologram), and 3D ⊃ 2D (z=0 for flat mode). Target GPU: RTX 4060 class. Consider migrating macOS to Rapier3D as well once the Windows implementation proves stable.
 
 ---
 
@@ -1523,6 +1629,21 @@ These are longer-term features from the Gemini brainstorm that elevate Epistemos
 123. [ ] Edge Mesh — CRDT local-first sync (20.3)
 124. [ ] TextKit 2 migration (19.3)
 125. [ ] AMX & GPU Offloading (17.16)
+
+### P3 — RETRO EDITION (Windows/Cross-Platform)
+126. [ ] Tauri project scaffold + workspace setup (21.1)
+127. [ ] Rapier3D physics engine integration (21.2)
+128. [ ] Rust backend — SOAR pipeline port (21.3)
+129. [ ] Tauri bridge — frontend fetch→invoke adaptation (21.4)
+130. [ ] rusqlite storage layer + vault sync (21.5)
+
+### P4 — RETRO EDITION (Rendering + Polish)
+131. [ ] Graph rendering — WebGPU/wgpu or D3 + Rapier coordinates (21.6)
+
+### P5 — RETRO EDITION (Vision)
+132. [ ] Relativistic lensing shader — Schwarzschild UV distortion (21.7)
+133. [ ] Quantum SOAR collapse visualization (21.8)
+134. [ ] Physics-driven UI elements — Rapier buttons & panels (21.9)
 
 ---
 
