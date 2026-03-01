@@ -28,9 +28,10 @@ enum SpotlightIndexer {
 
         let attrs = CSSearchableItemAttributeSet(contentType: .text)
         attrs.title = title
-        attrs.textContent = body
+        // Truncate body for Spotlight — enough for search ranking, avoids full-text exposure
+        attrs.textContent = String(body.prefix(500))
         attrs.contentDescription = tags.isEmpty
-            ? String(body.prefix(200))
+            ? title
             : "Tags: \(tags.joined(separator: ", "))"
         attrs.keywords = tags
         attrs.contentModificationDate = updatedAt
@@ -78,7 +79,7 @@ enum SpotlightIndexer {
                 let pageBody = page.loadBody(mapped: true)
                 attrs.textContent = String(pageBody.prefix(500))
                 attrs.contentDescription = page.tags.isEmpty
-                    ? String(pageBody.prefix(200))
+                    ? page.title
                     : "Tags: \(page.tags.joined(separator: ", "))"
                 attrs.keywords = page.tags
                 attrs.contentModificationDate = page.updatedAt

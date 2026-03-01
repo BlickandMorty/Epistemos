@@ -567,19 +567,24 @@ actor VaultIndexActor {
     /// Parse YAML front-matter from markdown content.
     /// Returns (frontMatter dict, body without front-matter).
     private func parseFrontMatter(_ content: String) -> ([String: String], String) {
-        guard content.hasPrefix("---") else { return ([:], content) }
+        // Strip Unicode BOM (U+FEFF) that Windows editors may prepend
+        let cleaned = content.hasPrefix("\u{FEFF}") ? String(content.dropFirst()) : content
+        guard cleaned.hasPrefix("---") else { return ([:], cleaned) }
 
-        let lines = content.components(separatedBy: "\n")
-        guard lines.count > 1 else { return ([:], content) }
+        let lines = cleaned.components(separatedBy: "\n")
+        guard lines.count > 1 else { return ([:], cleaned) }
 
         var frontMatter: [String: String] = [:]
         var endIndex = -1
 
         for i in 1..<lines.count {
-            if lines[i].trimmingCharacters(in: .whitespaces) == "---" {
+            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            if trimmed == "---" {
                 endIndex = i
                 break
             }
+            // Skip YAML comment lines
+            if trimmed.hasPrefix("#") { continue }
             let parts = lines[i].split(separator: ":", maxSplits: 1)
             if parts.count == 2 {
                 let key = parts[0].trimmingCharacters(in: .whitespaces)
@@ -604,7 +609,7 @@ actor VaultIndexActor {
             return (frontMatter, body)
         }
 
-        return ([:], content)
+        return ([:], cleaned)
     }
 
     /// Build markdown with front-matter from an SDPage.
@@ -997,7 +1002,7 @@ actor VaultIndexActor {
                 attrs.textContent = String(pageBody.prefix(500))
                 attrs.contentDescription =
                     page.tags.isEmpty
-                    ? String(pageBody.prefix(200))
+                    ? page.title
                     : "Tags: \(page.tags.joined(separator: ", "))"
                 attrs.keywords = page.tags
                 attrs.contentModificationDate = page.updatedAt
