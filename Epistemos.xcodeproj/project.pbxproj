@@ -229,6 +229,10 @@
 		040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */; };
 		A29025410BEF420590AC1E9A /* BlockRefAutocomplete.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */; };
 		OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */; };
+		WIRE00000000000000000003 /* DataIntegrityEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D7EBA13712C88AE73C8D858 /* DataIntegrityEdgeCaseTests.swift */; };
+		WIRE00000000000000000004 /* MemoryStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174D03C81BEE6EB5556066 /* MemoryStressTests.swift */; };
+		WIRE00000000000000000005 /* PipelinePerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13A5ECB9EDFD7FDC57334519 /* PipelinePerformanceTests.swift */; };
+		WIRE00000000000000000006 /* QueryAnalyzerComprehensiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 460D17BAAC2A553F27F6A3B9 /* QueryAnalyzerComprehensiveTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -707,6 +711,7 @@
 		6F9EC009019D0F4E92530E7F = {
 			isa = PBXGroup;
 			children = (
+				OBJCEXC00000000000000003 /* Epistemos-Bridging-Header.h */,
 				31ACE8B1C071D13DEE4C40A1 /* Epistemos */,
 				D8F909B4136260E53B042874 /* EpistemosTests */,
 				C4CC4178A08EBA8D216C43EF /* Frameworks */,
@@ -1133,6 +1138,10 @@
 				F681503829853235E8ADC3B5 /* SearchEdgeCaseTests.swift in Sources */,
 				A8EC8E4DE5379DDDB91F2DD5 /* SearchPerformanceTests.swift in Sources */,
 				176F1518F38AFF4E98DB2D0A /* SignalGeneratorComprehensiveTests.swift in Sources */,
+				WIRE00000000000000000003 /* DataIntegrityEdgeCaseTests.swift in Sources */,
+				WIRE00000000000000000004 /* MemoryStressTests.swift in Sources */,
+				WIRE00000000000000000005 /* PipelinePerformanceTests.swift in Sources */,
+				WIRE00000000000000000006 /* QueryAnalyzerComprehensiveTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
