@@ -19,6 +19,13 @@ pub mod version;
 // Every function below is called from Swift via the C bridge header.
 // Convention: all functions take `*mut engine::Engine` as the first argument.
 // All pointer arguments are null-checked before dereference.
+//
+// String Lifetime Safety (audited 2026-03-01):
+// All C string pointers (*const c_char) are copied into Rust-owned String/&str
+// at the FFI boundary via ffi_cstr! macro (.to_str()) or CStr→.to_owned().
+// No raw string pointers are stored beyond the function call scope.
+// Swift's withCString closures are therefore safe — Rust never holds a reference
+// after the function returns.
 
 use std::ffi::{c_char, c_void, CStr, CString};
 
