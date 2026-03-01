@@ -893,9 +893,9 @@ private struct IdeasPanel: View {
         return (try? JSONDecoder().decode([NoteIdea].self, from: data)) ?? []
     }
 
-    /// Write ideas directly to JSON data — avoids @Transient cache staleness.
+    /// Write ideas through the computed property to keep @Transient cache in sync.
     private func writeIdeas(_ ideas: [NoteIdea]) {
-        page.ideasData = try? JSONEncoder().encode(ideas)
+        page.ideas = ideas
         page.updatedAt = .now
         do { try modelContext.save() } catch { Log.notes.error("Save failed (write ideas): \(error.localizedDescription, privacy: .private)") }
     }
