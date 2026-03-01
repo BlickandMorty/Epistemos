@@ -889,15 +889,28 @@ These are longer-term features from the Gemini brainstorm that elevate Epistemos
 
 ### 14.2 Autonomous Agents (Open Claw)
 - **Priority:** P5
-- **Source:** Gemini backlog #2, personal brainstorm
-- **Description:** Native agents with full filesystem access to vault.
+- **Source:** Gemini backlog #2, personal brainstorm, PicoClaw inspiration (github.com/sipeed/picoclaw — ultra-lightweight agent runtime philosophy)
+- **Description:** Native agents with full filesystem access to vault. Agents use the app's own LLM providers as their brain and Tauri commands / Rust backend functions as their tools. The agent loop (`plan → tool_call → observe → repeat`) runs entirely inside the Rust backend — no external framework needed.
+- **Agent Brain (per-platform):**
+  - **macOS (Opulent):** Apple Intelligence (triage) + Ollama/MLX (reasoning) + Cloud LLM (frontier tasks)
+  - **Windows (Retro):** Foundry Local on NPU (triage, ~50ms) + Ollama on GPU (reasoning, GPT-OSS 20B) + Cloud LLM (frontier tasks)
+  - Brain selection follows same triage router used for SOAR pipeline — agents inherit the hardware routing strategy.
+- **Agent Tools (Vault Access):**
+  - `notes_create`, `notes_update`, `notes_list`, `notes_delete` — full CRUD
+  - `graph_query` — NL queries against knowledge graph
+  - `graph_search` — fuzzy search across all nodes
+  - `vault_read_body`, `vault_write_body` — direct .md file access
+  - `search_index` — FTS5 full-text search
+  - `entity_extract` — trigger extraction on a note
+  - These are the SAME Tauri commands the frontend uses — agents are just another client.
 - **Live Agent Dashboard:** Rust-powered real-time dashboard showing:
   - Token counts (input/output per agent)
   - What each agent is currently doing (reading, writing, linking, organizing)
   - Live action stream — watch agents build and organize notes in background
-  - Cost tracking per agent session
+  - Cost tracking per agent session (local = $0, cloud = tracked)
 - **Agent types:** Research agent, organization agent, linking agent, summarization agent
-- **Dependencies:** Wave 2.2 (AppCoordinator), Wave 14.1 (local AI)
+- **Architecture:** Minimal agent loop in Rust (~200 lines). No PicoClaw/LangChain/AutoGPT dependency. The app IS the agent runtime.
+- **Dependencies:** Wave 2.2 (AppCoordinator), Wave 14.1 (local AI), Wave 21.3b (Windows native AI for Retro)
 - **Status:** [ ] NOT STARTED
 
 ### 14.3 Research Mode 2.0 (Lucid Lens)
