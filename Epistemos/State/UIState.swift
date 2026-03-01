@@ -141,11 +141,28 @@ final class UIState {
     /// Schedule the next breathe reminder based on the current interval.
     /// Uses both an in-app Task timer AND a system notification so the
     /// reminder works even when the app is in the background.
+    /// Whether UNUserNotificationCenter is safe to use. It crashes with an
+    /// NSInternalInconsistencyException in test bundles and debug builds that
+    /// lack the Push Notifications entitlement.
+    private static let canUseNotifications: Bool = {
+        guard Bundle.main.bundleIdentifier?.hasSuffix(".tests") != true else { return false }
+        // UNUserNotificationCenter.current() throws an ObjC NSException when the
+        // app lacks notification entitlements. Swift can't catch NSException, so
+        // we use an ObjC @try/@catch wrapper.
+        do {
+            try ObjCExceptionCatcher.catchException {
+                _ = UNUserNotificationCenter.current()
+            }
+            return true
+        } catch {
+            return false
+        }
+    }()
+
     func scheduleBreatheReminder() {
         breatheReminderTask?.cancel()
-        // Clear any pending system notification (guard: UNUserNotificationCenter
-        // asserts in test bundles that lack notification entitlements).
-        if Bundle.main.bundleIdentifier?.hasSuffix(".tests") != true {
+
+        if Self.canUseNotifications {
             UNUserNotificationCenter.current().removePendingNotificationRequests(
                 withIdentifiers: ["epistemos.breathe.reminder"])
         }
@@ -163,8 +180,7 @@ final class UIState {
         }
 
         // System notification — visible in Notification Center even when backgrounded.
-        // Guarded: UNUserNotificationCenter crashes in XCTest bundles.
-        guard Bundle.main.bundleIdentifier?.hasSuffix(".tests") != true else { return }
+        guard Self.canUseNotifications else { return }
         let content = UNMutableNotificationContent()
         content.title = "Time to Breathe"
         content.body = "Take a moment. 4 seconds in, 7 hold, 8 out."

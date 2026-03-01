@@ -145,35 +145,11 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
-        // Block gutter — bullet dots + fold triangles
-        let gutter = BlockGutterView(scrollView: scrollView, orientation: .verticalRuler)
-        gutter.clientView = tv
-        gutter.onFoldToggle = { [weak tv] lineStart in
-            guard let tv, let lm = tv.layoutManager, let ts = tv.textStorage else { return }
-            // Toggle fold state
-            if gutter.collapsedRanges.contains(lineStart) {
-                gutter.collapsedRanges.remove(lineStart)
-            } else {
-                gutter.collapsedRanges.insert(lineStart)
-            }
-            // Invalidate all glyphs so the delegate re-evaluates .null properties
-            let fullRange = NSRange(location: 0, length: ts.length)
-            lm.invalidateGlyphs(forCharacterRange: fullRange, changeInLength: 0, actualCharacterRange: nil)
-            lm.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
-            lm.ensureLayout(for: tv.textContainer!)
-            tv.setNeedsDisplay(tv.visibleRect)
-            gutter.setNeedsDisplay(gutter.bounds)
-        }
-        scrollView.verticalRulerView = gutter
-        scrollView.hasVerticalRuler = true
-        scrollView.rulersVisible = true
-
         // Wire delegate and coordinator
         tv.delegate = context.coordinator
         tv.layoutManager?.delegate = context.coordinator
         context.coordinator.textView = tv
         context.coordinator.storage = storage
-        context.coordinator.gutter = gutter
 
         // Transclusion overlays — shows ((block-ref)) content inline
         let transclusionMgr = TransclusionOverlayManager(textView: tv)
@@ -323,11 +299,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             coord.lastPageId = pageId
 
-            // Clear fold state and transclusion overlays from previous page
-            if let gutter = scrollView.verticalRulerView as? BlockGutterView {
-                gutter.collapsedRanges.removeAll()
-                gutter.setNeedsDisplay(gutter.bounds)
-            }
+            // Clear transclusion overlays from previous page
             coord.transclusionManager?.removeAll()
             coord.blockRefAutocomplete?.dismiss()
         }
@@ -453,7 +425,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         var parent: ProseEditorRepresentable
         weak var textView: ClickableTextView?
         var storage: MarkdownTextStorage?
-        weak var gutter: BlockGutterView?
         var transclusionManager: TransclusionOverlayManager?
         var blockRefAutocomplete: BlockRefAutocomplete?
 
@@ -550,65 +521,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         func textViewDidChangeSelection(_ notification: Notification) {
             // Selection tracking — no special behavior needed
-        }
-
-        // MARK: - NSLayoutManagerDelegate (Text Folding)
-
-        func layoutManager(
-            _ layoutManager: NSLayoutManager,
-            shouldGenerateGlyphs glyphs: UnsafePointer<CGGlyph>,
-            properties props: UnsafePointer<NSLayoutManager.GlyphProperty>,
-            characterIndexes charIndexes: UnsafePointer<Int>,
-            font aFont: NSFont,
-            forGlyphRange glyphRange: NSRange
-        ) -> Int {
-            guard let gutter, !gutter.collapsedRanges.isEmpty,
-                  let tv = textView, let ts = tv.textStorage
-            else { return 0 } // 0 = use default
-
-            let hiddenRanges = gutter.computeHiddenRanges(in: ts.string as NSString)
-            guard !hiddenRanges.isEmpty else { return 0 }
-
-            // Check if any glyphs in this range fall within hidden ranges.
-            var needsOverride = false
-            for i in 0..<glyphRange.length {
-                let charIdx = charIndexes[i]
-                for hr in hiddenRanges {
-                    if charIdx >= hr.location && charIdx < hr.location + hr.length {
-                        needsOverride = true
-                        break
-                    }
-                }
-                if needsOverride { break }
-            }
-
-            guard needsOverride else { return 0 }
-
-            // Build modified properties array with .null for hidden glyphs.
-            let modProps = UnsafeMutablePointer<NSLayoutManager.GlyphProperty>.allocate(
-                capacity: glyphRange.length)
-            defer { modProps.deallocate() }
-
-            for i in 0..<glyphRange.length {
-                let charIdx = charIndexes[i]
-                var isHidden = false
-                for hr in hiddenRanges {
-                    if charIdx >= hr.location && charIdx < hr.location + hr.length {
-                        isHidden = true
-                        break
-                    }
-                }
-                modProps[i] = isHidden ? .null : props[i]
-            }
-
-            layoutManager.setGlyphs(
-                glyphs,
-                properties: modProps,
-                characterIndexes: charIndexes,
-                font: aFont,
-                forGlyphRange: glyphRange
-            )
-            return glyphRange.length
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {

@@ -4,7 +4,8 @@ import SwiftData
 // MARK: - NodeInspectorState
 // Observable state for the hologram node inspector panel.
 // Manages: selected node info, AI summary, chat messages, streaming state.
-// Uses TriageService (Apple Intelligence first) for summarization and chat.
+// Summaries use Apple Intelligence directly (fast, free, on-device).
+// Chat uses TriageService for deeper reasoning with cloud fallback.
 
 @MainActor @Observable
 final class NodeInspectorState {
@@ -101,74 +102,72 @@ final class NodeInspectorState {
                 return
             }
 
-            guard let triage = AppBootstrap.shared?.triageService else {
-                summaryText = content.prefix(300) + (content.count > 300 ? "…" : "")
-                return
-            }
-
             let prompt = buildSummaryPrompt(node: node, content: content)
             let systemPrompt = """
-            You are a deep knowledge analyst. Provide a thorough, insightful summary that covers:
-            - The core ideas and arguments presented
-            - Key themes, concepts, and their relationships
-            - Notable connections to broader topics
-            - Any unique insights or perspectives worth highlighting
-            Write 4-6 sentences. Be substantive and analytical, not surface-level.
+            Summarize this note concisely. Cover the main ideas, key arguments, and any notable connections. \
+            Write 3-5 sentences. Be analytical, not surface-level.
             """
 
-            // Stream the summary for typewriter effect
-            let stream = triage.streamGeneral(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                operation: .epistemicLens,
-                contentLength: content.count
-            )
-
+            // Try Apple Intelligence first (fast, free, on-device), then cloud API fallback.
             do {
-                var accumulated = ""
-                for try await chunk in stream {
-                    guard !Task.isCancelled else { return }
-                    accumulated += chunk
-                    summaryText = accumulated
+                let result = try await AppleIntelligenceService.shared.generate(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt
+                )
+                guard !Task.isCancelled else { return }
+
+                if TriageService.shouldFallbackToAPI(result) {
+                    throw AppleIntelligenceError.unavailable("Response inadequate")
                 }
-                summaryCache[node.id] = accumulated
+                summaryText = result
+                summaryCache[node.id] = result
             } catch {
                 guard !Task.isCancelled else { return }
-                if summaryText.isEmpty {
-                    summaryText = content.prefix(300) + (content.count > 300 ? "…" : "")
+                Log.engine.info("Apple Intelligence unavailable for summary, trying cloud API: \(error.localizedDescription, privacy: .public)")
+                // Fallback: use the user's configured cloud API via triage service.
+                if let triage = AppBootstrap.shared?.triageService {
+                    do {
+                        let result = try await triage.generateGeneral(
+                            prompt: prompt,
+                            systemPrompt: systemPrompt,
+                            operation: .brainstorm,
+                            contentLength: prompt.count
+                        )
+                        guard !Task.isCancelled else { return }
+                        if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            summaryText = result
+                            summaryCache[node.id] = result
+                        } else {
+                            summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
+                        }
+                    } catch {
+                        guard !Task.isCancelled else { return }
+                        Log.engine.info("Cloud API also unavailable for summary: \(error.localizedDescription, privacy: .public)")
+                        summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
+                    }
+                } else {
+                    summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                 }
             }
         }
     }
 
     private func buildSummaryPrompt(node: GraphNodeRecord, content: String) -> String {
-        // Find related vault notes by title keyword overlap
-        var vaultHint = ""
-        if let manifest = AppBootstrap.shared?.ambientManifest {
-            let nodeTerms = node.label.lowercased().split(separator: " ").filter { $0.count > 3 }
-            let related = manifest.entries
-                .filter { $0.pageId != node.id && $0.pageId != node.sourceId }
-                .filter { entry in
-                    nodeTerms.contains { entry.title.lowercased().contains(String($0)) }
-                }
-                .prefix(5)
-            if !related.isEmpty {
-                vaultHint = "\n\nRelated notes in vault:\n" + related.map { "- \($0.title)" }.joined(separator: "\n")
-            }
-        }
+        // Trim content for on-device model — keep it focused.
+        let trimmed = String(content.prefix(2000))
 
         switch node.type {
         case .folder:
-            return "Analyze this folder and its contents. What themes connect these items? What's the overall purpose of this collection?\n\n\(content)\(vaultHint)"
+            return "Summarize this folder's contents. What themes connect these items?\n\n\(trimmed)"
         case .quote:
             if let quoteText = node.metadata.quoteText {
-                return "Analyze this quote in depth — what is the author saying, why does it matter, and how does it connect to the broader context?\n\n\"\(quoteText)\"\n\nSurrounding context:\n\(content)\(vaultHint)"
+                return "What is the author saying in this quote, and why does it matter?\n\n\"\(quoteText)\"\n\nContext:\n\(trimmed)"
             }
-            return "Provide a deep analysis of this content — what are the key arguments, themes, and implications?\n\n\(content)\(vaultHint)"
+            return "Summarize the key arguments and themes:\n\n\(trimmed)"
         case .tag:
-            return "This tag/concept connects multiple pieces of knowledge. Analyze what it represents, what patterns emerge across the related content, and why it matters:\n\n\(content)\(vaultHint)"
+            return "This tag connects multiple notes. What patterns emerge across the related content?\n\n\(trimmed)"
         default:
-            return "Provide a deep, thoughtful summary of this note. Cover the main arguments, key insights, notable connections, and any implications:\n\n\(content)\(vaultHint)"
+            return "Summarize this note — cover the main arguments, key insights, and implications:\n\n\(trimmed)"
         }
     }
 

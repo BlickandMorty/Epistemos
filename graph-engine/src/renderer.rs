@@ -155,8 +155,6 @@ vertex NodeVertexOut node_vertex(
 
     float2 screen = (world_pos - uniforms.camera_offset) * uniforms.camera_zoom;
     float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
-
-    // Depth-based NDC z for proper draw ordering (closer = smaller z = in front).
     float ndc_z = 0.5 - depth * 0.1;
 
     // Highlight dimming: flag 0 = normal, non-zero = dimmed.
@@ -255,10 +253,8 @@ vertex LineVertexOut line_edge_vertex(
 ) {
     LineEdgeInstance inst = instances[instance_id];
 
-    // Transform endpoints to NDC first.
     float2 screen0 = (inst.p0 - u.camera_offset) * u.camera_zoom;
     float2 ndc0 = screen0 / (u.viewport_size * 0.5) * float2(1, -1);
-
     float2 screen1 = (inst.p1 - u.camera_offset) * u.camera_zoom;
     float2 ndc1 = screen1 / (u.viewport_size * 0.5) * float2(1, -1);
 

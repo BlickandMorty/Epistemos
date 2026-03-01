@@ -123,12 +123,12 @@ final class GraphState {
     /// before calling graph_engine_destroy, preventing use-after-free races.
     nonisolated(unsafe) var engineHandle: OpaquePointer?
 
-    /// True when physics is completely disabled (graph > 1500 visible nodes).
+    /// True when physics is completely disabled (graph > threshold visible nodes).
     /// Updated after each commit/refresh cycle. UI uses this to grey out physics controls.
     var isStaticLayout: Bool = false
 
     /// The threshold above which physics is disabled. Shown in the UI tooltip.
-    static let staticLayoutThreshold = 1500
+    static let staticLayoutThreshold = 2500
 
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
     let embeddingService: EmbeddingService
@@ -137,6 +137,7 @@ final class GraphState {
         let svc = EmbeddingService()
         self.embeddingService = svc
         svc.graphState = self
+        restorePhysicsSettings()
     }
 
     var isLoaded = false
@@ -206,22 +207,23 @@ final class GraphState {
     // extended via graph_engine_set_extended_force_params().
 
     // ── Core ──
+    // Defaults: Calm fluid — gentle repulsion, wide spacing, smooth settling.
     /// Natural resting length of edge springs.
-    var linkDistance: Float = 200.0
-    /// Many-body charge strength (negative = repulsion).
-    var chargeStrength: Float = -400.0
+    var linkDistance: Float = 250.0
+    /// Many-body charge strength (negative = repulsion). Gentle to avoid node pressure.
+    var chargeStrength: Float = -300.0
     /// Maximum range for many-body repulsion.
-    var chargeRange: Float = 1500.0
+    var chargeRange: Float = 1200.0
     /// Link spring strength. 0 = auto (1 / min(degree)).
     var linkStrength: Float = 0.0
 
     // ── Extended ──
-    /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous).
-    var velocityDecay: Float = 0.85
+    /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous). 0.80 = smooth fluid.
+    var velocityDecay: Float = 0.80
     /// Center gravity pull strength (0 = none, 0.2 = strong).
-    var centerStrength: Float = 0.005
-    /// Collision buffer zone in pixels.
-    var collisionRadius: Float = 20.0
+    var centerStrength: Float = 0.003
+    /// Collision buffer zone in pixels. Moderate to prevent crowding without pressure.
+    var collisionRadius: Float = 18.0
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
     var forceConfigVersion: Int = 0
@@ -230,16 +232,54 @@ final class GraphState {
 
     func pushForceChange() {
         forceConfigVersion += 1
+        savePhysicsSettings()
     }
 
     func pushExtendedForceChange() {
         extendedForceConfigVersion += 1
+        savePhysicsSettings()
+    }
+
+    // MARK: - Physics Persistence
+
+    /// Save all force parameters to UserDefaults so they survive app restarts.
+    func savePhysicsSettings() {
+        let d = UserDefaults.standard
+        d.set(linkDistance, forKey: "epistemos.physics.linkDistance")
+        d.set(chargeStrength, forKey: "epistemos.physics.chargeStrength")
+        d.set(chargeRange, forKey: "epistemos.physics.chargeRange")
+        d.set(linkStrength, forKey: "epistemos.physics.linkStrength")
+        d.set(velocityDecay, forKey: "epistemos.physics.velocityDecay")
+        d.set(centerStrength, forKey: "epistemos.physics.centerStrength")
+        d.set(collisionRadius, forKey: "epistemos.physics.collisionRadius")
+        d.set(clusterStrength, forKey: "epistemos.physics.clusterStrength")
+        d.set(Int(centerMode), forKey: "epistemos.physics.centerMode")
+        d.set(semanticStrength, forKey: "epistemos.physics.semanticStrength")
+        d.set(useSemanticClustering, forKey: "epistemos.physics.useSemanticClustering")
+        d.set(true, forKey: "epistemos.physics.hasSavedSettings")
+    }
+
+    /// Restore force parameters from UserDefaults. No-op if never saved.
+    private func restorePhysicsSettings() {
+        let d = UserDefaults.standard
+        guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }
+        linkDistance = d.float(forKey: "epistemos.physics.linkDistance")
+        chargeStrength = d.float(forKey: "epistemos.physics.chargeStrength")
+        chargeRange = d.float(forKey: "epistemos.physics.chargeRange")
+        linkStrength = d.float(forKey: "epistemos.physics.linkStrength")
+        velocityDecay = d.float(forKey: "epistemos.physics.velocityDecay")
+        centerStrength = d.float(forKey: "epistemos.physics.centerStrength")
+        collisionRadius = d.float(forKey: "epistemos.physics.collisionRadius")
+        clusterStrength = d.float(forKey: "epistemos.physics.clusterStrength")
+        centerMode = UInt8(d.integer(forKey: "epistemos.physics.centerMode"))
+        semanticStrength = d.float(forKey: "epistemos.physics.semanticStrength")
+        useSemanticClustering = d.bool(forKey: "epistemos.physics.useSemanticClustering")
     }
 
     // ── Cluster ──
     var clusterStrength: Float = 0.15
     var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
-    var semanticStrength: Float = 0.0
+    var semanticStrength: Float = 0.3
 
     // ── Time-Travel ──
     /// Computed date range of all graph nodes. Set during commit.
@@ -251,7 +291,7 @@ final class GraphState {
     var timeCutoff: Date = .distantFuture
 
     var clusterConfigVersion: Int = 0
-    func pushClusterChange() { clusterConfigVersion += 1 }
+    func pushClusterChange() { clusterConfigVersion += 1; savePhysicsSettings() }
     func pushSemanticChange() {
         guard let engine = engineHandle else { return }
         graph_engine_set_semantic_strength(engine, semanticStrength)
@@ -298,14 +338,15 @@ final class GraphState {
         velocityDecay = preset.velocityDecay
         centerStrength = preset.centerStrength
         collisionRadius = preset.collisionRadius
-        pushForceChange()
-        pushExtendedForceChange()
+        forceConfigVersion += 1
+        extendedForceConfigVersion += 1
+        savePhysicsSettings()
     }
 
     // MARK: - Semantic Clustering
 
     /// When true, uses NLEmbedding-based semantic clusters instead of Louvain topology clusters.
-    var useSemanticClustering = false
+    var useSemanticClustering = true
 
     /// Cached semantic cluster IDs (nodeId → clusterId). Recomputed when graph data changes.
     private(set) var semanticClusterIds: [String: UInt32] = [:]

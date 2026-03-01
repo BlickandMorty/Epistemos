@@ -484,6 +484,8 @@ pub extern "C" fn graph_engine_set_quality_level(engine: *mut Engine, level: u8)
     engine.set_quality_level(level);
 }
 
+// ── 3D Orbit Camera ────────────────────────────────────────────────────────
+
 /// Set the note window rect in screen pixels for page mode anchor positioning.
 /// Nodes will cluster near this rect instead of dead center.
 #[unsafe(no_mangle)]

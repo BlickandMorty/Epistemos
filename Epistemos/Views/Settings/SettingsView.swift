@@ -95,14 +95,6 @@ private struct InferenceDetailView: View {
                     Text("Google").tag(LLMProviderType.google)
                     Text("Kimi (Moonshot)").tag(LLMProviderType.kimi)
                     Text("Ollama (local)").tag(LLMProviderType.ollama)
-                    HStack {
-                        Text("Apple Intelligence")
-                        if !inference.appleIntelligenceAvailable {
-                            Text("· Unavailable")
-                                .foregroundStyle(.secondary)
-                                .font(.system(size: 11))
-                        }
-                    }.tag(LLMProviderType.appleIntelligence)
                 }
                 .pickerStyle(.radioGroup)
             }
@@ -237,27 +229,11 @@ private struct InferenceDetailView: View {
                             .font(.system(size: 11))
                     }
                 case .appleIntelligence:
-                    LabeledContent("Status") {
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text(inference.appleIntelligenceAvailable ? "Available" : "Unavailable")
-                                .foregroundStyle(inference.appleIntelligenceAvailable ? theme.success : theme.error)
-                                .fontWeight(.medium)
-                            if !inference.appleIntelligenceAvailable,
-                               let reason = inference.appleIntelligenceUnavailableReason {
-                                Text(reason)
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(theme.textTertiary)
-                                    .multilineTextAlignment(.trailing)
-                            }
-                        }
-                    }
-                    if !inference.appleIntelligenceAvailable {
-                        Button("Open System Settings") {
-                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.siri")!)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
+                    // Apple Intelligence is the always-on triage layer, not a standalone provider.
+                    // If somehow selected (stale UserDefaults), show status + redirect.
+                    Text("Apple Intelligence runs automatically alongside your cloud provider. Select a cloud provider above.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textSecondary)
                 }
             }
 
@@ -644,6 +620,7 @@ private struct VaultDetailView: View {
                         set: { vaultSync.autoSaveInterval = autoSaveSeconds(from: $0) }
                     )) {
                         Text("Off").tag(0)
+                        Text("Every 5 seconds").tag(5)
                         Text("Every 15 seconds").tag(1)
                         Text("Every 30 seconds").tag(2)
                         Text("Every 60 seconds").tag(3)
@@ -682,10 +659,12 @@ private struct VaultDetailView: View {
         notesUI.resetForVaultSwitch()
         vaultSync.stopWatching()
         UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
+        AppBootstrap.shared?.ambientManifest = nil
     }
 
     private func autoSaveOption(from interval: TimeInterval) -> Int {
         switch interval {
+        case 5: return 5
         case 15: return 1
         case 30: return 2
         case 60: return 3
@@ -696,6 +675,7 @@ private struct VaultDetailView: View {
 
     private func autoSaveSeconds(from option: Int) -> TimeInterval {
         switch option {
+        case 5: return 5
         case 1: return 15
         case 2: return 30
         case 3: return 60

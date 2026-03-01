@@ -65,6 +65,15 @@ final class GraphStore {
     var nodeCount: Int { nodes.count }
     var edgeCount: Int { edges.count }
 
+    /// Remove all nodes, edges, and adjacency data.
+    func clear() {
+        nodes.removeAll()
+        edges.removeAll()
+        adjacency.removeAll()
+        edgesByNode.removeAll()
+        positionHints.removeAll()
+    }
+
     // MARK: - Loading from SwiftData
 
     /// Fetch all SDGraphNode and SDGraphEdge from the given context,

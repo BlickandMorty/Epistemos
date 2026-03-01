@@ -161,6 +161,7 @@ struct GraphFloatingControls: View {
         .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
     }
 
+
     // MARK: - Quality Preset Toggle
 
     private var liteModeToggle: some View {

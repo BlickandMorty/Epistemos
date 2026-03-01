@@ -71,20 +71,20 @@ pub struct ForceParams {
 impl Default for ForceParams {
     fn default() -> Self {
         Self {
-            // Calm defaults — Logseq-style. Moderate spread, gentle repulsion.
-            link_distance: 200.0,
-            charge_strength: -400.0,
-            charge_range: 1500.0,
+            // Calm fluid defaults — gentle repulsion, wide spacing, smooth settling.
+            link_distance: 250.0,
+            charge_strength: -300.0,
+            charge_range: 1200.0,
             link_strength: 0.0, // auto
 
-            // High damping = viscous, calm movement. Nodes glide, don't bounce.
-            velocity_decay: 0.85,
-            center_strength: 0.005,
-            collision_radius: 20.0,
+            // Moderate damping = smooth fluid. Nodes glide and settle gracefully.
+            velocity_decay: 0.80,
+            center_strength: 0.003,
+            collision_radius: 18.0,
             collision_iterations: 1,
             cluster_strength: 0.15,
             center_mode: CenterMode::Attract,
-            semantic_strength: 0.0,
+            semantic_strength: 0.3,
 
             // Simulation state — start at lower alpha for gentler onset.
             alpha: 0.3,
@@ -232,7 +232,7 @@ impl Simulation {
         // When user focuses on a subset, visible count drops below threshold
         // and physics re-enables automatically via the next load_from_graph().
         let node_count = self.x.len();
-        const STATIC_LAYOUT_THRESHOLD: usize = 1500;
+        const STATIC_LAYOUT_THRESHOLD: usize = 2500;
         if node_count > STATIC_LAYOUT_THRESHOLD {
             self.static_layout = true;
             self.is_settled = true;

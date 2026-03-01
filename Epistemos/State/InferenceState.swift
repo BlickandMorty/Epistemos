@@ -115,8 +115,11 @@ final class InferenceState {
     func setInferenceMode(_ mode: InferenceMode) { inferenceMode = mode }
 
     func setApiProvider(_ provider: LLMProviderType) {
-        apiProvider = provider
-        UserDefaults.standard.set(provider.rawValue, forKey: "epistemos.apiProvider")
+        // Apple Intelligence is the always-on triage layer, not a standalone provider.
+        // Redirect to Anthropic if somehow selected (stale UI, programmatic call).
+        let effective = provider == .appleIntelligence ? .anthropic : provider
+        apiProvider = effective
+        UserDefaults.standard.set(effective.rawValue, forKey: "epistemos.apiProvider")
     }
 
     private func keychainKey(for provider: LLMProviderType) -> String {

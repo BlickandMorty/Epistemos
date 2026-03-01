@@ -312,17 +312,33 @@ final class VaultSyncService {
         log.info("VaultSyncService stopped (preserveData=\(preserveData))")
     }
 
-    /// Delete all vault pages/folders from SwiftData.
+    /// Delete all vault pages/folders AND graph data from SwiftData.
     /// Called on every vault transition and startup failure to prevent stale ghost data.
     private func clearVaultData() {
         let context = modelContainer.mainContext
         do {
             try context.delete(model: SDPage.self)
             try context.delete(model: SDFolder.self)
+            try context.delete(model: SDGraphNode.self)
+            try context.delete(model: SDGraphEdge.self)
             try context.save()
-            Log.vault.info("Cleared all vault data from SwiftData")
+            Log.vault.info("Cleared all vault + graph data from SwiftData")
         } catch {
             Log.vault.error("Failed to clear vault data: \(error.localizedDescription, privacy: .public)")
+        }
+
+        // Clear the in-memory graph store and reset graph state.
+        Task { @MainActor in
+            if let graphState = AppBootstrap.shared?.graphState {
+                graphState.store.clear()
+                graphState.hasPlayedEntrance = false
+                graphState.isLoaded = false
+                graphState.needsRefresh = false
+                graphState.requestRecommit()
+                if let engine = graphState.engineHandle {
+                    graph_engine_clear(engine)
+                }
+            }
         }
     }
 
@@ -597,10 +613,10 @@ final class VaultSyncService {
     }
 
     /// Auto-save interval in seconds. 0 = disabled.
-    var autoSaveInterval: TimeInterval {
-        get { UserDefaults.standard.double(forKey: "epistemos.autoSaveInterval") }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "epistemos.autoSaveInterval")
+    /// Stored property so @Observable tracks it and SwiftUI re-renders on change.
+    var autoSaveInterval: TimeInterval = UserDefaults.standard.double(forKey: "epistemos.autoSaveInterval") {
+        didSet {
+            UserDefaults.standard.set(autoSaveInterval, forKey: "epistemos.autoSaveInterval")
             restartAutoSaveTimer()
         }
     }

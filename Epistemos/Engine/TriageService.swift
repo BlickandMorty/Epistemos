@@ -141,6 +141,7 @@ final class TriageService {
             "not something i can do",
             "i don't have enough context",
             "i can't provide", "i cannot provide",
+            "i can't access", "i cannot access",
             "could not help", "couldn't help",
             // Apple Intelligence specific
             "as a language model created by apple",
@@ -189,6 +190,31 @@ final class TriageService {
         isRefusalResponse(text) || isTruncatedResponse(text)
     }
 
+    /// Apple Intelligence on-device model has ~4096 tokens of context.
+    /// Trims prompt + system prompt to fit, preserving the user's question at the end.
+    private static func trimForAppleIntelligence(prompt: String, systemPrompt: String?) -> (String, String?) {
+        // Budget: ~12,000 chars total ≈ 4096 tokens. Reserve ~3000 chars for response.
+        let totalBudget = 9_000
+        let systemBudget = min(2_000, totalBudget / 3)
+        let promptBudget = totalBudget - min(systemBudget, systemPrompt?.count ?? 0)
+
+        let trimmedSystem: String?
+        if let sp = systemPrompt, sp.count > systemBudget {
+            trimmedSystem = String(sp.prefix(systemBudget))
+        } else {
+            trimmedSystem = systemPrompt
+        }
+
+        let trimmedPrompt: String
+        if prompt.count > promptBudget {
+            trimmedPrompt = String(prompt.prefix(promptBudget)) + "\n\n[Content trimmed for on-device processing]"
+        } else {
+            trimmedPrompt = prompt
+        }
+
+        return (trimmedPrompt, trimmedSystem)
+    }
+
     init(inference: InferenceState, llmService: any LLMClientProtocol) {
         self.inference = inference
         self.llmService = llmService
@@ -209,12 +235,18 @@ final class TriageService {
         // Apple Intelligence must be available on this Mac
         guard inference.appleIntelligenceAvailable else { return .apiProvider }
 
-        // Content too long for on-device processing
-        guard contentLength <= maxAppleIntelligenceContentLength else { return .apiProvider }
+        // Simple operations (grammar, summarize, rewrite) always prefer Apple Intelligence.
+        // Prompts are trimmed automatically to fit the 4096-token context window.
+        let isSimple = operation.baseComplexity <= complexityThreshold
+        if !isSimple {
+            guard contentLength <= maxAppleIntelligenceContentLength else { return .apiProvider }
+        }
 
         var effectiveComplexity = operation.baseComplexity
-        let lengthFactor = min(0.20, Double(contentLength) / 60_000)
-        effectiveComplexity += lengthFactor
+        if !isSimple {
+            let lengthFactor = min(0.20, Double(contentLength) / 60_000)
+            effectiveComplexity += lengthFactor
+        }
 
         if case .ask(let q) = operation, !q.isEmpty {
             let analysis = QueryAnalyzer.analyze(query: q)
@@ -261,8 +293,9 @@ final class TriageService {
 
         switch decision {
         case .appleIntelligence:
+            let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
             do {
-                let result = try await AppleIntelligenceService.shared.generate(prompt: prompt, systemPrompt: systemPrompt)
+                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
                 if Self.shouldFallbackToAPI(result) {
                     Log.engine.info("Apple Intelligence response inadequate, falling back to API silently")
                     lastDecision = .apiProvider
@@ -296,11 +329,20 @@ final class TriageService {
 
         guard operation.baseComplexity < 1.0 else { return .apiProvider }
         guard inference.appleIntelligenceAvailable else { return .apiProvider }
-        guard contentLength <= maxAppleIntelligenceContentLength else { return .apiProvider }
+
+        // Simple operations (summaries, brainstorm/daily briefs) always prefer Apple
+        // Intelligence — prompts are trimmed automatically to fit the 4096-token context.
+        // Only complex operations check content length to avoid losing critical detail.
+        let isSimple = operation.baseComplexity <= complexityThreshold
+        if !isSimple {
+            guard contentLength <= maxAppleIntelligenceContentLength else { return .apiProvider }
+        }
 
         var effectiveComplexity = operation.baseComplexity
-        let lengthFactor = min(0.20, Double(contentLength) / 60_000)
-        effectiveComplexity += lengthFactor
+        if !isSimple {
+            let lengthFactor = min(0.20, Double(contentLength) / 60_000)
+            effectiveComplexity += lengthFactor
+        }
 
         if case .chatResponse(let query) = operation, !query.isEmpty {
             let analysis = QueryAnalyzer.analyze(query: query)
@@ -341,8 +383,9 @@ final class TriageService {
 
         switch decision {
         case .appleIntelligence:
+            let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
             do {
-                let result = try await AppleIntelligenceService.shared.generate(prompt: prompt, systemPrompt: systemPrompt)
+                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
                 if Self.shouldFallbackToAPI(result) {
                     Log.engine.info("Apple Intelligence response inadequate (general), falling back to API silently")
                     lastDecision = .apiProvider
@@ -357,19 +400,20 @@ final class TriageService {
         case .apiProvider:
             do {
                 return try await llmService.generate(prompt: prompt, systemPrompt: systemPrompt)
-            } catch let error as LLMError where error.isAuthError {
+            } catch let apiError as LLMError where apiError.isAuthError {
                 // Check Apple Intelligence availability FRESH — cached flag may be stale
                 let aiFresh = AppleIntelligenceService.shared.checkAvailability()
                 guard aiFresh.available else {
                     Log.engine.warning("Cloud API auth error (generate) but Apple Intelligence unavailable (\(aiFresh.reason ?? "unknown", privacy: .public))")
-                    throw error
+                    throw apiError
                 }
                 Log.engine.warning("Cloud API auth error (generate), falling back to Apple Intelligence")
                 lastDecision = .appleIntelligence
                 inference.appleIntelligenceAvailable = aiFresh.available
-                let result = try await AppleIntelligenceService.shared.generate(prompt: prompt, systemPrompt: systemPrompt)
+                let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
+                let result = try await AppleIntelligenceService.shared.generate(prompt: aiPrompt, systemPrompt: aiSystem)
                 if Self.shouldFallbackToAPI(result) {
-                    throw error // Both failed — propagate the original error
+                    throw apiError // Both failed — propagate the original API error
                 }
                 return result
             }
@@ -387,6 +431,7 @@ final class TriageService {
         systemPrompt: String?
     ) -> AsyncThrowingStream<String, Error> {
         let llm = self.llmService
+        let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
 
         return AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
@@ -396,36 +441,37 @@ final class TriageService {
                         continuation.yield(chunk)
                     }
                     continuation.finish()
-                } catch let error as LLMError where error.isAuthError {
+                } catch let apiError as LLMError where apiError.isAuthError {
                     // Check Apple Intelligence availability FRESH — the cached flag in
                     // InferenceState may be stale (set once at app launch).
                     let aiFresh = AppleIntelligenceService.shared.checkAvailability()
                     guard aiFresh.available else {
                         Log.engine.warning("Cloud API auth error but Apple Intelligence unavailable (\(aiFresh.reason ?? "unknown", privacy: .public))")
-                        continuation.finish(throwing: error)
+                        continuation.finish(throwing: apiError)
                         return
                     }
-                    Log.engine.warning("Cloud API auth error, falling back to Apple Intelligence: \(error.localizedDescription, privacy: .public)")
+                    Log.engine.warning("Cloud API auth error, falling back to Apple Intelligence: \(apiError.localizedDescription, privacy: .public)")
                     await MainActor.run {
                         self?.lastDecision = .appleIntelligence
                         self?.inference.appleIntelligenceAvailable = aiFresh.available
                     }
-                    // Seamless fallback — user sees Apple Intelligence response instead of error
+                    // Seamless fallback — user sees Apple Intelligence response instead of error.
+                    // Prompt is trimmed to fit the on-device model's ~4096 token context.
                     do {
                         let result = try await AppleIntelligenceService.shared.generate(
-                            prompt: prompt,
-                            systemPrompt: systemPrompt
+                            prompt: aiPrompt,
+                            systemPrompt: aiSystem
                         )
                         if !Self.isRefusalResponse(result) {
                             continuation.yield(result)
                             continuation.finish()
                         } else {
-                            // Apple Intelligence also refused — propagate original error
-                            continuation.finish(throwing: error)
+                            // Apple Intelligence also refused — propagate original API error
+                            continuation.finish(throwing: apiError)
                         }
                     } catch {
-                        // Apple Intelligence also failed — propagate original cloud error
-                        continuation.finish(throwing: error)
+                        // Apple Intelligence also failed — propagate original API error (not the AI error)
+                        continuation.finish(throwing: apiError)
                     }
                 } catch {
                     continuation.finish(throwing: error)
@@ -447,25 +493,38 @@ final class TriageService {
         systemPrompt: String?
     ) -> AsyncThrowingStream<String, Error> {
         let llm = self.llmService
+        let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
 
         return AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
                 do {
                     let result = try await AppleIntelligenceService.shared.generate(
-                        prompt: prompt,
-                        systemPrompt: systemPrompt
+                        prompt: aiPrompt,
+                        systemPrompt: aiSystem
                     )
 
                     // Check for refusal, truncation, or suspiciously short response
                     if Self.shouldFallbackToAPI(result) {
                         Log.engine.info("Apple Intelligence response inadequate (stream), falling back to API silently")
                         await MainActor.run { self?.lastDecision = .apiProvider }
-                        // Don't yield the bad response — go straight to API
-                        let fallbackStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
-                        for try await chunk in fallbackStream {
-                            continuation.yield(chunk)
+                        // Try cloud API — but if it also fails, use the Apple Intelligence
+                        // response rather than throwing. A slightly truncated answer beats nothing.
+                        do {
+                            let fallbackStream = llm.stream(prompt: prompt, systemPrompt: systemPrompt)
+                            for try await chunk in fallbackStream {
+                                continuation.yield(chunk)
+                            }
+                            continuation.finish()
+                        } catch {
+                            Log.engine.info("Cloud API fallback also failed — using Apple Intelligence response")
+                            if !Self.isRefusalResponse(result) {
+                                // Not a refusal, just truncated — still usable
+                                continuation.yield(result)
+                                continuation.finish()
+                            } else {
+                                continuation.finish(throwing: error)
+                            }
                         }
-                        continuation.finish()
                         return
                     }
 

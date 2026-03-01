@@ -319,8 +319,10 @@ final class MetalGraphNSView: NSView {
             }
         }
 
-        // Entrance animation only on the very first graph open, not on re-opens.
-        let entrance: UInt8 = (graphState.hasPlayedEntrance || isCommitted) ? 0 : 1
+        // Entrance animation: always play for small graphs (under static threshold),
+        // skip for large graphs or when already committed (mid-session recommit).
+        let isSmallGraph = graphState.store.nodeCount <= GraphState.staticLayoutThreshold
+        let entrance: UInt8 = (isCommitted || (!isSmallGraph && graphState.hasPlayedEntrance)) ? 0 : 1
         graph_engine_commit(engine, entrance)
         if entrance == 1 { graphState.hasPlayedEntrance = true }
 
@@ -993,7 +995,7 @@ final class MetalGraphNSView: NSView {
         // Default scroll → zoom (game-like). Option+scroll → pan.
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if mods.contains(.option) {
-            // Option+scroll → pan.
+            // Option+scroll → pan (standard 2D mode).
             let dx = Float(event.scrollingDeltaX * scale)
             let dy = Float(event.scrollingDeltaY * scale)
             graph_engine_scroll(engine, dx, dy)

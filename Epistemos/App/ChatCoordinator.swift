@@ -52,13 +52,14 @@ final class ChatCoordinator {
     func handleQuery(_ query: String, pipeline: PipelineService, chatState: ChatState) {
         bootstrap.queryTask?.cancel()
 
-        // Early guard: if the selected provider needs an API key and we have none,
-        // AND Apple Intelligence isn't available as a fallback, show an error immediately.
+        // Early guard: if the provider needs an API key, we have none,
+        // AND Apple Intelligence is unavailable, block the query.
+        // When Apple Intelligence IS available, let triage route it on-device.
         let aiFresh = AppleIntelligenceService.shared.checkAvailability()
         inferenceState.appleIntelligenceAvailable = aiFresh.available
         inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
         if inferenceState.needsApiKey && inferenceState.apiKey.isEmpty && !aiFresh.available {
-            chatState.addErrorMessage("No API key configured for \(inferenceState.apiProvider.rawValue.capitalized). Add one in Settings, or use a Mac with Apple Intelligence.")
+            chatState.addErrorMessage("No API key configured for \(inferenceState.apiProvider.displayName) and Apple Intelligence is unavailable. Add a key in Settings (⌘,).")
             return
         }
 

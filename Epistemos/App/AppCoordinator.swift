@@ -110,19 +110,13 @@ final class AppCoordinator {
             Flag stalled work. Recommend concrete actions referencing specific materials. \
             Use markdown headers (###) and **bold**. Aim for 300-500 words.
             """
-            do {
-                return try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: briefSystemPrompt
-                )
-            } catch {
-                return try? await self.triageService.generateGeneral(
-                    prompt: prompt,
-                    systemPrompt: briefSystemPrompt,
-                    operation: .chatResponse(query: prompt),
-                    contentLength: prompt.count
-                )
-            }
+            // Use triage service — it handles Apple Intelligence → cloud API routing + fallback.
+            return try? await self.triageService.generateGeneral(
+                prompt: prompt,
+                systemPrompt: briefSystemPrompt,
+                operation: .brainstorm,
+                contentLength: prompt.count
+            )
         }
 
         dailyBriefState.onGoDeepGenerate = { [weak self] prompt in
@@ -134,19 +128,13 @@ final class AppCoordinator {
             Use ### headers per perspective. Be substantive and intellectually challenging. \
             End with 3-5 provocative questions.
             """
-            do {
-                return try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: deepSystemPrompt
-                )
-            } catch {
-                return try? await self.triageService.generateGeneral(
-                    prompt: prompt,
-                    systemPrompt: deepSystemPrompt,
-                    operation: .chatResponse(query: prompt),
-                    contentLength: prompt.count
-                )
-            }
+            // Use triage service — it handles Apple Intelligence → cloud API routing + fallback.
+            return try? await self.triageService.generateGeneral(
+                prompt: prompt,
+                systemPrompt: deepSystemPrompt,
+                operation: .epistemicLens,
+                contentLength: prompt.count
+            )
         }
 
         dailyBriefState.onDailyBriefSave = { [weak self] content, isDeep in

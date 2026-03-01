@@ -216,7 +216,7 @@ final class LLMService: LLMClientProtocol {
         if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
         messages.append(OpenAIMessage(role: "user", content: prompt))
 
-        let body = OpenAIRequest(model: inference.openaiModel, messages: messages, maxTokens: maxTokens, stream: false)
+        let body = OpenAIRequest(model: inference.openaiModel, messages: messages, maxCompletionTokens: maxTokens, stream: false)
         let data = try await postJSON(
             url: Self.openaiURL,
             body: body,
@@ -236,7 +236,7 @@ final class LLMService: LLMClientProtocol {
                     var messages: [OpenAIMessage] = []
                     if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
                     messages.append(OpenAIMessage(role: "user", content: prompt))
-                    let body = OpenAIRequest(model: self.inference.openaiModel, messages: messages, maxTokens: maxTokens, stream: true)
+                    let body = OpenAIRequest(model: self.inference.openaiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
                     let encoded = try JSONEncoder().encode(body)
                     var request = URLRequest(url: Self.openaiURL, timeoutInterval: Self.requestTimeout)
                     request.httpMethod = "POST"
@@ -361,7 +361,7 @@ final class LLMService: LLMClientProtocol {
         if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
         messages.append(OpenAIMessage(role: "user", content: prompt))
 
-        let body = OpenAIRequest(model: inference.kimiModel, messages: messages, maxTokens: maxTokens, stream: false)
+        let body = OpenAIRequest(model: inference.kimiModel, messages: messages, maxCompletionTokens: maxTokens, stream: false)
         let data = try await postJSON(
             url: Self.kimiURL,
             body: body,
@@ -381,7 +381,7 @@ final class LLMService: LLMClientProtocol {
                     var messages: [OpenAIMessage] = []
                     if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
                     messages.append(OpenAIMessage(role: "user", content: prompt))
-                    let body = OpenAIRequest(model: self.inference.kimiModel, messages: messages, maxTokens: maxTokens, stream: true)
+                    let body = OpenAIRequest(model: self.inference.kimiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
                     let encoded = try JSONEncoder().encode(body)
                     var request = URLRequest(url: Self.kimiURL, timeoutInterval: Self.requestTimeout)
                     request.httpMethod = "POST"
@@ -596,7 +596,7 @@ extension LLMService {
             var messages: [OpenAIMessage] = []
             if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
             messages.append(OpenAIMessage(role: "user", content: prompt))
-            let body = OpenAIRequest(model: snapshot.model, messages: messages, maxTokens: maxTokens, stream: false)
+            let body = OpenAIRequest(model: snapshot.model, messages: messages, maxCompletionTokens: maxTokens, stream: false)
             let data = try await postJSONStatic(
                 url: openaiURL,
                 body: body,
@@ -639,7 +639,7 @@ extension LLMService {
             var messages: [OpenAIMessage] = []
             if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
             messages.append(OpenAIMessage(role: "user", content: prompt))
-            let kimiBody = OpenAIRequest(model: snapshot.model, messages: messages, maxTokens: maxTokens, stream: false)
+            let kimiBody = OpenAIRequest(model: snapshot.model, messages: messages, maxCompletionTokens: maxTokens, stream: false)
             let kimiData = try await postJSONStatic(
                 url: kimiURL,
                 body: kimiBody,
@@ -796,12 +796,12 @@ private nonisolated struct AnthropicDelta: Decodable {
 private nonisolated struct OpenAIRequest: Encodable {
     let model: String
     let messages: [OpenAIMessage]
-    let maxTokens: Int
+    let maxCompletionTokens: Int
     let stream: Bool
 
     enum CodingKeys: String, CodingKey {
         case model, messages, stream
-        case maxTokens = "max_tokens"
+        case maxCompletionTokens = "max_completion_tokens"
     }
 }
 

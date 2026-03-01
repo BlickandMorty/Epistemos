@@ -134,9 +134,9 @@ struct PhysicsPerformanceTests {
     
     @Test("Physics disabled threshold verification")
     func physicsDisabledThreshold() async throws {
-        // The threshold is 1500 nodes in GraphState
+        // The threshold is 2500 nodes in GraphState
         let threshold = GraphState.staticLayoutThreshold
-        #expect(threshold == 1500)
+        #expect(threshold == 2500)
         
         // Test just below threshold - physics should be active
         let engineBelow = MockGraphEngine()
