@@ -887,10 +887,8 @@ private struct IdeasPanel: View {
         return readIdeas().filter { $0.type == targetType }.sorted { $0.createdAt > $1.createdAt }
     }
 
-    /// Read ideas directly from JSON data — avoids @Transient cache issues in popovers.
     private func readIdeas() -> [NoteIdea] {
-        guard let data = page.ideasData else { return [] }
-        return (try? JSONDecoder().decode([NoteIdea].self, from: data)) ?? []
+        page.ideas
     }
 
     /// Write ideas through the computed property to keep @Transient cache in sync.
@@ -969,13 +967,14 @@ private struct IdeasPanel: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 30)
                 } else {
+                    let body = page.loadBody()
                     LazyVStack(spacing: 6) {
                         ForEach(filteredItems) { item in
                             IdeaRow(
                                 item: item,
                                 isBusy: busyItemId == item.id,
                                 theme: theme,
-                                pageBody: page.loadBody(),
+                                pageBody: body,
                                 onGoToLine: { goToLine(item.lineAnchor) },
                                 onInsert: { insertIdea(item) },
                                 onIntegrate: { integrateWithAI(item) },

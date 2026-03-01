@@ -996,26 +996,8 @@ actor VaultIndexActor {
             let batch = pages[batchStart..<batchEnd]
 
             let items = batch.map { page -> CSSearchableItem in
-                let attrs = CSSearchableItemAttributeSet(contentType: .text)
-                attrs.title = page.title
                 let pageBody = page.loadBody(mapped: true)
-                attrs.textContent = String(pageBody.prefix(500))
-                attrs.contentDescription =
-                    page.tags.isEmpty
-                    ? page.title
-                    : "Tags: \(page.tags.joined(separator: ", "))"
-                attrs.keywords = page.tags
-                attrs.contentModificationDate = page.updatedAt
-                attrs.contentCreationDate = page.createdAt
-                attrs.relatedUniqueIdentifier = page.id
-
-                let item = CSSearchableItem(
-                    uniqueIdentifier: page.id,
-                    domainIdentifier: "com.epistemos.notes",
-                    attributeSet: attrs
-                )
-                item.expirationDate = .distantFuture
-                return item
+                return SpotlightIndexer.makeItem(for: page, body: pageBody)
             }
 
             CSSearchableIndex.default().indexSearchableItems(items) { error in

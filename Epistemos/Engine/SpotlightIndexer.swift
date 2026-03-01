@@ -15,35 +15,36 @@ import os
 @MainActor
 enum SpotlightIndexer {
 
-    private static let domainID = "com.epistemos.notes"
+    nonisolated(unsafe) static let domainID = "com.epistemos.notes"
 
-    /// Index a single SDPage in Spotlight.
-    static func index(_ page: SDPage) {
-        let id = page.id
-        let title = page.title
-        let body = page.loadBody()
-        let tags = page.tags
-        let updatedAt = page.updatedAt
-        let createdAt = page.createdAt
-
+    /// Build a CSSearchableItem for a single page. Centralizes attribute construction
+    /// so index(), reindexAll(), and VaultIndexActor all produce identical items.
+    nonisolated static func makeItem(for page: SDPage, body: String) -> CSSearchableItem {
         let attrs = CSSearchableItemAttributeSet(contentType: .text)
-        attrs.title = title
-        // Truncate body for Spotlight — enough for search ranking, avoids full-text exposure
+        attrs.title = page.title
         attrs.textContent = String(body.prefix(500))
-        attrs.contentDescription = tags.isEmpty
-            ? title
-            : "Tags: \(tags.joined(separator: ", "))"
-        attrs.keywords = tags
-        attrs.contentModificationDate = updatedAt
-        attrs.contentCreationDate = createdAt
-        attrs.relatedUniqueIdentifier = id
+        attrs.contentDescription = page.tags.isEmpty
+            ? page.title
+            : "Tags: \(page.tags.joined(separator: ", "))"
+        attrs.keywords = page.tags
+        attrs.contentModificationDate = page.updatedAt
+        attrs.contentCreationDate = page.createdAt
+        attrs.relatedUniqueIdentifier = page.id
 
         let item = CSSearchableItem(
-            uniqueIdentifier: id,
+            uniqueIdentifier: page.id,
             domainIdentifier: domainID,
             attributeSet: attrs
         )
         item.expirationDate = .distantFuture
+        return item
+    }
+
+    /// Index a single SDPage in Spotlight.
+    static func index(_ page: SDPage) {
+        let title = page.title
+        let body = page.loadBody(mapped: true)
+        let item = makeItem(for: page, body: body)
 
         CSSearchableIndex.default().indexSearchableItems([item]) { error in
             if let error {
@@ -73,26 +74,8 @@ enum SpotlightIndexer {
             let batch = pages[batchStart..<batchEnd]
 
             let items = batch.map { page -> CSSearchableItem in
-                let attrs = CSSearchableItemAttributeSet(contentType: .text)
-                attrs.title = page.title
-                // Truncate body for Spotlight — full text isn't needed for search ranking
                 let pageBody = page.loadBody(mapped: true)
-                attrs.textContent = String(pageBody.prefix(500))
-                attrs.contentDescription = page.tags.isEmpty
-                    ? page.title
-                    : "Tags: \(page.tags.joined(separator: ", "))"
-                attrs.keywords = page.tags
-                attrs.contentModificationDate = page.updatedAt
-                attrs.contentCreationDate = page.createdAt
-                attrs.relatedUniqueIdentifier = page.id
-
-                let item = CSSearchableItem(
-                    uniqueIdentifier: page.id,
-                    domainIdentifier: domainID,
-                    attributeSet: attrs
-                )
-                item.expirationDate = .distantFuture
-                return item
+                return makeItem(for: page, body: pageBody)
             }
 
             CSSearchableIndex.default().indexSearchableItems(items) { error in
