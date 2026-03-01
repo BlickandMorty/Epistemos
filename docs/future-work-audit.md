@@ -868,10 +868,14 @@ These items are complete. Kept for reference.
 
 These are longer-term features from the Gemini brainstorm that elevate Epistemos from a note-taking app into a true cognitive exoskeleton. Prioritize after Waves 1-3 are stable.
 
-### 14.1 MLX / Local AI Engine
+### 14.1 Local AI Engine — GPT-OSS + MLX
 - **Priority:** P5
-- **Source:** Gemini backlog #1
-- **Description:** Fully local, open-source AI models (MLX, Llama) running on Apple Silicon without API reliance. Eliminates cost concerns and enables offline use.
+- **Source:** Gemini backlog #1, OpenAI GPT-OSS release (Aug 2025)
+- **Description:** Fully local, open-source AI models running on Apple Silicon without API reliance. Eliminates cost concerns and enables offline use. Offered as a **separate optional download** that upgrades the app's local processing capabilities.
+- **Primary model:** OpenAI GPT-OSS 20B (4-bit quantized, runs on Apple Silicon via Metal shared memory). First open-weight model from OpenAI since GPT-2. Benchmarks show strong performance on M4/M5 chips with 19-27% speed improvement on newer silicon.
+- **Secondary models:** Apple Foundation Models (2-bit QAT, ~3B params, competitive with Qwen-3-4B), Llama variants via MLX.
+- **Delivery:** Separate download (4-8GB model weights). App detects installed model on launch, enables local processing toggle in Settings. Graceful fallback to cloud API when local model unavailable.
+- **Use cases:** SOAR pipeline local pass, entity extraction, query parsing, triage classification, daily briefs — anything currently hitting cloud LLM that doesn't need frontier reasoning.
 - **Dependencies:** Wave 2.3 (consolidate pipeline first, then swap provider)
 - **Status:** [ ] NOT STARTED
 
@@ -1608,7 +1612,7 @@ LLMs are "high-potential fluid" — the UI provides "rigid bone structures." Hig
 104. [ ] CommandPaletteOverlay `?` query routing (4.5)
 
 ### P5 — VISION (Long-term)
-105. [ ] MLX / Local AI Engine (14.1)
+105. [ ] Local AI Engine — GPT-OSS 20B + MLX (optional download upgrade) (14.1)
 106. [ ] Autonomous Agents — Open Claw + live dashboard (14.2)
 107. [ ] Contemplate Mode (14.4)
 108. [ ] Note Audit Pipeline (14.5)
