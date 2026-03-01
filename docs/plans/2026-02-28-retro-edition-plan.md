@@ -199,7 +199,53 @@ pub trait LlmClient: Send + Sync {
 - `llm/anthropic.rs` — Claude API via reqwest (Messages API, streaming SSE)
 - `llm/openai.rs` — GPT API via reqwest (Chat Completions, streaming)
 - `llm/google.rs` — Gemini API via reqwest (generateContent, streaming)
-- `llm/ollama.rs` — Local Ollama via reqwest (localhost:11434)
+- `llm/ollama.rs` — Local Ollama via reqwest (localhost:11434, GPU: GPT-OSS 20B)
+- `llm/foundry.rs` — Microsoft Foundry Local via reqwest (localhost:{PORT}/v1, NPU/GPU auto-routed)
+- `llm/embeddings.rs` — ONNX Runtime via `ort` crate (direct NPU/GPU, sub-ms embeddings)
+
+### 4.2b Windows Native AI Setup [NEW — Apple Intelligence Equivalent]
+**Why:** macOS has Apple Intelligence (NPU-tuned Foundation Models). Windows gets parity via three native layers.
+
+**Foundry Local integration (`llm/foundry.rs`):**
+```rust
+// Foundry Local exposes OpenAI-compatible REST API
+// Same reqwest pattern as ollama.rs but with auto NPU/GPU routing
+pub struct FoundryClient {
+    endpoint: String,  // http://localhost:{PORT}/v1
+    model: String,     // "phi-3.5-mini" (NPU-optimized)
+}
+
+impl LlmClient for FoundryClient {
+    // POST /v1/chat/completions — identical to OpenAI API format
+    // Foundry auto-selects best hardware: NPU for small models, GPU for larger
+}
+```
+- Use `foundry-local` Rust crate for model management (download, load, status)
+- First-run: detect if Foundry Local is installed, prompt user to install if not
+- Models: Phi-3.5-mini (default, NPU), DeepSeek-R1 distilled (GPU)
+
+**ONNX embeddings (`llm/embeddings.rs`):**
+```rust
+// Direct ONNX inference — no HTTP, runs inline in Rust
+use ort::{Session, SessionBuilder};
+
+pub struct OnnxEmbedder {
+    session: Session,  // all-MiniLM-L6-v2 ONNX model
+}
+
+impl OnnxEmbedder {
+    pub fn embed(&self, text: &str) -> Result<[f32; 384]>;  // sub-ms on NPU
+}
+```
+- Use `ort` crate with DirectML execution provider (auto NPU/GPU)
+- Embed model (~80MB) bundled or first-run download
+- Replaces macOS SIMD Accelerate embedding path
+
+**Triage routing (`pipeline/triage.rs`):**
+- Low complexity → Foundry Local (NPU, ~50ms)
+- Medium complexity → Ollama (GPU, ~500ms) or Foundry (GPU)
+- High complexity → Cloud LLM (Claude/GPT)
+- Same routing logic as macOS on-device vs cloud, adapted for Windows hardware
 
 ### 4.3 Pipeline Service (Minimal) [MAC → Rust]
 **Source:** `Epistemos/Engine/PipelineService.swift`
@@ -429,6 +475,8 @@ For each Rust module, here are the EXACT Swift files to translate from:
 | `llm/mod.rs` | `Engine/LLMClient.swift` | LlmClient trait |
 | `llm/anthropic.rs` | `Engine/LLMClient.swift` (Anthropic case) | stream, structuredOutput |
 | `llm/openai.rs` | `Engine/LLMClient.swift` (OpenAI case) | stream, structuredOutput |
+| `llm/foundry.rs` | N/A (Windows-native, no macOS equivalent) | FoundryClient — NPU/GPU auto-routed local AI |
+| `llm/embeddings.rs` | macOS: SIMD Accelerate path | OnnxEmbedder — ort crate, DirectML, sub-ms |
 | `physics/world.rs` | `graph-engine/src/simulation.rs` (reference only) | PhysicsWorld with rapier3d |
 
 ---

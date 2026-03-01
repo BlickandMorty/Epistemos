@@ -868,13 +868,21 @@ These items are complete. Kept for reference.
 
 These are longer-term features from the Gemini brainstorm that elevate Epistemos from a note-taking app into a true cognitive exoskeleton. Prioritize after Waves 1-3 are stable.
 
-### 14.1 Local AI Engine — GPT-OSS + MLX
+### 14.1 Local AI Engine — GPT-OSS + MLX + Platform-Native
 - **Priority:** P5
-- **Source:** Gemini backlog #1, OpenAI GPT-OSS release (Aug 2025)
-- **Description:** Fully local, open-source AI models running on Apple Silicon without API reliance. Eliminates cost concerns and enables offline use. Offered as a **separate optional download** that upgrades the app's local processing capabilities.
-- **Primary model:** OpenAI GPT-OSS 20B (4-bit quantized, runs on Apple Silicon via Metal shared memory). First open-weight model from OpenAI since GPT-2. Benchmarks show strong performance on M4/M5 chips with 19-27% speed improvement on newer silicon.
-- **Secondary models:** Apple Foundation Models (2-bit QAT, ~3B params, competitive with Qwen-3-4B), Llama variants via MLX.
-- **Delivery:** Separate download (4-8GB model weights). App detects installed model on launch, enables local processing toggle in Settings. Graceful fallback to cloud API when local model unavailable.
+- **Source:** Gemini backlog #1, OpenAI GPT-OSS release (Aug 2025), Microsoft Foundry Local
+- **Description:** Fully local, open-source AI models running without API reliance. Eliminates cost concerns and enables offline use. Offered as a **separate optional download** that upgrades the app's local processing capabilities. Each edition uses platform-native acceleration.
+- **macOS (Opulent Edition):**
+  - **Primary model:** OpenAI GPT-OSS 20B (4-bit quantized, runs on Apple Silicon via Metal shared memory). Benchmarks show 19-27% speed improvement on M4/M5 chips.
+  - **System-level AI:** Apple Intelligence Foundation Models (2-bit QAT, ~3B params, NPU-optimized). Accessed via Foundation Models framework.
+  - **Secondary models:** Llama variants via MLX.
+  - **Embedding:** SIMD Accelerate (70x faster than transformers.js).
+- **Windows (Retro Edition):**
+  - **Primary local server:** Microsoft Foundry Local — OpenAI-compatible REST API, auto-routes to Intel NPU/CUDA GPU/CPU. Models: Phi-3.5-mini (NPU), DeepSeek-R1.
+  - **GPU powerhouse:** Ollama — GPT-OSS 20B (4-bit, RTX 4060 CUDA, ~12GB VRAM).
+  - **Inline inference:** ONNX Runtime via `ort` crate with DirectML — sub-ms embeddings (all-MiniLM-L6-v2), fast classification. No HTTP overhead.
+  - **Phi Silica (optional):** Windows Copilot Runtime's NPU-tuned model. WinRT API, 650 tok/s at 1.5W. Currently Limited Access Feature.
+- **Cross-platform delivery:** Separate download (4-8GB model weights). App detects installed model on launch, enables local processing toggle in Settings. Graceful fallback to cloud API when local model unavailable.
 - **Use cases:** SOAR pipeline local pass, entity extraction, query parsing, triage classification, daily briefs — anything currently hitting cloud LLM that doesn't need frontier reasoning.
 - **Dependencies:** Wave 2.3 (consolidate pipeline first, then swap provider)
 - **Status:** [ ] NOT STARTED
@@ -1308,8 +1316,19 @@ The Retro Edition fuses the web frontend's layout/design with the macOS app's lo
 
 ### 21.3 Rust Backend — Pipeline Port
 - **Priority:** P3
-- **Description:** Port the SOAR pipeline from Swift to Rust. 3-pass system: (1) streaming direct answer, (2) deep research analysis, (3) truth assessment. 10 pipeline stages with signal updates. LLM client abstraction (Anthropic, OpenAI, Google, Ollama). Tauri commands expose pipeline to frontend via `invoke()`.
-- **Key Crates:** `reqwest` (HTTP), `tokio` (async), `serde_json` (structured output), `rusqlite` (storage), `notify` (file watching for vault sync).
+- **Description:** Port the SOAR pipeline from Swift to Rust. 3-pass system: (1) streaming direct answer, (2) deep research analysis, (3) truth assessment. 10 pipeline stages with signal updates. LLM client abstraction with 6 providers: Anthropic, OpenAI, Google, Ollama (GPU), Foundry Local (NPU/GPU), ONNX embeddings (inline). Tauri commands expose pipeline to frontend via `invoke()`.
+- **Key Crates:** `reqwest` (HTTP + Foundry Local REST), `tokio` (async), `serde_json` (structured output), `rusqlite` (storage), `notify` (file watching), `ort` (ONNX Runtime for embeddings/NPU), `foundry-local` (model management).
+- **Status:** [ ] NOT STARTED
+
+### 21.3b Windows Native AI — On-Device Intelligence
+- **Priority:** P3
+- **Source:** Apple Intelligence parity analysis, Microsoft Foundry Local docs, Dell XPS 16 hardware (Intel NPU + RTX 4060 GPU)
+- **Description:** Three-layer local AI stack replacing Apple Intelligence on Windows:
+  - **Layer 1: Microsoft Foundry Local** — Primary on-device model server. OpenAI-compatible REST API (`localhost:{PORT}/v1`). Auto-detects and routes to best hardware (NPU/CUDA GPU/CPU). Uses `foundry-local` Rust crate for model management + `reqwest` for inference. Models: Phi-3.5-mini (NPU-optimized), DeepSeek-R1 distilled. Equivalent to Apple Intelligence Foundation Models framework.
+  - **Layer 2: Ollama** — GPU powerhouse for larger models. GPT-OSS 20B (4-bit, ~12GB VRAM on RTX 4060). Deep analysis, full pipeline passes.
+  - **Layer 3: ONNX Runtime** — Direct Rust inference via `ort` crate with DirectML execution provider. Sub-millisecond embedding generation (all-MiniLM-L6-v2), fast classification. No HTTP overhead — runs inline in Rust code.
+- **Hardware routing:** NPU for triage/parsing (~50ms, 1.5W), GPU for extraction/analysis (~500ms), Cloud for frontier reasoning.
+- **Phi Silica note:** Microsoft's NPU-tuned model is available via WinRT API (`Microsoft.Windows.AI.Text.LanguageModel`) but requires Limited Access Feature unlock token. Foundry Local is preferred — handles NPU routing without LAF restriction.
 - **Status:** [ ] NOT STARTED
 
 ### 21.4 Tauri Bridge — Frontend Adaptation
@@ -1638,16 +1657,17 @@ LLMs are "high-potential fluid" — the UI provides "rigid bone structures." Hig
 126. [ ] Tauri project scaffold + workspace setup (21.1)
 127. [ ] Rapier3D physics engine integration (21.2)
 128. [ ] Rust backend — SOAR pipeline port (21.3)
-129. [ ] Tauri bridge — frontend fetch→invoke adaptation (21.4)
-130. [ ] rusqlite storage layer + vault sync (21.5)
+129. [ ] Windows native AI — Foundry Local (NPU) + Ollama (GPU) + ort (ONNX embeddings) (21.3b)
+130. [ ] Tauri bridge — frontend fetch→invoke adaptation (21.4)
+131. [ ] rusqlite storage layer + vault sync (21.5)
 
 ### P4 — RETRO EDITION (Rendering + Polish)
-131. [ ] Graph rendering — WebGPU/wgpu or D3 + Rapier coordinates (21.6)
+132. [ ] Graph rendering — WebGPU/wgpu or D3 + Rapier coordinates (21.6)
 
 ### P5 — RETRO EDITION (Vision)
-132. [ ] Relativistic lensing shader — Schwarzschild UV distortion (21.7)
-133. [ ] Quantum SOAR collapse visualization (21.8)
-134. [ ] Physics-driven UI elements — Rapier buttons & panels (21.9)
+133. [ ] Relativistic lensing shader — Schwarzschild UV distortion (21.7)
+134. [ ] Quantum SOAR collapse visualization (21.8)
+135. [ ] Physics-driven UI elements — Rapier buttons & panels (21.9)
 
 ---
 

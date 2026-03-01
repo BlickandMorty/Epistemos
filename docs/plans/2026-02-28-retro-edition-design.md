@@ -69,7 +69,7 @@ What does NOT get ported (macOS-only):
 - SwiftUI views (replaced by existing web frontend)
 - Metal rendering (replaced by D3/WebGPU)
 - AppKit integration (NSTextView, NSPopover, etc.)
-- Apple Intelligence (no Windows equivalent)
+- Apple Intelligence (replaced by Windows native AI — see Section 10)
 - SwiftData (replaced by rusqlite)
 - Combine/Observation (replaced by Zustand)
 
@@ -122,7 +122,8 @@ epistemos-retro/
 │   │       ├── anthropic.rs            # Claude API
 │   │       ├── openai.rs               # GPT API
 │   │       ├── google.rs               # Gemini API
-│   │       └── ollama.rs               # Local Ollama
+│   │       ├── ollama.rs               # Local Ollama (GPU: GPT-OSS 20B)
+│   │       └── foundry.rs              # Microsoft Foundry Local (NPU/GPU auto-routing)
 │   └── graph-engine/                   # EXISTING Rust engine (workspace member)
 │       ├── Cargo.toml
 │       └── src/
@@ -158,7 +159,9 @@ epistemos-retro/
 | `tauri` 2.x | Native window, IPC, file system, system tray |
 | `rapier3d` | 3D rigid body physics for graph |
 | `rusqlite` | SQLite persistence (Page, Block, Chat, Message, Graph) |
-| `reqwest` | HTTP client for LLM APIs |
+| `reqwest` | HTTP client for LLM APIs + Foundry Local REST API |
+| `ort` | ONNX Runtime Rust bindings (NPU/GPU inference for embeddings) |
+| `foundry-local` | Microsoft Foundry Local Rust crate (model management + NPU routing) |
 | `tokio` | Async runtime for streaming, file I/O |
 | `serde` / `serde_json` | Serialization for Tauri commands |
 | `notify` | File system watcher for vault sync |
@@ -324,7 +327,133 @@ User types NL query in sidebar
 
 ---
 
-## 9. Implementation Order
+## 9. Windows Native AI — On-Device Intelligence
+
+### The Parity Goal
+
+macOS has **Apple Intelligence** — system-level on-device AI via the Foundation Models framework (NPU-optimized Phi Silica, 650 tokens/sec at 1.5W). The Retro Edition achieves parity using three native Windows AI technologies.
+
+### Target Hardware: Dell XPS 16
+
+The XPS 16 has **three AI accelerators**:
+1. **Intel NPU** (AI Boost) — low-power, always-on inference (~1.5W)
+2. **NVIDIA RTX 4060 GPU** — high-throughput CUDA inference
+3. **CPU** — universal fallback
+
+### Three-Layer Local AI Stack
+
+#### Layer 1: Microsoft Foundry Local (Primary — Apple Intelligence Equivalent)
+- **What:** Microsoft's on-device model server with OpenAI-compatible REST API
+- **API:** `http://localhost:{PORT}/v1/chat/completions` — identical to OpenAI API
+- **Rust integration:** `foundry-local` crate (model management) + `reqwest` (inference)
+- **Hardware routing:** Auto-detects NPU, CUDA GPU, AMD, Intel — selects optimal execution provider per model
+- **Models:** Phi-3.5-mini (NPU-optimized), DeepSeek-R1 distilled, custom ONNX models via Olive compiler
+- **Delivery:** Bundled or first-run download (~2-4GB). `foundry model run phi-3.5-mini` starts serving
+- **Use cases:** Triage classification, query parsing, summarization, entity extraction — all the quick local tasks
+
+#### Layer 2: Ollama (GPU Powerhouse)
+- **What:** Local model server for larger models needing full GPU
+- **API:** `http://localhost:11434/api/chat` — OpenAI-compatible
+- **Rust integration:** `reqwest` (same HTTP client pattern)
+- **Models:** GPT-OSS 20B (4-bit, needs ~12GB VRAM), Qwen3-8B, Llama variants
+- **Use cases:** Full SOAR pipeline passes, deep analysis, anything needing frontier-class reasoning locally
+
+#### Layer 3: ONNX Runtime via `ort` Crate (Embeddings & Classification)
+- **What:** Direct Rust-native ONNX model inference with DirectML execution provider
+- **Rust integration:** `ort` crate — ergonomic API, supports NPU/GPU/CPU providers
+- **Models:** Small ONNX models for embeddings (all-MiniLM-L6-v2), classifiers, triage
+- **Use cases:** 384-dim embedding generation, similarity search, fast classification
+- **Why separate:** Sub-millisecond inference, no HTTP overhead, runs inline in Rust code
+
+#### Phi Silica (System-Level — Bonus)
+- **What:** Microsoft's NPU-tuned model built into Windows Copilot Runtime
+- **API:** WinRT `Microsoft.Windows.AI.Text.LanguageModel` (C#/C++ only)
+- **Rust access:** Via `windows-rs` crate WinRT bindings (`windows::Win32::AI::MachineLearning::WinML`)
+- **Status:** Limited Access Feature (requires unlock token from Microsoft)
+- **Decision:** Use Foundry Local instead — it already handles NPU routing without the LAF restriction. Phi Silica is a nice-to-have if Microsoft opens it up.
+
+### Hardware Routing Strategy
+
+| Task | Layer | Hardware | Latency |
+|------|-------|----------|---------|
+| Triage classification | Foundry Local | NPU | ~50ms |
+| Query parsing (NL → DSL) | Foundry Local | NPU | ~100ms |
+| Text summarization | Foundry Local | NPU | ~200ms |
+| Embedding generation | ort (ONNX) | NPU/GPU | <5ms |
+| Entity extraction | Foundry Local or Ollama | GPU | ~500ms |
+| SOAR deep analysis (Pass 2) | Ollama (GPT-OSS 20B) | RTX 4060 GPU | ~2-5s |
+| Truth assessment (Pass 3) | Cloud LLM (Claude/GPT) | Cloud | ~3-8s |
+| Full pipeline (Pass 1 stream) | Cloud or Ollama | Cloud/GPU | ~1-3s |
+
+### Comparison: macOS vs Windows Local AI
+
+| Feature | macOS (Opulent) | Windows (Retro) |
+|---------|----------------|-----------------|
+| System-level on-device AI | Apple Intelligence (Foundation Models) | Foundry Local (Phi-3.5 on NPU) |
+| NPU acceleration | Apple Neural Engine | Intel AI Boost NPU |
+| GPU inference | Metal (Apple Silicon unified memory) | CUDA (RTX 4060 dedicated VRAM) |
+| Embedding model | MLX + SIMD Accelerate | ort crate + DirectML |
+| Heavy local generation | GPT-OSS 20B via MLX | GPT-OSS 20B via Ollama |
+| Cloud fallback | Claude/GPT/Gemini | Claude/GPT/Gemini (identical) |
+| Rust integration | Custom FFI | `foundry-local` + `ort` + `reqwest` |
+
+### LLM Client Architecture
+
+```rust
+// llm/mod.rs — unified trait, 6 providers
+#[async_trait]
+pub trait LlmClient: Send + Sync {
+    async fn stream(&self, messages: Vec<ChatMessage>, config: &LlmConfig)
+        -> Result<impl Stream<Item = Result<String>>>;
+    async fn structured_output<T: DeserializeOwned>(&self, prompt: &str, schema: &str)
+        -> Result<T>;
+}
+
+// Cloud providers (identical to macOS)
+pub struct AnthropicClient;    // llm/anthropic.rs
+pub struct OpenAiClient;       // llm/openai.rs
+pub struct GoogleClient;       // llm/google.rs
+
+// Local providers (Windows-native)
+pub struct OllamaClient;       // llm/ollama.rs — GPU (GPT-OSS 20B)
+pub struct FoundryClient;      // llm/foundry.rs — NPU/GPU auto-routed (Phi-3.5)
+
+// Direct ONNX (not through LlmClient — used inline for embeddings)
+pub struct OnnxEmbedder;       // llm/embeddings.rs — ort crate, sub-ms inference
+```
+
+### Triage Router (Equivalent to macOS On-Device/Cloud Routing)
+
+```rust
+// pipeline/triage.rs — decides which provider handles each task
+impl TriageRouter {
+    fn route(&self, task: &PipelineTask) -> ProviderChoice {
+        match task.complexity {
+            Low => {
+                // Quick classification, parsing, summarization
+                // → Foundry Local on NPU (50-200ms, 1.5W)
+                if self.foundry_available { ProviderChoice::Foundry }
+                else { ProviderChoice::Cloud(self.default_cloud) }
+            }
+            Medium => {
+                // Entity extraction, moderate generation
+                // → Ollama on GPU or Foundry on GPU
+                if self.ollama_available { ProviderChoice::Ollama }
+                else { ProviderChoice::Cloud(self.default_cloud) }
+            }
+            High => {
+                // Deep analysis, truth assessment, frontier reasoning
+                // → Cloud LLM (Claude Sonnet/Opus)
+                ProviderChoice::Cloud(self.default_cloud)
+            }
+        }
+    }
+}
+```
+
+---
+
+## 10. Implementation Order
 
 See implementation plan document for detailed wave-by-wave breakdown.
 Priority: get a working chat + notes + graph loop first, then layer features.
