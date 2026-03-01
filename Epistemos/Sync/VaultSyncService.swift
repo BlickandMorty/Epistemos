@@ -116,7 +116,7 @@ final class VaultSyncService {
             url = resolved
             usedSecurityScope = true
             log.info(
-                "📦 Resolved with security scope → \(resolved.path, privacy: .public) (stale=\(isStale))"
+                "📦 Resolved with security scope → \(resolved.path, privacy: .private) (stale=\(isStale))"
             )
         } catch {
             log.info(
@@ -129,7 +129,7 @@ final class VaultSyncService {
                     bookmarkDataIsStale: &isStale)
                 url = resolved
                 log.info(
-                    "📦 Resolved WITHOUT security scope → \(resolved.path, privacy: .public) (stale=\(isStale))"
+                    "📦 Resolved WITHOUT security scope → \(resolved.path, privacy: .private) (stale=\(isStale))"
                 )
             } catch {
                 log.info(
@@ -173,7 +173,7 @@ final class VaultSyncService {
         let exists = FileManager.default.fileExists(atPath: url.path)
         if !exists {
             log.warning(
-                "Vault directory not found at \(url.path, privacy: .public) — clearing bookmark")
+                "Vault directory not found at \(url.path, privacy: .private) — clearing bookmark")
             url.stopAccessingSecurityScopedResource()
             UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
             clearVaultData()
@@ -543,7 +543,7 @@ final class VaultSyncService {
                 }
 
                 if let path = exportedPath {
-                    log.info("Saved page to vault: \(path, privacy: .public)")
+                    log.info("Saved page to vault: \(path, privacy: .private)")
                 }
                 await MainActor.run { [weak self] in
                     self?.eventBus?.emit(.vaultChanged)
@@ -863,7 +863,7 @@ final class VaultSyncService {
 
         do {
             try FileManager.default.removeItem(atPath: filePath)
-            log.info("Deleted page file: \(filePath, privacy: .public)")
+            log.info("Deleted page file: \(filePath, privacy: .private)")
             eventBus?.emit(.vaultChanged)
         } catch {
             log.error("Failed to delete page file: \(error.localizedDescription, privacy: .public)")

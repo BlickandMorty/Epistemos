@@ -32,13 +32,13 @@ actor VaultIndexActor {
         let fm = FileManager.default
 
         guard fm.fileExists(atPath: url.path) else {
-            log.warning("Vault directory does not exist: \(url.path, privacy: .public)")
+            log.warning("Vault directory does not exist: \(url.path, privacy: .private)")
             return
         }
 
         guard fm.isReadableFile(atPath: url.path) else {
             log.error(
-                "Vault directory exists but is not readable (security scope may be missing): \(url.path, privacy: .public)"
+                "Vault directory exists but is not readable (security scope may be missing): \(url.path, privacy: .private)"
             )
             return
         }
@@ -62,7 +62,7 @@ actor VaultIndexActor {
         )
 
         guard let enumerator else {
-            log.error("Failed to create directory enumerator for: \(url.path, privacy: .public)")
+            log.error("Failed to create directory enumerator for: \(url.path, privacy: .private)")
             return
         }
 
@@ -432,7 +432,7 @@ actor VaultIndexActor {
         let fm = FileManager.default
         guard fm.isReadableFile(atPath: fileURL.path) else {
             log.warning(
-                "Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public) at \(fileURL.path, privacy: .public)"
+                "Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public) at \(fileURL.path, privacy: .private)"
             )
             return false
         }
