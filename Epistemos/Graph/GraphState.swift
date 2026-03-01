@@ -72,11 +72,11 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
 
     var velocityDecay: Float {
         switch self {
-        case .observatory:   return 0.85
-        case .nebula:        return 0.80
+        case .observatory:   return 0.05
+        case .nebula:        return 0.10
         case .crystal:       return 0.90
-        case .fluid:         return 0.75
-        case .constellation: return 0.82
+        case .fluid:         return 0.20
+        case .constellation: return 0.08
         }
     }
     var centerStrength: Float {
@@ -90,11 +90,11 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var collisionRadius: Float {
         switch self {
-        case .observatory:   return 20
-        case .nebula:        return 15
+        case .observatory:   return 50
+        case .nebula:        return 40
         case .crystal:       return 30
-        case .fluid:         return 18
-        case .constellation: return 12
+        case .fluid:         return 45
+        case .constellation: return 35
         }
     }
 }
@@ -218,12 +218,12 @@ final class GraphState {
     var linkStrength: Float = 0.0
 
     // ── Extended ──
-    /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous). 0.80 = smooth fluid.
-    var velocityDecay: Float = 0.80
+    /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous). Low = calm, fluid drift.
+    var velocityDecay: Float = 0.05
     /// Center gravity pull strength (0 = none, 0.2 = strong).
     var centerStrength: Float = 0.003
-    /// Collision buffer zone in pixels. Moderate to prevent crowding without pressure.
-    var collisionRadius: Float = 18.0
+    /// Collision buffer zone in pixels. ~50 gives nodes breathing room without over-spreading.
+    var collisionRadius: Float = 50.0
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
     var forceConfigVersion: Int = 0
@@ -257,12 +257,21 @@ final class GraphState {
         d.set(semanticStrength, forKey: "epistemos.physics.semanticStrength")
         d.set(useSemanticClustering, forKey: "epistemos.physics.useSemanticClustering")
         d.set(true, forKey: "epistemos.physics.hasSavedSettings")
+        d.set(Self.physicsVersion, forKey: "epistemos.physics.version")
     }
 
     /// Restore force parameters from UserDefaults. No-op if never saved.
+    /// Uses a version key to force reset when defaults change across app updates.
+    private static let physicsVersion = 2  // Bump to force reset on next launch
     private func restorePhysicsSettings() {
         let d = UserDefaults.standard
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }
+        // Force reset if stored version doesn't match current defaults.
+        if d.integer(forKey: "epistemos.physics.version") != Self.physicsVersion {
+            d.removeObject(forKey: "epistemos.physics.hasSavedSettings")
+            d.set(Self.physicsVersion, forKey: "epistemos.physics.version")
+            return  // Use hardcoded defaults instead
+        }
         linkDistance = d.float(forKey: "epistemos.physics.linkDistance")
         chargeStrength = d.float(forKey: "epistemos.physics.chargeStrength")
         chargeRange = d.float(forKey: "epistemos.physics.chargeRange")

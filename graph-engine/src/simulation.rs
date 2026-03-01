@@ -77,10 +77,10 @@ impl Default for ForceParams {
             charge_range: 1200.0,
             link_strength: 0.0, // auto
 
-            // Moderate damping = smooth fluid. Nodes glide and settle gracefully.
-            velocity_decay: 0.80,
+            // Low friction = calm, fluid drift. Nodes float gently.
+            velocity_decay: 0.05,
             center_strength: 0.003,
-            collision_radius: 18.0,
+            collision_radius: 50.0,
             collision_iterations: 1,
             cluster_strength: 0.15,
             center_mode: CenterMode::Attract,
@@ -759,9 +759,9 @@ mod tests {
         assert_eq!(p.link_distance, 250.0);
         assert_eq!(p.charge_strength, -300.0);
         assert_eq!(p.charge_range, 1200.0);
-        assert_eq!(p.velocity_decay, 0.80);
+        assert_eq!(p.velocity_decay, 0.05);
         assert_eq!(p.center_strength, 0.003);
-        assert_eq!(p.collision_radius, 18.0);
+        assert_eq!(p.collision_radius, 50.0);
         assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.15);
         assert_eq!(p.center_mode, CenterMode::Attract);
@@ -867,7 +867,7 @@ mod tests {
         let sim = Simulation::new();
         assert_eq!(sim.params.alpha, 0.3);
         assert_eq!(sim.params.alpha_min, 0.001);
-        assert_eq!(sim.params.velocity_decay, 0.80);
+        assert_eq!(sim.params.velocity_decay, 0.05);
     }
 
     #[test]
@@ -1247,9 +1247,9 @@ mod tests {
         assert_eq!(p.link_distance, 250.0);
         assert_eq!(p.charge_strength, -300.0);
         assert_eq!(p.charge_range, 1200.0);
-        assert_eq!(p.velocity_decay, 0.80);
+        assert_eq!(p.velocity_decay, 0.05);
         assert_eq!(p.center_strength, 0.003);
-        assert_eq!(p.collision_radius, 18.0);
+        assert_eq!(p.collision_radius, 50.0);
         assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.15);
         assert_eq!(p.center_mode, CenterMode::Attract);
@@ -1611,6 +1611,9 @@ mod tests {
         graph.add_node("b".into(), 500.0, 0.0, 0, 1, "B".into());
         graph.add_edge("a", "b", 1.0, 0);
         let mut sim = Simulation::new();
+        // Use moderate friction for convergence test — low default friction
+        // takes longer to settle, which is fine for UX but slow for tests.
+        sim.params.velocity_decay = 0.80;
         sim.load_from_graph(&graph);
         for _ in 0..500 {
             sim.tick();
