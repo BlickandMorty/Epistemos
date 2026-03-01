@@ -142,8 +142,11 @@ final class GraphBuilder {
         // 2. Folders (recursive — parent→child nesting)
         // ────────────────────────────────────────────
         let folders: [SDFolder]
-        do { folders = try context.fetch(FetchDescriptor<SDFolder>()) }
-        catch {
+        do {
+            var folderDescriptor = FetchDescriptor<SDFolder>()
+            folderDescriptor.relationshipKeyPathsForPrefetching = [\.pages, \.children]
+            folders = try context.fetch(folderDescriptor)
+        } catch {
             Log.app.error("GraphBuilder: failed to fetch folders: \(error.localizedDescription, privacy: .public)")
             folders = []
         }

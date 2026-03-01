@@ -19,10 +19,12 @@ extension SDPage {
     /// No fetchLimit — body is @Attribute(.externalStorage) so metadata is cheap.
     /// A 5000-page vault loads ~5MB of metadata (titles, tags, dates, IDs).
     static var activePagesDescriptor: FetchDescriptor<SDPage> {
-        FetchDescriptor<SDPage>(
+        var descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { !$0.isArchived },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
+        descriptor.relationshipKeyPathsForPrefetching = [\.folder]
+        return descriptor
     }
 
     // MARK: - Pinned Pages
