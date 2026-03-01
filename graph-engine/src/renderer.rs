@@ -405,30 +405,32 @@ impl Renderer {
 
         let library = device
             .new_library_with_source(SHADER_SOURCE, &CompileOptions::new())
-            .expect("Failed to compile Metal shaders");
+            .ok()?;
 
-        let node_vert = library.get_function("node_vertex", None).unwrap();
-        let node_frag = library.get_function("node_fragment", None).unwrap();
-        let edge_vert = library.get_function("line_edge_vertex", None).unwrap();
-        let edge_frag = library.get_function("line_edge_fragment", None).unwrap();
+        let node_vert = library.get_function("node_vertex", None).ok()?;
+        let node_frag = library.get_function("node_fragment", None).ok()?;
+        let edge_vert = library.get_function("line_edge_vertex", None).ok()?;
+        let edge_frag = library.get_function("line_edge_fragment", None).ok()?;
 
-        // Helper to create a pipeline with alpha blending
-        let make_pipeline = |vert: &Function, frag: &Function| -> RenderPipelineState {
-            let desc = RenderPipelineDescriptor::new();
-            desc.set_vertex_function(Some(vert));
-            desc.set_fragment_function(Some(frag));
-            let color_attach = desc.color_attachments().object_at(0).unwrap();
-            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
-            color_attach.set_blending_enabled(true);
-            color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
-            color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
-            color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
-            color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
-            device.new_render_pipeline_state(&desc).expect("Failed to create pipeline")
-        };
+        // Helper to create a pipeline with alpha blending.
+        // Returns None if pipeline creation fails (e.g. incompatible GPU).
+        let make_pipeline =
+            |vert: &Function, frag: &Function| -> Option<RenderPipelineState> {
+                let desc = RenderPipelineDescriptor::new();
+                desc.set_vertex_function(Some(vert));
+                desc.set_fragment_function(Some(frag));
+                let color_attach = desc.color_attachments().object_at(0)?;
+                color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+                color_attach.set_blending_enabled(true);
+                color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
+                color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+                color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
+                color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+                device.new_render_pipeline_state(&desc).ok()
+            };
 
-        let node_pipeline = make_pipeline(&node_vert, &node_frag);
-        let edge_pipeline = make_pipeline(&edge_vert, &edge_frag);
+        let node_pipeline = make_pipeline(&node_vert, &node_frag)?;
+        let edge_pipeline = make_pipeline(&edge_vert, &edge_frag)?;
 
         let uniform_buf = device.new_buffer(
             std::mem::size_of::<Uniforms>() as u64,
@@ -1119,7 +1121,9 @@ impl Renderer {
 
             // Render directly to drawable texture (no offscreen pass).
             let render_desc = RenderPassDescriptor::new();
-            let color = render_desc.color_attachments().object_at(0).unwrap();
+            let Some(color) = render_desc.color_attachments().object_at(0) else {
+                return;
+            };
             color.set_texture(Some(drawable.texture()));
             color.set_load_action(MTLLoadAction::Clear);
             color.set_clear_color(MTLClearColor::new(
