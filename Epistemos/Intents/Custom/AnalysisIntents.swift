@@ -42,7 +42,7 @@ struct RunAnalysisIntent: AppIntent {
 struct AskAboutNotesIntent: AppIntent {
     nonisolated(unsafe) static var title: LocalizedStringResource = "Ask About Notes"
     nonisolated(unsafe) static var description: IntentDescription = "Asks the AI a question grounded in your Epistemos notes."
-    nonisolated(unsafe) static var openAppWhenRun = true
+    nonisolated(unsafe) static var openAppWhenRun = false  // Siri can answer without opening the app
 
     @Parameter(title: "Question")
     var question: String

@@ -1,4 +1,6 @@
+import AppIntents
 import AppKit
+import CoreSpotlight
 import SwiftData
 import SwiftUI
 import os
@@ -57,7 +59,39 @@ final class NoteWindowManager {
 
         bootstrap.notesUI.openPage(pageId)
         openWindow(for: page)
+
+        // Donate intent + register NSUserActivity so Siri learns from usage
+        donateNoteActivity(page: page)
     }
+
+    /// Donates an OpenVaultFile intent and registers an NSUserActivity for Siri Suggestions.
+    private func donateNoteActivity(page: SDPage) {
+        // 1. Donate the "Open Vault File" intent so Siri learns note-opening patterns
+        let intent = OpenVaultFileIntent()
+        intent.target = page.toNoteEntity()
+        Task { try? await intent.donate() }
+
+        // 2. Register NSUserActivity for Spotlight Suggestions & Handoff
+        let activity = NSUserActivity(activityType: "com.epistemos.openNote")
+        activity.title = page.title
+        activity.isEligibleForSearch = true
+        activity.persistentIdentifier = page.id
+        activity.userInfo = [CSSearchableItemActivityIdentifier: page.id]
+
+        let attributes = CSSearchableItemAttributeSet(contentType: .text)
+        attributes.title = page.title
+        attributes.contentDescription = page.tags.isEmpty
+            ? "Note in Epistemos"
+            : "Tags: \(page.tags.joined(separator: ", "))"
+        activity.contentAttributeSet = attributes
+
+        // Keep a strong reference — the activity must stay alive while the note is open
+        activeUserActivity = activity
+        activity.becomeCurrent()
+    }
+
+    /// Tracks the current NSUserActivity so it stays alive while the note window is open.
+    private var activeUserActivity: NSUserActivity?
 
     // MARK: - Tab Windows
 

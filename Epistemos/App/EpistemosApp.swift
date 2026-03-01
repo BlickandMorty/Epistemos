@@ -1,4 +1,5 @@
 import AppKit
+import CoreSpotlight
 import SwiftData
 import SwiftUI
 
@@ -19,6 +20,18 @@ struct EpistemosApp: App {
                 .onAppear {
                     StatusBar.shared.setup()
                     HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer)
+                }
+                // Handle Spotlight deep-links — user tapped a note in Spotlight results
+                .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                    guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
+                    else { return }
+                    NoteWindowManager.shared.open(pageId: pageId)
+                }
+                // Handle Siri Suggestions / NSUserActivity continuations
+                .onContinueUserActivity("com.epistemos.openNote") { activity in
+                    guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
+                    else { return }
+                    NoteWindowManager.shared.open(pageId: pageId)
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(

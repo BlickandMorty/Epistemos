@@ -1,6 +1,6 @@
 import AppIntents
 
-// MARK: - Lucid Shortcuts Provider
+// MARK: - Epistemos Shortcuts Provider
 // Top 10 discoverable Siri phrases (macOS limit). Strategy: lead with intents
 // no competitor has (AI analysis, research), then essentials.
 // All 23 intents work in Shortcuts.app — this controls discoverability only.
