@@ -1,4 +1,5 @@
 import Foundation
+import os
 import SwiftData
 
 // MARK: - GraphBuilder
@@ -28,7 +29,13 @@ final class GraphBuilder {
         // ────────────────────────────────────────────
         // 1. Notes (non-archived SDPage)
         // ────────────────────────────────────────────
-        let pages = (try? context.fetch(SDPage.activePagesDescriptor)) ?? []
+        let pages: [SDPage]
+        do {
+            pages = try context.fetch(SDPage.activePagesDescriptor)
+        } catch {
+            Log.app.error("GraphBuilder: failed to fetch pages: \(error.localizedDescription, privacy: .public)")
+            pages = []
+        }
 
         for page in pages {
             let pageKey = "note-\(page.id)"
@@ -87,7 +94,12 @@ final class GraphBuilder {
                 predicate: #Predicate<SDBlock> { $0.pageId == pageId },
                 sortBy: [SortDescriptor(\SDBlock.order)]
             )
-            let blocks = (try? context.fetch(blockDesc)) ?? []
+            let blocks: [SDBlock]
+            do { blocks = try context.fetch(blockDesc) }
+            catch {
+                Log.app.error("GraphBuilder: failed to fetch blocks for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                blocks = []
+            }
             for block in blocks {
                 guard block.content.count > 20 else { continue }
                 let blockKey = "block-\(block.id)"
@@ -129,7 +141,12 @@ final class GraphBuilder {
         // ────────────────────────────────────────────
         // 2. Folders (recursive — parent→child nesting)
         // ────────────────────────────────────────────
-        let folders = (try? context.fetch(FetchDescriptor<SDFolder>())) ?? []
+        let folders: [SDFolder]
+        do { folders = try context.fetch(FetchDescriptor<SDFolder>()) }
+        catch {
+            Log.app.error("GraphBuilder: failed to fetch folders: \(error.localizedDescription, privacy: .public)")
+            folders = []
+        }
 
         // Pre-compute recursive page count for each folder so parent folders
         // are visually larger (more content = bigger node radius).
@@ -199,7 +216,12 @@ final class GraphBuilder {
         // ────────────────────────────────────────────
         // 6. Chats
         // ────────────────────────────────────────────
-        let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []
+        let chats: [SDChat]
+        do { chats = try context.fetch(FetchDescriptor<SDChat>()) }
+        catch {
+            Log.app.error("GraphBuilder: failed to fetch chats: \(error.localizedDescription, privacy: .public)")
+            chats = []
+        }
 
         for chat in chats {
             let chatKey = "chat-\(chat.id)"
@@ -233,8 +255,18 @@ final class GraphBuilder {
             predicate: #Predicate<SDGraphEdge> { !$0.isManual }
         )
 
-        let currentNodes = (try? context.fetch(currentNodeDesc)) ?? []
-        let currentEdges = (try? context.fetch(currentEdgeDesc)) ?? []
+        let currentNodes: [SDGraphNode]
+        do { currentNodes = try context.fetch(currentNodeDesc) }
+        catch {
+            Log.app.error("GraphBuilder.persist: failed to fetch current nodes: \(error.localizedDescription, privacy: .public)")
+            currentNodes = []
+        }
+        let currentEdges: [SDGraphEdge]
+        do { currentEdges = try context.fetch(currentEdgeDesc) }
+        catch {
+            Log.app.error("GraphBuilder.persist: failed to fetch current edges: \(error.localizedDescription, privacy: .public)")
+            currentEdges = []
+        }
 
         // ── 2. Build lookup maps for nodes ──
         // Key: "type-sourceId" for uniqueness across types.
