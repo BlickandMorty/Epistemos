@@ -158,6 +158,36 @@ final class GraphStore {
         ingestEdges(sdEdges)
     }
 
+    /// Populate store from pre-built Sendable records (no SwiftData fetch).
+    /// Used by background graph loading to avoid main-thread SwiftData access.
+    func loadFromRecords(nodeRecords: [GraphNodeRecord], edgeRecords: [GraphEdgeRecord]) {
+        nodes = [:]
+        edges = [:]
+        adjacency = [:]
+        edgesByNode = [:]
+
+        for record in nodeRecords {
+            nodes[record.id] = record
+            adjacency[record.id] = []
+            edgesByNode[record.id] = []
+        }
+
+        ingestEdgeRecords(edgeRecords)
+    }
+
+    private func ingestEdgeRecords(_ edgeRecords: [GraphEdgeRecord]) {
+        for record in edgeRecords {
+            guard nodes[record.sourceNodeId] != nil,
+                  nodes[record.targetNodeId] != nil else { continue }
+
+            edges[record.id] = record
+            adjacency[record.sourceNodeId, default: []].insert(record.targetNodeId)
+            adjacency[record.targetNodeId, default: []].insert(record.sourceNodeId)
+            edgesByNode[record.sourceNodeId, default: []].insert(record.id)
+            edgesByNode[record.targetNodeId, default: []].insert(record.id)
+        }
+    }
+
     private func ingestEdges(_ sdEdges: [SDGraphEdge]) {
         for sdEdge in sdEdges {
             let record = GraphEdgeRecord(

@@ -399,6 +399,33 @@ final class GraphState {
 
     // MARK: - Loading
 
+    /// Load the graph from SwiftData on a background thread to avoid blocking the UI.
+    /// Uses BackgroundGraphActor (@ModelActor) for Swift 6 safe background SwiftData access.
+    func loadGraph(container: ModelContainer) async {
+        let hints = store.positionHints
+        let actor = BackgroundGraphActor(modelContainer: container)
+        let records: (nodes: [GraphNodeRecord], edges: [GraphEdgeRecord])
+        do {
+            records = try await actor.loadRecords(positionHints: hints)
+        } catch {
+            Log.app.error("GraphState: failed to load graph: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+
+        store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
+
+        // If empty and not already building, auto-build from structural data.
+        // Building stays on @MainActor since GraphBuilder uses @Model types.
+        if store.nodeCount == 0, !isBuildingStructural {
+            buildStructuralGraph(context: container.mainContext)
+            return
+        }
+
+        isLoaded = true
+    }
+
+    /// Synchronous load for callers that already have a main-thread ModelContext.
+    /// Prefer the async variant for large vaults.
     func loadGraph(context: ModelContext) {
         do {
             try store.load(context: context)
@@ -406,18 +433,16 @@ final class GraphState {
             Log.app.error("GraphState: failed to load graph: \(error.localizedDescription, privacy: .public)")
             return
         }
-
-        // If empty and not already building, auto-build from structural data.
         if store.nodeCount == 0, !isBuildingStructural {
             buildStructuralGraph(context: context)
             return
         }
-
         isLoaded = true
     }
 
     // MARK: - Structural Graph
 
+    /// Build the structural graph from SwiftData entities (notes, folders, chats, tags).
     func buildStructuralGraph(context: ModelContext) {
         guard !isBuildingStructural else { return }
         isBuildingStructural = true
@@ -427,8 +452,6 @@ final class GraphState {
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
 
-        // Reload from SwiftData to get the actual persisted state (diff-based persist
-        // keeps existing node IDs stable, so we must fetch the real persisted objects).
         do {
             try store.load(context: context)
         } catch {

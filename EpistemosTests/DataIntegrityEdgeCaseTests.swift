@@ -666,10 +666,11 @@ struct DataIntegrityNumericTests {
     func nanInMetadata() {
         let node = SDGraphNode(type: .source, label: "Test")
         var meta = GraphNodeMetadata()
-        meta.year = Int(Float.nan) // This becomes 0 or nil
+        // Int(Float.nan) traps in Swift — use safe conversion instead.
+        meta.year = Float.nan.isNaN ? nil : Int(Float.nan)
         node.meta = meta
-        
-        _ = node.meta.year
+
+        #expect(node.meta.year == nil)
     }
     
     @Test("Infinity in metadata")

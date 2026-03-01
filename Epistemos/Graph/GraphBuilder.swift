@@ -10,6 +10,8 @@ import SwiftData
 //
 // Uses the 7-type node model and 8-type edge model.
 
+/// Graph builder — runs on @MainActor since @Model types require it in Swift 6.
+/// For background graph loading, use BackgroundGraphActor instead.
 @MainActor
 final class GraphBuilder {
 
