@@ -74,6 +74,15 @@ final class InferenceState {
         if let model = defaults.string(forKey: "epistemos.ollamaModel") { self.ollamaModel = model }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
+        // Migrate any API keys from legacy keychain → Data Protection keychain
+        let apiKeyNames = [
+            "epistemos.apiKey.anthropic",
+            "epistemos.apiKey.openai",
+            "epistemos.apiKey.google",
+            "epistemos.apiKey.kimi",
+        ]
+        Keychain.migrateFromLegacyKeychain(keys: apiKeyNames)
+
         // Restore per-provider API keys from Keychain
         self.anthropicKey = Keychain.load(for: "epistemos.apiKey.anthropic") ?? ""
         self.openaiKey = Keychain.load(for: "epistemos.apiKey.openai") ?? ""
