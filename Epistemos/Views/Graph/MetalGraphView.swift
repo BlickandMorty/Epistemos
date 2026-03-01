@@ -87,12 +87,17 @@ final class MetalGraphNSView: NSView {
     private(set) var isCommitted = false
 
     /// When true, uses transparent clear color so blur shows through (hologram overlay mode).
-    var isOverlayMode = false
+    /// Setting this automatically applies the transparent clear color to the Rust engine.
+    var isOverlayMode = false {
+        didSet {
+            guard isOverlayMode != oldValue, isOverlayMode, let engine else { return }
+            graph_engine_set_clear_color(engine, 0, 0, 0, 0)
+        }
+    }
 
     /// When true, the view is in the mini floating panel. Background taps are disabled
     /// and Option+drag moves the parent window (holographic drag).
     var isMiniMode = false
-
 
     // MARK: - Setup
 
@@ -184,13 +189,6 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
-    /// Set transparent clear color for hologram overlay mode.
-    /// Call after setting `isOverlayMode = true` (must happen after init since setupMetal runs during init).
-    func applyOverlayMode() {
-        guard isOverlayMode, let engine else { return }
-        graph_engine_set_clear_color(engine, 0, 0, 0, 0)
-        metalLayer?.isOpaque = false
-    }
 
     // MARK: - Graph Data Commit
 
@@ -326,11 +324,6 @@ final class MetalGraphNSView: NSView {
         // Push quality level to Rust and sync version tracker.
         graph_engine_set_quality_level(engine, graphState.qualityLevel)
         lastLiteModeVersion = graphState.liteModeVersion
-
-        // Transparent background for hologram overlay mode.
-        if isOverlayMode {
-            graph_engine_set_clear_color(engine, 0, 0, 0, 0)
-        }
 
         isCommitted = true
         needsRender = true

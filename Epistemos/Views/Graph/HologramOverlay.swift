@@ -551,7 +551,6 @@ final class HologramOverlay {
         let graphView = MetalGraphNSView(frame: screen.frame)
         graphView.graphState = graphState
         graphView.isOverlayMode = true
-        graphView.applyOverlayMode()
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
 
