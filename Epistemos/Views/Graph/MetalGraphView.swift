@@ -93,13 +93,6 @@ final class MetalGraphNSView: NSView {
     /// and Option+drag moves the parent window (holographic drag).
     var isMiniMode = false
 
-    /// When true, uses darker node/edge/label colors for light backgrounds.
-    var isLightMode = false {
-        didSet {
-            guard isLightMode != oldValue, let engine else { return }
-            graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
-        }
-    }
 
     // MARK: - Setup
 
@@ -137,11 +130,6 @@ final class MetalGraphNSView: NSView {
         let devicePtr = Unmanaged.passUnretained(device).toOpaque()
         let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
         engine = graph_engine_create(devicePtr, layerPtr)
-
-        // Sync light mode state that may have been set before engine creation.
-        if let engine {
-            graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
-        }
 
         // Share the engine handle with GraphState for Rust-side search/queries.
         graphState?.engineHandle = engine
@@ -201,7 +189,6 @@ final class MetalGraphNSView: NSView {
     func applyOverlayMode() {
         guard isOverlayMode, let engine else { return }
         graph_engine_set_clear_color(engine, 0, 0, 0, 0)
-        graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
         metalLayer?.isOpaque = false
     }
 
@@ -343,7 +330,6 @@ final class MetalGraphNSView: NSView {
         // Transparent background for hologram overlay mode.
         if isOverlayMode {
             graph_engine_set_clear_color(engine, 0, 0, 0, 0)
-            graph_engine_set_light_mode(engine, isLightMode ? 1 : 0)
         }
 
         isCommitted = true

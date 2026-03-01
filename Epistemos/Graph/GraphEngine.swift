@@ -301,12 +301,6 @@ final class GraphEngine {
         graph_engine_set_clear_color(h, r, g, b, a)
     }
 
-    /// Set light mode (darker node colors for light backgrounds).
-    func setLightMode(_ enabled: Bool) {
-        guard let h = handle else { return }
-        graph_engine_set_light_mode(h, enabled ? 1 : 0)
-    }
-
     /// Set graph display mode (global or page).
     func setMode(_ mode: Mode) {
         guard let h = handle else { return }

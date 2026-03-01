@@ -4,7 +4,7 @@ use metal::foreign_types::ForeignType;
 use metal::*;
 use objc::rc::autoreleasepool;
 
-use crate::types::{Graph, edge_type_color, edge_type_color_light};
+use crate::types::{Graph, edge_type_color};
 
 // Direct Objective-C runtime call — avoids macro import issues with Rust 2024 edition.
 unsafe extern "C" {
@@ -361,8 +361,6 @@ pub struct Renderer {
     highlight_flag_scratch: Vec<u8>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
-    // Light mode: uses darker node colors for light backgrounds.
-    pub light_mode: bool,
     // Quality level: 0 = Cinematic (full effects), 1 = Balanced (sphere shading, no animation),
     // 2 = Performance (flat circles, no effects). Replaces binary lite_mode.
     pub quality_level: u8,
@@ -376,10 +374,9 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Resolve node color based on light/dark mode.
     #[inline]
     fn node_color(&self, node_type: &crate::types::NodeType) -> [f32; 4] {
-        if self.light_mode { node_type.color_light() } else { node_type.color() }
+        node_type.color()
     }
 
     pub fn new(device_ptr: *mut c_void, layer_ptr: *mut c_void) -> Option<Self> {
@@ -468,7 +465,6 @@ impl Renderer {
             field_line_hovered_id: None,
             field_line_scratch: Vec::new(),
             clear_color: [0.07, 0.07, 0.09, 1.0],
-            light_mode: false,
             quality_level: 0,  // Cinematic by default
             start_time: std::time::Instant::now(),
             prev_camera_zoom: 1.0,
@@ -541,7 +537,7 @@ impl Renderer {
             if is_cinematic {
                 // Hub glow: foreground nodes (9+ links) get a faint radial glow behind them.
                 if node.link_count >= 9 {
-                    let glow_alpha = if self.light_mode { 0.15 } else { 0.08 };
+                    let glow_alpha = 0.08;
                     let ent_alpha = entrance
                         .and_then(|e| e.get(gi))
                         .map_or(1.0, |s| s.alpha);
@@ -557,8 +553,7 @@ impl Renderer {
                 if node.confidence > 0.0 {
                     let conf = node.confidence.clamp(0.0, 1.0);
                     let glow_radius = node.radius * (2.0 + conf * 2.0);
-                    let glow_alpha_base = if self.light_mode { 0.06 } else { 0.04 };
-                    let glow_alpha = glow_alpha_base + conf * (if self.light_mode { 0.19 } else { 0.21 });
+                    let glow_alpha = 0.04 + conf * 0.21;
                     let ent_alpha = entrance
                         .and_then(|e| e.get(gi))
                         .map_or(1.0, |s| s.alpha);
@@ -639,11 +634,7 @@ impl Renderer {
                 }
 
                 // Edge type color: use semantic color based on edge type.
-                let base_edge = if self.light_mode {
-                    edge_type_color_light(edge.edge_type)
-                } else {
-                    edge_type_color(edge.edge_type)
-                };
+                let base_edge = edge_type_color(edge.edge_type);
                 let mut color = if self.highlight.active {
                     let src_lit = self.highlight.highlighted_ids.contains(&src.id);
                     let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
@@ -735,7 +726,7 @@ impl Renderer {
                         let glow = &mut *ptr.add(glow_idx);
                         glow.position = pos;
                         glow.z = z - 0.1;
-                        let base_glow = if self.light_mode { 0.15 } else { 0.08 };
+                        let base_glow = 0.08;
                         glow.color[3] = base_glow * ent_alpha;
                         glow_idx += 1;
                     }
@@ -795,17 +786,9 @@ impl Renderer {
                         }
 
                         // Edge type color: use semantic color based on edge type.
-                        let base_edge = if self.light_mode {
-                            edge_type_color_light(edge.edge_type)
-                        } else {
-                            edge_type_color(edge.edge_type)
-                        };
-                        let hi_edge = if self.light_mode {
-                            [0.10, 0.40, 0.70, 0.65]
-                        } else {
-                            EDGE_HIGHLIGHT_COLOR
-                        };
-                        let dim_edge_alpha = if self.light_mode { 0.10 } else { EDGE_DIM_ALPHA };
+                        let base_edge = edge_type_color(edge.edge_type);
+                        let hi_edge = EDGE_HIGHLIGHT_COLOR;
+                        let dim_edge_alpha = EDGE_DIM_ALPHA;
 
                         let mut color = if self.highlight.active {
                             let src_lit = self.highlight.highlighted_ids.contains(&src.id);

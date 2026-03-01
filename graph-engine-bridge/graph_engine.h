@@ -179,9 +179,6 @@ void graph_engine_refresh_visibility(Engine* engine);
 /// Set the clear color (use transparent for hologram overlay).
 void graph_engine_set_clear_color(Engine* engine, double r, double g, double b, double a);
 
-/// Set light mode (darker node colors for light backgrounds).
-void graph_engine_set_light_mode(Engine* engine, uint8_t enabled);
-
 /// Set graph mode: 0 = global, 1 = page.
 void graph_engine_set_mode(Engine* engine, uint8_t mode);
 

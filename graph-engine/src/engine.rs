@@ -1365,11 +1365,6 @@ impl Engine {
         self.renderer.clear_color = [r, g, b, a];
     }
 
-    /// Set light mode (darker node colors for light backgrounds).
-    pub fn set_light_mode(&mut self, enabled: bool) {
-        self.renderer.light_mode = enabled;
-    }
-
     pub fn set_lite_mode(&mut self, enabled: bool) {
         let level = if enabled { 2u8 } else { 0 };
         self.quality_level = level;

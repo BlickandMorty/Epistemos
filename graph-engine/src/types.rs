@@ -49,19 +49,6 @@ impl NodeType {
         }
     }
 
-    /// RGBA color for light mode — deeper, more saturated colors that read well on white/light backgrounds.
-    pub fn color_light(&self) -> [f32; 4] {
-        match self {
-            Self::Note => [0.10, 0.55, 0.52, 1.0],   // deep teal
-            Self::Chat => [0.80, 0.42, 0.00, 1.0],   // burnt orange
-            Self::Idea => [0.72, 0.58, 0.00, 1.0],   // deep gold
-            Self::Source => [0.08, 0.52, 0.20, 1.0],  // forest green
-            Self::Folder => [0.44, 0.34, 0.22, 1.0],  // dark brown
-            Self::Quote => [0.48, 0.18, 0.65, 1.0],   // deep purple
-            Self::Tag => [0.30, 0.30, 0.35, 1.0],     // dark gray
-            Self::Block => [0.25, 0.50, 0.62, 1.0],   // deep sky blue
-        }
-    }
 }
 
 /// Minimum node radius in world units.
@@ -99,24 +86,6 @@ pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
     }
 }
 
-/// RGBA color for an edge type (light mode — deeper/more saturated for readability on light backgrounds).
-pub fn edge_type_color_light(edge_type: u8) -> [f32; 4] {
-    match edge_type {
-        0  => [0.35, 0.35, 0.40, 0.45],  // reference — dark gray
-        1  => [0.40, 0.28, 0.15, 0.45],  // contains — dark brown
-        2  => [0.30, 0.30, 0.35, 0.40],  // tagged — dark gray
-        3  => [0.15, 0.45, 0.70, 0.50],  // mentions — deep blue
-        4  => [0.08, 0.55, 0.20, 0.55],  // cites — forest green
-        5  => [0.80, 0.42, 0.00, 0.50],  // authored — burnt orange
-        6  => [0.48, 0.18, 0.65, 0.50],  // related — deep purple
-        7  => [0.72, 0.58, 0.00, 0.50],  // quotes — deep gold
-        8  => [0.10, 0.65, 0.20, 0.55],  // supports — dark green
-        9  => [0.75, 0.12, 0.12, 0.55],  // contradicts — dark red
-        10 => [0.10, 0.60, 0.60, 0.50],  // expands — dark cyan
-        11 => [0.70, 0.52, 0.05, 0.50],  // questions — dark amber
-        _  => [0.35, 0.35, 0.40, 0.40],  // default — dark gray
-    }
-}
 
 /// A node in the knowledge graph.
 /// Uses d3-force's explicit velocity model (vx/vy stored directly).
@@ -286,8 +255,6 @@ mod tests {
         assert_eq!(nt as u8, 0);
         let color = nt.color();
         assert_eq!(color[3], 1.0); // Alpha is 1.0
-        let light = nt.color_light();
-        assert_eq!(light[3], 1.0);
     }
 
     #[test]
@@ -782,9 +749,7 @@ mod tests {
         // All 12 types should return non-zero alpha
         for t in 0..=11u8 {
             let c = edge_type_color(t);
-            assert!(c[3] > 0.0, "dark alpha should be > 0 for type {}", t);
-            let cl = edge_type_color_light(t);
-            assert!(cl[3] > 0.0, "light alpha should be > 0 for type {}", t);
+            assert!(c[3] > 0.0, "alpha should be > 0 for type {}", t);
         }
     }
 
@@ -797,26 +762,11 @@ mod tests {
     }
 
     #[test]
-    fn edge_type_color_light_default_for_invalid() {
-        let def = edge_type_color_light(255);
-        assert!(def[3] > 0.0);
-        assert_eq!(def, [0.35, 0.35, 0.40, 0.40]);
-    }
-
-    #[test]
     fn edge_type_colors_opaque_enough() {
         // All valid types should have reasonable opacity
         for t in 0..=11u8 {
             let c = edge_type_color(t);
             assert!(c[3] >= 0.3 && c[3] <= 0.55, "Dark mode alpha out of range for type {}", t);
-        }
-    }
-
-    #[test]
-    fn edge_type_colors_light_opaque_enough() {
-        for t in 0..=11u8 {
-            let c = edge_type_color_light(t);
-            assert!(c[3] >= 0.4 && c[3] <= 0.55, "Light mode alpha out of range for type {}", t);
         }
     }
 

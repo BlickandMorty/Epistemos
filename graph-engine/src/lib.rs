@@ -462,13 +462,6 @@ pub extern "C" fn graph_engine_set_clear_color(
     engine.set_clear_color(r, g, b, a);
 }
 
-/// Set light mode (darker node colors for light backgrounds).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) {
-    ffi_engine!(engine);
-    engine.set_light_mode(enabled != 0);
-}
-
 /// Set graph mode: 0 = global, 1 = page.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_mode(engine: *mut Engine, mode: u8) {

@@ -113,8 +113,7 @@ final class HologramOverlay {
         }()
         if isPageMode {
             darkenLayer?.alphaValue = 0.15
-            let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            blurView?.material = isDark ? .hudWindow : .sheet
+            blurView?.material = .hudWindow
         }
 
         // Track note window movement so nodes follow it in real time.
@@ -314,8 +313,7 @@ final class HologramOverlay {
         panel.isReleasedWhenClosed = false
         panel.minSize = NSSize(width: 320, height: 240)
         panel.maxSize = NSSize(width: 1200, height: 900)
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        panel.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.ignoresMouseEvents = false
         panel.acceptsMouseMovedEvents = true
 
@@ -332,21 +330,19 @@ final class HologramOverlay {
         content.layer?.cornerRadius = 16
         content.layer?.masksToBounds = true
 
-        // Blur background — same material approach as the full-screen overlay.
+        // Blur background — always dark to match graph rendering.
         let blur = NSVisualEffectView(frame: content.bounds)
-        blur.material = isDark ? .hudWindow : .sheet
+        blur.material = .hudWindow
         blur.blendingMode = .behindWindow
         blur.state = .active
-        blur.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        blur.appearance = NSAppearance(named: .darkAqua)
         blur.autoresizingMask = [.width, .height]
         content.addSubview(blur)
 
-        // Subtle tint overlay for depth.
+        // Subtle dark tint overlay for depth.
         let tint = NSView(frame: content.bounds)
         tint.wantsLayer = true
-        tint.layer?.backgroundColor = isDark
-            ? NSColor.black.withAlphaComponent(0.2).cgColor
-            : NSColor.white.withAlphaComponent(0.15).cgColor
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
         tint.autoresizingMask = [.width, .height]
         content.addSubview(tint)
 
@@ -372,8 +368,7 @@ final class HologramOverlay {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isReleasedWhenClosed = false
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        panel.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        panel.appearance = NSAppearance(named: .darkAqua)
 
         // Position: same as full-screen mode — top-right of screen with dock margin.
         // This matches the inspector position users see in full-screen graph mode.
@@ -455,15 +450,11 @@ final class HologramOverlay {
         }
     }
 
-    /// Re-sync blur, tint, and Metal light-mode flag to the current system appearance.
+    /// Re-sync blur and tint layers. Graph always renders in dark mode.
     private func syncTheme() {
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        metalView?.isLightMode = !isDark
-        blurView?.material = isDark ? .fullScreenUI : .sheet
-        blurView?.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        darkenLayer?.layer?.backgroundColor = isDark
-            ? NSColor.black.withAlphaComponent(0.45).cgColor
-            : NSColor.white.withAlphaComponent(0.55).cgColor
+        blurView?.material = .fullScreenUI
+        blurView?.appearance = NSAppearance(named: .darkAqua)
+        darkenLayer?.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.45).cgColor
     }
 
     /// Destroy all views and the Rust engine to free GPU/CPU memory.
@@ -538,25 +529,20 @@ final class HologramOverlay {
         let contentView = NSView(frame: screen.frame)
         contentView.wantsLayer = true
 
-        // Detect current system appearance for theme-aware rendering.
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-
-        // Frosted glass background — light blur for light mode, dark for dark mode.
+        // Frosted glass background — always dark to match the graph's dark-only rendering.
         let blur = NSVisualEffectView(frame: screen.frame)
-        blur.material = isDark ? .fullScreenUI : .sheet
+        blur.material = .fullScreenUI
         blur.blendingMode = .behindWindow
         blur.state = .active
-        blur.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        blur.appearance = NSAppearance(named: .darkAqua)
         blur.autoresizingMask = [.width, .height]
         contentView.addSubview(blur)
         self.blurView = blur
 
-        // Tint layer — dark overlay for dark mode, light wash for light mode.
+        // Dark tint overlay for depth.
         let darken = NSView(frame: screen.frame)
         darken.wantsLayer = true
-        darken.layer?.backgroundColor = isDark
-            ? NSColor.black.withAlphaComponent(0.45).cgColor
-            : NSColor.white.withAlphaComponent(0.55).cgColor
+        darken.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.45).cgColor
         darken.autoresizingMask = [.width, .height]
         contentView.addSubview(darken)
         self.darkenLayer = darken
@@ -565,8 +551,7 @@ final class HologramOverlay {
         let graphView = MetalGraphNSView(frame: screen.frame)
         graphView.graphState = graphState
         graphView.isOverlayMode = true
-        graphView.isLightMode = !isDark
-        graphView.applyOverlayMode()  // Set transparent clear color now that overlay mode is on.
+        graphView.applyOverlayMode()
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
 
