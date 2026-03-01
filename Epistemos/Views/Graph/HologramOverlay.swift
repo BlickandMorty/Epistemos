@@ -396,6 +396,7 @@ final class HologramOverlay {
                         modelContext: modelContainer.mainContext
                     )
                     .environment(graphState)
+                    .preferredColorScheme(.dark)
                 )
             )
             inspectorView.autoresizingMask = [.width, .height]
@@ -421,6 +422,7 @@ final class HologramOverlay {
             }
             .buttonStyle(.plain)
             .help("Restore to full size")
+            .preferredColorScheme(.dark)
         )
         buttonView.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(buttonView)
@@ -558,6 +560,7 @@ final class HologramOverlay {
         let controlsView = NSHostingView(
             rootView: GraphFloatingControls()
                 .environment(graphState)
+                .preferredColorScheme(.dark)
         )
         controlsView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(controlsView)
@@ -585,6 +588,7 @@ final class HologramOverlay {
             )
             .environment(graphState)
             .environment(queryEngine)
+            .preferredColorScheme(.dark)
         )
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(sidebarView)
@@ -603,6 +607,7 @@ final class HologramOverlay {
                         modelContext: modelContainer.mainContext
                     )
                     .environment(graphState)
+                    .preferredColorScheme(.dark)
                 )
             )
             inspectorView.translatesAutoresizingMaskIntoConstraints = false
