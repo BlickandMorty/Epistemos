@@ -23,6 +23,8 @@ struct CommandPaletteOverlay: View {
     @State private var searchText = ""
     @State private var inlineSelectedIndex = 0
     @State private var searchHighlightTask: Task<Void, Never>?
+    @State private var searchDebounceTask: Task<Void, Never>?
+    @State private var cachedSearchResults: [LandingCommandItem] = []
     @FocusState private var isSearchFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
@@ -178,11 +180,13 @@ struct CommandPaletteOverlay: View {
 
     // MARK: - Inline Command List
 
+    /// Combined list: cached (debounced) search results + synchronous command filtering.
+    /// Search results (Rust FFI + SwiftData) are debounced via cachedSearchResults to avoid
+    /// calling rustSearch() on every keystroke. Command filtering is cheap and stays synchronous.
     private var inlineFilteredCommands: [LandingCommandItem] {
-        let chatCandidate = searchText.split(separator: " ").count > 2 || searchText.hasSuffix("?")
         var base: [LandingCommandItem] = []
 
-        // Graph query routing: `?` or `/query` prefix → QueryEngine
+        // Graph query routing: `?` or `/query` prefix → QueryEngine (cheap string check)
         if searchText.hasPrefix("?") || searchText.hasPrefix("/query ") {
             let queryText = searchText.hasPrefix("?")
                 ? String(searchText.dropFirst()).trimmingCharacters(in: .whitespaces)
@@ -199,6 +203,7 @@ struct CommandPaletteOverlay: View {
             }
         }
 
+        let chatCandidate = searchText.split(separator: " ").count > 2 || searchText.hasSuffix("?")
         if !searchText.isEmpty && chatCandidate {
             let q = searchText
             base.append(
@@ -209,55 +214,8 @@ struct CommandPaletteOverlay: View {
                 })
         }
 
-        // Real-time vault search — combines graph search + SwiftData title search.
-        // Graph search covers all node types (notes, tags, ideas, sources, etc.)
-        // SwiftData fallback ensures notes always appear even before graph loads.
-        if !searchText.isEmpty {
-            var seenPageIds = Set<String>()
-
-            // Graph-powered search: Rust FST + 5-tier fuzzy scoring
-            if graphState.isLoaded {
-                let hits = graphState.rustSearch(query: searchText, limit: 8)
-                for hit in hits {
-                    let node = hit.node
-                    let icon = node.type == .note ? "doc.text" : node.type.icon
-                    let category = node.type == .note ? "Notes" : node.type.displayName
-                    let nodeId = node.id
-                    let sourceId = node.sourceId
-                    if node.type == .note, let sid = sourceId { seenPageIds.insert(sid) }
-                    base.append(
-                        LandingCommandItem(
-                            id: "graph-\(nodeId)", label: node.label, icon: icon, category: category
-                        ) { [self] in
-                            dismiss()
-                            if node.type == .note, let pageId = sourceId {
-                                NoteWindowManager.shared.open(pageId: pageId)
-                            } else {
-                                HologramController.shared.show()
-                                graphState.selectNode(nodeId)
-                                graphState.pendingCenterNodeId = nodeId
-                            }
-                        })
-                }
-            }
-
-            // SwiftData title search — catches notes the graph search may miss
-            let q = searchText.lowercased()
-            let matchingNotes = allPages
-                .filter { $0.title.lowercased().contains(q) && !seenPageIds.contains($0.id) }
-                .prefix(5)
-            for page in matchingNotes {
-                let pageId = page.id
-                let label = page.emoji.isEmpty ? page.title : "\(page.emoji) \(page.title)"
-                base.append(
-                    LandingCommandItem(
-                        id: "note-\(pageId)", label: label, icon: "doc.text", category: "Notes"
-                    ) { [self] in
-                        dismiss()
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    })
-            }
-        }
+        // Append debounced search results (graph + vault)
+        base += cachedSearchResults
 
         let commands = makeCommands()
         if searchText.isEmpty {
@@ -268,6 +226,58 @@ struct CommandPaletteOverlay: View {
             $0.label.lowercased().contains(q) || $0.category.lowercased().contains(q)
         }
         return base + filtered
+    }
+
+    /// Computes search results from Rust FFI + SwiftData. Called after debounce.
+    private func computeSearchResults(for query: String) -> [LandingCommandItem] {
+        guard !query.isEmpty else { return [] }
+        var items: [LandingCommandItem] = []
+        var seenPageIds = Set<String>()
+
+        // Graph-powered search: Rust FST + 5-tier fuzzy scoring
+        if graphState.isLoaded {
+            let hits = graphState.rustSearch(query: query, limit: 8)
+            for hit in hits {
+                let node = hit.node
+                let icon = node.type == .note ? "doc.text" : node.type.icon
+                let category = node.type == .note ? "Notes" : node.type.displayName
+                let nodeId = node.id
+                let sourceId = node.sourceId
+                if node.type == .note, let sid = sourceId { seenPageIds.insert(sid) }
+                items.append(
+                    LandingCommandItem(
+                        id: "graph-\(nodeId)", label: node.label, icon: icon, category: category
+                    ) { [self] in
+                        dismiss()
+                        if node.type == .note, let pageId = sourceId {
+                            NoteWindowManager.shared.open(pageId: pageId)
+                        } else {
+                            HologramController.shared.show()
+                            graphState.selectNode(nodeId)
+                            graphState.pendingCenterNodeId = nodeId
+                        }
+                    })
+            }
+        }
+
+        // SwiftData title search — catches notes the graph search may miss
+        let q = query.lowercased()
+        let matchingNotes = allPages
+            .filter { $0.title.lowercased().contains(q) && !seenPageIds.contains($0.id) }
+            .prefix(5)
+        for page in matchingNotes {
+            let pageId = page.id
+            let label = page.emoji.isEmpty ? page.title : "\(page.emoji) \(page.title)"
+            items.append(
+                LandingCommandItem(
+                    id: "note-\(pageId)", label: label, icon: "doc.text", category: "Notes"
+                ) { [self] in
+                    dismiss()
+                    NoteWindowManager.shared.open(pageId: pageId)
+                })
+        }
+
+        return items
     }
 
     private var inlineCommandList: some View {
@@ -304,7 +314,25 @@ struct CommandPaletteOverlay: View {
         }
         .onChange(of: searchText) { _, newText in
             inlineSelectedIndex = 0
-            // Debounce graph highlight FFI call (150ms) to avoid Rust call per keystroke.
+
+            // Clear search results immediately on empty
+            if newText.isEmpty {
+                searchDebounceTask?.cancel()
+                searchHighlightTask?.cancel()
+                cachedSearchResults = []
+                graphState.searchHighlight("")
+                return
+            }
+
+            // Debounce search results (Rust FFI + SwiftData) — 150ms
+            searchDebounceTask?.cancel()
+            searchDebounceTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled else { return }
+                cachedSearchResults = computeSearchResults(for: newText)
+            }
+
+            // Debounce graph highlight FFI call (150ms)
             searchHighlightTask?.cancel()
             searchHighlightTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(150))
@@ -326,6 +354,9 @@ struct CommandPaletteOverlay: View {
         isSearchFocused = false
         searchText = ""
         inlineSelectedIndex = 0
+        searchDebounceTask?.cancel()
+        searchHighlightTask?.cancel()
+        cachedSearchResults = []
         graphState.searchHighlight("")
         ui.dismissCommandPalette()
     }
