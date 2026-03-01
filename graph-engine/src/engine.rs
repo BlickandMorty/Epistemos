@@ -1102,7 +1102,7 @@ impl Engine {
             if let Some(&idx) = self.graph.id_to_index.get(&node_id) {
                 let node = &self.graph.nodes[idx];
                 self.renderer.target_offset = [node.x, node.y];
-                self.renderer.target_zoom = 2.5; // Close-up zoom
+                self.renderer.target_zoom = 3.5; // Close-up zoom for page mode
                 self.renderer.is_animating = true;
             }
         }
@@ -1135,11 +1135,11 @@ impl Engine {
         let graph_h = (max_y - min_y).max(1.0);
         let w = self.viewport_width as f32;
         let h = self.viewport_height as f32;
-        let padding = 0.85;
+        let padding = 1.1; // Slight zoom-in bias (user prefers too close over too far)
         let zoom = (w / graph_w).min(h / graph_h) * padding;
 
         self.renderer.target_offset = [cx, cy];
-        self.renderer.target_zoom = zoom.clamp(0.05, 10.0);
+        self.renderer.target_zoom = zoom.clamp(0.8, 10.0); // Never start zoomed out beyond 0.8
         self.renderer.is_animating = true;
     }
 

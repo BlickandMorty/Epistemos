@@ -275,7 +275,12 @@ final class ChatState {
     private var pendingReasoningTokens = ""
     private var reasoningFlushTask: Task<Void, Never>?
 
-    func startStreaming() { isStreaming = true }
+    func startStreaming() {
+        isStreaming = true
+        // Pre-allocate for typical response (~16KB). Avoids repeated reallocation during streaming.
+        streamingText.reserveCapacity(16_384)
+        reasoningText.reserveCapacity(4_096)
+    }
 
     func stopStreaming() {
         flushStreamingTokens()

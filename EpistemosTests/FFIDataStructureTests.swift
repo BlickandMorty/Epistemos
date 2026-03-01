@@ -42,7 +42,7 @@ struct FFIDataStructureTests {
         #expect(uuid.utf8CString.count > 0)
         #expect(x.isFinite)
         #expect(y.isFinite)
-        #expect(nodeType <= 6) // Max node type value
+        #expect(nodeType <= 7) // Max node type value
     }
     
     @Test("Multiple node batch upload structure")
@@ -59,7 +59,7 @@ struct FFIDataStructureTests {
             uuids.append("uuid-\(i)")
             xs.append(Float(i) * 10.0)
             ys.append(Float(i) * 20.0)
-            types.append(UInt8(i % 7))
+            types.append(UInt8(i % 8))
             linkCounts.append(UInt32(i))
             labels.append("Node \(i)")
         }
@@ -85,14 +85,14 @@ struct FFIDataStructureTests {
         // Simulate creating arrays for batch upload
         var types: [UInt8] = []
         for i in 0..<count {
-            types.append(UInt8(i % 7))
+            types.append(UInt8(i % 8))
         }
-        
+
         #expect(types.count == count)
-        
+
         // Verify all values are valid
         for type in types {
-            #expect(type < 7)
+            #expect(type < 8)
         }
     }
     
@@ -120,7 +120,7 @@ struct FFIDataStructureTests {
     func nodeBatchAllTypes() {
         for nodeType in GraphNodeType.allCases {
             let rustIndex = nodeType.rustIndex
-            #expect(rustIndex < 7)
+            #expect(rustIndex < 8)
             
             // Simulate batch upload
             let typeArray: [UInt8] = [rustIndex]

@@ -14,6 +14,7 @@ struct CommandPaletteOverlay: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
     @Environment(GraphState.self) private var graphState
+    @Environment(QueryEngine.self) private var queryEngine
 
     // Vault search — in-memory title filter from SwiftData @Query
     @Query(SDPage.activePagesDescriptor) private var allPages: [SDPage]
@@ -180,6 +181,24 @@ struct CommandPaletteOverlay: View {
     private var inlineFilteredCommands: [LandingCommandItem] {
         let chatCandidate = searchText.split(separator: " ").count > 2 || searchText.hasSuffix("?")
         var base: [LandingCommandItem] = []
+
+        // Graph query routing: `?` or `/query` prefix → QueryEngine
+        if searchText.hasPrefix("?") || searchText.hasPrefix("/query ") {
+            let queryText = searchText.hasPrefix("?")
+                ? String(searchText.dropFirst()).trimmingCharacters(in: .whitespaces)
+                : String(searchText.dropFirst(7)).trimmingCharacters(in: .whitespaces)
+            if !queryText.isEmpty {
+                let q = queryText
+                base.append(
+                    LandingCommandItem(
+                        id: "graph-query", label: "Graph Query: \"\(q)\"",
+                        icon: "sparkle.magnifyingglass", category: "Graph"
+                    ) { [self] in
+                        executeGraphQuery(q)
+                    })
+            }
+        }
+
         if !searchText.isEmpty && chatCandidate {
             let q = searchText
             base.append(
@@ -190,11 +209,14 @@ struct CommandPaletteOverlay: View {
                 })
         }
 
-        // Real-time vault search — Rust FST fuzzy search with Levenshtein typo correction.
-        // Falls back to Swift GraphStore search when engine isn't available.
+        // Real-time vault search — combines graph search + SwiftData title search.
+        // Graph search covers all node types (notes, tags, ideas, sources, etc.)
+        // SwiftData fallback ensures notes always appear even before graph loads.
         if !searchText.isEmpty {
+            var seenPageIds = Set<String>()
+
+            // Graph-powered search: Rust FST + 5-tier fuzzy scoring
             if graphState.isLoaded {
-                // Rust-powered search: FST Levenshtein + 5-tier scoring
                 let hits = graphState.rustSearch(query: searchText, limit: 8)
                 for hit in hits {
                     let node = hit.node
@@ -202,6 +224,7 @@ struct CommandPaletteOverlay: View {
                     let category = node.type == .note ? "Notes" : node.type.displayName
                     let nodeId = node.id
                     let sourceId = node.sourceId
+                    if node.type == .note, let sid = sourceId { seenPageIds.insert(sid) }
                     base.append(
                         LandingCommandItem(
                             id: "graph-\(nodeId)", label: node.label, icon: icon, category: category
@@ -210,32 +233,29 @@ struct CommandPaletteOverlay: View {
                             if node.type == .note, let pageId = sourceId {
                                 NoteWindowManager.shared.open(pageId: pageId)
                             } else {
-                                // Non-note nodes: open graph and focus
                                 HologramController.shared.show()
                                 graphState.selectNode(nodeId)
                                 graphState.pendingCenterNodeId = nodeId
                             }
                         })
                 }
-            } else {
-                // Fallback: substring filter on SwiftData pages
-                let q = searchText.lowercased()
-                var seenIds = Set<String>()
-                let matchingNotes =
-                    allPages
-                    .filter { $0.title.lowercased().contains(q) && seenIds.insert($0.id).inserted }
-                    .prefix(8)
-                for page in matchingNotes {
-                    let pageId = page.id
-                    let label = page.emoji.isEmpty ? page.title : "\(page.emoji) \(page.title)"
-                    base.append(
-                        LandingCommandItem(
-                            id: "note-\(pageId)", label: label, icon: "doc.text", category: "Notes"
-                        ) { [self] in
-                            dismiss()
-                            NoteWindowManager.shared.open(pageId: pageId)
-                        })
-                }
+            }
+
+            // SwiftData title search — catches notes the graph search may miss
+            let q = searchText.lowercased()
+            let matchingNotes = allPages
+                .filter { $0.title.lowercased().contains(q) && !seenPageIds.contains($0.id) }
+                .prefix(5)
+            for page in matchingNotes {
+                let pageId = page.id
+                let label = page.emoji.isEmpty ? page.title : "\(page.emoji) \(page.title)"
+                base.append(
+                    LandingCommandItem(
+                        id: "note-\(pageId)", label: label, icon: "doc.text", category: "Notes"
+                    ) { [self] in
+                        dismiss()
+                        NoteWindowManager.shared.open(pageId: pageId)
+                    })
             }
         }
 
@@ -329,6 +349,13 @@ struct CommandPaletteOverlay: View {
             return
         }
         inlineFilteredCommands[inlineSelectedIndex].action()
+    }
+
+    private func executeGraphQuery(_ query: String) {
+        queryEngine.execute(query: query)
+        dismiss()
+        // Open graph overlay to show results in the Query tab
+        HologramController.shared.show()
     }
 
     private func captureIdea(type: NoteIdea.IdeaType) {

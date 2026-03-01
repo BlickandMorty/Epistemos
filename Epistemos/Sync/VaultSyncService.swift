@@ -34,7 +34,7 @@ final class VaultSyncService {
     var isIndexing = false
 
     /// FTS5 search index (GRDB). Created in startWatching, nil'd in stopWatching.
-    private var searchService: SearchIndexService?
+    private(set) var searchService: SearchIndexService?
 
     /// EventBus for emitting vaultChanged events on mutations.
     private weak var eventBus: EventBus?
@@ -653,13 +653,11 @@ final class VaultSyncService {
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
             eventMask: [.write, .extend, .rename, .delete, .link, .attrib],
-            queue: .global(qos: .utility)
+            queue: .main
         )
 
         source.setEventHandler { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.handleFileSystemChange()
-            }
+            self?.handleFileSystemChange()
         }
 
         source.setCancelHandler { [fd] in

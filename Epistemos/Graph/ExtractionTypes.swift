@@ -16,12 +16,14 @@ nonisolated struct ExtractionResult: Codable, Sendable {
         var title: String?
         var type: String?
         var relationship: String?
+        var blockId: String?
     }
 
     nonisolated struct ExtractedQuote: Codable, Sendable {
         var text: String
         var attribution: String?
         var context: String?
+        var blockId: String?
     }
 
     nonisolated struct ExtractedTag: Codable, Sendable {

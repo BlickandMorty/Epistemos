@@ -31,6 +31,9 @@ final class ClickableTextView: NSTextView {
     /// Closure called when user clicks a [[wikilink]]. Receives the link title.
     var onWikilinkClick: ((String) -> Void)?
 
+    /// Closure called when user clicks a ((block-ref)). Receives the block ID.
+    var onBlockRefClick: ((String) -> Void)?
+
     // MARK: - Per-Page Undo Manager
     // Override the default undo manager (which comes from the window's responder chain)
     // so each page has its own isolated undo history. Set by the Coordinator on page swap.
@@ -177,10 +180,15 @@ final class ClickableTextView: NSTextView {
         let idx = characterIndexForInsertion(at: point)
 
         if idx < string.utf16.count,
-           let attrs = textStorage?.attributes(at: idx, effectiveRange: nil),
-           let linkTitle = attrs[NSAttributedString.Key("EpistemosWikilink")] as? String {
-            onWikilinkClick?(linkTitle)
-            return
+           let attrs = textStorage?.attributes(at: idx, effectiveRange: nil) {
+            if let linkTitle = attrs[NSAttributedString.Key("EpistemosWikilink")] as? String {
+                onWikilinkClick?(linkTitle)
+                return
+            }
+            if let blockId = attrs[NSAttributedString.Key("EpistemosBlockRef")] as? String {
+                onBlockRefClick?(blockId)
+                return
+            }
         }
         super.mouseDown(with: event)
     }

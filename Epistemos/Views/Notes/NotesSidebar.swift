@@ -771,11 +771,13 @@ struct NotesSidebar: View {
         case .collapseAll:
             withAnimation(Motion.snap) { notesUI.collapseAllFolders() }
 
-        case .summarize(_, let title):
-            chatState.submitQuery("Summarize \"\(title)\" — give me a concise overview of the key points, themes, and structure.")
+        case .summarize(let id, let title):
+            chatState.loadedNoteIds.insert(id)
+            chatState.submitQuery("Summarize @[\(title)] — give me a concise overview of the key points, themes, and structure.")
 
-        case .deepDive(_, let title):
-            chatState.submitQuery("Deep dive into \"\(title)\" — perform a thorough analysis: identify the core arguments, evaluate the evidence, surface contradictions or gaps, and suggest areas for further exploration.")
+        case .deepDive(let id, let title):
+            chatState.loadedNoteIds.insert(id)
+            chatState.submitQuery("Deep dive into @[\(title)] — perform a thorough analysis: identify the core arguments, evaluate the evidence, surface contradictions or gaps, and suggest areas for further exploration.")
 
         case .openInGraph(let id):
             HologramController.shared.show()

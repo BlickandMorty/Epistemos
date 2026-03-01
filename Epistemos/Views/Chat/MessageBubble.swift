@@ -171,7 +171,7 @@ struct MessageBubble: View {
         VStack(alignment: .trailing, spacing: Spacing.xs) {
             Text(userDisplayContent)
                 .font(.epBody)
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.userBubbleText)
                 .textSelection(.enabled)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, 12)

@@ -12,6 +12,7 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     case folder
     case quote
     case tag
+    case block
 
     /// Migration from legacy 13-type system.
     /// Existing SwiftData records store raw strings; this maps them to the new 7 types.
@@ -38,6 +39,7 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .folder: return "Folder"
         case .quote:  return "Quote"
         case .tag:    return "Tag"
+        case .block:  return "Block"
         }
     }
 
@@ -51,10 +53,11 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .folder: return "folder"
         case .quote:  return "text.quote"
         case .tag:    return "number"
+        case .block:  return "text.line.first.and.arrowtriangle.forward"
         }
     }
 
-    /// Index matching Rust NodeType enum (0–6) for FFI.
+    /// Index matching Rust NodeType enum (0–7) for FFI.
     var rustIndex: UInt8 {
         switch self {
         case .note:   return 0
@@ -64,6 +67,7 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .folder: return 4
         case .quote:  return 5
         case .tag:    return 6
+        case .block:  return 7
         }
     }
 }

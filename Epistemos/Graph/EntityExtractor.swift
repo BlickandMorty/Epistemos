@@ -47,18 +47,25 @@ final class EntityExtractor {
             let batchEnd = min(batchStart + batchSize, pages.count)
             let batch = Array(pages[batchStart..<batchEnd])
 
-            // Concatenate batch: title + first 2000 chars of body
+            // Concatenate batch: title + body with block IDs annotated.
+            // Block IDs let the LLM attribute entities to specific blocks.
+            // Pre-fetch all blocks for this batch to avoid N+1 queries.
+            let batchPageIds = batch.map(\.id)
+            let allBatchBlocks = prefetchBlocks(forPageIds: batchPageIds, context: context)
+
             var batchContent = ""
             for page in batch {
-                let bodySnippet = String(page.loadBody(mapped: true).prefix(2000))
-                batchContent += "--- Note: \(page.title) ---\n\(bodySnippet)\n\n"
+                let body = page.loadBody(mapped: true)
+                let blocks = allBatchBlocks[page.id] ?? []
+                let annotated = annotateBodyWithBlocks(body: body, blocks: blocks)
+                batchContent += "--- Note: \(page.title) ---\n\(annotated)\n\n"
             }
 
             // Build extraction prompt with semantic relationship classification
             let prompt = """
                 Extract entities and relationships from the following notes. Return ONLY valid JSON:
-                {"sources": [{"name": "string", "url": "string or null", "title": "string or null", "type": "string or null", "relationship": "cites|supports|contradicts|expands|questions"}],
-                 "quotes": [{"text": "string", "attribution": "string or null", "context": "string or null"}],
+                {"sources": [{"name": "string", "url": "string or null", "title": "string or null", "type": "string or null", "relationship": "cites|supports|contradicts|expands|questions", "blockId": "string or null"}],
+                 "quotes": [{"text": "string", "attribution": "string or null", "context": "string or null", "blockId": "string or null"}],
                  "tags": [{"name": "string", "description": "string or null"}],
                  "crossNoteLinks": [{"from": "Note Title", "to": "Note Title", "relationship": "supports|contradicts|expands|questions", "reason": "brief explanation"}]}
 
@@ -73,6 +80,7 @@ final class EntityExtractor {
                 - Tags: Abstract themes or concepts that appear substantively.
                 - crossNoteLinks: Semantic relationships BETWEEN notes in this batch.
                   Only include when one note clearly supports, contradicts, expands, or questions another.
+                - blockId: If lines are annotated with [block:ID], include the ID so entities link to specific blocks.
                 - Default relationship to "cites" if unclear. Empty array [] if none found.
 
                 Content:
@@ -161,7 +169,7 @@ final class EntityExtractor {
             findSDGraphNode(type: .note, sourceId: page.id, context: context)?.id
         }
 
-        // Sources — with semantic relationship classification
+        // Sources — with semantic relationship classification + block-level linking
         for source in extraction.sources {
             let node = findOrCreateSourceNode(
                 url: source.url,
@@ -177,9 +185,11 @@ final class EntityExtractor {
             for sourceId in sourceNodeIds {
                 createEdgeIfNeeded(source: node.id, target: sourceId, type: edgeType, context: context)
             }
+            // Link to specific block if the LLM identified one.
+            linkEntityToBlock(entityNodeId: node.id, blockId: source.blockId, type: edgeType, context: context)
         }
 
-        // Quotes — always create new node
+        // Quotes — always create new node, with block-level linking
         for quote in extraction.quotes {
             let quoteNode = SDGraphNode(type: .quote, label: String(quote.text.prefix(80)))
             var meta = GraphNodeMetadata()
@@ -197,6 +207,9 @@ final class EntityExtractor {
                 let sourceNode = findOrCreateNode(type: .source, label: attribution, context: context)
                 createEdgeIfNeeded(source: quoteNode.id, target: sourceNode.id, type: .quotes, context: context)
             }
+
+            // Link to specific block if the LLM identified one.
+            linkEntityToBlock(entityNodeId: quoteNode.id, blockId: quote.blockId, type: .reference, context: context)
         }
 
         // Tags (absorbs concepts)
@@ -279,6 +292,64 @@ final class EntityExtractor {
             try context.save()
         } catch {
             Log.app.error("EntityExtractor: failed to save idea results — \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    // MARK: - Block-Level Annotation
+
+    /// Pre-fetch all SDBlocks for a set of page IDs in a single query (avoids N+1).
+    private func prefetchBlocks(forPageIds pageIds: [String], context: ModelContext) -> [String: [SDBlock]] {
+        // Fetch blocks per page ID to avoid loading the entire SDBlock table.
+        var grouped: [String: [SDBlock]] = [:]
+        for pageId in pageIds {
+            let descriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+                sortBy: [SortDescriptor(\SDBlock.order)]
+            )
+            let blocks = (try? context.fetch(descriptor)) ?? []
+            if !blocks.isEmpty {
+                grouped[pageId] = blocks
+            }
+        }
+        return grouped
+    }
+
+    /// Annotate body text with block IDs so the LLM can attribute entities to specific blocks.
+    private func annotateBodyWithBlocks(body: String, blocks: [SDBlock]) -> String {
+        guard !blocks.isEmpty else { return String(body.prefix(2000)) }
+
+        // Build a content → blockId map for matching.
+        var contentToBlockId: [String: String] = [:]
+        for block in blocks where block.content.count > 15 {
+            let key = String(block.content.prefix(50))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            contentToBlockId[key] = block.id
+        }
+
+        // Annotate lines with block IDs where they match.
+        var annotated = ""
+        annotated.reserveCapacity(min(body.count, 2200))
+        var charCount = 0
+        for line in body.components(separatedBy: "\n") {
+            guard charCount < 2000 else { break }
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let key = String(trimmed.prefix(50))
+            if let blockId = contentToBlockId[key] {
+                annotated += "[block:\(blockId)] \(line)\n"
+            } else {
+                annotated += "\(line)\n"
+            }
+            charCount += line.count + 1
+        }
+        return annotated
+    }
+
+    /// Create graph edges from extracted entities to their source blocks.
+    private func linkEntityToBlock(entityNodeId: String, blockId: String?, type: GraphEdgeType, context: ModelContext) {
+        guard let blockId, !blockId.isEmpty else { return }
+        // Find the block's graph node (if it exists as a substantial block).
+        if let blockNode = findSDGraphNode(type: .block, sourceId: blockId, context: context) {
+            createEdgeIfNeeded(source: entityNodeId, target: blockNode.id, type: type, context: context)
         }
     }
 

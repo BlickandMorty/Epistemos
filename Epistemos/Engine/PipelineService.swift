@@ -404,7 +404,7 @@ final class PipelineService {
 
                     // Strong capture: PipelineService is held by AppBootstrap — no retain cycle.
                     // [weak self] caused silent enrichment death if momentary deallocation occurred.
-                    let enrichTask = Task.detached(priority: .userInitiated) {
+                    let enrichTask = Task.detached(priority: .utility) {
                         // Prevent macOS App Nap from suspending in-process network requests.
                         let napActivity = ProcessInfo.processInfo.beginActivity(
                             options: [.userInitiated, .idleSystemSleepDisabled],

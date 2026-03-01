@@ -30,6 +30,7 @@ final class HologramOverlay {
     private var inspectorHostView: NSHostingView<AnyView>?
     private var escapeMonitor: Any?
     private var graphState: GraphState
+    private var queryEngine: QueryEngine
     private var modelContainer: ModelContainer?
     private let inspectorState = NodeInspectorState()
 
@@ -54,8 +55,9 @@ final class HologramOverlay {
     private var restoreObserver: Any?
     private var closeObserver: Any?
 
-    init(graphState: GraphState, modelContainer: ModelContainer?) {
+    init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?) {
         self.graphState = graphState
+        self.queryEngine = queryEngine
         self.modelContainer = modelContainer
         observeMinimizeNotifications()
     }
@@ -418,11 +420,12 @@ final class HologramOverlay {
             } label: {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(.primary.opacity(0.7))
                     .frame(width: 26, height: 26)
                     .background(.ultraThinMaterial, in: Circle())
             }
             .buttonStyle(.plain)
+            .help("Restore to full size")
         )
         buttonView.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(buttonView)
@@ -597,6 +600,7 @@ final class HologramOverlay {
                 }
             )
             .environment(graphState)
+            .environment(queryEngine)
         )
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(sidebarView)

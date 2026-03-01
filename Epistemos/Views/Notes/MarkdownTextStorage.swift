@@ -481,6 +481,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         16, // WikilinkBrackets
         17, // MarkdownLink
         19, // InlineMath
+        24, // BlockReference
+        25, // BlockReferenceBrackets
     ]
 
     func applyInlineStyles(fullRange: NSRange) {
@@ -631,6 +633,22 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                     .foregroundColor: accent
                 ], range: content)
             }
+
+        case 24: // BlockReference content — accent + tinted background + clickable
+            let blockId = (backing.string as NSString).substring(with: range)
+            let refBg: NSColor = isDark
+                ? NSColor(red: 0.40, green: 0.65, blue: 1.0, alpha: 0.10)
+                : NSColor(red: 0.15, green: 0.45, blue: 0.85, alpha: 0.08)
+            backing.addAttributes([
+                .foregroundColor: accent,
+                .backgroundColor: refBg,
+                .underlineStyle: NSUnderlineStyle.single.rawValue,
+                .cursor: NSCursor.pointingHand,
+                .init("EpistemosBlockRef"): blockId
+            ], range: range)
+
+        case 25: // BlockReferenceBrackets (( or )) — ghosted
+            backing.addAttributes(ghost, range: range)
 
         default:
             break

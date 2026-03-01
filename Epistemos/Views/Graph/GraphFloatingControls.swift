@@ -65,7 +65,7 @@ struct GraphFloatingControls: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .glassEffect(.regular.interactive(), in: Capsule())
-            .overlay(Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 0.5))
+            .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
             .popover(isPresented: $showForceSettings, arrowEdge: .top) {
                 GraphForceSettings()
                     .environment(graphState)
@@ -125,10 +125,10 @@ struct GraphFloatingControls: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(isSelected ? .white.opacity(0.15) : .clear, in: Capsule())
+            .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
+        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
     }
 
     // MARK: - Semantic Clustering Toggle
@@ -156,7 +156,7 @@ struct GraphFloatingControls: View {
             )
         }
         .buttonStyle(.plain)
-        .foregroundStyle(graphState.useSemanticClustering ? .white : .white.opacity(0.5))
+        .foregroundStyle(Color.primary.opacity(graphState.useSemanticClustering ? 1.0 : 0.5))
         .help(graphState.useSemanticClustering ? "Semantic Clustering On" : "Enable Semantic Clustering")
         .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
     }
@@ -184,10 +184,10 @@ struct GraphFloatingControls: View {
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
-            .background(isSelected ? .white.opacity(0.15) : .clear, in: Capsule())
+            .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isSelected ? .white : .white.opacity(0.5))
+        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
     }
 
     // MARK: - Force Settings
@@ -207,7 +207,7 @@ struct GraphFloatingControls: View {
         } label: {
             Image(systemName: graphState.showTimeSlider ? "clock.fill" : "clock")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(graphState.showTimeSlider ? .white : .white.opacity(0.6))
+                .foregroundStyle(Color.primary.opacity(graphState.showTimeSlider ? 1.0 : 0.6))
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
@@ -222,7 +222,7 @@ struct GraphFloatingControls: View {
         } label: {
             Image(systemName: "gearshape")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.primary.opacity(0.6))
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
@@ -239,7 +239,7 @@ struct GraphFloatingControls: View {
         } label: {
             Image(systemName: "rectangle.compress.vertical")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.primary.opacity(0.6))
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
@@ -256,7 +256,7 @@ struct GraphFloatingControls: View {
         } label: {
             Image(systemName: "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.primary.opacity(0.6))
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
@@ -273,7 +273,7 @@ struct GraphFloatingControls: View {
         } label: {
             Image(systemName: "arrow.trianglehead.2.clockwise")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.primary.opacity(0.6))
                 .frame(width: 28, height: 28)
                 .contentShape(Circle())
         }
@@ -294,7 +294,7 @@ struct GraphFloatingControls: View {
                 Text("Close")
                     .font(.system(size: 11, weight: .medium))
             }
-            .foregroundStyle(.white.opacity(0.6))
+            .foregroundStyle(.primary.opacity(0.6))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .contentShape(Capsule())
@@ -324,8 +324,8 @@ private struct FilterPill: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(isActive ? type.swiftUIColor.opacity(0.15) : .white.opacity(0.05), in: Capsule())
-            .foregroundStyle(isActive ? .white : .white.opacity(0.35))
+            .background(isActive ? type.swiftUIColor.opacity(0.15) : Color.primary.opacity(0.05), in: Capsule())
+            .foregroundStyle(Color.primary.opacity(isActive ? 1.0 : 0.35))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(type.displayName) filter \(isActive ? "on" : "off")")
@@ -345,6 +345,7 @@ extension GraphNodeType {
         case .folder: return Color(red: 0.64, green: 0.52, blue: 0.37)  // brown
         case .quote:  return Color(red: 0.69, green: 0.32, blue: 0.87)  // purple
         case .tag:    return Color(red: 0.46, green: 0.46, blue: 0.50)  // gray
+        case .block:  return Color(red: 0.55, green: 0.78, blue: 0.90)  // sky blue
         }
     }
 }

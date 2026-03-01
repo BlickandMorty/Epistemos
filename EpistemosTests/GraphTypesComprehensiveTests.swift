@@ -7,10 +7,10 @@ import Testing
 @Suite("GraphNodeType - Basic Cases")
 struct GraphNodeTypeBasicTests {
     
-    @Test("GraphNodeType has exactly 7 cases")
+    @Test("GraphNodeType has exactly 8 cases")
     func caseCount() {
         let allCases = GraphNodeType.allCases
-        #expect(allCases.count == 7)
+        #expect(allCases.count == 8)
     }
     
     @Test("GraphNodeType.note exists with correct rawValue")
@@ -46,6 +46,11 @@ struct GraphNodeTypeBasicTests {
     @Test("GraphNodeType.tag exists with correct rawValue")
     func tagCase() {
         #expect(GraphNodeType.tag.rawValue == "tag")
+    }
+
+    @Test("GraphNodeType.block exists with correct rawValue")
+    func blockCase() {
+        #expect(GraphNodeType.block.rawValue == "block")
     }
 }
 
@@ -86,6 +91,11 @@ struct GraphNodeTypeDisplayNameTests {
     func tagDisplayName() {
         #expect(GraphNodeType.tag.displayName == "Tag")
     }
+
+    @Test("block has correct displayName")
+    func blockDisplayName() {
+        #expect(GraphNodeType.block.displayName == "Block")
+    }
 }
 
 @Suite("GraphNodeType - Icons")
@@ -125,7 +135,12 @@ struct GraphNodeTypeIconTests {
     func tagIcon() {
         #expect(GraphNodeType.tag.icon == "number")
     }
-    
+
+    @Test("block has correct SF Symbol icon")
+    func blockIcon() {
+        #expect(GraphNodeType.block.icon == "text.line.first.and.arrowtriangle.forward")
+    }
+
     @Test("All icons are non-empty strings")
     func allIconsNonEmpty() {
         for type in GraphNodeType.allCases {
@@ -178,11 +193,16 @@ struct GraphNodeTypeRustIndexTests {
     func tagRustIndex() {
         #expect(GraphNodeType.tag.rustIndex == 6)
     }
-    
-    @Test("Rust indices are contiguous from 0 to 6")
+
+    @Test("block maps to rustIndex 7")
+    func blockRustIndex() {
+        #expect(GraphNodeType.block.rustIndex == 7)
+    }
+
+    @Test("Rust indices are contiguous from 0 to 7")
     func rustIndicesContiguous() {
         let indices = GraphNodeType.allCases.map { $0.rustIndex }.sorted()
-        #expect(indices == [0, 1, 2, 3, 4, 5, 6])
+        #expect(indices == [0, 1, 2, 3, 4, 5, 6, 7])
     }
     
     @Test("All rust indices are unique")
@@ -193,7 +213,7 @@ struct GraphNodeTypeRustIndexTests {
     }
 }
 
-@Suite("GraphNodeType - Legacy Migration (13-type to 7-type)")
+@Suite("GraphNodeType - Legacy Migration (13-type to 8-type)")
 struct GraphNodeTypeLegacyMigrationTests {
     
     // MARK: brainDump → idea
@@ -439,6 +459,11 @@ struct GraphNodeTypeCaseIterableTests {
     @Test("allCases contains tag")
     func allCasesContainsTag() {
         #expect(GraphNodeType.allCases.contains(.tag))
+    }
+
+    @Test("allCases contains block")
+    func allCasesContainsBlock() {
+        #expect(GraphNodeType.allCases.contains(.block))
     }
 }
 

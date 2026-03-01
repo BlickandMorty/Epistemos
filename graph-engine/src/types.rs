@@ -17,6 +17,7 @@ pub enum NodeType {
     Folder = 4,
     Quote = 5,
     Tag = 6,
+    Block = 7,
 }
 
 impl NodeType {
@@ -29,6 +30,7 @@ impl NodeType {
             4 => Self::Folder,
             5 => Self::Quote,
             6 => Self::Tag,
+            7 => Self::Block,
             _ => Self::Note,
         }
     }
@@ -43,6 +45,7 @@ impl NodeType {
             Self::Folder => [0.64, 0.52, 0.37, 1.0],  // brown
             Self::Quote => [0.69, 0.32, 0.87, 1.0],   // purple
             Self::Tag => [0.46, 0.46, 0.50, 1.0],     // gray
+            Self::Block => [0.55, 0.78, 0.90, 1.0],   // sky blue
         }
     }
 
@@ -56,6 +59,7 @@ impl NodeType {
             Self::Folder => [0.44, 0.34, 0.22, 1.0],  // dark brown
             Self::Quote => [0.48, 0.18, 0.65, 1.0],   // deep purple
             Self::Tag => [0.30, 0.30, 0.35, 1.0],     // dark gray
+            Self::Block => [0.25, 0.50, 0.62, 1.0],   // deep sky blue
         }
     }
 }
@@ -246,7 +250,7 @@ mod tests {
 
     #[test]
     fn node_type_roundtrip() {
-        for v in 0..=6u8 {
+        for v in 0..=7u8 {
             let nt = NodeType::from_u8(v);
             assert_eq!(nt as u8, v);
         }
@@ -256,13 +260,19 @@ mod tests {
     fn node_type_invalid_defaults_to_note() {
         // Out-of-range values default to Note
         assert_eq!(NodeType::from_u8(255), NodeType::Note);
-        assert_eq!(NodeType::from_u8(7), NodeType::Note);
+        assert_eq!(NodeType::from_u8(8), NodeType::Note);
         assert_eq!(NodeType::from_u8(100), NodeType::Note);
     }
 
     #[test]
+    fn node_type_block_variant() {
+        assert_eq!(NodeType::from_u8(7), NodeType::Block);
+        assert_eq!(NodeType::Block as u8, 7);
+    }
+
+    #[test]
     fn node_type_all_variants_distinct() {
-        let types: Vec<NodeType> = (0..=6u8).map(NodeType::from_u8).collect();
+        let types: Vec<NodeType> = (0..=7u8).map(NodeType::from_u8).collect();
         for i in 0..types.len() {
             for j in (i + 1)..types.len() {
                 assert_ne!(types[i], types[j], "Node types should be distinct");

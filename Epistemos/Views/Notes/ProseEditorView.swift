@@ -41,12 +41,14 @@ struct ProseEditorView: View {
             isFocused: isFocused,
             isDark: ui.theme.isDark,
             isEditable: isEditable,
+            modelContext: modelContext,
             onWikilinkClick: handleWikilinkClick,
+            onBlockRefClick: handleBlockRefClick,
             onPageFlush: { oldPageId, currentText in
                 // Flush unsaved edits to the OLD page — body only, no metadata.
                 // Called by Coordinator during page swap so all flush logic
                 // lives in one place (updateNSView).
-                guard !oldPageId.isEmpty, !currentText.isEmpty else { return }
+                guard !oldPageId.isEmpty else { return }
                 let desc = FetchDescriptor<SDPage>(
                     predicate: #Predicate<SDPage> { $0.id == oldPageId }
                 )
@@ -60,6 +62,8 @@ struct ProseEditorView: View {
             let body = page.loadBody()
             bodyText = body
             lastPersistedBody = body
+            // Lazy block migration: create SDBlocks for pages that predate block outlining.
+            lazyMigrateBlocks(body: body)
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
@@ -127,6 +131,27 @@ struct ProseEditorView: View {
             // SwiftData mutation stays on main thread.
             if !page.body.isEmpty { page.body = "" }
             lastPersistedBody = newValue
+            // Reconcile blocks — keep SDBlock entities in sync with edited markdown.
+            // Runs on MainActor (same context as SwiftData writes). ~1ms for 200 blocks.
+            BlockReconciler.reconcile(pageId: pageId, markdown: newValue, context: modelContext)
+        }
+    }
+
+    // MARK: - Block Migration
+
+    /// Create SDBlock entities for pages that predate block outlining.
+    /// Called once per page open — if blocks already exist, this is a no-op (fetchCount only).
+    private func lazyMigrateBlocks(body: String) {
+        guard !body.isEmpty else { return }
+        let pageId = page.id
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId }
+        )
+        let count = (try? modelContext.fetchCount(descriptor)) ?? 0
+        if count == 0 {
+            BlockReconciler.initialPopulate(
+                pageId: pageId, markdown: body, context: modelContext
+            )
         }
     }
 
@@ -151,5 +176,18 @@ struct ProseEditorView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Block Reference Navigation
+
+    private func handleBlockRefClick(_ blockId: String) {
+        // Resolve block ID to its source page via SDBlock lookup
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.id == blockId }
+        )
+        guard let block = try? modelContext.fetch(descriptor).first else { return }
+
+        // Navigate to the page containing the block
+        NoteWindowManager.shared.open(pageId: block.pageId, fromPageId: page.id)
     }
 }

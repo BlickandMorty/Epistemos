@@ -31,13 +31,13 @@ struct TimeSliderOverlay: View {
             // Date label
             Text(Self.dateFormatter.string(from: cutoffDate))
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(.primary.opacity(0.8))
 
             // Slider
             HStack(spacing: 10) {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.primary.opacity(0.5))
 
                 Slider(value: $sliderValue, in: 0...1) { editing in
                     if !editing {
@@ -53,7 +53,7 @@ struct TimeSliderOverlay: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.primary.opacity(0.5))
                 }
                 .buttonStyle(.plain)
                 .help("Clear time filter")
@@ -65,7 +65,7 @@ struct TimeSliderOverlay: View {
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
+                .strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
         )
         .onAppear {
             // Initialize slider to the end (showing all nodes)

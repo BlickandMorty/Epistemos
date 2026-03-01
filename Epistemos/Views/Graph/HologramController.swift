@@ -20,6 +20,7 @@ final class HologramController {
 
     private var overlay: HologramOverlay?
     private var graphState: GraphState?
+    private var queryEngine: QueryEngine?
     private var modelContainer: ModelContainer?
 
     // Event monitors.
@@ -34,8 +35,9 @@ final class HologramController {
     // MARK: - Setup
 
     /// Call once at app launch with the shared GraphState and ModelContainer.
-    func setup(graphState: GraphState, modelContainer: ModelContainer) {
+    func setup(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer) {
         self.graphState = graphState
+        self.queryEngine = queryEngine
         self.modelContainer = modelContainer
         // Provide a ModelContext for interactive graph mutations (node/edge creation).
         graphState.modelContext = modelContainer.mainContext
@@ -118,7 +120,7 @@ final class HologramController {
             graphState.refreshStructuralData(context: modelContainer.mainContext)
         }
 
-        overlay = HologramOverlay(graphState: graphState, modelContainer: modelContainer)
+        overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer)
     }
 
     // MARK: - Global Hotkey (Cmd+G)

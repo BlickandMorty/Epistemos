@@ -18,7 +18,7 @@ struct EpistemosApp: App {
                 .withAppEnvironment(bootstrap)
                 .onAppear {
                     StatusBar.shared.setup()
-                    HologramController.shared.setup(graphState: bootstrap.graphState, modelContainer: bootstrap.modelContainer)
+                    HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer)
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(

@@ -554,7 +554,7 @@ struct DataIntegrityOrphanEdgeTests {
     
     @Test("Graph node types count")
     func graphNodeTypesCount() {
-        #expect(GraphNodeType.allCases.count == 7)
+        #expect(GraphNodeType.allCases.count == 8)
     }
     
     @Test("Graph edge types count")

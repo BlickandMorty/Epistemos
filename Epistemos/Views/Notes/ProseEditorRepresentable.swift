@@ -1,4 +1,5 @@
 import AppKit
+import SwiftData
 import SwiftUI
 
 // MARK: - ProseEditorRepresentable
@@ -33,9 +34,13 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     let isFocused: Bool
     let isDark: Bool
     let isEditable: Bool
+    var modelContext: ModelContext?
 
     /// Called when user clicks a [[wikilink]] in the editor.
     var onWikilinkClick: ((String) -> Void)?
+
+    /// Called when user clicks a ((block-ref)) in the editor.
+    var onBlockRefClick: ((String) -> Void)?
 
     /// Called during page swap — flush the old page's text to SwiftData.
     /// Args: (oldPageId, currentText). Coordinator calls this so ALL page-swap
@@ -140,15 +145,57 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
+        // Block gutter — bullet dots + fold triangles
+        let gutter = BlockGutterView(scrollView: scrollView, orientation: .verticalRuler)
+        gutter.clientView = tv
+        gutter.onFoldToggle = { [weak tv] lineStart in
+            guard let tv, let lm = tv.layoutManager, let ts = tv.textStorage else { return }
+            // Toggle fold state
+            if gutter.collapsedRanges.contains(lineStart) {
+                gutter.collapsedRanges.remove(lineStart)
+            } else {
+                gutter.collapsedRanges.insert(lineStart)
+            }
+            // Invalidate all glyphs so the delegate re-evaluates .null properties
+            let fullRange = NSRange(location: 0, length: ts.length)
+            lm.invalidateGlyphs(forCharacterRange: fullRange, changeInLength: 0, actualCharacterRange: nil)
+            lm.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+            lm.ensureLayout(for: tv.textContainer!)
+            tv.setNeedsDisplay(tv.visibleRect)
+            gutter.setNeedsDisplay(gutter.bounds)
+        }
+        scrollView.verticalRulerView = gutter
+        scrollView.hasVerticalRuler = true
+        scrollView.rulersVisible = true
+
         // Wire delegate and coordinator
         tv.delegate = context.coordinator
+        tv.layoutManager?.delegate = context.coordinator
         context.coordinator.textView = tv
         context.coordinator.storage = storage
+        context.coordinator.gutter = gutter
 
-        // Wire wikilink handler
+        // Transclusion overlays — shows ((block-ref)) content inline
+        let transclusionMgr = TransclusionOverlayManager(textView: tv)
+        if let mc = modelContext {
+            transclusionMgr.configure(modelContext: mc)
+        }
+        context.coordinator.transclusionManager = transclusionMgr
+
+        // Block ref autocomplete — triggered by typing ((
+        if let mc = modelContext {
+            let autocomplete = BlockRefAutocomplete()
+            autocomplete.configure(textView: tv, modelContext: mc)
+            context.coordinator.blockRefAutocomplete = autocomplete
+        }
+
+        // Wire wikilink + block ref handlers
         let coord = context.coordinator
         tv.onWikilinkClick = { [weak coord] title in
             coord?.parent.onWikilinkClick?(title)
+        }
+        tv.onBlockRefClick = { [weak coord] blockId in
+            coord?.parent.onBlockRefClick?(blockId)
         }
 
         // Obsidian-style centering: observe clip view frame changes to dynamically
@@ -184,6 +231,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 PageStoragePool.shared.saveState(
                     pageId: pageId, scrollY: scrollY, selection: selection
                 )
+                // Reposition transclusion overlays on scroll
+                coord.transclusionManager?.refresh()
             }
         }
 
@@ -273,6 +322,14 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
 
             coord.lastPageId = pageId
+
+            // Clear fold state and transclusion overlays from previous page
+            if let gutter = scrollView.verticalRulerView as? BlockGutterView {
+                gutter.collapsedRanges.removeAll()
+                gutter.setNeedsDisplay(gutter.bounds)
+            }
+            coord.transclusionManager?.removeAll()
+            coord.blockRefAutocomplete?.dismiss()
         }
 
         // === GUARD ALL WORK WITH COORDINATOR CACHE (Pitfall #6) ===
@@ -331,9 +388,12 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
         }
 
-        // Update wikilink handler reference
+        // Update wikilink + block ref handler references
         tv.onWikilinkClick = { [weak coord] title in
             coord?.parent.onWikilinkClick?(title)
+        }
+        tv.onBlockRefClick = { [weak coord] blockId in
+            coord?.parent.onBlockRefClick?(blockId)
         }
 
         // Recalculate centering only when width actually changed
@@ -389,10 +449,13 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, NSTextViewDelegate {
+    final class Coordinator: NSObject, NSTextViewDelegate, NSLayoutManagerDelegate {
         var parent: ProseEditorRepresentable
         weak var textView: ClickableTextView?
         var storage: MarkdownTextStorage?
+        weak var gutter: BlockGutterView?
+        var transclusionManager: TransclusionOverlayManager?
+        var blockRefAutocomplete: BlockRefAutocomplete?
 
         // Cache guards (Pitfall #6) — skip work in updateNSView if nothing changed
         var lastIsFocused = false
@@ -473,6 +536,12 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 }
             }
 
+            // Check for (( autocomplete trigger
+            blockRefAutocomplete?.checkTrigger()
+
+            // Refresh transclusion overlays
+            transclusionManager?.refresh()
+
             // Sync text to binding
             isUserEditing = true
             parent.text = tv.string
@@ -483,8 +552,127 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             // Selection tracking — no special behavior needed
         }
 
+        // MARK: - NSLayoutManagerDelegate (Text Folding)
+
+        func layoutManager(
+            _ layoutManager: NSLayoutManager,
+            shouldGenerateGlyphs glyphs: UnsafePointer<CGGlyph>,
+            properties props: UnsafePointer<NSLayoutManager.GlyphProperty>,
+            characterIndexes charIndexes: UnsafePointer<Int>,
+            font aFont: NSFont,
+            forGlyphRange glyphRange: NSRange
+        ) -> Int {
+            guard let gutter, !gutter.collapsedRanges.isEmpty,
+                  let tv = textView, let ts = tv.textStorage
+            else { return 0 } // 0 = use default
+
+            let hiddenRanges = gutter.computeHiddenRanges(in: ts.string as NSString)
+            guard !hiddenRanges.isEmpty else { return 0 }
+
+            // Check if any glyphs in this range fall within hidden ranges.
+            var needsOverride = false
+            for i in 0..<glyphRange.length {
+                let charIdx = charIndexes[i]
+                for hr in hiddenRanges {
+                    if charIdx >= hr.location && charIdx < hr.location + hr.length {
+                        needsOverride = true
+                        break
+                    }
+                }
+                if needsOverride { break }
+            }
+
+            guard needsOverride else { return 0 }
+
+            // Build modified properties array with .null for hidden glyphs.
+            let modProps = UnsafeMutablePointer<NSLayoutManager.GlyphProperty>.allocate(
+                capacity: glyphRange.length)
+            defer { modProps.deallocate() }
+
+            for i in 0..<glyphRange.length {
+                let charIdx = charIndexes[i]
+                var isHidden = false
+                for hr in hiddenRanges {
+                    if charIdx >= hr.location && charIdx < hr.location + hr.length {
+                        isHidden = true
+                        break
+                    }
+                }
+                modProps[i] = isHidden ? .null : props[i]
+            }
+
+            layoutManager.setGlyphs(
+                glyphs,
+                properties: modProps,
+                characterIndexes: charIndexes,
+                font: aFont,
+                forGlyphRange: glyphRange
+            )
+            return glyphRange.length
+        }
+
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-            false
+            // Tab/Shift-Tab: indent/outdent the current line(s) for outlining.
+            // Pure text manipulation — BlockReconciler maps indentation to block hierarchy
+            // on the next debounced save.
+            if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                return indentLines(textView: textView, indent: true)
+            }
+            if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
+                return indentLines(textView: textView, indent: false)
+            }
+            return false
+        }
+
+        /// Indent or outdent all lines in the selection range.
+        /// Uses 2-space indent (matching BlockParser.measureIndent convention).
+        private func indentLines(textView: NSTextView, indent: Bool) -> Bool {
+            let str = textView.string as NSString
+            let sel = textView.selectedRange()
+            // Expand selection to full lines
+            let lineRange = str.lineRange(for: sel)
+
+            let linesStr = str.substring(with: lineRange)
+            let lines = linesStr.components(separatedBy: "\n")
+
+            var result: [String] = []
+            for (i, line) in lines.enumerated() {
+                // Last component after splitting is empty if text ends with \n — preserve it
+                if i == lines.count - 1 && line.isEmpty {
+                    result.append(line)
+                    continue
+                }
+                if indent {
+                    result.append("  " + line)
+                } else {
+                    // Remove up to 2 leading spaces or 1 tab
+                    if line.hasPrefix("\t") {
+                        result.append(String(line.dropFirst(1)))
+                    } else if line.hasPrefix("  ") {
+                        result.append(String(line.dropFirst(2)))
+                    } else if line.hasPrefix(" ") {
+                        result.append(String(line.dropFirst(1)))
+                    } else {
+                        result.append(line)
+                    }
+                }
+            }
+
+            let newText = result.joined(separator: "\n")
+            // Use shouldChangeText + replaceCharacters for proper undo support
+            if textView.shouldChangeText(in: lineRange, replacementString: newText) {
+                textView.textStorage?.replaceCharacters(in: lineRange, with: newText)
+                textView.didChangeText()
+
+                // Restore selection: adjust to cover the same logical lines
+                let delta = newText.utf16.count - lineRange.length
+                let newSelLoc = max(lineRange.location, sel.location + (indent ? 2 : -2))
+                let newSelLen = max(0, sel.length + delta - (indent ? 2 : min(2, -delta)))
+                let safeLoc = min(newSelLoc, (textView.string as NSString).length)
+                let safeLen = min(newSelLen, (textView.string as NSString).length - safeLoc)
+                textView.setSelectedRange(NSRange(location: safeLoc, length: safeLen))
+            }
+            return true
         }
     }
 }

@@ -55,7 +55,7 @@ struct VersionTimeline: View {
                                 .overlay {
                                     if isSelected {
                                         Circle()
-                                            .strokeBorder(.white.opacity(0.6), lineWidth: 1.5)
+                                            .strokeBorder(.primary.opacity(0.6), lineWidth: 1.5)
                                     }
                                 }
                         }
@@ -65,7 +65,7 @@ struct VersionTimeline: View {
 
                         if index < versions.count - 1 {
                             Rectangle()
-                                .fill(.white.opacity(0.15))
+                                .fill(.primary.opacity(0.15))
                                 .frame(height: 1)
                                 .frame(maxWidth: .infinity)
                         }
@@ -100,7 +100,7 @@ struct VersionTimeline: View {
                     }
                 }
             }
-            .stroke(.white.opacity(0.25), lineWidth: 1)
+            .stroke(.primary.opacity(0.25), lineWidth: 1)
         }
     }
 
@@ -115,7 +115,7 @@ struct VersionTimeline: View {
 
     private func dotColor(isSelected: Bool, isMajor: Bool) -> Color {
         if isSelected { return .accentColor }
-        return isMajor ? .accentColor.opacity(0.6) : .white.opacity(0.3)
+        return isMajor ? .accentColor.opacity(0.6) : .primary.opacity(0.3)
     }
 
     private func versionTooltip(_ version: SDPageVersion) -> String {

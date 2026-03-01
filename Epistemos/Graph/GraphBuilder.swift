@@ -76,6 +76,57 @@ final class GraphBuilder {
         }
 
         // ────────────────────────────────────────────
+        // 1b. Blocks (substantial SDBlock entities per page)
+        //     Only blocks with >20 chars of content become graph nodes.
+        //     Each block gets a `.contains` edge from its parent note.
+        // ────────────────────────────────────────────
+        for page in pages {
+            guard let noteNodeId = sourceIdToNodeId[page.id] else { continue }
+            let pageId = page.id
+            let blockDesc = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+                sortBy: [SortDescriptor(\SDBlock.order)]
+            )
+            let blocks = (try? context.fetch(blockDesc)) ?? []
+            for block in blocks {
+                guard block.content.count > 20 else { continue }
+                let blockKey = "block-\(block.id)"
+                guard existingSourceIds.insert(blockKey).inserted else { continue }
+
+                let label = block.content.count > 60
+                    ? String(block.content.prefix(60)) + "…"
+                    : block.content
+                let blockNode = SDGraphNode(type: .block, label: label, sourceId: block.id)
+                blockNode.createdAt = block.createdAt
+                nodes.append(blockNode)
+                sourceIdToNodeId[block.id] = blockNode.id
+
+                edges.append(SDGraphEdge(source: noteNodeId, target: blockNode.id, type: .contains))
+            }
+        }
+
+        // ────────────────────────────────────────────
+        // 1c. Block references — ((blockId)) in page bodies
+        //     Creates .reference edges from the containing page to the referenced block.
+        // ────────────────────────────────────────────
+        let blockRefPattern = /\(\(([^)]+)\)\)/
+        for page in pages {
+            guard let noteNodeId = sourceIdToNodeId[page.id] else { continue }
+            let body = page.loadBody()
+            guard !body.isEmpty else { continue }
+
+            for match in body.matches(of: blockRefPattern) {
+                let refId = String(match.1).trimmingCharacters(in: .whitespaces)
+                guard !refId.isEmpty else { continue }
+
+                // Only emit edge if the referenced block exists as a graph node.
+                if let targetNodeId = sourceIdToNodeId[refId] {
+                    edges.append(SDGraphEdge(source: noteNodeId, target: targetNodeId, type: .reference))
+                }
+            }
+        }
+
+        // ────────────────────────────────────────────
         // 2. Folders (recursive — parent→child nesting)
         // ────────────────────────────────────────────
         let folders = (try? context.fetch(FetchDescriptor<SDFolder>())) ?? []
@@ -87,8 +138,8 @@ final class GraphBuilder {
         var folderContentCount: [String: Int] = [:]
         var visitedFolders = Set<String>()
         func recursivePageCount(_ folder: SDFolder) -> Int {
-            guard visitedFolders.insert(folder.id).inserted else { return 0 }
             if let cached = folderContentCount[folder.id] { return cached }
+            guard visitedFolders.insert(folder.id).inserted else { return 0 }
             let directPages = (folder.pages ?? []).filter { !$0.isArchived }.count
             let childCount = (folder.children ?? []).reduce(0) { $0 + recursivePageCount($1) }
             let total = directPages + childCount

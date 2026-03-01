@@ -6,17 +6,17 @@ struct GraphTypesTests {
 
     // MARK: - GraphNodeType
 
-    @Test("all cases count is 7")
+    @Test("all cases count is 8")
     func caseCount() {
-        #expect(GraphNodeType.allCases.count == 7)
+        #expect(GraphNodeType.allCases.count == 8)
     }
 
     @Test("rustIndex is unique and sequential")
     func rustIndexUnique() {
         let indices = GraphNodeType.allCases.map { $0.rustIndex }
         #expect(Set(indices).count == GraphNodeType.allCases.count)
-        // Should be 0..6
-        #expect(indices.sorted() == [0, 1, 2, 3, 4, 5, 6])
+        // Should be 0..7
+        #expect(indices.sorted() == [0, 1, 2, 3, 4, 5, 6, 7])
     }
 
     @Test("rustIndex matches expected values")
@@ -28,6 +28,7 @@ struct GraphTypesTests {
         #expect(GraphNodeType.folder.rustIndex == 4)
         #expect(GraphNodeType.quote.rustIndex == 5)
         #expect(GraphNodeType.tag.rustIndex == 6)
+        #expect(GraphNodeType.block.rustIndex == 7)
     }
 
     @Test("all types have display names and icons")
@@ -86,6 +87,7 @@ struct GraphTypesTests {
         #expect(GraphNodeType(legacy: "folder") == .folder)
         #expect(GraphNodeType(legacy: "quote") == .quote)
         #expect(GraphNodeType(legacy: "tag") == .tag)
+        #expect(GraphNodeType(legacy: "block") == .block)
     }
 
     // MARK: - GraphEdgeType Legacy Migration

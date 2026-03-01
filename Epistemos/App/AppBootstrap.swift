@@ -31,6 +31,7 @@ final class AppBootstrap {
     let dailyBriefState = DailyBriefState()
     let threadState = ThreadState()
     let graphState = GraphState()
+    let queryEngine = QueryEngine()
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
@@ -178,9 +179,20 @@ final class AppBootstrap {
         Task { @MainActor in migrateBodiesToFileStorage() }
 
         // Eagerly load graph store so command palette search works before the graph window opens.
-        Task { @MainActor in
-            graphState.loadGraph(context: container.mainContext)
-            graphState.modelContext = container.mainContext
+        // Runs synchronously on MainActor — no Task wrapper — so queryEngine is configured
+        // before any user interaction can trigger a query.
+        graphState.loadGraph(context: container.mainContext)
+        graphState.modelContext = container.mainContext
+        // Configure query engine with live dependencies.
+        // SearchIndexService may not exist yet if no vault is attached —
+        // create a default one so queries work even without vault.
+        let searchIdx = vaultSync.searchService ?? (try? SearchIndexService())
+        if let searchIdx {
+            queryEngine.configure(
+                graphStore: graphState.store,
+                graphState: graphState,
+                searchIndex: searchIdx
+            )
         }
 
         // Tell Siri to re-index App Intents on every launch

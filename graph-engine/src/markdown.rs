@@ -41,6 +41,8 @@ pub enum StyleKind {
     TableHeader = 21,
     HorizontalRule = 22,
     Callout = 23,
+    BlockReference = 24,
+    BlockReferenceBrackets = 25,
 }
 
 /// A styled range returned to Swift via FFI.
@@ -218,6 +220,9 @@ fn parse_markdown(text: &str) -> Vec<StyleSpan> {
     // Post-parse: extract $inline math$
     extract_inline_math(text, &mut spans);
 
+    // Post-parse: extract ((block references))
+    extract_block_references(text, &mut spans);
+
     spans
 }
 
@@ -301,6 +306,60 @@ fn extract_inline_math(text: &str, spans: &mut Vec<StyleSpan>) {
     }
 }
 
+/// Extract ((block-reference)) syntax — Logseq-style block transclusion.
+/// Follows the exact same pattern as extract_wikilinks.
+fn extract_block_references(text: &str, spans: &mut Vec<StyleSpan>) {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'(' && bytes[i + 1] == b'(' {
+            if let Some(close_offset) = text[i + 2..].find("))") {
+                let content_start = i + 2;
+                let content_end = content_start + close_offset;
+                let full_end = content_end + 2;
+
+                // Skip empty references (( ))
+                let content = &text[content_start..content_end];
+                if content.trim().is_empty() {
+                    i += 2;
+                    continue;
+                }
+
+                // Opening brackets ((
+                spans.push(StyleSpan {
+                    start: i as u32,
+                    end: content_start as u32,
+                    style: StyleKind::BlockReferenceBrackets as u8,
+                    depth: 0,
+                    group: 0,
+                    _pad: 0,
+                });
+                // Content (block ID)
+                spans.push(StyleSpan {
+                    start: content_start as u32,
+                    end: content_end as u32,
+                    style: StyleKind::BlockReference as u8,
+                    depth: 0,
+                    group: 1,
+                    _pad: 0,
+                });
+                // Closing brackets ))
+                spans.push(StyleSpan {
+                    start: content_end as u32,
+                    end: full_end as u32,
+                    style: StyleKind::BlockReferenceBrackets as u8,
+                    depth: 0,
+                    group: 2,
+                    _pad: 0,
+                });
+                i = full_end;
+                continue;
+            }
+        }
+        i += 1;
+    }
+}
+
 // ── FFI ──────────────────────────────────────────────────────────────────
 
 /// Parse markdown text and return an array of StyleSpans.
@@ -362,7 +421,10 @@ pub unsafe extern "C" fn markdown_free_spans(spans: *mut StyleSpan, count: u32) 
     if spans.is_null() || count == 0 {
         return;
     }
-    let layout = std::alloc::Layout::array::<StyleSpan>(count as usize).unwrap();
+    let layout = match std::alloc::Layout::array::<StyleSpan>(count as usize) {
+        Ok(l) => l,
+        Err(_) => return,
+    };
     unsafe {
         std::alloc::dealloc(spans as *mut u8, layout);
     }
@@ -520,6 +582,38 @@ mod tests {
         assert!(!spans_ptr.is_null());
 
         unsafe { markdown_free_spans(spans_ptr, count) };
+    }
+
+    #[test]
+    fn block_references() {
+        let spans = parse("see ((abc-123)) for details");
+        assert!(has_style(&spans, StyleKind::BlockReference));
+        assert!(has_style(&spans, StyleKind::BlockReferenceBrackets));
+        let brackets = spans_of_kind(&spans, StyleKind::BlockReferenceBrackets);
+        assert_eq!(brackets.len(), 2); // (( and ))
+        let content = spans_of_kind(&spans, StyleKind::BlockReference);
+        assert_eq!(content.len(), 1);
+        let text = "see ((abc-123)) for details";
+        assert_eq!(&text[content[0].start as usize..content[0].end as usize], "abc-123");
+    }
+
+    #[test]
+    fn block_reference_empty_ignored() {
+        let spans = parse("see (( )) here");
+        assert!(!has_style(&spans, StyleKind::BlockReference));
+    }
+
+    #[test]
+    fn block_reference_multiple() {
+        let spans = parse("((id1)) and ((id2))");
+        let content = spans_of_kind(&spans, StyleKind::BlockReference);
+        assert_eq!(content.len(), 2);
+    }
+
+    #[test]
+    fn block_reference_not_confused_with_parens() {
+        let spans = parse("(single paren) and (another)");
+        assert!(!has_style(&spans, StyleKind::BlockReference));
     }
 
     #[test]

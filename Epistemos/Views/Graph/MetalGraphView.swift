@@ -477,7 +477,7 @@ final class MetalGraphNSView: NSView {
         let scale = metalLayer?.contentsScale ?? 2.0
         let cx = Float(bounds.width * 0.5 * scale)
         let cy = Float(bounds.height * 0.5 * scale)
-        graph_engine_magnify(engine, cx, cy, 0.6)
+        graph_engine_magnify(engine, cx, cy, 1.5)
         needsRender = true
     }
 

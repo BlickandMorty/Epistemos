@@ -37,10 +37,15 @@ struct HologramSearchSidebar: View {
         }
         .frame(width: 280)
         .frame(maxHeight: 560)
+        .onChange(of: queryEngine.currentResult?.nodes.count) { _, newCount in
+            if let newCount, newCount > 0 {
+                withAnimation(.smooth(duration: 0.2)) { activeTab = .query }
+            }
+        }
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
+                .strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
         )
     }
 
@@ -61,10 +66,6 @@ struct HologramSearchSidebar: View {
     private func tabButton(_ label: String, icon: String, tab: SidebarTab) -> some View {
         Button {
             withAnimation(.smooth(duration: 0.2)) { activeTab = tab }
-            if tab != .search && !searchText.isEmpty {
-                searchText = ""
-                onSearchChanged("")
-            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
@@ -74,8 +75,8 @@ struct HologramSearchSidebar: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(activeTab == tab ? .white.opacity(0.15) : .clear, in: Capsule())
-            .foregroundStyle(activeTab == tab ? .white : .white.opacity(0.45))
+            .background(activeTab == tab ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
+            .foregroundStyle(Color.primary.opacity(activeTab == tab ? 1.0 : 0.45))
         }
         .buttonStyle(.plain)
     }
@@ -94,12 +95,12 @@ struct HologramSearchSidebar: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(.primary.opacity(0.4))
 
             TextField("Search nodes…", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .onChange(of: searchText) { _, newValue in
                     // Debounce search: 150ms delay to avoid Rust FFI call per keystroke
                     searchDebounceTask?.cancel()
@@ -122,7 +123,7 @@ struct HologramSearchSidebar: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.3))
+                        .foregroundStyle(.primary.opacity(0.3))
                 }
                 .buttonStyle(.plain)
             }
@@ -291,7 +292,7 @@ struct HologramSearchSidebar: View {
                 HStack(spacing: 8) {
                     Image(systemName: expandedTypes.contains(type) ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.35))
+                        .foregroundStyle(.primary.opacity(0.35))
                         .frame(width: 12)
 
                     Image(systemName: type.icon)
@@ -300,7 +301,7 @@ struct HologramSearchSidebar: View {
 
                     Text(type.displayName + "s")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(.primary.opacity(0.7))
                         .textCase(.uppercase)
                         .tracking(0.4)
 
@@ -308,7 +309,7 @@ struct HologramSearchSidebar: View {
 
                     Text("\(nodes.count)")
                         .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.25))
+                        .foregroundStyle(.primary.opacity(0.25))
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -331,13 +332,25 @@ struct HologramSearchSidebar: View {
     // MARK: - Recursive Folder Row
 
     /// Recursive total count of notes in this folder and all subfolders.
-    private func recursiveNoteCount(_ folderId: String) -> Int {
+    private func recursiveNoteCount(_ folderId: String, visited: Set<String> = []) -> Int {
+        guard !visited.contains(folderId) else { return 0 }
+        var visited = visited
+        visited.insert(folderId)
         let (subfolders, notes) = containsChildrenOf(folderId)
-        return notes.count + subfolders.reduce(0) { $0 + recursiveNoteCount($1.id) }
+        return notes.count + subfolders.reduce(0) { $0 + recursiveNoteCount($1.id, visited: visited) }
     }
 
     @ViewBuilder
     private func recursiveFolderRow(_ folder: GraphNodeRecord, indent: Int) -> some View {
+        if indent >= 20 {
+            EmptyView()
+        } else {
+            folderRowContent(folder, indent: indent)
+        }
+    }
+
+    @ViewBuilder
+    private func folderRowContent(_ folder: GraphNodeRecord, indent: Int) -> some View {
         let isExpanded = expandedFolders.contains(folder.id)
         let (subfolders, notes) = containsChildrenOf(folder.id)
         let count = recursiveNoteCount(folder.id)
@@ -355,7 +368,7 @@ struct HologramSearchSidebar: View {
                 HStack(spacing: 8) {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.35))
+                        .foregroundStyle(.primary.opacity(0.35))
                         .frame(width: 12)
 
                     Image(systemName: isExpanded ? "folder.fill" : "folder")
@@ -365,7 +378,7 @@ struct HologramSearchSidebar: View {
 
                     Text(folder.label.isEmpty ? "Untitled Folder" : folder.label)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(.primary.opacity(0.85))
                         .lineLimit(1)
 
                     Spacer()
@@ -373,7 +386,7 @@ struct HologramSearchSidebar: View {
                     if count > 0 {
                         Text("\(count)")
                             .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.25))
+                            .foregroundStyle(.primary.opacity(0.25))
                     }
                 }
                 .padding(.leading, CGFloat(indent) * 16 + 12)
@@ -387,12 +400,10 @@ struct HologramSearchSidebar: View {
             })
 
             if isExpanded {
-                // Child subfolders first (recursive — use AnyView to break self-referential type)
                 ForEach(subfolders, id: \.id) { subfolder in
                     AnyView(recursiveFolderRow(subfolder, indent: indent + 1))
                 }
 
-                // Child notes
                 ForEach(notes, id: \.id) { note in
                     nodeRow(note, indent: indent + 1)
                 }
@@ -400,7 +411,7 @@ struct HologramSearchSidebar: View {
                 if subfolders.isEmpty && notes.isEmpty {
                     Text("Empty folder")
                         .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.25))
+                        .foregroundStyle(.primary.opacity(0.25))
                         .padding(.leading, CGFloat(indent + 1) * 16 + 34)
                         .padding(.vertical, 4)
                 }
@@ -410,29 +421,40 @@ struct HologramSearchSidebar: View {
 
     // MARK: - Query Content
 
+    @Environment(QueryEngine.self) private var queryEngine
+    @State private var queryText: String = ""
     @State private var queryResults: [GraphNodeRecord] = []
     @State private var activeQueryLabel: String?
 
     private var queryContent: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let selectedId = graphState.selectedNodeId, let node = graphState.store.nodes[selectedId] {
+            // NL query field
+            nlQueryField
+            Divider().opacity(0.2)
+
+            // Show NL results if available
+            if let result = queryEngine.currentResult {
+                QueryResultsView(result: result, onSelectNode: onSelectNode)
+            } else if let selectedId = graphState.selectedNodeId, let node = graphState.store.nodes[selectedId] {
                 // Context: which node we're querying about
                 HStack(spacing: 6) {
                     Circle().fill(node.type.swiftUIColor).frame(width: 6, height: 6)
                     Text(node.label)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(.primary.opacity(0.85))
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
 
                 Divider().opacity(0.2)
 
-                // Query buttons
+                // Quick query buttons
                 ScrollView {
                     VStack(spacing: 4) {
+                        sectionHeader("Semantic")
+
                         queryButton("Supports", icon: "checkmark.circle", color: .green) {
                             graphState.store.query(.supportsOf(nodeId: selectedId))
                         }
@@ -445,6 +467,9 @@ struct HologramSearchSidebar: View {
                         queryButton("Questions", icon: "questionmark.circle", color: .orange) {
                             graphState.store.query(.nodesWithEdgeType(.questions, from: selectedId))
                         }
+
+                        sectionHeader("Structural")
+
                         queryButton("Cites", icon: "quote.opening", color: .purple) {
                             graphState.store.query(.nodesWithEdgeType(.cites, from: selectedId))
                         }
@@ -461,7 +486,7 @@ struct HologramSearchSidebar: View {
                             if let label = activeQueryLabel {
                                 Text("\(label) (\(queryResults.count))")
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.4))
+                                    .foregroundStyle(.primary.opacity(0.4))
                                     .textCase(.uppercase)
                                     .tracking(0.4)
                                     .padding(.horizontal, 12)
@@ -476,9 +501,82 @@ struct HologramSearchSidebar: View {
                     .padding(.vertical, 6)
                 }
             } else {
-                emptyState("Select a node to query its relationships", icon: "point.3.connected.trianglepath.dotted")
+                // No node selected — show quick presets
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        sectionHeader("Quick Queries")
+                        presetButton("Show all tags")
+                        presetButton("Most connected nodes")
+                        presetButton("Orphan nodes")
+                        presetButton("Recently created notes")
+                        presetButton("Notes from last week")
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+
+            if let error = queryEngine.errorMessage {
+                Text(error)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red.opacity(0.7))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
             }
         }
+    }
+
+    private var nlQueryField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkle.magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.4))
+
+            TextField("Ask your graph…", text: $queryText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .foregroundStyle(.primary)
+                .onSubmit {
+                    queryEngine.execute(query: queryText)
+                }
+
+            if queryEngine.isProcessing {
+                ProgressView()
+                    .controlSize(.small)
+            } else if !queryText.isEmpty {
+                Button {
+                    queryText = ""
+                    queryEngine.clear()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.primary.opacity(0.3))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private func presetButton(_ label: String) -> some View {
+        Button {
+            queryText = label.lowercased()
+            queryEngine.execute(query: queryText)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.right.circle")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.primary.opacity(0.3))
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.primary.opacity(0.7))
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func queryButton(_ label: String, icon: String, color: Color, query: @escaping () -> [GraphNodeRecord]) -> some View {
@@ -494,13 +592,13 @@ struct HologramSearchSidebar: View {
 
                 Text(label)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.primary.opacity(0.8))
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.2))
+                    .foregroundStyle(.primary.opacity(0.2))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
@@ -516,39 +614,13 @@ struct HologramSearchSidebar: View {
     // MARK: - Shared Components
 
     private func nodeRow(_ node: GraphNodeRecord, indent: Int = 0) -> some View {
-        Button {
-            onSelectNode(node.id)
-        } label: {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(node.type.swiftUIColor)
-                    .frame(width: 7, height: 7)
-
-                Text(node.label)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1)
-
-                Spacer()
-
-                if indent == 0 {
-                    Text(node.type.displayName)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.3))
-                }
-            }
-            .padding(.leading, CGFloat(indent) * 16 + 12)
-            .padding(.trailing, 12)
-            .padding(.vertical, 5)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        NodeRowButton(node: node, indent: indent, onSelect: onSelectNode)
     }
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.3))
+            .foregroundStyle(.primary.opacity(0.3))
             .textCase(.uppercase)
             .tracking(0.6)
             .padding(.horizontal, 12)
@@ -559,7 +631,7 @@ struct HologramSearchSidebar: View {
     private func hintText(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 11))
-            .foregroundStyle(.white.opacity(0.3))
+            .foregroundStyle(.primary.opacity(0.3))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
     }
@@ -568,12 +640,56 @@ struct HologramSearchSidebar: View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 24))
-                .foregroundStyle(.white.opacity(0.15))
+                .foregroundStyle(.primary.opacity(0.15))
             Text(message)
                 .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.3))
+                .foregroundStyle(.primary.opacity(0.3))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 32)
+    }
+}
+
+// MARK: - NodeRowButton (hover-aware)
+
+private struct NodeRowButton: View {
+    let node: GraphNodeRecord
+    let indent: Int
+    let onSelect: (String) -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            onSelect(node.id)
+        } label: {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(node.type.swiftUIColor)
+                    .frame(width: 7, height: 7)
+
+                Text(node.label)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .lineLimit(1)
+
+                Spacer()
+
+                if indent == 0 {
+                    Text(node.type.displayName)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.primary.opacity(0.3))
+                }
+            }
+            .padding(.leading, CGFloat(indent) * 16 + 12)
+            .padding(.trailing, 12)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(.primary.opacity(isHovered ? 0.06 : 0))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }

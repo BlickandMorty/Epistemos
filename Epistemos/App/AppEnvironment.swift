@@ -26,5 +26,6 @@ extension View {
             .environment(bootstrap.dailyBriefState)
             .environment(bootstrap.threadState)
             .environment(bootstrap.graphState)
+            .environment(bootstrap.queryEngine)
     }
 }

@@ -456,11 +456,11 @@ struct FFISafetyTests {
     
     @Test("UInt8 bounds for node type")
     func uint8BoundsNodeType() {
-        let valid: UInt8 = 6
+        let valid: UInt8 = 7
         let invalid: UInt8 = 255
-        
-        #expect(valid <= 6)
-        #expect(invalid > 6)
+
+        #expect(valid <= 7)
+        #expect(invalid > 7)
     }
     
     @Test("UInt8 bounds for edge type")
