@@ -22,6 +22,7 @@ struct CommandPaletteOverlay: View {
     // Search state
     @State private var searchText = ""
     @State private var inlineSelectedIndex = 0
+    @State private var hasManuallyNavigated = false
     @State private var searchHighlightTask: Task<Void, Never>?
     @State private var cachedSearchResults: [LandingCommandItem] = []
     @FocusState private var isSearchFocused: Bool
@@ -179,9 +180,9 @@ struct CommandPaletteOverlay: View {
 
     // MARK: - Inline Command List
 
-    /// Combined list: cached (debounced) search results + synchronous command filtering.
-    /// Search results (Rust FFI + SwiftData) are debounced via cachedSearchResults to avoid
-    /// calling rustSearch() on every keystroke. Command filtering is cheap and stays synchronous.
+    /// Combined list: search results + synchronous command filtering.
+    /// Search results (Rust FFI + SwiftData) are computed synchronously via cachedSearchResults.
+    /// Command filtering is cheap and stays synchronous.
     private var inlineFilteredCommands: [LandingCommandItem] {
         var base: [LandingCommandItem] = []
 
@@ -202,8 +203,9 @@ struct CommandPaletteOverlay: View {
             }
         }
 
-        let chatCandidate = searchText.split(separator: " ").count > 2 || searchText.hasSuffix("?")
-        if !searchText.isEmpty && chatCandidate {
+        // Always show "Ask" option when there's text — this is what Enter
+        // triggers by default (via hasManuallyNavigated check in executeSelected).
+        if !searchText.isEmpty {
             let q = searchText
             base.append(
                 LandingCommandItem(
@@ -312,6 +314,9 @@ struct CommandPaletteOverlay: View {
             return .handled
         }
         .onChange(of: searchText) { _, newText in
+            // Reset navigation intent — user is still typing
+            hasManuallyNavigated = false
+
             // Clear search results immediately on empty
             if newText.isEmpty {
                 searchHighlightTask?.cancel()
@@ -340,6 +345,7 @@ struct CommandPaletteOverlay: View {
         let count = inlineFilteredCommands.count
         guard count > 0 else { return }
         inlineSelectedIndex = (inlineSelectedIndex + delta + count) % count
+        hasManuallyNavigated = true
     }
 
     // MARK: - Actions
@@ -348,6 +354,7 @@ struct CommandPaletteOverlay: View {
         isSearchFocused = false
         searchText = ""
         inlineSelectedIndex = 0
+        hasManuallyNavigated = false
         searchHighlightTask?.cancel()
         cachedSearchResults = []
         graphState.searchHighlight("")
@@ -365,11 +372,18 @@ struct CommandPaletteOverlay: View {
     }
 
     private func executeSelected() {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // If user typed text and hit Enter without arrow-navigating,
+        // always submit as chat — don't accidentally open a note.
+        if !trimmed.isEmpty && !hasManuallyNavigated {
+            submitChat(trimmed)
+            return
+        }
+
         guard !inlineFilteredCommands.isEmpty, inlineSelectedIndex < inlineFilteredCommands.count
         else {
-            if !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                submitChat(searchText)
-            }
+            if !trimmed.isEmpty { submitChat(trimmed) }
             return
         }
         inlineFilteredCommands[inlineSelectedIndex].action()
