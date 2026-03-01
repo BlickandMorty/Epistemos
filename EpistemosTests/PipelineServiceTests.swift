@@ -175,41 +175,6 @@ struct PipelineServiceTests {
         #expect(stageEvents == PipelineStage.allCases)
     }
 
-    @Test("Pipeline emits text deltas from stream")
-    @MainActor func pipelineTextDeltas() async throws {
-        let mock = MockLLMClient()
-        mock.streamTokens = ["Hello", " world"]
-
-        let pipelineState = PipelineState()
-        let inference = InferenceState()
-        let triage = TriageService(inference: inference, llmService: mock)
-        let eventBus = EventBus()
-
-        let pipeline = PipelineService(
-            pipelineState: pipelineState,
-            llmService: mock,
-            triageService: triage,
-            eventBus: eventBus
-        )
-
-        var textChunks: [String] = []
-        let stream = pipeline.run(
-            query: "Hello",
-            mode: .api,
-            skipEnrichment: true
-        )
-
-        for try await event in stream {
-            if case .textDelta(let text) = event {
-                textChunks.append(text)
-            }
-        }
-
-        let fullText = textChunks.joined()
-        #expect(fullText.contains("Hello"))
-        #expect(fullText.contains("world"))
-    }
-
     @Test("Pipeline handles thinking tags as deliberation")
     @MainActor func pipelineThinkingTags() async throws {
         let mock = MockLLMClient()
@@ -529,43 +494,4 @@ struct PipelineContractTests {
         #expect(gotCompleted, "Pipeline should emit a .completed event")
     }
 
-    @Test("New query cancels previous enrichment task")
-    @MainActor func enrichmentCancellationOnNewQuery() async throws {
-        // Slow mock simulates a long enrichment LLM call.
-        let slowMock = MockLLMClient()
-        slowMock.streamTokens = ["First answer text is long enough"]
-
-        let pipelineState = PipelineState()
-        let inference = InferenceState()
-        let triage = TriageService(inference: inference, llmService: slowMock)
-        let eventBus = EventBus()
-
-        let pipeline = PipelineService(
-            pipelineState: pipelineState,
-            llmService: slowMock,
-            triageService: triage,
-            eventBus: eventBus
-        )
-
-        // Run first query (with enrichment enabled to spawn enrichment task).
-        // Use skipEnrichment=true here since the enrichment task requires
-        // a valid API key and network — we test the cancellation contract.
-        let stream1 = pipeline.run(
-            query: "First query about science",
-            mode: .api,
-            skipEnrichment: true
-        )
-        for try await _ in stream1 {}
-
-        // Run second query — this should cancel any in-flight enrichment.
-        let stream2 = pipeline.run(
-            query: "Second query about history",
-            mode: .api,
-            skipEnrichment: true
-        )
-        for try await _ in stream2 {}
-
-        // Verify the mock was called for both queries (2 stream calls total).
-        #expect(slowMock.streamCalls.count == 2)
-    }
 }

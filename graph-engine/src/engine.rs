@@ -417,13 +417,13 @@ impl Engine {
         if entrance {
             let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());
             let spacing = if n > 5000 {
-                60.0_f32
+                80.0_f32
             } else if n > 500 {
-                80.0
+                100.0
             } else if n > 100 {
-                50.0
+                70.0
             } else {
-                30.0  // Small vaults: tight spiral, fills screen nicely
+                50.0  // Small vaults: wider spiral so repel mode doesn't cluster at center
             };
             for (i, node) in self.graph.nodes.iter_mut().enumerate() {
                 let r = spacing * (i as f32).sqrt();
@@ -590,11 +590,11 @@ impl Engine {
         // Tighter zoom for small graphs so nodes fill the viewport.
         // Large graphs get more padding to prevent edge nodes from being cut off.
         let padding = if visible_count < 50 {
-            1.2  // Small: zoom in closer, nodes fill screen
+            1.8  // Small: zoom in close, nodes fill screen
         } else if visible_count < 200 {
-            1.0
+            1.4
         } else {
-            0.85  // Large: more padding to see the full graph
+            1.1  // Large: slight zoom-in bias
         };
         let zoom = (w / graph_w).min(h / graph_h) * padding;
 
@@ -1135,11 +1135,11 @@ impl Engine {
         let graph_h = (max_y - min_y).max(1.0);
         let w = self.viewport_width as f32;
         let h = self.viewport_height as f32;
-        let padding = 1.1; // Slight zoom-in bias (user prefers too close over too far)
+        let padding = 1.5; // Zoom in closer — user prefers seeing nodes big
         let zoom = (w / graph_w).min(h / graph_h) * padding;
 
         self.renderer.target_offset = [cx, cy];
-        self.renderer.target_zoom = zoom.clamp(0.8, 10.0); // Never start zoomed out beyond 0.8
+        self.renderer.target_zoom = zoom.clamp(1.0, 10.0); // Never start zoomed out beyond 1.0
         self.renderer.is_animating = true;
     }
 

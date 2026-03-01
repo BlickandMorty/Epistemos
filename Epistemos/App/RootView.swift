@@ -635,7 +635,15 @@ struct SetupView: View {
                 buttonOpacity = 1
             }
 
-            _ = blinkTask // keep cursor blinking
+            // Keep blink alive until view disappears. withTaskCancellationHandler
+            // ensures blinkTask is cancelled even if the parent .task is cancelled.
+            await withTaskCancellationHandler {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(60))
+                }
+            } onCancel: {
+                blinkTask.cancel()
+            }
         }
     }
 }

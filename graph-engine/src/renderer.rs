@@ -64,7 +64,7 @@ fn z_for_link_count(link_count: u32) -> f32 {
 const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.65, 0.85, 1.00, 0.6];
 /// Dimmed node alpha when highlight is active (used in shader via flag buffer).
 #[allow(dead_code)]
-const DIM_ALPHA: f32 = 0.15;
+const DIM_ALPHA: f32 = 0.25;
 /// Dimmed edge alpha when highlight is active.
 const EDGE_DIM_ALPHA: f32 = 0.05;
 
@@ -157,10 +157,9 @@ vertex NodeVertexOut node_vertex(
     float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
     float ndc_z = 0.5 - depth * 0.1;
 
-    // Highlight dimming: flag 0 = normal, non-zero = dimmed.
-    // Dim factor is encoded as flag/255 when non-zero, 1.0 when zero.
+    // Highlight flags: 0 = normal, 1 = highlighted (boosted), 2+ = dimmed (flag/255).
     uchar flag = highlight_flags[instance_id];
-    float highlight_dim = flag == 0 ? 1.0 : (float(flag) / 255.0);
+    float highlight_dim = flag == 0 ? 1.0 : (flag == 1 ? 1.35 : (float(flag) / 255.0));
 
     NodeVertexOut out;
     out.position = float4(ndc, ndc_z, 1.0);
@@ -754,6 +753,7 @@ impl Renderer {
                 }
             }
         }
+        self.glow_count = glow_idx;
         self.node_count = visible_count;
 
         if self.node_count == 0 {
@@ -852,9 +852,9 @@ impl Renderer {
             unsafe {
                 *ptr.add(idx) = NodeInstance {
                     position: [node.x, node.y],
-                    radius: node.radius + 4.0,
+                    radius: node.radius + 6.0,
                     z: z_for_link_count(node.link_count),
-                    color: [color[0], color[1], color[2], 0.4],
+                    color: [color[0], color[1], color[2], 0.6],
                 };
             }
             idx += 1;
@@ -889,31 +889,38 @@ impl Renderer {
         if total == 0 { return; }
 
         // Encode dim factor: 0 = normal (1.0), non-zero = dim (value/255).
-        // DIM_ALPHA (0.15) → 38, glow dim (DIM_ALPHA * 0.375 ≈ 0.056) → 14.
-        const NODE_DIM: u8 = 38;   // 0.15 * 255 ≈ 38
-        const GLOW_DIM: u8 = 14;   // glow dim factor ≈ 0.055
+        // DIM_ALPHA (0.25) → 64, glow dim (DIM_ALPHA * 0.4 ≈ 0.10) → 26.
+        const NODE_DIM: u8 = 64;   // 0.25 * 255 ≈ 64
+        const GLOW_DIM: u8 = 26;   // glow dim factor ≈ 0.10
 
         // Reuse pre-allocated scratch buffer (avoids heap allocation every frame).
         self.highlight_flag_scratch.clear();
         self.highlight_flag_scratch.reserve(total);
 
         if self.highlight.active {
-            // Glow flags — must mirror upload_graph/update_positions per-node interleaved order:
-            // for each visible node: hub glow (if link_count >= 9), then confidence glow (if confidence > 0)
+            // Glow flags — must mirror update_positions exactly: cap at self.glow_count.
+            // Without this cap, visibility/link_count changes would misalign the flag buffer
+            // with the instance buffer, causing the wrong node to get highlighted.
+            // Flag encoding: 0 = normal, 1 = highlighted (boosted), GLOW_DIM/NODE_DIM = dimmed.
+            let mut glow_flags = 0usize;
             for node in graph.nodes.iter().filter(|n| n.visible) {
-                if node.link_count >= 9 {
-                    let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
-                    self.highlight_flag_scratch.push(if dimmed { GLOW_DIM } else { 0 });
+                let lit = self.highlight.highlighted_ids.contains(&node.id);
+                if node.link_count >= 9 && glow_flags < self.glow_count {
+                    self.highlight_flag_scratch.push(if lit { 1 } else { GLOW_DIM });
+                    glow_flags += 1;
                 }
-                if node.confidence > 0.0 {
-                    let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
-                    self.highlight_flag_scratch.push(if dimmed { GLOW_DIM } else { 0 });
+                if node.confidence > 0.0 && glow_flags < self.glow_count {
+                    self.highlight_flag_scratch.push(if lit { 1 } else { GLOW_DIM });
+                    glow_flags += 1;
                 }
             }
-            // Regular node flags
+            // Pad or truncate to exactly glow_count (safety net).
+            self.highlight_flag_scratch.resize(self.glow_count, 0);
+
+            // Regular node flags: 1 = highlighted (bright), NODE_DIM = dimmed
             for node in graph.nodes.iter().filter(|n| n.visible) {
-                let dimmed = !self.highlight.highlighted_ids.contains(&node.id);
-                self.highlight_flag_scratch.push(if dimmed { NODE_DIM } else { 0 });
+                let lit = self.highlight.highlighted_ids.contains(&node.id);
+                self.highlight_flag_scratch.push(if lit { 1 } else { NODE_DIM });
             }
         } else {
             // No highlight — all normal

@@ -234,9 +234,9 @@ final class GraphState {
     // extended via graph_engine_set_extended_force_params().
 
     // ── Core ──
-    // Defaults: Dense clustered layout — strong repulsion, tight charge range, visible links.
+    // Defaults: Spaced-out repelling layout — nodes push apart from center, wide links.
     /// Natural resting length of edge springs.
-    var linkDistance: Float = 243.0
+    var linkDistance: Float = 329.0
     /// Many-body charge strength (negative = repulsion). Strong for tight clustering.
     var chargeStrength: Float = -2792.0
     /// Maximum range for many-body repulsion. Short range keeps clusters compact.
@@ -247,10 +247,10 @@ final class GraphState {
     // ── Extended ──
     /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous). Low = calm, fluid drift.
     var velocityDecay: Float = 0.05
-    /// Center gravity pull strength (0 = none, 0.2 = strong).
-    var centerStrength: Float = 0.0
-    /// Collision buffer zone in pixels. ~50 gives nodes breathing room without over-spreading.
-    var collisionRadius: Float = 50.0
+    /// Center gravity pull strength (0 = none, 1.0 = strong).
+    var centerStrength: Float = 1.0
+    /// Collision buffer zone in pixels. ~66 gives nodes breathing room.
+    var collisionRadius: Float = 66.0
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
     var forceConfigVersion: Int = 0
@@ -289,7 +289,7 @@ final class GraphState {
 
     /// Restore force parameters from UserDefaults. No-op if never saved.
     /// Uses a version key to force reset when defaults change across app updates.
-    private static let physicsVersion = 3  // Bump to force reset on next launch
+    private static let physicsVersion = 4  // Bump to force reset on next launch
     private func restorePhysicsSettings() {
         let d = UserDefaults.standard
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }
@@ -314,7 +314,7 @@ final class GraphState {
 
     // ── Cluster ──
     var clusterStrength: Float = 0.83
-    var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
+    var centerMode: UInt8 = 2  // 0=attract, 1=off, 2=repel
     var semanticStrength: Float = 1.0
 
     // ── Time-Travel ──
