@@ -370,13 +370,18 @@ actor VaultIndexActor {
             } else {
                 parentURL = vaultURL
             }
-            // Dedup: append -1, -2, etc. if filename already taken
+            // Dedup: append -1, -2, etc. if filename already taken.
+            // Falls back to UUID suffix after 100 attempts to guarantee uniqueness.
             var candidate = parentURL.appendingPathComponent("\(baseName).md")
             var suffix = 1
             while FileManager.default.fileExists(atPath: candidate.path) {
+                if suffix > 100 {
+                    let uuid8 = UUID().uuidString.prefix(8)
+                    candidate = parentURL.appendingPathComponent("\(baseName)-\(uuid8).md")
+                    break
+                }
                 candidate = parentURL.appendingPathComponent("\(baseName)-\(suffix).md")
                 suffix += 1
-                if suffix > 100 { break }
             }
             fileURL = candidate
             page.filePath = fileURL.path
