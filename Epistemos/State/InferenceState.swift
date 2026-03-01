@@ -74,14 +74,19 @@ final class InferenceState {
         if let model = defaults.string(forKey: "epistemos.ollamaModel") { self.ollamaModel = model }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
-        // Migrate any API keys from legacy keychain → Data Protection keychain
-        let apiKeyNames = [
-            "epistemos.apiKey.anthropic",
-            "epistemos.apiKey.openai",
-            "epistemos.apiKey.google",
-            "epistemos.apiKey.kimi",
-        ]
-        Keychain.migrateFromLegacyKeychain(keys: apiKeyNames)
+        // Legacy keychain migration disabled — the migration itself reads from the
+        // legacy (non-DP) keychain which triggers macOS password dialogs on dev builds.
+        // Keys already in the DP keychain persist. If keys are missing after this change,
+        // re-enter them once in Settings → they'll be saved directly to the DP keychain.
+        // To re-enable: uncomment the migrateFromLegacyKeychain call below.
+        //
+        // let apiKeyNames = [
+        //     "epistemos.apiKey.anthropic",
+        //     "epistemos.apiKey.openai",
+        //     "epistemos.apiKey.google",
+        //     "epistemos.apiKey.kimi",
+        // ]
+        // Keychain.migrateFromLegacyKeychain(keys: apiKeyNames)
 
         // Restore per-provider API keys from Keychain
         self.anthropicKey = Keychain.load(for: "epistemos.apiKey.anthropic") ?? ""
