@@ -108,22 +108,10 @@ final class NoteWindowManager {
             return
         }
 
-        // Create hosting view with full environment injection
+        // Create hosting view with full environment injection.
+        // Uses withAppEnvironment() to stay in sync with AppEnvironment.swift.
         let editorView = NoteTabView(pageId: page.id)
-            .environment(bootstrap.uiState)
-            .environment(bootstrap.chatState)
-            .environment(bootstrap.pipelineState)
-            .environment(bootstrap.notesUI)
-            .environment(bootstrap.researchState)
-            .environment(bootstrap.soarState)
-            .environment(bootstrap.eventBus)
-            .environment(bootstrap.inferenceState)
-            .environment(bootstrap.llmService)
-            .environment(bootstrap.triageService)
-            .environment(bootstrap.researchService)
-            .environment(bootstrap.vaultSync)
-            .environment(bootstrap.threadState)
-            .environment(bootstrap.dailyBriefState)
+            .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
             .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
 
@@ -314,6 +302,7 @@ private struct NoteTabView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(ResearchState.self) private var researchState
     @Environment(EventBus.self) private var eventBus
+    @Environment(TriageService.self) private var triageService
     @Environment(\.modelContext) private var modelContext
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
@@ -337,11 +326,13 @@ private struct NoteTabView: View {
     @State private var transitionGreeting: String = ""
     /// True while a transition is in flight (prevents rapid re-trigger).
     @State private var isTransitioning = false
-    @State private var showTemplateSuggestions = false
+    /// Per-note AI chat state (one per open note tab).
+    @State private var noteChatState: NoteChatState
 
     init(pageId: String) {
         self.pageId = pageId
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
+        _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
     }
 
     /// The breadcrumb trail for this page — only shown when 2+ items (i.e. arrived via wikilink).
@@ -384,20 +375,14 @@ private struct NoteTabView: View {
                     .opacity(transitionOpacity)
                     .ignoresSafeArea()
                     .allowsHitTesting(transitionOpacity > 0)
-
-                    // Template suggestion overlay — shown on empty notes.
-                    TemplateSuggestionOverlay(
-                        isVisible: showTemplateSuggestions,
-                        onSelect: { template in
-                            if let page = pages.first {
-                                // saveBody updates SDPage.body — ProseEditorView's
-                                // .onChange(of: page.body) propagates it to the editor.
-                                page.saveBody(template.body)
-                            }
-                            withAnimation { showTemplateSuggestions = false }
-                        },
-                        onDismiss: { showTemplateSuggestions = false }
-                    )
+                }
+                .environment(noteChatState)
+                .overlay(alignment: .bottom) {
+                    NoteChatBar()
+                        .environment(noteChatState)
+                }
+                .onDisappear {
+                    noteChatState.clear()
                 }
 
                 // Table of Contents sidebar
@@ -579,43 +564,30 @@ private struct NoteTabView: View {
                 DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.loadBody())
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)) { notif in
+            guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
             snapshotEditorSelection()
             contextMenuIdeaTab = .ideas
             showIdeasPopover = true
         }
-        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createBrainDumpNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createBrainDumpNotification)) { notif in
+            guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
             snapshotEditorSelection()
             contextMenuIdeaTab = .brainDumps
             showIdeasPopover = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.aiOperationNotification)) { notif in
+            guard let info = notif.userInfo as? [String: String],
+                  let op = info["operation"],
+                  info["pageId"] == pageId else { return }
+            let selected = info["selectedText"]
+            handleAIContextMenuOperation(op, selectedText: selected)
         }
         .onChange(of: showIdeasPopover) { _, isShown in
             if !isShown {
                 contextMenuIdeaTab = nil
                 capturedSelection = nil
                 capturedSelectionText = nil
-            }
-        }
-        .onAppear {
-            // Show template suggestions only for genuinely empty notes.
-            if let page = pages.first {
-                let body = page.loadBody().trimmingCharacters(in: .whitespacesAndNewlines)
-                showTemplateSuggestions = body.isEmpty
-            }
-        }
-        .onChange(of: pages.first?.id) { _, _ in
-            // Re-check when the resolved page changes (e.g. @Query settling).
-            if let page = pages.first {
-                let body = page.loadBody().trimmingCharacters(in: .whitespacesAndNewlines)
-                showTemplateSuggestions = body.isEmpty
-            }
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(for: .init("ProseEditorUserDidType"))
-                .filter { ($0.userInfo?["pageId"] as? String) == pageId }
-        ) { _ in
-            if showTemplateSuggestions {
-                withAnimation { showTemplateSuggestions = false }
             }
         }
     }
@@ -643,6 +615,66 @@ private struct NoteTabView: View {
     private func captureSelectionAndOpenIdeas() {
         snapshotEditorSelection()
         showIdeasPopover.toggle()
+    }
+
+    // MARK: - AI Context Menu Operations
+
+    private func handleAIContextMenuOperation(_ op: String, selectedText: String?) {
+        let mapping: (operation: NotesOperation, systemPrompt: String, userPrompt: String) = {
+            switch op {
+            case "rewrite":
+                return (.rewrite,
+                    "You are a writing assistant. Rewrite the selected text to improve clarity and flow. Output ONLY the rewritten text.",
+                    "Rewrite this:\n\n\(selectedText ?? "")")
+            case "summarize":
+                return (.summarize,
+                    "You are a summarization assistant. Summarize the selected text concisely. Output ONLY the summary.",
+                    "Summarize this:\n\n\(selectedText ?? "")")
+            case "expand":
+                return (.expand,
+                    "You are a writing assistant. Expand the selected text with more detail and depth. Maintain the same tone.",
+                    "Expand on this:\n\n\(selectedText ?? "")")
+            case "simplify":
+                return (.rewrite,
+                    "You are a writing assistant. Simplify the text to be easier to understand. Use shorter sentences. Output ONLY the simplified text.",
+                    "Simplify this:\n\n\(selectedText ?? "")")
+            case "toList":
+                return (.outline,
+                    "You are a formatting assistant. Convert the text into a clean markdown bullet list. Output ONLY the list.",
+                    "Convert to a bullet list:\n\n\(selectedText ?? "")")
+            case "toTable":
+                return (.outline,
+                    "You are a formatting assistant. Convert the text into a markdown table. Output ONLY the table.",
+                    "Convert to a markdown table:\n\n\(selectedText ?? "")")
+            case "continue":
+                return (.continueWriting,
+                    "You are a writing assistant. Continue writing from where the note left off. Match the tone and style. Output ONLY the continuation.",
+                    "Continue writing from where this note ends.")
+            case "outline":
+                return (.outline,
+                    "You are a structural analysis assistant. Generate a structured outline using markdown headers and bullet points. Output ONLY the outline.",
+                    "Generate a structured outline for this note.")
+            case "structure":
+                return (.analyze,
+                    "You are a note organization assistant. Suggest a better structure for this note. Output a reorganized version.",
+                    "Suggest a better structure for this note.")
+            case "restructure":
+                return (.analyze,
+                    "You are a note restructuring assistant. Completely reorganize the entire note for better clarity, flow, and logical progression. Preserve ALL content. Use proper markdown formatting. Output the COMPLETE restructured note.",
+                    "Restructure this entire note for better organization and flow.")
+            default:
+                return (.ask(query: selectedText ?? "Help me with this note."),
+                    "You are a helpful note assistant. Answer concisely based on the note content.",
+                    selectedText ?? "Help me with this note.")
+            }
+        }()
+
+        noteChatState.submitQuery(
+            mapping.userPrompt,
+            operation: mapping.operation,
+            systemPrompt: mapping.systemPrompt,
+            triageService: triageService
+        )
     }
 
     // MARK: - Table of Contents Navigation
@@ -677,15 +709,20 @@ private struct NoteTabView: View {
 
     private func flushCurrentEditor() {
         guard let page = pages.first else { return }
-        guard let responder = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        // Get full document text — handles both single-view (ProseEditor) and
-        // multi-container (Writer/PageTileView) via the shared text storage.
-        let fullText = responder.layoutManager?.textStorage?.string ?? responder.string
+        // Read from PageStoragePool first — reliable regardless of first responder.
+        // Falls back to NSTextView first responder for Writer Mode (separate storage).
+        let fullText: String
+        if let poolText = PageStoragePool.shared.bodyText(for: pageId) {
+            fullText = poolText
+        } else if let responder = NSApp.keyWindow?.firstResponder as? NSTextView {
+            fullText = responder.layoutManager?.textStorage?.string ?? responder.string
+        } else {
+            return
+        }
         if fullText != page.loadBody() {
             page.saveBody(fullText)
             page.needsVaultSync = true
             page.updatedAt = .now
-            // Mark graph for structural refresh when next viewed
             AppBootstrap.shared?.graphState.needsRefresh = true
         }
     }

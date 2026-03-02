@@ -32,6 +32,7 @@ final class HologramOverlay {
     private var graphState: GraphState
     private var queryEngine: QueryEngine
     private var modelContainer: ModelContainer?
+    private var physicsCoordinator: PhysicsCoordinator?
     private let inspectorState = NodeInspectorState()
 
     // Blur transition layers (stored for page mode animation).
@@ -55,10 +56,11 @@ final class HologramOverlay {
     private var restoreObserver: Any?
     private var closeObserver: Any?
 
-    init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?) {
+    init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil) {
         self.graphState = graphState
         self.queryEngine = queryEngine
         self.modelContainer = modelContainer
+        self.physicsCoordinator = physicsCoordinator
         observeMinimizeNotifications()
     }
 
@@ -552,6 +554,7 @@ final class HologramOverlay {
         // Metal graph view (fills entire window).
         let graphView = MetalGraphNSView(frame: screen.frame)
         graphView.graphState = graphState
+        graphView.physicsCoordinator = physicsCoordinator
         graphView.isOverlayMode = true
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)

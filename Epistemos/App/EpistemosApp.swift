@@ -19,7 +19,8 @@ struct EpistemosApp: App {
                 .withAppEnvironment(bootstrap)
                 .onAppear {
                     StatusBar.shared.setup()
-                    HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer)
+                    HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator)
+                    CommandPaletteWindowController.shared.setup(bootstrap: bootstrap)
                 }
                 // Handle Spotlight deep-links — user tapped a note in Spotlight results
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
@@ -40,8 +41,10 @@ struct EpistemosApp: App {
                     bootstrap.vaultSync.stopWatching(preserveData: true)
                     StatusBar.shared.remove()
                     HologramController.shared.teardown()
+                    CommandPaletteWindowController.shared.teardown()
                 }
         }
+        .defaultSize(width: 1100, height: 720)
         .modelContainer(bootstrap.modelContainer)
         .commands {
             EpistemosCommands(
@@ -98,9 +101,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func dockSearch() {
         Task { @MainActor in
-            AppBootstrap.shared?.uiState.toggleCommandPalette()
-            NSApp.activate()
-            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
+            CommandPaletteWindowController.shared.show()
         }
     }
 
@@ -167,7 +168,7 @@ struct EpistemosCommands: Commands {
 
         CommandGroup(replacing: .saveItem) {
             Button("Search") {
-                ui.toggleCommandPalette()
+                CommandPaletteWindowController.shared.show()
             }
             .keyboardShortcut("s", modifiers: .command)
         }

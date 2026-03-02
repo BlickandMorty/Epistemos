@@ -21,6 +21,7 @@ struct ConfidenceOverlay: View {
                         Circle()
                             .fill(gradeColor(grade))
                             .frame(width: 6, height: 6)
+                            .breathe(amplitude: 0.025, period: 3.0)
                         Text("Grade \(grade)")
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(.secondary)

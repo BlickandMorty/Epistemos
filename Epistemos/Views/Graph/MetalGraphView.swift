@@ -9,10 +9,12 @@ import Synchronization
 
 struct MetalGraphView: NSViewRepresentable {
     @Environment(GraphState.self) private var graphState
+    @Environment(PhysicsCoordinator.self) private var physicsCoordinator
 
     func makeNSView(context: Context) -> MetalGraphNSView {
         let view = MetalGraphNSView()
         view.graphState = graphState
+        view.physicsCoordinator = physicsCoordinator
         return view
     }
 
@@ -64,6 +66,10 @@ final class MetalGraphNSView: NSView {
             }
         }
     }
+    /// Cross-view physics signal bus. Fed from mouseMoved hover detection.
+    /// nonisolated(unsafe): written from AppKit event handlers (main thread)
+    /// but compiler can't prove @MainActor isolation on NSView subclass.
+    nonisolated(unsafe) var physicsCoordinator: PhysicsCoordinator?
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastLiteModeVersion = -1
@@ -1007,12 +1013,14 @@ final class MetalGraphNSView: NSView {
             return
         }
 
-        // Update cursor based on hover state (only when not dragging).
+        // Update cursor and physics coordinator based on hover state.
         if !isDraggingNode && !isPanning {
-            if graph_engine_hovered_node_uuid(engine) != nil {
+            if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
                 NSCursor.pointingHand.set()
+                physicsCoordinator?.graphHoveredNodeId = String(cString: uuidPtr)
             } else {
                 NSCursor.arrow.set()
+                physicsCoordinator?.graphHoveredNodeId = nil
             }
         }
         needsRender = true
@@ -1104,10 +1112,14 @@ final class MetalGraphNSView: NSView {
         for area in trackingAreas { removeTrackingArea(area) }
         addTrackingArea(NSTrackingArea(
             rect: bounds,
-            options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
             owner: self,
             userInfo: nil
         ))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        physicsCoordinator?.graphHoveredNodeId = nil
     }
 
     // MARK: - Layout

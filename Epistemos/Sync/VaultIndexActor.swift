@@ -79,6 +79,7 @@ actor VaultIndexActor {
         var updateCount = 0
         var skipCount = 0
         var changeCount = 0
+        var unreadableCount = 0
         let batchSize = 200
 
         for case let fileURL as URL in enumerator {
@@ -109,6 +110,13 @@ actor VaultIndexActor {
             } else {
                 // Can't read mod date — treat as changed to be safe
                 fileModDate = .distantFuture
+            }
+
+            // Pre-check readability to count unreadable files separately.
+            guard fm.isReadableFile(atPath: filePath) else {
+                log.warning("Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public)")
+                unreadableCount += 1
+                continue
             }
 
             if let existingPage = existingByPath[filePath] {
@@ -179,9 +187,16 @@ actor VaultIndexActor {
             try repairOrphanedFolderRelationships(vaultURL: url)
         }
 
+        // Diagnostic: compare disk file count vs DB page count.
+        let dbPageCount = (try? modelContext.fetchCount(FetchDescriptor<SDPage>())) ?? 0
         log.info(
-            "Vault import complete: \(diskPaths.count) note files on disk → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted"
+            "Vault import complete: \(diskPaths.count) files on disk, \(dbPageCount) pages in DB → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted, \(unreadableCount) unreadable"
         )
+        if diskPaths.count != dbPageCount {
+            log.warning(
+                "Vault import mismatch: \(diskPaths.count) disk files vs \(dbPageCount) DB pages (delta: \(dbPageCount - diskPaths.count))"
+            )
+        }
     }
 
     /// Post-import pass: create SDFolder objects from unique `subfolder` directory paths
@@ -432,9 +447,9 @@ actor VaultIndexActor {
         let fm = FileManager.default
         guard fm.isReadableFile(atPath: fileURL.path) else {
             log.warning(
-                "Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public) at \(fileURL.path, privacy: .private)"
+                "Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public)"
             )
-            return false
+            return false  // Caller should increment unreadableCount
         }
 
         let filePath = fileURL.path
@@ -443,10 +458,19 @@ actor VaultIndexActor {
         do {
             content = try String(contentsOf: fileURL, encoding: .utf8)
         } catch {
-            log.error(
-                "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
-            )
-            return false  // Skip this file instead of crashing the entire import
+            // UTF-8 failed — try Latin-1 (Windows-1252 superset) before giving up.
+            // Common from older editors, Obsidian on Windows, PDF-to-markdown tools.
+            if let latin1 = try? String(contentsOf: fileURL, encoding: .isoLatin1) {
+                log.info(
+                    "Read \(fileURL.lastPathComponent, privacy: .public) with Latin-1 fallback (UTF-8 failed)"
+                )
+                content = latin1
+            } else {
+                log.error(
+                    "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
+                )
+                return false  // Skip this file instead of crashing the entire import
+            }
         }
 
         let (frontMatter, body) = parseFrontMatter(content)

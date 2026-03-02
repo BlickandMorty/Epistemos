@@ -309,6 +309,7 @@ private struct SidebarChatRow: View {
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(NativeCardButtonStyle(cornerRadius: 10))
+        .physicsHover(.subtle)
         .contextMenu {
             Button(role: .destructive) {
                 onDelete()

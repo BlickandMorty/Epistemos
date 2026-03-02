@@ -26,6 +26,7 @@ struct ProseEditorView: View {
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(NoteChatState.self) private var noteChatState
 
     @State private var bodyText: String = ""
     /// Snapshot of the last body persisted to disk. Avoids disk reads on every keystroke.
@@ -44,6 +45,7 @@ struct ProseEditorView: View {
             modelContext: modelContext,
             onWikilinkClick: handleWikilinkClick,
             onBlockRefClick: handleBlockRefClick,
+            noteChatState: noteChatState,
             onPageFlush: { oldPageId, currentText in
                 // Flush unsaved edits to the OLD page — body only, no metadata.
                 // Called by Coordinator during page swap so all flush logic
@@ -116,14 +118,12 @@ struct ProseEditorView: View {
 
     private func debouncedSave(_ newValue: String) {
         saveTask?.cancel()
-        // Set dirty flag immediately so isDirtyVault reflects the edit
-        // even before the 5s debounce flushes body to SwiftData.
-        page.needsVaultSync = true
         let pageId = page.id
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
             guard newValue != lastPersistedBody else { return }
+            page.needsVaultSync = true
             // File write off main thread (nonisolated NoteFileStorage is thread-safe).
             await Task.detached(priority: .utility) {
                 NoteFileStorage.writeBody(pageId: pageId, content: newValue)

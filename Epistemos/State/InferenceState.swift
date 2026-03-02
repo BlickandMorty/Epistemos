@@ -30,8 +30,11 @@ final class InferenceState {
     var kimiKey: String = ""
 
     // Computed: returns the key for the currently active provider
-    var apiKey: String {
-        switch apiProvider {
+    var apiKey: String { key(for: apiProvider) }
+
+    /// Returns the API key for a specific provider (used by Note Chat provider override).
+    func key(for provider: LLMProviderType) -> String {
+        switch provider {
         case .anthropic: anthropicKey
         case .openai: openaiKey
         case .google: googleKey

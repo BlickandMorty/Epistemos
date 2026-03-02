@@ -397,10 +397,7 @@ struct ResourceMemoryPressureTests {
         let store = GraphStore()
         
         for cycle in 0..<100 {
-            store.nodes.removeAll()
-            store.edges.removeAll()
-            store.adjacency.removeAll()
-            store.edgesByNode.removeAll()
+            store.clear()
             
             for i in 0..<100 {
                 store.addNode(GraphNodeRecord(

@@ -14,10 +14,7 @@ struct ConcurrencyRapidRebuildTests {
         let store = GraphStore()
         
         for iteration in 0..<10 {
-            store.nodes.removeAll()
-            store.edges.removeAll()
-            store.adjacency.removeAll()
-            store.edgesByNode.removeAll()
+            store.clear()
             
             for i in 0..<100 {
                 store.addNode(makeNode(id: "iter-\(iteration)-node-\(i)"))
@@ -74,10 +71,7 @@ struct ConcurrencyRapidRebuildTests {
         let store = GraphStore()
         
         for size in [10, 50, 100, 200, 500] {
-            store.nodes.removeAll()
-            store.edges.removeAll()
-            store.adjacency.removeAll()
-            store.edgesByNode.removeAll()
+            store.clear()
             
             for i in 0..<size {
                 store.addNode(makeNode(id: "node-\(i)"))
@@ -92,10 +86,7 @@ struct ConcurrencyRapidRebuildTests {
         let store = GraphStore()
         
         for size in [500, 200, 100, 50, 10] {
-            store.nodes.removeAll()
-            store.edges.removeAll()
-            store.adjacency.removeAll()
-            store.edgesByNode.removeAll()
+            store.clear()
             
             for i in 0..<size {
                 store.addNode(makeNode(id: "node-\(i)"))

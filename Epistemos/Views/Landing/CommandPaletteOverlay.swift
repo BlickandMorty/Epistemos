@@ -15,9 +15,11 @@ struct CommandPaletteOverlay: View {
     @Environment(InferenceState.self) private var inference
     @Environment(GraphState.self) private var graphState
     @Environment(QueryEngine.self) private var queryEngine
+    @Environment(DailyBriefState.self) private var dailyBrief
 
     // Vault search — in-memory title filter from SwiftData @Query
     @Query(SDPage.activePagesDescriptor) private var allPages: [SDPage]
+    @Query(sort: \SDChat.updatedAt, order: .reverse) private var allChats: [SDChat]
 
     // Search state
     @State private var searchText = ""
@@ -25,6 +27,7 @@ struct CommandPaletteOverlay: View {
     @State private var hasManuallyNavigated = false
     @State private var searchHighlightTask: Task<Void, Never>?
     @State private var cachedSearchResults: [LandingCommandItem] = []
+    @State private var ftsDebounceTask: Task<Void, Never>?
     @FocusState private var isSearchFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
@@ -220,7 +223,7 @@ struct CommandPaletteOverlay: View {
 
         let commands = makeCommands()
         if searchText.isEmpty {
-            return base + commands
+            return base + commands + recentNoteItems
         }
         let q = searchText.lowercased()
         let filtered = commands.filter {
@@ -229,15 +232,16 @@ struct CommandPaletteOverlay: View {
         return base + filtered
     }
 
-    /// Computes search results from Rust FFI + SwiftData. Called after debounce.
-    private func computeSearchResults(for query: String) -> [LandingCommandItem] {
-        guard !query.isEmpty else { return [] }
+    /// Computes graph search results instantly (Rust FFI, sub-1ms).
+    private func computeGraphResults(for query: String) -> (items: [LandingCommandItem], seenPageIds: Set<String>) {
+        guard !query.isEmpty else { return ([], []) }
         var items: [LandingCommandItem] = []
         var seenPageIds = Set<String>()
 
-        // Graph-powered search: Rust FST + 5-tier fuzzy scoring
+        // Graph-powered search: Rust FST + 5-tier fuzzy scoring (titles + labels)
+        let index = pageIndex
         if graphState.isLoaded {
-            let hits = graphState.rustSearch(query: query, limit: 8)
+            let hits = graphState.rustSearch(query: query, limit: 20)
             for hit in hits {
                 let node = hit.node
                 let icon = node.type == .note ? "doc.text" : node.type.icon
@@ -245,9 +249,24 @@ struct CommandPaletteOverlay: View {
                 let nodeId = node.id
                 let sourceId = node.sourceId
                 if node.type == .note, let sid = sourceId { seenPageIds.insert(sid) }
+
+                // Enrich note results with metadata
+                var label = node.label
+                var subtitle: String?
+                if node.type == .note, let sid = sourceId, let page = index[sid] {
+                    if !page.emoji.isEmpty { label = "\(page.emoji) \(node.label)" }
+                    let parts = [
+                        "\(page.wordCount)w",
+                        page.tags.prefix(2).joined(separator: ", "),
+                        relativeDate(page.updatedAt),
+                    ].filter { !$0.isEmpty }
+                    subtitle = parts.joined(separator: " \u{00B7} ")
+                }
+
                 items.append(
                     LandingCommandItem(
-                        id: "graph-\(nodeId)", label: node.label, icon: icon, category: category
+                        id: "graph-\(nodeId)", label: label, icon: icon,
+                        category: category, subtitle: subtitle
                     ) { [self] in
                         dismiss()
                         if node.type == .note, let pageId = sourceId {
@@ -261,17 +280,40 @@ struct CommandPaletteOverlay: View {
             }
         }
 
-        // SwiftData title search — catches notes the graph search may miss
-        let q = query.lowercased()
-        let matchingNotes = allPages
-            .filter { $0.title.lowercased().contains(q) && !seenPageIds.contains($0.id) }
-            .prefix(5)
-        for page in matchingNotes {
-            let pageId = page.id
-            let label = page.emoji.isEmpty ? page.title : "\(page.emoji) \(page.title)"
+        return (items, seenPageIds)
+    }
+
+    /// Computes FTS5 body search results (SQLite, debounced to 150ms).
+    private func computeBodyResults(for query: String, excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
+        guard !query.isEmpty else { return [] }
+        var items: [LandingCommandItem] = []
+        let index = pageIndex
+
+        let bodyHits = vaultSync.searchFull(query: query, limit: 20)
+        for hit in bodyHits where !seenPageIds.contains(hit.pageId) {
+            let pageId = hit.pageId
+            let snippet = hit.snippet
+                .replacingOccurrences(of: "<b>", with: "")
+                .replacingOccurrences(of: "</b>", with: "")
+
+            let page = index[pageId]
+            let emoji = page?.emoji ?? ""
+            let rawTitle = hit.title.isEmpty ? "Untitled" : hit.title
+            let label = emoji.isEmpty ? rawTitle : "\(emoji) \(rawTitle)"
+
+            // Enrich with word count + relative date
+            var subtitleParts: [String] = []
+            if let page {
+                subtitleParts.append("\(page.wordCount)w")
+                subtitleParts.append(relativeDate(page.updatedAt))
+            }
+            if !snippet.isEmpty { subtitleParts.append(snippet) }
+            let subtitle = subtitleParts.isEmpty ? nil : subtitleParts.joined(separator: " \u{00B7} ")
+
             items.append(
                 LandingCommandItem(
-                    id: "note-\(pageId)", label: label, icon: "doc.text", category: "Notes"
+                    id: "fts-\(pageId)", label: label, icon: "doc.text.magnifyingglass",
+                    category: "Body Match", subtitle: subtitle
                 ) { [self] in
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
@@ -285,20 +327,25 @@ struct CommandPaletteOverlay: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(Array(inlineFilteredCommands.enumerated()), id: \.element.id) {
-                        index, cmd in
-                        LandingCommandRow(command: cmd, isSelected: index == inlineSelectedIndex) {
-                            cmd.action()
-                        }
-                        .id(index)
-                        .onTapGesture {
-                            inlineSelectedIndex = index
-                            cmd.action()
+                    if searchText.isEmpty {
+                        // Grouped display with section headers
+                        groupedCommandsView
+                    } else {
+                        ForEach(Array(inlineFilteredCommands.enumerated()), id: \.element.id) {
+                            index, cmd in
+                            LandingCommandRow(command: cmd, isSelected: index == inlineSelectedIndex) {
+                                cmd.action()
+                            }
+                            .id(index)
+                            .onTapGesture {
+                                inlineSelectedIndex = index
+                                cmd.action()
+                            }
                         }
                     }
                 }
             }
-            .frame(maxHeight: 260)
+            .frame(maxHeight: 400)
             .onChange(of: inlineSelectedIndex) { _, newValue in
                 withAnimation(Motion.micro) {
                     proxy.scrollTo(newValue, anchor: .center)
@@ -326,10 +373,29 @@ struct CommandPaletteOverlay: View {
                 return
             }
 
-            // Compute search results synchronously — Rust FFI is sub-1ms,
-            // SwiftData title filter is in-memory. No debounce needed.
-            cachedSearchResults = computeSearchResults(for: newText)
-            inlineSelectedIndex = 0
+            // Graph results: instant (Rust FFI, sub-1ms)
+            let (graphItems, seenIds) = computeGraphResults(for: newText)
+            cachedSearchResults = graphItems
+
+            // FTS5 body search: debounced 150ms (SQLite disk I/O)
+            ftsDebounceTask?.cancel()
+            ftsDebounceTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled else { return }
+                let bodyItems = computeBodyResults(for: newText, excluding: seenIds)
+                cachedSearchResults = graphItems + bodyItems
+            }
+
+            // Default-select the first note/graph result instead of the "Ask" item.
+            // The "Ask" item is always at index 0 (or 1 if graph query prefix);
+            // jump past it so matching notes get the highlight.
+            if !cachedSearchResults.isEmpty {
+                // First search result follows the "Ask" item (and optional graph-query item)
+                let askOffset = (newText.hasPrefix("?") || newText.hasPrefix("/query ")) ? 2 : 1
+                inlineSelectedIndex = askOffset
+            } else {
+                inlineSelectedIndex = 0
+            }
 
             // Debounce graph highlight FFI call (150ms) — this is visual only
             searchHighlightTask?.cancel()
@@ -337,6 +403,39 @@ struct CommandPaletteOverlay: View {
                 try? await Task.sleep(for: .milliseconds(150))
                 guard !Task.isCancelled else { return }
                 graphState.searchHighlight(newText)
+            }
+        }
+    }
+
+    /// Grouped command display with small section headers (shown when idle).
+    private var groupedCommandsView: some View {
+        let commands = inlineFilteredCommands
+        let grouped = Dictionary(grouping: commands) { $0.category }
+
+        return ForEach(Self.categoryOrder, id: \.self) { category in
+            if let items = grouped[category], !items.isEmpty {
+                // Section header
+                Text(category)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary.opacity(0.6))
+                    .textCase(.uppercase)
+                    .tracking(0.8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, items == grouped[Self.categoryOrder.first!] ? 8 : 16)
+                    .padding(.bottom, 4)
+
+                ForEach(items) { cmd in
+                    let idx = commands.firstIndex(where: { $0.id == cmd.id }) ?? 0
+                    LandingCommandRow(command: cmd, isSelected: idx == inlineSelectedIndex) {
+                        cmd.action()
+                    }
+                    .id(idx)
+                    .onTapGesture {
+                        inlineSelectedIndex = idx
+                        cmd.action()
+                    }
+                }
             }
         }
     }
@@ -358,7 +457,7 @@ struct CommandPaletteOverlay: View {
         searchHighlightTask?.cancel()
         cachedSearchResults = []
         graphState.searchHighlight("")
-        ui.dismissCommandPalette()
+        CommandPaletteWindowController.shared.hide()
     }
 
     private func submitChat(_ query: String) {
@@ -422,21 +521,78 @@ struct CommandPaletteOverlay: View {
         }
     }
 
+    // MARK: - Page Index (for enriched search results)
+
+    private var pageIndex: [String: SDPage] {
+        Dictionary(allPages.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private func relativeDate(_ date: Date) -> String {
+        let days = Calendar.current.dateComponents([.day], from: date, to: .now).day ?? 0
+        if days == 0 { return "today" }
+        if days == 1 { return "1d ago" }
+        if days < 7 { return "\(days)d ago" }
+        if days < 30 { return "\(days / 7)w ago" }
+        return "\(days / 30)mo ago"
+    }
+
+    // MARK: - Recent Notes (idle display)
+
+    /// 5 most recently edited notes, shown as quick-open items when palette is idle.
+    private var recentNoteItems: [LandingCommandItem] {
+        allPages
+            .filter { $0.templateId == nil && !$0.isArchived }
+            .prefix(5)
+            .map { page in
+                let emoji = page.emoji.isEmpty ? "" : "\(page.emoji) "
+                let title = page.title.isEmpty ? "Untitled" : page.title
+                let parts = [
+                    "\(page.wordCount)w",
+                    page.tags.prefix(2).joined(separator: ", "),
+                    relativeDate(page.updatedAt),
+                ].filter { !$0.isEmpty }
+                let subtitle = parts.joined(separator: " \u{00B7} ")
+                let pageId = page.id
+
+                return LandingCommandItem(
+                    id: "recent-\(pageId)", label: "\(emoji)\(title)", icon: "doc.text",
+                    category: "Recent Notes", subtitle: subtitle
+                ) {
+                    CommandPaletteWindowController.shared.hide()
+                    NoteWindowManager.shared.open(pageId: pageId)
+                }
+            }
+    }
+
     // MARK: - Commands
 
+    /// Category order for grouped idle display.
+    private static let categoryOrder = ["Think", "Create", "Navigate", "Tools", "Recent Notes"]
+
     private func makeCommands() -> [LandingCommandItem] {
-        let commands: [LandingCommandItem] = [
+        [
+            // ── Think ──
             LandingCommandItem(
-                id: "vault-briefing", label: "Vault Briefing", icon: "book.pages",
-                category: "Chat"
+                id: "daily-brief", label: "Daily Brief", icon: "newspaper.fill",
+                category: "Think"
             ) { [self] in
                 dismiss()
-                chat.startNewChat()
                 ui.setActivePanel(.home)
-                AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
+                let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
+                dailyBrief.requestDailyBrief(prompt: prompt)
             },
             LandingCommandItem(
-                id: "new-note", label: "New Note", icon: "doc.badge.plus", category: "Notes"
+                id: "breathe", label: "Breathe Now", icon: "wind",
+                category: "Think"
+            ) {
+                ui.startBreathe()
+                dismiss()
+            },
+
+            // ── Create ──
+            LandingCommandItem(
+                id: "new-note", label: "New Note", icon: "doc.badge.plus",
+                category: "Create", badge: "\u{2318}N"
             ) {
                 dismiss()
                 Task {
@@ -446,63 +602,127 @@ struct CommandPaletteOverlay: View {
                 }
             },
             LandingCommandItem(
-                id: "nav-home", label: "Go Home", icon: "house", category: "Navigate"
+                id: "quick-idea", label: "Quick Idea", icon: "lightbulb",
+                category: "Create", badge: "\u{2318}I"
+            ) { [self] in
+                captureIdea(type: .idea)
+            },
+            LandingCommandItem(
+                id: "brain-dump", label: "Brain Dump", icon: "brain",
+                category: "Create"
+            ) { [self] in
+                captureIdea(type: .brainDump)
+            },
+            LandingCommandItem(
+                id: "new-chat", label: "New Chat", icon: "plus.bubble",
+                category: "Create"
+            ) { [self] in
+                dismiss()
+                chat.startNewChat()
+                ui.setActivePanel(.home)
+            },
+
+            // ── Navigate ──
+            LandingCommandItem(
+                id: "nav-home", label: "Go Home", icon: "house",
+                category: "Navigate", badge: "\u{2318}1"
             ) {
                 ui.setActivePanel(.home)
+                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+                    main.makeKeyAndOrderFront(nil)
+                }
                 dismiss()
             },
             LandingCommandItem(
-                id: "nav-notes", label: "Go to Notes", icon: "note.text", category: "Navigate"
+                id: "nav-notes", label: "Open Notes", icon: "note.text",
+                category: "Navigate", badge: "\u{2318}2"
             ) {
                 UtilityWindowManager.shared.show(.notes)
                 dismiss()
             },
             LandingCommandItem(
-                id: "nav-library", label: "Go to Library & Research", icon: "books.vertical",
-                category: "Navigate"
+                id: "nav-library", label: "Open Library", icon: "books.vertical",
+                category: "Navigate", badge: "\u{2318}3"
             ) {
                 UtilityWindowManager.shared.show(.library)
                 dismiss()
             },
             LandingCommandItem(
-                id: "open-graph", label: "Open Knowledge Graph",
+                id: "open-graph", label: "Knowledge Graph",
                 icon: "point.3.connected.trianglepath.dotted",
-                category: "Navigate"
+                category: "Navigate", badge: "\u{2318}G"
             ) {
                 HologramController.shared.show()
                 dismiss()
             },
             LandingCommandItem(
-                id: "nav-settings", label: "Open Settings", icon: "gearshape", category: "Navigate"
+                id: "mini-chat", label: "Mini Chat",
+                icon: "bubble.left.and.bubble.right",
+                category: "Navigate", badge: "\u{21E7}\u{2318}M"
             ) {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                MiniChatWindowController.shared.toggle()
                 dismiss()
             },
             LandingCommandItem(
+                id: "nav-settings", label: "Open Settings", icon: "gearshape",
+                category: "Navigate", badge: "\u{2318},"
+            ) {
+                UtilityWindowManager.shared.show(.settings)
+                dismiss()
+            },
+
+            // ── Tools ──
+            LandingCommandItem(
+                id: "rebuild-graph", label: "Rebuild Graph",
+                icon: "arrow.triangle.2.circlepath",
+                category: "Tools"
+            ) { [self] in
+                dismiss()
+                if let context = AppBootstrap.shared?.modelContainer.mainContext {
+                    graphState.refreshStructuralData(context: context)
+                    ui.showToast("Graph rebuilt", type: .success)
+                }
+            },
+            LandingCommandItem(
+                id: "import-markdown", label: "Import Markdown",
+                icon: "arrow.down.doc",
+                category: "Tools"
+            ) { [self] in
+                dismiss()
+                guard let vaultURL = vaultSync.vaultURL else {
+                    ui.showToast("No vault attached — set a vault folder in Settings first", type: .warning)
+                    return
+                }
+                let panel = NSOpenPanel()
+                panel.allowsMultipleSelection = true
+                panel.allowedContentTypes = [.plainText]
+                panel.begin { response in
+                    guard response == .OK else { return }
+                    Task { @MainActor in
+                        var count = 0
+                        for url in panel.urls {
+                            let dest = vaultURL.appendingPathComponent(url.lastPathComponent)
+                            do {
+                                try FileManager.default.copyItem(at: url, to: dest)
+                                count += 1
+                            } catch {
+                                Log.app.error("Import failed for \(url.lastPathComponent): \(error.localizedDescription)")
+                            }
+                        }
+                        if count > 0 {
+                            _ = await vaultSync.syncFromVault()
+                            ui.showToast("Imported \(count) file(s)", type: .success)
+                        }
+                    }
+                }
+            },
+            LandingCommandItem(
                 id: "toggle-theme", label: "Toggle Theme", icon: "paintpalette",
-                category: "Appearance"
+                category: "Tools"
             ) {
                 ui.cycleTheme()
                 dismiss()
             },
-            LandingCommandItem(
-                id: "quick-idea", label: "Quick Idea", icon: "lightbulb", category: "Create"
-            ) { [self] in
-                captureIdea(type: .idea)
-            },
-            LandingCommandItem(
-                id: "brain-dump", label: "Brain Dump", icon: "brain", category: "Create"
-            ) { [self] in
-                captureIdea(type: .brainDump)
-            },
-            LandingCommandItem(
-                id: "breathe", label: "Breathe Now", icon: "wind", category: "Wellness"
-            ) {
-                ui.startBreathe()
-                dismiss()
-            },
         ]
-
-        return commands
     }
 }

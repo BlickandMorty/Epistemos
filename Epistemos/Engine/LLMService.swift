@@ -89,6 +89,43 @@ final class LLMService: LLMClientProtocol {
         }
     }
 
+    /// Stream using a specific provider, bypassing inference.apiProvider.
+    /// Used by Note Chat when the user selects a manual provider override.
+    /// Resolves the correct per-provider API key (not inference.apiKey which
+    /// returns the currently-selected provider's key).
+    func stream(
+        prompt: String, systemPrompt: String? = nil, maxTokens: Int = 0,
+        provider: LLMProviderType
+    ) -> AsyncThrowingStream<String, Error> {
+        let tokens = maxTokens > 0 ? maxTokens : (inference.chatOutputTokens > 0 ? inference.chatOutputTokens : 16000)
+        let key = inference.key(for: provider)
+        switch provider {
+        case .anthropic:
+            return anthropicStream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: tokens, apiKey: key)
+        case .openai:
+            return openAIStream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: tokens, apiKey: key)
+        case .google:
+            return geminiStream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: tokens, apiKey: key)
+        case .kimi:
+            return kimiStream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: tokens, apiKey: key)
+        case .ollama:
+            return ollamaStream(prompt: prompt, systemPrompt: systemPrompt, maxTokens: tokens)
+        case .appleIntelligence:
+            return AsyncThrowingStream { continuation in
+                let task = Task {
+                    do {
+                        let result = try await AppleIntelligenceService.shared.generate(prompt: prompt, systemPrompt: systemPrompt)
+                        continuation.yield(result)
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
+                    }
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
+        }
+    }
+
     // MARK: - Connection Test
 
     func testConnection() async -> ConnectionTestResult {
@@ -157,7 +194,7 @@ final class LLMService: LLMClientProtocol {
         return response.content.first?.text ?? ""
     }
 
-    private func anthropicStream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+    private func anthropicStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -172,7 +209,7 @@ final class LLMService: LLMClientProtocol {
                     var request = URLRequest(url: Self.anthropicURL, timeoutInterval: Self.requestTimeout)
                     request.httpMethod = "POST"
                     request.httpBody = encoded
-                    request.setValue(self.inference.apiKey, forHTTPHeaderField: "x-api-key")
+                    request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-api-key")
                     request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
                     request.setValue("application/json", forHTTPHeaderField: "content-type")
 
@@ -229,7 +266,7 @@ final class LLMService: LLMClientProtocol {
         return response.choices.first?.message.content ?? ""
     }
 
-    private func openAIStream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+    private func openAIStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -241,7 +278,7 @@ final class LLMService: LLMClientProtocol {
                     var request = URLRequest(url: Self.openaiURL, timeoutInterval: Self.requestTimeout)
                     request.httpMethod = "POST"
                     request.httpBody = encoded
-                    request.setValue("Bearer \(self.inference.apiKey)", forHTTPHeaderField: "Authorization")
+                    request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
                     request.setValue("application/json", forHTTPHeaderField: "content-type")
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
@@ -294,7 +331,7 @@ final class LLMService: LLMClientProtocol {
         return response.candidates.first?.content.parts.first?.text ?? ""
     }
 
-    private func geminiStream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+    private func geminiStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -317,7 +354,7 @@ final class LLMService: LLMClientProtocol {
                     request.httpMethod = "POST"
                     request.httpBody = encoded
                     request.setValue("application/json", forHTTPHeaderField: "content-type")
-                    request.setValue(self.inference.apiKey, forHTTPHeaderField: "x-goog-api-key")
+                    request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-goog-api-key")
 
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
@@ -374,7 +411,7 @@ final class LLMService: LLMClientProtocol {
         return response.choices.first?.message.content ?? ""
     }
 
-    private func kimiStream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+    private func kimiStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -386,7 +423,7 @@ final class LLMService: LLMClientProtocol {
                     var request = URLRequest(url: Self.kimiURL, timeoutInterval: Self.requestTimeout)
                     request.httpMethod = "POST"
                     request.httpBody = encoded
-                    request.setValue("Bearer \(self.inference.apiKey)", forHTTPHeaderField: "Authorization")
+                    request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
                     request.setValue("application/json", forHTTPHeaderField: "content-type")
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
 

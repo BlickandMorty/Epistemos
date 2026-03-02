@@ -666,8 +666,9 @@ struct DataIntegrityNumericTests {
     func nanInMetadata() {
         let node = SDGraphNode(type: .source, label: "Test")
         var meta = GraphNodeMetadata()
-        // Int(Float.nan) traps in Swift — use safe conversion instead.
-        meta.year = Float.nan.isNaN ? nil : Int(Float.nan)
+        // Int(Float.nan) traps in Swift — never call it. Test the guard directly.
+        let value = Float.nan
+        meta.year = value.isFinite ? Int(value) : nil
         node.meta = meta
 
         #expect(node.meta.year == nil)

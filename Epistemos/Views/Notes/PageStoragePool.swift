@@ -193,6 +193,11 @@ final class PageStoragePool {
 
     // MARK: - Removal
 
+    /// Read the current body text from a pooled storage (if cached).
+    func bodyText(for pageId: String) -> String? {
+        slots[pageId]?.storage.string
+    }
+
     func remove(pageId: String) { slots.removeValue(forKey: pageId) }
     func removeAll() { slots.removeAll() }
 

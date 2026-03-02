@@ -126,20 +126,8 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.8), value: ui.breatheActive)
-        // Global command palette — Spotlight-style overlay from any panel via Cmd+S
-        .overlay {
-            if ui.isCommandPaletteVisible {
-                // Dismiss backdrop
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea()
-                    .onTapGesture { ui.dismissCommandPalette() }
-
-                CommandPaletteOverlay()
-                    .frame(width: 560, height: 400)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            }
-        }
-        .animation(Motion.smooth, value: ui.isCommandPaletteVisible)
+        // Command palette is now a global floating NSPanel (CommandPaletteWindowController).
+        // Activated via Option+Space from any app, or Cmd+S in-app.
         // Glass Box overlay removed — research runs in regular chat
         .frame(minWidth: 900, minHeight: 600)
         // Pause heavy animations when the window is minimized to the Dock.

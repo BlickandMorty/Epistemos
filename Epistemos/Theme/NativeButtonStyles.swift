@@ -13,12 +13,13 @@ struct NativeToolbarButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(isHovered || configuration.isPressed ? .primary : .secondary)
-            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(isHovered ? Color.primary.opacity(0.06) : .clear)
             )
-            .animation(Motion.micro, value: configuration.isPressed)
+            .shadow(color: .black.opacity(isHovered ? 0.06 : 0), radius: isHovered ? 4 : 0, y: 2)
+            .animation(Motion.sharp, value: configuration.isPressed)
             .animation(Motion.micro, value: isHovered)
             .onHover { isHovered = $0 }
             .opacity(isEnabled ? 1 : 0.4)
@@ -96,8 +97,9 @@ struct NativeCardButtonStyle: ButtonStyle {
                             ? Color.primary.opacity(configuration.isPressed ? 0.08 : 0.04)
                             : .clear)
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(Motion.micro, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .shadow(color: .black.opacity(isHovered ? 0.04 : 0), radius: isHovered ? 3 : 0, y: 1)
+            .animation(Motion.sharp, value: configuration.isPressed)
             .animation(Motion.micro, value: isHovered)
             .onHover { isHovered = $0 }
     }

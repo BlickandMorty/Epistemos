@@ -35,6 +35,7 @@ struct ToastOverlay: View {
             Image(systemName: iconName)
                 .font(.system(size: 14))
                 .foregroundStyle(iconColor)
+                .breathe(amplitude: 0.02, period: 2.0)
 
             Text(message)
                 .font(.epCaption)
@@ -54,5 +55,6 @@ struct ToastOverlay: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .glassEffect(.regular, in: Capsule())
+        .springEntrance()
     }
 }

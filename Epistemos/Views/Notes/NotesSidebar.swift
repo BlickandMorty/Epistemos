@@ -1010,6 +1010,7 @@ private struct FolderRow: View {
                         .font(.epSmall).fontWeight(.semibold)
                         .foregroundStyle(theme.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .animation(Motion.sharp, value: isExpanded)
                         .frame(width: 10)
 
                     Image(
@@ -1116,6 +1117,7 @@ private struct FolderRow: View {
                     onAction(.requestDeleteFolder(item))
                 }
             }
+            .physicsHover(.subtle)
 
             // Expanded: child folders + child pages
             if isExpanded {
@@ -1441,6 +1443,8 @@ private struct FileRow: View {
                     onAction(.requestDeletePage(item))
                 }
             }
+            .physicsHover(.subtle)
+            .graphReactive(nodeId: item.id)
         }
     }
 

@@ -20,11 +20,13 @@ import AppKit
 
 final class ClickableTextView: NSTextView {
 
-    // MARK: - Notifications (Right-Click → Ideas / Brain Dumps)
-    // Posted when user selects "New Idea" or "New Brain Dump" from the editor context menu.
-    // NoteTabView observes these to open the IdeasPanel with the correct tab.
+    // MARK: - Notifications (Right-Click → Ideas / Brain Dumps / AI)
+    // Posted when user selects context menu actions.
+    // NoteTabView observes these to open IdeasPanel or trigger Note Chat.
     static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
     static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
+    /// AI operation from context menu. userInfo: ["operation": String, "selectedText": String?]
+    static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
 
     // MARK: - Wikilink Click Handling
 
@@ -33,6 +35,16 @@ final class ClickableTextView: NSTextView {
 
     /// Closure called when user clicks a ((block-ref)). Receives the block ID.
     var onBlockRefClick: ((String) -> Void)?
+
+    /// Closure called when user clicks in the left gutter (fold disclosure area).
+    /// Receives click point in text view coordinates. Returns true if handled.
+    var onGutterClick: ((CGPoint) -> Bool)?
+
+    /// Closure called when user presses Cmd+. to toggle fold at cursor position.
+    var onFoldToggle: (() -> Void)?
+
+    /// Page ID for scoping notifications to the correct tab.
+    var pageId: String?
 
     // MARK: - Per-Page Undo Manager
     // Override the default undo manager (which comes from the window's responder chain)
@@ -162,6 +174,12 @@ final class ClickableTextView: NSTextView {
             return true
         }
 
+        // Cmd+. — Toggle fold at cursor
+        if flags == .command, event.charactersIgnoringModifiers == "." {
+            onFoldToggle?()
+            return true
+        }
+
         // Esc — Hide Find bar (if visible)
         if event.keyCode == 53 { // Esc key
             let item = NSMenuItem()
@@ -173,10 +191,85 @@ final class ClickableTextView: NSTextView {
         return super.performKeyEquivalent(with: event)
     }
 
+    // MARK: - Wikilink Hover Glow
+
+    /// Character range currently highlighted by mouse hover. nil = no hover.
+    private var hoveredLinkRange: NSRange?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        // Ensure we get mouseMoved for hover detection
+        for area in trackingAreas where area.owner === self && area.options.contains(.mouseMoved) {
+            removeTrackingArea(area)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let idx = characterIndexForInsertion(at: point)
+
+        var effectiveRange = NSRange(location: 0, length: 0)
+        let isLink: Bool
+        if idx < (textStorage?.length ?? 0),
+           let attrs = textStorage?.attributes(at: idx, effectiveRange: &effectiveRange) {
+            isLink = attrs[NSAttributedString.Key("EpistemosWikilink")] != nil
+                || attrs[NSAttributedString.Key("EpistemosBlockRef")] != nil
+        } else {
+            isLink = false
+        }
+
+        let newRange = isLink ? effectiveRange : nil
+
+        if newRange != hoveredLinkRange {
+            // Clear old hover
+            if let old = hoveredLinkRange, old.location + old.length <= (textStorage?.length ?? 0) {
+                textStorage?.removeAttribute(.backgroundColor, range: old)
+                // Re-apply base styling by triggering a restyle of just this range
+                if let mds = textStorage as? MarkdownTextStorage {
+                    mds.reapplyStyles(in: old)
+                }
+            }
+            // Apply new hover glow
+            if let new = newRange, new.location + new.length <= (textStorage?.length ?? 0) {
+                let glowBg: NSColor = (textStorage as? MarkdownTextStorage)?.isDark == true
+                    ? NSColor(red: 0.40, green: 0.65, blue: 1.0, alpha: 0.22)
+                    : NSColor(red: 0.15, green: 0.45, blue: 0.85, alpha: 0.16)
+                textStorage?.addAttribute(.backgroundColor, value: glowBg, range: new)
+            }
+            hoveredLinkRange = newRange
+        }
+
+        super.mouseMoved(with: event)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if let old = hoveredLinkRange, old.location + old.length <= (textStorage?.length ?? 0) {
+            textStorage?.removeAttribute(.backgroundColor, range: old)
+            if let mds = textStorage as? MarkdownTextStorage {
+                mds.reapplyStyles(in: old)
+            }
+        }
+        hoveredLinkRange = nil
+        super.mouseExited(with: event)
+    }
+
     // MARK: - Wikilink Mouse Handling
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+
+        // Check gutter click (fold disclosure triangles) before anything else
+        if point.x < textContainerInset.width, onGutterClick?(point) == true {
+            return
+        }
+
         let idx = characterIndexForInsertion(at: point)
 
         if idx < string.utf16.count,
@@ -218,14 +311,66 @@ final class ClickableTextView: NSTextView {
         dumpItem.target = self
         menu.addItem(dumpItem)
 
+        // MARK: AI Assistant submenu
+        menu.addItem(NSMenuItem.separator())
+
+        let aiMenu = NSMenu(title: "AI Assistant")
+        let hasSelection = selectedRange().length > 0
+
+        if hasSelection {
+            aiMenu.addItem(makeAIItem("Rewrite", icon: "arrow.triangle.2.circlepath", op: "rewrite"))
+            aiMenu.addItem(makeAIItem("Summarize", icon: "text.quote", op: "summarize"))
+            aiMenu.addItem(makeAIItem("Expand", icon: "arrow.up.left.and.arrow.down.right", op: "expand"))
+            aiMenu.addItem(makeAIItem("Simplify", icon: "text.redaction", op: "simplify"))
+            aiMenu.addItem(NSMenuItem.separator())
+            aiMenu.addItem(makeAIItem("Convert to List", icon: "list.bullet", op: "toList"))
+            aiMenu.addItem(makeAIItem("Convert to Table", icon: "tablecells", op: "toTable"))
+        } else {
+            aiMenu.addItem(makeAIItem("Continue Writing", icon: "text.append", op: "continue"))
+            aiMenu.addItem(makeAIItem("Generate Outline", icon: "list.number", op: "outline"))
+            aiMenu.addItem(makeAIItem("Suggest Structure", icon: "rectangle.3.group", op: "structure"))
+            aiMenu.addItem(NSMenuItem.separator())
+            aiMenu.addItem(makeAIItem("Restructure Note", icon: "arrow.triangle.branch", op: "restructure"))
+        }
+
+        let aiSubmenuItem = NSMenuItem(title: "AI Assistant", action: nil, keyEquivalent: "")
+        aiSubmenuItem.submenu = aiMenu
+        aiSubmenuItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "AI")
+        menu.addItem(aiSubmenuItem)
+
         return menu
     }
 
+    private func makeAIItem(_ title: String, icon: String, op: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: #selector(handleAIOperation(_:)), keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
+        item.target = self
+        item.representedObject = op
+        return item
+    }
+
     @objc private func createIdeaAtLine() {
-        NotificationCenter.default.post(name: Self.createIdeaNotification, object: nil)
+        NotificationCenter.default.post(
+            name: Self.createIdeaNotification, object: nil,
+            userInfo: pageId.map { ["pageId": $0] }
+        )
     }
 
     @objc private func createBrainDumpAtLine() {
-        NotificationCenter.default.post(name: Self.createBrainDumpNotification, object: nil)
+        NotificationCenter.default.post(
+            name: Self.createBrainDumpNotification, object: nil,
+            userInfo: pageId.map { ["pageId": $0] }
+        )
+    }
+
+    @objc private func handleAIOperation(_ sender: NSMenuItem) {
+        guard let op = sender.representedObject as? String else { return }
+        var userInfo: [String: String] = ["operation": op]
+        if let pageId { userInfo["pageId"] = pageId }
+        let sel = selectedRange()
+        if sel.length > 0, let str = string as NSString? {
+            userInfo["selectedText"] = str.substring(with: sel)
+        }
+        NotificationCenter.default.post(name: Self.aiOperationNotification, object: nil, userInfo: userInfo)
     }
 }

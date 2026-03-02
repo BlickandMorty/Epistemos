@@ -22,10 +22,7 @@ final class HologramController {
     private var graphState: GraphState?
     private var queryEngine: QueryEngine?
     private var modelContainer: ModelContainer?
-
-    // Event monitors.
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
+    private var physicsCoordinator: PhysicsCoordinator?
 
     // Screen-change observer.
     private var screenObserver: Any?
@@ -35,13 +32,15 @@ final class HologramController {
     // MARK: - Setup
 
     /// Call once at app launch with the shared GraphState and ModelContainer.
-    func setup(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer) {
+    func setup(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer, physicsCoordinator: PhysicsCoordinator? = nil) {
         self.graphState = graphState
         self.queryEngine = queryEngine
         self.modelContainer = modelContainer
+        self.physicsCoordinator = physicsCoordinator
         // Provide a ModelContext for interactive graph mutations (node/edge creation).
         graphState.modelContext = modelContainer.mainContext
-        registerHotkey()
+        // Global hotkey (⌘G) is now registered in CommandPaletteWindowController
+        // alongside all other global hotkeys. No duplicate monitors needed.
         observeScreenChanges()
     }
 
@@ -120,44 +119,7 @@ final class HologramController {
             graphState.refreshStructuralData(context: modelContainer.mainContext)
         }
 
-        overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer)
-    }
-
-    // MARK: - Global Hotkey (Cmd+G)
-
-    private static let hotkeyKeyCode: UInt16 = 5 // 'G' key
-
-    private func isHotkeyEvent(_ event: NSEvent) -> Bool {
-        guard event.keyCode == Self.hotkeyKeyCode else { return false }
-        let required: NSEvent.ModifierFlags = [.command]
-        // Check that Cmd is held and no other modifiers (except function keys).
-        let cleaned = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            .subtracting([.capsLock, .numericPad, .function])
-        return cleaned == required
-    }
-
-    private func registerHotkey() {
-        // Global monitor: catches hotkey from any app.
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return }
-            if self.isHotkeyEvent(event) {
-                Task { @MainActor in
-                    self.toggle()
-                }
-            }
-        }
-
-        // Local monitor: catches hotkey when Epistemos is frontmost.
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            if self.isHotkeyEvent(event) {
-                Task { @MainActor in
-                    self.toggle()
-                }
-                return nil // Consume the event.
-            }
-            return event
-        }
+        overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer, physicsCoordinator: physicsCoordinator)
     }
 
     // MARK: - Screen Changes
@@ -178,11 +140,8 @@ final class HologramController {
     // MARK: - Teardown
 
     func teardown() {
-        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
-        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        // Global hotkey monitors are managed by CommandPaletteWindowController.
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
-        globalMonitor = nil
-        localMonitor = nil
         screenObserver = nil
         overlay?.hide()
         overlay = nil

@@ -62,11 +62,13 @@ fn z_for_link_count(link_count: u32) -> f32 {
 
 /// Highlighted edge color: brighter accent.
 const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.65, 0.85, 1.00, 0.6];
-/// Dimmed node alpha when highlight is active (used in shader via flag buffer).
+/// Base alpha multiplier for all nodes — subtler ambient presence.
+const BASE_NODE_ALPHA: f32 = 0.72;
+/// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
 #[allow(dead_code)]
-const DIM_ALPHA: f32 = 0.12;
+const DIM_ALPHA: f32 = 0.04;
 /// Dimmed edge alpha when highlight is active.
-const EDGE_DIM_ALPHA: f32 = 0.05;
+const EDGE_DIM_ALPHA: f32 = 0.02;
 
 /// Evaluate a quadratic bezier at parameter t in [0, 1].
 /// Retained for field-line tessellation only (edges are now straight lines).
@@ -159,7 +161,7 @@ vertex NodeVertexOut node_vertex(
 
     // Highlight flags: 0 = normal, 1 = highlighted (boosted), 2+ = dimmed (flag/255).
     uchar flag = highlight_flags[instance_id];
-    float highlight_dim = flag == 0 ? 1.0 : (flag == 1 ? 1.35 : (float(flag) / 255.0));
+    float highlight_dim = flag == 0 ? 1.0 : (flag == 1 ? 1.50 : (float(flag) / 255.0));
 
     NodeVertexOut out;
     out.position = float4(ndc, ndc_z, 1.0);
@@ -744,9 +746,10 @@ impl Renderer {
                     inst.position = pos;
                     inst.z = z;
 
-                    // Colors at full alpha — highlight dimming via GPU flag buffer.
+                    // Base alpha dimmed for subtler ambient presence.
+                    // Highlight brightening happens via GPU flag buffer.
                     let mut color = self.node_color(&node.node_type);
-                    color[3] *= ent_alpha;
+                    color[3] *= ent_alpha * BASE_NODE_ALPHA;
                     inst.color = color;
 
                     visible_count += 1;
@@ -799,7 +802,10 @@ impl Renderer {
                                 [base_edge[0], base_edge[1], base_edge[2], dim_edge_alpha]
                             }
                         } else {
-                            base_edge
+                            // Dimmer base edge presence
+                            let mut e = base_edge;
+                            e[3] *= BASE_NODE_ALPHA;
+                            e
                         };
                         color[3] *= edge_alpha;
 
@@ -889,9 +895,9 @@ impl Renderer {
         if total == 0 { return; }
 
         // Encode dim factor: 0 = normal (1.0), non-zero = dim (value/255).
-        // DIM_ALPHA (0.12) → 31, glow dim (DIM_ALPHA * 0.4 ≈ 0.05) → 13.
-        const NODE_DIM: u8 = 31;   // 0.12 * 255 ≈ 31
-        const GLOW_DIM: u8 = 13;   // glow dim factor ≈ 0.05
+        // DIM_ALPHA (0.04) → 10, glow dim (DIM_ALPHA * 0.4 ≈ 0.016) → 4.
+        const NODE_DIM: u8 = 10;   // 0.04 * 255 ≈ 10
+        const GLOW_DIM: u8 = 4;    // glow dim factor ≈ 0.016
 
         // Reuse pre-allocated scratch buffer (avoids heap allocation every frame).
         self.highlight_flag_scratch.clear();

@@ -103,8 +103,6 @@
 		71B515B00D4223ADCB38F093 /* MiniChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01501774D229B160DB423DA /* MiniChatView.swift */; };
 		7369991DEB34AA837203B7F1 /* GraphTypesComprehensiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA22FAA7F9AE24D8C7F2CB8A /* GraphTypesComprehensiveTests.swift */; };
 		75C700C860CDA76BB99BCFC0 /* NoteWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */; };
-		A1B2C3D4E5F6071800TMPL01 /* NoteTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071800TMPL02 /* NoteTemplates.swift */; };
-		A1B2C3D4E5F6071800TSOV01 /* TemplateSuggestionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071800TSOV02 /* TemplateSuggestionOverlay.swift */; };
 		75F094D83A36EAFE2102A288 /* DailyBriefingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 372B13C594A6FB00FDE79404 /* DailyBriefingIntent.swift */; };
 		76BFFBAC03BA72756E6A8313 /* PillNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EDAE57D8846BCCCDE876C09 /* PillNavBar.swift */; };
 		79E5F7F2472543C5B09FD2B4 /* VaultSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90360B15B11C41D8F944352 /* VaultSyncService.swift */; };
@@ -129,6 +127,8 @@
 		92522C81F8AB01E6993FB2B4 /* SOARTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */; };
 		96E12B3A17607CBE5BDE6384 /* FFISafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE49C9D831DD01285BBB974 /* FFISafetyTests.swift */; };
 		96FB7AD7B6833B867CC1B4B6 /* CommandPaletteOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */; };
+		056F0543057D1A792D82BCB7 /* CommandPaletteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84BDAD491E8FB25B8E1E3D1A /* CommandPaletteWindowController.swift */; };
+		A1B2C3D4E5F6PHYSMOD02 /* PhysicsModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */; };
 		97CA10020A5F6C15307F94B1 /* QueryResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD3CAC3378F8B6999B406ED /* QueryResultsView.swift */; };
 		986166A75033C3FF046A1B94 /* PageStoragePool.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */; };
 		9AFCFFF225DCC9BF0427D1E3 /* TriageServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 894E1019EEBC96777152384D /* TriageServiceTests.swift */; };
@@ -246,6 +246,8 @@
 		006D4AFC106E6BBA941CDBD4 /* ResearchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchIntents.swift; sourceTree = "<group>"; };
 		01E39AEBA6CCBE938F617A0F /* SignalGeneratorComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignalGeneratorComprehensiveTests.swift; sourceTree = "<group>"; };
 		048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteOverlay.swift; sourceTree = "<group>"; };
+		84BDAD491E8FB25B8E1E3D1A /* CommandPaletteWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteWindowController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsModifiers.swift; sourceTree = "<group>"; };
 		065AEAF8FDD302F81324DEE6 /* ConceptMiniMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConceptMiniMap.swift; sourceTree = "<group>"; };
 		0718573D4BE2D44999758A16 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		0735CB2532A434111036257E /* PageEditorCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageEditorCache.swift; sourceTree = "<group>"; };
@@ -331,8 +333,6 @@
 		6C1DBE46501FCAC1C106C8A2 /* PageShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageShell.swift; sourceTree = "<group>"; };
 		6EFC53C2550C906A4B3E082F /* ResearchStageEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchStageEntity.swift; sourceTree = "<group>"; };
 		71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteWindowManager.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6071800TMPL02 /* NoteTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteTemplates.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6071800TSOV02 /* TemplateSuggestionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateSuggestionOverlay.swift; sourceTree = "<group>"; };
 		7400E696A0043AC669C74D8A /* SOARTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTests.swift; sourceTree = "<group>"; };
 		7780DFBBFC8FF86CCE3C1191 /* GraphEdgeCaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphEdgeCaseTests.swift; sourceTree = "<group>"; };
 		78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransclusionOverlayView.swift; sourceTree = "<group>"; };
@@ -655,9 +655,7 @@
 				59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */,
 				3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */,
 				A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */,
-				A1B2C3D4E5F6071800TMPL02 /* NoteTemplates.swift */,
 				71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */,
-				A1B2C3D4E5F6071800TSOV02 /* TemplateSuggestionOverlay.swift */,
 				0735CB2532A434111036257E /* PageEditorCache.swift */,
 				CC2E5F70718293B5CD1E2F3F /* ConfidenceOverlay.swift */,
 				ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */,
@@ -738,6 +736,7 @@
 			isa = PBXGroup;
 			children = (
 				048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */,
+				84BDAD491E8FB25B8E1E3D1A /* CommandPaletteWindowController.swift */,
 				7F8D250666419FAEFA838018 /* DailyBriefButton.swift */,
 				7DEEF8225F9781F4C3647074 /* LandingView.swift */,
 				834BA1C13F6D89591F703A0F /* LiquidGreeting.swift */,
@@ -854,6 +853,7 @@
 				5880D446901522D47FA88B2C /* EpistemosTheme.swift */,
 				ED8EB883CA519394AC49A9DB /* GlassModifiers.swift */,
 				2AF572694A5CFADE574D4F2B /* NativeButtonStyles.swift */,
+				A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -1165,6 +1165,7 @@
 				5A99228979EEFCB222451FBD /* ClickableTextView.swift in Sources */,
 				A4B49D73FE5849013B00C96C /* CollectionRegistry.swift in Sources */,
 				96FB7AD7B6833B867CC1B4B6 /* CommandPaletteOverlay.swift in Sources */,
+				056F0543057D1A792D82BCB7 /* CommandPaletteWindowController.swift in Sources */,
 				66B72428D9FD8BC5D3FE2AA5 /* ConceptMiniMap.swift in Sources */,
 				CD529C7FBC83864C3F7307C2 /* DailyBriefButton.swift in Sources */,
 				139DACAE4ECA3C28086FD969 /* DailyBriefState.swift in Sources */,
@@ -1178,6 +1179,7 @@
 				33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */,
 				C60743D68EAB469FDF082106 /* EpistemosShortcutsProvider.swift in Sources */,
 				6DA1828DABBC8E0BD14426F7 /* EpistemosTheme.swift in Sources */,
+				A1B2C3D4E5F6PHYSMOD02 /* PhysicsModifiers.swift in Sources */,
 				CCDD340F08953CBE3838C7F3 /* EventBus.swift in Sources */,
 				B4C3794F9AE4C4827F2CA192 /* Extensions.swift in Sources */,
 				07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */,
@@ -1201,9 +1203,7 @@
 				E16E0654FCDC29BAFDEEE708 /* NavigationIntents.swift in Sources */,
 				C22D030F136F89C6F88D4157 /* NoteActionIntents.swift in Sources */,
 				4B547DF6F02B57485AE9BE59 /* NoteEntity.swift in Sources */,
-				A1B2C3D4E5F6071800TMPL01 /* NoteTemplates.swift in Sources */,
 				75C700C860CDA76BB99BCFC0 /* NoteWindowManager.swift in Sources */,
-				A1B2C3D4E5F6071800TSOV01 /* TemplateSuggestionOverlay.swift in Sources */,
 				CCB23084A08F20E597B38950 /* NotesBrowserView.swift in Sources */,
 				CD4E9F59276F545B492CEC3F /* NotesMentionDropdown.swift in Sources */,
 				CBD58CD0923FE36FE7FFD82D /* NotesSidebar.swift in Sources */,

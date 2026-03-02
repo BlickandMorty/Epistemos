@@ -42,6 +42,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     /// Called when user clicks a ((block-ref)) in the editor.
     var onBlockRefClick: ((String) -> Void)?
 
+    /// Per-note AI chat state for inline response streaming.
+    var noteChatState: NoteChatState?
+
     /// Called during page swap — flush the old page's text to SwiftData.
     /// Args: (oldPageId, currentText). Coordinator calls this so ALL page-swap
     /// logic lives in one place (updateNSView) instead of being split across
@@ -165,13 +168,26 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             context.coordinator.blockRefAutocomplete = autocomplete
         }
 
-        // Wire wikilink + block ref handlers
+        // Table border overlay — Obsidian-style grid lines drawn via CAShapeLayer
+        context.coordinator.setupTableBorderLayer(in: tv)
+
+        // Block fold gutter — disclosure triangles for collapsible blocks
+        context.coordinator.setupBlockFoldLayer(in: tv)
+
+        // Wire wikilink + block ref handlers and page ID for scoped notifications
         let coord = context.coordinator
+        tv.pageId = pageId
         tv.onWikilinkClick = { [weak coord] title in
             coord?.parent.onWikilinkClick?(title)
         }
         tv.onBlockRefClick = { [weak coord] blockId in
             coord?.parent.onBlockRefClick?(blockId)
+        }
+        tv.onGutterClick = { [weak coord] point in
+            coord?.handleGutterClick(at: point) ?? false
+        }
+        tv.onFoldToggle = { [weak coord] in
+            coord?.toggleFoldAtCursor()
         }
 
         // Obsidian-style centering: observe clip view frame changes to dynamically
@@ -247,6 +263,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         if coord.lastPageId != pageId {
             coord.isSwappingPage = true
 
+            // Force binding sync before page swap so debouncedSave has current text
+            coord.flushBindingSync()
+
             // Save outgoing page — text to SwiftData + visual state to pool
             if let oldId = coord.lastPageId, !oldId.isEmpty {
                 // Flush text to SwiftData via callback (single source of truth for flush)
@@ -319,6 +338,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             tv.typingAttributes[.foregroundColor] = baseColor
             Self.progressiveRestyle(coord.storage)
             PageStoragePool.shared.invalidateExcept(activePageId: pageId)
+
         }
 
         // Editable state — react to lock/preview toggles
@@ -339,7 +359,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Skip during page swap — @State bodyText still holds the OLD page's text
         // until onChange(of: page.id) fires and sets bodyText = page.body.
         // Without this guard, stale text would overwrite the new storage content.
-        if !coord.isUserEditing, !coord.isSwappingPage, let storage = coord.storage,
+        if !coord.isUserEditing, !coord.isSwappingPage,
+            let storage = coord.storage,
             tv.string != text, !tv.hasMarkedText(),
             !(text.isEmpty && storage.length > 0)
         {
@@ -360,12 +381,40 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
         }
 
-        // Update wikilink + block ref handler references
+        // Update wikilink + block ref handler references + page ID for scoped notifications
+        tv.pageId = pageId
         tv.onWikilinkClick = { [weak coord] title in
             coord?.parent.onWikilinkClick?(title)
         }
         tv.onBlockRefClick = { [weak coord] blockId in
             coord?.parent.onBlockRefClick?(blockId)
+        }
+        tv.onGutterClick = { [weak coord] point in
+            coord?.handleGutterClick(at: point) ?? false
+        }
+        tv.onFoldToggle = { [weak coord] in
+            coord?.toggleFoldAtCursor()
+        }
+
+        // Wire Note Chat callbacks — only when the state reference changes.
+        if let noteChat = noteChatState, coord.noteChatState !== noteChat {
+            coord.noteChatState = noteChat
+            noteChat.onStreamStart = { [weak coord] query in
+                coord?.startNoteChatStream(query)
+            }
+            noteChat.onTokenFlush = { [weak coord] delta in
+                coord?.appendNoteChatTokens(delta)
+            }
+            noteChat.onAccept = { [weak coord] in
+                coord?.acceptNoteChatResponse()
+            }
+            noteChat.onDiscard = { [weak coord] in
+                coord?.discardNoteChatResponse()
+            }
+            noteChat.noteBodyProvider = { [weak coord] in
+                guard let coord, let storage = coord.storage else { return "" }
+                return storage.mutableString as String
+            }
         }
 
         // Recalculate centering only when width actually changed
@@ -426,7 +475,20 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         weak var textView: ClickableTextView?
         var storage: MarkdownTextStorage?
         var transclusionManager: TransclusionOverlayManager?
+
         var blockRefAutocomplete: BlockRefAutocomplete?
+
+        /// Per-note AI chat state reference — wired in updateNSView.
+        weak var noteChatState: NoteChatState?
+        /// Suppresses textDidChange binding sync during programmatic token appends.
+        var isFlushingTokens = false
+        /// Debounce task for syncing NSTextStorage → SwiftUI @Binding.
+        /// Text lives in NSTextStorage — binding only needed for debouncedSave and page swap.
+        private var bindingSyncTask: Task<Void, Never>?
+        private var hasPendingBindingSync = false
+
+        /// Debounce task for auto-aligning table columns after typing.
+        private var tableAlignTask: Task<Void, Never>?
 
         // Cache guards (Pitfall #6) — skip work in updateNSView if nothing changed
         var lastIsFocused = false
@@ -455,6 +517,24 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Scroll observer for continuous scroll position tracking.
         nonisolated(unsafe) var scrollObserver: (any NSObjectProtocol)?
 
+        // Table border overlay — draws Obsidian-style grid lines over table regions.
+        var tableBorderLayer: CAShapeLayer?
+        nonisolated(unsafe) var borderScrollObserver: (any NSObjectProtocol)?
+
+        // Block fold gutter — disclosure triangles for collapsible blocks.
+        var blockFoldLayer: CAShapeLayer?
+        /// Cached block tree from last parse. Updated in textDidChange debounce.
+        var cachedBlocks: [BlockParser.ParsedBlock] = []
+        /// Collapsed blocks keyed by first-line content (stable across re-parses).
+        var collapsedBlockKeys: Set<String> = []
+        /// Clickable regions for fold toggles: maps rect → block order.
+        var foldHitRects: [(CGRect, Int)] = []
+
+        /// Stable key for a block — uses its first line content + depth.
+        private func blockKey(_ block: BlockParser.ParsedBlock) -> String {
+            "\(block.depth):\(block.content.prefix(80))"
+        }
+
         init(_ parent: ProseEditorRepresentable) {
             self.parent = parent
             self.lastIsDark = parent.isDark
@@ -466,6 +546,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 NotificationCenter.default.removeObserver(observer)
             }
             if let observer = scrollObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            if let observer = borderScrollObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
         }
@@ -483,6 +566,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             // undefined behavior and would let the text sync guard overwrite new content
             // with stale @State.
             guard !isSwappingPage else { return }
+
+            // Suppress binding sync during AI token flushing — the AI text
+            // is transient in storage and should not trigger debouncedSave cascade.
+            guard !isFlushingTokens else { return }
 
             // Notify template overlay that user started typing (short docs only).
             // Use utf16Count instead of trimmingCharacters to avoid O(n) on large docs.
@@ -520,13 +607,28 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             // Check for (( autocomplete trigger
             blockRefAutocomplete?.checkTrigger()
 
+            // Auto-align table columns (500ms debounce)
+            scheduleTableAlignment(tv)
+
+            // Update table border overlay after layout settles
+            updateTableBorders()
+
+            // Refresh block tree + fold gutter (lightweight — O(n) parse)
+            refreshBlockTree()
+            updateBlockFoldGutter()
+
             // Refresh transclusion overlays
             transclusionManager?.refresh()
 
-            // Sync text to binding
-            isUserEditing = true
-            parent.text = tv.string
-            isUserEditing = false
+            // Debounced binding sync — NSTextStorage is always source of truth.
+            // Binding only needs updating for debouncedSave (5s) and page swap.
+            hasPendingBindingSync = true
+            bindingSyncTask?.cancel()
+            bindingSyncTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(300))
+                guard let self, !Task.isCancelled else { return }
+                self.flushBindingSync()
+            }
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
@@ -534,6 +636,28 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            let str = textView.string as NSString
+            let cursorLoc = textView.selectedRange().location
+
+            // Check if cursor is on a table line for table-aware navigation
+            if cursorLoc <= str.length {
+                let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, max(0, str.length - 1)), length: 0))
+                let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                let isTableLine = line.hasPrefix("|") && line.hasSuffix("|") && line.count > 1
+
+                if isTableLine {
+                    if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                        return moveToTableCell(textView: textView, forward: true)
+                    }
+                    if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
+                        return moveToTableCell(textView: textView, forward: false)
+                    }
+                    if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                        return handleTableNewline(textView: textView)
+                    }
+                }
+            }
+
             // Tab/Shift-Tab: indent/outdent the current line(s) for outlining.
             // Pure text manipulation — BlockReconciler maps indentation to block hierarchy
             // on the next debounced save.
@@ -595,6 +719,749 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 textView.setSelectedRange(NSRange(location: safeLoc, length: safeLen))
             }
             return true
+        }
+
+        // MARK: - Table Cell Navigation
+
+        /// Move cursor to the next (forward=true) or previous (forward=false) table cell.
+        /// Wraps across rows at table boundaries.
+        private func moveToTableCell(textView: NSTextView, forward: Bool) -> Bool {
+            let str = textView.string as NSString
+            let cursorLoc = textView.selectedRange().location
+            let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, max(0, str.length - 1)), length: 0))
+            let lineStr = str.substring(with: lineRange)
+            let trimmed = lineStr.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("|") && trimmed.hasSuffix("|") else { return false }
+
+            // Find pipe positions within the line (absolute positions)
+            let lineStart = lineRange.location
+            var pipePositions: [Int] = []
+            for (offset, ch) in lineStr.utf16.enumerated() where ch == 0x7C /* | */ {
+                pipePositions.append(lineStart + offset)
+            }
+            guard pipePositions.count >= 2 else { return false }
+
+            if forward {
+                // Find the next pipe after cursor, position after pipe + space
+                if let nextPipe = pipePositions.first(where: { $0 > cursorLoc }) {
+                    // If it's the last pipe (end of row), wrap to next row
+                    if nextPipe == pipePositions.last {
+                        let nextRowStart = NSMaxRange(lineRange)
+                        if nextRowStart < str.length {
+                            let nextLineRange = str.lineRange(for: NSRange(location: nextRowStart, length: 0))
+                            let nextLine = str.substring(with: nextLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if nextLine.hasPrefix("|") && nextLine.hasSuffix("|") {
+                                // Skip separator rows
+                                let isSep = nextLine.dropFirst().dropLast()
+                                    .split(separator: "|", omittingEmptySubsequences: false)
+                                    .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+                                if isSep {
+                                    // Jump past separator to the row after
+                                    let afterSepStart = NSMaxRange(nextLineRange)
+                                    if afterSepStart < str.length {
+                                        let afterSepRange = str.lineRange(for: NSRange(location: afterSepStart, length: 0))
+                                        let afterSepLine = str.substring(with: afterSepRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                                        if afterSepLine.hasPrefix("|") {
+                                            // Position after first pipe + space
+                                            let pos = afterSepRange.location + 2
+                                            textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                            return true
+                                        }
+                                    }
+                                } else {
+                                    // Position after first pipe + space
+                                    let pos = nextLineRange.location + 2
+                                    textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                    return true
+                                }
+                            }
+                        }
+                        return true // at last cell of last row, do nothing
+                    }
+                    // Position after the pipe + space
+                    let pos = nextPipe + 2
+                    textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                    return true
+                }
+            } else {
+                // Find the pipe before cursor, position after previous pipe + space
+                if let prevPipe = pipePositions.last(where: { $0 < cursorLoc }) {
+                    // If it's the first pipe (start of row), wrap to previous row
+                    if prevPipe == pipePositions.first {
+                        if lineRange.location > 0 {
+                            let prevLineEnd = lineRange.location - 1
+                            let prevLineRange = str.lineRange(for: NSRange(location: prevLineEnd, length: 0))
+                            let prevLine = str.substring(with: prevLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if prevLine.hasPrefix("|") && prevLine.hasSuffix("|") {
+                                // Skip separator rows
+                                let isSep = prevLine.dropFirst().dropLast()
+                                    .split(separator: "|", omittingEmptySubsequences: false)
+                                    .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+                                if isSep && prevLineRange.location > 0 {
+                                    let beforeSepEnd = prevLineRange.location - 1
+                                    let beforeSepRange = str.lineRange(for: NSRange(location: beforeSepEnd, length: 0))
+                                    let beforeSepLine = str.substring(with: beforeSepRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if beforeSepLine.hasPrefix("|") {
+                                        // Position at last cell: before the last pipe
+                                        var pipes: [Int] = []
+                                        let bsStr = str.substring(with: beforeSepRange)
+                                        for (offset, ch) in bsStr.utf16.enumerated() where ch == 0x7C {
+                                            pipes.append(beforeSepRange.location + offset)
+                                        }
+                                        if pipes.count >= 2 {
+                                            let pos = pipes[pipes.count - 2] + 2
+                                            textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                            return true
+                                        }
+                                    }
+                                }
+                                if !isSep {
+                                    // Position at last cell of previous row
+                                    var pipes: [Int] = []
+                                    let plStr = str.substring(with: prevLineRange)
+                                    for (offset, ch) in plStr.utf16.enumerated() where ch == 0x7C {
+                                        pipes.append(prevLineRange.location + offset)
+                                    }
+                                    if pipes.count >= 2 {
+                                        let pos = pipes[pipes.count - 2] + 2
+                                        textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                        return true
+                                    }
+                                }
+                            }
+                        }
+                        return true // at first cell of first row, do nothing
+                    }
+                    // Find the pipe before prevPipe — position after it + space
+                    if let twoPipesBack = pipePositions.last(where: { $0 < prevPipe }) {
+                        let pos = twoPipesBack + 2
+                        textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                        return true
+                    }
+                }
+            }
+            return true
+        }
+
+        /// Handle Enter on a table line: insert new empty row with matching column count.
+        private func handleTableNewline(textView: NSTextView) -> Bool {
+            let str = textView.string as NSString
+            let cursorLoc = textView.selectedRange().location
+            let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, max(0, str.length - 1)), length: 0))
+            let lineStr = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard lineStr.hasPrefix("|") && lineStr.hasSuffix("|") else { return false }
+
+            // Count columns
+            let cells = lineStr.dropFirst().dropLast()
+                .split(separator: "|", omittingEmptySubsequences: false)
+            let colCount = cells.count
+            guard colCount > 0 else { return false }
+
+            // Build empty row: |   |   |   |
+            let emptyCells = [String](repeating: "   ", count: colCount)
+            let newRow = "\n| " + emptyCells.joined(separator: " | ") + " |"
+
+            // Insert at end of current line
+            let insertLoc = NSMaxRange(lineRange) - (lineStr.hasSuffix("\n") ? 0 : 0)
+            let lineEnd = lineRange.location + lineRange.length
+            // Find actual end of line content (before trailing newline)
+            var actualEnd = lineEnd
+            if actualEnd > 0, str.character(at: actualEnd - 1) == 0x0A {
+                actualEnd -= 1
+            }
+
+            let insertRange = NSRange(location: actualEnd, length: 0)
+            if textView.shouldChangeText(in: insertRange, replacementString: newRow) {
+                textView.textStorage?.replaceCharacters(in: insertRange, with: newRow)
+                textView.didChangeText()
+                // Position cursor in first cell of new row (after "| ")
+                let newCursorPos = actualEnd + 3 // \n| _
+                textView.setSelectedRange(NSRange(location: min(newCursorPos, (textView.string as NSString).length), length: 0))
+            }
+            return true
+        }
+
+        // MARK: - Binding Sync
+
+        /// Force-sync NSTextStorage content to SwiftUI binding.
+        /// Called after debounce timer, and immediately during page swap flush.
+        func flushBindingSync() {
+            guard hasPendingBindingSync, let tv = textView else { return }
+            hasPendingBindingSync = false
+            bindingSyncTask?.cancel()
+            bindingSyncTask = nil
+            isUserEditing = true
+            parent.text = tv.string
+            isUserEditing = false
+        }
+
+        // MARK: - Table Auto-Alignment
+
+        /// Schedule table column alignment 500ms after the last keystroke on a table line.
+        private func scheduleTableAlignment(_ tv: NSTextView) {
+            let str = tv.string as NSString
+            let cursorLoc = tv.selectedRange().location
+            guard cursorLoc > 0, cursorLoc <= str.length else { return }
+            let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, str.length - 1), length: 0))
+            let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard line.hasPrefix("|") && line.hasSuffix("|") else {
+                tableAlignTask?.cancel()
+                tableAlignTask = nil
+                return
+            }
+            tableAlignTask?.cancel()
+            tableAlignTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let self, !Task.isCancelled else { return }
+                self.alignTableAtCursor(tv)
+            }
+        }
+
+        /// Find the full table block around the cursor and pad cells for alignment.
+        private func alignTableAtCursor(_ tv: NSTextView) {
+            let str = tv.string as NSString
+            let cursorLoc = tv.selectedRange().location
+            guard cursorLoc <= str.length else { return }
+            let cursorLineRange = str.lineRange(for: NSRange(location: min(cursorLoc, str.length - 1), length: 0))
+
+            // Expand upward to find table start
+            var tableStart = cursorLineRange.location
+            while tableStart > 0 {
+                let prevEnd = tableStart - 1
+                let prevLineRange = str.lineRange(for: NSRange(location: prevEnd, length: 0))
+                let prevLine = str.substring(with: prevLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard prevLine.hasPrefix("|") && prevLine.hasSuffix("|") else { break }
+                tableStart = prevLineRange.location
+            }
+
+            // Expand downward to find table end
+            var tableEnd = NSMaxRange(cursorLineRange)
+            while tableEnd < str.length {
+                let nextLineRange = str.lineRange(for: NSRange(location: tableEnd, length: 0))
+                let nextLine = str.substring(with: nextLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard nextLine.hasPrefix("|") && nextLine.hasSuffix("|") else { break }
+                tableEnd = NSMaxRange(nextLineRange)
+            }
+
+            let tableRange = NSRange(location: tableStart, length: tableEnd - tableStart)
+            let tableText = str.substring(with: tableRange)
+            let lines = tableText.components(separatedBy: "\n").filter { !$0.isEmpty }
+            guard lines.count >= 2 else { return }
+
+            // Parse cells per row
+            var parsed: [[String]] = []
+            var separatorIndices: Set<Int> = []
+            for (i, line) in lines.enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("|") && trimmed.hasSuffix("|") else {
+                    parsed.append([trimmed])
+                    continue
+                }
+                let cells = trimmed.dropFirst().dropLast()
+                    .split(separator: "|", omittingEmptySubsequences: false)
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                parsed.append(cells)
+
+                // Check if separator row
+                let isSep = cells.allSatisfy { $0.allSatisfy { $0 == "-" || $0 == ":" } }
+                if isSep { separatorIndices.insert(i) }
+            }
+
+            // Calculate max column widths
+            let colCount = parsed.map(\.count).max() ?? 0
+            guard colCount > 0 else { return }
+            var maxWidths = [Int](repeating: 3, count: colCount) // min width 3 for ---
+            for (i, cells) in parsed.enumerated() {
+                if separatorIndices.contains(i) { continue } // separator uses fixed width
+                for (j, cell) in cells.enumerated() where j < colCount {
+                    maxWidths[j] = max(maxWidths[j], cell.count)
+                }
+            }
+
+            // Rebuild aligned table
+            var aligned: [String] = []
+            for (i, cells) in parsed.enumerated() {
+                var paddedCells: [String] = []
+                for j in 0..<colCount {
+                    let cell = j < cells.count ? cells[j] : ""
+                    let width = maxWidths[j]
+                    if separatorIndices.contains(i) {
+                        // Preserve alignment markers
+                        let leftColon = cell.hasPrefix(":")
+                        let rightColon = cell.hasSuffix(":")
+                        let dashCount = max(width - (leftColon ? 1 : 0) - (rightColon ? 1 : 0), 1)
+                        let sep = (leftColon ? ":" : "") + String(repeating: "-", count: dashCount) + (rightColon ? ":" : "")
+                        paddedCells.append(sep)
+                    } else {
+                        paddedCells.append(cell.padding(toLength: width, withPad: " ", startingAt: 0))
+                    }
+                }
+                aligned.append("| " + paddedCells.joined(separator: " | ") + " |")
+            }
+
+            let newText = aligned.joined(separator: "\n")
+            // Trailing newline preservation
+            let trailing = tableText.hasSuffix("\n") ? "\n" : ""
+            let finalText = newText + trailing
+
+            guard finalText != tableText else { return } // no change
+
+            // Compute cursor offset within the table to restore after replacement
+            let cursorOffsetInTable = cursorLoc - tableStart
+
+            isFlushingTokens = true
+            if tv.shouldChangeText(in: tableRange, replacementString: finalText) {
+                tv.textStorage?.replaceCharacters(in: tableRange, with: finalText)
+                tv.didChangeText()
+                // Restore cursor: clamp to new table bounds (use fresh string length after replacement)
+                let newCursor = min(tableStart + cursorOffsetInTable, tableStart + (finalText as NSString).length)
+                tv.setSelectedRange(NSRange(location: min(newCursor, (tv.string as NSString).length), length: 0))
+            }
+            isFlushingTokens = false
+        }
+
+        // MARK: - Note Chat (v2 — simplified inline response)
+
+        /// Unique divider that won't collide with markdown horizontal rules (---).
+        private static let aiDivider = "\n\n<!-- ai-response -->\n\n"
+
+        /// Insert the AI divider at the end of storage when streaming starts.
+        func startNoteChatStream(_ query: String) {
+            guard let storage else { return }
+            isFlushingTokens = true
+            storage.replaceCharacters(in: NSRange(location: storage.length, length: 0), with: Self.aiDivider)
+            isFlushingTokens = false
+            textView?.scrollRangeToVisible(NSRange(location: storage.length, length: 0))
+        }
+
+        /// Append streaming tokens at the end of storage.
+        func appendNoteChatTokens(_ delta: String) {
+            guard let storage else { return }
+            isFlushingTokens = true
+            storage.replaceCharacters(in: NSRange(location: storage.length, length: 0), with: delta)
+            isFlushingTokens = false
+            textView?.scrollRangeToVisible(NSRange(location: storage.length, length: 0))
+        }
+
+        /// Accept: replace the AI divider with paragraph spacing, keep response text.
+        /// Syncs binding so the accepted text persists via debouncedSave.
+        func acceptNoteChatResponse() {
+            guard let storage else { return }
+            let str = storage.mutableString as String
+            if let range = str.range(of: Self.aiDivider, options: .backwards) {
+                let nsRange = NSRange(range, in: str)
+                isFlushingTokens = true
+                storage.replaceCharacters(in: nsRange, with: "\n\n")
+                isFlushingTokens = false
+            }
+            flushBindingSync()
+        }
+
+        /// Discard: delete everything from the AI divider to end of storage.
+        /// Syncs binding to restore the pre-chat note body.
+        func discardNoteChatResponse() {
+            guard let storage else { return }
+            let str = storage.mutableString as String
+            if let range = str.range(of: Self.aiDivider, options: .backwards) {
+                let nsRange = NSRange(range, in: str)
+                let deleteRange = NSRange(location: nsRange.location, length: storage.length - nsRange.location)
+                isFlushingTokens = true
+                storage.replaceCharacters(in: deleteRange, with: "")
+                isFlushingTokens = false
+            }
+            flushBindingSync()
+        }
+
+        // MARK: - Table Border Overlay
+
+        /// Sets up the CAShapeLayer that draws Obsidian-style cell borders.
+        /// Called once from makeNSView after the text view is ready.
+        func setupTableBorderLayer(in tv: ClickableTextView) {
+            guard tv.wantsLayer, let layer = tv.layer else { return }
+            let border = CAShapeLayer()
+            border.fillColor = nil
+            border.lineWidth = 0.5
+            border.zPosition = 10
+            layer.addSublayer(border)
+            tableBorderLayer = border
+
+            // Update borders on scroll (bounds change of clip view)
+            borderScrollObserver = NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: tv.enclosingScrollView?.contentView,
+                queue: .main
+            ) { [weak self] _ in
+                self?.updateTableBorders()
+            }
+        }
+
+        /// Redraws table grid lines for all visible table regions.
+        /// Queries the layout manager for line fragment rects and pipe positions.
+        func updateTableBorders() {
+            guard let tv = textView,
+                  let lm = tv.layoutManager,
+                  let tc = tv.textContainer,
+                  let storage = storage,
+                  let borderLayer = tableBorderLayer else { return }
+
+            let str = storage.string as NSString
+            guard str.length > 0 else {
+                borderLayer.path = nil
+                return
+            }
+
+            // Visible glyph range — only process what's on screen
+            let visibleRect = tv.visibleRect
+            let glyphRange = lm.glyphRange(forBoundingRect: visibleRect, in: tc)
+            let charRange = lm.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+
+            let isDark = parent.isDark
+            let accentColor = MarkdownTextStorage.accentColor(isDark: isDark)
+            let borderColor = (isDark
+                ? accentColor.withAlphaComponent(0.18)
+                : accentColor.withAlphaComponent(0.14)).cgColor
+            let headerBorderColor = (isDark
+                ? accentColor.withAlphaComponent(0.30)
+                : accentColor.withAlphaComponent(0.25)).cgColor
+
+            let path = CGMutablePath()
+            var headerBottomLines: [(CGPoint, CGPoint)] = []
+            var inTable = false
+            var tableTop: CGFloat = 0
+            var tableLeft: CGFloat = CGFloat.greatestFiniteMagnitude
+            var tableRight: CGFloat = 0
+            var columnXs: [CGFloat] = []
+            var lastRowBottom: CGFloat = 0
+
+            // Walk visible lines
+            var lineStart = charRange.location
+            while lineStart < NSMaxRange(charRange) {
+                let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
+                let line = str.substring(with: lineRange).trimmingCharacters(in: .newlines)
+
+                let isTableLine = line.hasPrefix("|") && line.hasSuffix("|") && line.count >= 3
+
+                if isTableLine {
+                    // Get line fragment rect (withoutAdditionalLayout avoids O(document) relayout)
+                    let glyphIdx = lm.glyphIndexForCharacter(at: lineRange.location)
+                    let lineFragRect = lm.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil,
+                                                           withoutAdditionalLayout: true)
+
+                    if !inTable {
+                        inTable = true
+                        tableTop = lineFragRect.minY
+                        columnXs = []
+                        tableLeft = CGFloat.greatestFiniteMagnitude
+                        tableRight = 0
+                    }
+
+                    lastRowBottom = lineFragRect.maxY
+
+                    // Find pipe x-positions for this line
+                    var currentPipeXs: [CGFloat] = []
+                    for (offset, ch) in line.utf16.enumerated() where ch == 0x7C /* | */ {
+                        let charIdx = lineRange.location + offset
+                        if charIdx < str.length {
+                            let gi = lm.glyphIndexForCharacter(at: charIdx)
+                            let loc = lm.location(forGlyphAt: gi)
+                            let x = lineFragRect.minX + loc.x
+                            currentPipeXs.append(x)
+                        }
+                    }
+
+                    if let first = currentPipeXs.first { tableLeft = min(tableLeft, first) }
+                    if let last = currentPipeXs.last { tableRight = max(tableRight, last) }
+
+                    // Merge column positions (union of all rows)
+                    if columnXs.isEmpty {
+                        columnXs = currentPipeXs
+                    } else if currentPipeXs.count == columnXs.count {
+                        // Average to smooth alignment variations
+                        for i in columnXs.indices {
+                            columnXs[i] = (columnXs[i] + currentPipeXs[i]) / 2
+                        }
+                    }
+
+                    // Horizontal line at top of row
+                    path.move(to: CGPoint(x: tableLeft, y: lineFragRect.minY))
+                    path.addLine(to: CGPoint(x: tableRight, y: lineFragRect.minY))
+
+                    // Detect if this is a header row (next line is separator)
+                    let isSep = line.dropFirst().dropLast()
+                        .split(separator: "|", omittingEmptySubsequences: false)
+                        .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+                    if isSep {
+                        // Thick header bottom border
+                        headerBottomLines.append(
+                            (CGPoint(x: tableLeft, y: lineFragRect.maxY),
+                             CGPoint(x: tableRight, y: lineFragRect.maxY)))
+                    }
+                } else {
+                    // End of table — close it
+                    if inTable {
+                        // Bottom border of last row
+                        path.move(to: CGPoint(x: tableLeft, y: lastRowBottom))
+                        path.addLine(to: CGPoint(x: tableRight, y: lastRowBottom))
+
+                        // Vertical lines at each column
+                        for x in columnXs {
+                            path.move(to: CGPoint(x: x, y: tableTop))
+                            path.addLine(to: CGPoint(x: x, y: lastRowBottom))
+                        }
+
+                        inTable = false
+                    }
+                }
+
+                lineStart = NSMaxRange(lineRange)
+            }
+
+            // Close table if it extends past visible range
+            if inTable {
+                path.move(to: CGPoint(x: tableLeft, y: lastRowBottom))
+                path.addLine(to: CGPoint(x: tableRight, y: lastRowBottom))
+                for x in columnXs {
+                    path.move(to: CGPoint(x: x, y: tableTop))
+                    path.addLine(to: CGPoint(x: x, y: lastRowBottom))
+                }
+            }
+
+            // Apply the path
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            borderLayer.path = path
+            borderLayer.strokeColor = borderColor
+            borderLayer.frame = tv.bounds
+
+            // Draw header borders thicker with a second sublayer
+            if let existingHeader = borderLayer.sublayers?.first as? CAShapeLayer {
+                if headerBottomLines.isEmpty {
+                    existingHeader.path = nil
+                } else {
+                    let headerPath = CGMutablePath()
+                    for (start, end) in headerBottomLines {
+                        headerPath.move(to: start)
+                        headerPath.addLine(to: end)
+                    }
+                    existingHeader.path = headerPath
+                }
+            } else if !headerBottomLines.isEmpty {
+                let headerLayer = CAShapeLayer()
+                headerLayer.fillColor = nil
+                headerLayer.lineWidth = 1.5
+                headerLayer.strokeColor = headerBorderColor
+                let headerPath = CGMutablePath()
+                for (start, end) in headerBottomLines {
+                    headerPath.move(to: start)
+                    headerPath.addLine(to: end)
+                }
+                headerLayer.path = headerPath
+                headerLayer.frame = tv.bounds
+                borderLayer.addSublayer(headerLayer)
+            }
+            CATransaction.commit()
+        }
+
+        // MARK: - Block Fold Gutter
+
+        /// Sets up the fold gutter CAShapeLayer for disclosure triangles.
+        func setupBlockFoldLayer(in tv: ClickableTextView) {
+            guard tv.wantsLayer, let layer = tv.layer else { return }
+            let gutter = CAShapeLayer()
+            gutter.fillColor = nil
+            gutter.zPosition = 20
+            layer.addSublayer(gutter)
+            blockFoldLayer = gutter
+        }
+
+        /// Reparses the document's block tree from current text storage.
+        func refreshBlockTree() {
+            guard let storage = storage else { return }
+            cachedBlocks = BlockParser.parse(storage.string)
+        }
+
+        /// Returns true if this block has children (next block has higher depth).
+        private func blockHasChildren(_ block: BlockParser.ParsedBlock) -> Bool {
+            let idx = block.order
+            guard idx + 1 < cachedBlocks.count else { return false }
+            return cachedBlocks[idx + 1].depth > block.depth
+        }
+
+        /// Returns the range of child block orders for the given parent block.
+        private func childBlockRange(of parentOrder: Int) -> Range<Int> {
+            let parentDepth = cachedBlocks[parentOrder].depth
+            var end = parentOrder + 1
+            while end < cachedBlocks.count, cachedBlocks[end].depth > parentDepth {
+                end += 1
+            }
+            return (parentOrder + 1)..<end
+        }
+
+        /// Redraws disclosure triangles for visible blocks that have children.
+        func updateBlockFoldGutter() {
+            guard let tv = textView,
+                  let lm = tv.layoutManager,
+                  let tc = tv.textContainer,
+                  let gutterLayer = blockFoldLayer else { return }
+
+            let str = (storage?.string ?? "") as NSString
+            guard str.length > 0, !cachedBlocks.isEmpty else {
+                gutterLayer.path = nil
+                foldHitRects = []
+                return
+            }
+
+            let isDark = parent.isDark
+            let accentColor = MarkdownTextStorage.accentColor(isDark: isDark)
+            let triangleColor = accentColor.withAlphaComponent(0.35).cgColor
+            let collapsedColor = accentColor.withAlphaComponent(0.50).cgColor
+
+            let visibleRect = tv.visibleRect
+            let glyphRange = lm.glyphRange(forBoundingRect: visibleRect, in: tc)
+            let charRange = lm.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+
+            let path = CGMutablePath()
+            var hitRects: [(CGRect, Int)] = []
+
+            for block in cachedBlocks {
+                // Only blocks that have children get disclosure triangles
+                guard blockHasChildren(block) else { continue }
+
+                // Check if this block is in the visible range
+                let blockStart = block.utf16Range.lowerBound
+                guard blockStart < NSMaxRange(charRange),
+                      block.utf16Range.upperBound > charRange.location,
+                      blockStart < str.length else { continue }
+
+                // Get the line fragment rect for this block's first character
+                let glyphIdx = lm.glyphIndexForCharacter(at: blockStart)
+                let lineRect = lm.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil,
+                                                   withoutAdditionalLayout: true)
+
+                // Position the triangle in the left margin (before text container inset)
+                let inset = tv.textContainerInset
+                let triangleSize: CGFloat = 8
+                let centerY = lineRect.midY
+                let centerX = inset.width - 14 // 14px from left edge of text
+
+                let isCollapsed = collapsedBlockKeys.contains(blockKey(block))
+                let hitRect = CGRect(x: centerX - 8, y: centerY - 8, width: 16, height: 16)
+                hitRects.append((hitRect, block.order))
+
+                if isCollapsed {
+                    // ▶ Right-pointing triangle (collapsed)
+                    path.move(to: CGPoint(x: centerX - 3, y: centerY - triangleSize / 2))
+                    path.addLine(to: CGPoint(x: centerX + triangleSize / 2 - 1, y: centerY))
+                    path.addLine(to: CGPoint(x: centerX - 3, y: centerY + triangleSize / 2))
+                    path.closeSubpath()
+                } else {
+                    // ▼ Down-pointing triangle (expanded)
+                    path.move(to: CGPoint(x: centerX - triangleSize / 2, y: centerY - 3))
+                    path.addLine(to: CGPoint(x: centerX + triangleSize / 2, y: centerY - 3))
+                    path.addLine(to: CGPoint(x: centerX, y: centerY + triangleSize / 2 - 1))
+                    path.closeSubpath()
+                }
+            }
+
+            foldHitRects = hitRects
+
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            gutterLayer.path = path
+            gutterLayer.fillColor = triangleColor
+            gutterLayer.frame = tv.bounds
+            CATransaction.commit()
+        }
+
+        /// Handles a click in the gutter area — toggles fold state.
+        func handleGutterClick(at point: CGPoint) -> Bool {
+            for (rect, blockOrder) in foldHitRects {
+                if rect.contains(point) {
+                    toggleFold(blockOrder: blockOrder)
+                    return true
+                }
+            }
+            return false
+        }
+
+        /// Toggles fold at the block containing the cursor (Cmd+.).
+        func toggleFoldAtCursor() {
+            guard let tv = textView else { return }
+            let cursorLocation = tv.selectedRange().location
+            // Find the block that contains the cursor
+            for block in cachedBlocks where blockHasChildren(block) {
+                if cursorLocation >= block.utf16Range.lowerBound,
+                   cursorLocation < block.utf16Range.upperBound {
+                    toggleFold(blockOrder: block.order)
+                    return
+                }
+            }
+        }
+
+        /// Toggles fold state for a block and applies/removes paragraph hiding.
+        func toggleFold(blockOrder: Int) {
+            guard let tv = textView,
+                  let storage = storage,
+                  blockOrder < cachedBlocks.count else { return }
+
+            let block = cachedBlocks[blockOrder]
+            let key = blockKey(block)
+            let isCollapsing = !collapsedBlockKeys.contains(key)
+
+            if isCollapsing {
+                collapsedBlockKeys.insert(key)
+            } else {
+                collapsedBlockKeys.remove(key)
+            }
+
+            // Apply fold to child blocks' line ranges
+            let children = childBlockRange(of: blockOrder)
+            let str = storage.string as NSString
+
+            // Fold is purely visual — bypass undo so Cmd+Z doesn't undo fold state
+            tv.undoManager?.disableUndoRegistration()
+            isFlushingTokens = true // Suppress binding sync
+            storage.beginEditing()
+
+            for childOrder in children {
+                let block = cachedBlocks[childOrder]
+                let start = block.utf16Range.lowerBound
+                let end = min(block.utf16Range.upperBound, str.length)
+                guard start < end else { continue }
+                let range = NSRange(location: start, length: end - start)
+
+                if isCollapsing {
+                    // Hide: set foreground color to clear and line height to near-zero
+                    let hiddenStyle = NSMutableParagraphStyle()
+                    hiddenStyle.maximumLineHeight = 0.01
+                    hiddenStyle.minimumLineHeight = 0.01
+                    hiddenStyle.lineSpacing = 0
+                    hiddenStyle.paragraphSpacing = 0
+                    hiddenStyle.paragraphSpacingBefore = 0
+                    storage.addAttributes([
+                        .paragraphStyle: hiddenStyle,
+                        .foregroundColor: NSColor.clear,
+                        .font: NSFont.systemFont(ofSize: 0.01),
+                    ], range: range)
+                } else {
+                    // Unhide: remove our fold attributes, let MarkdownTextStorage restyle
+                    storage.removeAttribute(.paragraphStyle, range: range)
+                    storage.removeAttribute(.foregroundColor, range: range)
+                    storage.removeAttribute(.font, range: range)
+                }
+            }
+
+            storage.endEditing()
+            isFlushingTokens = false
+            tv.undoManager?.enableUndoRegistration()
+
+            if !isCollapsing {
+                // Re-apply markdown styling to the unfolded range
+                storage.reapplyAllStyles()
+            }
+
+            // Refresh gutter triangles
+            updateBlockFoldGutter()
         }
     }
 }

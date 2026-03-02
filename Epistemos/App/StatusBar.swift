@@ -92,7 +92,10 @@ final class StatusBar {
             AppBootstrap.shared?.chatState.goHome()
             AppBootstrap.shared?.uiState.setActivePanel(.home)
             NSApplication.shared.activate()
-            NSApplication.shared.mainWindow?.makeKeyAndOrderFront(nil)
+            // mainWindow can be nil when app is backgrounded — find by title.
+            if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+                main.makeKeyAndOrderFront(nil)
+            }
         }
     }
 

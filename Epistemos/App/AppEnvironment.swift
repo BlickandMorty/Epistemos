@@ -27,5 +27,6 @@ extension View {
             .environment(bootstrap.threadState)
             .environment(bootstrap.graphState)
             .environment(bootstrap.queryEngine)
+            .environment(bootstrap.physicsCoordinator)
     }
 }

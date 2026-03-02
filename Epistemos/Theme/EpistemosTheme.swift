@@ -373,4 +373,14 @@ enum Motion {
     // NOTE: ambientPulse intentionally OMITTED from v3.
     // v2's .repeatForever caused 70% idle CPU (Pitfall #10).
     // Use Task-based animation loops instead.
+
+    // Physics UI springs — complement the base 5 with interaction-specific curves.
+    static let settle: Animation = .spring(response: 0.35, dampingFraction: 0.65)    // underdamped: slight overshoot on settle
+    static let sharp: Animation = .spring(response: 0.12, dampingFraction: 0.78)     // decisive snap with hint of bounce
+    static let elastic: Animation = .spring(response: 0.40, dampingFraction: 0.55)   // playful: entrances/exits only
+    static let inertial: Animation = .spring(response: 0.50, dampingFraction: 0.85)  // heavy: panel slides, window drag settle
+
+    // Breathing timer rate — NOT a SwiftUI Animation.
+    // Used by CADisplayLink/Timer-driven ambient effects (block gutter indent guides).
+    static let breathRate: TimeInterval = 1.0 / 30.0
 }

@@ -383,6 +383,16 @@ final class VaultSyncService {
         }
     }
 
+    /// Full-text search with ranked results + snippets. For command palette deep search.
+    func searchFull(query: String, limit: Int = 20) -> [SearchResult] {
+        guard let svc = searchService else { return [] }
+        do {
+            return try svc.search(query: query, limit: limit)
+        } catch {
+            return []
+        }
+    }
+
     /// Manually trigger a full FTS5 index rebuild.
     /// Called from Settings > Vault > "Rebuild Index" button.
     func rebuildIndex() {

@@ -305,6 +305,31 @@ struct GraphStoreEdgeOperationTests {
         #expect(store.edgesByNode["n1"]?.count == 2)
     }
     
+    @Test("removing one edge between multi-edge pair preserves neighbor link")
+    func removeOneOfMultipleEdgesPreservesNeighbor() {
+        let store = GraphStore()
+
+        store.addNode(makeNode(id: "n1"))
+        store.addNode(makeNode(id: "n2"))
+        store.addEdge(makeEdge(id: "e1", source: "n1", target: "n2", type: .reference))
+        store.addEdge(makeEdge(id: "e2", source: "n1", target: "n2", type: .contains))
+
+        // Remove one edge — neighbor link must survive
+        store.removeEdge("e1")
+
+        #expect(store.edgeCount == 1)
+        #expect(store.adjacency["n1"]?.contains("n2") == true, "neighbor link lost after removing one of two edges")
+        #expect(store.adjacency["n2"]?.contains("n1") == true, "reverse neighbor link lost")
+        #expect(store.edgesByNode["n1"]?.count == 1)
+
+        // Remove the last edge — NOW neighbor link should be gone
+        store.removeEdge("e2")
+
+        #expect(store.edgeCount == 0)
+        #expect(store.adjacency["n1"]?.contains("n2") != true, "neighbor link should be removed when last edge is gone")
+        #expect(store.adjacency["n2"]?.contains("n1") != true)
+    }
+
     @Test("self-loop edge is added correctly")
     func selfLoopEdgeAddedCorrectly() {
         let store = GraphStore()
