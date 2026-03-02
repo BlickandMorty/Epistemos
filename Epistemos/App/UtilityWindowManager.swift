@@ -102,9 +102,9 @@ final class UtilityWindowManager {
             panel.appearance = appearance
             if let bg = background { panel.backgroundColor = bg }
         }
-        // Also sync note editor windows and MiniChat
+        // Also sync note editor windows and command palette
         NoteWindowManager.shared.syncTheme(isDark: isDark)
-        MiniChatWindowController.shared.syncTheme(isDark: isDark)
+        CommandPaletteWindowController.shared.syncTheme(isDark: isDark)
     }
 
     private func windowFor(_ panel: UtilityPanel) -> NSWindow? {

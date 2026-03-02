@@ -171,9 +171,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Table border overlay — Obsidian-style grid lines drawn via CAShapeLayer
         context.coordinator.setupTableBorderLayer(in: tv)
 
-        // Block fold gutter — disclosure triangles for collapsible blocks
-        context.coordinator.setupBlockFoldLayer(in: tv)
-
         // Wire wikilink + block ref handlers and page ID for scoped notifications
         let coord = context.coordinator
         tv.pageId = pageId
@@ -183,11 +180,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         tv.onBlockRefClick = { [weak coord] blockId in
             coord?.parent.onBlockRefClick?(blockId)
         }
-        tv.onGutterClick = { [weak coord] point in
-            coord?.handleGutterClick(at: point) ?? false
-        }
-        tv.onFoldToggle = { [weak coord] in
-            coord?.toggleFoldAtCursor()
+        tv.onOpenInGraph = { pageId in
+            HologramController.shared.revealPage(pageId)
         }
 
         // Obsidian-style centering: observe clip view frame changes to dynamically
@@ -389,12 +383,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         tv.onBlockRefClick = { [weak coord] blockId in
             coord?.parent.onBlockRefClick?(blockId)
         }
-        tv.onGutterClick = { [weak coord] point in
-            coord?.handleGutterClick(at: point) ?? false
-        }
-        tv.onFoldToggle = { [weak coord] in
-            coord?.toggleFoldAtCursor()
-        }
 
         // Wire Note Chat callbacks — only when the state reference changes.
         if let noteChat = noteChatState, coord.noteChatState !== noteChat {
@@ -521,20 +509,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         var tableBorderLayer: CAShapeLayer?
         nonisolated(unsafe) var borderScrollObserver: (any NSObjectProtocol)?
 
-        // Block fold gutter — disclosure triangles for collapsible blocks.
-        var blockFoldLayer: CAShapeLayer?
-        /// Cached block tree from last parse. Updated in textDidChange debounce.
-        var cachedBlocks: [BlockParser.ParsedBlock] = []
-        /// Collapsed blocks keyed by first-line content (stable across re-parses).
-        var collapsedBlockKeys: Set<String> = []
-        /// Clickable regions for fold toggles: maps rect → block order.
-        var foldHitRects: [(CGRect, Int)] = []
-
-        /// Stable key for a block — uses its first line content + depth.
-        private func blockKey(_ block: BlockParser.ParsedBlock) -> String {
-            "\(block.depth):\(block.content.prefix(80))"
-        }
-
         init(_ parent: ProseEditorRepresentable) {
             self.parent = parent
             self.lastIsDark = parent.isDark
@@ -612,10 +586,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Update table border overlay after layout settles
             updateTableBorders()
-
-            // Refresh block tree + fold gutter (lightweight — O(n) parse)
-            refreshBlockTree()
-            updateBlockFoldGutter()
 
             // Refresh transclusion overlays
             transclusionManager?.refresh()
@@ -1262,206 +1232,5 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             CATransaction.commit()
         }
 
-        // MARK: - Block Fold Gutter
-
-        /// Sets up the fold gutter CAShapeLayer for disclosure triangles.
-        func setupBlockFoldLayer(in tv: ClickableTextView) {
-            guard tv.wantsLayer, let layer = tv.layer else { return }
-            let gutter = CAShapeLayer()
-            gutter.fillColor = nil
-            gutter.zPosition = 20
-            layer.addSublayer(gutter)
-            blockFoldLayer = gutter
-        }
-
-        /// Reparses the document's block tree from current text storage.
-        func refreshBlockTree() {
-            guard let storage = storage else { return }
-            cachedBlocks = BlockParser.parse(storage.string)
-        }
-
-        /// Returns true if this block has children (next block has higher depth).
-        private func blockHasChildren(_ block: BlockParser.ParsedBlock) -> Bool {
-            let idx = block.order
-            guard idx + 1 < cachedBlocks.count else { return false }
-            return cachedBlocks[idx + 1].depth > block.depth
-        }
-
-        /// Returns the range of child block orders for the given parent block.
-        private func childBlockRange(of parentOrder: Int) -> Range<Int> {
-            let parentDepth = cachedBlocks[parentOrder].depth
-            var end = parentOrder + 1
-            while end < cachedBlocks.count, cachedBlocks[end].depth > parentDepth {
-                end += 1
-            }
-            return (parentOrder + 1)..<end
-        }
-
-        /// Redraws disclosure triangles for visible blocks that have children.
-        func updateBlockFoldGutter() {
-            guard let tv = textView,
-                  let lm = tv.layoutManager,
-                  let tc = tv.textContainer,
-                  let gutterLayer = blockFoldLayer else { return }
-
-            let str = (storage?.string ?? "") as NSString
-            guard str.length > 0, !cachedBlocks.isEmpty else {
-                gutterLayer.path = nil
-                foldHitRects = []
-                return
-            }
-
-            let isDark = parent.isDark
-            let accentColor = MarkdownTextStorage.accentColor(isDark: isDark)
-            let triangleColor = accentColor.withAlphaComponent(0.35).cgColor
-            let collapsedColor = accentColor.withAlphaComponent(0.50).cgColor
-
-            let visibleRect = tv.visibleRect
-            let glyphRange = lm.glyphRange(forBoundingRect: visibleRect, in: tc)
-            let charRange = lm.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-
-            let path = CGMutablePath()
-            var hitRects: [(CGRect, Int)] = []
-
-            for block in cachedBlocks {
-                // Only blocks that have children get disclosure triangles
-                guard blockHasChildren(block) else { continue }
-
-                // Check if this block is in the visible range
-                let blockStart = block.utf16Range.lowerBound
-                guard blockStart < NSMaxRange(charRange),
-                      block.utf16Range.upperBound > charRange.location,
-                      blockStart < str.length else { continue }
-
-                // Get the line fragment rect for this block's first character
-                let glyphIdx = lm.glyphIndexForCharacter(at: blockStart)
-                let lineRect = lm.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil,
-                                                   withoutAdditionalLayout: true)
-
-                // Position the triangle in the left margin (before text container inset)
-                let inset = tv.textContainerInset
-                let triangleSize: CGFloat = 8
-                let centerY = lineRect.midY
-                let centerX = inset.width - 14 // 14px from left edge of text
-
-                let isCollapsed = collapsedBlockKeys.contains(blockKey(block))
-                let hitRect = CGRect(x: centerX - 8, y: centerY - 8, width: 16, height: 16)
-                hitRects.append((hitRect, block.order))
-
-                if isCollapsed {
-                    // ▶ Right-pointing triangle (collapsed)
-                    path.move(to: CGPoint(x: centerX - 3, y: centerY - triangleSize / 2))
-                    path.addLine(to: CGPoint(x: centerX + triangleSize / 2 - 1, y: centerY))
-                    path.addLine(to: CGPoint(x: centerX - 3, y: centerY + triangleSize / 2))
-                    path.closeSubpath()
-                } else {
-                    // ▼ Down-pointing triangle (expanded)
-                    path.move(to: CGPoint(x: centerX - triangleSize / 2, y: centerY - 3))
-                    path.addLine(to: CGPoint(x: centerX + triangleSize / 2, y: centerY - 3))
-                    path.addLine(to: CGPoint(x: centerX, y: centerY + triangleSize / 2 - 1))
-                    path.closeSubpath()
-                }
-            }
-
-            foldHitRects = hitRects
-
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            gutterLayer.path = path
-            gutterLayer.fillColor = triangleColor
-            gutterLayer.frame = tv.bounds
-            CATransaction.commit()
-        }
-
-        /// Handles a click in the gutter area — toggles fold state.
-        func handleGutterClick(at point: CGPoint) -> Bool {
-            for (rect, blockOrder) in foldHitRects {
-                if rect.contains(point) {
-                    toggleFold(blockOrder: blockOrder)
-                    return true
-                }
-            }
-            return false
-        }
-
-        /// Toggles fold at the block containing the cursor (Cmd+.).
-        func toggleFoldAtCursor() {
-            guard let tv = textView else { return }
-            let cursorLocation = tv.selectedRange().location
-            // Find the block that contains the cursor
-            for block in cachedBlocks where blockHasChildren(block) {
-                if cursorLocation >= block.utf16Range.lowerBound,
-                   cursorLocation < block.utf16Range.upperBound {
-                    toggleFold(blockOrder: block.order)
-                    return
-                }
-            }
-        }
-
-        /// Toggles fold state for a block and applies/removes paragraph hiding.
-        func toggleFold(blockOrder: Int) {
-            guard let tv = textView,
-                  let storage = storage,
-                  blockOrder < cachedBlocks.count else { return }
-
-            let block = cachedBlocks[blockOrder]
-            let key = blockKey(block)
-            let isCollapsing = !collapsedBlockKeys.contains(key)
-
-            if isCollapsing {
-                collapsedBlockKeys.insert(key)
-            } else {
-                collapsedBlockKeys.remove(key)
-            }
-
-            // Apply fold to child blocks' line ranges
-            let children = childBlockRange(of: blockOrder)
-            let str = storage.string as NSString
-
-            // Fold is purely visual — bypass undo so Cmd+Z doesn't undo fold state
-            tv.undoManager?.disableUndoRegistration()
-            isFlushingTokens = true // Suppress binding sync
-            storage.beginEditing()
-
-            for childOrder in children {
-                let block = cachedBlocks[childOrder]
-                let start = block.utf16Range.lowerBound
-                let end = min(block.utf16Range.upperBound, str.length)
-                guard start < end else { continue }
-                let range = NSRange(location: start, length: end - start)
-
-                if isCollapsing {
-                    // Hide: set foreground color to clear and line height to near-zero
-                    let hiddenStyle = NSMutableParagraphStyle()
-                    hiddenStyle.maximumLineHeight = 0.01
-                    hiddenStyle.minimumLineHeight = 0.01
-                    hiddenStyle.lineSpacing = 0
-                    hiddenStyle.paragraphSpacing = 0
-                    hiddenStyle.paragraphSpacingBefore = 0
-                    storage.addAttributes([
-                        .paragraphStyle: hiddenStyle,
-                        .foregroundColor: NSColor.clear,
-                        .font: NSFont.systemFont(ofSize: 0.01),
-                    ], range: range)
-                } else {
-                    // Unhide: remove our fold attributes, let MarkdownTextStorage restyle
-                    storage.removeAttribute(.paragraphStyle, range: range)
-                    storage.removeAttribute(.foregroundColor, range: range)
-                    storage.removeAttribute(.font, range: range)
-                }
-            }
-
-            storage.endEditing()
-            isFlushingTokens = false
-            tv.undoManager?.enableUndoRegistration()
-
-            if !isCollapsing {
-                // Re-apply markdown styling to the unfolded range
-                storage.reapplyAllStyles()
-            }
-
-            // Refresh gutter triangles
-            updateBlockFoldGutter()
-        }
     }
 }

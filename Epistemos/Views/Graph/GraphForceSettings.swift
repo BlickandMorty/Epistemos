@@ -70,15 +70,18 @@ struct GraphForceSettings: View {
     // MARK: - Static Layout Banner
 
     private var staticLayoutBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "gauge.with.dots.needle.0percent")
+        let userFrozen = graphState.isPhysicsFrozen
+        return HStack(spacing: 8) {
+            Image(systemName: userFrozen ? "pause.circle.fill" : "gauge.with.dots.needle.0percent")
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Physics Paused")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.primary)
-                Text("Graph exceeds \(GraphState.staticLayoutThreshold) nodes. Focus on a node to enable physics for that cluster.")
+                Text(userFrozen
+                     ? "Physics frozen by user. Use the toolbar toggle to resume."
+                     : "Graph exceeds \(GraphState.staticLayoutThreshold) nodes. Focus on a node to enable physics for that cluster.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

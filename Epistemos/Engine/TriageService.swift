@@ -191,28 +191,28 @@ final class TriageService {
     }
 
     /// Apple Intelligence on-device model has ~4096 tokens of context.
-    /// Trims prompt + system prompt to fit, preserving the user's question at the end.
+    /// Replaces the cloud-grade system prompt with a simple one Apple AI can follow,
+    /// and trims the user prompt to fit within the remaining context budget.
     private static func trimForAppleIntelligence(prompt: String, systemPrompt: String?) -> (String, String?) {
-        // Budget: ~12,000 chars total ≈ 4096 tokens. Reserve ~3000 chars for response.
-        let totalBudget = 9_000
-        let systemBudget = min(2_000, totalBudget / 3)
-        let promptBudget = totalBudget - min(systemBudget, systemPrompt?.count ?? 0)
+        // Apple Intelligence can't follow complex research prompts (evidence tiers,
+        // Bayesian analysis, etc.). Give it a simple system prompt — a truncated
+        // research prompt confuses it into producing confident-sounding hallucinations.
+        let simpleSystem = "You are a helpful assistant. Answer the user's question directly and concisely. Use plain language. Be accurate and honest about uncertainty. If you don't know something, say so."
 
-        let trimmedSystem: String?
-        if let sp = systemPrompt, sp.count > systemBudget {
-            trimmedSystem = String(sp.prefix(systemBudget))
-        } else {
-            trimmedSystem = systemPrompt
-        }
+        // Budget: ~4096 tokens ≈ 12,000 chars. System ~200 chars, reserve ~3,000 for response.
+        let promptBudget = 8_000
 
         let trimmedPrompt: String
         if prompt.count > promptBudget {
-            trimmedPrompt = String(prompt.prefix(promptBudget)) + "\n\n[Content trimmed for on-device processing]"
+            // Preserve the end (the actual user query) over conversation history prefix
+            let suffix = String(prompt.suffix(2_000))
+            let prefix = String(prompt.prefix(promptBudget - 2_000))
+            trimmedPrompt = prefix + "\n\n[...]\n\n" + suffix
         } else {
             trimmedPrompt = prompt
         }
 
-        return (trimmedPrompt, trimmedSystem)
+        return (trimmedPrompt, simpleSystem)
     }
 
     init(inference: InferenceState, llmService: any LLMClientProtocol) {

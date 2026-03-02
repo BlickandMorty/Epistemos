@@ -388,6 +388,13 @@ pub extern "C" fn graph_engine_resume(engine: *mut Engine) {
     engine.resume();
 }
 
+/// User-controlled physics freeze: 1 = freeze (stop all forces), 0 = unfreeze (reheat).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_user_frozen(engine: *mut Engine, frozen: u8) {
+    ffi_engine!(engine);
+    engine.set_user_frozen(frozen != 0);
+}
+
 // ── Cluster Parameters ──────────────────────────────────────────────────────
 
 /// Set cluster cohesion strength (0 = off, 1 = strong bubbles).
@@ -474,6 +481,13 @@ pub extern "C" fn graph_engine_set_mode(engine: *mut Engine, mode: u8) {
 pub extern "C" fn graph_engine_set_lite_mode(engine: *mut Engine, enabled: u8) {
     ffi_engine!(engine);
     engine.set_lite_mode(enabled != 0);
+}
+
+/// Set light/dark mode color palette: 0 = dark, 1 = light.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) {
+    ffi_engine!(engine);
+    engine.set_light_mode(enabled != 0);
 }
 
 /// Set quality level: 0 = Cinematic (full effects), 1 = Balanced (sphere shading, no glow/breathing),
@@ -568,7 +582,7 @@ pub extern "C" fn graph_engine_search(
         return std::ptr::null_mut();
     }
 
-    let mut ffi_results: Vec<search::SearchResult> = results
+    let ffi_results: Vec<search::SearchResult> = results
         .into_iter()
         .map(|(uuid, label, node_type, score)| search::SearchResult {
             uuid: CString::new(uuid).unwrap_or_default().into_raw(),
@@ -579,9 +593,7 @@ pub extern "C" fn graph_engine_search(
         .collect();
 
     // into_boxed_slice guarantees capacity == len, avoiding UB in from_raw_parts.
-    let boxed = ffi_results.into_boxed_slice();
-    let ptr = Box::into_raw(boxed) as *mut search::SearchResult;
-    ptr
+    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
 }
 
 /// Free search results allocated by `graph_engine_search`.
@@ -593,8 +605,11 @@ pub extern "C" fn graph_engine_free_search_results(
     if results.is_null() {
         return;
     }
+    // SAFETY: `results` and `count` were produced by `graph_engine_search` /
+    // `graph_engine_search_semantic` via `Box::into_raw(boxed_slice)`.
     unsafe {
-        let slice = std::slice::from_raw_parts_mut(results, count as usize);
+        let slice: &mut [search::SearchResult] =
+            std::slice::from_raw_parts_mut(results, count as usize);
         for result in slice.iter() {
             if !result.uuid.is_null() {
                 let _ = CString::from_raw(result.uuid as *mut _);
@@ -604,7 +619,9 @@ pub extern "C" fn graph_engine_free_search_results(
             }
         }
         // Reconstruct the boxed slice and drop it to free the allocation.
-        drop(Box::from_raw(std::slice::from_raw_parts_mut(results, count as usize)));
+        let to_drop: *mut [search::SearchResult] =
+            std::ptr::slice_from_raw_parts_mut(results, count as usize);
+        drop(Box::from_raw(to_drop));
     }
 }
 
@@ -780,7 +797,7 @@ pub extern "C" fn graph_engine_semantic_search(
         return std::ptr::null_mut();
     }
 
-    let mut ffi_results: Vec<search::SearchResult> = hits
+    let ffi_results: Vec<search::SearchResult> = hits
         .into_iter()
         .filter_map(|hit| {
             let node = engine.graph().nodes.get(hit.node_index as usize)?;
@@ -797,9 +814,7 @@ pub extern "C" fn graph_engine_semantic_search(
         })
         .collect();
 
-    let boxed = ffi_results.into_boxed_slice();
-    let ptr = Box::into_raw(boxed) as *mut search::SearchResult;
-    ptr
+    Box::into_raw(ffi_results.into_boxed_slice()) as *mut search::SearchResult
 }
 
 // ── Version Chain ──────────────────────────────────────────────────────────

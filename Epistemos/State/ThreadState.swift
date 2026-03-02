@@ -18,6 +18,12 @@ final class ThreadState {
     var miniChatIsStreaming = false
     var miniChatStreamingText = ""
 
+    // MARK: - Palette Streaming
+
+    /// Streaming state for the command palette's inline chat mode.
+    var paletteIsStreaming = false
+    var paletteStreamingText = ""
+
     // MARK: - Thread Methods
 
     @discardableResult

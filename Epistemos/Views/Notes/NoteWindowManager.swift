@@ -378,8 +378,10 @@ private struct NoteTabView: View {
                 }
                 .environment(noteChatState)
                 .overlay(alignment: .bottom) {
-                    NoteChatBar()
-                        .environment(noteChatState)
+                    if !showWriterMode && !showPreview {
+                        NoteChatBar()
+                            .environment(noteChatState)
+                    }
                 }
                 .onDisappear {
                     noteChatState.clear()
@@ -786,20 +788,15 @@ private struct NoteTabView: View {
         // Swap mode after one frame (overlay is guaranteed visible).
         // Cache invalidation happens inside modeSwap so the old editor
         // isn't pulled out from under itself before SwiftUI tears it down.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
             modeSwap()
-        }
-
-        // Hold long enough for the new view to fully settle + user reads,
-        // then smooth fade out.
-        DispatchQueue.main.asyncAfter(deadline: .now() + holdTime) {
+            try? await Task.sleep(for: .milliseconds(Int(holdTime * 1000)))
             withAnimation(.easeOut(duration: 0.35)) {
                 transitionOpacity = 0
             }
-            // Re-enable triggers after fade completes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                isTransitioning = false
-            }
+            try? await Task.sleep(for: .milliseconds(350))
+            isTransitioning = false
         }
     }
 

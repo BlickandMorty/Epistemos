@@ -92,6 +92,23 @@ final class HologramController {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Reveals a specific note in the graph overlay (page mode, focused on the node).
+    func revealPage(_ pageId: String) {
+        ensureOverlay()
+        guard let graphState, let modelContainer,
+              let node = graphState.store.node(bySourceId: pageId, type: .note) else {
+            show()
+            return
+        }
+        graphState.mode = .page(nodeId: node.id)
+        graphState.buildPageSubgraph(for: pageId, context: modelContainer.mainContext)
+        graphState.focusOnNode(node.id, depth: 2)
+        graphState.requestRecommit()
+        let noteWindow = NoteWindowManager.shared.window(for: pageId)
+        overlay?.show(noteWindow: noteWindow)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     func hide() {
         overlay?.hide()
         // Clean up ephemeral page-mode nodes.
@@ -143,7 +160,7 @@ final class HologramController {
         // Global hotkey monitors are managed by CommandPaletteWindowController.
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         screenObserver = nil
-        overlay?.hide()
+        overlay?.forceClose()
         overlay = nil
     }
 

@@ -36,12 +36,9 @@ final class ClickableTextView: NSTextView {
     /// Closure called when user clicks a ((block-ref)). Receives the block ID.
     var onBlockRefClick: ((String) -> Void)?
 
-    /// Closure called when user clicks in the left gutter (fold disclosure area).
-    /// Receives click point in text view coordinates. Returns true if handled.
-    var onGutterClick: ((CGPoint) -> Bool)?
-
-    /// Closure called when user presses Cmd+. to toggle fold at cursor position.
-    var onFoldToggle: (() -> Void)?
+    /// Closure called when user selects "Open in Graph" from context menu.
+    /// Receives a page ID (current note or wikilink target).
+    var onOpenInGraph: ((String) -> Void)?
 
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
@@ -174,12 +171,6 @@ final class ClickableTextView: NSTextView {
             return true
         }
 
-        // Cmd+. — Toggle fold at cursor
-        if flags == .command, event.charactersIgnoringModifiers == "." {
-            onFoldToggle?()
-            return true
-        }
-
         // Esc — Hide Find bar (if visible)
         if event.keyCode == 53 { // Esc key
             let item = NSMenuItem()
@@ -264,12 +255,6 @@ final class ClickableTextView: NSTextView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-
-        // Check gutter click (fold disclosure triangles) before anything else
-        if point.x < textContainerInset.width, onGutterClick?(point) == true {
-            return
-        }
-
         let idx = characterIndexForInsertion(at: point)
 
         if idx < string.utf16.count,
@@ -290,6 +275,21 @@ final class ClickableTextView: NSTextView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
+
+        // Reveal in Graph — opens graph overlay focused on this note's node
+        if let pid = pageId {
+            menu.addItem(NSMenuItem.separator())
+
+            let graphItem = NSMenuItem(
+                title: "Reveal in Graph",
+                action: #selector(contextRevealInGraph(_:)),
+                keyEquivalent: ""
+            )
+            graphItem.image = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted", accessibilityDescription: "Graph")
+            graphItem.target = self
+            graphItem.representedObject = pid
+            menu.addItem(graphItem)
+        }
 
         menu.addItem(NSMenuItem.separator())
 
@@ -347,6 +347,11 @@ final class ClickableTextView: NSTextView {
         item.target = self
         item.representedObject = op
         return item
+    }
+
+    @objc private func contextRevealInGraph(_ sender: NSMenuItem) {
+        guard let pid = sender.representedObject as? String else { return }
+        onOpenInGraph?(pid)
     }
 
     @objc private func createIdeaAtLine() {

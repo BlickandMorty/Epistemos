@@ -27,15 +27,12 @@ struct OpenPanelIntent: AppIntent {
 
 struct OpenMiniChatIntent: AppIntent {
     nonisolated(unsafe) static var title: LocalizedStringResource = "Open MiniChat"
-    nonisolated(unsafe) static var description: IntentDescription = "Opens the Epistemos MiniChat floating window."
+    nonisolated(unsafe) static var description: IntentDescription = "Opens the Epistemos floating chat."
     nonisolated(unsafe) static var openAppWhenRun = true
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        guard let ui = AppBootstrap.shared?.uiState else { return .result() }
-        if !ui.miniChatOpen {
-            ui.toggleMiniChat()
-        }
+        CommandPaletteWindowController.shared.toggleChatMode()
         return .result()
     }
 }

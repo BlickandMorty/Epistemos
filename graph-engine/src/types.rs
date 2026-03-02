@@ -49,6 +49,20 @@ impl NodeType {
         }
     }
 
+    /// RGBA color for this node type (light mode — deeper saturated tones on light background).
+    pub fn color_light(&self) -> [f32; 4] {
+        match self {
+            Self::Note => [0.10, 0.60, 0.55, 1.0],   // teal (deeper)
+            Self::Chat => [0.85, 0.45, 0.00, 1.0],   // orange (deeper)
+            Self::Idea => [0.80, 0.65, 0.00, 1.0],   // gold (deeper)
+            Self::Source => [0.10, 0.58, 0.22, 1.0],  // green (deeper)
+            Self::Folder => [0.50, 0.38, 0.25, 1.0],  // brown (deeper)
+            Self::Quote => [0.52, 0.20, 0.70, 1.0],   // purple (deeper)
+            Self::Tag => [0.36, 0.36, 0.40, 1.0],     // gray (deeper)
+            Self::Block => [0.25, 0.55, 0.72, 1.0],   // blue (deeper)
+        }
+    }
+
 }
 
 /// Minimum node radius in world units.
@@ -83,6 +97,25 @@ pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
         10 => [0.30, 0.85, 0.85, 0.45],  // expands — cyan
         11 => [0.95, 0.75, 0.10, 0.45],  // questions — amber
         _  => [0.55, 0.55, 0.60, 0.30],  // default — gray
+    }
+}
+
+/// RGBA color for an edge type (light mode — higher contrast on light background).
+pub fn edge_type_color_light(edge_type: u8) -> [f32; 4] {
+    match edge_type {
+        0  => [0.40, 0.40, 0.45, 0.40],  // reference — dark gray
+        1  => [0.40, 0.30, 0.20, 0.40],  // contains — brown
+        2  => [0.36, 0.36, 0.40, 0.35],  // tagged — gray
+        3  => [0.20, 0.50, 0.75, 0.50],  // mentions — blue
+        4  => [0.10, 0.58, 0.22, 0.55],  // cites — green
+        5  => [0.80, 0.45, 0.00, 0.50],  // authored — orange
+        6  => [0.52, 0.20, 0.70, 0.50],  // related — purple
+        7  => [0.75, 0.60, 0.00, 0.50],  // quotes — gold
+        8  => [0.15, 0.65, 0.25, 0.55],  // supports — green
+        9  => [0.80, 0.15, 0.15, 0.55],  // contradicts — red
+        10 => [0.15, 0.60, 0.60, 0.50],  // expands — teal
+        11 => [0.75, 0.55, 0.05, 0.50],  // questions — amber
+        _  => [0.40, 0.40, 0.45, 0.35],  // default — gray
     }
 }
 

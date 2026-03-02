@@ -85,15 +85,15 @@ impl ProgressiveRevealAnimator {
         // Small vaults get a faster reveal — the whole animation should feel snappy.
         // Large vaults get a longer spread so it doesn't overwhelm.
         let spread = if n > 10_000 {
-            3.5f32
+            4.0f32
         } else if n > 1000 {
-            2.5
+            3.0
         } else if n > 200 {
-            1.8
+            2.2
         } else if n > 50 {
-            1.2
+            1.5
         } else {
-            0.8  // Small vaults: fast, punchy reveal
+            1.0
         };
 
         let mut delays = vec![0.0f32; n];
@@ -417,21 +417,28 @@ impl Engine {
         if entrance {
             let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());
             let spacing = if n > 5000 {
-                80.0_f32
+                160.0_f32
             } else if n > 500 {
-                100.0
+                160.0
             } else if n > 100 {
-                70.0
+                130.0
             } else {
-                50.0  // Small vaults: wider spiral so repel mode doesn't cluster at center
+                120.0
             };
-            for (i, node) in self.graph.nodes.iter_mut().enumerate() {
-                let r = spacing * (i as f32).sqrt();
-                let theta = i as f32 * golden_angle;
-                node.x = r * theta.cos();
-                node.y = r * theta.sin();
-                node.vx = 0.0;
-                node.vy = 0.0;
+
+            // Sort by link_count descending so hub nodes land at inner spiral indices.
+            let mut sorted_indices: Vec<usize> = (0..n).collect();
+            sorted_indices.sort_unstable_by(|&a, &b| {
+                self.graph.nodes[b].link_count.cmp(&self.graph.nodes[a].link_count)
+            });
+
+            for (spiral_idx, &node_idx) in sorted_indices.iter().enumerate() {
+                let r = spacing * (spiral_idx as f32).sqrt();
+                let theta = spiral_idx as f32 * golden_angle;
+                self.graph.nodes[node_idx].x = r * theta.cos();
+                self.graph.nodes[node_idx].y = r * theta.sin();
+                self.graph.nodes[node_idx].vx = 0.0;
+                self.graph.nodes[node_idx].vy = 0.0;
             }
         }
 
@@ -442,7 +449,8 @@ impl Engine {
 
             // Page mode always gets full physics — it shows a small subset
             // (focal node + 1-hop neighbors) regardless of total vault size.
-            if self.mode == 1 && sim.static_layout {
+            // But respect user-controlled freeze if active.
+            if self.mode == 1 && sim.static_layout && !sim.user_frozen {
                 sim.static_layout = false;
                 sim.is_settled = false;
                 sim.params.alpha = 0.3;
@@ -613,10 +621,10 @@ impl Engine {
     /// Does NOT re-upload to renderer — call `refresh_visibility()` once after
     /// all desired toggles are applied.
     pub fn set_node_visible(&mut self, uuid: &str, visible: bool) {
-        if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
-            if let Some(&idx) = self.graph.id_to_index.get(&id) {
-                self.graph.nodes[idx].visible = visible;
-            }
+        if let Some(&id) = self.graph.uuid_to_id.get(uuid)
+            && let Some(&idx) = self.graph.id_to_index.get(&id)
+        {
+            self.graph.nodes[idx].visible = visible;
         }
     }
 
@@ -727,7 +735,7 @@ impl Engine {
         // so camera smoothly tracks the expanding graph.
         if entrance_active && !entrance_just_completed {
             self.entrance_camera_frame += 1;
-            if self.entrance_camera_frame % 30 == 0 {
+            if self.entrance_camera_frame.is_multiple_of(30) {
                 self.zoom_to_fit();
             }
         }
@@ -884,8 +892,7 @@ impl Engine {
     /// Mouse/trackpad moved (drag, pan, or hover).
     pub fn mouse_moved(&mut self, screen_x: f32, screen_y: f32) {
         self.idle_frame_count = 0;
-        if self.drag.is_some() {
-            let drag = self.drag.as_ref().unwrap();
+        if let Some(drag) = self.drag.as_mut() {
             let sim_index = drag.sim_index;
             let origin = drag.origin;
 
@@ -893,7 +900,7 @@ impl Engine {
             let dx = screen_x - origin[0];
             let dy = screen_y - origin[1];
             if dx * dx + dy * dy > 25.0 {
-                self.drag.as_mut().unwrap().moved = true;
+                drag.moved = true;
             }
             // Dragging a node — update fixed position.
             let (wx, wy) = self.screen_to_world(screen_x, screen_y);
@@ -1098,13 +1105,13 @@ impl Engine {
 
     /// Center camera on a specific node by UUID, zooming in moderately.
     pub fn center_on_node(&mut self, uuid: &str) {
-        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid) {
-            if let Some(&idx) = self.graph.id_to_index.get(&node_id) {
-                let node = &self.graph.nodes[idx];
-                self.renderer.target_offset = [node.x, node.y];
-                self.renderer.target_zoom = 3.5; // Close-up zoom for page mode
-                self.renderer.is_animating = true;
-            }
+        if let Some(&node_id) = self.graph.uuid_to_id.get(uuid)
+            && let Some(&idx) = self.graph.id_to_index.get(&node_id)
+        {
+            let node = &self.graph.nodes[idx];
+            self.renderer.target_offset = [node.x, node.y];
+            self.renderer.target_zoom = 3.5; // Close-up zoom for page mode
+            self.renderer.is_animating = true;
         }
     }
 
@@ -1291,6 +1298,16 @@ impl Engine {
         self.sim.lock().static_layout
     }
 
+    /// User-controlled physics freeze. Stops/starts the physics thread accordingly.
+    pub fn set_user_frozen(&mut self, frozen: bool) {
+        self.sim.lock().set_user_frozen(frozen);
+        if frozen {
+            self.stop_physics();
+        } else if self.physics_handle.is_none() {
+            self.start_physics();
+        }
+    }
+
     pub fn set_mode(&mut self, mode: u8) {
         self.idle_frame_count = 0;
         self.mode = mode;
@@ -1372,6 +1389,11 @@ impl Engine {
         self.sim.lock().lite_mode = enabled;
     }
 
+    /// Switch renderer between light and dark mode color palettes.
+    pub fn set_light_mode(&mut self, enabled: bool) {
+        self.renderer.light_mode = enabled;
+    }
+
     /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
     pub fn set_quality_level(&mut self, level: u8) {
         let clamped = level.min(2);
@@ -1423,11 +1445,11 @@ impl Engine {
 
     /// Set timestamps for a node by UUID.
     pub fn set_node_time(&mut self, uuid: &str, created_at: f64, updated_at: f64) {
-        if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
-            if let Some(&idx) = self.graph.id_to_index.get(&id) {
-                self.graph.nodes[idx].created_at = created_at;
-                self.graph.nodes[idx].updated_at = updated_at;
-            }
+        if let Some(&id) = self.graph.uuid_to_id.get(uuid)
+            && let Some(&idx) = self.graph.id_to_index.get(&id)
+        {
+            self.graph.nodes[idx].created_at = created_at;
+            self.graph.nodes[idx].updated_at = updated_at;
         }
     }
 
@@ -1465,10 +1487,10 @@ impl Engine {
 
     /// Set a node's confidence score (0.0–1.0).
     pub fn set_node_confidence(&mut self, uuid: &str, confidence: f32) {
-        if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
-            if let Some(&idx) = self.graph.id_to_index.get(&id) {
-                self.graph.nodes[idx].confidence = confidence.clamp(0.0, 1.0);
-            }
+        if let Some(&id) = self.graph.uuid_to_id.get(uuid)
+            && let Some(&idx) = self.graph.id_to_index.get(&id)
+        {
+            self.graph.nodes[idx].confidence = confidence.clamp(0.0, 1.0);
         }
     }
 }

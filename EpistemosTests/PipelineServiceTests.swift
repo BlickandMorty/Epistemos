@@ -143,6 +143,7 @@ struct PipelineServiceTests {
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
         let triage = TriageService(inference: inference, llmService: mock)
         let eventBus = EventBus()
 
@@ -182,6 +183,8 @@ struct PipelineServiceTests {
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
+        // Force triage to route through the mock LLM, not Apple Intelligence.
+        inference.appleIntelligenceAvailable = false
         let triage = TriageService(inference: inference, llmService: mock)
         let eventBus = EventBus()
 
@@ -224,6 +227,7 @@ struct PipelineServiceTests {
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
         let triage = TriageService(inference: inference, llmService: mock)
         let eventBus = EventBus()
 
@@ -384,6 +388,7 @@ struct PipelineContractTests {
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
         let triage = TriageService(inference: inference, llmService: mock)
         let eventBus = EventBus()
 
@@ -428,6 +433,7 @@ struct PipelineContractTests {
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
         let triage = TriageService(inference: inference, llmService: mock)
         let eventBus = EventBus()
 
@@ -466,6 +472,7 @@ struct PipelineContractTests {
 
         let pipelineState = PipelineState()
         let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
         let triage = TriageService(inference: inference, llmService: mock)
         let eventBus = EventBus()
 

@@ -1,11 +1,17 @@
 import SwiftData
 import SwiftUI
-import UniformTypeIdentifiers
 
 // MARK: - Command Palette Overlay
-// Global Gemini-style command palette — shown from any panel via Cmd+S.
-// Fullscreen blur backdrop with centered glass search panel.
-// Executes commands, searches vault, submits chat queries.
+// Unified global search + floating chat. Replaces both the command palette
+// and MiniChat. Starts as a frosted-glass search bar (Option+Space), morphs
+// into a tabbed floating chat on query submission (blur-replace transition).
+// Context-aware: from landing page → navigates to main chat; from anywhere
+// else → inline floating chat with thread tabs.
+
+private enum PaletteMode: Equatable {
+    case search
+    case chat
+}
 
 struct CommandPaletteOverlay: View {
     @Environment(UIState.self) private var ui
@@ -16,180 +22,917 @@ struct CommandPaletteOverlay: View {
     @Environment(GraphState.self) private var graphState
     @Environment(QueryEngine.self) private var queryEngine
     @Environment(DailyBriefState.self) private var dailyBrief
+    @Environment(ThreadState.self) private var threadState
+    @Environment(TriageService.self) private var triage
+    @Environment(LLMService.self) private var llmService
+    @Environment(ResearchState.self) private var researchState
+    @Environment(EventBus.self) private var eventBus
+    @Environment(\.modelContext) private var modelContext
 
-    // Vault search — in-memory title filter from SwiftData @Query
     @Query(SDPage.activePagesDescriptor) private var allPages: [SDPage]
     @Query(sort: \SDChat.updatedAt, order: .reverse) private var allChats: [SDChat]
 
-    // Search state
+    // MARK: - Search State
+
     @State private var searchText = ""
-    @State private var inlineSelectedIndex = 0
+    @State private var selectedIndex = 0
     @State private var hasManuallyNavigated = false
     @State private var searchHighlightTask: Task<Void, Never>?
     @State private var cachedSearchResults: [LandingCommandItem] = []
     @State private var ftsDebounceTask: Task<Void, Never>?
+    @State private var appeared = false
     @FocusState private var isSearchFocused: Bool
 
+    // MARK: - Chat State
+
+    @State private var mode: PaletteMode = .search
+    @State private var activeTabId: String?
+    @State private var streamTask: Task<Void, Never>?
+    @State private var chatInput = ""
+    @State private var lastScrollTime: ContinuousClock.Instant = .now
+    @State private var paletteChatMode: NoteChatMode = {
+        NoteChatMode(rawValue: UserDefaults.standard.string(forKey: "paletteChatMode") ?? "") ?? .auto
+    }()
+    @State private var paletteOverrideProvider: LLMProviderType? = {
+        LLMProviderType(rawValue: UserDefaults.standard.string(forKey: "paletteProvider") ?? "")
+    }()
+    @FocusState private var isChatFocused: Bool
+
     private var theme: EpistemosTheme { ui.theme }
+
+    private var showResults: Bool { !searchText.isEmpty }
 
     // MARK: - Body
 
     var body: some View {
-        searchPanel
-            .onAppear {
-                // Focus after the transition settles
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(0.15))
-                    isSearchFocused = true
+        VStack(spacing: 0) {
+            searchBar
+
+            ZStack {
+                if mode == .search {
+                    if showResults {
+                        VStack(spacing: 0) {
+                            Rectangle()
+                                .fill(theme.border.opacity(0.3))
+                                .frame(height: 0.5)
+
+                            resultsSection
+                        }
+                        .transition(.opacity.combined(with: .blurReplace))
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        Rectangle()
+                            .fill(theme.border.opacity(0.3))
+                            .frame(height: 0.5)
+
+                        chatTabBar
+
+                        Rectangle()
+                            .fill(theme.border.opacity(0.2))
+                            .frame(height: 0.5)
+
+                        chatSection
+                        chatInputBar
+                    }
+                    .transition(.opacity.combined(with: .blurReplace))
                 }
             }
-    }
-
-    // MARK: - Search Panel
-
-    private var searchPanel: some View {
-        VStack(spacing: 0) {
-            promptArea
-            toolsRow
-
-            Rectangle()
-                .fill(theme.glassBorder)
-                .frame(height: 0.5)
-
-            inlineCommandList
+            .animation(Motion.smooth, value: mode)
         }
+        .frame(width: 680)
+        .frame(maxHeight: mode == .chat ? .infinity : nil)
+        .fixedSize(horizontal: false, vertical: mode == .search)
         .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
+            ZStack {
+                if theme.isDark {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(theme.background.opacity(0.55))
+                } else {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(theme.glassBg)
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                // Inner top highlight
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(theme.isDark ? 0.15 : 0.5),
+                                .white.opacity(0),
+                            ],
+                            startPoint: .top,
+                            endPoint: .center
+                        ),
+                        lineWidth: 0.5
+                    )
+            }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: theme.accent.opacity(0.06), radius: 24, y: 0)
-        .shadow(color: .black.opacity(theme.isDark ? 0.25 : 0.06), radius: 8, y: 4)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.03), radius: 1, y: 0.5)
+        .shadow(color: .black.opacity(theme.isDark ? 0.2 : 0.06), radius: 8, y: 3)
+        .shadow(color: .black.opacity(theme.isDark ? 0.35 : 0.10), radius: 30, y: 10)
+        .siriGlow(cornerRadius: 22, lineWidth: 1.5, isActive: isSearchFocused || isChatFocused || threadState.paletteIsStreaming)
+        .scaleEffect(appeared ? 1.0 : 0.96)
+        .opacity(appeared ? 1.0 : 0.0)
+        .preferredColorScheme(theme.isDark ? .dark : .light)
+        .animation(Motion.smooth, value: showResults)
+        .animation(Motion.smooth, value: appeared)
+        .onAppear {
+            appeared = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.15))
+                isSearchFocused = true
+            }
+        }
+        .onExitCommand { handleEscape() }
+        .onReceive(NotificationCenter.default.publisher(for: .commandPaletteSwitchToChat)) { _ in
+            withAnimation(Motion.smooth) { mode = .chat }
+            ensureActiveTab()
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
+                isChatFocused = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .commandPaletteDidHide)) { _ in
+            isSearchFocused = false
+            isChatFocused = false
+        }
     }
 
-    // MARK: - Prompt Area
+    // MARK: - Search Bar
 
-    private var promptArea: some View {
-        HStack(alignment: .bottom, spacing: Spacing.sm) {
-            TextField("Ask anything or type a command...", text: $searchText, axis: .vertical)
-                .font(.epBody)
-                .foregroundStyle(theme.foreground)
-                .textFieldStyle(.plain)
-                .lineLimit(1...4)
-                .focused($isSearchFocused)
-                .onSubmit { executeSelected() }
-
-            if !searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+    private var searchBar: some View {
+        HStack(spacing: 12) {
+            if mode == .chat {
                 Button {
-                    executeSelected()
+                    withAnimation(Motion.smooth) { mode = .search }
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(100))
+                        isSearchFocused = true
+                    }
                 } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(theme.accent)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(theme.muted.opacity(0.5), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .help("Send")
-                .accessibilityLabel("Send")
-                .transition(.scale.combined(with: .opacity))
+
+                Spacer()
+
+                // Provider badge
+                HStack(spacing: 4) {
+                    Image(systemName: paletteChatMode == .auto ? "sparkles" : (paletteOverrideProvider?.iconName ?? inference.apiProvider.iconName))
+                        .font(.system(size: 10, weight: .medium))
+                    Text(paletteChatMode == .auto ? "Auto" : (paletteOverrideProvider?.displayName ?? inference.apiProvider.displayName))
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(theme.textTertiary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(theme.muted.opacity(0.4), in: Capsule())
+
+                if threadState.paletteIsStreaming {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            } else {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                                Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                                Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                TextField("Search or ask anything\u{2026}", text: $searchText)
+                    .font(.system(size: 20, weight: .regular, design: .rounded))
+                    .foregroundStyle(theme.foreground)
+                    .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
+                    .onSubmit { executeSelected() }
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                        cachedSearchResults = []
+                        selectedIndex = 0
+                        graphState.searchHighlight("")
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(theme.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.scale(scale: 0.5).combined(with: .opacity))
+                    .animation(Motion.quick, value: searchText.isEmpty)
+                }
+
+                // Research Mode toggle
+                Button {
+                    if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
+                } label: {
+                    Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
+                        .frame(width: 28, height: 28)
+                        .background(chat.isResearchMode ? theme.accent.opacity(0.15) : .clear, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help(chat.isResearchMode ? "Research Mode: ON (full pipeline)" : "Research Mode: OFF (direct chat)")
+
+                // Incognito toggle
+                Button {
+                    chat.isIncognito.toggle()
+                } label: {
+                    Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(chat.isIncognito ? .orange : theme.textTertiary)
+                        .frame(width: 28, height: 28)
+                        .background(chat.isIncognito ? Color.orange.opacity(0.15) : .clear, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help(chat.isIncognito ? "Incognito: ON (not saved)" : "Incognito: OFF")
             }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, 14)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
     }
 
-    // MARK: - Tools Row
+    // MARK: - Results Section
 
-    private var toolsRow: some View {
-        HStack(spacing: 8) {
-            Button {
-                handleUpload()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(theme.textTertiary)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Circle())
+    private var resultsSection: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    searchResultsView
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
             }
-            .buttonStyle(.plain)
-            .help("Attach a file")
-            .accessibilityLabel("Attach a file")
+            .frame(maxHeight: 340)
+            .onChange(of: selectedIndex) { _, idx in
+                withAnimation(Motion.micro) { proxy.scrollTo(idx, anchor: .center) }
+            }
+        }
+        .onKeyPress(.upArrow) {
+            moveSelection(by: -1)
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            moveSelection(by: 1)
+            return .handled
+        }
+        .onChange(of: searchText) { _, newText in
+            handleSearchChange(newText)
+        }
+    }
 
-            // Research mode toggle — oval pill button (can combine with Notes)
-            Button {
-                withAnimation(Motion.quick) {
-                    if chat.isResearchMode {
-                        chat.disableResearchMode()
-                    } else {
-                        chat.enableResearchMode()
+    // MARK: - Search Results View
+
+    private var searchResultsView: some View {
+        let results = filteredResults
+        let grouped = Dictionary(grouping: results) { $0.category }
+        let categoryOrder = orderedCategories(from: grouped)
+
+        return ForEach(categoryOrder, id: \.self) { category in
+            if let items = grouped[category], !items.isEmpty {
+                HStack(spacing: 6) {
+                    Text(category.uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(theme.textTertiary.opacity(0.45))
+                        .tracking(1.2)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, category == categoryOrder.first ? 2 : 12)
+                .padding(.bottom, 4)
+
+                ForEach(items) { cmd in
+                    let idx = results.firstIndex(where: { $0.id == cmd.id }) ?? 0
+                    SpotlightRow(
+                        command: cmd,
+                        isSelected: idx == selectedIndex,
+                        theme: theme
+                    ) {
+                        cmd.action()
+                    }
+                    .id(idx)
+                    .onTapGesture {
+                        selectedIndex = idx
+                        cmd.action()
                     }
                 }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
-                        .font(.system(size: 10, weight: .medium))
-                    Text("Research")
-                        .font(.system(size: 11, weight: chat.isResearchMode ? .semibold : .regular))
-                }
-                .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule()
-                        .fill(
-                            chat.isResearchMode
-                                ? theme.accent.opacity(0.12) : theme.glassTint.opacity(0.5))
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(
-                            chat.isResearchMode ? theme.accent.opacity(0.3) : theme.glassBorder,
-                            lineWidth: 0.5)
-                )
             }
-            .buttonStyle(.plain)
-            .help(chat.isResearchMode ? "Research Mode On — full pipeline" : "Enable Research Mode")
-            .accessibilityLabel(chat.isResearchMode ? "Research mode on" : "Enable research mode")
-
-            // Incognito toggle
-            Button {
-                withAnimation(Motion.quick) { chat.isIncognito.toggle() }
-            } label: {
-                Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(chat.isIncognito ? theme.accent : theme.textTertiary)
-                    .frame(width: 28, height: 28)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help(chat.isIncognito ? "Incognito On" : "Enable Incognito")
-            .accessibilityLabel(chat.isIncognito ? "Incognito on" : "Incognito off")
-
-            ProviderDropdown()
-
-            Spacer()
-
-            Text("esc")
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .foregroundStyle(theme.textTertiary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(RoundedRectangle(cornerRadius: 4).fill(theme.glassTint))
-                .onTapGesture { dismiss() }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, 8)
     }
 
-    // MARK: - Inline Command List
+    private func orderedCategories(from grouped: [String: [LandingCommandItem]]) -> [String] {
+        let searchCategories = ["Notes", "Body Match", "Graph"]
+        let actionCategories = ["Chat"]
+        let commandCategories = Self.categoryOrder
 
-    /// Combined list: search results + synchronous command filtering.
-    /// Search results (Rust FFI + SwiftData) are computed synchronously via cachedSearchResults.
-    /// Command filtering is cheap and stays synchronous.
-    private var inlineFilteredCommands: [LandingCommandItem] {
+        var ordered: [String] = []
+        for cat in searchCategories where grouped[cat] != nil { ordered.append(cat) }
+        for cat in grouped.keys.sorted() where !searchCategories.contains(cat) && !actionCategories.contains(cat) && !commandCategories.contains(cat) {
+            ordered.append(cat)
+        }
+        for cat in commandCategories where grouped[cat] != nil { ordered.append(cat) }
+        for cat in actionCategories where grouped[cat] != nil { ordered.append(cat) }
+        return ordered
+    }
+
+    // MARK: - Chat Tab Bar
+
+    // MARK: - Mode / Provider Picker
+
+    private var paletteModeMenu: some View {
+        Menu {
+            Button {
+                paletteChatMode = .auto
+                paletteOverrideProvider = nil
+                UserDefaults.standard.set("auto", forKey: "paletteChatMode")
+            } label: {
+                Label("Auto (Apple AI + Cloud)", systemImage: "sparkles")
+            }
+
+            Button {
+                paletteChatMode = .cloudOnly
+                paletteOverrideProvider = nil
+                UserDefaults.standard.set("cloudOnly", forKey: "paletteChatMode")
+            } label: {
+                Label("Cloud Only", systemImage: "cloud")
+            }
+
+            Divider()
+
+            ForEach(LLMProviderType.allCases.filter({ $0 != .appleIntelligence }), id: \.self) { provider in
+                Button {
+                    paletteChatMode = .provider
+                    paletteOverrideProvider = provider
+                    UserDefaults.standard.set("provider", forKey: "paletteChatMode")
+                    UserDefaults.standard.set(provider.rawValue, forKey: "paletteProvider")
+                } label: {
+                    Label(provider.displayName, systemImage: provider.iconName)
+                }
+            }
+        } label: {
+            Image(systemName: paletteChatMode == .auto ? "sparkles" : (paletteOverrideProvider?.iconName ?? inference.apiProvider.iconName))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(paletteChatMode == .auto ? theme.textTertiary : theme.accent)
+                .frame(width: 26, height: 26)
+                .contentShape(Circle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(paletteChatMode == .auto ? "Auto routing" : (paletteOverrideProvider?.displayName ?? "Cloud"))
+    }
+
+    private var chatTabBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(paletteThreads) { thread in
+                    Button {
+                        withAnimation(Motion.quick) { activeTabId = thread.id }
+                    } label: {
+                        Text(thread.label)
+                            .font(.system(size: 11, weight: activeTabId == thread.id ? .semibold : .regular))
+                            .foregroundStyle(activeTabId == thread.id ? theme.accent : theme.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                    }
+                    .buttonStyle(.plain)
+                    .background {
+                        if activeTabId == thread.id {
+                            Capsule().fill(theme.accent.opacity(0.12))
+                        }
+                    }
+                }
+
+                Button {
+                    let newId = threadState.createThread(type: "palette", label: "Chat \(paletteThreads.count + 1)")
+                    withAnimation(Motion.quick) { activeTabId = newId }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 5)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+        }
+    }
+
+    // MARK: - Chat Section
+
+    private var chatSection: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    if let thread = activeThread {
+                        if thread.messages.isEmpty && !threadState.paletteIsStreaming {
+                            VStack(spacing: 8) {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                                    .font(.system(size: 28, weight: .light))
+                                    .foregroundStyle(theme.mutedForeground.opacity(0.3))
+                                Text("Start a conversation")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                        } else {
+                            ForEach(thread.messages) { msg in
+                                PaletteChatBubble(message: msg, theme: theme)
+                            }
+                        }
+                    }
+
+                    if threadState.paletteIsStreaming {
+                        VStack(alignment: .leading, spacing: 0) {
+                            if threadState.paletteStreamingText.isEmpty {
+                                HStack(spacing: 6) {
+                                    ProgressView().controlSize(.small)
+                                    Text("Thinking\u{2026}")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(theme.mutedForeground)
+                                }
+                            } else {
+                                MarkdownTextView(
+                                    content: threadState.paletteStreamingText + " \u{258D}",
+                                    theme: theme
+                                )
+                                .font(.system(size: 13))
+                                .textSelection(.enabled)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .id("streaming")
+                    }
+
+                    Color.clear.frame(height: 1).id("bottom")
+                }
+                .padding(12)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: activeThread?.messages.count) { _, _ in
+                withAnimation(Motion.quick) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
+            .onChange(of: threadState.paletteStreamingText) { _, _ in
+                let now = ContinuousClock.now
+                guard now - lastScrollTime > .milliseconds(250) else { return }
+                lastScrollTime = now
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+        }
+    }
+
+    // MARK: - Chat Input Bar
+
+    private var chatInputBar: some View {
+        VStack(spacing: 0) {
+            // Note context indicator
+            if let page = activePage() {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 8))
+                    Text("Referencing: \(page.title.isEmpty ? "Untitled" : page.title)")
+                        .font(.system(size: 10))
+                }
+                .foregroundStyle(theme.accent.opacity(0.7))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+                .padding(.bottom, 2)
+            }
+
+            HStack(spacing: 8) {
+                // Model/API picker
+                paletteModeMenu
+
+                TextField("Ask anything\u{2026}", text: $chatInput)
+                    .font(.system(size: 14))
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(theme.foreground)
+                    .focused($isChatFocused)
+                    .onSubmit { sendChatMessage() }
+
+                if threadState.paletteIsStreaming {
+                    Button {
+                        cancelStream()
+                    } label: {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button(action: sendChatMessage) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 22))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(
+                                chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? theme.mutedForeground.opacity(0.35)
+                                    : theme.accent
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+    }
+
+    // MARK: - Chat Logic
+
+    private func sendChatMessage() {
+        let trimmed = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !threadState.paletteIsStreaming else { return }
+
+        ensureActiveTab()
+        guard let tid = activeTabId else { return }
+
+        threadState.addThreadMessage(
+            AssistantMessage(role: .user, content: trimmed),
+            threadId: tid
+        )
+        chatInput = ""
+        threadState.paletteIsStreaming = true
+        threadState.paletteStreamingText = ""
+
+        streamTask = Task { @MainActor in
+            defer {
+                // Guard: cancelStream() may have already cleared these
+                if threadState.paletteIsStreaming {
+                    threadState.paletteIsStreaming = false
+                }
+            }
+            do {
+                // Build context from active note + vault
+                var contextParts: [String] = []
+                let page = activePage()
+
+                if let page {
+                    let body = page.loadBody()
+                    if !body.isEmpty {
+                        contextParts.append("## Active Note: \(page.title)\nTags: [\(page.tags.joined(separator: ", "))]\n\(String(body.prefix(2000)))")
+                    }
+                }
+
+                let vaultSnippets = searchVault(query: trimmed)
+                if !vaultSnippets.isEmpty {
+                    let snippetText = vaultSnippets.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
+                    contextParts.append("## Related Notes from Vault\n\(snippetText)")
+                }
+
+                if let manifest = AppBootstrap.shared?.ambientManifest {
+                    contextParts.append(manifest.asManifestOnly())
+                }
+
+                // Build folder list for move actions
+                var folderNames: [String] = []
+                let folderDescriptor = FetchDescriptor<SDFolder>(sortBy: [SortDescriptor(\.sortOrder)])
+                if let folders = try? modelContext.fetch(folderDescriptor) {
+                    folderNames = folders.map(\.name)
+                }
+
+                // Multi-turn conversation history
+                let activeMessages = activeThread?.messages ?? []
+                let hasHistory = activeMessages.count > 1
+                let conversationNote = hasHistory
+                    ? " The user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
+                    : ""
+
+                // Context-aware system prompt
+                let systemPrompt: String
+                if contextParts.isEmpty {
+                    systemPrompt = "You are Epistemos, a research assistant. Answer clearly and helpfully. Use markdown formatting.\(conversationNote)"
+                } else {
+                    let actionInstructions = page != nil ? """
+
+                    ## Vault Actions
+                    When the user asks to modify a note (tag, move, rename, etc.), include an action marker at the END of your response:
+                    - To add tags: `[ACTION:TAG tag1, tag2, tag3]`
+                    - To move to folder: `[ACTION:MOVE FolderName]`
+                    - To create a new note: `[ACTION:CREATE Title of New Note]`
+                    Available folders: [\(folderNames.joined(separator: ", "))]
+                    Only include an action marker if the user explicitly asks to modify something. Otherwise just answer normally.
+                    """ : ""
+
+                    systemPrompt = """
+                    You are Epistemos, a research assistant with access to the user's notes vault. \
+                    Reference the user's notes naturally when relevant — quote specific content, \
+                    connect ideas across notes, or point out things the user might not have noticed. \
+                    Answer clearly and helpfully. Use markdown formatting.\(conversationNote)\(actionInstructions)
+
+                    \(contextParts.joined(separator: "\n\n"))
+                    """
+                }
+
+                // Build conversation-aware prompt with thread history
+                let conversationPrompt: String
+                if activeMessages.count > 1 {
+                    let history = activeMessages.dropLast().suffix(10)
+                    let historyText = history.map { msg in
+                        msg.role == .user ? "User: \(msg.content)" : "Assistant: \(msg.content)"
+                    }.joined(separator: "\n\n")
+                    conversationPrompt = "\(historyText)\n\nUser: \(trimmed)"
+                } else {
+                    conversationPrompt = trimmed
+                }
+
+                let contentLength = conversationPrompt.count + contextParts.joined().count
+                var accumulated = ""
+
+                let stream: AsyncThrowingStream<String, Error>
+                switch paletteChatMode {
+                case .auto:
+                    stream = triage.streamGeneral(
+                        prompt: conversationPrompt,
+                        systemPrompt: systemPrompt,
+                        operation: .chatResponse(query: trimmed),
+                        contentLength: contentLength
+                    )
+                case .cloudOnly:
+                    stream = llmService.stream(prompt: conversationPrompt, systemPrompt: systemPrompt)
+                case .provider:
+                    let provider = paletteOverrideProvider ?? inference.apiProvider
+                    stream = llmService.stream(prompt: conversationPrompt, systemPrompt: systemPrompt, provider: provider)
+                }
+
+                for try await chunk in stream {
+                    try Task.checkCancellation()
+                    accumulated += chunk
+                    threadState.paletteStreamingText = accumulated
+                }
+
+                // Guard: cancelStream() may have already handled this
+                guard threadState.paletteIsStreaming else { return }
+
+                var final = accumulated.trimmingCharacters(in: .whitespacesAndNewlines)
+                threadState.paletteStreamingText = ""
+
+                // Parse and execute action markers
+                if let page {
+                    final = executeActions(in: final, page: page)
+                }
+
+                threadState.addThreadMessage(
+                    AssistantMessage(role: .assistant, content: final.isEmpty ? "No response." : final),
+                    threadId: tid
+                )
+
+                // Auto-extract citations
+                saveCitations(from: final)
+            } catch is CancellationError {
+                // cancelStream() already handled UI state — just bail
+                return
+            } catch {
+                // Guard: cancelStream() may have already cleared streaming
+                guard threadState.paletteIsStreaming else { return }
+                threadState.paletteStreamingText = ""
+                threadState.addThreadMessage(
+                    AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"),
+                    threadId: tid
+                )
+            }
+        }
+    }
+
+    private func cancelStream() {
+        streamTask?.cancel()
+        streamTask = nil
+        // Immediately clear streaming state so UI unblocks.
+        // The cancelled task's defer block will also set this, but it may
+        // be blocked waiting on the stream iterator — clear it now.
+        let partial = threadState.paletteStreamingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        threadState.paletteStreamingText = ""
+        threadState.paletteIsStreaming = false
+        if !partial.isEmpty, let tid = activeTabId {
+            threadState.addThreadMessage(
+                AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"),
+                threadId: tid
+            )
+        }
+    }
+
+    private func ensureActiveTab() {
+        if activeTabId == nil || paletteThreads.isEmpty {
+            let newId = threadState.createThread(type: "palette", label: "Chat 1")
+            activeTabId = newId
+        }
+    }
+
+    private var paletteThreads: [ChatThread] {
+        threadState.chatThreads.filter { $0.type == "palette" }
+    }
+
+    private var activeThread: ChatThread? {
+        guard let id = activeTabId else { return nil }
+        return threadState.chatThreads.first { $0.id == id }
+    }
+
+    // MARK: - Note Context
+
+    private func activePage() -> SDPage? {
+        guard let pageId = notesUI.activePageId else { return nil }
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        return try? modelContext.fetch(descriptor).first
+    }
+
+    // MARK: - Vault Search
+
+    private func searchVault(query: String) -> [(title: String, snippet: String)] {
+        var descriptor = FetchDescriptor<SDPage>(
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 200
+        guard let pages = try? modelContext.fetch(descriptor) else { return [] }
+
+        let terms = query.lowercased()
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count > 2 }
+        guard !terms.isEmpty else { return [] }
+
+        let activeId = notesUI.activePageId
+
+        // Pass 1: title match (cheap)
+        var matches = pages.filter { page in
+            guard page.id != activeId else { return false }
+            let title = page.title.lowercased()
+            return terms.contains { title.contains($0) }
+        }
+
+        // Pass 2: body match for a small subset if few title hits
+        if matches.count < 3 {
+            let titleIds = Set(matches.map(\.id))
+            let candidates = pages.prefix(30).filter {
+                $0.id != activeId && !titleIds.contains($0.id)
+            }
+            let bodyMatches = candidates.filter { page in
+                let body = page.loadBody().lowercased()
+                return terms.contains { body.contains($0) }
+            }
+            matches.append(contentsOf: bodyMatches)
+        }
+
+        return Array(matches
+            .prefix(3)
+            .map { (title: $0.title, snippet: String($0.loadBody().prefix(300))) })
+    }
+
+    // MARK: - Action Parsing
+
+    private func executeActions(in response: String, page: SDPage) -> String {
+        var cleaned = response
+        var executedActions: [String] = []
+
+        // TAG action
+        if let range = response.range(of: #"\[ACTION:TAG\s+(.+?)\]"#, options: .regularExpression) {
+            let marker = String(response[range])
+            let tagsRaw = marker
+                .replacingOccurrences(of: "[ACTION:TAG ", with: "")
+                .replacingOccurrences(of: "]", with: "")
+            let tags = tagsRaw.split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                .filter { !$0.isEmpty && $0.count < 30 }
+            let newTags = tags.filter { !page.tags.contains($0) }
+            if !newTags.isEmpty {
+                page.tags.append(contentsOf: newTags)
+                page.updatedAt = .now
+                executedActions.append("\u{2705} Added tags: \(newTags.joined(separator: ", "))")
+            }
+            cleaned = cleaned.replacingOccurrences(of: marker, with: "")
+        }
+
+        // MOVE action
+        if let range = response.range(of: #"\[ACTION:MOVE\s+(.+?)\]"#, options: .regularExpression) {
+            let marker = String(response[range])
+            let folderName = marker
+                .replacingOccurrences(of: "[ACTION:MOVE ", with: "")
+                .replacingOccurrences(of: "]", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            let folderDescriptor = FetchDescriptor<SDFolder>()
+            if let folders = try? modelContext.fetch(folderDescriptor),
+               let folder = folders.first(where: { $0.name.lowercased() == folderName.lowercased() }) {
+                page.folder = folder
+                page.updatedAt = .now
+                executedActions.append("\u{2705} Moved to folder: \(folder.name)")
+            }
+            cleaned = cleaned.replacingOccurrences(of: marker, with: "")
+        }
+
+        // CREATE action
+        if let range = response.range(of: #"\[ACTION:CREATE\s+(.+?)\]"#, options: .regularExpression) {
+            let marker = String(response[range])
+            let title = marker
+                .replacingOccurrences(of: "[ACTION:CREATE ", with: "")
+                .replacingOccurrences(of: "]", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            if !title.isEmpty {
+                Task {
+                    if let newId = await vaultSync.createPage(title: title) {
+                        NoteWindowManager.shared.open(pageId: newId)
+                    }
+                }
+                executedActions.append("\u{2705} Created note: \(title)")
+            }
+            cleaned = cleaned.replacingOccurrences(of: marker, with: "")
+        }
+
+        if !executedActions.isEmpty {
+            cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+            cleaned += "\n\n---\n" + executedActions.joined(separator: "\n")
+        }
+
+        return cleaned
+    }
+
+    // MARK: - Citation Extraction
+
+    private func saveCitations(from text: String) {
+        let papers = CitationExtractor.extract(from: text, source: "palette")
+        guard !papers.isEmpty else { return }
+        for paper in papers {
+            researchState.addSavedPaper(paper)
+        }
+        eventBus.emitToast("Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library", type: .info)
+    }
+
+    // MARK: - Search Logic
+
+    private func handleSearchChange(_ newText: String) {
+        hasManuallyNavigated = false
+
+        if newText.isEmpty {
+            searchHighlightTask?.cancel()
+            cachedSearchResults = []
+            selectedIndex = 0
+            graphState.searchHighlight("")
+            return
+        }
+
+        // Title search is the guaranteed backbone — always runs first, never excluded.
+        // Graph search adds fuzzy/typo-tolerant matches but skips note nodes
+        // already covered by title search (avoids duplicate rows).
+        let titleItems = computeTitleResults(for: newText, excluding: [])
+        let titlePageIds = Set(titleItems.compactMap { item in
+            item.id.hasPrefix("title-") ? String(item.id.dropFirst(6)) : nil
+        })
+        let (graphItems, graphPageIds) = computeGraphResults(for: newText, excludingPageIds: titlePageIds)
+        cachedSearchResults = titleItems + graphItems
+
+        ftsDebounceTask?.cancel()
+        ftsDebounceTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            let seenPageIds = titlePageIds.union(graphPageIds)
+            let bodyItems = computeBodyResults(for: newText, excluding: seenPageIds)
+            withAnimation(Motion.quick) {
+                cachedSearchResults = titleItems + graphItems + bodyItems
+            }
+        }
+
+        if !cachedSearchResults.isEmpty {
+            let askOffset = (newText.hasPrefix("?") || newText.hasPrefix("/query ")) ? 2 : 1
+            selectedIndex = askOffset
+        } else {
+            selectedIndex = 0
+        }
+
+        searchHighlightTask?.cancel()
+        searchHighlightTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            graphState.searchHighlight(newText)
+        }
+    }
+
+    // MARK: - Filtered Results
+
+    private var filteredResults: [LandingCommandItem] {
         var base: [LandingCommandItem] = []
 
-        // Graph query routing: `?` or `/query` prefix → QueryEngine (cheap string check)
         if searchText.hasPrefix("?") || searchText.hasPrefix("/query ") {
             let queryText = searchText.hasPrefix("?")
                 ? String(searchText.dropFirst()).trimmingCharacters(in: .whitespaces)
@@ -200,45 +943,34 @@ struct CommandPaletteOverlay: View {
                     LandingCommandItem(
                         id: "graph-query", label: "Graph Query: \"\(q)\"",
                         icon: "sparkle.magnifyingglass", category: "Graph"
-                    ) { [self] in
-                        executeGraphQuery(q)
-                    })
+                    ) { [self] in executeGraphQuery(q) })
             }
         }
 
-        // Always show "Ask" option when there's text — this is what Enter
-        // triggers by default (via hasManuallyNavigated check in executeSelected).
         if !searchText.isEmpty {
             let q = searchText
             base.append(
                 LandingCommandItem(
                     id: "ask", label: "Ask: \"\(q)\"", icon: "arrow.up.circle", category: "Chat"
-                ) {
-                    submitChat(q)
-                })
+                ) { [self] in submitChat(q) })
         }
 
-        // Append debounced search results (graph + vault)
         base += cachedSearchResults
 
-        let commands = makeCommands()
-        if searchText.isEmpty {
-            return base + commands + recentNoteItems
-        }
         let q = searchText.lowercased()
-        let filtered = commands.filter {
+        let filtered = makeCommands().filter {
             $0.label.lowercased().contains(q) || $0.category.lowercased().contains(q)
         }
         return base + filtered
     }
 
-    /// Computes graph search results instantly (Rust FFI, sub-1ms).
-    private func computeGraphResults(for query: String) -> (items: [LandingCommandItem], seenPageIds: Set<String>) {
+    // MARK: - Search Engine
+
+    private func computeGraphResults(for query: String, excludingPageIds: Set<String> = []) -> (items: [LandingCommandItem], seenPageIds: Set<String>) {
         guard !query.isEmpty else { return ([], []) }
         var items: [LandingCommandItem] = []
         var seenPageIds = Set<String>()
 
-        // Graph-powered search: Rust FST + 5-tier fuzzy scoring (titles + labels)
         let index = pageIndex
         if graphState.isLoaded {
             let hits = graphState.rustSearch(query: query, limit: 20)
@@ -248,9 +980,12 @@ struct CommandPaletteOverlay: View {
                 let category = node.type == .note ? "Notes" : node.type.displayName
                 let nodeId = node.id
                 let sourceId = node.sourceId
-                if node.type == .note, let sid = sourceId { seenPageIds.insert(sid) }
+                if node.type == .note, let sid = sourceId {
+                    seenPageIds.insert(sid)
+                    // Skip note nodes already covered by title search
+                    if excludingPageIds.contains(sid) { continue }
+                }
 
-                // Enrich note results with metadata
                 var label = node.label
                 var subtitle: String?
                 if node.type == .note, let sid = sourceId, let page = index[sid] {
@@ -263,10 +998,34 @@ struct CommandPaletteOverlay: View {
                     subtitle = parts.joined(separator: " \u{00B7} ")
                 }
 
+                var contextActions: [LandingCommandItem.ContextAction] = []
+                if node.type == .note, let pid = sourceId {
+                    contextActions.append(.init(label: "Open in Notes", icon: "doc.text") { [self] in
+                        dismiss()
+                        NoteWindowManager.shared.open(pageId: pid)
+                    })
+                    contextActions.append(.init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
+                        dismiss()
+                        HologramController.shared.show()
+                        graphState.selectNode(nodeId)
+                        graphState.mode = .page(nodeId: nodeId)
+                        graphState.focusOnNode(nodeId, depth: 2)
+                        graphState.requestRecommit()
+                    })
+                } else {
+                    contextActions.append(.init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
+                        dismiss()
+                        HologramController.shared.show()
+                        graphState.selectNode(nodeId)
+                        graphState.pendingCenterNodeId = nodeId
+                    })
+                }
+
                 items.append(
                     LandingCommandItem(
                         id: "graph-\(nodeId)", label: label, icon: icon,
-                        category: category, subtitle: subtitle
+                        category: category, subtitle: subtitle,
+                        contextActions: contextActions
                     ) { [self] in
                         dismiss()
                         if node.type == .note, let pageId = sourceId {
@@ -283,16 +1042,70 @@ struct CommandPaletteOverlay: View {
         return (items, seenPageIds)
     }
 
-    /// Computes FTS5 body search results (SQLite, debounced to 150ms).
+    private func computeTitleResults(for query: String, excluding graphPageIds: Set<String>) -> [LandingCommandItem] {
+        guard !query.isEmpty else { return [] }
+        let q = query.lowercased()
+        let index = pageIndex
+
+        return allPages
+            .filter { !graphPageIds.contains($0.id) }
+            .filter { page in
+                page.title.lowercased().contains(q)
+                    || page.tags.contains(where: { $0.lowercased().contains(q) })
+            }
+            .prefix(10)
+            .map { page in
+                let emoji = page.emoji.isEmpty ? "" : "\(page.emoji) "
+                let label = "\(emoji)\(page.title.isEmpty ? "Untitled" : page.title)"
+                let parts = [
+                    "\(page.wordCount)w",
+                    page.tags.prefix(2).joined(separator: ", "),
+                    relativeDate(page.updatedAt),
+                ].filter { !$0.isEmpty }
+                let subtitle = parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+                let pageId = page.id
+                let contextActions: [LandingCommandItem.ContextAction] = [
+                    .init(label: "Open in Notes", icon: "doc.text") { [self] in
+                        dismiss()
+                        NoteWindowManager.shared.open(pageId: pageId)
+                    },
+                    .init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
+                        dismiss()
+                        if let node = graphState.store.node(bySourceId: pageId, type: .note) {
+                            HologramController.shared.show()
+                            graphState.selectNode(node.id)
+                            graphState.mode = .page(nodeId: node.id)
+                            graphState.focusOnNode(node.id, depth: 2)
+                            graphState.requestRecommit()
+                        }
+                    },
+                ]
+                return LandingCommandItem(
+                    id: "title-\(pageId)", label: label, icon: "doc.text",
+                    category: "Notes", subtitle: subtitle,
+                    contextActions: contextActions
+                ) { [self] in
+                    // Navigate the graph to this note's node (for mini graph companion).
+                    if let node = graphState.store.node(bySourceId: pageId, type: .note) {
+                        graphState.selectNode(node.id)
+                        graphState.focusOnNode(node.id, depth: 2)
+                        graphState.requestRecommit()
+                    }
+                    dismiss()
+                    NoteWindowManager.shared.open(pageId: pageId)
+                }
+            }
+    }
+
     private func computeBodyResults(for query: String, excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
         guard !query.isEmpty else { return [] }
         var items: [LandingCommandItem] = []
         let index = pageIndex
 
-        let bodyHits = vaultSync.searchFull(query: query, limit: 20)
+        let bodyHits = vaultSync.searchFull(query: query, limit: 30)
         for hit in bodyHits where !seenPageIds.contains(hit.pageId) {
             let pageId = hit.pageId
-            let snippet = hit.snippet
+            let rawSnippet = hit.snippet
                 .replacingOccurrences(of: "<b>", with: "")
                 .replacingOccurrences(of: "</b>", with: "")
 
@@ -301,20 +1114,42 @@ struct CommandPaletteOverlay: View {
             let rawTitle = hit.title.isEmpty ? "Untitled" : hit.title
             let label = emoji.isEmpty ? rawTitle : "\(emoji) \(rawTitle)"
 
-            // Enrich with word count + relative date
             var subtitleParts: [String] = []
             if let page {
                 subtitleParts.append("\(page.wordCount)w")
                 subtitleParts.append(relativeDate(page.updatedAt))
             }
-            if !snippet.isEmpty { subtitleParts.append(snippet) }
             let subtitle = subtitleParts.isEmpty ? nil : subtitleParts.joined(separator: " \u{00B7} ")
+            let snippet = rawSnippet.isEmpty ? nil : rawSnippet
 
+            let contextActions: [LandingCommandItem.ContextAction] = [
+                .init(label: "Open in Notes", icon: "doc.text") { [self] in
+                    dismiss()
+                    NoteWindowManager.shared.open(pageId: pageId)
+                },
+                .init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
+                    dismiss()
+                    if let node = graphState.store.node(bySourceId: pageId, type: .note) {
+                        HologramController.shared.show()
+                        graphState.selectNode(node.id)
+                        graphState.mode = .page(nodeId: node.id)
+                        graphState.focusOnNode(node.id, depth: 2)
+                        graphState.requestRecommit()
+                    }
+                },
+            ]
             items.append(
                 LandingCommandItem(
                     id: "fts-\(pageId)", label: label, icon: "doc.text.magnifyingglass",
-                    category: "Body Match", subtitle: subtitle
+                    category: "Body Match", subtitle: subtitle, snippet: snippet,
+                    contextActions: contextActions
                 ) { [self] in
+                    // Navigate the graph to this note's node (for mini graph companion).
+                    if let node = graphState.store.node(bySourceId: pageId, type: .note) {
+                        graphState.selectNode(node.id)
+                        graphState.focusOnNode(node.id, depth: 2)
+                        graphState.requestRecommit()
+                    }
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
                 })
@@ -323,138 +1158,27 @@ struct CommandPaletteOverlay: View {
         return items
     }
 
-    private var inlineCommandList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if searchText.isEmpty {
-                        // Grouped display with section headers
-                        groupedCommandsView
-                    } else {
-                        ForEach(Array(inlineFilteredCommands.enumerated()), id: \.element.id) {
-                            index, cmd in
-                            LandingCommandRow(command: cmd, isSelected: index == inlineSelectedIndex) {
-                                cmd.action()
-                            }
-                            .id(index)
-                            .onTapGesture {
-                                inlineSelectedIndex = index
-                                cmd.action()
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(maxHeight: 400)
-            .onChange(of: inlineSelectedIndex) { _, newValue in
-                withAnimation(Motion.micro) {
-                    proxy.scrollTo(newValue, anchor: .center)
-                }
-            }
-        }
-        .onKeyPress(.upArrow) {
-            inlineMoveSelection(by: -1)
-            return .handled
-        }
-        .onKeyPress(.downArrow) {
-            inlineMoveSelection(by: 1)
-            return .handled
-        }
-        .onChange(of: searchText) { _, newText in
-            // Reset navigation intent — user is still typing
-            hasManuallyNavigated = false
+    // MARK: - Actions
 
-            // Clear search results immediately on empty
-            if newText.isEmpty {
-                searchHighlightTask?.cancel()
-                cachedSearchResults = []
-                inlineSelectedIndex = 0
-                graphState.searchHighlight("")
-                return
-            }
-
-            // Graph results: instant (Rust FFI, sub-1ms)
-            let (graphItems, seenIds) = computeGraphResults(for: newText)
-            cachedSearchResults = graphItems
-
-            // FTS5 body search: debounced 150ms (SQLite disk I/O)
-            ftsDebounceTask?.cancel()
-            ftsDebounceTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                guard !Task.isCancelled else { return }
-                let bodyItems = computeBodyResults(for: newText, excluding: seenIds)
-                cachedSearchResults = graphItems + bodyItems
-            }
-
-            // Default-select the first note/graph result instead of the "Ask" item.
-            // The "Ask" item is always at index 0 (or 1 if graph query prefix);
-            // jump past it so matching notes get the highlight.
-            if !cachedSearchResults.isEmpty {
-                // First search result follows the "Ask" item (and optional graph-query item)
-                let askOffset = (newText.hasPrefix("?") || newText.hasPrefix("/query ")) ? 2 : 1
-                inlineSelectedIndex = askOffset
-            } else {
-                inlineSelectedIndex = 0
-            }
-
-            // Debounce graph highlight FFI call (150ms) — this is visual only
-            searchHighlightTask?.cancel()
-            searchHighlightTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                guard !Task.isCancelled else { return }
-                graphState.searchHighlight(newText)
-            }
-        }
-    }
-
-    /// Grouped command display with small section headers (shown when idle).
-    private var groupedCommandsView: some View {
-        let commands = inlineFilteredCommands
-        let grouped = Dictionary(grouping: commands) { $0.category }
-
-        return ForEach(Self.categoryOrder, id: \.self) { category in
-            if let items = grouped[category], !items.isEmpty {
-                // Section header
-                Text(category)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(theme.textTertiary.opacity(0.6))
-                    .textCase(.uppercase)
-                    .tracking(0.8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.top, items == grouped[Self.categoryOrder.first!] ? 8 : 16)
-                    .padding(.bottom, 4)
-
-                ForEach(items) { cmd in
-                    let idx = commands.firstIndex(where: { $0.id == cmd.id }) ?? 0
-                    LandingCommandRow(command: cmd, isSelected: idx == inlineSelectedIndex) {
-                        cmd.action()
-                    }
-                    .id(idx)
-                    .onTapGesture {
-                        inlineSelectedIndex = idx
-                        cmd.action()
-                    }
-                }
-            }
-        }
-    }
-
-    private func inlineMoveSelection(by delta: Int) {
-        let count = inlineFilteredCommands.count
+    private func moveSelection(by delta: Int) {
+        let count = filteredResults.count
         guard count > 0 else { return }
-        inlineSelectedIndex = (inlineSelectedIndex + delta + count) % count
+        selectedIndex = (selectedIndex + delta + count) % count
         hasManuallyNavigated = true
     }
 
-    // MARK: - Actions
-
     private func dismiss() {
+        cancelStream()
+        ftsDebounceTask?.cancel()
+        ftsDebounceTask = nil
+        searchHighlightTask?.cancel()
+        searchHighlightTask = nil
+        mode = .search
+        chatInput = ""
         isSearchFocused = false
         searchText = ""
-        inlineSelectedIndex = 0
+        selectedIndex = 0
         hasManuallyNavigated = false
-        searchHighlightTask?.cancel()
         cachedSearchResults = []
         graphState.searchHighlight("")
         CommandPaletteWindowController.shared.hide()
@@ -463,35 +1187,66 @@ struct CommandPaletteOverlay: View {
     private func submitChat(_ query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        // Start a fresh chat — don't append to any existing conversation
-        chat.startNewChat()
-        chat.submitQuery(trimmed)
-        dismiss()
-        ui.setActivePanel(.home)
+
+        // Route to main chat only when the main window is on the home/landing page.
+        // NSApp.isActive is unreliable here — show() activates the app before submitChat runs.
+        // chat.messages.isEmpty is unreliable — empty chat doesn't mean user is on landing.
+        let onHomeLanding = ui.activePanel == .home && chat.showLanding
+
+        if onHomeLanding {
+            // Navigate to main chat page (original behavior)
+            chat.startNewChat()
+            chat.submitQuery(trimmed)
+            dismiss()
+            ui.setActivePanel(.home)
+        } else {
+            // Morph palette into floating chat mode
+            withAnimation(Motion.smooth) {
+                mode = .chat
+                searchText = ""
+                cachedSearchResults = []
+            }
+            chatInput = trimmed
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
+                sendChatMessage()
+                isChatFocused = true
+            }
+        }
+    }
+
+    private func handleEscape() {
+        if mode == .chat {
+            if threadState.paletteIsStreaming {
+                cancelStream()
+                return
+            }
+            withAnimation(Motion.smooth) { mode = .search }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
+                isSearchFocused = true
+            }
+        } else {
+            dismiss()
+        }
     }
 
     private func executeSelected() {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // If user typed text and hit Enter without arrow-navigating,
-        // always submit as chat — don't accidentally open a note.
         if !trimmed.isEmpty && !hasManuallyNavigated {
             submitChat(trimmed)
             return
         }
-
-        guard !inlineFilteredCommands.isEmpty, inlineSelectedIndex < inlineFilteredCommands.count
-        else {
+        guard !filteredResults.isEmpty, selectedIndex < filteredResults.count else {
             if !trimmed.isEmpty { submitChat(trimmed) }
             return
         }
-        inlineFilteredCommands[inlineSelectedIndex].action()
+        filteredResults[selectedIndex].action()
     }
 
     private func executeGraphQuery(_ query: String) {
         queryEngine.execute(query: query)
         dismiss()
-        // Open graph overlay to show results in the Query tab
         HologramController.shared.show()
     }
 
@@ -500,8 +1255,7 @@ struct CommandPaletteOverlay: View {
         let title = content.isEmpty
             ? (type == .idea ? "New Idea" : "Brain Dump")
             : String(content.prefix(60))
-        let emoji = type == .idea ? "💡" : "🧠"
-
+        let emoji = type == .idea ? "\u{1F4A1}" : "\u{1F9E0}"
         dismiss()
         Task {
             if let pageId = await vaultSync.createPage(title: title, body: content, emoji: emoji) {
@@ -510,18 +1264,7 @@ struct CommandPaletteOverlay: View {
         }
     }
 
-    private func handleUpload() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                searchText = "Analyze this file: \(url.lastPathComponent)"
-            }
-        }
-    }
-
-    // MARK: - Page Index (for enriched search results)
+    // MARK: - Helpers
 
     private var pageIndex: [String: SDPage] {
         Dictionary(allPages.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -536,193 +1279,191 @@ struct CommandPaletteOverlay: View {
         return "\(days / 30)mo ago"
     }
 
-    // MARK: - Recent Notes (idle display)
-
-    /// 5 most recently edited notes, shown as quick-open items when palette is idle.
-    private var recentNoteItems: [LandingCommandItem] {
-        allPages
-            .filter { $0.templateId == nil && !$0.isArchived }
-            .prefix(5)
-            .map { page in
-                let emoji = page.emoji.isEmpty ? "" : "\(page.emoji) "
-                let title = page.title.isEmpty ? "Untitled" : page.title
-                let parts = [
-                    "\(page.wordCount)w",
-                    page.tags.prefix(2).joined(separator: ", "),
-                    relativeDate(page.updatedAt),
-                ].filter { !$0.isEmpty }
-                let subtitle = parts.joined(separator: " \u{00B7} ")
-                let pageId = page.id
-
-                return LandingCommandItem(
-                    id: "recent-\(pageId)", label: "\(emoji)\(title)", icon: "doc.text",
-                    category: "Recent Notes", subtitle: subtitle
-                ) {
-                    CommandPaletteWindowController.shared.hide()
-                    NoteWindowManager.shared.open(pageId: pageId)
-                }
-            }
-    }
-
-    // MARK: - Commands
-
-    /// Category order for grouped idle display.
-    private static let categoryOrder = ["Think", "Create", "Navigate", "Tools", "Recent Notes"]
+    private static let categoryOrder = ["Think", "Create", "Navigate", "Tools"]
 
     private func makeCommands() -> [LandingCommandItem] {
         [
-            // ── Think ──
-            LandingCommandItem(
-                id: "daily-brief", label: "Daily Brief", icon: "newspaper.fill",
-                category: "Think"
-            ) { [self] in
-                dismiss()
-                ui.setActivePanel(.home)
+            LandingCommandItem(id: "daily-brief", label: "Daily Brief", icon: "newspaper.fill", category: "Think") { [self] in
+                dismiss(); ui.setActivePanel(.home)
                 let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
                 dailyBrief.requestDailyBrief(prompt: prompt)
             },
-            LandingCommandItem(
-                id: "breathe", label: "Breathe Now", icon: "wind",
-                category: "Think"
-            ) {
-                ui.startBreathe()
-                dismiss()
-            },
-
-            // ── Create ──
-            LandingCommandItem(
-                id: "new-note", label: "New Note", icon: "doc.badge.plus",
-                category: "Create", badge: "\u{2318}N"
-            ) {
-                dismiss()
-                Task {
-                    if let pageId = await vaultSync.createPage(title: "New Note") {
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    }
-                }
-            },
-            LandingCommandItem(
-                id: "quick-idea", label: "Quick Idea", icon: "lightbulb",
-                category: "Create", badge: "\u{2318}I"
-            ) { [self] in
-                captureIdea(type: .idea)
-            },
-            LandingCommandItem(
-                id: "brain-dump", label: "Brain Dump", icon: "brain",
-                category: "Create"
-            ) { [self] in
-                captureIdea(type: .brainDump)
-            },
-            LandingCommandItem(
-                id: "new-chat", label: "New Chat", icon: "plus.bubble",
-                category: "Create"
-            ) { [self] in
+            LandingCommandItem(id: "vault-briefing", label: "Vault Briefing", icon: "book.pages", category: "Think") { [self] in
                 dismiss()
                 chat.startNewChat()
                 ui.setActivePanel(.home)
+                AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
             },
-
-            // ── Navigate ──
-            LandingCommandItem(
-                id: "nav-home", label: "Go Home", icon: "house",
-                category: "Navigate", badge: "\u{2318}1"
-            ) {
+            LandingCommandItem(id: "breathe", label: "Breathe Now", icon: "wind", category: "Think") {
+                ui.startBreathe(); dismiss()
+            },
+            LandingCommandItem(id: "new-note", label: "New Note", icon: "doc.badge.plus", category: "Create", badge: "\u{2318}N") {
+                dismiss()
+                Task { if let id = await vaultSync.createPage(title: "New Note") { NoteWindowManager.shared.open(pageId: id) } }
+            },
+            LandingCommandItem(id: "quick-idea", label: "Quick Idea", icon: "lightbulb", category: "Create", badge: "\u{2318}I") { [self] in
+                captureIdea(type: .idea)
+            },
+            LandingCommandItem(id: "brain-dump", label: "Brain Dump", icon: "brain", category: "Create") { [self] in
+                captureIdea(type: .brainDump)
+            },
+            LandingCommandItem(id: "new-chat", label: "New Chat", icon: "plus.bubble", category: "Create") { [self] in
+                dismiss(); chat.startNewChat(); ui.setActivePanel(.home)
+            },
+            LandingCommandItem(id: "nav-home", label: "Go Home", icon: "house", category: "Navigate", badge: "\u{2318}1") {
                 ui.setActivePanel(.home)
-                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                    main.makeKeyAndOrderFront(nil)
-                }
+                if let w = NSApp.windows.first(where: { $0.title == "Epistemos" }) { w.makeKeyAndOrderFront(nil) }
                 dismiss()
             },
-            LandingCommandItem(
-                id: "nav-notes", label: "Open Notes", icon: "note.text",
-                category: "Navigate", badge: "\u{2318}2"
-            ) {
-                UtilityWindowManager.shared.show(.notes)
-                dismiss()
+            LandingCommandItem(id: "nav-notes", label: "Open Notes", icon: "note.text", category: "Navigate", badge: "\u{2318}2") {
+                UtilityWindowManager.shared.show(.notes); dismiss()
             },
-            LandingCommandItem(
-                id: "nav-library", label: "Open Library", icon: "books.vertical",
-                category: "Navigate", badge: "\u{2318}3"
-            ) {
-                UtilityWindowManager.shared.show(.library)
-                dismiss()
+            LandingCommandItem(id: "nav-library", label: "Open Library", icon: "books.vertical", category: "Navigate", badge: "\u{2318}3") {
+                UtilityWindowManager.shared.show(.library); dismiss()
             },
-            LandingCommandItem(
-                id: "open-graph", label: "Knowledge Graph",
-                icon: "point.3.connected.trianglepath.dotted",
-                category: "Navigate", badge: "\u{2318}G"
-            ) {
-                HologramController.shared.show()
-                dismiss()
+            LandingCommandItem(id: "open-graph", label: "Knowledge Graph", icon: "point.3.connected.trianglepath.dotted", category: "Navigate", badge: "\u{2318}G") {
+                HologramController.shared.show(); dismiss()
             },
-            LandingCommandItem(
-                id: "mini-chat", label: "Mini Chat",
-                icon: "bubble.left.and.bubble.right",
-                category: "Navigate", badge: "\u{21E7}\u{2318}M"
-            ) {
-                MiniChatWindowController.shared.toggle()
-                dismiss()
+            LandingCommandItem(id: "nav-settings", label: "Open Settings", icon: "gearshape", category: "Navigate", badge: "\u{2318},") {
+                UtilityWindowManager.shared.show(.settings); dismiss()
             },
-            LandingCommandItem(
-                id: "nav-settings", label: "Open Settings", icon: "gearshape",
-                category: "Navigate", badge: "\u{2318},"
-            ) {
-                UtilityWindowManager.shared.show(.settings)
+            LandingCommandItem(id: "rebuild-graph", label: "Rebuild Graph", icon: "arrow.triangle.2.circlepath", category: "Tools") { [self] in
                 dismiss()
-            },
-
-            // ── Tools ──
-            LandingCommandItem(
-                id: "rebuild-graph", label: "Rebuild Graph",
-                icon: "arrow.triangle.2.circlepath",
-                category: "Tools"
-            ) { [self] in
-                dismiss()
-                if let context = AppBootstrap.shared?.modelContainer.mainContext {
-                    graphState.refreshStructuralData(context: context)
-                    ui.showToast("Graph rebuilt", type: .success)
+                if let ctx = AppBootstrap.shared?.modelContainer.mainContext {
+                    graphState.refreshStructuralData(context: ctx); ui.showToast("Graph rebuilt", type: .success)
                 }
             },
-            LandingCommandItem(
-                id: "import-markdown", label: "Import Markdown",
-                icon: "arrow.down.doc",
-                category: "Tools"
-            ) { [self] in
+            LandingCommandItem(id: "import-markdown", label: "Import Markdown", icon: "arrow.down.doc", category: "Tools") { [self] in
                 dismiss()
                 guard let vaultURL = vaultSync.vaultURL else {
-                    ui.showToast("No vault attached — set a vault folder in Settings first", type: .warning)
-                    return
+                    ui.showToast("No vault attached \u{2014} set a vault folder in Settings first", type: .warning); return
                 }
                 let panel = NSOpenPanel()
-                panel.allowsMultipleSelection = true
-                panel.allowedContentTypes = [.plainText]
+                panel.allowsMultipleSelection = true; panel.allowedContentTypes = [.plainText]
                 panel.begin { response in
                     guard response == .OK else { return }
                     Task { @MainActor in
                         var count = 0
                         for url in panel.urls {
-                            let dest = vaultURL.appendingPathComponent(url.lastPathComponent)
-                            do {
-                                try FileManager.default.copyItem(at: url, to: dest)
-                                count += 1
-                            } catch {
-                                Log.app.error("Import failed for \(url.lastPathComponent): \(error.localizedDescription)")
-                            }
+                            do { try FileManager.default.copyItem(at: url, to: vaultURL.appendingPathComponent(url.lastPathComponent)); count += 1 }
+                            catch { Log.app.error("Import failed for \(url.lastPathComponent): \(error.localizedDescription)") }
                         }
-                        if count > 0 {
-                            _ = await vaultSync.syncFromVault()
-                            ui.showToast("Imported \(count) file(s)", type: .success)
-                        }
+                        if count > 0 { _ = await vaultSync.syncFromVault(); ui.showToast("Imported \(count) file(s)", type: .success) }
                     }
                 }
             },
-            LandingCommandItem(
-                id: "toggle-theme", label: "Toggle Theme", icon: "paintpalette",
-                category: "Tools"
-            ) {
-                ui.cycleTheme()
-                dismiss()
+            LandingCommandItem(id: "toggle-theme", label: "Toggle Theme", icon: "paintpalette", category: "Tools") {
+                ui.cycleTheme(); dismiss()
             },
         ]
+    }
+}
+
+// MARK: - Palette Chat Bubble
+
+private struct PaletteChatBubble: View {
+    let message: AssistantMessage
+    let theme: EpistemosTheme
+
+    private var isUser: Bool { message.role == .user }
+
+    var body: some View {
+        if isUser {
+            HStack {
+                Spacer(minLength: 24)
+                Text(message.content)
+                    .font(.system(size: 13))
+                    .foregroundStyle(theme.userBubbleText)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                MarkdownTextView(content: message.content, theme: theme)
+                    .font(.system(size: 13))
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+// MARK: - Spotlight Row
+
+private struct SpotlightRow: View {
+    let command: LandingCommandItem
+    let isSelected: Bool
+    let theme: EpistemosTheme
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isSelected ? theme.accent.opacity(0.15) : theme.muted.opacity(0.6))
+                    .frame(width: 28, height: 28)
+                    .overlay {
+                        Image(systemName: command.icon)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(isSelected ? theme.accent : theme.textSecondary)
+                    }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(command.label)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(1)
+
+                    if let subtitle = command.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.textTertiary)
+                            .lineLimit(1)
+                    }
+
+                    if let snippet = command.snippet {
+                        Text(snippet)
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.textSecondary.opacity(0.7))
+                            .lineLimit(2)
+                            .padding(.top, 1)
+                    }
+                }
+
+                Spacer()
+
+                if let badge = command.badge {
+                    Text(badge)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(isSelected ? theme.accent : theme.textTertiary.opacity(0.6))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(isSelected ? theme.accent.opacity(0.08) : theme.muted.opacity(0.5))
+                        }
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.accent.opacity(0.1))
+            } else if isHovered {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(theme.hoverOverlay)
+            }
+        }
+        .animation(Motion.quick, value: isSelected)
+        .animation(Motion.micro, value: isHovered)
+        .onHover { isHovered = $0 }
     }
 }

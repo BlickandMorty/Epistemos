@@ -231,42 +231,42 @@ fn extract_wikilinks(text: &str, spans: &mut Vec<StyleSpan>) {
     let bytes = text.as_bytes();
     let mut i = 0;
     while i + 1 < bytes.len() {
-        if bytes[i] == b'[' && bytes[i + 1] == b'[' {
-            if let Some(close_offset) = text[i + 2..].find("]]") {
-                let content_start = i + 2;
-                let content_end = content_start + close_offset;
-                let full_end = content_end + 2;
+        if bytes[i] == b'[' && bytes[i + 1] == b'['
+            && let Some(close_offset) = text[i + 2..].find("]]")
+        {
+            let content_start = i + 2;
+            let content_end = content_start + close_offset;
+            let full_end = content_end + 2;
 
-                // Opening brackets [[
-                spans.push(StyleSpan {
-                    start: i as u32,
-                    end: content_start as u32,
-                    style: StyleKind::WikilinkBrackets as u8,
-                    depth: 0,
-                    group: 0,
-                    _pad: 0,
-                });
-                // Content
-                spans.push(StyleSpan {
-                    start: content_start as u32,
-                    end: content_end as u32,
-                    style: StyleKind::Wikilink as u8,
-                    depth: 0,
-                    group: 1,
-                    _pad: 0,
-                });
-                // Closing brackets ]]
-                spans.push(StyleSpan {
-                    start: content_end as u32,
-                    end: full_end as u32,
-                    style: StyleKind::WikilinkBrackets as u8,
-                    depth: 0,
-                    group: 2,
-                    _pad: 0,
-                });
-                i = full_end;
-                continue;
-            }
+            // Opening brackets [[
+            spans.push(StyleSpan {
+                start: i as u32,
+                end: content_start as u32,
+                style: StyleKind::WikilinkBrackets as u8,
+                depth: 0,
+                group: 0,
+                _pad: 0,
+            });
+            // Content
+            spans.push(StyleSpan {
+                start: content_start as u32,
+                end: content_end as u32,
+                style: StyleKind::Wikilink as u8,
+                depth: 0,
+                group: 1,
+                _pad: 0,
+            });
+            // Closing brackets ]]
+            spans.push(StyleSpan {
+                start: content_end as u32,
+                end: full_end as u32,
+                style: StyleKind::WikilinkBrackets as u8,
+                depth: 0,
+                group: 2,
+                _pad: 0,
+            });
+            i = full_end;
+            continue;
         }
         i += 1;
     }
@@ -312,49 +312,49 @@ fn extract_block_references(text: &str, spans: &mut Vec<StyleSpan>) {
     let bytes = text.as_bytes();
     let mut i = 0;
     while i + 1 < bytes.len() {
-        if bytes[i] == b'(' && bytes[i + 1] == b'(' {
-            if let Some(close_offset) = text[i + 2..].find("))") {
-                let content_start = i + 2;
-                let content_end = content_start + close_offset;
-                let full_end = content_end + 2;
+        if bytes[i] == b'(' && bytes[i + 1] == b'('
+            && let Some(close_offset) = text[i + 2..].find("))")
+        {
+            let content_start = i + 2;
+            let content_end = content_start + close_offset;
+            let full_end = content_end + 2;
 
-                // Skip empty references (( ))
-                let content = &text[content_start..content_end];
-                if content.trim().is_empty() {
-                    i += 2;
-                    continue;
-                }
-
-                // Opening brackets ((
-                spans.push(StyleSpan {
-                    start: i as u32,
-                    end: content_start as u32,
-                    style: StyleKind::BlockReferenceBrackets as u8,
-                    depth: 0,
-                    group: 0,
-                    _pad: 0,
-                });
-                // Content (block ID)
-                spans.push(StyleSpan {
-                    start: content_start as u32,
-                    end: content_end as u32,
-                    style: StyleKind::BlockReference as u8,
-                    depth: 0,
-                    group: 1,
-                    _pad: 0,
-                });
-                // Closing brackets ))
-                spans.push(StyleSpan {
-                    start: content_end as u32,
-                    end: full_end as u32,
-                    style: StyleKind::BlockReferenceBrackets as u8,
-                    depth: 0,
-                    group: 2,
-                    _pad: 0,
-                });
-                i = full_end;
+            // Skip empty references (( ))
+            let content = &text[content_start..content_end];
+            if content.trim().is_empty() {
+                i += 2;
                 continue;
             }
+
+            // Opening brackets ((
+            spans.push(StyleSpan {
+                start: i as u32,
+                end: content_start as u32,
+                style: StyleKind::BlockReferenceBrackets as u8,
+                depth: 0,
+                group: 0,
+                _pad: 0,
+            });
+            // Content (block ID)
+            spans.push(StyleSpan {
+                start: content_start as u32,
+                end: content_end as u32,
+                style: StyleKind::BlockReference as u8,
+                depth: 0,
+                group: 1,
+                _pad: 0,
+            });
+            // Closing brackets ))
+            spans.push(StyleSpan {
+                start: content_end as u32,
+                end: full_end as u32,
+                style: StyleKind::BlockReferenceBrackets as u8,
+                depth: 0,
+                group: 2,
+                _pad: 0,
+            });
+            i = full_end;
+            continue;
         }
         i += 1;
     }

@@ -2,8 +2,9 @@
 //! Built during commit(), queried via FFI for sub-1ms results.
 //!
 //! Two-phase search:
-//! 1. FST Levenshtein automaton for typo-tolerant matching (O(|query|) in automaton size)
-//! 2. Linear scan with 5-tier scoring for ranking (exact > prefix > word-start > contains > subsequence)
+//!   1. FST Levenshtein automaton for typo-tolerant matching (O(|query|) in automaton size)
+//!   2. Linear scan with 5-tier scoring for ranking (exact > prefix > word-start > contains > subsequence)
+//!
 //! FST hits get a bonus score boost to surface typo corrections.
 
 use fst::automaton::Levenshtein;
@@ -34,6 +35,12 @@ struct SearchEntry {
     label: String,
     label_lower: String,
     node_type: u8,
+}
+
+impl Default for SearchIndex {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SearchIndex {
@@ -99,12 +106,12 @@ impl SearchIndex {
             if let Ok(lev) = Levenshtein::new(&query_lower, max_dist) {
                 let mut stream = fst.search(&lev).into_stream();
                 while let Some(key) = stream.next() {
-                    if let Ok(label) = std::str::from_utf8(key) {
-                        if let Some(indices) = self.label_to_entries.get(label) {
-                            for &idx in indices {
-                                // FST bonus: 0.25 for edit-distance matches not caught by linear scan.
-                                fst_hits.insert(idx, 0.25);
-                            }
+                    if let Ok(label) = std::str::from_utf8(key)
+                        && let Some(indices) = self.label_to_entries.get(label)
+                    {
+                        for &idx in indices {
+                            // FST bonus: 0.25 for edit-distance matches not caught by linear scan.
+                            fst_hits.insert(idx, 0.25);
                         }
                     }
                 }
@@ -118,10 +125,8 @@ impl SearchIndex {
             let mut score = Self::score_match(&entry.label_lower, &query_lower);
 
             // Boost from FST Levenshtein if not already matched by linear scoring.
-            if let Some(&fst_bonus) = fst_hits.get(&i) {
-                if score == 0.0 {
-                    score = fst_bonus;
-                }
+            if let Some(&fst_bonus) = fst_hits.get(&i) && score == 0.0 {
+                score = fst_bonus;
             }
 
             if score > 0.0 {
@@ -169,12 +174,11 @@ impl SearchIndex {
         if !query_chars.is_empty() {
             let mut qi = 0;
             for word in &words {
-                if qi < query_chars.len() {
-                    if let Some(first) = word.chars().next() {
-                        if first == query_chars[qi] {
-                            qi += 1;
-                        }
-                    }
+                if qi < query_chars.len()
+                    && let Some(first) = word.chars().next()
+                    && first == query_chars[qi]
+                {
+                    qi += 1;
                 }
             }
             if qi == query_chars.len() && query_chars.len() >= 2 {

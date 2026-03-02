@@ -101,6 +101,13 @@ final class MetalGraphNSView: NSView {
         }
     }
 
+    /// Switch the Rust engine between light and dark color palettes.
+    func setLightMode(_ enabled: Bool) {
+        guard let engine else { return }
+        graph_engine_set_light_mode(engine, enabled ? 1 : 0)
+        needsRender = true
+    }
+
     /// When true, the view is in the mini floating panel. Background taps are disabled
     /// and Option+drag moves the parent window (holographic drag).
     var isMiniMode = false
@@ -434,6 +441,7 @@ final class MetalGraphNSView: NSView {
     var lastClusterConfigVersion: Int = -1
     var lastSemanticClusterVersion: Int = -1
     var lastFilterVersion: Int = 0
+    var lastPhysicsFrozenVersion: Int = 0
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -622,6 +630,13 @@ final class MetalGraphNSView: NSView {
             applyFilterState()
         }
 
+        // Sync user-controlled physics freeze.
+        if let graphState, lastPhysicsFrozenVersion != graphState.physicsFrozenVersion {
+            lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
+            graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
+            needsRender = true
+        }
+
         // Reset view: zoom to fit all visible nodes.
         if let graphState, graphState.pendingResetView {
             graphState.pendingResetView = false
@@ -702,11 +717,14 @@ final class MetalGraphNSView: NSView {
             isDraggingNode = true
         } else {
             isPanning = true
-            // In mini mode, background drag moves the window.
+            // In mini mode, only the top 40px is a drag handle — rest pans the graph.
             if isMiniMode {
-                isDraggingWindow = true
-                windowDragOrigin = NSEvent.mouseLocation
-                windowFrameOrigin = window?.frame.origin
+                let viewHeight = bounds.height
+                if loc.y > viewHeight - 40 {
+                    isDraggingWindow = true
+                    windowDragOrigin = NSEvent.mouseLocation
+                    windowFrameOrigin = window?.frame.origin
+                }
             }
         }
         NSCursor.closedHand.set()

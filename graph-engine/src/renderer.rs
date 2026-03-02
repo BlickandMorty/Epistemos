@@ -4,7 +4,7 @@ use metal::foreign_types::ForeignType;
 use metal::*;
 use objc::rc::autoreleasepool;
 
-use crate::types::{Graph, edge_type_color};
+use crate::types::{Graph, edge_type_color, edge_type_color_light};
 
 // Direct Objective-C runtime call — avoids macro import issues with Rust 2024 edition.
 unsafe extern "C" {
@@ -362,6 +362,7 @@ pub struct Renderer {
     highlight_flag_scratch: Vec<u8>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
+    pub light_mode: bool,
     // Quality level: 0 = Cinematic (full effects), 1 = Balanced (sphere shading, no animation),
     // 2 = Performance (flat circles, no effects). Replaces binary lite_mode.
     pub quality_level: u8,
@@ -377,7 +378,12 @@ pub struct Renderer {
 impl Renderer {
     #[inline]
     fn node_color(&self, node_type: &crate::types::NodeType) -> [f32; 4] {
-        node_type.color()
+        if self.light_mode { node_type.color_light() } else { node_type.color() }
+    }
+
+    #[inline]
+    fn edge_color(&self, edge_type: u8) -> [f32; 4] {
+        if self.light_mode { edge_type_color_light(edge_type) } else { edge_type_color(edge_type) }
     }
 
     pub fn new(device_ptr: *mut c_void, layer_ptr: *mut c_void) -> Option<Self> {
@@ -465,6 +471,7 @@ impl Renderer {
             field_line_capacity: 0,
             field_line_hovered_id: None,
             field_line_scratch: Vec::new(),
+            light_mode: false,
             clear_color: [0.07, 0.07, 0.09, 1.0],
             quality_level: 0,  // Cinematic by default
             start_time: std::time::Instant::now(),
@@ -523,15 +530,11 @@ impl Renderer {
 
             // Apply entrance animation offsets (z-depth, alpha, spiral displacement).
             // Available in Cinematic and Balanced modes.
-            if !is_performance {
-                if let Some(ent) = entrance {
-                    if let Some(state) = ent.get(gi) {
-                        z += state.z_offset;
-                        color[3] *= state.alpha;
-                        pos[0] += state.dx;
-                        pos[1] += state.dy;
-                    }
-                }
+            if !is_performance && let Some(ent) = entrance && let Some(state) = ent.get(gi) {
+                z += state.z_offset;
+                color[3] *= state.alpha;
+                pos[0] += state.dx;
+                pos[1] += state.dy;
             }
 
             // Glow effects: only in Cinematic mode (not Balanced or Performance).
@@ -635,7 +638,7 @@ impl Renderer {
                 }
 
                 // Edge type color: use semantic color based on edge type.
-                let base_edge = edge_type_color(edge.edge_type);
+                let base_edge = self.edge_color(edge.edge_type);
                 let mut color = if self.highlight.active {
                     let src_lit = self.highlight.highlighted_ids.contains(&src.id);
                     let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
@@ -712,13 +715,11 @@ impl Renderer {
                     let mut ent_alpha = 1.0f32;
 
                     // Apply entrance offsets.
-                    if let Some(ent) = entrance {
-                        if let Some(state) = ent.get(gi) {
-                            z += state.z_offset;
-                            ent_alpha = state.alpha;
-                            pos[0] += state.dx;
-                            pos[1] += state.dy;
-                        }
+                    if let Some(ent) = entrance && let Some(state) = ent.get(gi) {
+                        z += state.z_offset;
+                        ent_alpha = state.alpha;
+                        pos[0] += state.dx;
+                        pos[1] += state.dy;
                     }
 
                     // Update glow instances (hub glow + confidence glow).
@@ -789,7 +790,7 @@ impl Renderer {
                         }
 
                         // Edge type color: use semantic color based on edge type.
-                        let base_edge = edge_type_color(edge.edge_type);
+                        let base_edge = self.edge_color(edge.edge_type);
                         let hi_edge = EDGE_HIGHLIGHT_COLOR;
                         let dim_edge_alpha = EDGE_DIM_ALPHA;
 

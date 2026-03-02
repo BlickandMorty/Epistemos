@@ -52,7 +52,6 @@ struct RelationshipBrowser: View {
                     .padding(.horizontal, 12)
                     .padding(.bottom, 12)
                 }
-                .frame(maxHeight: 220)
             }
         }
     }

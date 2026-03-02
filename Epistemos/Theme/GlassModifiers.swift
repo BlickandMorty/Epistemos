@@ -77,9 +77,9 @@ struct SiriGlowBorderModifier: ViewModifier {
     let lineWidth: CGFloat
     let isActive: Bool
 
-    @State private var phase: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let colors: [Color] = [
+    private static let colors: [Color] = [
         Color(hue: 0.75, saturation: 0.6, brightness: 0.9),  // purple
         Color(hue: 0.60, saturation: 0.5, brightness: 0.95), // blue
         Color(hue: 0.50, saturation: 0.5, brightness: 0.95), // cyan
@@ -93,49 +93,48 @@ struct SiriGlowBorderModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay {
-                if isActive {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(
-                            AngularGradient(
-                                colors: colors,
-                                center: .center,
-                                startAngle: .degrees(phase),
-                                endAngle: .degrees(phase + 360)
-                            ),
-                            lineWidth: lineWidth
-                        )
-                        .blur(radius: 1)
-                        .opacity(0.7)
+                if isActive && !reduceMotion {
+                    // TimelineView at 30Hz — glow rotation doesn't need 60fps.
+                    // drawingGroup() rasterizes the gradient+blur to a Metal texture
+                    // on GPU instead of CPU-compositing every frame.
+                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                        let elapsed = context.date.timeIntervalSinceReferenceDate
+                        let phase = elapsed.truncatingRemainder(dividingBy: 4) / 4 * 360
 
-                    // Outer glow layer
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(
-                            AngularGradient(
-                                colors: colors,
-                                center: .center,
-                                startAngle: .degrees(phase),
-                                endAngle: .degrees(phase + 360)
-                            ),
-                            lineWidth: lineWidth * 2.5
-                        )
-                        .blur(radius: 6)
-                        .opacity(0.25)
-                }
-            }
-            .onAppear {
-                guard isActive else { return }
-                withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
-                    phase = 360
-                }
-            }
-            .onChange(of: isActive) { _, active in
-                if active {
-                    phase = 0
-                    withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
-                        phase = 360
+                        ZStack {
+                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                .strokeBorder(
+                                    AngularGradient(
+                                        colors: Self.colors,
+                                        center: .center,
+                                        startAngle: .degrees(phase),
+                                        endAngle: .degrees(phase + 360)
+                                    ),
+                                    lineWidth: lineWidth
+                                )
+                                .blur(radius: 1)
+                                .opacity(0.7)
+
+                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                .strokeBorder(
+                                    AngularGradient(
+                                        colors: Self.colors,
+                                        center: .center,
+                                        startAngle: .degrees(phase),
+                                        endAngle: .degrees(phase + 360)
+                                    ),
+                                    lineWidth: lineWidth * 2.5
+                                )
+                                .blur(radius: 4)
+                                .opacity(0.25)
+                        }
+                        .drawingGroup()
+                        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     }
+                    .transition(.opacity)
                 }
             }
+            .animation(.easeInOut(duration: 0.3), value: isActive)
     }
 }
 

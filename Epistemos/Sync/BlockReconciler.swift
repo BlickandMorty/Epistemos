@@ -66,7 +66,10 @@ enum BlockReconciler {
         }
 
         // Sort by score descending — best matches assigned first.
-        candidates.sort { $0.score > $1.score }
+        candidates.sort {
+            if $0.score != $1.score { return $0.score > $1.score }
+            return abs($0.parsedIdx - $0.existingIdx) < abs($1.parsedIdx - $1.existingIdx)
+        }
 
         var usedParsed = Set<Int>()
         var usedExisting = Set<Int>()
@@ -219,8 +222,8 @@ enum BlockReconciler {
     /// Jaccard similarity between two strings (word-level).
     /// Same algorithm as LineDiff.jaccardSimilarity.
     private static func jaccardSimilarity(_ a: String, _ b: String) -> Double {
-        let aWords = Set(a.split(separator: " "))
-        let bWords = Set(b.split(separator: " "))
+        let aWords = Set(a.split(omittingEmptySubsequences: true, whereSeparator: \.isWhitespace))
+        let bWords = Set(b.split(omittingEmptySubsequences: true, whereSeparator: \.isWhitespace))
         guard !aWords.isEmpty || !bWords.isEmpty else { return 1.0 }
         let intersection = aWords.intersection(bWords).count
         let union = aWords.union(bWords).count

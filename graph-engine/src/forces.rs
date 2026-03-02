@@ -469,6 +469,7 @@ pub fn force_cluster_with_scratch(
 /// Pulls semantically similar nodes toward each other.
 /// Operates on pre-computed KNN pairs (not computed per-tick).
 /// Uses a spring model: attracts only when nodes are farther than 50% of ideal_distance.
+#[allow(clippy::too_many_arguments)]
 pub fn force_semantic(
     x: &[f32],
     y: &[f32],

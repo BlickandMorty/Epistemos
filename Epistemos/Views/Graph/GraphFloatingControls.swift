@@ -42,6 +42,8 @@ struct GraphFloatingControls: View {
                     .frame(height: 20)
                     .opacity(0.3)
 
+                physicsToggle
+
                 forceSettingsButton
 
                 timeSliderButton
@@ -189,6 +191,34 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
+    }
+
+    // MARK: - Physics Toggle
+
+    private var physicsToggle: some View {
+        let frozen = graphState.isPhysicsFrozen
+        return Button {
+            graphState.isPhysicsFrozen.toggle()
+            graphState.physicsFrozenVersion += 1
+            graphState.savePhysicsSettings()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: frozen ? "play.circle.fill" : "pause.circle.fill")
+                    .font(.system(size: 10, weight: .medium))
+                Text(frozen ? "Resume" : "Freeze")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                frozen ? Color.teal.opacity(0.25) : .clear,
+                in: Capsule()
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.primary.opacity(frozen ? 1.0 : 0.5))
+        .help(frozen ? "Resume Physics" : "Freeze Physics")
+        .accessibilityLabel(frozen ? "Resume physics simulation" : "Freeze physics simulation")
     }
 
     // MARK: - Force Settings

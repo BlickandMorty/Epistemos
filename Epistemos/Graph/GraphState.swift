@@ -138,6 +138,11 @@ final class GraphState {
     /// The threshold above which physics is disabled. Shown in the UI tooltip.
     static let staticLayoutThreshold = 2500
 
+    /// User-controlled physics freeze (persisted across launches).
+    var isPhysicsFrozen: Bool = false
+    /// Change tracker so MetalGraphView render loop can detect toggle.
+    var physicsFrozenVersion: Int = 0
+
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
     let embeddingService: EmbeddingService
 
@@ -283,6 +288,7 @@ final class GraphState {
         d.set(Int(centerMode), forKey: "epistemos.physics.centerMode")
         d.set(semanticStrength, forKey: "epistemos.physics.semanticStrength")
         d.set(useSemanticClustering, forKey: "epistemos.physics.useSemanticClustering")
+        d.set(isPhysicsFrozen, forKey: "epistemos.physics.userFrozen")
         d.set(true, forKey: "epistemos.physics.hasSavedSettings")
         d.set(Self.physicsVersion, forKey: "epistemos.physics.version")
     }
@@ -310,6 +316,8 @@ final class GraphState {
         centerMode = UInt8(d.integer(forKey: "epistemos.physics.centerMode"))
         semanticStrength = d.float(forKey: "epistemos.physics.semanticStrength")
         useSemanticClustering = d.bool(forKey: "epistemos.physics.useSemanticClustering")
+        isPhysicsFrozen = d.bool(forKey: "epistemos.physics.userFrozen")
+        if isPhysicsFrozen { physicsFrozenVersion += 1 }
     }
 
     // ── Cluster ──
@@ -511,7 +519,9 @@ final class GraphState {
                         hits.append(GraphStore.SearchHit(id: node.id, node: node, score: score))
                     }
                 }
-                return hits
+                // Fall through to Swift fuzzy search if FFI returned results
+                // but none mapped to store nodes (UUID mismatch after rebuild).
+                if !hits.isEmpty { return hits }
             }
         }
 

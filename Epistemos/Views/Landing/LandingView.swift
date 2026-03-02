@@ -12,6 +12,7 @@ struct LandingView: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
+    @Environment(InferenceState.self) private var inference
 
     // Recent data for Daily Brief context
     @Query(SDPage.recentDescriptor(limit: 50))
@@ -19,6 +20,11 @@ struct LandingView: View {
 
     @Query(sort: \SDChat.updatedAt, order: .reverse)
     private var allChats: [SDChat]
+
+    // Inline search state
+    @State private var showingSearch = false
+    @State private var landingSearchText = ""
+    @FocusState private var isLandingSearchFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
@@ -28,11 +34,18 @@ struct LandingView: View {
     var body: some View {
         ZStack {
             // ── Greeting Mode ──
-            // Blurs and fades when the Daily Brief is active.
+            // Blurs and fades when Daily Brief or inline search is active.
             greetingContent
-                .blur(radius: showingBrief ? 20 : 0)
-                .opacity(showingBrief ? 0 : 1)
-                .allowsHitTesting(!showingBrief)
+                .blur(radius: (showingBrief || showingSearch) ? 20 : 0)
+                .opacity((showingBrief || showingSearch) ? 0 : 1)
+                .allowsHitTesting(!showingBrief && !showingSearch)
+
+            // ── Inline Search Mode ──
+            // Click anywhere on landing → greeting blur-replaces into search bar.
+            if showingSearch {
+                landingSearchContent
+                    .transition(.opacity.combined(with: .blurReplace))
+            }
 
             // ── Daily Brief Mode ──
             // Fades in on top of the blurred greeting.
@@ -43,6 +56,7 @@ struct LandingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(Motion.smooth, value: showingBrief)
+        .animation(Motion.smooth, value: showingSearch)
         .background {
             // Hidden ⌘N shortcut — creates new note and teleports there
             Button(action: { createAndOpenNote() }) {}
@@ -59,6 +73,10 @@ struct LandingView: View {
                 .allowsHitTesting(false)
         }
         .onKeyPress(.escape) {
+            if showingSearch {
+                dismissLandingSearch()
+                return .handled
+            }
             if showingBrief {
                 dailyBrief.dismissDailyBrief()
                 return .handled
@@ -80,21 +98,18 @@ struct LandingView: View {
             VStack(spacing: 36) {
                 LiquidGreeting()
             }
-            .allowsHitTesting(false)
             .padding(.horizontal, Spacing.xxl)
 
             Spacer()
 
             // Shortcut hints
             HStack(spacing: 16) {
-                // ⌥Space to search (global)
+                // Click to search
                 HStack(spacing: 3) {
-                    Image(systemName: "option")
-                    Text("Space")
-                    Text("Search")
+                    Image(systemName: "magnifyingglass")
+                    Text("Click to search")
                         .padding(.leading, 2)
                 }
-                .onTapGesture { CommandPaletteWindowController.shared.show() }
                 .springEntrance(index: 0, stagger: 0.08)
 
                 Circle()
@@ -143,6 +158,189 @@ struct LandingView: View {
             .foregroundStyle(theme.textTertiary.opacity(0.5))
             .padding(.bottom, 28)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { activateLandingSearch() }
+    }
+
+    // MARK: - Landing Search Content (replaces greeting in-place)
+
+    private var landingSearchContent: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 20) {
+                // Search bar
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                                    Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                                    Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    TextField("Ask Epistemos\u{2026}", text: $landingSearchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 22, weight: .regular, design: .rounded))
+                        .foregroundStyle(theme.foreground)
+                        .focused($isLandingSearchFocused)
+                        .onSubmit { submitLandingSearch() }
+
+                    if !landingSearchText.isEmpty {
+                        Button {
+                            landingSearchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(theme.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+                    }
+
+                    // Research Mode toggle
+                    Button {
+                        if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
+                    } label: {
+                        Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
+                            .frame(width: 28, height: 28)
+                            .background(chat.isResearchMode ? theme.accent.opacity(0.15) : .clear, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(chat.isResearchMode ? "Research Mode: ON" : "Research Mode: OFF")
+
+                    // API provider picker
+                    Menu {
+                        ForEach(LLMProviderType.allCases, id: \.self) { provider in
+                            Button {
+                                inference.apiProvider = provider
+                            } label: {
+                                HStack {
+                                    Image(systemName: provider.iconName)
+                                    Text(provider.displayName)
+                                    if inference.apiProvider == provider {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: inference.apiProvider.iconName)
+                                .font(.system(size: 10, weight: .medium))
+                            Text(inference.apiProvider.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(theme.foreground.opacity(0.06), in: Capsule())
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
+                .background {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06), lineWidth: 0.5)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .siriGlow(cornerRadius: 20, lineWidth: 1.5, isActive: isLandingSearchFocused)
+                .frame(maxWidth: 600)
+                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+
+                // Quick action chips
+                HStack(spacing: 10) {
+                    landingChip(label: "New Note", icon: "doc.badge.plus") {
+                        dismissLandingSearch()
+                        createAndOpenNote()
+                    }
+                    landingChip(label: "Quick Idea", icon: "lightbulb") {
+                        dismissLandingSearch()
+                        captureQuickIdea()
+                    }
+                    landingChip(label: "Vault Briefing", icon: "book.pages") {
+                        dismissLandingSearch()
+                        chat.startNewChat()
+                        ui.setActivePanel(.home)
+                        AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
+                    }
+                    landingChip(label: "Daily Brief", icon: "newspaper.fill") {
+                        dismissLandingSearch()
+                        let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
+                        dailyBrief.requestDailyBrief(prompt: prompt)
+                    }
+                    landingChip(label: "New Chat", icon: "plus.bubble") {
+                        dismissLandingSearch()
+                        chat.startNewChat()
+                        ui.setActivePanel(.home)
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .padding(.horizontal, Spacing.xxl)
+
+            Spacer()
+
+            // Hint to dismiss
+            Text("Press Esc to go back")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(theme.textTertiary.opacity(0.4))
+                .padding(.bottom, 28)
+        }
+    }
+
+    private func landingChip(label: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(theme.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background {
+                Capsule().fill(theme.foreground.opacity(0.06))
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func activateLandingSearch() {
+        guard !showingBrief else { return }
+        showingSearch = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            isLandingSearchFocused = true
+        }
+    }
+
+    private func dismissLandingSearch() {
+        showingSearch = false
+        landingSearchText = ""
+        isLandingSearchFocused = false
+    }
+
+    private func submitLandingSearch() {
+        let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        dismissLandingSearch()
+        chat.startNewChat()
+        chat.submitQuery(trimmed)
+        ui.setActivePanel(.home)
     }
 
     // MARK: - Daily Brief Content (replaces greeting in-place)
@@ -423,8 +621,16 @@ struct LandingCommandItem: Identifiable {
     let icon: String
     let category: String
     var subtitle: String? = nil
+    var snippet: String? = nil
     var badge: String? = nil
+    var contextActions: [ContextAction] = []
     let action: () -> Void
+
+    struct ContextAction {
+        let label: String
+        let icon: String
+        let action: () -> Void
+    }
 }
 
 // MARK: - Landing Command Row
@@ -496,6 +702,17 @@ struct LandingCommandRow: View {
         .animation(Motion.micro, value: isSelected)
         .onHover { hovering in
             withAnimation(Motion.micro) { isHovered = hovering }
+        }
+        .contextMenu {
+            if !command.contextActions.isEmpty {
+                ForEach(Array(command.contextActions.enumerated()), id: \.offset) { _, ctx in
+                    Button {
+                        ctx.action()
+                    } label: {
+                        Label(ctx.label, systemImage: ctx.icon)
+                    }
+                }
+            }
         }
     }
 }

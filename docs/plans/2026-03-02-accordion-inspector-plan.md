@@ -1,3 +1,56 @@
+# Accordion Inspector Panel — Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Replace the fixed-height stacked inspector layout with a true accordion where one section expands at a time, eliminating all sizing/clipping issues.
+
+**Architecture:** Single `@State expandedSection` enum drives which section body is visible. Collapsed sections show a compact header row with preview text. The expanded section fills all remaining vertical space via a flexible frame.
+
+**Tech Stack:** SwiftUI (macOS 26), `.glassEffect()`, Swift Testing
+
+---
+
+### Task 1: Remove maxHeight from RelationshipBrowser
+
+**Files:**
+- Modify: `Epistemos/Views/Graph/RelationshipBrowser.swift:55`
+
+**Step 1: Remove the height cap**
+
+In `RelationshipBrowser.swift` line 55, delete `.frame(maxHeight: 220)`. The parent (accordion) will control height.
+
+Replace:
+```swift
+                .frame(maxHeight: 220)
+```
+With: (delete line entirely)
+
+**Step 2: Build to verify**
+
+Run: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build 2>&1 | tail -5`
+Expected: BUILD SUCCEEDED
+
+**Step 3: Commit**
+
+```bash
+git add Epistemos/Views/Graph/RelationshipBrowser.swift
+git commit -m "Remove hardcoded maxHeight from RelationshipBrowser
+
+Accordion parent will control available height instead of internal cap."
+```
+
+---
+
+### Task 2: Rewrite HologramNodeInspector as accordion
+
+**Files:**
+- Modify: `Epistemos/Views/Graph/HologramNodeInspector.swift` (full rewrite)
+
+**Step 1: Replace the entire file**
+
+Write this complete implementation:
+
+```swift
 import SwiftUI
 import SwiftData
 
@@ -46,6 +99,8 @@ struct HologramNodeInspector: View {
 
     @ViewBuilder
     private func accordionBody(_ node: GraphNodeRecord) -> some View {
+        // Each section: tappable header + conditionally shown body.
+        // Expanded section body gets all remaining space.
         sectionHeader(.summary, icon: "sparkles", title: "Summary", preview: summaryPreview)
         if expandedSection == .summary {
             summaryBody
@@ -208,6 +263,7 @@ struct HologramNodeInspector: View {
 
     private var chatBody: some View {
         VStack(spacing: 0) {
+            // Scope picker (when chat is expanded, show it inline here)
             HStack(alignment: .center) {
                 Spacer()
                 Picker("", selection: Bindable(inspectorState).chatScope) {
@@ -223,6 +279,7 @@ struct HologramNodeInspector: View {
 
             Divider()
 
+            // Messages — fills available space
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 10) {
@@ -248,6 +305,7 @@ struct HologramNodeInspector: View {
 
             Divider()
 
+            // Input — pinned at bottom, always visible
             HStack(spacing: 8) {
                 TextField("Ask…", text: Bindable(inspectorState).chatInput)
                     .textFieldStyle(.roundedBorder)
@@ -300,3 +358,53 @@ struct HologramNodeInspector: View {
         }
     }
 }
+```
+
+**Step 2: Build to verify**
+
+Run: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build 2>&1 | tail -5`
+Expected: BUILD SUCCEEDED
+
+**Step 3: Commit**
+
+```bash
+git add Epistemos/Views/Graph/HologramNodeInspector.swift
+git commit -m "Rewrite inspector as true accordion layout
+
+One section expanded at a time — summary, relationships, or chat.
+Expanded section fills all available space. No more height caps.
+Fixes summary truncation and chat input clipping in mini mode.
+Defaults to summary-first on node selection."
+```
+
+---
+
+### Task 3: Manual verification
+
+**Step 1: Launch and test full-screen overlay**
+
+Run the app. Open the knowledge graph (Cmd+G). Click a node.
+Verify:
+- Inspector appears with Summary expanded by default
+- Summary text flows without truncation
+- Click Relationships header → Summary collapses, Relationships expands with full height
+- Click Chat header → Relationships collapses, Chat expands with input field visible at bottom
+- Scope picker visible in Chat header when collapsed, inline when expanded
+- Glass effect unchanged
+
+**Step 2: Test mini mode**
+
+Minimize the graph to mini panel. Click a node.
+Verify:
+- Inspector fades in (lazy from Issue 2 fix)
+- All three sections work in accordion mode within 620px
+- Chat input never clips off the bottom
+- Summary has ~450px available when expanded
+
+**Step 3: Test node switching**
+
+While inspector is open with Chat expanded, click a different node.
+Verify:
+- Accordion resets to Summary expanded
+- New node's data loads correctly
+- Previous chat messages clear (per NodeInspectorState behavior)

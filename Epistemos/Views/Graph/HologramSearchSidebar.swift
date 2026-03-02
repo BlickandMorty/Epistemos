@@ -650,6 +650,7 @@ private struct NodeRowButton: View {
     let indent: Int
     let onSelect: (String) -> Void
     @State private var isHovered = false
+    @Environment(GraphState.self) private var graphState
 
     var body: some View {
         Button {
@@ -684,5 +685,22 @@ private struct NodeRowButton: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
+        .contextMenu {
+            if node.type == .note, let pageId = node.sourceId {
+                Button {
+                    NoteWindowManager.shared.open(pageId: pageId)
+                } label: {
+                    Label("Open in Notes", systemImage: "doc.text")
+                }
+            }
+            Button {
+                graphState.selectNode(node.id)
+                graphState.mode = .page(nodeId: node.id)
+                graphState.focusOnNode(node.id, depth: 2)
+                graphState.requestRecommit()
+            } label: {
+                Label("Focus on Node", systemImage: "scope")
+            }
+        }
     }
 }

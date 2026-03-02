@@ -141,6 +141,11 @@ pub struct Simulation {
     /// so focusing on a small subset automatically re-enables physics.
     pub static_layout: bool,
 
+    /// User-controlled physics freeze (independent of auto-threshold static_layout).
+    /// When true, `load_from_graph()` preserves `static_layout = true` regardless
+    /// of node count, so graph reloads don't silently unfreeze.
+    pub user_frozen: bool,
+
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
     collision_grid: FxHashMap<(i32, i32), Vec<usize>>,
     bodies_scratch: Vec<quadtree::Body>,
@@ -179,6 +184,7 @@ impl Simulation {
             semantic_neighbors: Vec::new(),
             lite_mode: false,
             static_layout: false,
+            user_frozen: false,
             collision_grid: FxHashMap::default(),
             bodies_scratch: Vec::new(),
             cluster_cx: Vec::new(),
@@ -262,7 +268,18 @@ impl Simulation {
             return;
         }
 
-        self.static_layout = false;
+        // User freeze overrides auto-threshold: keep physics disabled even
+        // if node count dropped below the threshold (e.g. after focus change).
+        if self.user_frozen {
+            self.static_layout = true;
+            self.is_settled = true;
+            self.params.alpha = 0.0;
+            for v in &mut self.vx { *v = 0.0; }
+            for v in &mut self.vy { *v = 0.0; }
+            // Fall through — still need edges + degrees for rendering.
+        } else {
+            self.static_layout = false;
+        }
 
         // Re-index edges to simulation indices, compute degrees.
         // Cap physics edges per node to prevent jitter from hyper-connected nodes.
@@ -319,15 +336,17 @@ impl Simulation {
             self.params.velocity_decay = self.params.velocity_decay.max(0.85);
         }
 
-        // Reset simulation state for fresh run.
-        self.params.alpha = if node_count > 500 {
-            0.2
-        } else {
-            0.3
-        };
-        self.params.alpha_decay = 0.0228; // d3 default: 1 - (0.001)^(1/300)
-        self.params.alpha_target = 0.0;
-        self.is_settled = false;
+        // Reset simulation state for fresh run (skip if user-frozen).
+        if !self.user_frozen {
+            self.params.alpha = if node_count > 500 {
+                0.2
+            } else {
+                0.3
+            };
+            self.params.alpha_decay = 0.0228; // d3 default: 1 - (0.001)^(1/300)
+            self.params.alpha_target = 0.0;
+            self.is_settled = false;
+        }
     }
 
     /// One tick of the force simulation.
@@ -388,7 +407,7 @@ impl Simulation {
         // Passes fx/fy so fixed (dragged) nodes don't get pushed by collision.
         // Full clear every 120 ticks to prevent stale key accumulation.
         self.tick_count = self.tick_count.wrapping_add(1);
-        if self.tick_count % 120 == 0 {
+        if self.tick_count.is_multiple_of(120) {
             self.collision_grid.clear();
         } else {
             for v in self.collision_grid.values_mut() {
@@ -498,6 +517,21 @@ impl Simulation {
         self.is_settled = false;
     }
 
+    /// User-controlled freeze: pause/resume physics independent of node-count threshold.
+    pub fn set_user_frozen(&mut self, frozen: bool) {
+        self.user_frozen = frozen;
+        if frozen {
+            self.static_layout = true;
+            self.is_settled = true;
+            self.params.alpha = 0.0;
+            for v in &mut self.vx { *v = 0.0; }
+            for v in &mut self.vy { *v = 0.0; }
+        } else {
+            self.static_layout = false;
+            self.reheat();
+        }
+    }
+
     /// Configure simulation for calm entrance (Obsidian-style slow build-out).
     ///
     /// Nodes start in a phyllotaxis spiral at near-equilibrium spacing.
@@ -508,21 +542,21 @@ impl Simulation {
         let n = self.x.len();
         if n > 10_000 {
             // Massive graph: barely visible forces, very viscous.
-            self.params.alpha = 0.03;
-            self.params.velocity_decay = self.params.velocity_decay.max(0.92);
+            self.params.alpha = 0.02;
+            self.params.velocity_decay = self.params.velocity_decay.max(0.94);
             self.params.alpha_decay = 0.0;  // Manual ramp, not auto-decay.
         } else if n > 5000 {
+            self.params.alpha = 0.03;
+            self.params.velocity_decay = self.params.velocity_decay.max(0.92);
+            self.params.alpha_decay = 0.0;
+        } else if n > 1000 {
             self.params.alpha = 0.04;
             self.params.velocity_decay = self.params.velocity_decay.max(0.90);
             self.params.alpha_decay = 0.0;
-        } else if n > 1000 {
-            self.params.alpha = 0.05;
-            self.params.velocity_decay = self.params.velocity_decay.max(0.88);
-            self.params.alpha_decay = 0.0;
         } else {
             // Small graph: slightly more energy, still very damped.
-            self.params.alpha = 0.06;
-            self.params.velocity_decay = 0.85;
+            self.params.alpha = 0.04;
+            self.params.velocity_decay = 0.88;
             self.params.alpha_decay = 0.0;
         }
         self.tick_count = 0;
@@ -547,20 +581,20 @@ impl Simulation {
         // Phase 3 (ticks 181+): switch to normal alpha decay for settling.
         let n = self.x.len();
         let (cruise_alpha, ramp_ticks, hold_ticks) = if n > 10_000 {
-            (0.15, 90u32, 120u32)
+            (0.12, 120u32, 150u32)
         } else if n > 5000 {
-            (0.20, 75, 100)
+            (0.15, 100, 130)
         } else if n > 1000 {
-            (0.25, 60, 90)
+            (0.20, 80, 110)
         } else {
-            (0.30, 45, 70)
+            (0.25, 60, 90)
         };
 
         if t <= ramp_ticks {
             // Smooth ease-in: cubic ramp from start_alpha to cruise_alpha.
             let progress = t as f32 / ramp_ticks as f32;
             let eased = progress * progress * (3.0 - 2.0 * progress); // smoothstep
-            let start_alpha = if n > 10_000 { 0.03 } else if n > 5000 { 0.04 } else if n > 1000 { 0.05 } else { 0.06 };
+            let start_alpha = if n > 10_000 { 0.02 } else if n > 5000 { 0.03 } else if n > 1000 { 0.04 } else { 0.04 };
             self.params.alpha = start_alpha + (cruise_alpha - start_alpha) * eased;
             self.params.alpha_decay = 0.0;
         } else if t <= ramp_ticks + hold_ticks {
@@ -2145,7 +2179,7 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.set_entrance_mode();
-        assert!(sim.params.alpha > 0.05);
+        assert!(sim.params.alpha > 0.03);
     }
 
     #[test]
@@ -2792,5 +2826,65 @@ mod tests {
         sim.set_entrance_mode();
         sim.entrance_tick();
         assert_eq!(sim.tick_count, 1);
+    }
+
+    // =========================================================================
+    // User Freeze Tests
+    // =========================================================================
+
+    #[test]
+    fn user_frozen_stops_physics() {
+        let graph = make_test_graph(10, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+
+        sim.set_user_frozen(true);
+        assert!(sim.user_frozen);
+        assert!(sim.static_layout);
+        assert!(sim.is_settled);
+        assert_eq!(sim.params.alpha, 0.0);
+        // All velocities zeroed.
+        assert!(sim.vx.iter().all(|v| *v == 0.0));
+        assert!(sim.vy.iter().all(|v| *v == 0.0));
+
+        // tick() should be a no-op.
+        let x_before: Vec<f32> = sim.x.clone();
+        sim.tick();
+        assert_eq!(sim.x, x_before);
+    }
+
+    #[test]
+    fn user_unfreeze_reheats() {
+        let graph = make_test_graph(10, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+
+        sim.set_user_frozen(true);
+        sim.set_user_frozen(false);
+        assert!(!sim.user_frozen);
+        assert!(!sim.static_layout);
+        assert!(!sim.is_settled);
+        assert!(sim.params.alpha > 0.0);
+    }
+
+    #[test]
+    fn user_frozen_survives_load_from_graph() {
+        let graph = make_test_graph(10, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+
+        sim.set_user_frozen(true);
+
+        // Reload — should stay frozen despite small node count.
+        sim.load_from_graph(&graph);
+        assert!(sim.static_layout);
+        assert!(sim.is_settled);
+        assert_eq!(sim.params.alpha, 0.0);
+    }
+
+    #[test]
+    fn user_frozen_default_false() {
+        let sim = Simulation::new();
+        assert!(!sim.user_frozen);
     }
 }

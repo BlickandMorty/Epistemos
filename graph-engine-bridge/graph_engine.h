@@ -152,6 +152,9 @@ void graph_engine_pause(Engine* engine);
 /// Resume the engine: restart physics thread.
 void graph_engine_resume(Engine* engine);
 
+/// User-controlled physics freeze: 1 = freeze (stop all forces), 0 = unfreeze (reheat).
+void graph_engine_set_user_frozen(Engine* engine, uint8_t frozen);
+
 // ── Cluster Parameters ──────────────────────────────────────────────────────
 
 /// Set cluster cohesion strength (0 = off, 1 = strong bubbles).
@@ -184,6 +187,9 @@ void graph_engine_set_mode(Engine* engine, uint8_t mode);
 
 /// Set lite rendering mode: 0 = full (3D, effects), 1 = lite (2D flat, no glow).
 void graph_engine_set_lite_mode(Engine* engine, uint8_t enabled);
+
+/// Set light/dark mode color palette: 0 = dark, 1 = light.
+void graph_engine_set_light_mode(Engine* engine, uint8_t enabled);
 
 /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
 void graph_engine_set_quality_level(Engine* engine, uint8_t level);

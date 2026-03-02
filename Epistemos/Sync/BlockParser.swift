@@ -110,10 +110,11 @@ enum BlockParser {
                     let nextLine = lines[lineIndex]
                     let nextTrimmed = nextLine.trimmingCharacters(in: .whitespaces)
 
-                    // Stop on blank line, list item, heading, or fence
+                    // Stop on blank line, list item, heading, fence, or blockquote
                     if nextTrimmed.isEmpty { break }
                     if nextTrimmed.hasPrefix("```") { break }
                     if nextTrimmed.hasPrefix("#") { break }
+                    if nextTrimmed.hasPrefix("> ") || nextTrimmed == ">" { break }
 
                     let (_, nextStripped) = measureIndent(nextLine)
                     let (nextIsList, _) = stripListMarker(nextStripped)

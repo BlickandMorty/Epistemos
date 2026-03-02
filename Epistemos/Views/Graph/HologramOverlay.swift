@@ -52,6 +52,7 @@ final class HologramOverlay {
     /// Companion panel: holds the inspector alongside the mini graph when minimized.
     private var miniInspectorPanel: NSWindow?
     private(set) var isMinimized = false
+    private var selectionObserverTask: Task<Void, Never>?
     private var minimizeObserver: Any?
     private var restoreObserver: Any?
     private var closeObserver: Any?
@@ -63,6 +64,7 @@ final class HologramOverlay {
         self.physicsCoordinator = physicsCoordinator
         observeMinimizeNotifications()
     }
+
 
     // MARK: - Show / Hide
 
@@ -223,16 +225,10 @@ final class HologramOverlay {
         // 5. Add expand button overlay.
         addExpandButton(to: panel)
 
-        // 6. Create companion inspector panel next to the mini graph.
-        let inspectorPanel = createMiniInspectorPanel(relativeTo: panel)
-        self.miniInspectorPanel = inspectorPanel
-
-        // 7. Animate: overlay fades out, mini panel fades in.
+        // 6. Animate: overlay fades out, mini panel fades in.
         isMinimized = true
         panel.alphaValue = 0
-        inspectorPanel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
-        inspectorPanel.orderFront(nil)
         panel.makeFirstResponder(metalView)
 
         NSAnimationContext.runAnimationGroup { ctx in
@@ -240,10 +236,12 @@ final class HologramOverlay {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             window.animator().alphaValue = 0
             panel.animator().alphaValue = 1.0
-            inspectorPanel.animator().alphaValue = 1.0
         } completionHandler: { [weak self] in
             self?.window?.orderOut(nil)
         }
+
+        // 7. Observe node selection to lazily show/hide inspector.
+        observeNodeSelection()
 
         // 8. Resume engine in the new context.
         metalView.layout()
@@ -253,6 +251,14 @@ final class HologramOverlay {
     /// Restore the mini panel back to the full-screen overlay.
     func restore() {
         guard let metalView, let miniPanel, isMinimized else { return }
+
+        // Cold-started in mini mode (e.g., via command palette) — no full-screen window exists.
+        // Clean teardown, then ask HologramController to create everything fresh.
+        if window == nil {
+            teardown()
+            HologramController.shared.show()
+            return
+        }
 
         // 1. Pause engine.
         metalView.pauseEngine()
@@ -297,6 +303,74 @@ final class HologramOverlay {
         metalView.resumeEngine()
     }
 
+    // MARK: - Show Mini (Cold Start)
+
+    /// Show the graph directly in mini mode without creating a full-screen window.
+    /// Used by the command palette to display the graph as a companion panel.
+    func showMini() {
+        // Already minimized and visible — nothing to do.
+        if isMinimized, miniPanel?.isVisible == true { return }
+
+        // Full-screen overlay visible — minimize it instead.
+        if window?.isVisible == true {
+            minimize()
+            return
+        }
+
+        // Re-register observers if needed (teardown removes them).
+        if minimizeObserver == nil { observeMinimizeNotifications() }
+
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
+        // Create MetalGraphNSView directly in mini mode (no full-screen window).
+        let graphView = MetalGraphNSView(frame: NSRect(x: 0, y: 0, width: 500, height: 380))
+        graphView.graphState = graphState
+        graphView.physicsCoordinator = physicsCoordinator
+        graphView.isOverlayMode = true
+        graphView.setLightMode(!isDark)
+        graphView.isMiniMode = true
+        self.metalView = graphView
+
+        let panel = createMiniPanel()
+        self.miniPanel = panel
+
+        graphView.autoresizingMask = [.width, .height]
+        graphView.frame = panel.contentView!.bounds
+        panel.contentView!.addSubview(graphView)
+
+        addExpandButton(to: panel)
+
+        isMinimized = true
+
+        // Fade in — orderFront (not makeKey) so the command palette keeps focus.
+        panel.alphaValue = 0
+        panel.orderFront(nil)
+
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.25
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1.0
+        }
+
+        // Commit graph data after the panel is laid out.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.graphState.isLoaded else { return }
+            graphView.setGraphMode(0) // global mode
+            graphView.commitGraphData()
+            graphView.lastGraphDataVersion = self.graphState.graphDataVersion
+        }
+
+        // Observe system appearance changes.
+        if appearanceObserver == nil {
+            appearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+                DispatchQueue.main.async { self?.syncTheme() }
+            }
+        }
+
+        // Observe node selection to lazily show/hide inspector.
+        observeNodeSelection()
+    }
+
     // MARK: - Mini Panel Creation
 
     private func createMiniPanel() -> NSWindow {
@@ -315,7 +389,6 @@ final class HologramOverlay {
         panel.isReleasedWhenClosed = false
         panel.minSize = NSSize(width: 320, height: 240)
         panel.maxSize = NSSize(width: 1200, height: 900)
-        panel.appearance = NSAppearance(named: .darkAqua)
         panel.ignoresMouseEvents = false
         panel.acceptsMouseMovedEvents = true
 
@@ -332,19 +405,19 @@ final class HologramOverlay {
         content.layer?.cornerRadius = 16
         content.layer?.masksToBounds = true
 
-        // Blur background — always dark to match graph rendering.
+        // Blur background — adapts to system light/dark mode.
         let blur = NSVisualEffectView(frame: content.bounds)
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow
         blur.state = .active
-        blur.appearance = NSAppearance(named: .darkAqua)
         blur.autoresizingMask = [.width, .height]
         content.addSubview(blur)
 
-        // Subtle dark tint overlay for depth.
+        // Subtle tint overlay for depth.
         let tint = NSView(frame: content.bounds)
         tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.2 : 0.05).cgColor
         tint.autoresizingMask = [.width, .height]
         content.addSubview(tint)
 
@@ -357,8 +430,11 @@ final class HologramOverlay {
 
     /// Create a companion inspector panel positioned to the right of the mini graph.
     private func createMiniInspectorPanel(relativeTo graphPanel: NSWindow) -> NSWindow {
+        let inspectorWidth: CGFloat = 380
+        let inspectorHeight: CGFloat = 620
+
         let panel = KeyableWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 380),
+            contentRect: NSRect(x: 0, y: 0, width: inspectorWidth, height: inspectorHeight),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
@@ -370,26 +446,44 @@ final class HologramOverlay {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.isReleasedWhenClosed = false
-        panel.appearance = NSAppearance(named: .darkAqua)
 
-        // Position: same as full-screen mode — top-right of screen with dock margin.
-        // This matches the inspector position users see in full-screen graph mode.
+        // Position: to the left of the mini graph panel with a small gap.
         if let screen = NSScreen.main {
-            let dockInset = screen.frame.maxX - screen.visibleFrame.maxX
-            let rightMargin = max(dockInset + 16, 32)
-            let inspectorWidth: CGFloat = 380
-            let inspectorHeight: CGFloat = min(graphPanel.frame.height, screen.visibleFrame.height - 120)
-            let x = screen.visibleFrame.maxX - inspectorWidth - rightMargin
-            let y = screen.visibleFrame.maxY - inspectorHeight - 60
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-            panel.setContentSize(NSSize(width: inspectorWidth, height: inspectorHeight))
+            let graphFrame = graphPanel.frame
+            let x = graphFrame.minX - inspectorWidth - 12
+            let y = graphFrame.maxY - inspectorHeight
+            // Clamp to screen bounds.
+            let clampedX = max(screen.visibleFrame.minX + 8, x)
+            let clampedY = max(screen.visibleFrame.minY + 8, y)
+            panel.setFrameOrigin(NSPoint(x: clampedX, y: clampedY))
         } else {
             let graphFrame = graphPanel.frame
-            panel.setFrameOrigin(NSPoint(x: graphFrame.maxX + 12, y: graphFrame.origin.y))
-            panel.setContentSize(NSSize(width: 380, height: graphFrame.height))
+            panel.setFrameOrigin(NSPoint(x: graphFrame.minX - inspectorWidth - 12, y: graphFrame.origin.y))
         }
 
-        // Host the inspector SwiftUI view
+        // Frosted glass background with rounded corners (matches mini graph panel styling).
+        let content = NSView(frame: NSRect(origin: .zero, size: NSSize(width: inspectorWidth, height: inspectorHeight)))
+        content.wantsLayer = true
+        content.layer?.cornerRadius = 16
+        content.layer?.masksToBounds = true
+
+        let blur = NSVisualEffectView(frame: content.bounds)
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.autoresizingMask = [.width, .height]
+        content.addSubview(blur)
+
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let tint = NSView(frame: content.bounds)
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.2 : 0.05).cgColor
+        tint.autoresizingMask = [.width, .height]
+        content.addSubview(tint)
+
+        panel.contentView = content
+
+        // Host the inspector SwiftUI view.
         if let modelContainer {
             let inspectorView = NSHostingView(
                 rootView: AnyView(
@@ -398,12 +492,11 @@ final class HologramOverlay {
                         modelContext: modelContainer.mainContext
                     )
                     .environment(graphState)
-                    .preferredColorScheme(.dark)
                 )
             )
             inspectorView.autoresizingMask = [.width, .height]
-            inspectorView.frame = panel.contentView!.bounds
-            panel.contentView!.addSubview(inspectorView)
+            inspectorView.frame = content.bounds
+            content.addSubview(inspectorView)
         }
 
         return panel
@@ -424,7 +517,6 @@ final class HologramOverlay {
             }
             .buttonStyle(.plain)
             .help("Restore to full size")
-            .preferredColorScheme(.dark)
         )
         buttonView.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(buttonView)
@@ -432,6 +524,55 @@ final class HologramOverlay {
             buttonView.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
             buttonView.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
         ])
+    }
+
+    // MARK: - Lazy Inspector (Node Selection)
+
+    private func observeNodeSelection() {
+        selectionObserverTask?.cancel()
+        selectionObserverTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let s = self else { return }
+                await withCheckedContinuation { continuation in
+                    withObservationTracking {
+                        _ = s.graphState.selectedNodeId
+                    } onChange: {
+                        continuation.resume()
+                    }
+                }
+                guard !Task.isCancelled, let s = self else { return }
+                if s.graphState.selectedNodeId != nil && s.isMinimized {
+                    s.showMiniInspector()
+                } else if s.graphState.selectedNodeId == nil {
+                    s.hideMiniInspector()
+                }
+            }
+        }
+    }
+
+    private func showMiniInspector() {
+        guard miniInspectorPanel == nil, let miniPanel else { return }
+        let panel = createMiniInspectorPanel(relativeTo: miniPanel)
+        self.miniInspectorPanel = panel
+        panel.alphaValue = 0
+        panel.orderFront(nil)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.25
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1.0
+        }
+    }
+
+    private func hideMiniInspector() {
+        guard let panel = miniInspectorPanel else { return }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.2
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            self?.miniInspectorPanel?.orderOut(nil)
+            self?.miniInspectorPanel = nil
+        })
     }
 
     // MARK: - Notification Observers
@@ -454,11 +595,16 @@ final class HologramOverlay {
         }
     }
 
-    /// Re-sync blur and tint layers. Graph always renders in dark mode.
+    /// Re-sync blur, tint, and graph color palette to match current system appearance.
     private func syncTheme() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         blurView?.material = .fullScreenUI
-        blurView?.appearance = NSAppearance(named: .darkAqua)
-        darkenLayer?.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.45).cgColor
+        darkenLayer?.layer?.backgroundColor = (isDark
+            ? NSColor.black.withAlphaComponent(0.45)
+            : NSColor.white.withAlphaComponent(0.55)
+        ).cgColor
+        metalView?.setLightMode(!isDark)
+        window?.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
     }
 
     /// Destroy all views and the Rust engine to free GPU/CPU memory.
@@ -481,6 +627,9 @@ final class HologramOverlay {
         minimizeObserver = nil
         restoreObserver = nil
         closeObserver = nil
+        // Cancel node selection observer.
+        selectionObserverTask?.cancel()
+        selectionObserverTask = nil
         // Invalidate appearance KVO observer.
         appearanceObserver?.invalidate()
         appearanceObserver = nil
@@ -490,9 +639,11 @@ final class HologramOverlay {
         darkenLayer = nil
         blurView = nil
         noteWindowFrame = nil
-        // Close and nil mini panel.
+        // Close and nil mini panel + inspector companion.
         miniPanel?.orderOut(nil)
         miniPanel = nil
+        miniInspectorPanel?.orderOut(nil)
+        miniInspectorPanel = nil
         isMinimized = false
         // Nil Metal view — triggers MetalGraphNSView.deinit → graph_engine_destroy.
         metalView = nil
@@ -514,6 +665,8 @@ final class HologramOverlay {
             observeMinimizeNotifications()
         }
 
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
         let window = KeyableWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
@@ -525,6 +678,7 @@ final class HologramOverlay {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         window.ignoresMouseEvents = false
         window.acceptsMouseMovedEvents = true
@@ -533,20 +687,22 @@ final class HologramOverlay {
         let contentView = NSView(frame: screen.frame)
         contentView.wantsLayer = true
 
-        // Frosted glass background — always dark to match the graph's dark-only rendering.
+        // Frosted glass background — adapts to system appearance.
         let blur = NSVisualEffectView(frame: screen.frame)
         blur.material = .fullScreenUI
         blur.blendingMode = .behindWindow
         blur.state = .active
-        blur.appearance = NSAppearance(named: .darkAqua)
         blur.autoresizingMask = [.width, .height]
         contentView.addSubview(blur)
         self.blurView = blur
 
-        // Dark tint overlay for depth.
+        // Tint overlay for depth — white in light mode for a bright frosted look.
         let darken = NSView(frame: screen.frame)
         darken.wantsLayer = true
-        darken.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
+        darken.layer?.backgroundColor = (isDark
+            ? NSColor.black.withAlphaComponent(0.45)
+            : NSColor.white.withAlphaComponent(0.55)
+        ).cgColor
         darken.autoresizingMask = [.width, .height]
         contentView.addSubview(darken)
         self.darkenLayer = darken
@@ -556,6 +712,7 @@ final class HologramOverlay {
         graphView.graphState = graphState
         graphView.physicsCoordinator = physicsCoordinator
         graphView.isOverlayMode = true
+        graphView.setLightMode(!isDark)
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
 
@@ -563,7 +720,6 @@ final class HologramOverlay {
         let controlsView = NSHostingView(
             rootView: GraphFloatingControls()
                 .environment(graphState)
-                .preferredColorScheme(.dark)
         )
         controlsView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(controlsView)
@@ -591,7 +747,6 @@ final class HologramOverlay {
             )
             .environment(graphState)
             .environment(queryEngine)
-            .preferredColorScheme(.dark)
         )
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(sidebarView)
@@ -610,7 +765,6 @@ final class HologramOverlay {
                         modelContext: modelContainer.mainContext
                     )
                     .environment(graphState)
-                    .preferredColorScheme(.dark)
                 )
             )
             inspectorView.translatesAutoresizingMaskIntoConstraints = false

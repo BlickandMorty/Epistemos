@@ -83,7 +83,7 @@ final class StatusBar {
 
     @objc private func toggleMiniChat() {
         Task { @MainActor in
-            MiniChatWindowController.shared.toggle()
+            CommandPaletteWindowController.shared.toggleChatMode()
         }
     }
 

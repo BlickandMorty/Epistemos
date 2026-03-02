@@ -107,7 +107,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func dockMiniChat() {
         Task { @MainActor in
-            MiniChatWindowController.shared.toggle()
+            CommandPaletteWindowController.shared.toggleChatMode()
         }
     }
 }
@@ -150,7 +150,7 @@ struct EpistemosCommands: Commands {
             Divider()
 
             Button("Toggle Mini Chat") {
-                MiniChatWindowController.shared.toggle()
+                CommandPaletteWindowController.shared.toggleChatMode()
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
         }

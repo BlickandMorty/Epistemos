@@ -780,10 +780,7 @@ struct NotesSidebar: View {
             chatState.submitQuery("Deep dive into @[\(title)] — perform a thorough analysis: identify the core arguments, evaluate the evidence, surface contradictions or gaps, and suggest areas for further exploration.")
 
         case .openInGraph(let id):
-            HologramController.shared.show()
-            graphState.mode = .page(nodeId: id)
-            graphState.focusOnNode(id, depth: 2)
-            graphState.requestRecommit()
+            HologramController.shared.revealPage(id)
         }
     }
 
