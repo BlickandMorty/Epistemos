@@ -544,7 +544,7 @@ final class HologramOverlay {
         // Dark tint overlay for depth.
         let darken = NSView(frame: screen.frame)
         darken.wantsLayer = true
-        darken.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.45).cgColor
+        darken.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
         darken.autoresizingMask = [.width, .height]
         contentView.addSubview(darken)
         self.darkenLayer = darken

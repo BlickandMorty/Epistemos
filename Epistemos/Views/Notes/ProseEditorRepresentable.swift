@@ -484,6 +484,16 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             // with stale @State.
             guard !isSwappingPage else { return }
 
+            // Notify template overlay that user started typing (short docs only).
+            // Use utf16Count instead of trimmingCharacters to avoid O(n) on large docs.
+            if tv.textStorage?.length ?? 0 <= 10 {
+                NotificationCenter.default.post(
+                    name: .init("ProseEditorUserDidType"),
+                    object: nil,
+                    userInfo: ["pageId": parent.pageId]
+                )
+            }
+
             // Auto-close [[ -> [[|]]
             if !isInsertingBrackets {
                 let str = tv.string as NSString

@@ -64,7 +64,7 @@ fn z_for_link_count(link_count: u32) -> f32 {
 const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.65, 0.85, 1.00, 0.6];
 /// Dimmed node alpha when highlight is active (used in shader via flag buffer).
 #[allow(dead_code)]
-const DIM_ALPHA: f32 = 0.25;
+const DIM_ALPHA: f32 = 0.12;
 /// Dimmed edge alpha when highlight is active.
 const EDGE_DIM_ALPHA: f32 = 0.05;
 
@@ -889,9 +889,9 @@ impl Renderer {
         if total == 0 { return; }
 
         // Encode dim factor: 0 = normal (1.0), non-zero = dim (value/255).
-        // DIM_ALPHA (0.25) → 64, glow dim (DIM_ALPHA * 0.4 ≈ 0.10) → 26.
-        const NODE_DIM: u8 = 64;   // 0.25 * 255 ≈ 64
-        const GLOW_DIM: u8 = 26;   // glow dim factor ≈ 0.10
+        // DIM_ALPHA (0.12) → 31, glow dim (DIM_ALPHA * 0.4 ≈ 0.05) → 13.
+        const NODE_DIM: u8 = 31;   // 0.12 * 255 ≈ 31
+        const GLOW_DIM: u8 = 13;   // glow dim factor ≈ 0.05
 
         // Reuse pre-allocated scratch buffer (avoids heap allocation every frame).
         self.highlight_flag_scratch.clear();

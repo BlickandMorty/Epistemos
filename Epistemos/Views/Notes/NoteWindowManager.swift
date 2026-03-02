@@ -337,6 +337,7 @@ private struct NoteTabView: View {
     @State private var transitionGreeting: String = ""
     /// True while a transition is in flight (prevents rapid re-trigger).
     @State private var isTransitioning = false
+    @State private var showTemplateSuggestions = false
 
     init(pageId: String) {
         self.pageId = pageId
@@ -383,6 +384,20 @@ private struct NoteTabView: View {
                     .opacity(transitionOpacity)
                     .ignoresSafeArea()
                     .allowsHitTesting(transitionOpacity > 0)
+
+                    // Template suggestion overlay — shown on empty notes.
+                    TemplateSuggestionOverlay(
+                        isVisible: showTemplateSuggestions,
+                        onSelect: { template in
+                            if let page = pages.first {
+                                // saveBody updates SDPage.body — ProseEditorView's
+                                // .onChange(of: page.body) propagates it to the editor.
+                                page.saveBody(template.body)
+                            }
+                            withAnimation { showTemplateSuggestions = false }
+                        },
+                        onDismiss: { showTemplateSuggestions = false }
+                    )
                 }
 
                 // Table of Contents sidebar
@@ -579,6 +594,28 @@ private struct NoteTabView: View {
                 contextMenuIdeaTab = nil
                 capturedSelection = nil
                 capturedSelectionText = nil
+            }
+        }
+        .onAppear {
+            // Show template suggestions only for genuinely empty notes.
+            if let page = pages.first {
+                let body = page.loadBody().trimmingCharacters(in: .whitespacesAndNewlines)
+                showTemplateSuggestions = body.isEmpty
+            }
+        }
+        .onChange(of: pages.first?.id) { _, _ in
+            // Re-check when the resolved page changes (e.g. @Query settling).
+            if let page = pages.first {
+                let body = page.loadBody().trimmingCharacters(in: .whitespacesAndNewlines)
+                showTemplateSuggestions = body.isEmpty
+            }
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: .init("ProseEditorUserDidType"))
+                .filter { ($0.userInfo?["pageId"] as? String) == pageId }
+        ) { _ in
+            if showTemplateSuggestions {
+                withAnimation { showTemplateSuggestions = false }
             }
         }
     }
