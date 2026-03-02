@@ -482,7 +482,7 @@ impl Renderer {
 
     /// Pre-allocate GPU buffers with headroom. Call once after commit.
     /// +2 for highlight rings, +hub_count for glow instances.
-    pub fn allocate_buffers(&mut self, graph: &Graph, entrance: Option<&[crate::engine::EntranceNodeState]>) {
+    pub fn allocate_buffers(&mut self, graph: &Graph) {
         let hub_count = graph.nodes.iter().filter(|n| n.visible && n.link_count >= 9).count();
         let confidence_glow_count = graph.nodes.iter().filter(|n| n.visible && n.confidence > 0.0).count();
         let node_count = graph.nodes.len() + 2 + hub_count + confidence_glow_count;
@@ -506,66 +506,44 @@ impl Renderer {
             self.edge_instance_capacity = capacity;
         }
 
-        self.upload_graph(graph, entrance);
+        self.upload_graph(graph);
     }
 
     /// Full upload of graph data to GPU buffers.
-    /// `entrance`: optional per-node entrance animation state (z-offset, alpha, spiral displacement).
-    pub fn upload_graph(&mut self, graph: &Graph, entrance: Option<&[crate::engine::EntranceNodeState]>) {
+    pub fn upload_graph(&mut self, graph: &Graph) {
         // Hub glow instances go first (rendered behind regular nodes via NDC z).
         let mut glow_instances: Vec<NodeInstance> = Vec::new();
         let mut instances: Vec<NodeInstance> = Vec::with_capacity(graph.nodes.len());
 
-        for (gi, node) in graph.nodes.iter().enumerate() {
+        for (_gi, node) in graph.nodes.iter().enumerate() {
             if !node.visible { continue; }
-            let mut color = self.node_color(&node.node_type);
-            // Highlight dimming is handled by the GPU via highlight_flag_buf (buffer(2)).
-            // Colors are always at full alpha here.
+            let color = self.node_color(&node.node_type);
 
-            // Performance: flat 2D (z=0), no entrance offsets, no glow.
             let is_performance = self.quality_level >= 2;
             let is_cinematic = self.quality_level == 0;
-            let mut z = if is_performance { 0.0 } else { z_for_link_count(node.link_count) };
-            let mut pos = [node.x, node.y];
-
-            // Apply entrance animation offsets (z-depth, alpha, spiral displacement).
-            // Available in Cinematic and Balanced modes.
-            if !is_performance && let Some(ent) = entrance && let Some(state) = ent.get(gi) {
-                z += state.z_offset;
-                color[3] *= state.alpha;
-                pos[0] += state.dx;
-                pos[1] += state.dy;
-            }
+            let z = if is_performance { 0.0 } else { z_for_link_count(node.link_count) };
+            let pos = [node.x, node.y];
 
             // Glow effects: only in Cinematic mode (not Balanced or Performance).
             if is_cinematic {
-                // Hub glow: foreground nodes (9+ links) get a faint radial glow behind them.
                 if node.link_count >= 9 {
-                    let glow_alpha = 0.08;
-                    let ent_alpha = entrance
-                        .and_then(|e| e.get(gi))
-                        .map_or(1.0, |s| s.alpha);
                     glow_instances.push(NodeInstance {
                         position: pos,
                         radius: node.radius * 4.0,
                         z: z - 0.15,
-                        color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
+                        color: [color[0], color[1], color[2], 0.08],
                     });
                 }
 
-                // Confidence glow: nodes with confidence > 0 get a soft radial glow.
                 if node.confidence > 0.0 {
                     let conf = node.confidence.clamp(0.0, 1.0);
                     let glow_radius = node.radius * (2.0 + conf * 2.0);
                     let glow_alpha = 0.04 + conf * 0.21;
-                    let ent_alpha = entrance
-                        .and_then(|e| e.get(gi))
-                        .map_or(1.0, |s| s.alpha);
                     glow_instances.push(NodeInstance {
                         position: pos,
                         radius: glow_radius,
                         z: z - 0.12,
-                        color: [color[0], color[1], color[2], glow_alpha * ent_alpha],
+                        color: [color[0], color[1], color[2], glow_alpha],
                     });
                 }
             }
@@ -615,7 +593,6 @@ impl Renderer {
         }
 
         // Straight-line edge instances (one LineEdgeInstance per edge).
-        // During entrance, edges only appear when both endpoints have mostly arrived.
         let mut edge_instances: Vec<LineEdgeInstance> =
             Vec::with_capacity(graph.edges.len());
 
@@ -627,19 +604,8 @@ impl Renderer {
                 let tgt = &graph.nodes[ti];
                 if !src.visible || !tgt.visible { continue; }
 
-                // Entrance edge reveal.
-                let mut edge_alpha = 1.0f32;
-                if let Some(ent) = entrance {
-                    let src_a = ent.get(si).map_or(1.0, |s| s.alpha);
-                    let tgt_a = ent.get(ti).map_or(1.0, |s| s.alpha);
-                    let min_a = src_a.min(tgt_a);
-                    if min_a < 0.7 { continue; }
-                    edge_alpha = ((min_a - 0.7) / 0.3).clamp(0.0, 1.0);
-                }
-
-                // Edge type color: use semantic color based on edge type.
                 let base_edge = self.edge_color(edge.edge_type);
-                let mut color = if self.highlight.active {
+                let color = if self.highlight.active {
                     let src_lit = self.highlight.highlighted_ids.contains(&src.id);
                     let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
                     if src_lit && tgt_lit {
@@ -650,21 +616,9 @@ impl Renderer {
                 } else {
                     base_edge
                 };
-                color[3] *= edge_alpha;
 
-                // Apply entrance displacement to endpoints.
-                let mut p0 = [src.x, src.y];
-                let mut p1 = [tgt.x, tgt.y];
-                if let Some(ent) = entrance {
-                    if let Some(s) = ent.get(si) {
-                        p0[0] += s.dx;
-                        p0[1] += s.dy;
-                    }
-                    if let Some(s) = ent.get(ti) {
-                        p1[0] += s.dx;
-                        p1[1] += s.dy;
-                    }
-                }
+                let p0 = [src.x, src.y];
+                let p1 = [tgt.x, tgt.y];
 
                 edge_instances.push(LineEdgeInstance { p0, p1, color });
             }
@@ -700,36 +654,24 @@ impl Renderer {
 
     /// Update positions in-place (called every frame after sync_positions).
     /// Buffer layout: [glow_count glows] [node_count nodes] [highlight rings].
-    /// `entrance`: optional per-node entrance states for wormhole animation.
-    pub fn update_positions(&mut self, graph: &Graph, entrance: Option<&[crate::engine::EntranceNodeState]>) {
+    pub fn update_positions(&mut self, graph: &Graph) {
         let mut visible_count = 0usize;
         let mut glow_idx = 0usize;
         if let Some(buf) = &self.node_instance_buf {
             unsafe {
                 let ptr = buf.contents() as *mut NodeInstance;
-                for (gi, node) in graph.nodes.iter().enumerate() {
+                for (_gi, node) in graph.nodes.iter().enumerate() {
                     if !node.visible { continue; }
 
-                    let mut pos = [node.x, node.y];
-                    let mut z = z_for_link_count(node.link_count);
-                    let mut ent_alpha = 1.0f32;
-
-                    // Apply entrance offsets.
-                    if let Some(ent) = entrance && let Some(state) = ent.get(gi) {
-                        z += state.z_offset;
-                        ent_alpha = state.alpha;
-                        pos[0] += state.dx;
-                        pos[1] += state.dy;
-                    }
+                    let pos = [node.x, node.y];
+                    let z = z_for_link_count(node.link_count);
 
                     // Update glow instances (hub glow + confidence glow).
-                    // Highlight dimming handled by GPU via highlight_flag_buf.
                     if node.link_count >= 9 && glow_idx < self.glow_count {
                         let glow = &mut *ptr.add(glow_idx);
                         glow.position = pos;
                         glow.z = z - 0.1;
-                        let base_glow = 0.08;
-                        glow.color[3] = base_glow * ent_alpha;
+                        glow.color[3] = 0.08;
                         glow_idx += 1;
                     }
                     if node.confidence > 0.0 && glow_idx < self.glow_count {
@@ -737,8 +679,7 @@ impl Renderer {
                         let glow = &mut *ptr.add(glow_idx);
                         glow.position = pos;
                         glow.z = z - 0.05;
-                        let base_alpha = 0.04 + conf * 0.10;
-                        glow.color[3] = base_alpha * ent_alpha;
+                        glow.color[3] = 0.04 + conf * 0.10;
                         glow_idx += 1;
                     }
 
@@ -747,10 +688,8 @@ impl Renderer {
                     inst.position = pos;
                     inst.z = z;
 
-                    // Base alpha dimmed for subtler ambient presence.
-                    // Highlight brightening happens via GPU flag buffer.
                     let mut color = self.node_color(&node.node_type);
-                    color[3] *= ent_alpha * BASE_NODE_ALPHA;
+                    color[3] *= BASE_NODE_ALPHA;
                     inst.color = color;
 
                     visible_count += 1;
@@ -766,7 +705,6 @@ impl Renderer {
         }
 
         // Update straight-line edge positions in-place.
-        // During entrance, edges fade in as both endpoints arrive.
         if let Some(buf) = &self.edge_instance_buf {
             let mut inst_idx = 0usize;
             unsafe {
@@ -779,53 +717,25 @@ impl Renderer {
                         let tgt = &graph.nodes[ti];
                         if !src.visible || !tgt.visible { continue; }
 
-                        // Entrance edge reveal: skip edges where endpoints haven't arrived.
-                        let mut edge_alpha = 1.0f32;
-                        if let Some(ent) = entrance {
-                            let src_a = ent.get(si).map_or(1.0, |s| s.alpha);
-                            let tgt_a = ent.get(ti).map_or(1.0, |s| s.alpha);
-                            let min_a = src_a.min(tgt_a);
-                            if min_a < 0.7 { continue; } // both endpoints must be mostly arrived
-                            edge_alpha = ((min_a - 0.7) / 0.3).clamp(0.0, 1.0);
-                        }
-
-                        // Edge type color: use semantic color based on edge type.
                         let base_edge = self.edge_color(edge.edge_type);
-                        let hi_edge = EDGE_HIGHLIGHT_COLOR;
-                        let dim_edge_alpha = EDGE_DIM_ALPHA;
 
-                        let mut color = if self.highlight.active {
+                        let color = if self.highlight.active {
                             let src_lit = self.highlight.highlighted_ids.contains(&src.id);
                             let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
                             if src_lit && tgt_lit {
-                                hi_edge
+                                EDGE_HIGHLIGHT_COLOR
                             } else {
-                                [base_edge[0], base_edge[1], base_edge[2], dim_edge_alpha]
+                                [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
                             }
                         } else {
-                            // Dimmer base edge presence
                             let mut e = base_edge;
                             e[3] *= BASE_NODE_ALPHA;
                             e
                         };
-                        color[3] *= edge_alpha;
 
-                        // Apply entrance displacement to edge endpoints.
-                        let mut p0 = [src.x, src.y];
-                        let mut p1 = [tgt.x, tgt.y];
-                        if let Some(ent) = entrance {
-                            if let Some(s) = ent.get(si) {
-                                p0[0] += s.dx;
-                                p0[1] += s.dy;
-                            }
-                            if let Some(s) = ent.get(ti) {
-                                p1[0] += s.dx;
-                                p1[1] += s.dy;
-                            }
-                        }
+                        let p0 = [src.x, src.y];
+                        let p1 = [tgt.x, tgt.y];
 
-                        // Bounds check: during entrance, more edges may become visible
-                        // than were allocated in upload_graph(). Clamp to capacity.
                         if inst_idx >= self.edge_instance_capacity { break; }
 
                         let inst = &mut *ptr.add(inst_idx);

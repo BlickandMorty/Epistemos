@@ -76,7 +76,7 @@ void graph_engine_add_edges_batch(
 
 /// Commit the graph: loads data into simulation, starts physics.
 /// Call after clear + add_node/add_edge sequence.
-/// @param entrance 1 for Obsidian-style entrance animation (nodes start clustered at center).
+/// @param entrance 1 to use spiral initial layout for node positions.
 void graph_engine_commit(Engine* engine, uint8_t entrance);
 
 // ── Rendering ───────────────────────────────────────────────────────────────

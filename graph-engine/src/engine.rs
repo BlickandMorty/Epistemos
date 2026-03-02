@@ -8,7 +8,6 @@
 //! - Render thread (main): locks `Simulation` briefly to copy positions, then releases.
 //! - `parking_lot::Mutex` for low-overhead, non-poisoning locks.
 
-use std::collections::VecDeque;
 use std::ffi::{c_void, CString};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -28,266 +27,6 @@ use crate::version::VersionStore;
 const PHYSICS_HZ: f64 = 60.0;
 /// Sleep duration (ms) when simulation is settled (avoids spinning).
 const SETTLED_SLEEP_MS: u64 = 50;
-
-// ── Wormhole Entrance Animation ─────────────────────────────────────────────
-
-/// Per-node visual state during the wormhole entrance animation.
-/// Applied at render time only — does not affect simulation.
-#[derive(Clone, Copy)]
-pub struct EntranceNodeState {
-    /// Z-depth offset (starts at -20, eases to 0).
-    pub z_offset: f32,
-    /// Opacity (0→1 as node arrives).
-    pub alpha: f32,
-    /// Spiral displacement X (decays to 0).
-    pub dx: f32,
-    /// Spiral displacement Y (decays to 0).
-    pub dy: f32,
-}
-
-/// Lightweight progressive reveal for large graphs (5K+ nodes).
-/// Nodes fade in from most-connected to least-connected while physics runs.
-/// No BFS, no spiral, no z-offset — just alpha fading by link_count rank.
-struct ProgressiveRevealAnimator {
-    /// Per-node stagger delay (seconds). Index = graph node index.
-    delays: Vec<f32>,
-    /// Animation start time.
-    start: Instant,
-    /// Duration for a single node's alpha fade (seconds).
-    fade_duration: f32,
-    /// Max delay across all nodes (for is_complete check).
-    max_delay: f32,
-}
-
-impl ProgressiveRevealAnimator {
-    /// Build from graph: sort nodes by link_count descending, assign stagger delays.
-    fn from_graph(graph: &Graph) -> Self {
-        let n = graph.nodes.len();
-        if n == 0 {
-            return Self {
-                delays: vec![],
-                start: Instant::now(),
-                fade_duration: 0.5,
-                max_delay: 0.0,
-            };
-        }
-
-        // Rank visible nodes by link_count descending (most connected appear first).
-        let mut ranked: Vec<(usize, u32)> = graph
-            .nodes
-            .iter()
-            .enumerate()
-            .map(|(i, node)| (i, if node.visible { node.link_count } else { 0 }))
-            .collect();
-        ranked.sort_unstable_by(|a, b| b.1.cmp(&a.1));
-
-        // Spread duration scales with node count for a smooth cascade.
-        // Small vaults get a faster reveal — the whole animation should feel snappy.
-        // Large vaults get a longer spread so it doesn't overwhelm.
-        let spread = if n > 10_000 {
-            4.0f32
-        } else if n > 1000 {
-            3.0
-        } else if n > 200 {
-            2.2
-        } else if n > 50 {
-            1.5
-        } else {
-            1.0
-        };
-
-        let mut delays = vec![0.0f32; n];
-        for (rank, &(gi, _)) in ranked.iter().enumerate() {
-            delays[gi] = (rank as f32 / n as f32) * spread;
-        }
-
-        let max_delay = delays.iter().copied().fold(0.0f32, f32::max);
-
-        Self {
-            delays,
-            start: Instant::now(),
-            fade_duration: 0.5,
-            max_delay,
-        }
-    }
-
-    /// Compute per-node entrance states into a reusable buffer.
-    fn compute(&self, out: &mut Vec<EntranceNodeState>) {
-        let elapsed = self.start.elapsed().as_secs_f32();
-        out.clear();
-        out.extend(self.delays.iter().map(|&delay| {
-            let t = ((elapsed - delay) / self.fade_duration).clamp(0.0, 1.0);
-            let alpha = ease_out_cubic(t);
-            EntranceNodeState {
-                z_offset: 0.0,
-                alpha,
-                dx: 0.0,
-                dy: 0.0,
-            }
-        }));
-    }
-
-    /// True when every node has fully faded in.
-    fn is_complete(&self) -> bool {
-        if self.delays.is_empty() {
-            return true;
-        }
-        let elapsed = self.start.elapsed().as_secs_f32();
-        elapsed >= self.max_delay + self.fade_duration + 0.1
-    }
-}
-
-/// Active entrance animation variant.
-#[allow(dead_code)]
-enum ActiveEntrance {
-    /// Full wormhole animation (retained for tests, not used in commit).
-    Wormhole(EntranceAnimator),
-    /// Lightweight progressive reveal for large graphs (5K+ nodes).
-    Reveal(ProgressiveRevealAnimator),
-}
-
-/// Drives the wormhole entrance animation: hero node races forward,
-/// neighbors cascade behind in BFS-ordered waves with spiral rotation.
-/// Retained for tests — not used in production commit path.
-#[allow(dead_code)]
-struct EntranceAnimator {
-    /// Per-node stagger delay (seconds). Index = graph node index.
-    stagger_delays: Vec<f32>,
-    /// Per-node spiral angle (radians).
-    spiral_angles: Vec<f32>,
-    /// Animation start time.
-    start: Instant,
-    /// Duration for a single node's z-travel (seconds).
-    arrival_duration: f32,
-    /// Starting z-offset (deep behind camera).
-    start_z: f32,
-}
-
-fn ease_out_cubic(t: f32) -> f32 {
-    let s = 1.0 - t;
-    1.0 - s * s * s
-}
-
-#[allow(dead_code)]
-impl EntranceAnimator {
-    /// Compute per-node entrance offsets for the current frame.
-    fn compute(&self) -> Vec<EntranceNodeState> {
-        let elapsed = self.start.elapsed().as_secs_f32();
-        self.stagger_delays
-            .iter()
-            .zip(self.spiral_angles.iter())
-            .map(|(&delay, &angle)| {
-                let t = ((elapsed - delay) / self.arrival_duration).clamp(0.0, 1.0);
-                let eased = ease_out_cubic(t);
-                let z_offset = self.start_z * (1.0 - eased);
-                let alpha = eased;
-                // Spiral displacement decays as node arrives.
-                let spiral_decay = 1.0 - eased;
-                let spiral_r = 80.0 * spiral_decay;
-                let effective_angle = angle * spiral_decay;
-                let dx = spiral_r * effective_angle.cos() - spiral_r; // subtract rest position
-                let dy = spiral_r * effective_angle.sin();
-                EntranceNodeState { z_offset, alpha, dx, dy }
-            })
-            .collect()
-    }
-
-    /// True when every node has fully arrived.
-    fn is_complete(&self) -> bool {
-        if self.stagger_delays.is_empty() {
-            return true;
-        }
-        let elapsed = self.start.elapsed().as_secs_f32();
-        let max_delay = self.stagger_delays.iter().copied().fold(0.0f32, f32::max);
-        elapsed >= max_delay + self.arrival_duration + 0.1
-    }
-
-    /// Build from graph using BFS from the hero node (highest link_count).
-    fn from_graph(graph: &Graph) -> Self {
-        let n = graph.nodes.len();
-        if n == 0 {
-            return Self {
-                stagger_delays: vec![],
-                spiral_angles: vec![],
-                start: Instant::now(),
-                arrival_duration: 1.0,
-                start_z: -3.0,
-            };
-        }
-
-        // Build adjacency list by graph index.
-        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-        for edge in &graph.edges {
-            if let (Some(&si), Some(&ti)) = (
-                graph.id_to_index.get(&edge.source),
-                graph.id_to_index.get(&edge.target),
-            ) {
-                adj[si].push(ti);
-                adj[ti].push(si);
-            }
-        }
-
-        // Hero: visible node with the most connections.
-        let hero_idx = graph
-            .nodes
-            .iter()
-            .enumerate()
-            .filter(|(_, nd)| nd.visible)
-            .max_by_key(|(_, nd)| nd.link_count)
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-
-        // BFS from hero to compute depths.
-        let mut depths = vec![u32::MAX; n];
-        depths[hero_idx] = 0;
-        let mut queue = VecDeque::new();
-        queue.push_back(hero_idx);
-
-        while let Some(current) = queue.pop_front() {
-            for &neighbor in &adj[current] {
-                if depths[neighbor] == u32::MAX {
-                    depths[neighbor] = depths[current] + 1;
-                    queue.push_back(neighbor);
-                }
-            }
-        }
-
-        // Cap unreachable nodes.
-        let max_reachable = depths
-            .iter()
-            .filter(|&&d| d != u32::MAX)
-            .copied()
-            .max()
-            .unwrap_or(0);
-        for d in &mut depths {
-            if *d == u32::MAX {
-                *d = max_reachable + 1;
-            }
-        }
-
-        // Stagger: 0.08s per BFS hop, capped at 0.6s.
-        let stagger_delays: Vec<f32> = depths
-            .iter()
-            .map(|&d| (d as f32 * 0.08).min(0.6))
-            .collect();
-
-        // Spiral angles: golden angle offset per depth ring + index spread.
-        const GOLDEN_ANGLE: f32 = 2.39996;
-        let spiral_angles: Vec<f32> = depths
-            .iter()
-            .enumerate()
-            .map(|(i, &d)| d as f32 * GOLDEN_ANGLE + i as f32 * 0.1)
-            .collect();
-
-        Self {
-            stagger_delays,
-            spiral_angles,
-            start: Instant::now(),
-            arrival_duration: 1.0,
-            start_z: -3.0,
-        }
-    }
-}
 
 /// Drag state for d3-style fx/fy constraint.
 struct DragState {
@@ -327,13 +66,6 @@ pub struct Engine {
     // Page mode: note window rect in screen pixels (x, y, w, h).
     // Used to bias the center force toward the note window edge.
     anchor_rect: Option<[f32; 4]>,
-
-    // Entrance animation (wormhole for small graphs, progressive reveal for large).
-    entrance: Option<ActiveEntrance>,
-    /// Cached per-frame entrance states (recomputed each render call).
-    entrance_states: Vec<EntranceNodeState>,
-    /// Frame counter for entrance camera zoom-to-fit delay.
-    entrance_camera_frame: u32,
 
     // Reusable buffer for returning UUIDs through FFI.
     uuid_buf: Option<CString>,
@@ -384,9 +116,6 @@ impl Engine {
             pan_origin_mouse: [0.0, 0.0],
             mode: 0,
             anchor_rect: None,
-            entrance: None,
-            entrance_states: Vec::new(),
-            entrance_camera_frame: 0,
             uuid_buf: None,
             idle_frame_count: 0,
             search_index: crate::search::SearchIndex::new(),
@@ -399,8 +128,7 @@ impl Engine {
     }
 
     /// Commit graph data. Replaces all simulation state, restarts physics.
-    /// If `entrance` is true, plays a calm Obsidian-style entrance animation
-    /// with gradual force ramp and progressive node reveal.
+    /// If `entrance` is true, uses a phyllotaxis spiral for initial node layout.
     pub fn commit(&mut self, entrance: bool) {
         // Wake rendering for the new graph data.
         self.idle_frame_count = 0;
@@ -458,7 +186,7 @@ impl Engine {
 
             // Skip expensive operations for static layout (> 1500 nodes).
             if !sim.static_layout {
-                // Louvain community detection (O(N×E) — skip for large graphs).
+                // Louvain community detection (O(N*E) -- skip for large graphs).
                 let sn = sim.x.len();
                 if sn < 5000 {
                     let cluster_ids = crate::cluster::detect_communities(sn, &sim.edges);
@@ -467,13 +195,7 @@ impl Engine {
                     sim.cluster_ids = (0..sn as u32).collect();
                 }
 
-                // Configure entrance mode: low alpha, zero decay, reset tick counter.
-                // entrance_tick() relies on tick_count starting at 0 for phase detection.
-                if entrance {
-                    sim.set_entrance_mode();
-                }
-
-                // Brief pre-settle for recommits (filter changes, non-entrance).
+                // Brief pre-settle for recommits (filter changes).
                 if !entrance && sn < 1000 {
                     let max_ticks = 30;
                     for _ in 0..max_ticks {
@@ -485,36 +207,10 @@ impl Engine {
         }
 
         // Copy positions back to graph nodes for rendering + spatial index.
-        if !entrance {
-            self.sync_positions();
-        }
-
-        // ── Entrance Animation Setup (before buffer allocation) ──────
-        // Create entrance states BEFORE allocate_buffers so the initial GPU upload
-        // starts with alpha=0 (invisible). Otherwise there's a 1-frame flash.
-        self.entrance_camera_frame = 0;
-        let sim_is_static = self.sim.lock().static_layout;
-
-        if entrance && !sim_is_static {
-            let reveal = ProgressiveRevealAnimator::from_graph(&self.graph);
-            self.entrance_states = vec![
-                EntranceNodeState { z_offset: 0.0, alpha: 0.0, dx: 0.0, dy: 0.0 };
-                n
-            ];
-            self.entrance = Some(ActiveEntrance::Reveal(reveal));
-        } else {
-            self.entrance = None;
-            self.entrance_states = Vec::new();
-        }
+        self.sync_positions();
 
         // Allocate renderer buffers and upload initial data.
-        // Pass entrance states so the initial upload uses alpha=0 (no flash).
-        let ent_for_alloc = if self.entrance_states.is_empty() {
-            None
-        } else {
-            Some(self.entrance_states.as_slice())
-        };
-        self.renderer.allocate_buffers(&self.graph, ent_for_alloc);
+        self.renderer.allocate_buffers(&self.graph);
 
         // Build spatial index for hit testing.
         self.spatial.build(&self.graph.nodes);
@@ -530,12 +226,7 @@ impl Engine {
         self.renderer.highlight.highlighted_ids.clear();
 
         // ── Start Physics ────────────────────────────────────────────
-        if self.entrance.is_some() {
-            self.zoom_to_fit_immediate();
-            self.start_entrance_physics();
-        } else {
-            self.start_physics();
-        }
+        self.start_physics();
     }
 
     fn start_physics(&mut self) {
@@ -550,69 +241,11 @@ impl Engine {
         }));
     }
 
-    /// Start physics thread in entrance mode: uses `entrance_tick()` for
-    /// gradual alpha ramp instead of normal `tick()`. Once the simulation
-    /// switches to normal decay mode internally, falls through to regular
-    /// `tick()` behavior automatically.
-    fn start_entrance_physics(&mut self) {
-        self.stop_physics();
-        self.stop_flag.store(false, Ordering::Relaxed);
-        let sim = Arc::clone(&self.sim);
-        let stop = Arc::clone(&self.stop_flag);
-        self.physics_handle = Some(std::thread::spawn(move || {
-            entrance_physics_loop(sim, stop);
-        }));
-    }
-
     fn stop_physics(&mut self) {
         self.stop_flag.store(true, Ordering::Relaxed);
         if let Some(handle) = self.physics_handle.take() {
             let _ = handle.join();
         }
-    }
-
-    /// Immediately set camera to fit all visible nodes (no animation).
-    /// Used at entrance start so the spiral is visible from frame 1.
-    fn zoom_to_fit_immediate(&mut self) {
-        let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
-        let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
-        let mut visible_count = 0u32;
-
-        for n in &self.graph.nodes {
-            if !n.visible { continue; }
-            visible_count += 1;
-            min_x = min_x.min(n.x - n.radius);
-            min_y = min_y.min(n.y - n.radius);
-            max_x = max_x.max(n.x + n.radius);
-            max_y = max_y.max(n.y + n.radius);
-        }
-        if visible_count == 0 { return; }
-
-        let cx = (min_x + max_x) * 0.5;
-        let cy = (min_y + max_y) * 0.5;
-        let graph_w = (max_x - min_x).max(1.0);
-        let graph_h = (max_y - min_y).max(1.0);
-        let w = self.viewport_width as f32;
-        let h = self.viewport_height as f32;
-
-        // Tighter zoom for small graphs so nodes fill the viewport.
-        // Large graphs get more padding to prevent edge nodes from being cut off.
-        let padding = if visible_count < 50 {
-            1.8  // Small: zoom in close, nodes fill screen
-        } else if visible_count < 200 {
-            1.4
-        } else {
-            1.1  // Large: slight zoom-in bias
-        };
-        let zoom = (w / graph_w).min(h / graph_h) * padding;
-
-        // Snap camera instantly (no lerp).
-        let clamped_zoom = zoom.clamp(0.05, 10.0);
-        self.renderer.camera_offset = [cx, cy];
-        self.renderer.target_offset = [cx, cy];
-        self.renderer.camera_zoom = clamped_zoom;
-        self.renderer.target_zoom = clamped_zoom;
-        self.renderer.is_animating = false;
     }
 
     // ── Visibility (Lightweight Filtering) ──────────────────────────
@@ -644,18 +277,11 @@ impl Engine {
                 let cluster_ids = crate::cluster::detect_communities(n, &sim.edges);
                 sim.cluster_ids = cluster_ids;
             }
-            if self.entrance.is_none() {
-                sim.reheat();
-            }
+            sim.reheat();
         }
 
         // Re-upload graph to renderer (only visible nodes are drawn).
-        let ent = if self.entrance_states.is_empty() {
-            None
-        } else {
-            Some(self.entrance_states.as_slice())
-        };
-        self.renderer.upload_graph(&self.graph, ent);
+        self.renderer.upload_graph(&self.graph);
 
         // Rebuild spatial index so invisible nodes aren't hittable.
         self.spatial.build(&self.graph.nodes);
@@ -712,59 +338,13 @@ impl Engine {
 
         let positions_changed = self.sync_positions();
 
-        // Entrance animation: compute per-node states each frame.
-        let entrance_active = self.entrance.is_some();
-        let mut entrance_just_completed = false;
-        match &self.entrance {
-            Some(ActiveEntrance::Wormhole(anim)) => {
-                self.entrance_states = anim.compute();
-                if anim.is_complete() {
-                    entrance_just_completed = true;
-                }
-            }
-            Some(ActiveEntrance::Reveal(anim)) => {
-                anim.compute(&mut self.entrance_states);
-                if anim.is_complete() {
-                    entrance_just_completed = true;
-                }
-            }
-            None => {}
-        }
-
-        // During entrance: gentle periodic zoom-to-fit every ~30 frames
-        // so camera smoothly tracks the expanding graph.
-        if entrance_active && !entrance_just_completed {
-            self.entrance_camera_frame += 1;
-            if self.entrance_camera_frame.is_multiple_of(30) {
-                self.zoom_to_fit();
-            }
-        }
-
-        // Handle entrance completion outside the borrow.
-        if entrance_just_completed {
-            self.entrance = None;
-            self.entrance_states.clear();
-
-            // Transition: stop entrance physics, restart normal physics.
-            // The simulation's alpha_decay is already non-zero (set by entrance_tick),
-            // so the normal physics_loop will continue settling.
-            self.stop_physics();
-            self.start_physics();
-
-            // Re-upload graph to renderer with full edge buffers.
-            self.renderer.upload_graph(&self.graph, None);
-
-            // Final zoom-to-fit for settled positions.
-            self.zoom_to_fit();
-        }
-
         // Animate camera (smooth lerp toward target).
         self.renderer.update_camera();
 
         // Request next frame only when something is animating.
         let sim_active = !self.sim.lock().is_settled;
         let camera_moving = self.renderer.is_animating;
-        let needs_frame = sim_active || camera_moving || entrance_active;
+        let needs_frame = sim_active || camera_moving;
 
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
@@ -777,25 +357,18 @@ impl Engine {
             self.idle_frame_count = 0;
         }
 
-        // Build the optional entrance state slice for the renderer.
-        let ent = if self.entrance_states.is_empty() {
-            None
-        } else {
-            Some(self.entrance_states.as_slice())
-        };
-
-        if positions_changed || entrance_active {
-            self.renderer.update_positions(&self.graph, ent);
+        if positions_changed {
+            self.renderer.update_positions(&self.graph);
             self.spatial.build(&self.graph.nodes);
         }
 
-        // Append selection/hover highlight rings (only updates 2 instances — cheap).
+        // Append selection/hover highlight rings (only updates 2 instances -- cheap).
         self.renderer
             .set_highlights(self.selected_id, self.hovered_id, &self.graph);
 
         // Rebuild per-instance highlight flags only when something visual changed.
         // Skipping this when idle saves O(N) work per frame at 10K nodes.
-        if positions_changed || entrance_active || needs_frame {
+        if positions_changed || needs_frame {
             self.renderer.rebuild_highlight_flags(&self.graph);
         }
 
@@ -1166,11 +739,7 @@ impl Engine {
         sim.params.charge_strength = charge_strength;
         sim.params.charge_range = charge_range;
         sim.params.link_strength = link_strength;
-        // Don't reheat during entrance — it would blow away the carefully
-        // tuned alpha ramp. The entrance physics thread handles energy levels.
-        if self.entrance.is_none() {
-            sim.reheat();
-        }
+        sim.reheat();
     }
 
     /// Update extended physics parameters (velocity decay, center gravity, collision).
@@ -1182,11 +751,7 @@ impl Engine {
     ) {
         self.idle_frame_count = 0;
         let mut sim = self.sim.lock();
-        // During entrance, only store link_distance/charge/range but DON'T
-        // override velocity_decay — the entrance ramp controls damping.
-        if self.entrance.is_none() {
-            sim.params.velocity_decay = velocity_decay.clamp(0.0, 0.95);
-        }
+        sim.params.velocity_decay = velocity_decay.clamp(0.0, 0.95);
         sim.params.center_strength = center_strength.clamp(0.0, 0.2);
         sim.params.collision_radius = collision_radius.clamp(0.0, 100.0);
 
@@ -1195,9 +760,7 @@ impl Engine {
         for r in &mut sim.collision_radii {
             *r = new_radius;
         }
-        if self.entrance.is_none() {
-            sim.reheat();
-        }
+        sim.reheat();
     }
 
     // ── Cluster Parameters ───────────────────────────────────────────
@@ -1205,17 +768,13 @@ impl Engine {
     pub fn set_cluster_params(&mut self, cluster_strength: f32) {
         let mut sim = self.sim.lock();
         sim.params.cluster_strength = cluster_strength;
-        if self.entrance.is_none() {
-            sim.reheat();
-        }
+        sim.reheat();
     }
 
     pub fn set_center_mode(&mut self, mode: u8) {
         let mut sim = self.sim.lock();
         sim.params.center_mode = crate::simulation::CenterMode::from_u8(mode);
-        if self.entrance.is_none() {
-            sim.reheat();
-        }
+        sim.reheat();
     }
 
     /// Override cluster IDs from a UUID → cluster_id map (semantic clustering).
@@ -1239,9 +798,7 @@ impl Engine {
             }
         }
 
-        if self.entrance.is_none() {
-            sim.reheat();
-        }
+        sim.reheat();
     }
 
     /// Push semantic neighbor pairs to the simulation thread.
@@ -1269,9 +826,7 @@ impl Engine {
     pub fn set_semantic_strength(&mut self, strength: f32) {
         let mut sim = self.sim.lock();
         sim.params.semantic_strength = strength;
-        if self.entrance.is_none() {
-            sim.reheat();
-        }
+        sim.reheat();
     }
 
     // ── Accessors ────────────────────────────────────────────────────
@@ -1327,9 +882,7 @@ impl Engine {
             sim.params.charge_range = 1500.0;
             sim.params.center_strength = 0.005;
         }
-        if self.entrance.is_none() {
-            sim.reheat();
-        }
+        sim.reheat();
     }
 
     pub fn mode(&self) -> u8 {
@@ -1431,9 +984,6 @@ impl Engine {
 
     /// Reheat the physics simulation (after embeddings change, etc.).
     pub fn reheat(&mut self) {
-        if self.entrance.is_some() {
-            return; // Don't reheat during entrance — let the alpha ramp control forces.
-        }
         self.sync_semantic_neighbors();
         let sim = self.sim.clone();
         let mut sim = sim.lock();
@@ -1502,49 +1052,6 @@ impl Drop for Engine {
 }
 
 // ── Physics Thread ──────────────────────────────────────────────────────────
-
-/// Entrance physics loop: uses `entrance_tick()` for gradual alpha ramp.
-/// Once alpha_decay becomes non-zero (entrance_tick switches to decay mode),
-/// falls through to normal tick() behavior automatically.
-fn entrance_physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let target_dt = Duration::from_secs_f64(1.0 / PHYSICS_HZ);
-        let slow_dt = Duration::from_secs_f64(1.0 / 30.0);
-
-        while !stop.load(Ordering::Relaxed) {
-            let start = Instant::now();
-
-            let (settled, alpha) = {
-                let mut sim = sim.lock();
-                sim.entrance_tick();
-                (sim.is_settled, sim.params.alpha)
-            };
-
-            if settled {
-                if stop.load(Ordering::Relaxed) { break; }
-                std::thread::sleep(Duration::from_millis(SETTLED_SLEEP_MS));
-                continue;
-            }
-
-            let frame_dt = if alpha < 0.05 { slow_dt } else { target_dt };
-            let elapsed = start.elapsed();
-            if elapsed < frame_dt {
-                std::thread::sleep(frame_dt - elapsed);
-            }
-        }
-    }));
-    if let Err(e) = result {
-        let msg = if let Some(s) = e.downcast_ref::<&str>() {
-            s.to_string()
-        } else if let Some(s) = e.downcast_ref::<String>() {
-            s.clone()
-        } else {
-            "unknown panic".to_string()
-        };
-        eprintln!("[graph-engine] PANIC in entrance_physics_loop: {msg}");
-        stop.store(true, Ordering::Relaxed);
-    }
-}
 
 fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -2028,38 +1535,6 @@ mod tests {
     }
 
     #[test]
-    fn entrance_mode_settles_gently() {
-        let graph = make_large_graph(30);
-        let mut sim = Simulation::new();
-        sim.load_from_graph(&graph);
-        sim.set_entrance_mode();
-
-        // Entrance mode: low alpha for calm onset, high damping.
-        assert!(sim.params.alpha < 0.10, "entrance alpha should start low, got {}", sim.params.alpha);
-        assert!(sim.params.velocity_decay >= 0.85, "entrance should be heavily damped, got {}", sim.params.velocity_decay);
-        assert_eq!(sim.params.alpha_decay, 0.0, "entrance uses manual ramp, not auto-decay");
-
-        // Check alpha ramp at midpoint (tick 50 — during ramp/hold phase).
-        for _ in 0..50 {
-            sim.entrance_tick();
-        }
-        assert!(sim.params.alpha > 0.1, "alpha should have ramped up by tick 50, got {}", sim.params.alpha);
-
-        // Continue entrance ticks to transition to normal decay.
-        for _ in 0..250 {
-            sim.entrance_tick();
-        }
-        // Alpha decay should now be active (switched from manual ramp).
-        assert!(sim.params.alpha_decay > 0.0, "should have switched to normal decay");
-
-        // Let normal physics settle.
-        for _ in 0..500 {
-            sim.tick();
-        }
-        assert!(sim.is_settled, "entrance mode should settle within 800 total ticks");
-    }
-
-    #[test]
     fn reheat_mid_simulation_converges() {
         let graph = make_large_graph(20);
         let mut sim = Simulation::new();
@@ -2092,103 +1567,9 @@ mod tests {
         assert!(min_x > max_x, "empty graph should skip zoom computation");
     }
 
-    // ── Wormhole Entrance Animation Tests ─────────────────────────────
-
-    #[test]
-    fn entrance_stagger_hero_is_first() {
-        let mut graph = Graph::new();
-        // "hub" has 10 links, "leaf" has 1 link.
-        graph.add_node("hub".into(), 0.0, 0.0, 0, 10, "Hub".into());
-        graph.add_node("leaf".into(), 100.0, 0.0, 0, 1, "Leaf".into());
-        graph.add_edge("hub", "leaf", 1.0, 0);
-
-        let animator = EntranceAnimator::from_graph(&graph);
-        assert_eq!(animator.stagger_delays.len(), 2);
-        // Hub (index 0) should be the hero with delay = 0.
-        assert!(
-            animator.stagger_delays[0] < f32::EPSILON,
-            "hero should have delay=0, got {}",
-            animator.stagger_delays[0]
-        );
-        // Leaf (index 1) should have delay > 0.
-        assert!(
-            animator.stagger_delays[1] > 0.0,
-            "non-hero should have positive delay"
-        );
-    }
-
-    #[test]
-    fn entrance_bfs_ordering() {
-        // Chain: A(hub) → B → C → D
-        let mut graph = Graph::new();
-        graph.add_node("a".into(), 0.0, 0.0, 0, 5, "A".into());
-        graph.add_node("b".into(), 10.0, 0.0, 0, 2, "B".into());
-        graph.add_node("c".into(), 20.0, 0.0, 0, 2, "C".into());
-        graph.add_node("d".into(), 30.0, 0.0, 0, 1, "D".into());
-        graph.add_edge("a", "b", 1.0, 0);
-        graph.add_edge("b", "c", 1.0, 0);
-        graph.add_edge("c", "d", 1.0, 0);
-
-        let animator = EntranceAnimator::from_graph(&graph);
-        // A is hero (most links). BFS depths: A=0, B=1, C=2, D=3
-        assert!(animator.stagger_delays[0] < f32::EPSILON, "A is hero");
-        assert!(animator.stagger_delays[1] > animator.stagger_delays[0], "B after A");
-        assert!(animator.stagger_delays[2] > animator.stagger_delays[1], "C after B");
-        assert!(animator.stagger_delays[3] > animator.stagger_delays[2], "D after C");
-    }
-
-    #[test]
-    fn entrance_compute_returns_correct_states() {
-        let graph = make_graph();
-        let animator = EntranceAnimator::from_graph(&graph);
-        let states = animator.compute();
-        assert_eq!(states.len(), graph.nodes.len());
-
-        // At time 0, hero (most connected) should have begun arrival.
-        // All nodes should have z_offset < 0 (still approaching).
-        for state in &states {
-            assert!(state.z_offset <= 0.0, "z_offset should be <= 0 at start");
-            assert!(state.alpha >= 0.0 && state.alpha <= 1.0, "alpha in [0,1]");
-        }
-    }
-
-    #[test]
-    fn entrance_all_nodes_complete() {
-        let graph = make_graph();
-        let mut animator = EntranceAnimator::from_graph(&graph);
-        // Override start time to simulate 5 seconds ago.
-        animator.start = Instant::now() - Duration::from_secs(5);
-
-        let states = animator.compute();
-        for (i, state) in states.iter().enumerate() {
-            assert!(
-                (state.z_offset).abs() < 0.01,
-                "node {} z_offset should be ~0 after 5s, got {}",
-                i,
-                state.z_offset
-            );
-            assert!(
-                (state.alpha - 1.0).abs() < 0.01,
-                "node {} alpha should be ~1 after 5s, got {}",
-                i,
-                state.alpha
-            );
-        }
-        assert!(animator.is_complete(), "entrance should be complete after 5s");
-    }
-
-    #[test]
-    fn entrance_empty_graph_safe() {
-        let graph = Graph::new();
-        let animator = EntranceAnimator::from_graph(&graph);
-        assert!(animator.stagger_delays.is_empty());
-        assert!(animator.is_complete(), "empty graph entrance is immediately complete");
-    }
-
     #[test]
     fn perspective_formula_positive_for_valid_range() {
         let focal = 2.0f32;
-        // Test z values from entrance range to normal range.
         for z in [-20.0, -10.0, -5.0, -1.0, -0.25, 0.0, 0.35, 0.5] {
             let scale = focal / (focal - z);
             assert!(
@@ -2198,111 +1579,6 @@ mod tests {
                 scale
             );
         }
-    }
-
-    #[test]
-    fn entrance_spiral_displacement_decays() {
-        let graph = make_large_graph(20);
-        let mut animator = EntranceAnimator::from_graph(&graph);
-
-        // Check early: spiral displacement should be non-zero.
-        let _early = animator.compute();
-        let _hero_idx = graph.nodes.iter()
-            .enumerate()
-            .max_by_key(|(_, n)| n.link_count)
-            .map(|(i, _)| i)
-            .unwrap();
-
-        // After full arrival: spiral displacement should be ~zero.
-        animator.start = Instant::now() - Duration::from_secs(5);
-        let late = animator.compute();
-        for (i, state) in late.iter().enumerate() {
-            assert!(
-                state.dx.abs() < 0.1 && state.dy.abs() < 0.1,
-                "node {} spiral should decay: dx={}, dy={}",
-                i,
-                state.dx,
-                state.dy
-            );
-        }
-    }
-
-    // ── Progressive Reveal Tests ───────────────────────────────────
-
-    #[test]
-    fn progressive_reveal_hub_nodes_appear_first() {
-        // Build a graph with distinct link_count tiers for clear ordering.
-        let mut graph = Graph::new();
-        graph.add_node("hub".into(), 0.0, 0.0, 0, 20, "Hub".into());
-        graph.add_node("bridge".into(), 50.0, 0.0, 0, 5, "Bridge".into());
-        graph.add_node("leaf".into(), 100.0, 0.0, 0, 1, "Leaf".into());
-
-        let reveal = ProgressiveRevealAnimator::from_graph(&graph);
-
-        // Hub (link_count=20) should appear first (lowest delay).
-        let hub_delay = reveal.delays[0];
-        let bridge_delay = reveal.delays[1];
-        let leaf_delay = reveal.delays[2];
-
-        assert!(
-            hub_delay < bridge_delay,
-            "hub should appear before bridge: hub={}, bridge={}",
-            hub_delay, bridge_delay
-        );
-        assert!(
-            bridge_delay < leaf_delay,
-            "bridge should appear before leaf: bridge={}, leaf={}",
-            bridge_delay, leaf_delay
-        );
-    }
-
-    #[test]
-    fn progressive_reveal_completes() {
-        let graph = make_large_graph(50);
-        let mut reveal = ProgressiveRevealAnimator::from_graph(&graph);
-
-        // At start: should not be complete.
-        assert!(!reveal.is_complete());
-
-        // After 10s: should be complete (spread + fade < 10s).
-        reveal.start = Instant::now() - Duration::from_secs(10);
-        assert!(reveal.is_complete(), "reveal should be complete after 10s");
-    }
-
-    #[test]
-    fn progressive_reveal_compute_alpha_values() {
-        let graph = make_large_graph(20);
-        let mut reveal = ProgressiveRevealAnimator::from_graph(&graph);
-        let mut states = Vec::new();
-
-        // All alpha should be 0 or positive at start.
-        reveal.compute(&mut states);
-        assert_eq!(states.len(), graph.nodes.len());
-        for s in &states {
-            assert!(s.alpha >= 0.0 && s.alpha <= 1.0);
-            assert_eq!(s.z_offset, 0.0); // no z animation
-            assert_eq!(s.dx, 0.0); // no spiral
-            assert_eq!(s.dy, 0.0);
-        }
-
-        // After full animation: all alpha should be 1.0.
-        reveal.start = Instant::now() - Duration::from_secs(10);
-        reveal.compute(&mut states);
-        for s in &states {
-            assert!(
-                (s.alpha - 1.0).abs() < 0.01,
-                "alpha should be ~1.0 after completion, got {}",
-                s.alpha
-            );
-        }
-    }
-
-    #[test]
-    fn progressive_reveal_empty_graph() {
-        let graph = Graph::new();
-        let reveal = ProgressiveRevealAnimator::from_graph(&graph);
-        assert!(reveal.is_complete(), "empty graph reveal is immediately complete");
-        assert!(reveal.delays.is_empty());
     }
 
     // ── Semantic Cluster Override Tests ──────────────────────────────

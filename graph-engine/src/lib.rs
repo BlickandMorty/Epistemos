@@ -207,7 +207,7 @@ pub extern "C" fn graph_engine_add_edges_batch(
 
 /// Commit the graph: loads data into simulation, starts physics.
 /// Call after `graph_engine_clear` + `add_node`/`add_edge` sequence.
-/// `entrance`: if 1, plays Obsidian-style entrance animation (nodes cluster at center, expand out).
+/// `entrance`: if 1, uses degree-sorted spiral for initial node layout.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_commit(engine: *mut Engine, entrance: u8) {
     ffi_engine!(engine);
