@@ -211,27 +211,22 @@ struct CommandPaletteOverlay: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    ZStack {
-                        if isTypewriterVisible {
-                            HStack(spacing: 10) {
-                                sparklesIcon
+                    HStack(spacing: 10) {
+                        sparklesIcon
 
+                        ZStack(alignment: .leading) {
+                            if isTypewriterVisible {
                                 LiquidGreeting(
                                     compact: true,
                                     retractNow: $retractNow,
                                     onRetractComplete: {
+                                        guard !searchText.isEmpty else { return }
                                         withAnimation(Motion.quick) {
                                             isTypewriterVisible = false
                                         }
                                     }
                                 )
-                            }
-                            .transition(.opacity)
-                        }
-
-                        HStack(spacing: 10) {
-                            if !isTypewriterVisible {
-                                sparklesIcon
+                                .transition(.opacity)
                             }
 
                             TextField("Search or ask anything\u{2026}", text: $searchText)
@@ -241,23 +236,23 @@ struct CommandPaletteOverlay: View {
                                 .focused($isSearchFocused)
                                 .onSubmit { executeSelected() }
                                 .opacity(isTypewriterVisible ? 0 : 1)
+                        }
 
-                            if !searchText.isEmpty {
-                                Button {
-                                    searchText = ""
-                                    cachedSearchResults = []
-                                    selectedIndex = 0
-                                    graphState.searchHighlight("")
-                                    graphState.setSearchActive(false)
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(theme.textTertiary)
-                                }
-                                .buttonStyle(.plain)
-                                .transition(.scale(scale: 0.5).combined(with: .opacity))
-                                .animation(Motion.quick, value: searchText.isEmpty)
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                                cachedSearchResults = []
+                                selectedIndex = 0
+                                graphState.searchHighlight("")
+                                graphState.setSearchActive(false)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(theme.textTertiary)
                             }
+                            .buttonStyle(.plain)
+                            .transition(.scale(scale: 0.5).combined(with: .opacity))
+                            .animation(Motion.quick, value: searchText.isEmpty)
                         }
                     }
                     .frame(height: 30)
@@ -265,10 +260,12 @@ struct CommandPaletteOverlay: View {
                         if oldValue.isEmpty && !newValue.isEmpty && isTypewriterVisible {
                             retractNow = true
                         }
-                        if newValue.isEmpty && !isTypewriterVisible {
+                        if newValue.isEmpty {
                             retractNow = false
-                            withAnimation(Motion.smooth) {
-                                isTypewriterVisible = true
+                            if !isTypewriterVisible {
+                                withAnimation(Motion.smooth) {
+                                    isTypewriterVisible = true
+                                }
                             }
                         }
                     }
