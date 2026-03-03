@@ -91,16 +91,17 @@ pub struct ForceParams {
 impl Default for ForceParams {
     fn default() -> Self {
         Self {
-            // Moderate repulsion with wide reach — stable layout without numerical instability.
-            link_distance: 243.0,
-            charge_strength: -500.0,
-            charge_range: 280.0,
-            link_strength: 0.44,
+            // Tighter layout: moderate repulsion, shorter links, stronger springs.
+            // Keeps satellite nodes close to hubs instead of fan-spreading.
+            link_distance: 160.0,
+            charge_strength: -280.0,
+            charge_range: 200.0,
+            link_strength: 0.65,
 
             // Low friction = calm, fluid drift. Nodes float gently.
             velocity_decay: 0.05,
             center_strength: 0.02,
-            collision_radius: 50.0,
+            collision_radius: 35.0,
             collision_iterations: 2,
             cluster_strength: 0.83,
             center_mode: CenterMode::Attract,
@@ -116,7 +117,7 @@ impl Default for ForceParams {
             enable_orbital: false,
             orbital_speed: 0.3,
 
-            // Simulation state — moderate alpha for stable onset with charge=-500.
+            // Simulation state — moderate alpha for stable onset with charge=-280.
             alpha: 0.15,
             alpha_min: 0.001,
             // d3 default: 1 - pow(0.001, 1/300) ≈ 0.0228
@@ -669,6 +670,7 @@ impl Simulation {
                 1.0, // distance_min (d3 default)
                 alpha,
                 &mut self.bodies_scratch,
+                &self.degrees,
             );
 
             // Collision force (position-based overlap prevention) — reuses scratch grid.
@@ -1072,12 +1074,12 @@ mod tests {
     #[test]
     fn default_params_match_observatory() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 243.0);
-        assert_eq!(p.charge_strength, -500.0);
-        assert_eq!(p.charge_range, 280.0);
+        assert_eq!(p.link_distance, 160.0);
+        assert_eq!(p.charge_strength, -280.0);
+        assert_eq!(p.charge_range, 200.0);
         assert_eq!(p.velocity_decay, 0.05);
         assert_eq!(p.center_strength, 0.02);
-        assert_eq!(p.collision_radius, 50.0);
+        assert_eq!(p.collision_radius, 35.0);
         assert_eq!(p.collision_iterations, 2);
         assert_eq!(p.cluster_strength, 0.83);
         assert_eq!(p.center_mode, CenterMode::Attract);
@@ -1560,12 +1562,12 @@ mod tests {
     #[test]
     fn parameters_default_values() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 243.0);
-        assert_eq!(p.charge_strength, -500.0);
-        assert_eq!(p.charge_range, 280.0);
+        assert_eq!(p.link_distance, 160.0);
+        assert_eq!(p.charge_strength, -280.0);
+        assert_eq!(p.charge_range, 200.0);
         assert_eq!(p.velocity_decay, 0.05);
         assert_eq!(p.center_strength, 0.02);
-        assert_eq!(p.collision_radius, 50.0);
+        assert_eq!(p.collision_radius, 35.0);
         assert_eq!(p.collision_iterations, 2);
         assert_eq!(p.cluster_strength, 0.83);
         assert_eq!(p.center_mode, CenterMode::Attract);
@@ -3130,7 +3132,7 @@ mod tests {
     #[test]
     fn default_charge_range_reduced() {
         let p = ForceParams::default();
-        assert_eq!(p.charge_range, 280.0);
+        assert_eq!(p.charge_range, 200.0);
     }
 
     #[test]

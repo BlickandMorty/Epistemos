@@ -15,6 +15,8 @@ struct HologramNodeInspector: View {
     @State private var expandedSection: Section = .summary
 
     var body: some View {
+        // Read selectedNodeId in body to establish @Observable tracking in NSHostingView.
+        let currentId = graphState.selectedNodeId
         Group {
             if let node = inspectorState.selectedNode {
                 inspectorContent(node)
@@ -22,7 +24,7 @@ struct HologramNodeInspector: View {
             }
         }
         .animation(.smooth(duration: 0.3), value: inspectorState.selectedNode != nil)
-        .onChange(of: graphState.selectedNodeId) { _, newId in
+        .onChange(of: currentId) { _, newId in
             if let newId, let node = graphState.store.nodes[newId] {
                 inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
                 expandedSection = .summary
