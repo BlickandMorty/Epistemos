@@ -354,6 +354,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // until onChange(of: page.id) fires and sets bodyText = page.body.
         // Without this guard, stale text would overwrite the new storage content.
         if !coord.isUserEditing, !coord.isSwappingPage,
+            !coord.hasPendingBindingSync,
             let storage = coord.storage,
             tv.string != text, !tv.hasMarkedText(),
             !(text.isEmpty && storage.length > 0)
@@ -473,7 +474,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         /// Debounce task for syncing NSTextStorage → SwiftUI @Binding.
         /// Text lives in NSTextStorage — binding only needed for debouncedSave and page swap.
         private var bindingSyncTask: Task<Void, Never>?
-        private var hasPendingBindingSync = false
+        /// True when NSTextView has edits not yet synced to the SwiftUI binding.
+        /// Read by updateNSView to skip stale-text overwrites during the debounce window.
+        private(set) var hasPendingBindingSync = false
 
         /// Debounce task for auto-aligning table columns after typing.
         private var tableAlignTask: Task<Void, Never>?
