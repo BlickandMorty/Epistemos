@@ -131,6 +131,10 @@ struct CommandPaletteOverlay: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(theme.border.opacity(theme.isDark ? 0.4 : 0.25), lineWidth: 1)
+        }
         .shadow(color: .black.opacity(0.03), radius: 1, y: 0.5)
         .shadow(color: .black.opacity(theme.isDark ? 0.2 : 0.06), radius: 8, y: 3)
         .shadow(color: .black.opacity(theme.isDark ? 0.35 : 0.10), radius: 30, y: 10)
