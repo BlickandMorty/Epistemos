@@ -96,7 +96,7 @@ struct LandingView: View {
             Spacer()
 
             VStack(spacing: 36) {
-                LiquidGreeting()
+                LiquidGreeting(retractNow: .constant(false))
             }
             .padding(.horizontal, Spacing.xxl)
 

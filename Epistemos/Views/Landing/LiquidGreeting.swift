@@ -13,16 +13,26 @@ import SwiftUI
 struct LiquidGreeting: View {
     @Environment(UIState.self) private var ui
 
+    // Configuration
+    var compact: Bool = false
+    @Binding var retractNow: Bool
+    var onRetractComplete: (() -> Void)? = nil
+
     // Typewriter state
     @State private var displayText = ""
     @State private var cursorVisible = true
 
     private var theme: EpistemosTheme { ui.theme }
-    private var greetingFont: Font { .custom("RetroGaming", size: 44) }
+    private var greetingFont: Font { .custom("RetroGaming", size: compact ? 22 : 44) }
 
     /// Single reactive flag — drives both typewriter and cursor via .task(id:)
     private var shouldAnimate: Bool {
         ui.activePanel == .home && !ui.windowOccluded
+    }
+
+    /// Composite key so .task(id:) restarts when either flag changes
+    private var taskKey: String {
+        "\(shouldAnimate)_\(retractNow)"
     }
 
     // MARK: - Body
@@ -38,17 +48,21 @@ struct LiquidGreeting: View {
             // Block cursor — always present, blinks via Task loop.
             Rectangle()
                 .fill(theme.fontAccent.opacity(0.85))
-                .frame(width: 12, height: 36)
+                .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
                 .opacity(cursorVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.3), value: cursorVisible)
                 .padding(.leading, 2)
         }
-        .frame(minHeight: 80) // Prevent collapse when displayText is empty
-        .shadow(color: theme.fontAccent.opacity(0.12), radius: 8)
-        // Single reactive task — SwiftUI cancels + restarts when shouldAnimate changes.
+        .frame(minHeight: compact ? 0 : 80)
+        .shadow(color: compact ? .clear : theme.fontAccent.opacity(0.12), radius: compact ? 0 : 8)
+        // Single reactive task — SwiftUI cancels + restarts when taskKey changes.
         // No manual onAppear/onDisappear/onChange juggling needed.
-        .task(id: shouldAnimate) {
+        .task(id: taskKey) {
+            if retractNow {
+                await retractText()
+                return
+            }
             guard shouldAnimate else {
                 displayText = ""
                 return
@@ -77,6 +91,18 @@ struct LiquidGreeting: View {
             guard !Task.isCancelled else { return }
             cursorVisible.toggle()
         }
+    }
+
+    // MARK: - Retract
+
+    @MainActor
+    private func retractText() async {
+        while !displayText.isEmpty && !Task.isCancelled {
+            displayText.removeLast()
+            try? await Task.sleep(for: .milliseconds(15))
+        }
+        guard !Task.isCancelled else { return }
+        onRetractComplete?()
     }
 
     // MARK: - Typewriter Engine
