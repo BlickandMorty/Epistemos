@@ -417,7 +417,7 @@ struct CommandPaletteOverlay: View {
     }
 
     private func orderedCategories(from grouped: [String: [LandingCommandItem]]) -> [String] {
-        let searchCategories = ["Notes", "Body Match", "Graph"]
+        let searchCategories = ["Notes", "Body Match", "Block Match", "Graph"]
         let actionCategories = ["Chat"]
         let commandCategories = Self.categoryOrder
 
@@ -988,8 +988,9 @@ struct CommandPaletteOverlay: View {
             guard !Task.isCancelled else { return }
             let seenPageIds = titlePageIds.union(graphPageIds)
             let bodyItems = computeBodyResults(for: newText, excluding: seenPageIds)
+            let blockItems = computeBlockResults(for: newText, excluding: seenPageIds)
             withAnimation(Motion.quick) {
-                cachedSearchResults = titleItems + graphItems + bodyItems
+                cachedSearchResults = titleItems + graphItems + bodyItems + blockItems
             }
         }
 
@@ -1247,6 +1248,42 @@ struct CommandPaletteOverlay: View {
                         graphState.focusOnNode(node.id, depth: 2)
                         graphState.requestRecommit()
                     }
+                    dismiss()
+                    NoteWindowManager.shared.open(pageId: pageId)
+                })
+        }
+
+        return items
+    }
+
+    private func computeBlockResults(for query: String, excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
+        guard query.count >= 2,
+              let svc = vaultSync.searchService else { return [] }
+
+        let hits: [BlockSearchResult]
+        do { hits = try svc.searchBlocks(query: query, limit: 10) }
+        catch { return [] }
+
+        let index = pageIndex
+        var items: [LandingCommandItem] = []
+
+        for hit in hits {
+            let pageId = hit.pageId
+            let rawSnippet = hit.snippet
+                .replacingOccurrences(of: "<b>", with: "")
+                .replacingOccurrences(of: "</b>", with: "")
+
+            let page = index[pageId]
+            let pageTitle = page?.title ?? "Untitled"
+            let emoji = page?.emoji ?? ""
+            let subtitle = emoji.isEmpty ? pageTitle : "\(emoji) \(pageTitle)"
+
+            items.append(
+                LandingCommandItem(
+                    id: "block-\(hit.blockId)", label: rawSnippet.isEmpty ? "Block" : rawSnippet,
+                    icon: "cube.transparent", category: "Block Match",
+                    subtitle: subtitle
+                ) { [self] in
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
                 })
