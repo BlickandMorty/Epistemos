@@ -14,6 +14,30 @@ pub mod search;
 pub mod embedding;
 pub mod version;
 
+#[cfg(test)]
+pub mod physics_audit_test;
+
+#[cfg(test)]
+pub mod graph_tests;
+
+#[cfg(test)]
+pub mod comprehensive_simulation_tests;
+
+#[cfg(test)]
+pub mod comprehensive_search_tests;
+
+#[cfg(test)]
+pub mod comprehensive_spatial_tests;
+
+#[cfg(test)]
+pub mod comprehensive_cluster_tests;
+
+#[cfg(test)]
+pub mod advanced_chaos_tests;
+
+#[cfg(test)]
+pub mod hardened_race_tests;
+
 // ── FFI Boundary ────────────────────────────────────────────────────────────
 //
 // Every function below is called from Swift via the C bridge header.
@@ -343,6 +367,55 @@ pub extern "C" fn graph_engine_search_highlight(
     ffi_engine!(engine);
     let query_str = ffi_cstr!(query);
     engine.search_highlight(query_str);
+}
+
+/// Poll haptic event flag from the simulation.
+/// Returns 0=None, 1=Light (alignment snap), 2=Heavy (collision).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_poll_haptic(engine: *mut Engine) -> u8 {
+    ffi_engine_or!(engine, 0);
+    engine.poll_haptic()
+}
+
+/// Enable/disable bullet-time search physics (slow-motion drift during search).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_search_active(engine: *mut Engine, active: u8) {
+    ffi_engine!(engine);
+    engine.set_search_active(active != 0);
+}
+
+/// Update laboratory physics toggles and tuning knobs.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_lab_params(
+    engine: *mut Engine,
+    enable_fluid: u8,
+    enable_torsion: u8,
+    enable_elastic: u8,
+    enable_tension: u8,
+    fluid_viscosity: f32,
+    edge_elasticity: f32,
+    torsion_rigidity: f32,
+    boids_cohesion: f32,
+    wind_x: f32,
+    wind_y: f32,
+    enable_orbital: u8,
+    orbital_speed: f32,
+) {
+    ffi_engine!(engine);
+    engine.set_lab_params(
+        enable_fluid != 0,
+        enable_torsion != 0,
+        enable_elastic != 0,
+        enable_tension != 0,
+        fluid_viscosity,
+        edge_elasticity,
+        torsion_rigidity,
+        boids_cohesion,
+        wind_x,
+        wind_y,
+        enable_orbital != 0,
+        orbital_speed,
+    );
 }
 
 // ── Camera ──────────────────────────────────────────────────────────────────

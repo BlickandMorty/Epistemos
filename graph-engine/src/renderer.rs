@@ -40,12 +40,13 @@ struct Uniforms {
     camera_offset: [f32; 2],
     camera_zoom: f32,
     time: f32,               // elapsed seconds — drives breathing animation
-    _pad1: [f32; 2],         // was: ripple_origin (removed)
-    _pad_ripple: f32,        // was: ripple_time (removed)
+    pulse_origin: [f32; 2],  // world-space origin of click pulse wave
+    pulse_time: f32,         // time of pulse start (0 = no active pulse)
     focal_length: f32,       // perspective focal distance (2.0 default)
     camera_velocity: [f32; 2], // camera offset delta (world units/frame)
     zoom_velocity: f32,        // zoom delta per frame (for motion blur)
     lite_mode: f32,            // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
+    impact_intensity: f32,     // 1.0 on heavy collision → 0.0 (chromatic aberration)
 }
 
 /// Compute z-depth from link count using 3 discrete tiers (Observatory layered planes).
@@ -61,7 +62,7 @@ fn z_for_link_count(link_count: u32) -> f32 {
 }
 
 /// Highlighted edge color: brighter accent.
-const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.65, 0.85, 1.00, 0.6];
+const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.70, 0.90, 1.00, 0.75];
 /// Base alpha multiplier for all nodes — subtler ambient presence.
 const BASE_NODE_ALPHA: f32 = 0.72;
 /// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
@@ -70,13 +71,54 @@ const DIM_ALPHA: f32 = 0.04;
 /// Dimmed edge alpha when highlight is active.
 const EDGE_DIM_ALPHA: f32 = 0.02;
 
+/// Number of bezier segments per curved edge.
+const CURVE_SEGMENTS: usize = 4;
+/// Stiffness constant for velocity-based edge curvature (limits max bow).
+const CURVE_STIFFNESS: f32 = 0.15;
+/// Hot orange color for maximally stressed edges.
+const TENSION_COLOR: [f32; 4] = [1.0, 0.3, 0.1, 0.8];
+/// Stretch percentage at which edge reaches max tension color (50% = k_yield).
+const TENSION_K_YIELD: f32 = 0.5;
+
+// ── Glow constants (shared between upload_graph and update_positions) ─────
+const HUB_GLOW_Z_OFFSET: f32 = -0.12;
+const HUB_GLOW_ALPHA: f32 = 0.08;
+const HUB_GLOW_RADIUS_FACTOR: f32 = 2.5;
+const CONF_GLOW_Z_OFFSET: f32 = -0.06;
+const CONF_GLOW_RADIUS_BASE: f32 = 1.5;
+const CONF_GLOW_RADIUS_SCALE: f32 = 1.0;
+const CONF_GLOW_ALPHA_BASE: f32 = 0.03;
+const CONF_GLOW_ALPHA_SCALE: f32 = 0.08;
+
 /// Evaluate a quadratic bezier at parameter t in [0, 1].
-/// Retained for field-line tessellation only (edges are now straight lines).
 fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
     let s = 1.0 - t;
     [
         s * s * p0[0] + 2.0 * s * t * cp[0] + t * t * p1[0],
         s * s * p0[1] + 2.0 * s * t * cp[1] + t * t * p1[1],
+    ]
+}
+
+/// Compute bezier control point using node velocities for elastic curvature.
+/// When nodes are at rest (vx/vy ≈ 0), edges are straight.
+/// When dragging, velocity creates organic rubber-band curvature.
+#[inline]
+fn edge_control_point(
+    p0: [f32; 2], p1: [f32; 2],
+    v0: [f32; 2], v1: [f32; 2],
+    stiffness: f32,
+) -> [f32; 2] {
+    let dx = p1[0] - p0[0];
+    let dy = p1[1] - p0[1];
+    let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+    let nx = -dy / dist;
+    let ny = dx / dist;
+    let avg_vx = (v0[0] + v1[0]) * 0.5;
+    let avg_vy = (v0[1] + v1[1]) * 0.5;
+    let v_perp = avg_vx * nx + avg_vy * ny;
+    [
+        (p0[0] + p1[0]) * 0.5 + nx * v_perp * stiffness,
+        (p0[1] + p1[1]) * 0.5 + ny * v_perp * stiffness,
     ]
 }
 
@@ -91,12 +133,13 @@ struct Uniforms {
     float2 camera_offset;
     float camera_zoom;
     float time;
-    float2 _pad1;
-    float _pad_ripple;
+    float2 pulse_origin;
+    float pulse_time;
     float focal_length;
     float2 camera_velocity;
     float zoom_velocity;
     float lite_mode;   // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
+    float impact_intensity; // chromatic aberration on collision
 };
 
 // ── Node shaders (instanced circles with depth perspective) ──────────
@@ -115,6 +158,7 @@ struct NodeVertexOut {
     float  depth;
     float  highlight_dim;  // 1.0 = normal, DIM_ALPHA = dimmed
     float  is_lite;        // 1.0 = lite mode, 0.0 = full mode
+    float2 world_pos;      // world-space base position for pulse wave
 };
 
 vertex NodeVertexOut node_vertex(
@@ -122,7 +166,8 @@ vertex NodeVertexOut node_vertex(
     uint instance_id [[instance_id]],
     constant NodeInstance* instances [[buffer(0)]],
     constant Uniforms& uniforms [[buffer(1)]],
-    constant uchar* highlight_flags [[buffer(2)]]
+    constant uchar* highlight_flags [[buffer(2)]],
+    constant float2* velocities [[buffer(3)]]
 ) {
     float2 corners[6] = {
         float2(-1, -1), float2( 1, -1), float2(-1,  1),
@@ -131,6 +176,18 @@ vertex NodeVertexOut node_vertex(
 
     NodeInstance inst = instances[instance_id];
     float2 corner = corners[vertex_id];
+
+    // Squash & stretch: deform quad along velocity direction (cinematic only).
+    float2 vel = velocities[instance_id];
+    float speed = length(vel);
+    if (uniforms.lite_mode < 0.5 && speed > 1.0) {
+        float stretch_amount = min(speed * 0.002, 0.25);
+        float2 dir = vel / speed;
+        float2 perp = float2(-dir.y, dir.x);
+        float stretch = 1.0 + stretch_amount;
+        float compress = 1.0 / stretch;
+        corner = dir * dot(corner, dir) * stretch + perp * dot(corner, perp) * compress;
+    }
 
     float depth;
     float effective_radius;
@@ -170,13 +227,30 @@ vertex NodeVertexOut node_vertex(
     out.depth = depth;
     out.highlight_dim = highlight_dim;
     out.is_lite = uniforms.lite_mode;
+    out.world_pos = base_pos;
     return out;
 }
 
-fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
+fragment float4 node_fragment(
+    NodeVertexOut in [[stage_in]],
+    constant Uniforms& uniforms [[buffer(1)]]
+) {
     float dist = length(in.uv);
 
     if (in.highlight_dim < 0.001) discard_fragment();
+
+    // ── Glow instances: soft radial gradient, no sphere shading ──
+    // Detected by low alpha (glow alpha is 0.03–0.11, regular nodes are 0.5+).
+    if (in.color.a < 0.15) {
+        float glow = 1.0 - smoothstep(0.0, 1.0, dist);
+        glow = glow * glow; // Quadratic falloff for soft edge
+        // Pulsing aura: phase offset by world position so hubs pulse independently.
+        if (in.is_lite < 0.5) {
+            glow *= 1.0 + 0.25 * sin(uniforms.time * 2.0 + length(in.world_pos) * 0.01);
+        }
+        if (glow < 0.01) discard_fragment();
+        return float4(in.color.rgb, in.color.a * glow * in.highlight_dim);
+    }
 
     // ── Performance: flat colored circle, ~3 ALU ops ──
     if (in.is_lite > 1.5) {
@@ -222,6 +296,10 @@ fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
     float rim_glow = pow(rim, 3.0) * 0.35;
     float3 lit_color = in.color.rgb * lighting + spec + in.color.rgb * rim_glow;
 
+    // Anime outline: dark ring near SDF boundary.
+    float outline = smoothstep(0.73, 0.75, dist) * (1.0 - smoothstep(0.85, 0.87, dist));
+    lit_color *= (1.0 - outline * 0.6);
+
     // Balanced: no depth-of-field fade (all nodes same opacity).
     // Cinematic: far nodes fade slightly for depth effect.
     float depth_fade = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.65 : 1.0;
@@ -229,7 +307,30 @@ fragment float4 node_fragment(NodeVertexOut in [[stage_in]]) {
     float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, dist);
     float final_alpha = mix(dof_alpha, alpha, pixel_strength);
 
-    return float4(lit_color, in.color.a * final_alpha * depth_fade * in.highlight_dim);
+    float3 result_color = lit_color;
+
+    // ── Pulse wave glow ──
+    // Expanding ring from pulse_origin. Cinematic only (skip in balanced/perf).
+    if (in.is_lite < 0.5 && uniforms.pulse_time >= 0.0) {
+        float wave_speed = 800.0; // world units per second
+        float wave_radius = uniforms.pulse_time * wave_speed;
+        float d_to_pulse = length(in.world_pos - uniforms.pulse_origin);
+        float ring_dist = abs(d_to_pulse - wave_radius);
+        float ring_width = 60.0 + wave_radius * 0.15; // wider as it expands
+        float ring_glow = 1.0 - smoothstep(0.0, ring_width, ring_dist);
+        float fade = 1.0 - smoothstep(0.0, 2.0, uniforms.pulse_time); // fade over 2s
+        ring_glow *= fade * 0.4; // subtle additive glow
+        result_color += ring_glow * float3(0.5, 0.8, 1.0); // cool blue-white
+    }
+
+    // ── Chromatic aberration on impact (cinematic only) ──
+    if (in.is_lite < 0.5 && uniforms.impact_intensity > 0.0) {
+        float ca = uniforms.impact_intensity * 0.12;
+        result_color.r += ca * in.uv.x;
+        result_color.b -= ca * in.uv.x;
+    }
+
+    return float4(result_color, in.color.a * final_alpha * depth_fade * in.highlight_dim);
 }
 
 // ── Straight-line edge shaders ─────────────────────────────────────
@@ -373,6 +474,32 @@ pub struct Renderer {
     prev_camera_zoom: f32,
     #[allow(dead_code)]
     prev_camera_offset: [f32; 2],
+    // Physics link distance for edge tension calculation.
+    pub link_distance: f32,
+    // Laboratory visual toggles + knobs.
+    pub enable_elastic_edges: bool,
+    pub enable_tension_coloring: bool,
+    /// 0.0 = stiff/straight, 1.0 = maximum rubber-band curvature.
+    pub edge_elasticity: f32,
+    // Pulse wave state (set on mouse_down, decays over time).
+    pub pulse_origin: [f32; 2],
+    /// Elapsed time when pulse started (0 = no active pulse).
+    pub pulse_start: f32,
+    /// Impact intensity: 1.0 on heavy collision, decays to 0.0 over ~0.33s.
+    pub impact_intensity: f32,
+    // Per-instance velocity buffer for squash & stretch (parallel to node instance buffer).
+    node_velocity_buf: Option<Buffer>,
+    node_velocity_capacity: usize,
+    // Wind advection particles (200 CPU-driven dots).
+    wind_particles: Vec<[f32; 4]>, // [x, y, vx, vy]
+    wind_active: bool,
+    wind_particle_count: usize, // number of particles in the glow section
+    pub wind_x: f32,
+    pub wind_y: f32,
+    wind_rng_state: u32, // Simple LCG for particle randomness
+    // Cached viewport size for particle bounds (set in draw()).
+    last_viewport_width: f32,
+    last_viewport_height: f32,
 }
 
 impl Renderer {
@@ -477,6 +604,23 @@ impl Renderer {
             start_time: std::time::Instant::now(),
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
+            link_distance: 243.0,
+            enable_elastic_edges: true,
+            enable_tension_coloring: true,
+            edge_elasticity: 0.5,
+            pulse_origin: [0.0, 0.0],
+            pulse_start: 0.0,
+            impact_intensity: 0.0,
+            node_velocity_buf: None,
+            node_velocity_capacity: 0,
+            wind_particles: Vec::new(),
+            wind_active: false,
+            wind_particle_count: 0,
+            wind_x: 0.0,
+            wind_y: 0.0,
+            wind_rng_state: 12345,
+            last_viewport_width: 1920.0,
+            last_viewport_height: 1080.0,
         })
     }
 
@@ -509,6 +653,60 @@ impl Renderer {
         self.upload_graph(graph);
     }
 
+    /// Simple LCG random: returns float in [-1, 1].
+    fn rand_float(&mut self) -> f32 {
+        self.wind_rng_state = self.wind_rng_state.wrapping_mul(1103515245).wrapping_add(12345);
+        (self.wind_rng_state >> 16) as f32 / 32768.0 - 1.0
+    }
+
+    /// Update wind advection particles. Called each frame from update_positions.
+    fn update_wind_particles(&mut self, viewport: [f32; 2], zoom: f32) {
+        const PARTICLE_COUNT: usize = 200;
+
+        if self.wind_x.abs() < 0.1 && self.wind_y.abs() < 0.1 {
+            self.wind_active = false;
+            return;
+        }
+        self.wind_active = true;
+
+        // Initialize particles on first activation.
+        if self.wind_particles.len() < PARTICLE_COUNT {
+            self.wind_particles.clear();
+            let half_w = viewport[0] / (2.0 * zoom.max(0.01));
+            let half_h = viewport[1] / (2.0 * zoom.max(0.01));
+            for _ in 0..PARTICLE_COUNT {
+                let x = self.camera_offset[0] + self.rand_float() * half_w;
+                let y = self.camera_offset[1] + self.rand_float() * half_h;
+                self.wind_particles.push([x, y, 0.0, 0.0]);
+            }
+        }
+
+        let dt = 1.0 / 60.0;
+        let half_w = viewport[0] / (2.0 * zoom.max(0.01));
+        let half_h = viewport[1] / (2.0 * zoom.max(0.01));
+        let cx = self.camera_offset[0];
+        let cy = self.camera_offset[1];
+
+        for p in &mut self.wind_particles {
+            p[2] += (self.wind_x * 0.8 - p[2]) * 0.1;
+            p[3] += (self.wind_y * 0.8 - p[3]) * 0.1;
+            p[0] += p[2] * dt;
+            p[1] += p[3] * dt;
+            if p[0] < cx - half_w * 1.3 || p[0] > cx + half_w * 1.3
+            || p[1] < cy - half_h * 1.3 || p[1] > cy + half_h * 1.3 {
+                // Respawn within viewport.
+                // Use self.wind_rng_state for deterministic randomness.
+                let state = &mut (p[0].to_bits() ^ p[1].to_bits() ^ 0xDEAD_BEEF);
+                *state = state.wrapping_mul(1103515245).wrapping_add(12345);
+                let rx = (*state >> 16) as f32 / 32768.0 - 1.0;
+                *state = state.wrapping_mul(1103515245).wrapping_add(12345);
+                let ry = (*state >> 16) as f32 / 32768.0 - 1.0;
+                p[0] = cx + rx * half_w;
+                p[1] = cy + ry * half_h;
+            }
+        }
+    }
+
     /// Full upload of graph data to GPU buffers.
     pub fn upload_graph(&mut self, graph: &Graph) {
         // Hub glow instances go first (rendered behind regular nodes via NDC z).
@@ -529,20 +727,20 @@ impl Renderer {
                 if node.link_count >= 9 {
                     glow_instances.push(NodeInstance {
                         position: pos,
-                        radius: node.radius * 4.0,
-                        z: z - 0.15,
-                        color: [color[0], color[1], color[2], 0.08],
+                        radius: node.radius * HUB_GLOW_RADIUS_FACTOR,
+                        z: z + HUB_GLOW_Z_OFFSET,
+                        color: [color[0], color[1], color[2], HUB_GLOW_ALPHA],
                     });
                 }
 
                 if node.confidence > 0.0 {
                     let conf = node.confidence.clamp(0.0, 1.0);
-                    let glow_radius = node.radius * (2.0 + conf * 2.0);
-                    let glow_alpha = 0.04 + conf * 0.21;
+                    let glow_radius = node.radius * (CONF_GLOW_RADIUS_BASE + conf * CONF_GLOW_RADIUS_SCALE);
+                    let glow_alpha = CONF_GLOW_ALPHA_BASE + conf * CONF_GLOW_ALPHA_SCALE;
                     glow_instances.push(NodeInstance {
                         position: pos,
                         radius: glow_radius,
-                        z: z - 0.12,
+                        z: z + CONF_GLOW_Z_OFFSET,
                         color: [color[0], color[1], color[2], glow_alpha],
                     });
                 }
@@ -554,6 +752,21 @@ impl Renderer {
                 z,
                 color,
             });
+        }
+
+        // Append wind advection particles to glow section (low alpha = glow fragment path).
+        if self.wind_active {
+            for p in &self.wind_particles {
+                glow_instances.push(NodeInstance {
+                    position: [p[0], p[1]],
+                    radius: 1.5,
+                    z: -0.50,
+                    color: [0.7, 0.85, 1.0, 0.08],
+                });
+            }
+            self.wind_particle_count = self.wind_particles.len();
+        } else {
+            self.wind_particle_count = 0;
         }
 
         // Glow instances first (behind), then regular nodes (in front).
@@ -592,9 +805,45 @@ impl Renderer {
             }
         }
 
-        // Straight-line edge instances (one LineEdgeInstance per edge).
+        // Build velocity buffer parallel to instance buffer (for squash & stretch).
+        {
+            let vel_count = total_node_instances + 2; // +2 for highlight rings
+            if vel_count > self.node_velocity_capacity || self.node_velocity_buf.is_none() {
+                let capacity = (vel_count * 3 / 2).max(64);
+                let buf_size = (capacity * std::mem::size_of::<[f32; 2]>()) as u64;
+                self.node_velocity_buf = Some(
+                    self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                );
+                self.node_velocity_capacity = capacity;
+            }
+            if let Some(buf) = &self.node_velocity_buf {
+                unsafe {
+                    let ptr = buf.contents() as *mut [f32; 2];
+                    let mut idx = 0;
+                    // Glows: zero velocity
+                    for _ in 0..self.glow_count {
+                        *ptr.add(idx) = [0.0, 0.0];
+                        idx += 1;
+                    }
+                    // Nodes: actual velocity
+                    for node in graph.nodes.iter().filter(|n| n.visible) {
+                        if idx < vel_count {
+                            *ptr.add(idx) = [node.vx, node.vy];
+                            idx += 1;
+                        }
+                    }
+                    // Zero-fill remaining (highlight rings + padding)
+                    while idx < vel_count {
+                        *ptr.add(idx) = [0.0, 0.0];
+                        idx += 1;
+                    }
+                }
+            }
+        }
+
+        // Curved edge instances (CURVE_SEGMENTS bezier sub-segments per edge).
         let mut edge_instances: Vec<LineEdgeInstance> =
-            Vec::with_capacity(graph.edges.len());
+            Vec::with_capacity(graph.edges.len() * CURVE_SEGMENTS);
 
         for edge in &graph.edges {
             let si = graph.id_to_index.get(&edge.source);
@@ -603,6 +852,17 @@ impl Renderer {
                 let src = &graph.nodes[si];
                 let tgt = &graph.nodes[ti];
                 if !src.visible || !tgt.visible { continue; }
+
+                let p0 = [src.x, src.y];
+                let p1 = [tgt.x, tgt.y];
+
+                // Skip edges with uninitialized or degenerate positions.
+                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
+                    continue;
+                }
+                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
+                    continue;
+                }
 
                 let base_edge = self.edge_color(edge.edge_type);
                 let color = if self.highlight.active {
@@ -613,23 +873,42 @@ impl Renderer {
                     } else {
                         [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
                     }
+                } else if self.enable_tension_coloring {
+                    // Tension coloring: edges heat up as they stretch past rest length.
+                    let dx = p1[0] - p0[0];
+                    let dy = p1[1] - p0[1];
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    let ideal = self.link_distance / edge.weight.max(0.01);
+                    let stress = (((dist - ideal) / ideal).max(0.0) / TENSION_K_YIELD).min(1.0);
+                    [
+                        base_edge[0] + stress * (TENSION_COLOR[0] - base_edge[0]),
+                        base_edge[1] + stress * (TENSION_COLOR[1] - base_edge[1]),
+                        base_edge[2] + stress * (TENSION_COLOR[2] - base_edge[2]),
+                        base_edge[3] + stress * (TENSION_COLOR[3] - base_edge[3]),
+                    ]
                 } else {
                     base_edge
                 };
 
-                let p0 = [src.x, src.y];
-                let p1 = [tgt.x, tgt.y];
-
-                // Skip edges with uninitialized or degenerate positions —
-                // prevents streaks from (0,0) to distant nodes.
-                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
-                    continue;
+                let stiffness = if self.enable_elastic_edges {
+                    self.edge_elasticity * 0.3
+                } else {
+                    0.0
+                };
+                let v0 = [src.vx, src.vy];
+                let v1 = [tgt.vx, tgt.vy];
+                let cp = edge_control_point(p0, p1, v0, v1, stiffness);
+                let mut prev = p0;
+                for seg in 1..=CURVE_SEGMENTS {
+                    let t = seg as f32 / CURVE_SEGMENTS as f32;
+                    let t_mid = (t + (seg - 1) as f32 / CURVE_SEGMENTS as f32) * 0.5;
+                    let taper = (4.0 * t_mid * (1.0 - t_mid)).min(1.0);
+                    let mut seg_color = color;
+                    seg_color[3] *= 0.4 + 0.6 * taper;
+                    let next = bezier_point(p0, cp, p1, t);
+                    edge_instances.push(LineEdgeInstance { p0: prev, p1: next, color: seg_color });
+                    prev = next;
                 }
-                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
-                    continue;
-                }
-
-                edge_instances.push(LineEdgeInstance { p0, p1, color });
             }
         }
 
@@ -675,21 +954,24 @@ impl Renderer {
                     let pos = [node.x, node.y];
                     let z = z_for_link_count(node.link_count);
 
-                    // Update glow instances (hub glow + confidence glow).
-                    if node.link_count >= 9 && glow_idx < self.glow_count {
-                        let glow = &mut *ptr.add(glow_idx);
-                        glow.position = pos;
-                        glow.z = z - 0.1;
-                        glow.color[3] = 0.08;
-                        glow_idx += 1;
-                    }
-                    if node.confidence > 0.0 && glow_idx < self.glow_count {
-                        let conf = node.confidence.clamp(0.0, 1.0);
-                        let glow = &mut *ptr.add(glow_idx);
-                        glow.position = pos;
-                        glow.z = z - 0.05;
-                        glow.color[3] = 0.04 + conf * 0.10;
-                        glow_idx += 1;
+                    // Update glow instances (Cinematic only — matches upload_graph gate).
+                    let is_cinematic = self.quality_level == 0;
+                    if is_cinematic {
+                        if node.link_count >= 9 && glow_idx < self.glow_count {
+                            let glow = &mut *ptr.add(glow_idx);
+                            glow.position = pos;
+                            glow.z = z + HUB_GLOW_Z_OFFSET;
+                            glow.color[3] = HUB_GLOW_ALPHA;
+                            glow_idx += 1;
+                        }
+                        if node.confidence > 0.0 && glow_idx < self.glow_count {
+                            let conf = node.confidence.clamp(0.0, 1.0);
+                            let glow = &mut *ptr.add(glow_idx);
+                            glow.position = pos;
+                            glow.z = z + CONF_GLOW_Z_OFFSET;
+                            glow.color[3] = CONF_GLOW_ALPHA_BASE + conf * CONF_GLOW_ALPHA_SCALE;
+                            glow_idx += 1;
+                        }
                     }
 
                     // Update regular node instance (offset past glow instances).
@@ -705,15 +987,59 @@ impl Renderer {
                 }
             }
         }
-        self.glow_count = glow_idx;
+        // Update wind particle physics (positions computed CPU-side).
+        let vp = [self.last_viewport_width, self.last_viewport_height];
+        let zm = self.camera_zoom;
+        self.update_wind_particles(vp, zm);
+        // Update existing particle positions in the glow section of the buffer.
+        // Particles are only present if upload_graph() included them (wind_particle_count > 0).
+        // The buffer layout from upload_graph: [real_glows][wind_particles][nodes][highlights].
+        // Real glows end at glow_idx, particles start there.
+        if self.wind_particle_count > 0 {
+            if let Some(buf) = &self.node_instance_buf {
+                unsafe {
+                    let ptr = buf.contents() as *mut NodeInstance;
+                    for (i, p) in self.wind_particles.iter().enumerate() {
+                        if glow_idx + i < self.node_instance_capacity {
+                            let inst = &mut *ptr.add(glow_idx + i);
+                            inst.position = [p[0], p[1]];
+                        }
+                    }
+                }
+            }
+        }
+        // glow_count includes wind particles (set by upload_graph).
+        self.glow_count = glow_idx + self.wind_particle_count;
         self.node_count = visible_count;
+
+        // Update velocity buffer in-place (parallel to instance buffer).
+        if let Some(buf) = &self.node_velocity_buf {
+            unsafe {
+                let ptr = buf.contents() as *mut [f32; 2];
+                let mut vi = 0;
+                // Glows: zero velocity
+                for _ in 0..self.glow_count {
+                    if vi < self.node_velocity_capacity {
+                        *ptr.add(vi) = [0.0, 0.0];
+                        vi += 1;
+                    }
+                }
+                // Nodes: actual velocity
+                for node in graph.nodes.iter().filter(|n| n.visible) {
+                    if vi < self.node_velocity_capacity {
+                        *ptr.add(vi) = [node.vx, node.vy];
+                        vi += 1;
+                    }
+                }
+            }
+        }
 
         if self.node_count == 0 {
             self.edge_instance_count = 0;
             return;
         }
 
-        // Update straight-line edge positions in-place.
+        // Update curved edge positions in-place.
         if let Some(buf) = &self.edge_instance_buf {
             let mut inst_idx = 0usize;
             unsafe {
@@ -726,22 +1052,6 @@ impl Renderer {
                         let tgt = &graph.nodes[ti];
                         if !src.visible || !tgt.visible { continue; }
 
-                        let base_edge = self.edge_color(edge.edge_type);
-
-                        let color = if self.highlight.active {
-                            let src_lit = self.highlight.highlighted_ids.contains(&src.id);
-                            let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
-                            if src_lit && tgt_lit {
-                                EDGE_HIGHLIGHT_COLOR
-                            } else {
-                                [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
-                            }
-                        } else {
-                            let mut e = base_edge;
-                            e[3] *= BASE_NODE_ALPHA;
-                            e
-                        };
-
                         let p0 = [src.x, src.y];
                         let p1 = [tgt.x, tgt.y];
 
@@ -753,13 +1063,59 @@ impl Renderer {
                             continue;
                         }
 
-                        if inst_idx >= self.edge_instance_capacity { break; }
+                        let base_edge = self.edge_color(edge.edge_type);
+                        let color = if self.highlight.active {
+                            let src_lit = self.highlight.highlighted_ids.contains(&src.id);
+                            let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
+                            if src_lit && tgt_lit {
+                                EDGE_HIGHLIGHT_COLOR
+                            } else {
+                                [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
+                            }
+                        } else if self.enable_tension_coloring {
+                            let dx = p1[0] - p0[0];
+                            let dy = p1[1] - p0[1];
+                            let dist = (dx * dx + dy * dy).sqrt();
+                            let ideal = self.link_distance / edge.weight.max(0.01);
+                            let stress = (((dist - ideal) / ideal).max(0.0) / TENSION_K_YIELD).min(1.0);
+                            let mut e = [
+                                base_edge[0] + stress * (TENSION_COLOR[0] - base_edge[0]),
+                                base_edge[1] + stress * (TENSION_COLOR[1] - base_edge[1]),
+                                base_edge[2] + stress * (TENSION_COLOR[2] - base_edge[2]),
+                                base_edge[3] + stress * (TENSION_COLOR[3] - base_edge[3]),
+                            ];
+                            e[3] *= BASE_NODE_ALPHA;
+                            e
+                        } else {
+                            let mut e = base_edge;
+                            e[3] *= BASE_NODE_ALPHA;
+                            e
+                        };
 
-                        let inst = &mut *ptr.add(inst_idx);
-                        inst.p0 = p0;
-                        inst.p1 = p1;
-                        inst.color = color;
-                        inst_idx += 1;
+                        let stiffness = if self.enable_elastic_edges {
+                            self.edge_elasticity * 0.3
+                        } else {
+                            0.0
+                        };
+                        let v0 = [src.vx, src.vy];
+                        let v1 = [tgt.vx, tgt.vy];
+                        let cp = edge_control_point(p0, p1, v0, v1, stiffness);
+                        let mut prev = p0;
+                        for seg in 1..=CURVE_SEGMENTS {
+                            if inst_idx >= self.edge_instance_capacity { break; }
+                            let t = seg as f32 / CURVE_SEGMENTS as f32;
+                            let t_mid = (t + (seg - 1) as f32 / CURVE_SEGMENTS as f32) * 0.5;
+                            let taper = (4.0 * t_mid * (1.0 - t_mid)).min(1.0);
+                            let mut seg_color = color;
+                            seg_color[3] *= 0.4 + 0.6 * taper;
+                            let next = bezier_point(p0, cp, p1, t);
+                            let inst = &mut *ptr.add(inst_idx);
+                            inst.p0 = prev;
+                            inst.p1 = next;
+                            inst.color = seg_color;
+                            inst_idx += 1;
+                            prev = next;
+                        }
                     }
                 }
             }
@@ -1020,23 +1376,40 @@ impl Renderer {
     }
 
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
+        self.last_viewport_width = viewport_width as f32;
+        self.last_viewport_height = viewport_height as f32;
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
                 Some(d) => d,
                 None => return,
             };
 
+            let elapsed = self.start_time.elapsed().as_secs_f32();
+            // Pulse time: seconds since pulse started (-1 = no active pulse).
+            // Auto-expire after 2 seconds.
+            let pulse_t = if self.pulse_start > 0.0 {
+                let dt = elapsed - self.pulse_start;
+                if dt > 2.0 { self.pulse_start = 0.0; -1.0 } else { dt }
+            } else {
+                -1.0
+            };
+            // Decay impact intensity each frame (~0.33s total fade).
+            let dt = 1.0 / 60.0;
+            if self.impact_intensity > 0.0 {
+                self.impact_intensity = (self.impact_intensity - dt * 3.0).max(0.0);
+            }
             let uniforms = Uniforms {
                 viewport_size: [viewport_width as f32, viewport_height as f32],
                 camera_offset: self.camera_offset,
                 camera_zoom: self.camera_zoom,
-                time: self.start_time.elapsed().as_secs_f32(),
-                _pad1: [0.0, 0.0],
-                _pad_ripple: -1.0,
+                time: elapsed,
+                pulse_origin: self.pulse_origin,
+                pulse_time: pulse_t,
                 focal_length: 2.0,
                 camera_velocity: [0.0, 0.0],
                 zoom_velocity: 0.0,
                 lite_mode: self.quality_level as f32,
+                impact_intensity: self.impact_intensity,
             };
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;
@@ -1065,6 +1438,8 @@ impl Renderer {
             if self.edge_instance_count > 0
                 && let Some(inst_buf) = &self.edge_instance_buf
             {
+                // Clamp to buffer capacity to prevent Metal validation crash.
+                let edge_draw = self.edge_instance_count.min(self.edge_instance_capacity);
                 encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
@@ -1072,7 +1447,7 @@ impl Renderer {
                     MTLPrimitiveType::Triangle,
                     0,
                     6,
-                    self.edge_instance_count as u64,
+                    edge_draw as u64,
                 );
             }
 
@@ -1080,6 +1455,7 @@ impl Renderer {
             if self.field_line_count > 0
                 && let Some(fl_buf) = &self.field_line_buf
             {
+                let fl_draw = self.field_line_count.min(self.field_line_capacity);
                 encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(fl_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
@@ -1087,7 +1463,7 @@ impl Renderer {
                     MTLPrimitiveType::Triangle,
                     0,
                     6,
-                    self.field_line_count as u64,
+                    fl_draw as u64,
                 );
             }
 
@@ -1096,27 +1472,51 @@ impl Renderer {
             if total_instances > 0
                 && let Some(inst_buf) = &self.node_instance_buf
             {
+                // Safety: clamp draw count to actual buffer capacities.
+                // Metal validates that shader reads don't exceed buffer length.
+                let draw_count = total_instances
+                    .min(self.node_instance_capacity);
+
                 encoder.set_render_pipeline_state(&self.node_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
-                // Bind highlight flag buffer (buffer(2)). If not yet allocated,
-                // allocate a zero-filled default buffer so the shader reads 0 (normal).
-                if self.highlight_flag_buf.is_none() {
-                    let cap = total_instances.max(64);
+                // Bind uniforms to fragment shader for pulse wave effect.
+                encoder.set_fragment_buffer(1, Some(&self.uniform_buf), 0);
+
+                // Bind highlight flag buffer (buffer(2)).
+                // Ensure buffer exists AND is large enough for draw_count.
+                if self.highlight_flag_buf.is_none() || self.highlight_flag_capacity < draw_count {
+                    let cap = (draw_count * 3 / 2).max(64);
                     let buf = self.device.new_buffer(cap as u64, MTLResourceOptions::StorageModeShared);
-                    // Zero-fill (StorageModeShared is zero-initialized on macOS).
                     self.highlight_flag_buf = Some(buf);
                     self.highlight_flag_capacity = cap;
                 }
                 if let Some(flag_buf) = &self.highlight_flag_buf {
                     encoder.set_vertex_buffer(2, Some(flag_buf), 0);
                 }
-                encoder.draw_primitives_instanced(
-                    MTLPrimitiveType::Triangle,
-                    0,
-                    6,
-                    total_instances as u64,
-                );
+
+                // Bind velocity buffer for squash & stretch (buffer 3).
+                // Ensure buffer exists AND is large enough for draw_count.
+                if self.node_velocity_buf.is_none() || self.node_velocity_capacity < draw_count {
+                    let cap = (draw_count * 3 / 2).max(64);
+                    let buf_size = (cap * std::mem::size_of::<[f32; 2]>()) as u64;
+                    self.node_velocity_buf = Some(
+                        self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                    );
+                    self.node_velocity_capacity = cap;
+                }
+                if let Some(vel_buf) = &self.node_velocity_buf {
+                    encoder.set_vertex_buffer(3, Some(vel_buf), 0);
+                }
+
+                if draw_count > 0 {
+                    encoder.draw_primitives_instanced(
+                        MTLPrimitiveType::Triangle,
+                        0,
+                        6,
+                        draw_count as u64,
+                    );
+                }
             }
 
             encoder.end_encoding();
@@ -1124,5 +1524,98 @@ impl Renderer {
             cmd_buf.present_drawable(drawable);
             cmd_buf.commit();
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn edge_control_point_straight_at_rest() {
+        // Zero velocity → control point at midpoint → straight edge.
+        let p0 = [0.0, 0.0];
+        let p1 = [100.0, 0.0];
+        let v0 = [0.0, 0.0];
+        let v1 = [0.0, 0.0];
+        let cp = edge_control_point(p0, p1, v0, v1, 0.15);
+        assert!((cp[0] - 50.0).abs() < 0.01, "Control point X should be at midpoint");
+        assert!(cp[1].abs() < 0.01, "Control point Y should be near zero");
+    }
+
+    #[test]
+    fn edge_control_point_curves_with_velocity() {
+        let p0 = [0.0, 0.0];
+        let p1 = [100.0, 0.0];
+        // Perpendicular velocity should deflect control point.
+        let v0 = [0.0, 50.0];
+        let v1 = [0.0, 50.0];
+        let cp = edge_control_point(p0, p1, v0, v1, 0.15);
+        assert!((cp[0] - 50.0).abs() < 0.01, "X should stay at midpoint");
+        // Perpendicular velocity should create offset in Y direction.
+        // Perpendicular to (100,0) is (0,-1) or (0,1). v_perp = avg_vy * nx.
+        // nx = -dy/dist = 0, ny = dx/dist = 1. v_perp = 0*0 + 50*1 = 50.
+        // cp_y = 0 + ny * v_perp * 0.15 = 1 * 50 * 0.15 = 7.5
+        assert!((cp[1] - 7.5).abs() < 0.5, "Y should be offset by velocity, got {}", cp[1]);
+    }
+
+    #[test]
+    fn edge_control_point_zero_stiffness_gives_midpoint() {
+        let p0 = [0.0, 0.0];
+        let p1 = [100.0, 0.0];
+        let v0 = [0.0, 100.0]; // Strong velocity
+        let v1 = [0.0, 100.0];
+        let cp = edge_control_point(p0, p1, v0, v1, 0.0); // zero stiffness
+        assert!((cp[0] - 50.0).abs() < 0.01);
+        assert!(cp[1].abs() < 0.01, "Zero stiffness should ignore velocity");
+    }
+
+    #[test]
+    fn bezier_point_endpoints() {
+        let p0 = [0.0, 0.0];
+        let cp = [50.0, 100.0];
+        let p1 = [100.0, 0.0];
+        let start = bezier_point(p0, cp, p1, 0.0);
+        let end = bezier_point(p0, cp, p1, 1.0);
+        assert!((start[0] - p0[0]).abs() < 0.01);
+        assert!((start[1] - p0[1]).abs() < 0.01);
+        assert!((end[0] - p1[0]).abs() < 0.01);
+        assert!((end[1] - p1[1]).abs() < 0.01);
+    }
+
+    #[test]
+    fn z_for_link_count_tiers() {
+        assert!(z_for_link_count(0) < z_for_link_count(4));
+        assert!(z_for_link_count(4) < z_for_link_count(7));
+        assert!(z_for_link_count(7) < z_for_link_count(10));
+    }
+
+    #[test]
+    fn tension_color_constants_valid() {
+        for c in &TENSION_COLOR {
+            assert!(*c >= 0.0 && *c <= 1.0, "Tension color component out of range: {}", c);
+        }
+        assert!(TENSION_K_YIELD > 0.0 && TENSION_K_YIELD <= 1.0);
+    }
+
+    #[test]
+    fn uniforms_size_matches_metal() {
+        // Uniforms must be consistent between Rust and Metal.
+        // Field count: viewport_size(2) + camera_offset(2) + camera_zoom(1) + time(1)
+        //   + pulse_origin(2) + pulse_time(1) + focal_length(1) + camera_velocity(2)
+        //   + zoom_velocity(1) + lite_mode(1) + impact_intensity(1) = 15 floats = 60 bytes.
+        assert_eq!(std::mem::size_of::<Uniforms>(), 60);
+    }
+
+    #[test]
+    fn node_instance_size() {
+        // position(8) + radius(4) + z(4) + color(16) = 32 bytes.
+        assert_eq!(std::mem::size_of::<NodeInstance>(), 32);
+    }
+
+    #[test]
+    fn line_edge_instance_size() {
+        // p0(8) + p1(8) + color(16) = 32 bytes.
+        assert_eq!(std::mem::size_of::<LineEdgeInstance>(), 32);
     }
 }

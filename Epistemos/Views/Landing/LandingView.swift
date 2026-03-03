@@ -153,6 +153,20 @@ struct LandingView: View {
                 }
                 .onTapGesture { UtilityWindowManager.shared.show(.notes) }
                 .springEntrance(index: 3, stagger: 0.08)
+
+                Circle()
+                    .fill(theme.textTertiary.opacity(0.3))
+                    .frame(width: 3, height: 3)
+
+                // ⌘G Semantic Graph
+                HStack(spacing: 3) {
+                    Image(systemName: "command")
+                    Text("G")
+                    Text("Graph")
+                        .padding(.leading, 2)
+                }
+                .onTapGesture { HologramController.shared.toggle() }
+                .springEntrance(index: 4, stagger: 0.08)
             }
             .font(.system(size: 14, weight: .medium))
             .foregroundStyle(theme.textTertiary.opacity(0.5))
@@ -280,11 +294,6 @@ struct LandingView: View {
                         dismissLandingSearch()
                         let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
                         dailyBrief.requestDailyBrief(prompt: prompt)
-                    }
-                    landingChip(label: "New Chat", icon: "plus.bubble") {
-                        dismissLandingSearch()
-                        chat.startNewChat()
-                        ui.setActivePanel(.home)
                     }
                 }
                 .padding(.top, 4)

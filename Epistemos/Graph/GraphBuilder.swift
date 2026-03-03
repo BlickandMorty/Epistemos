@@ -85,45 +85,19 @@ final class GraphBuilder {
         }
 
         // ────────────────────────────────────────────
-        // 1b. Blocks (substantial SDBlock entities per page)
-        //     Only blocks with >20 chars of content become graph nodes.
-        //     Each block gets a `.contains` edge from its parent note.
+        // 1b. Block references — ((blockId)) in page bodies
+        //     Resolves to the block's parent page, creating a note→note
+        //     .reference edge. Blocks are NOT individual graph nodes.
+        //     Two-pass: collect referenced IDs first, then fetch only those blocks.
         // ────────────────────────────────────────────
-        for page in pages {
-            guard let noteNodeId = sourceIdToNodeId[page.id] else { continue }
-            let pageId = page.id
-            let blockDesc = FetchDescriptor<SDBlock>(
-                predicate: #Predicate<SDBlock> { $0.pageId == pageId },
-                sortBy: [SortDescriptor(\SDBlock.order)]
-            )
-            let blocks: [SDBlock]
-            do { blocks = try context.fetch(blockDesc) }
-            catch {
-                Log.app.error("GraphBuilder: failed to fetch blocks for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                blocks = []
-            }
-            for block in blocks {
-                guard block.content.count > 20 else { continue }
-                let blockKey = "block-\(block.id)"
-                guard existingSourceIds.insert(blockKey).inserted else { continue }
 
-                let label = block.content.count > 60
-                    ? String(block.content.prefix(60)) + "…"
-                    : block.content
-                let blockNode = SDGraphNode(type: .block, label: label, sourceId: block.id)
-                blockNode.createdAt = block.createdAt
-                nodes.append(blockNode)
-                sourceIdToNodeId[block.id] = blockNode.id
-
-                edges.append(SDGraphEdge(source: noteNodeId, target: blockNode.id, type: .contains))
-            }
-        }
-
-        // ────────────────────────────────────────────
-        // 1c. Block references — ((blockId)) in page bodies
-        //     Creates .reference edges from the containing page to the referenced block.
-        // ────────────────────────────────────────────
         let blockRefPattern = /\(\(([^)]+)\)\)/
+
+        // Pass 1: scan bodies to collect referenced block IDs + source page mapping.
+        struct BlockRef { let noteNodeId: String; let refId: String }
+        var blockRefs: [BlockRef] = []
+        var referencedBlockIds = Set<String>()
+
         for page in pages {
             guard let noteNodeId = sourceIdToNodeId[page.id] else { continue }
             let body = page.loadBody()
@@ -132,11 +106,30 @@ final class GraphBuilder {
             for match in body.matches(of: blockRefPattern) {
                 let refId = String(match.1).trimmingCharacters(in: .whitespaces)
                 guard !refId.isEmpty else { continue }
+                referencedBlockIds.insert(refId)
+                blockRefs.append(BlockRef(noteNodeId: noteNodeId, refId: refId))
+            }
+        }
 
-                // Only emit edge if the referenced block exists as a graph node.
-                if let targetNodeId = sourceIdToNodeId[refId] {
-                    edges.append(SDGraphEdge(source: noteNodeId, target: targetNodeId, type: .reference))
+        // Pass 2: fetch only referenced blocks and resolve edges.
+        if !blockRefs.isEmpty {
+            var blockIdToPageId: [String: String] = [:]
+            for refId in referencedBlockIds {
+                let desc = FetchDescriptor<SDBlock>(
+                    predicate: #Predicate<SDBlock> { $0.id == refId }
+                )
+                if let block = try? context.fetch(desc).first {
+                    blockIdToPageId[block.id] = block.pageId
                 }
+            }
+
+            for ref in blockRefs {
+                guard let ownerPageId = blockIdToPageId[ref.refId],
+                      let targetNoteNodeId = sourceIdToNodeId[ownerPageId],
+                      targetNoteNodeId != ref.noteNodeId  // skip self-references
+                else { continue }
+
+                edges.append(SDGraphEdge(source: ref.noteNodeId, target: targetNoteNodeId, type: .reference))
             }
         }
 

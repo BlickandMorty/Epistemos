@@ -49,17 +49,17 @@ impl NodeType {
         }
     }
 
-    /// RGBA color for this node type (light mode — deeper saturated tones on light background).
+    /// RGBA color for this node type (light mode — strong contrast on light background).
     pub fn color_light(&self) -> [f32; 4] {
         match self {
-            Self::Note => [0.10, 0.60, 0.55, 1.0],   // teal (deeper)
-            Self::Chat => [0.85, 0.45, 0.00, 1.0],   // orange (deeper)
-            Self::Idea => [0.80, 0.65, 0.00, 1.0],   // gold (deeper)
-            Self::Source => [0.10, 0.58, 0.22, 1.0],  // green (deeper)
-            Self::Folder => [0.50, 0.38, 0.25, 1.0],  // brown (deeper)
-            Self::Quote => [0.52, 0.20, 0.70, 1.0],   // purple (deeper)
-            Self::Tag => [0.36, 0.36, 0.40, 1.0],     // gray (deeper)
-            Self::Block => [0.25, 0.55, 0.72, 1.0],   // blue (deeper)
+            Self::Note => [0.05, 0.48, 0.44, 1.0],   // teal (darker)
+            Self::Chat => [0.72, 0.36, 0.00, 1.0],   // orange (darker)
+            Self::Idea => [0.65, 0.52, 0.00, 1.0],   // gold (darker)
+            Self::Source => [0.05, 0.46, 0.16, 1.0],  // green (darker)
+            Self::Folder => [0.40, 0.28, 0.16, 1.0],  // brown (darker)
+            Self::Quote => [0.42, 0.12, 0.58, 1.0],   // purple (darker)
+            Self::Tag => [0.25, 0.25, 0.30, 1.0],     // gray (darker)
+            Self::Block => [0.15, 0.42, 0.60, 1.0],   // blue (darker)
         }
     }
 
@@ -100,22 +100,22 @@ pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
     }
 }
 
-/// RGBA color for an edge type (light mode — higher contrast on light background).
+/// RGBA color for an edge type (light mode — strong contrast on light background).
 pub fn edge_type_color_light(edge_type: u8) -> [f32; 4] {
     match edge_type {
-        0  => [0.40, 0.40, 0.45, 0.40],  // reference — dark gray
-        1  => [0.40, 0.30, 0.20, 0.40],  // contains — brown
-        2  => [0.36, 0.36, 0.40, 0.35],  // tagged — gray
-        3  => [0.20, 0.50, 0.75, 0.50],  // mentions — blue
-        4  => [0.10, 0.58, 0.22, 0.55],  // cites — green
-        5  => [0.80, 0.45, 0.00, 0.50],  // authored — orange
-        6  => [0.52, 0.20, 0.70, 0.50],  // related — purple
-        7  => [0.75, 0.60, 0.00, 0.50],  // quotes — gold
-        8  => [0.15, 0.65, 0.25, 0.55],  // supports — green
-        9  => [0.80, 0.15, 0.15, 0.55],  // contradicts — red
-        10 => [0.15, 0.60, 0.60, 0.50],  // expands — teal
-        11 => [0.75, 0.55, 0.05, 0.50],  // questions — amber
-        _  => [0.40, 0.40, 0.45, 0.35],  // default — gray
+        0  => [0.30, 0.30, 0.35, 0.55],  // reference — dark gray
+        1  => [0.30, 0.22, 0.12, 0.55],  // contains — brown
+        2  => [0.28, 0.28, 0.32, 0.50],  // tagged — gray
+        3  => [0.12, 0.38, 0.65, 0.60],  // mentions — blue
+        4  => [0.06, 0.45, 0.16, 0.65],  // cites — green
+        5  => [0.65, 0.35, 0.00, 0.60],  // authored — orange
+        6  => [0.40, 0.12, 0.58, 0.60],  // related — purple
+        7  => [0.60, 0.48, 0.00, 0.60],  // quotes — gold
+        8  => [0.08, 0.50, 0.18, 0.65],  // supports — green
+        9  => [0.65, 0.10, 0.10, 0.65],  // contradicts — red
+        10 => [0.08, 0.48, 0.48, 0.60],  // expands — teal
+        11 => [0.60, 0.42, 0.02, 0.60],  // questions — amber
+        _  => [0.30, 0.30, 0.35, 0.50],  // default — gray
     }
 }
 

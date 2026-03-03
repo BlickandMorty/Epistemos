@@ -133,6 +133,29 @@ void graph_engine_clear_highlight(Engine* engine);
 /// Highlight nodes matching a search query (case-insensitive label match).
 void graph_engine_search_highlight(Engine* engine, const char* query);
 
+/// Poll haptic event flag: 0=None, 1=Light snap, 2=Heavy collision.
+uint8_t graph_engine_poll_haptic(Engine* engine);
+
+/// Enable/disable bullet-time search physics (slow-motion drift during search).
+void graph_engine_set_search_active(Engine* engine, uint8_t active);
+
+/// Update laboratory physics toggles and tuning knobs.
+void graph_engine_set_lab_params(
+    Engine* engine,
+    uint8_t enable_fluid,
+    uint8_t enable_torsion,
+    uint8_t enable_elastic,
+    uint8_t enable_tension,
+    float fluid_viscosity,
+    float edge_elasticity,
+    float torsion_rigidity,
+    float boids_cohesion,
+    float wind_x,
+    float wind_y,
+    uint8_t enable_orbital,
+    float orbital_speed
+);
+
 // ── Camera ──────────────────────────────────────────────────────────────────
 
 /// Animate camera to center on visible nodes.

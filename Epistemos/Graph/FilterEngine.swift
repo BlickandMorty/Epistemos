@@ -9,8 +9,8 @@ final class FilterEngine {
 
     // MARK: - State
 
-    /// Which node types are currently visible. Starts with all types active.
-    private(set) var activeNodeTypes: Set<GraphNodeType> = Set(GraphNodeType.allCases)
+    /// Which node types are currently visible. Starts with all visible types active.
+    private(set) var activeNodeTypes: Set<GraphNodeType> = Set(GraphNodeType.visibleCases)
 
     /// The node ID currently focused on, if any.
     private(set) var focusedNodeId: String?
@@ -22,7 +22,7 @@ final class FilterEngine {
 
     /// True if any filter is active (not all types shown, or focused).
     var isFiltered: Bool {
-        activeNodeTypes.count != GraphNodeType.allCases.count
+        activeNodeTypes.count != GraphNodeType.visibleCases.count
             || focusedNodeId != nil
     }
 
@@ -39,7 +39,7 @@ final class FilterEngine {
 
     /// Reset to showing all node types.
     func showAllTypes() {
-        activeNodeTypes = Set(GraphNodeType.allCases)
+        activeNodeTypes = Set(GraphNodeType.visibleCases)
     }
 
     // MARK: - Focus Methods

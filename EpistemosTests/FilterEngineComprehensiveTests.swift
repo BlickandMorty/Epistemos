@@ -53,8 +53,8 @@ struct FilterEngineInitializationTests {
     func defaultInitializationAllTypesActive() {
         let engine = FilterEngine()
         
-        #expect(engine.activeNodeTypes.count == GraphNodeType.allCases.count)
-        for type in GraphNodeType.allCases {
+        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
+        for type in GraphNodeType.visibleCases {
             #expect(engine.activeNodeTypes.contains(type))
         }
     }
@@ -119,7 +119,7 @@ struct FilterEngineTypeToggleTests {
     func toggleAllTypesResultsEmpty() {
         let engine = FilterEngine()
         
-        for type in GraphNodeType.allCases {
+        for type in GraphNodeType.visibleCases {
             engine.toggleType(type)
         }
         
@@ -132,10 +132,10 @@ struct FilterEngineTypeToggleTests {
         let engine = FilterEngine()
         
         engine.toggleType(.note)
-        #expect(engine.activeNodeTypes.count == GraphNodeType.allCases.count - 1)
+        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count - 1)
         
         engine.toggleType(.note)
-        #expect(engine.activeNodeTypes.count == GraphNodeType.allCases.count)
+        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
     }
 }
 
@@ -151,7 +151,7 @@ struct FilterEngineShowAllTypesTests {
         engine.toggleType(.tag)
         engine.showAllTypes()
         
-        #expect(engine.activeNodeTypes.count == GraphNodeType.allCases.count)
+        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
     }
     
     @Test("showAllTypes clears isFiltered")
@@ -358,7 +358,7 @@ struct FilterEngineNodeVisibilityTests {
     func isNodeVisibleForAllTypes() {
         let engine = FilterEngine()
         
-        for type in GraphNodeType.allCases {
+        for type in GraphNodeType.visibleCases {
             let node = FilterTestHelpers.makeNode(id: "test-\(type)", type: type)
             #expect(engine.isNodeVisible(node), "Node of type \(type) should be visible")
         }
@@ -586,7 +586,7 @@ struct FilterEngineTypeFilterSpecificTests {
     func allSevenTypesCanBeToggled() {
         let engine = FilterEngine()
         
-        for type in GraphNodeType.allCases {
+        for type in GraphNodeType.visibleCases {
             engine.toggleType(type)
             #expect(!engine.activeNodeTypes.contains(type), "Type \(type) should be toggled off")
             
@@ -600,11 +600,11 @@ struct FilterEngineTypeFilterSpecificTests {
         let engine = FilterEngine()
         
         // Test that each type can be individually filtered
-        for typeToFilter in GraphNodeType.allCases {
+        for typeToFilter in GraphNodeType.visibleCases {
             let engine = FilterEngine()
             engine.toggleType(typeToFilter)
             
-            for type in GraphNodeType.allCases {
+            for type in GraphNodeType.visibleCases {
                 let node = FilterTestHelpers.makeNode(id: "test", type: type)
                 let expectedVisible = (type != typeToFilter)
                 #expect(engine.isNodeVisible(node) == expectedVisible,
@@ -686,14 +686,14 @@ struct FilterEngineAdditionalTypeTests {
         let engine = FilterEngine()
         
         // Hide all types
-        for type in GraphNodeType.allCases {
+        for type in GraphNodeType.visibleCases {
             engine.toggleType(type)
         }
         #expect(engine.activeNodeTypes.isEmpty)
         
         // Show all
         engine.showAllTypes()
-        #expect(engine.activeNodeTypes.count == GraphNodeType.allCases.count)
+        #expect(engine.activeNodeTypes.count == GraphNodeType.visibleCases.count)
     }
     
     @Test("specific type visibility - note")
@@ -879,13 +879,13 @@ struct FilterEngineStressTests {
         
         // Rapidly toggle types
         for i in 0..<50 {
-            let type = GraphNodeType.allCases[i % GraphNodeType.allCases.count]
+            let type = GraphNodeType.visibleCases[i % GraphNodeType.visibleCases.count]
             engine.toggleType(type)
         }
         
         // Should still be in a valid state
         #expect(engine.activeNodeTypes.count >= 0)
-        #expect(engine.activeNodeTypes.count <= GraphNodeType.allCases.count)
+        #expect(engine.activeNodeTypes.count <= GraphNodeType.visibleCases.count)
     }
     
     @Test("alternating focus and clear")

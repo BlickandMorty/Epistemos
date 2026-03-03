@@ -18,6 +18,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     case crystal = "Crystal"             // Tight, structured, snappy
     case fluid = "Fluid"                 // Bouncy, dynamic, alive
     case constellation = "Constellation" // Very spread, minimal gravity
+    case deepSea = "Deep Sea"            // Heavy viscosity, slow currents
+    case solarSystem = "Solar System"    // Orbital hierarchies, wide spacing
+    case windTunnel = "Wind Tunnel"      // Lateral wind, low friction
+    case snowflake = "Snowflake"         // Max torsion, crystalline
+    case rubberBand = "Rubber Band"      // Elastic edges, bouncy
+    case zenGarden = "Zen Garden"        // Minimal forces, peaceful drift
+    case chaos = "Chaos"                 // Everything cranked, wild
 
     var id: String { rawValue }
 
@@ -28,16 +35,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return "diamond"
         case .fluid:         return "drop"
         case .constellation: return "sparkles"
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .observatory:   return "Balanced spread, calm settling"
-        case .nebula:        return "Loose clusters, gentle drift"
-        case .crystal:       return "Tight structure, snappy response"
-        case .fluid:         return "Bouncy, dynamic, alive"
-        case .constellation: return "Wide spread, minimal gravity"
+        case .deepSea:       return "water.waves"
+        case .solarSystem:   return "sun.max"
+        case .windTunnel:    return "wind"
+        case .snowflake:     return "snowflake"
+        case .rubberBand:    return "lasso"
+        case .zenGarden:     return "leaf"
+        case .chaos:         return "bolt.fill"
         }
     }
 
@@ -48,6 +52,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return 120
         case .fluid:         return 180
         case .constellation: return 350
+        case .deepSea:       return 200
+        case .solarSystem:   return 300
+        case .windTunnel:    return 200
+        case .snowflake:     return 100
+        case .rubberBand:    return 220
+        case .zenGarden:     return 300
+        case .chaos:         return 150
         }
     }
     var chargeStrength: Float {
@@ -57,6 +68,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return -600
         case .fluid:         return -350
         case .constellation: return -200
+        case .deepSea:       return -300
+        case .solarSystem:   return -400
+        case .windTunnel:    return -300
+        case .snowflake:     return -800
+        case .rubberBand:    return -400
+        case .zenGarden:     return -150
+        case .chaos:         return -1000
         }
     }
     var chargeRange: Float {
@@ -66,6 +84,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return 800
         case .fluid:         return 1000
         case .constellation: return 1500
+        case .deepSea:       return 800
+        case .solarSystem:   return 1500
+        case .windTunnel:    return 1000
+        case .snowflake:     return 600
+        case .rubberBand:    return 900
+        case .zenGarden:     return 1200
+        case .chaos:         return 2000
         }
     }
     var linkStrength: Float {
@@ -75,6 +100,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return 0
         case .fluid:         return 0
         case .constellation: return 0
+        case .deepSea:       return 0
+        case .solarSystem:   return 0.3
+        case .windTunnel:    return 0
+        case .snowflake:     return 0.8
+        case .rubberBand:    return 0
+        case .zenGarden:     return 0
+        case .chaos:         return 0
         }
     }
 
@@ -85,6 +117,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return 0.90
         case .fluid:         return 0.20
         case .constellation: return 0.08
+        case .deepSea:       return 0.50
+        case .solarSystem:   return 0.08
+        case .windTunnel:    return 0.05
+        case .snowflake:     return 0.85
+        case .rubberBand:    return 0.10
+        case .zenGarden:     return 0.15
+        case .chaos:         return 0.05
         }
     }
     var centerStrength: Float {
@@ -94,6 +133,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return 0.02
         case .fluid:         return 0.008
         case .constellation: return 0.001
+        case .deepSea:       return 0.005
+        case .solarSystem:   return 0.003
+        case .windTunnel:    return 0.001
+        case .snowflake:     return 0.015
+        case .rubberBand:    return 0.005
+        case .zenGarden:     return 0
+        case .chaos:         return 0
         }
     }
     var collisionRadius: Float {
@@ -103,6 +149,63 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .crystal:       return 30
         case .fluid:         return 45
         case .constellation: return 35
+        case .deepSea:       return 50
+        case .solarSystem:   return 40
+        case .windTunnel:    return 30
+        case .snowflake:     return 25
+        case .rubberBand:    return 45
+        case .zenGarden:     return 60
+        case .chaos:         return 20
+        }
+    }
+
+    // MARK: - Laboratory Overrides
+
+    /// Lab params that differ from defaults. nil = keep current user setting.
+    struct LabOverrides {
+        var enableFluid: Bool?
+        var enableTorsion: Bool?
+        var enableElastic: Bool?
+        var enableTension: Bool?
+        var fluidViscosity: Float?
+        var edgeElasticity: Float?
+        var torsionRigidity: Float?
+        var boidsCohesion: Float?
+        var windX: Float?
+        var windY: Float?
+        var enableOrbital: Bool?
+        var orbitalSpeed: Float?
+    }
+
+    var labOverrides: LabOverrides {
+        switch self {
+        case .observatory:
+            return LabOverrides(enableFluid: true, enableTorsion: true, enableElastic: true,
+                              enableTension: true, windX: 0, windY: 0, enableOrbital: false)
+        case .deepSea:
+            return LabOverrides(enableFluid: true, enableElastic: true,
+                              fluidViscosity: 0.9, edgeElasticity: 0.7, windX: 0, windY: 0)
+        case .solarSystem:
+            return LabOverrides(enableTorsion: false, windX: 0, windY: 0,
+                              enableOrbital: true, orbitalSpeed: 0.6)
+        case .windTunnel:
+            return LabOverrides(enableFluid: true, fluidViscosity: 0.2, windX: 30, windY: 5)
+        case .snowflake:
+            return LabOverrides(enableTorsion: true, enableElastic: false,
+                              torsionRigidity: 1.0, windX: 0, windY: 0)
+        case .rubberBand:
+            return LabOverrides(enableElastic: true, enableTension: true,
+                              edgeElasticity: 1.0, windX: 0, windY: 0)
+        case .zenGarden:
+            return LabOverrides(enableFluid: false, enableTorsion: false, enableElastic: false,
+                              windX: 0, windY: 0, enableOrbital: false)
+        case .chaos:
+            return LabOverrides(enableFluid: true, enableTorsion: true, enableElastic: true,
+                              enableTension: true, fluidViscosity: 0.1, edgeElasticity: 0.9,
+                              torsionRigidity: 0.8, windX: 20, windY: -15,
+                              enableOrbital: true, orbitalSpeed: 0.8)
+        default:
+            return LabOverrides()
         }
     }
 }
@@ -272,6 +375,27 @@ final class GraphState {
         savePhysicsSettings()
     }
 
+    // ── Laboratory (advanced physics toggles + knobs) ──
+    var enableFluidDynamics: Bool = true
+    var enableTorsionalSprings: Bool = true
+    var enableElasticEdges: Bool = true
+    var enableTensionColoring: Bool = true
+    var fluidViscosity: Float = 0.5
+    var edgeElasticity: Float = 0.5
+    var torsionRigidity: Float = 0.5
+    var boidsCohesion: Float = 0.5
+    var windX: Float = 0.0
+    var windY: Float = 0.0
+    var enableOrbital: Bool = false
+    var orbitalSpeed: Float = 0.3
+
+    var labConfigVersion: Int = 0
+
+    func pushLabChange() {
+        labConfigVersion += 1
+        savePhysicsSettings()
+    }
+
     // MARK: - Physics Persistence
 
     /// Save all force parameters to UserDefaults so they survive app restarts.
@@ -289,13 +413,25 @@ final class GraphState {
         d.set(semanticStrength, forKey: "epistemos.physics.semanticStrength")
         d.set(useSemanticClustering, forKey: "epistemos.physics.useSemanticClustering")
         d.set(isPhysicsFrozen, forKey: "epistemos.physics.userFrozen")
+        d.set(enableFluidDynamics, forKey: "epistemos.physics.enableFluid")
+        d.set(enableTorsionalSprings, forKey: "epistemos.physics.enableTorsion")
+        d.set(enableElasticEdges, forKey: "epistemos.physics.enableElastic")
+        d.set(enableTensionColoring, forKey: "epistemos.physics.enableTension")
+        d.set(fluidViscosity, forKey: "epistemos.physics.fluidViscosity")
+        d.set(edgeElasticity, forKey: "epistemos.physics.edgeElasticity")
+        d.set(torsionRigidity, forKey: "epistemos.physics.torsionRigidity")
+        d.set(boidsCohesion, forKey: "epistemos.physics.boidsCohesion")
+        d.set(windX, forKey: "epistemos.physics.windX")
+        d.set(windY, forKey: "epistemos.physics.windY")
+        d.set(enableOrbital, forKey: "epistemos.physics.enableOrbital")
+        d.set(orbitalSpeed, forKey: "epistemos.physics.orbitalSpeed")
         d.set(true, forKey: "epistemos.physics.hasSavedSettings")
         d.set(Self.physicsVersion, forKey: "epistemos.physics.version")
     }
 
     /// Restore force parameters from UserDefaults. No-op if never saved.
     /// Uses a version key to force reset when defaults change across app updates.
-    private static let physicsVersion = 4  // Bump to force reset on next launch
+    private static let physicsVersion = 6  // Bump to force reset on next launch
     private func restorePhysicsSettings() {
         let d = UserDefaults.standard
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }
@@ -317,6 +453,21 @@ final class GraphState {
         semanticStrength = d.float(forKey: "epistemos.physics.semanticStrength")
         useSemanticClustering = d.bool(forKey: "epistemos.physics.useSemanticClustering")
         isPhysicsFrozen = d.bool(forKey: "epistemos.physics.userFrozen")
+        // Lab params: only restore if key exists (otherwise keep defaults = true/0.5).
+        if d.object(forKey: "epistemos.physics.enableFluid") != nil {
+            enableFluidDynamics = d.bool(forKey: "epistemos.physics.enableFluid")
+            enableTorsionalSprings = d.bool(forKey: "epistemos.physics.enableTorsion")
+            enableElasticEdges = d.bool(forKey: "epistemos.physics.enableElastic")
+            enableTensionColoring = d.bool(forKey: "epistemos.physics.enableTension")
+            fluidViscosity = d.float(forKey: "epistemos.physics.fluidViscosity")
+            edgeElasticity = d.float(forKey: "epistemos.physics.edgeElasticity")
+            torsionRigidity = d.float(forKey: "epistemos.physics.torsionRigidity")
+            boidsCohesion = d.float(forKey: "epistemos.physics.boidsCohesion")
+            windX = d.float(forKey: "epistemos.physics.windX")
+            windY = d.float(forKey: "epistemos.physics.windY")
+            enableOrbital = d.bool(forKey: "epistemos.physics.enableOrbital")
+            orbitalSpeed = d.float(forKey: "epistemos.physics.orbitalSpeed")
+        }
         if isPhysicsFrozen { physicsFrozenVersion += 1 }
     }
 
@@ -382,8 +533,25 @@ final class GraphState {
         velocityDecay = preset.velocityDecay
         centerStrength = preset.centerStrength
         collisionRadius = preset.collisionRadius
+
+        // Apply lab overrides from preset (nil = keep current value).
+        let lab = preset.labOverrides
+        if let v = lab.enableFluid    { enableFluidDynamics = v }
+        if let v = lab.enableTorsion  { enableTorsionalSprings = v }
+        if let v = lab.enableElastic  { enableElasticEdges = v }
+        if let v = lab.enableTension  { enableTensionColoring = v }
+        if let v = lab.fluidViscosity { fluidViscosity = v }
+        if let v = lab.edgeElasticity { edgeElasticity = v }
+        if let v = lab.torsionRigidity { torsionRigidity = v }
+        if let v = lab.boidsCohesion  { boidsCohesion = v }
+        if let v = lab.windX          { windX = v }
+        if let v = lab.windY          { windY = v }
+        if let v = lab.enableOrbital  { enableOrbital = v }
+        if let v = lab.orbitalSpeed   { orbitalSpeed = v }
+
         forceConfigVersion += 1
         extendedForceConfigVersion += 1
+        labConfigVersion += 1
         savePhysicsSettings()
     }
 
@@ -602,6 +770,12 @@ final class GraphState {
         if let cQuery = query.cString(using: .utf8) {
             graph_engine_search_highlight(engine, cQuery)
         }
+    }
+
+    /// Enable/disable bullet-time search physics (slow-motion drift during search).
+    func setSearchActive(_ active: Bool) {
+        guard let engine = engineHandle else { return }
+        graph_engine_set_search_active(engine, active ? 1 : 0)
     }
 
     // MARK: - Selection

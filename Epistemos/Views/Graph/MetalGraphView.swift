@@ -451,6 +451,7 @@ final class MetalGraphNSView: NSView {
     var lastSemanticClusterVersion: Int = -1
     var lastFilterVersion: Int = 0
     var lastPhysicsFrozenVersion: Int = 0
+    var lastLabConfigVersion: Int = -1
 
     func pushForceParams() {
         guard let engine, let graphState else { return }
@@ -471,6 +472,26 @@ final class MetalGraphNSView: NSView {
             graphState.velocityDecay,
             graphState.centerStrength,
             graphState.collisionRadius
+        )
+        needsRender = true
+    }
+
+    func pushLabParams() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_lab_params(
+            engine,
+            graphState.enableFluidDynamics ? 1 : 0,
+            graphState.enableTorsionalSprings ? 1 : 0,
+            graphState.enableElasticEdges ? 1 : 0,
+            graphState.enableTensionColoring ? 1 : 0,
+            graphState.fluidViscosity,
+            graphState.edgeElasticity,
+            graphState.torsionRigidity,
+            graphState.boidsCohesion,
+            graphState.windX,
+            graphState.windY,
+            graphState.enableOrbital ? 1 : 0,
+            graphState.orbitalSpeed
         )
         needsRender = true
     }
@@ -606,6 +627,12 @@ final class MetalGraphNSView: NSView {
         if let graphState, engine != nil, lastLiteModeVersion != graphState.liteModeVersion {
             lastLiteModeVersion = graphState.liteModeVersion
             graph_engine_set_quality_level(engine, graphState.qualityLevel)
+        }
+
+        // Sync laboratory params (toggles + knobs for advanced physics).
+        if let graphState, lastLabConfigVersion != graphState.labConfigVersion {
+            lastLabConfigVersion = graphState.labConfigVersion
+            pushLabParams()
         }
 
         // Sync cluster params (cluster strength, center mode).

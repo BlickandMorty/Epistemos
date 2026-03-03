@@ -214,6 +214,42 @@ final class GraphEngine {
         query.withCString { graph_engine_search_highlight(h, $0) }
     }
 
+    /// Poll haptic event flag: 0=None, 1=Light snap, 2=Heavy collision.
+    func pollHaptic() -> UInt8 {
+        guard let h = handle else { return 0 }
+        return graph_engine_poll_haptic(h)
+    }
+
+    /// Enable/disable bullet-time search physics.
+    func setSearchActive(_ active: Bool) {
+        guard let h = handle else { return }
+        graph_engine_set_search_active(h, active ? 1 : 0)
+    }
+
+    /// Update laboratory physics toggles and tuning knobs.
+    func setLabParams(
+        enableFluid: Bool, enableTorsion: Bool,
+        enableElastic: Bool, enableTension: Bool,
+        fluidViscosity: Float, edgeElasticity: Float,
+        torsionRigidity: Float, boidsCohesion: Float,
+        windX: Float, windY: Float,
+        enableOrbital: Bool, orbitalSpeed: Float
+    ) {
+        guard let h = handle else { return }
+        graph_engine_set_lab_params(
+            h,
+            enableFluid ? 1 : 0,
+            enableTorsion ? 1 : 0,
+            enableElastic ? 1 : 0,
+            enableTension ? 1 : 0,
+            fluidViscosity, edgeElasticity,
+            torsionRigidity, boidsCohesion,
+            windX, windY,
+            enableOrbital ? 1 : 0,
+            orbitalSpeed
+        )
+    }
+
     // MARK: - Camera
 
     /// Animate camera to center on all visible nodes.

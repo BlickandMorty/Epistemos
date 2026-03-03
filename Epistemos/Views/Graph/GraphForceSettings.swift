@@ -11,6 +11,7 @@ struct GraphForceSettings: View {
 
     @State private var selectedPreset: PhysicsPreset? = .observatory
     @State private var showAdvanced = false
+    @State private var showLaboratory = false
 
     private var isStatic: Bool { graphState.isStaticLayout }
 
@@ -54,6 +55,17 @@ struct GraphForceSettings: View {
                     .allowsHitTesting(!isStatic)
 
                 Divider().opacity(0.3)
+                laboratoryToggle
+                    .opacity(isStatic ? 0.4 : 1.0)
+                    .allowsHitTesting(!isStatic)
+
+                if showLaboratory {
+                    laboratorySection(gs: $gs)
+                        .opacity(isStatic ? 0.4 : 1.0)
+                        .allowsHitTesting(!isStatic)
+                }
+
+                Divider().opacity(0.3)
                 resetButton
                     .opacity(isStatic ? 0.4 : 1.0)
                     .allowsHitTesting(!isStatic)
@@ -64,7 +76,7 @@ struct GraphForceSettings: View {
             .padding(16)
         }
         .frame(width: 280)
-        .frame(maxHeight: 620)
+        .frame(maxHeight: 900)
     }
 
     // MARK: - Static Layout Banner
@@ -105,6 +117,7 @@ struct GraphForceSettings: View {
                 .foregroundStyle(.primary)
 
             LazyVGrid(columns: [
+                GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible()),
             ], spacing: 6) {
@@ -278,6 +291,163 @@ struct GraphForceSettings: View {
         }
     }
 
+    // MARK: - Laboratory Toggle
+
+    private var laboratoryToggle: some View {
+        Button {
+            withAnimation(.smooth(duration: 0.2)) { showLaboratory.toggle() }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: showLaboratory ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                Text("The Laboratory")
+                    .font(.system(size: 11, weight: .medium))
+                Spacer()
+            }
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Laboratory Section
+
+    private func laboratorySection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // ── World Rules ──
+            VStack(alignment: .leading, spacing: 8) {
+                sectionHeader("World Rules", icon: "water.waves")
+
+                labToggle(
+                    label: "Fluid Wake Physics",
+                    isOn: gs.enableFluidDynamics,
+                    onChange: { graphState.pushLabChange() }
+                )
+                if graphState.enableFluidDynamics {
+                    forceSlider(
+                        label: "Viscosity",
+                        value: gs.fluidViscosity,
+                        range: 0...1,
+                        format: "%.2f",
+                        subtitle: "Water \u{2194} Honey",
+                        onChange: { graphState.pushLabChange() }
+                    )
+                }
+
+                labToggle(
+                    label: "Semantic Schooling (Boids)",
+                    isOn: Binding(
+                        get: { graphState.semanticStrength > 0.001 },
+                        set: { graphState.semanticStrength = $0 ? 1.0 : 0.0; graphState.pushSemanticChange() }
+                    ),
+                    onChange: {}
+                )
+                if graphState.semanticStrength > 0.001 {
+                    forceSlider(
+                        label: "Cohesion",
+                        value: gs.boidsCohesion,
+                        range: 0...1,
+                        format: "%.2f",
+                        subtitle: "Loose \u{2194} Swarm",
+                        onChange: { graphState.pushLabChange() }
+                    )
+                }
+            }
+
+            Divider().opacity(0.2)
+
+            // ── Materials ──
+            VStack(alignment: .leading, spacing: 8) {
+                sectionHeader("Materials", icon: "cube.transparent")
+
+                labToggle(
+                    label: "Elastic Links",
+                    isOn: gs.enableElasticEdges,
+                    onChange: { graphState.pushLabChange() }
+                )
+                if graphState.enableElasticEdges {
+                    forceSlider(
+                        label: "Rubber Band Snap",
+                        value: gs.edgeElasticity,
+                        range: 0...1,
+                        format: "%.2f",
+                        subtitle: "Taut \u{2194} Sloppy",
+                        onChange: { graphState.pushLabChange() }
+                    )
+                }
+
+                labToggle(
+                    label: "Crystalline Angular Tension",
+                    isOn: gs.enableTorsionalSprings,
+                    onChange: { graphState.pushLabChange() }
+                )
+                if graphState.enableTorsionalSprings {
+                    forceSlider(
+                        label: "Rigidity",
+                        value: gs.torsionRigidity,
+                        range: 0...1,
+                        format: "%.2f",
+                        subtitle: "Organic Blob \u{2194} Snowflake",
+                        onChange: { graphState.pushLabChange() }
+                    )
+                }
+            }
+
+            Divider().opacity(0.2)
+
+            // ── Forces ──
+            VStack(alignment: .leading, spacing: 8) {
+                sectionHeader("Forces", icon: "wind")
+
+                forceSlider(
+                    label: "Wind X",
+                    value: gs.windX,
+                    range: -50...50,
+                    format: "%.1f",
+                    subtitle: "Left \u{2194} Right drift",
+                    onChange: { graphState.pushLabChange() }
+                )
+                forceSlider(
+                    label: "Wind Y",
+                    value: gs.windY,
+                    range: -50...50,
+                    format: "%.1f",
+                    subtitle: "Up \u{2194} Down drift",
+                    onChange: { graphState.pushLabChange() }
+                )
+
+                labToggle(
+                    label: "Orbital Hierarchies",
+                    isOn: gs.enableOrbital,
+                    onChange: { graphState.pushLabChange() }
+                )
+                if graphState.enableOrbital {
+                    forceSlider(
+                        label: "Orbital Speed",
+                        value: gs.orbitalSpeed,
+                        range: 0...1,
+                        format: "%.2f",
+                        subtitle: "Still \u{2194} Fast",
+                        onChange: { graphState.pushLabChange() }
+                    )
+                }
+            }
+
+            Divider().opacity(0.2)
+
+            // ── Optics ──
+            VStack(alignment: .leading, spacing: 8) {
+                sectionHeader("Optics", icon: "eye")
+
+                labToggle(
+                    label: "High-Tension Edge Glow",
+                    isOn: gs.enableTensionColoring,
+                    onChange: { graphState.pushLabChange() }
+                )
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
     // MARK: - Reset
 
     private var resetButton: some View {
@@ -371,5 +541,20 @@ struct GraphForceSettings: View {
             }
             .controlSize(.small)
         }
+    }
+
+    private func labToggle(
+        label: String,
+        isOn: Binding<Bool>,
+        onChange: @escaping () -> Void
+    ) -> some View {
+        Toggle(isOn: isOn) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.mini)
+        .onChange(of: isOn.wrappedValue) { onChange() }
     }
 }

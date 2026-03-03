@@ -79,7 +79,7 @@ struct GraphFloatingControls: View {
 
     private var typeFilterPills: some View {
         HStack(spacing: 6) {
-            ForEach(GraphNodeType.allCases, id: \.rawValue) { type in
+            ForEach(GraphNodeType.visibleCases, id: \.rawValue) { type in
                 FilterPill(
                     type: type,
                     isActive: graphState.filter.activeNodeTypes.contains(type),

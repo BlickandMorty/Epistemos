@@ -133,3 +133,422 @@ struct TriageServiceTests {
         #expect(!TriageDecision.apiProvider.isOnDevice)
     }
 }
+
+@MainActor
+final class TriageIntegrationMockLLMClient: LLMClientProtocol {
+    var generateCalls: [(prompt: String, systemPrompt: String?, maxTokens: Int)] = []
+    var streamCalls: [(prompt: String, systemPrompt: String?, maxTokens: Int)] = []
+
+    var generateResult: Result<String, Error> = .success("mock-generate")
+    var streamTokens: [String] = ["mock-stream"]
+    var streamError: (any Error)?
+
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        generateCalls.append((prompt, systemPrompt, maxTokens))
+        switch generateResult {
+        case .success(let output):
+            return output
+        case .failure(let error):
+            throw error
+        }
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        streamCalls.append((prompt, systemPrompt, maxTokens))
+        let tokens = streamTokens
+        let error = streamError
+
+        return AsyncThrowingStream { continuation in
+            Task {
+                for token in tokens {
+                    continuation.yield(token)
+                }
+                if let error {
+                    continuation.finish(throwing: error)
+                } else {
+                    continuation.finish()
+                }
+            }
+        }
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(provider: .anthropic, apiKey: "test-key", model: "test-model", ollamaBaseUrl: "http://localhost:11434")
+    }
+
+    func enrichmentSnapshot() -> LLMSnapshot { configSnapshot() }
+}
+
+@Suite("TriageService Integration")
+struct TriageServiceIntegrationTests {
+
+    // MARK: - Notes Routing
+
+    @Test("notes triage prefers on-device for simple transforms when Apple AI is available")
+    @MainActor func notesSimpleOperationsUseOnDevice() {
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
+
+        #expect(triage.triage(operation: .grammarFix, contentLength: 240) == .appleIntelligence)
+        #expect(triage.triage(operation: .summarize, contentLength: 240) == .appleIntelligence)
+        #expect(triage.triage(operation: .rewrite, contentLength: 240) == .appleIntelligence)
+    }
+
+    @Test("notes triage routes complex operations to cloud when key is configured")
+    @MainActor func notesComplexOperationsUseCloud() {
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
+
+        #expect(triage.triage(operation: .continueWriting, contentLength: 100) == .apiProvider)
+        #expect(triage.triage(operation: .ask(query: "How does this mechanism work in detail?"), contentLength: 100) == .apiProvider)
+        #expect(triage.triage(operation: .outline, contentLength: 100) == .apiProvider)
+        #expect(triage.triage(operation: .expand, contentLength: 100) == .apiProvider)
+        #expect(triage.triage(operation: .analyze, contentLength: 100) == .apiProvider)
+        #expect(triage.triage(operation: .learn, contentLength: 100) == .apiProvider)
+    }
+
+    @Test("notes triage force-routes to on-device when selected provider key is missing")
+    @MainActor func notesNoSelectedProviderKeyForcesOnDevice() {
+        // OpenAI is selected and empty; Anthropic key is irrelevant for selected-provider routing.
+        let triage = makeService(apiProvider: .openai, apiKey: "", appleAvailable: true, otherProviderKey: "anthropic-key")
+
+        #expect(triage.triage(operation: .learn, contentLength: 12000) == .appleIntelligence)
+    }
+
+    @Test("notes triage routes to cloud when Apple AI is unavailable")
+    @MainActor func notesAppleUnavailableUsesCloud() {
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false)
+
+        #expect(triage.triage(operation: .grammarFix, contentLength: 100) == .apiProvider)
+    }
+
+    @Test("direct triage calls do not mutate lastDecision state")
+    @MainActor func triageCallsDoNotMutateLastDecision() {
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
+
+        _ = triage.triage(operation: .grammarFix, contentLength: 50)
+        _ = triage.triageGeneral(operation: .brainstorm, contentLength: 50)
+        #expect(triage.lastDecision == nil)
+    }
+
+    // MARK: - General Routing
+
+    @Test("general triage sends brainstorm to on-device when Apple AI is available")
+    @MainActor func generalBrainstormUsesOnDevice() {
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
+        #expect(triage.triageGeneral(operation: .brainstorm, contentLength: 500) == .appleIntelligence)
+    }
+
+    @Test("general triage routes higher-complexity operations to cloud")
+    @MainActor func generalComplexUsesCloud() {
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
+
+        #expect(triage.triageGeneral(operation: .chatResponse(query: "What is Bayesian updating?"), contentLength: 100) == .apiProvider)
+        #expect(triage.triageGeneral(operation: .epistemicLens, contentLength: 100) == .apiProvider)
+        #expect(triage.triageGeneral(operation: .apiOnly, contentLength: 100) == .apiProvider)
+    }
+
+    @Test("general triage force-routes to on-device when selected provider key is missing")
+    @MainActor func generalNoSelectedProviderKeyForcesOnDevice() {
+        let triage = makeService(apiProvider: .google, apiKey: "", appleAvailable: true)
+        #expect(triage.triageGeneral(operation: .apiOnly, contentLength: 10000) == .appleIntelligence)
+    }
+
+    @Test("general triage routes to cloud when Apple AI is unavailable")
+    @MainActor func generalAppleUnavailableUsesCloud() {
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false)
+        #expect(triage.triageGeneral(operation: .brainstorm, contentLength: 100) == .apiProvider)
+    }
+
+    // MARK: - Notes Generate/Stream Integration
+
+    @Test("notes generate uses cloud path and records maxTokens default")
+    @MainActor func notesGenerateUsesCloudPath() async throws {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.generateResult = .success("cloud-response")
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        let output = try await triage.generate(
+            prompt: "Prompt A",
+            systemPrompt: "System A",
+            operation: .analyze,
+            contentLength: 1800
+        )
+
+        #expect(output == "cloud-response")
+        #expect(triage.lastDecision == .apiProvider)
+        #expect(mock.generateCalls.count == 1)
+        #expect(mock.streamCalls.isEmpty)
+        #expect(mock.generateCalls[0].prompt == "Prompt A")
+        #expect(mock.generateCalls[0].systemPrompt == "System A")
+        #expect(mock.generateCalls[0].maxTokens == 4096)
+    }
+
+    @Test("notes generate propagates cloud errors")
+    @MainActor func notesGeneratePropagatesCloudError() async {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.generateResult = .failure(LLMError.apiError(statusCode: 500, body: "boom"))
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        do {
+            _ = try await triage.generate(
+                prompt: "Prompt B",
+                systemPrompt: nil,
+                operation: .learn,
+                contentLength: 2400
+            )
+            Issue.record("Expected generate to throw")
+        } catch let error as LLMError {
+            if case .apiError(let code, _) = error {
+                #expect(code == 500)
+            } else {
+                Issue.record("Expected .apiError case")
+            }
+        } catch {
+            Issue.record("Expected LLMError, got \(type(of: error))")
+        }
+
+        #expect(triage.lastDecision == .apiProvider)
+        #expect(mock.generateCalls.count == 1)
+    }
+
+    @Test("notes stream uses cloud path and yields all chunks")
+    @MainActor func notesStreamUsesCloudPath() async {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.streamTokens = ["alpha", " ", "beta"]
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        let stream = triage.stream(
+            prompt: "Prompt C",
+            systemPrompt: "System C",
+            operation: .expand,
+            contentLength: 900
+        )
+        #expect(triage.lastDecision == .apiProvider)
+
+        let outcome = await collect(stream)
+        #expect(outcome.tokens == ["alpha", " ", "beta"])
+        if let error = outcome.error {
+            Issue.record("Unexpected stream error: \(error)")
+        }
+
+        #expect(mock.streamCalls.count == 1)
+        #expect(mock.generateCalls.isEmpty)
+        #expect(mock.streamCalls[0].prompt == "Prompt C")
+        #expect(mock.streamCalls[0].systemPrompt == "System C")
+        #expect(mock.streamCalls[0].maxTokens == 0)
+    }
+
+    @Test("notes stream propagates cloud stream errors after partial output")
+    @MainActor func notesStreamPropagatesCloudError() async {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.streamTokens = ["partial"]
+        mock.streamError = LLMError.apiError(statusCode: 503, body: "unavailable")
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        let stream = triage.stream(
+            prompt: "Prompt D",
+            systemPrompt: nil,
+            operation: .analyze,
+            contentLength: 1200
+        )
+        let outcome = await collect(stream)
+
+        #expect(outcome.tokens == ["partial"])
+        guard let error = outcome.error as? LLMError else {
+            Issue.record("Expected LLMError from stream")
+            return
+        }
+        if case .apiError(let code, _) = error {
+            #expect(code == 503)
+        } else {
+            Issue.record("Expected .apiError case")
+        }
+        #expect(triage.lastDecision == .apiProvider)
+    }
+
+    // MARK: - General Generate/Stream Integration
+
+    @Test("general generate apiOnly uses cloud path")
+    @MainActor func generalGenerateApiOnlyUsesCloudPath() async throws {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.generateResult = .success("general-cloud")
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        let output = try await triage.generateGeneral(
+            prompt: "General prompt",
+            systemPrompt: "General system",
+            operation: .apiOnly,
+            contentLength: 100
+        )
+
+        #expect(output == "general-cloud")
+        #expect(triage.lastDecision == .apiProvider)
+        #expect(mock.generateCalls.count == 1)
+        #expect(mock.generateCalls[0].maxTokens == 4096)
+    }
+
+    @Test("general generate chat response uses cloud path when Apple AI is unavailable")
+    @MainActor func generalGenerateChatResponseUsesCloudPath() async throws {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.generateResult = .success("chat-cloud")
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        let output = try await triage.generateGeneral(
+            prompt: "Explain epistemology",
+            operation: .chatResponse(query: "Explain epistemology"),
+            contentLength: 300
+        )
+
+        #expect(output == "chat-cloud")
+        #expect(mock.generateCalls.count == 1)
+        #expect(triage.lastDecision == .apiProvider)
+    }
+
+    @Test("general generate propagates non-auth cloud errors")
+    @MainActor func generalGeneratePropagatesNonAuthError() async {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.generateResult = .failure(LLMError.apiError(statusCode: 400, body: "bad request"))
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        do {
+            _ = try await triage.generateGeneral(
+                prompt: "General prompt 2",
+                operation: .apiOnly,
+                contentLength: 500
+            )
+            Issue.record("Expected generateGeneral to throw")
+        } catch let error as LLMError {
+            if case .apiError(let code, _) = error {
+                #expect(code == 400)
+            } else {
+                Issue.record("Expected .apiError case")
+            }
+        } catch {
+            Issue.record("Expected LLMError, got \(type(of: error))")
+        }
+
+        #expect(triage.lastDecision == .apiProvider)
+    }
+
+    @Test("general stream uses cloud path and yields all chunks")
+    @MainActor func generalStreamUsesCloudPath() async {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.streamTokens = ["x", "y", "z"]
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        let stream = triage.streamGeneral(
+            prompt: "General stream prompt",
+            operation: .epistemicLens,
+            contentLength: 600
+        )
+        let outcome = await collect(stream)
+
+        #expect(outcome.tokens == ["x", "y", "z"])
+        if let error = outcome.error {
+            Issue.record("Unexpected streamGeneral error: \(error)")
+        }
+        #expect(mock.streamCalls.count == 1)
+        #expect(triage.lastDecision == .apiProvider)
+    }
+
+    @Test("general stream propagates non-auth cloud stream errors")
+    @MainActor func generalStreamPropagatesNonAuthError() async {
+        let mock = TriageIntegrationMockLLMClient()
+        mock.streamTokens = ["chunk"]
+        mock.streamError = LLMError.apiError(statusCode: 500, body: "server")
+        let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: false, llm: mock)
+
+        let stream = triage.streamGeneral(
+            prompt: "General stream prompt 2",
+            operation: .chatResponse(query: "What is coherentism?"),
+            contentLength: 500
+        )
+        let outcome = await collect(stream)
+
+        #expect(outcome.tokens == ["chunk"])
+        guard let error = outcome.error as? LLMError else {
+            Issue.record("Expected LLMError from streamGeneral")
+            return
+        }
+        if case .apiError(let code, _) = error {
+            #expect(code == 500)
+        } else {
+            Issue.record("Expected .apiError case")
+        }
+        #expect(triage.lastDecision == .apiProvider)
+    }
+
+    // MARK: - Heuristic Edge Cases
+
+    @Test("refusal detection is case-insensitive and prefix-bounded")
+    func refusalCaseInsensitivityAndPrefixWindow() {
+        #expect(TriageService.isRefusalResponse("I CANNOT ASSIST WITH THIS REQUEST."))
+
+        let longPrefix = String(repeating: "valid-content ", count: 45) // >500 chars
+        let buried = longPrefix + "I cannot assist with this request."
+        #expect(!TriageService.isRefusalResponse(buried))
+    }
+
+    @Test("truncation detection accepts terminal bracket and quote")
+    func truncationTerminalCharactersAccepted() {
+        #expect(!TriageService.isTruncatedResponse("The quoted sentence is complete.'"))
+        #expect(!TriageService.isTruncatedResponse("The bracketed citation is complete.]"))
+    }
+
+    @Test("fallback check stays false for complete, substantive prose")
+    func fallbackFalseForCompleteResponse() {
+        let text = """
+        This answer includes sufficient detail, clear reasoning, and a proper ending.
+        It should not be classified as a refusal or a truncation artifact.
+        """
+        #expect(!TriageService.shouldFallbackToAPI(text))
+    }
+
+    // MARK: - Helpers
+
+    @MainActor
+    private func makeService(
+        apiProvider: LLMProviderType,
+        apiKey: String,
+        appleAvailable: Bool,
+        otherProviderKey: String = "",
+        llm: TriageIntegrationMockLLMClient = TriageIntegrationMockLLMClient()
+    ) -> TriageService {
+        let inference = InferenceState()
+        inference.apiProvider = apiProvider
+        inference.anthropicKey = ""
+        inference.openaiKey = ""
+        inference.googleKey = ""
+        inference.kimiKey = ""
+        inference.appleIntelligenceAvailable = appleAvailable
+
+        switch apiProvider {
+        case .anthropic: inference.anthropicKey = apiKey
+        case .openai: inference.openaiKey = apiKey
+        case .google: inference.googleKey = apiKey
+        case .kimi: inference.kimiKey = apiKey
+        case .ollama, .appleIntelligence: break
+        }
+
+        if !otherProviderKey.isEmpty {
+            inference.anthropicKey = otherProviderKey
+        }
+
+        return TriageService(inference: inference, llmService: llm)
+    }
+
+    private func collect(_ stream: AsyncThrowingStream<String, Error>) async -> (tokens: [String], error: (any Error)?) {
+        var tokens: [String] = []
+        do {
+            for try await token in stream {
+                tokens.append(token)
+            }
+            return (tokens, nil)
+        } catch {
+            return (tokens, error)
+        }
+    }
+}

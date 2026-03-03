@@ -152,6 +152,11 @@ impl BHNode {
         self.count += 1;
     }
 
+    /// Accessor for the number of bodies in this node or its children.
+    pub fn count(&self) -> usize {
+        self.count as usize
+    }
+
     /// Apply the many-body force from this subtree to the node at (nx, ny).
     /// Modifies `dvx` and `dvy` in place (accumulated velocity deltas).
     #[allow(clippy::too_many_arguments)]

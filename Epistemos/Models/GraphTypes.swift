@@ -14,6 +14,9 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     case tag
     case block
 
+    /// Node types visible in the graph UI (excludes block — blocks are internal structure).
+    static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block }
+
     /// Migration from legacy 13-type system.
     /// Existing SwiftData records store raw strings; this maps them to the new 7 types.
     init(legacy rawValue: String) {

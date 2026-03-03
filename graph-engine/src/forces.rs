@@ -35,6 +35,8 @@ pub fn force_link(
     edges: &[(usize, usize)],
     edge_weights: &[f32],
     degrees: &[u32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
     link_distance: f32,
     link_strength_override: f32,
     alpha: f32,
@@ -70,10 +72,19 @@ pub fn force_link(
         let tgt_deg = degrees[ti].max(1) as f32;
         let bias = src_deg / (src_deg + tgt_deg);
 
-        vx[ti] -= dx * displacement * bias;
-        vy[ti] -= dy * displacement * bias;
-        vx[si] += dx * displacement * (1.0 - bias);
-        vy[si] += dy * displacement * (1.0 - bias);
+        // Skip force on pinned (dragged) nodes — their velocity is discarded
+        // anyway, but applying it causes oscillation in connected free nodes.
+        let ti_pinned = fx.get(ti).copied().flatten().is_some() || fy.get(ti).copied().flatten().is_some();
+        let si_pinned = fx.get(si).copied().flatten().is_some() || fy.get(si).copied().flatten().is_some();
+
+        if !ti_pinned {
+            vx[ti] -= dx * displacement * bias;
+            vy[ti] -= dy * displacement * bias;
+        }
+        if !si_pinned {
+            vx[si] += dx * displacement * (1.0 - bias);
+            vy[si] += dy * displacement * (1.0 - bias);
+        }
     }
 }
 
@@ -96,8 +107,10 @@ pub fn force_many_body(
     distance_min: f32,
     alpha: f32,
 ) {
+    let fx: Vec<Option<f32>> = vec![None; x.len()];
+    let fy: Vec<Option<f32>> = vec![None; x.len()];
     let mut bodies = Vec::new();
-    force_many_body_with_scratch(x, y, vx, vy, charge_strength, distance_max, distance_min, alpha, &mut bodies);
+    force_many_body_with_scratch(x, y, vx, vy, &fx, &fy, charge_strength, distance_max, distance_min, alpha, &mut bodies);
 }
 
 /// Like `force_many_body` but reuses a caller-provided scratch buffer for `Body` allocations.
@@ -107,6 +120,8 @@ pub fn force_many_body_with_scratch(
     y: &[f32],
     vx: &mut [f32],
     vy: &mut [f32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
     charge_strength: f32,
     distance_max: f32,
     distance_min: f32,
@@ -135,8 +150,12 @@ pub fn force_many_body_with_scratch(
     let dist_min_sq = distance_min * distance_min;
     let dist_max_sq = distance_max * distance_max;
 
-    // Apply force from tree to each node.
+    // Apply force from tree to each node. Skip pinned (dragged) nodes —
+    // they're in the tree as repulsion sources but shouldn't receive force.
     for i in 0..n {
+        let pinned = fx.get(i).copied().flatten().is_some() || fy.get(i).copied().flatten().is_some();
+        if pinned { continue; }
+
         let mut dvx = 0.0_f32;
         let mut dvy = 0.0_f32;
         tree.apply_force(
@@ -244,7 +263,7 @@ pub fn force_collide_with_scratch(
 
             // Inter-cell pairs with forward neighbors.
             for &(ox, oy) in &OFFSETS {
-                let nkey = (key.0 + ox, key.1 + oy);
+                let nkey = (key.0.saturating_add(ox), key.1.saturating_add(oy));
                 if let Some(neighbor) = grid.get(&nkey) {
                     for &i in cell.iter() {
                         for &j in neighbor.iter() {
@@ -464,11 +483,105 @@ pub fn force_cluster_with_scratch(
     }
 }
 
-// ── Semantic Attraction ─────────────────────────────────────────────────────
+// ── Torsional Springs (Angular equalization for hubs) ──────────────────────
 
-/// Pulls semantically similar nodes toward each other.
-/// Operates on pre-computed KNN pairs (not computed per-tick).
-/// Uses a spring model: attracts only when nodes are farther than 50% of ideal_distance.
+/// For hub nodes (degree > 2), compute angular gaps between sorted neighbors
+/// and apply tangential force to equalize spacing. Creates crystalline starbursts.
+///
+/// `edges`: (source_idx, target_idx) pairs.
+/// `strength`: user-facing knob (0-1).
+/// `alpha`: simulation alpha.
+#[allow(clippy::too_many_arguments)]
+pub fn force_torsion(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    edges: &[(usize, usize)],
+    degrees: &[u32],
+    strength: f32,
+    alpha: f32,
+) {
+    if strength < 0.001 || x.is_empty() {
+        return;
+    }
+    let n = x.len();
+    let effective = strength * alpha;
+
+    // Build per-node neighbor lists from edge list.
+    // Reuses stack for small graphs, heap for large.
+    let mut neighbors: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for &(s, t) in edges {
+        if s < n && t < n {
+            neighbors[s].push(t);
+            neighbors[t].push(s);
+        }
+    }
+
+    // For each hub node (degree > 2), equalize angular spacing.
+    for hub in 0..n {
+        let deg = degrees[hub] as usize;
+        if deg <= 2 { continue; }
+
+        let nb = &neighbors[hub];
+        if nb.len() <= 2 { continue; }
+
+        // Compute angles from hub to each neighbor.
+        let mut angles: Vec<(f32, usize)> = nb.iter()
+            .map(|&ni| {
+                let angle = (y[ni] - y[hub]).atan2(x[ni] - x[hub]);
+                (angle, ni)
+            })
+            .collect();
+        angles.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let k = angles.len();
+        let ideal_gap = std::f32::consts::TAU / k as f32;
+
+        // For each adjacent pair, compute angular error and apply tangential force.
+        for i in 0..k {
+            let j = (i + 1) % k;
+            let mut gap = angles[j].0 - angles[i].0;
+            if gap < 0.0 { gap += std::f32::consts::TAU; }
+
+            let error = ideal_gap - gap;
+            if error.abs() < 0.01 { continue; } // Dead zone — don't fight for tiny errors.
+
+            let ni = angles[i].1;
+            let nj = angles[j].1;
+
+            // Tangential force perpendicular to the hub→neighbor direction.
+            // Push ni clockwise and nj counter-clockwise (or vice versa).
+            let dist_i = ((x[ni] - x[hub]).powi(2) + (y[ni] - y[hub]).powi(2)).sqrt().max(1.0);
+            let theta_i = angles[i].0;
+            let tx_i = -theta_i.sin();
+            let ty_i = theta_i.cos();
+            let force_i = error * effective * (dist_i * 0.01);
+
+            vx[ni] += tx_i * force_i;
+            vy[ni] += ty_i * force_i;
+
+            let dist_j = ((x[nj] - x[hub]).powi(2) + (y[nj] - y[hub]).powi(2)).sqrt().max(1.0);
+            let theta_j = angles[j].0;
+            let tx_j = -theta_j.sin();
+            let ty_j = theta_j.cos();
+            let force_j = -error * effective * (dist_j * 0.01);
+
+            vx[nj] += tx_j * force_j;
+            vy[nj] += ty_j * force_j;
+        }
+    }
+}
+
+// ── Semantic Boids Flocking ──────────────────────────────────────────────────
+
+/// Boids-based flocking for semantically similar nodes.
+/// Replaces simple spring attraction with three rules:
+///   - **Separation**: strong repulsion when nodes crowd below `d_crowd`
+///   - **Alignment**: steer velocity toward neighbor's velocity (lazy orbits)
+///   - **Cohesion**: attract toward centroid when beyond half ideal distance
+///
+/// Pair-wise processing over KNN pairs — O(E) per tick, zero allocation.
 #[allow(clippy::too_many_arguments)]
 pub fn force_semantic(
     x: &[f32],
@@ -484,8 +597,15 @@ pub fn force_semantic(
         return;
     }
     let n = x.len();
+    let d_crowd = ideal_distance * 0.3;
     let half_ideal = ideal_distance * 0.5;
-    let effective = strength * 0.1 * alpha;
+    let eff = strength * 0.1 * alpha;
+
+    // Boids tuning: separation dominates at close range,
+    // alignment creates lazy circular motion, cohesion pulls groups together.
+    const K_SEP: f32 = 2.0;
+    const K_ALIGN: f32 = 0.15;
+    const K_COHESION: f32 = 0.4;
 
     for &(a, b, similarity) in neighbors {
         if a >= n || b >= n {
@@ -494,18 +614,108 @@ pub fn force_semantic(
         let dx = x[b] - x[a];
         let dy = y[b] - y[a];
         let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+        let pair_eff = eff * similarity;
 
-        // Only attract when beyond half of ideal distance (prevents piling)
-        if dist <= half_ideal {
-            continue;
+        // 1. Separation: repel when within crowding distance.
+        if dist < d_crowd {
+            let repel = pair_eff * K_SEP * (d_crowd - dist) / dist;
+            vx[a] -= dx * repel;
+            vy[a] -= dy * repel;
+            vx[b] += dx * repel;
+            vy[b] += dy * repel;
         }
 
-        // Force proportional to similarity and excess distance
-        let pull = effective * similarity * (dist - half_ideal) / dist;
-        vx[a] += dx * pull;
-        vy[a] += dy * pull;
-        vx[b] -= dx * pull;
-        vy[b] -= dy * pull;
+        // 2. Alignment: steer each node's velocity toward the other's.
+        //    Pre-compute delta from original values to avoid asymmetry.
+        let dvx = (vx[b] - vx[a]) * pair_eff * K_ALIGN;
+        let dvy = (vy[b] - vy[a]) * pair_eff * K_ALIGN;
+        vx[a] += dvx;
+        vy[a] += dvy;
+        vx[b] -= dvx;
+        vy[b] -= dvy;
+
+        // 3. Cohesion: attract when beyond half ideal distance.
+        if dist > half_ideal {
+            let pull = pair_eff * K_COHESION * (dist - half_ideal) / dist;
+            vx[a] += dx * pull;
+            vy[a] += dy * pull;
+            vx[b] -= dx * pull;
+            vy[b] -= dy * pull;
+        }
+    }
+}
+
+// ── Force: Wind (mass-weighted directional) ──────────────────────────────────
+
+/// Constant directional force scaled inversely by node degree (mass proxy).
+/// Leaf nodes (degree 1) blow freely; hub nodes (degree 20+) barely move.
+/// `wind_x`/`wind_y` are user-facing knobs in world units/tick.
+pub fn force_wind(
+    vx: &mut [f32],
+    vy: &mut [f32],
+    degrees: &[u32],
+    wind_x: f32,
+    wind_y: f32,
+    alpha: f32,
+) {
+    if wind_x.abs() < 0.001 && wind_y.abs() < 0.001 {
+        return;
+    }
+    let wx = wind_x * alpha;
+    let wy = wind_y * alpha;
+    for i in 0..vx.len() {
+        let mass = (degrees[i].max(1) as f32).sqrt(); // sqrt(degree) as mass proxy
+        let inv_mass = 1.0 / mass;
+        vx[i] += wx * inv_mass;
+        vy[i] += wy * inv_mass;
+    }
+}
+
+// ── Force: Orbital (tangential velocity for hierarchical edges) ──────────────
+
+/// Applies tangential velocity to child nodes around their parent, creating
+/// slow orbital motion. Only affects hierarchical edges (contains=1, authored=5).
+/// `speed` is 0-1 user knob. `alpha` is simulation alpha.
+#[allow(clippy::too_many_arguments)]
+pub fn force_orbital(
+    x: &[f32],
+    y: &[f32],
+    vx: &mut [f32],
+    vy: &mut [f32],
+    edges: &[(usize, usize)],
+    edge_types: &[u8],
+    degrees: &[u32],
+    speed: f32,
+    alpha: f32,
+) {
+    if speed < 0.001 || edges.is_empty() {
+        return;
+    }
+    let n = x.len();
+    let eff = speed * 0.3 * alpha;
+
+    for (ei, &(parent, child)) in edges.iter().enumerate() {
+        if parent >= n || child >= n { continue; }
+        let etype = edge_types.get(ei).copied().unwrap_or(0);
+        // Only hierarchical edges: contains(1) and authored(5).
+        if etype != 1 && etype != 5 { continue; }
+        // Parent is the higher-degree node. If child has higher degree, swap semantics.
+        let (hub, leaf) = if degrees[parent] >= degrees[child] {
+            (parent, child)
+        } else {
+            (child, parent)
+        };
+
+        let dx = x[leaf] - x[hub];
+        let dy = y[leaf] - y[hub];
+        let dist = (dx * dx + dy * dy).sqrt().max(1.0);
+        // Tangential direction (perpendicular to radial, CCW).
+        let tx = -dy / dist;
+        let ty = dx / dist;
+        // Force inversely proportional to distance (closer = faster orbit).
+        let force = eff * (100.0 / dist).min(1.0);
+        vx[leaf] += tx * force;
+        vy[leaf] += ty * force;
     }
 }
 
@@ -525,7 +735,7 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // Nodes at distance 200 with link_distance 180 → should attract slightly.
         // Node 0 should move rightward (positive vx), node 1 leftward (negative vx).
@@ -543,7 +753,7 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // Nodes at distance 50 with link_distance 180 → should push apart.
         assert!(vx[0] < 0.0, "node 0 should move left, got {}", vx[0]);
@@ -671,7 +881,7 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![10, 1]; // node 0 is a hub
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // Hub (degree 10) should move less than leaf (degree 1).
         assert!(
@@ -695,8 +905,8 @@ mod tests {
         let edges = vec![(0, 1)];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx_w1, &mut vy_w1, &edges, &[1.0], &degrees, 200.0, 0.0, 1.0);
-        force_link(&x, &y, &mut vx_w3, &mut vy_w3, &edges, &[3.0], &degrees, 200.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx_w1, &mut vy_w1, &edges, &[1.0], &degrees, &[], &[], 200.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx_w3, &mut vy_w3, &edges, &[3.0], &degrees, &[], &[], 200.0, 0.0, 1.0);
 
         // Weight=1 at exact distance → near zero force. Weight=3 → strong attraction.
         assert!(
@@ -767,7 +977,7 @@ mod tests {
         let weights: Vec<f32> = vec![];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         assert_eq!(vx[0], 0.0);
         assert_eq!(vx[1], 0.0);
@@ -783,7 +993,7 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 1.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 1.0, 1.0);
 
         // At exact distance with override strength, force should be minimal
         assert!(vx[0].abs() < 1e-5);
@@ -801,8 +1011,8 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx1, &mut vy1, &edges, &weights, &degrees, 180.0, 0.5, 1.0);
-        force_link(&x, &y, &mut vx2, &mut vy2, &edges, &weights, &degrees, 180.0, 1.0, 1.0);
+        force_link(&x, &y, &mut vx1, &mut vy1, &edges, &weights, &degrees, &[], &[], 180.0, 0.5, 1.0);
+        force_link(&x, &y, &mut vx2, &mut vy2, &edges, &weights, &degrees, &[], &[], 180.0, 1.0, 1.0);
 
         // Double strength should produce approximately double force
         assert!(vx2[0].abs() > vx1[0].abs());
@@ -818,7 +1028,7 @@ mod tests {
         let weights = vec![10.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // High weight should produce strong attraction
         assert!(vx[0].abs() > 1.0);
@@ -834,7 +1044,7 @@ mod tests {
         let weights = vec![0.1];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // Low weight produces weak attraction
         // Distance 200 vs effective distance 180/0.1 = 1800, so nodes are much closer than target
@@ -852,7 +1062,7 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // Self-loop should apply no net force (or minimal)
         assert!(vx[0].abs() < 1.0);
@@ -868,7 +1078,7 @@ mod tests {
         let weights = vec![1.0, 1.0];
         let degrees = vec![1, 2, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // Middle node (1) should have forces from both edges
         assert!(vx[1] != 0.0);
@@ -884,7 +1094,7 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 0.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 0.0);
 
         assert_eq!(vx[0], 0.0);
         assert_eq!(vx[1], 0.0);
@@ -900,7 +1110,7 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, 180.0, 0.0, 1.0);
+        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
 
         // Both x and y should be affected for diagonal edge
         assert!(vx[0] != 0.0 || vy[0] != 0.0);
@@ -993,7 +1203,7 @@ mod tests {
         let mut vy = vec![0.0, 0.0, 0.0];
         let mut scratch = Vec::new();
 
-        force_many_body_with_scratch(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0, &mut scratch);
+        force_many_body_with_scratch(&x, &y, &mut vx, &mut vy, &[], &[], -600.0, 600.0, 1.0, 1.0, &mut scratch);
 
         assert!(scratch.capacity() >= 3);
     }
@@ -1505,9 +1715,10 @@ mod tests {
 
         force_semantic(&x, &y, &mut vx, &mut vy, &neighbors, 1.0, 200.0, 1.0);
 
-        // Distance 50 < half_ideal (100), no attraction
-        assert_eq!(vx[0], 0.0);
-        assert_eq!(vx[1], 0.0);
+        // Distance 50 < d_crowd (60): boids separation pushes apart.
+        // Node 0 pushed left (negative vx), node 1 pushed right (positive vx).
+        assert!(vx[0] < 0.0, "node 0 should be pushed left by separation");
+        assert!(vx[1] > 0.0, "node 1 should be pushed right by separation");
     }
 
     #[test]

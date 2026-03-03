@@ -231,6 +231,7 @@ struct CommandPaletteOverlay: View {
                                 cachedSearchResults = []
                                 selectedIndex = 0
                                 graphState.searchHighlight("")
+                                graphState.setSearchActive(false)
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 14))
@@ -901,6 +902,7 @@ struct CommandPaletteOverlay: View {
             cachedSearchResults = []
             selectedIndex = 0
             graphState.searchHighlight("")
+            graphState.setSearchActive(false)
             return
         }
 
@@ -937,6 +939,7 @@ struct CommandPaletteOverlay: View {
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
             graphState.searchHighlight(newText)
+            graphState.setSearchActive(!newText.isEmpty)
         }
     }
 
@@ -1209,6 +1212,7 @@ struct CommandPaletteOverlay: View {
         hasManuallyNavigated = false
         cachedSearchResults = []
         graphState.searchHighlight("")
+        graphState.setSearchActive(false)
         CommandPaletteWindowController.shared.hide()
     }
 

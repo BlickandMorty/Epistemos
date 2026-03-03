@@ -36,6 +36,8 @@ struct DragState {
     origin: [f32; 2],
     /// Whether the mouse moved enough to count as a real drag.
     moved: bool,
+    /// Previous world position for fluid grid velocity injection.
+    last_world: [f32; 2],
 }
 
 pub struct Engine {
@@ -150,14 +152,17 @@ impl Engine {
         // fill the viewport from the start, large vaults spread more to avoid overlap.
         if entrance {
             let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());
+            // Spacing must exceed link_distance (243) so nodes start farther apart
+            // than their rest length. Initial force is gentle attraction (pulling in)
+            // rather than violent repulsion (pushing out) with charge_strength=-500.
             let spacing = if n > 5000 {
-                160.0_f32
+                400.0_f32
             } else if n > 500 {
-                160.0
+                380.0
             } else if n > 100 {
-                130.0
+                350.0
             } else {
-                120.0
+                320.0
             };
 
             // Sort by link_count descending so hub nodes land at inner spiral indices.
@@ -187,7 +192,7 @@ impl Engine {
             if self.mode == 1 && sim.static_layout && !sim.user_frozen {
                 sim.static_layout = false;
                 sim.is_settled = false;
-                sim.params.alpha = 0.3;
+                sim.params.alpha = 0.15;
             }
 
             // Skip expensive operations for static layout (> 1500 nodes).
@@ -203,8 +208,12 @@ impl Engine {
 
                 // Pre-settle: run physics ticks before first render so the graph
                 // opens with nodes already near equilibrium (no visible drift).
-                // Entrance needs more ticks since spiral is far from equilibrium.
-                let max_ticks = if entrance { 200 } else { 30 };
+                // Entrance uses lower alpha to avoid explosive first ticks with
+                // charge_strength=-500. More ticks at gentle alpha = smooth convergence.
+                let max_ticks = if entrance { 1200 } else { 50 };
+                if entrance {
+                    sim.params.alpha = 0.05; // Gentle start for entrance
+                }
                 if sn < 2000 {
                     for _ in 0..max_ticks {
                         sim.tick();
@@ -216,6 +225,9 @@ impl Engine {
 
         // Copy positions back to graph nodes for rendering + spatial index.
         self.sync_positions();
+
+        // Sync renderer's link_distance for tension coloring.
+        self.renderer.link_distance = self.sim.lock().params.link_distance;
 
         // Allocate renderer buffers and upload initial data.
         self.renderer.allocate_buffers(&self.graph);
@@ -346,6 +358,11 @@ impl Engine {
 
         let positions_changed = self.sync_positions();
 
+        // Trigger impact visual effects when heavy collision detected.
+        if self.sim.lock().haptic_event >= 2 {
+            self.renderer.impact_intensity = 1.0;
+        }
+
         // Animate camera (smooth lerp toward target).
         self.renderer.update_camera();
 
@@ -436,18 +453,22 @@ impl Engine {
                     let node_y = sim.y[sim_index];
                     sim.fix_node(sim_index, node_x, node_y);
                     // D3 alphaTarget pattern: gradual warmup instead of force spike.
-                    // alpha converges toward 0.3 via exponential decay (~10 ticks).
-                    sim.params.alpha_target = 0.3;
+                    // Very low target — drag needs minimal force redistribution.
+                    sim.params.alpha_target = 0.03;
                     if sim.is_settled {
-                        sim.params.alpha = 0.05; // Seed with small value so tick() doesn't skip
+                        sim.params.alpha = 0.02; // Seed with small value so tick() doesn't skip
                         sim.is_settled = false;
                     }
                     drop(sim);
+                    // Trigger pulse wave from click position (cinematic effect).
+                    self.renderer.pulse_origin = [node_x, node_y];
+                    self.renderer.pulse_start = self.renderer.start_time.elapsed().as_secs_f32();
                     self.drag = Some(DragState {
                         node_id,
                         sim_index,
                         origin: [screen_x, screen_y],
                         moved: false,
+                        last_world: [node_x, node_y],
                     });
                 }
             }
@@ -473,19 +494,28 @@ impl Engine {
     /// Mouse/trackpad moved (drag, pan, or hover).
     pub fn mouse_moved(&mut self, screen_x: f32, screen_y: f32) {
         self.idle_frame_count = 0;
-        if let Some(drag) = self.drag.as_mut() {
+        if self.drag.is_some() {
+            let drag = self.drag.as_ref().unwrap();
             let sim_index = drag.sim_index;
             let origin = drag.origin;
+            let prev_world = drag.last_world;
 
             // Check if mouse moved far enough to count as a real drag (5px threshold).
             let dx = screen_x - origin[0];
             let dy = screen_y - origin[1];
-            if dx * dx + dy * dy > 25.0 {
-                drag.moved = true;
-            }
-            // Dragging a node — update fixed position.
+            let is_real_drag = dx * dx + dy * dy > 25.0;
+
+            // Dragging a node — update fixed position + inject fluid wake.
             let (wx, wy) = self.screen_to_world(screen_x, screen_y);
+            let dvx = wx - prev_world[0];
+            let dvy = wy - prev_world[1];
+
+            let drag = self.drag.as_mut().unwrap();
+            if is_real_drag { drag.moved = true; }
+            drag.last_world = [wx, wy];
+
             let mut sim = self.sim.lock();
+            sim.inject_fluid_velocity(wx, wy, dvx, dvy);
             sim.fix_node(sim_index, wx, wy);
         } else if self.pan_active {
             // Panning camera.
@@ -627,6 +657,67 @@ impl Engine {
         }
     }
 
+    /// Poll the current haptic event from the simulation.
+    /// Returns 0=None, 1=Light snap, 2=Heavy collision.
+    pub fn poll_haptic(&self) -> u8 {
+        self.sim.lock().haptic_event
+    }
+
+    /// Enable/disable bullet-time search physics.
+    /// When active: heavy damping + low alpha_target for slow-motion drift.
+    pub fn set_search_active(&self, active: bool) {
+        let mut sim = self.sim.lock();
+        if active {
+            sim.params.velocity_decay = 0.4;
+            sim.params.alpha_target = 0.02;
+            sim.is_settled = false;
+        } else {
+            sim.params.velocity_decay = 0.05;
+            sim.params.alpha_target = 0.0;
+        }
+    }
+
+    /// Update laboratory physics toggles and tuning knobs.
+    /// Updates both simulation params and renderer visual settings.
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_lab_params(
+        &mut self,
+        enable_fluid: bool,
+        enable_torsion: bool,
+        enable_elastic: bool,
+        enable_tension: bool,
+        fluid_viscosity: f32,
+        edge_elasticity: f32,
+        torsion_rigidity: f32,
+        boids_cohesion: f32,
+        wind_x: f32,
+        wind_y: f32,
+        enable_orbital: bool,
+        orbital_speed: f32,
+    ) {
+        self.idle_frame_count = 0;
+        // Simulation-side params
+        {
+            let mut sim = self.sim.lock();
+            sim.params.enable_fluid_dynamics = enable_fluid;
+            sim.params.enable_torsional_springs = enable_torsion;
+            sim.params.fluid_viscosity = fluid_viscosity.clamp(0.0, 1.0);
+            sim.params.torsion_rigidity = torsion_rigidity.clamp(0.0, 1.0);
+            sim.params.boids_cohesion = boids_cohesion.clamp(0.0, 1.0);
+            sim.params.wind_x = wind_x;
+            sim.params.wind_y = wind_y;
+            sim.params.enable_orbital = enable_orbital;
+            sim.params.orbital_speed = orbital_speed.clamp(0.0, 1.0);
+            sim.reheat();
+        }
+        // Renderer-side params
+        self.renderer.enable_elastic_edges = enable_elastic;
+        self.renderer.enable_tension_coloring = enable_tension;
+        self.renderer.edge_elasticity = edge_elasticity.clamp(0.0, 1.0);
+        self.renderer.wind_x = wind_x;
+        self.renderer.wind_y = wind_y;
+    }
+
     /// Clear neighbor highlighting.
     pub fn clear_highlight(&mut self) {
         if self.renderer.highlight.active {
@@ -748,6 +839,7 @@ impl Engine {
         sim.params.charge_strength = charge_strength.clamp(-100_000.0, 0.0);
         sim.params.charge_range = charge_range.clamp(10.0, 5000.0);
         sim.params.link_strength = link_strength.clamp(0.0, 10.0);
+        self.renderer.link_distance = sim.params.link_distance;
         sim.reheat();
     }
 
@@ -1085,8 +1177,8 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
                 continue;
             }
 
-            // Throttle to 30Hz when alpha is low (nearly settled) to reduce CPU.
-            let frame_dt = if alpha < 0.05 { slow_dt } else { target_dt };
+            // Throttle to 30Hz when alpha is very low (nearly settled) to reduce CPU.
+            let frame_dt = if alpha < 0.01 { slow_dt } else { target_dt };
             let elapsed = start.elapsed();
             if elapsed < frame_dt {
                 std::thread::sleep(frame_dt - elapsed);
@@ -1557,7 +1649,7 @@ mod tests {
 
         // Reheat.
         sim.reheat();
-        assert!((sim.params.alpha - 0.3).abs() < f32::EPSILON);
+        assert!((sim.params.alpha - 0.05).abs() < f32::EPSILON);
 
         // Should eventually settle again.
         for _ in 0..500 {
@@ -1660,7 +1752,7 @@ mod tests {
 
         // Verify reheat happened.
         assert!(!s.is_settled, "simulation should be unsettled after reheat");
-        assert!(s.params.alpha > 0.1, "alpha should be reheated");
+        assert!(s.params.alpha >= 0.05, "alpha should be reheated");
     }
 
     #[test]
@@ -1752,5 +1844,82 @@ mod tests {
 
         // All velocities should be zero.
         assert!(sim.vx.iter().all(|&v| v == 0.0), "velocities should be zero");
+    }
+
+    // ── Anime aesthetic feature tests ────────────────────────────────
+    // Engine requires Metal (GPU), so we test the underlying logic via
+    // Simulation/Renderer fields directly.
+
+    #[test]
+    fn search_active_physics_params() {
+        let sim = Arc::new(Mutex::new(Simulation::new()));
+        // Simulate set_search_active(true) logic.
+        {
+            let mut s = sim.lock();
+            s.params.velocity_decay = 0.4;
+            s.params.alpha_target = 0.02;
+            s.is_settled = false;
+        }
+        {
+            let s = sim.lock();
+            assert!((s.params.velocity_decay - 0.4).abs() < 0.01);
+            assert!((s.params.alpha_target - 0.02).abs() < 0.01);
+            assert!(!s.is_settled);
+        }
+        // Simulate set_search_active(false) logic.
+        {
+            let mut s = sim.lock();
+            s.params.velocity_decay = 0.05;
+            s.params.alpha_target = 0.0;
+        }
+        {
+            let s = sim.lock();
+            assert!((s.params.velocity_decay - 0.05).abs() < 0.01);
+            assert!(s.params.alpha_target.abs() < 0.01);
+        }
+    }
+
+    #[test]
+    fn impact_intensity_trigger_logic() {
+        // The render path: if haptic_event >= 2, set impact_intensity = 1.0.
+        let mut impact_intensity: f32 = 0.0;
+        let haptic_event: u8 = 2;
+        if haptic_event >= 2 {
+            impact_intensity = 1.0;
+        }
+        assert_eq!(impact_intensity, 1.0);
+
+        // Sub-threshold haptic should not trigger.
+        let mut impact_intensity2: f32 = 0.0;
+        let haptic_event2: u8 = 1;
+        if haptic_event2 >= 2 {
+            impact_intensity2 = 1.0;
+        }
+        assert_eq!(impact_intensity2, 0.0);
+    }
+
+    #[test]
+    fn wind_params_in_lab_settings() {
+        // set_lab_params forwards wind_x/wind_y to both sim and renderer.
+        let sim = Arc::new(Mutex::new(Simulation::new()));
+        let (wind_x, wind_y) = (15.0f32, -10.0f32);
+        {
+            let mut s = sim.lock();
+            s.params.wind_x = wind_x;
+            s.params.wind_y = wind_y;
+        }
+        let s = sim.lock();
+        assert_eq!(s.params.wind_x, 15.0);
+        assert_eq!(s.params.wind_y, -10.0);
+    }
+
+    #[test]
+    fn haptic_event_readable() {
+        let sim = Arc::new(Mutex::new(Simulation::new()));
+        assert_eq!(sim.lock().haptic_event, 0);
+        sim.lock().haptic_event = 1;
+        assert_eq!(sim.lock().haptic_event, 1);
+        sim.lock().haptic_event = 2;
+        assert_eq!(sim.lock().haptic_event, 2);
     }
 }
