@@ -88,6 +88,47 @@ actor SearchIndexService {
                 END
             """)
         }
+        migrator.registerMigration("v2_block_search") { db in
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS indexed_blocks (
+                    block_id TEXT PRIMARY KEY,
+                    page_id TEXT NOT NULL,
+                    content TEXT NOT NULL
+                )
+            """)
+
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE IF NOT EXISTS block_search USING fts5(
+                    content,
+                    content='indexed_blocks',
+                    content_rowid='rowid',
+                    tokenize='unicode61'
+                )
+            """)
+
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS indexed_blocks_ai AFTER INSERT ON indexed_blocks BEGIN
+                    INSERT INTO block_search(rowid, content)
+                    VALUES (new.rowid, new.content);
+                END
+            """)
+
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS indexed_blocks_ad AFTER DELETE ON indexed_blocks BEGIN
+                    INSERT INTO block_search(block_search, rowid, content)
+                    VALUES ('delete', old.rowid, old.content);
+                END
+            """)
+
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS indexed_blocks_au AFTER UPDATE ON indexed_blocks BEGIN
+                    INSERT INTO block_search(block_search, rowid, content)
+                    VALUES ('delete', old.rowid, old.content);
+                    INSERT INTO block_search(rowid, content)
+                    VALUES (new.rowid, new.content);
+                END
+            """)
+        }
         try migrator.migrate(db)
     }
 
@@ -122,6 +163,62 @@ actor SearchIndexService {
                     rank: row["rank"] ?? 0.0
                 )
             }
+        }
+    }
+
+    // MARK: - Block Search
+
+    nonisolated func searchBlocks(query: String, limit: Int = 50) throws -> [BlockSearchResult] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+
+        let sanitized = Self.sanitizeFTS5Query(query)
+        guard !sanitized.isEmpty else { return [] }
+
+        return try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT
+                    ib.block_id,
+                    ib.page_id,
+                    snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet,
+                    bm25(block_search) AS rank
+                FROM block_search bs
+                JOIN indexed_blocks ib ON ib.rowid = bs.rowid
+                WHERE block_search MATCH ?
+                ORDER BY rank
+                LIMIT ?
+            """, arguments: [sanitized, limit])
+
+            return rows.map { row in
+                BlockSearchResult(
+                    blockId: row["block_id"],
+                    pageId: row["page_id"],
+                    snippet: row["snippet"] ?? "",
+                    rank: row["rank"] ?? 0.0
+                )
+            }
+        }
+    }
+
+    // MARK: - Block Upsert / Delete
+
+    nonisolated func upsertBlock(blockId: String, pageId: String, content: String) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO indexed_blocks (block_id, page_id, content)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(block_id) DO UPDATE SET
+                        page_id = excluded.page_id,
+                        content = excluded.content
+                """,
+                arguments: [blockId, pageId, content]
+            )
+        }
+    }
+
+    nonisolated func deleteBlock(blockId: String) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
         }
     }
 
@@ -263,6 +360,15 @@ actor SearchIndexService {
 nonisolated struct SearchResult: Sendable {
     let pageId: String
     let title: String
+    let snippet: String
+    let rank: Double
+}
+
+// MARK: - BlockSearchResult
+
+nonisolated struct BlockSearchResult: Sendable {
+    let blockId: String
+    let pageId: String
     let snippet: String
     let rank: Double
 }

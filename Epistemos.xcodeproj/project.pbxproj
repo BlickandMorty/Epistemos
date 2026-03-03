@@ -23,6 +23,7 @@
 		09C925B05E89E8CE0FA4F249 /* ThreadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56735F8C49D2024C45FFE4F9 /* ThreadState.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
 		0B1F9D777D4E480D9BA979D6 /* HologramOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBB4935958F458DA82FB985 /* HologramOverlay.swift */; };
+		AB1C2D3E4F5A6B7C8D9E0F1A2 /* GraphOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2D3E4F5A6B7C8D9E0F1A2B3 /* GraphOverlayPanel.swift */; };
 		0B7C126DCCBA525A8899DADE /* ResearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B7FEDB6B8DBDF1868450FA /* ResearchView.swift */; };
 		0D4D60550420E7213C04B2B9 /* SDGraphNodeComprehensiveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED68D56D65D46428686FE51 /* SDGraphNodeComprehensiveTests.swift */; };
 		0F330C5227384BC39A376243 /* TransclusionOverlayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30407D838F9E4C9AAFDD5B28 /* TransclusionOverlayManager.swift */; };
@@ -158,6 +159,11 @@
 		ACAD000200000000TXSTR02 /* WriterTextStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000TXSTR01 /* WriterTextStorage.swift */; };
 		ACAD000200000000WMODE02 /* WriterModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000WMODE01 /* WriterModeView.swift */; };
 		ACE601878C50BBF8D8CC6F03 /* QueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A9247984AB9177206C1F17D /* QueryParser.swift */; };
+		123F481CAB63459BC1326D48 /* QueryAST.swift in Sources */ = {isa = PBXBuildFile; fileRef = 465CA289E117785AE2AA8777 /* QueryAST.swift */; };
+		600D9CBC359E1B304E5795D5 /* QueryCompiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08BC69BA7ABB307D9819F2E8 /* QueryCompiler.swift */; };
+		3BB61F0D1530797307AFF612 /* QueryRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC844B2B9463D42F7581C918 /* QueryRuntime.swift */; };
+		5490FD196E40A148AE2CB700 /* ReactiveQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 777A80ED75FBBA3159E1E81D /* ReactiveQuery.swift */; };
+		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
 		ACEE861F6BD0857E448EE390 /* PageShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1DBE46501FCAC1C106C8A2 /* PageShell.swift */; };
 		ADED589829A0A8D1BF0F89CD /* GraphTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93DC887905CA679C32253BBE /* GraphTypes.swift */; };
 		AF23236677E949656076F72A /* ResearchState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4877EAD0B940B5E1B02C2AAE /* ResearchState.swift */; };
@@ -168,6 +174,7 @@
 		B101A3F40D1E4A21B2C30003 /* NoteFileStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30003 /* NoteFileStorageTests.swift */; };
 		B101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift */; };
 		B101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift */; };
+		34AB035DB3836B164B7043AC /* BlockSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C476599982FABD5D575935 /* BlockSearchTests.swift */; };
 		B101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift */; };
 		B101A3F40D1E4A21B2C30007 /* VaultManifestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30007 /* VaultManifestTests.swift */; };
 		B38D69510B1266DAC78BC3AE /* ChatCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 957E722596BA7B2B51EBB3BD /* ChatCoordinator.swift */; };
@@ -194,6 +201,7 @@
 		C9AB929DE2D428411DC0A4CD /* EpistemosSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = DECB8EC602A265B661A663E1 /* EpistemosSchema.swift */; };
 		CA07A5C5E30A6A2416DE2C07 /* SearchIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09C5088B568075B7646427EC /* SearchIndexTests.swift */; };
 		CA34D476FE015DE01662005C /* QueryEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB044948A34572FFF0AD11E /* QueryEngine.swift */; };
+		CDF4G9B32E5B8C6D0F1A2B3C4 /* BlockEditTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE3F8A21D4A7B5C8E9D0F1A2 /* BlockEditTranslator.swift */; };
 		CBD58CD0923FE36FE7FFD82D /* NotesSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */; };
 		CC2D5E6F7182930A1B2C3D4F /* VersionTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D4E5F60718293AB0C1D2E /* VersionTimeline.swift */; };
 		CC3E6F80829304C6DE2F3041 /* ConfidenceOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2E5F70718293B5CD1E2F3F /* ConfidenceOverlay.swift */; };
@@ -296,6 +304,7 @@
 		3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesSidebar.swift; sourceTree = "<group>"; };
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		3BBB4935958F458DA82FB985 /* HologramOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HologramOverlay.swift; sourceTree = "<group>"; };
+		BC2D3E4F5A6B7C8D9E0F1A2B3 /* GraphOverlayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphOverlayPanel.swift; sourceTree = "<group>"; };
 		3BCFFE65F6525E5AC7F02EF9 /* ToastOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastOverlay.swift; sourceTree = "<group>"; };
 		3BEDA5DD8AB3751AE6CFAEB4 /* PipelineErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineErrorTests.swift; sourceTree = "<group>"; };
 		3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseEditorView.swift; sourceTree = "<group>"; };
@@ -360,6 +369,7 @@
 		879EC1715BBE486CB9D267DC /* HologramController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HologramController.swift; sourceTree = "<group>"; };
 		894E1019EEBC96777152384D /* TriageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageServiceTests.swift; sourceTree = "<group>"; };
 		8FB044948A34572FFF0AD11E /* QueryEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryEngine.swift; sourceTree = "<group>"; };
+		BCE3F8A21D4A7B5C8E9D0F1A2 /* BlockEditTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditTranslator.swift; sourceTree = "<group>"; };
 		8FB4E3C2DAE95071B2345678 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		8FF84012B2DFA169B2617D75 /* FilterEngineComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FilterEngineComprehensiveTests.swift; sourceTree = "<group>"; };
 		90A09466F35F354234C1FBAB /* IncrementalFFIUpdateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EpistemosTests/IncrementalFFIUpdateTests.swift; sourceTree = SOURCE_ROOT; };
@@ -396,6 +406,11 @@
 		ACAD000100000000TXSTR01 /* WriterTextStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterTextStorage.swift; sourceTree = "<group>"; };
 		ACAD000100000000WMODE01 /* WriterModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterModeView.swift; sourceTree = "<group>"; };
 		AE3FE73411131556F088DEE8 /* QueryTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryTypes.swift; sourceTree = "<group>"; };
+		465CA289E117785AE2AA8777 /* QueryAST.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryAST.swift; sourceTree = "<group>"; };
+		08BC69BA7ABB307D9819F2E8 /* QueryCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryCompiler.swift; sourceTree = "<group>"; };
+		CC844B2B9463D42F7581C918 /* QueryRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryRuntime.swift; sourceTree = "<group>"; };
+		777A80ED75FBBA3159E1E81D /* ReactiveQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReactiveQuery.swift; sourceTree = "<group>"; };
+		A68E1FA92B55587632545579 /* StructuredQueryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuredQueryParser.swift; sourceTree = "<group>"; };
 		AEC6EE77D8EDFD4E19FA9DEA /* MiniChatWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniChatWindowController.swift; sourceTree = "<group>"; };
 		AF46DAB33CBAB7EE4D4A9134 /* GraphStoreComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphStoreComprehensiveTests.swift; sourceTree = "<group>"; };
 		B01501774D229B160DB423DA /* MiniChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniChatView.swift; sourceTree = "<group>"; };
@@ -466,6 +481,7 @@
 		F101A3F40D1E4A21B2C30003 /* NoteFileStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteFileStorageTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDPageQueryDescriptorTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndexServiceIntegrationTests.swift; sourceTree = "<group>"; };
+		64C476599982FABD5D575935 /* BlockSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockSearchTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultIndexActorTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30007 /* VaultManifestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManifestTests.swift; sourceTree = "<group>"; };
 		F13CBB89380150C108F3D764 /* FFIStringTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FFIStringTests.swift; sourceTree = "<group>"; };
@@ -818,6 +834,7 @@
 			children = (
 				D7311A0665B7431C47E25B2B /* MetalGraphView.swift */,
 				3BBB4935958F458DA82FB985 /* HologramOverlay.swift */,
+				BC2D3E4F5A6B7C8D9E0F1A2B3 /* GraphOverlayPanel.swift */,
 				879EC1715BBE486CB9D267DC /* HologramController.swift */,
 				A739577A53F4456DA50CB51C /* GraphFloatingControls.swift */,
 				BCC166E44353FD62C8CC98C4 /* HologramSearchSidebar.swift */,
@@ -880,6 +897,7 @@
 				F101A3F40D1E4A21B2C30003 /* NoteFileStorageTests.swift */,
 				F101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift */,
 				F101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift */,
+				64C476599982FABD5D575935 /* BlockSearchTests.swift */,
 				A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */,
 				38A3BAA118559377272F67AB /* FilterEngineTests.swift */,
 				8222061E754EB69684B019E8 /* GraphModelTests.swift */,
@@ -967,8 +985,14 @@
 				818ABA625E1915138186C72C /* PipelineService.swift */,
 				E3260DBD123A55AE26999EC3 /* PromptComposer.swift */,
 				E3260DBE123A55AF26999EC4 /* PromptComposer+Consolidated.swift */,
+				465CA289E117785AE2AA8777 /* QueryAST.swift */,
+				08BC69BA7ABB307D9819F2E8 /* QueryCompiler.swift */,
+				CC844B2B9463D42F7581C918 /* QueryRuntime.swift */,
+				777A80ED75FBBA3159E1E81D /* ReactiveQuery.swift */,
+				A68E1FA92B55587632545579 /* StructuredQueryParser.swift */,
 				0CB55688D517985883EF8E0B /* QueryAnalyzer.swift */,
 				8FB044948A34572FFF0AD11E /* QueryEngine.swift */,
+				BCE3F8A21D4A7B5C8E9D0F1A2 /* BlockEditTranslator.swift */,
 				F79FAAD95D401EA18D8BD247 /* QueryExecutor.swift */,
 				7A9247984AB9177206C1F17D /* QueryParser.swift */,
 				7FDE141D4AA416CE0EC403BE /* ResearchService.swift */,
@@ -1103,6 +1127,7 @@
 				B101A3F40D1E4A21B2C30003 /* NoteFileStorageTests.swift in Sources */,
 				B101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift in Sources */,
 				B101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift in Sources */,
+				34AB035DB3836B164B7043AC /* BlockSearchTests.swift in Sources */,
 				D5BB2F79FFF66EF142F8DC66 /* SignalGeneratorTests.swift in Sources */,
 				3D887E06783CB902C43B69F6 /* FilterEngineTests.swift in Sources */,
 				E1AA6C3399E169EF56475AAB /* GraphModelTests.swift in Sources */,
@@ -1235,8 +1260,14 @@
 				34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */,
 				82276E364C4840E91EC05660 /* ProseEditorView.swift in Sources */,
 				2C375BDC6C96C53774B42003 /* ProviderDropdown.swift in Sources */,
+				123F481CAB63459BC1326D48 /* QueryAST.swift in Sources */,
+				600D9CBC359E1B304E5795D5 /* QueryCompiler.swift in Sources */,
+				3BB61F0D1530797307AFF612 /* QueryRuntime.swift in Sources */,
+				5490FD196E40A148AE2CB700 /* ReactiveQuery.swift in Sources */,
+				01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */,
 				29FB64FBEB0765D1E8ABD11E /* QueryAnalyzer.swift in Sources */,
 				CA34D476FE015DE01662005C /* QueryEngine.swift in Sources */,
+				CDF4G9B32E5B8C6D0F1A2B3C4 /* BlockEditTranslator.swift in Sources */,
 				36F5E0ED551287EE05D19D60 /* QueryExecutor.swift in Sources */,
 				ACE601878C50BBF8D8CC6F03 /* QueryParser.swift in Sources */,
 				97CA10020A5F6C15307F94B1 /* QueryResultsView.swift in Sources */,
@@ -1296,6 +1327,7 @@
 				5CA4A65389B513A47A9949B0 /* SDGraphEdge.swift in Sources */,
 				84D75089A844390501529FBA /* SDGraphNode.swift in Sources */,
 				0B1F9D777D4E480D9BA979D6 /* HologramOverlay.swift in Sources */,
+				AB1C2D3E4F5A6B7C8D9E0F1A2 /* GraphOverlayPanel.swift in Sources */,
 				CFB3D2F9A2074EBB839B4AA3 /* HologramController.swift in Sources */,
 				BE96E6020B4A4DC2AB8A9313 /* GraphFloatingControls.swift in Sources */,
 				4E53BCE586C3B12ABAFF9EA5 /* HologramSearchSidebar.swift in Sources */,
