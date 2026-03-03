@@ -322,14 +322,11 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             coord.transclusionManager?.removeAll()
             coord.blockRefAutocomplete?.dismiss()
 
-            // BTK: Initialize block edit translator when BTK is enabled.
-            if UserDefaults.standard.bool(forKey: "epistemos.btk.enabled"),
-               let graphState = graphState {
-                // Create translator and initialize with existing blocks
+            // BTK: Initialize block edit translator for real-time block tracking.
+            if let graphState = graphState {
                 coord.blockEditTranslator = BlockEditTranslator(
                     pageId: pageId, graphState: graphState
                 )
-                // Fetch existing blocks from SwiftData and initialize
                 if let mc = modelContext {
                     let descriptor = FetchDescriptor<SDBlock>(
                         predicate: #Predicate<SDBlock> { $0.pageId == pageId },
@@ -672,8 +669,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
 
             // Tab/Shift-Tab: indent/outdent the current line(s) for outlining.
-            // Pure text manipulation — BlockReconciler maps indentation to block hierarchy
-            // on the next debounced save.
+            // Pure text manipulation — BTK maps indentation to block hierarchy.
             if commandSelector == #selector(NSResponder.insertTab(_:)) {
                 return indentLines(textView: textView, indent: true)
             }

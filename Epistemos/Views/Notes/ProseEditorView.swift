@@ -28,6 +28,7 @@ struct ProseEditorView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(NoteChatState.self) private var noteChatState
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
+    @Environment(GraphState.self) private var graphState
 
     @State private var bodyText: String = ""
     /// Snapshot of the last body persisted to disk. Avoids disk reads on every keystroke.
@@ -59,7 +60,8 @@ struct ProseEditorView: View {
                     oldPage.saveBody(currentText)
                     oldPage.needsVaultSync = true
                 }
-            }
+            },
+            graphState: graphState
         )
         .onAppear {
             let body = page.loadBody()
@@ -132,9 +134,6 @@ struct ProseEditorView: View {
             // SwiftData mutation stays on main thread.
             if !page.body.isEmpty { page.body = "" }
             lastPersistedBody = newValue
-            // Reconcile blocks — keep SDBlock entities in sync with edited markdown.
-            // Runs on MainActor (same context as SwiftData writes). ~1ms for 200 blocks.
-            BlockReconciler.reconcile(pageId: pageId, markdown: newValue, context: modelContext)
         }
     }
 
@@ -150,9 +149,27 @@ struct ProseEditorView: View {
         )
         let count = (try? modelContext.fetchCount(descriptor)) ?? 0
         if count == 0 {
-            BlockReconciler.initialPopulate(
-                pageId: pageId, markdown: body, context: modelContext
-            )
+            let parsed = BlockParser.parse(body)
+            guard !parsed.isEmpty else { return }
+            // Build parent chain: for each block at depth > 0, parent is closest preceding block at depth - 1.
+            var depthStack: [(depth: Int, block: SDBlock)] = []
+            for p in parsed {
+                let block = SDBlock(
+                    pageId: pageId,
+                    content: p.content,
+                    depth: p.depth,
+                    order: p.order * 1000
+                )
+                while let last = depthStack.last, last.depth >= p.depth {
+                    depthStack.removeLast()
+                }
+                if p.depth > 0, let parent = depthStack.last {
+                    block.parentBlockId = parent.block.id
+                }
+                depthStack.append((p.depth, block))
+                modelContext.insert(block)
+            }
+            try? modelContext.save()
         }
     }
 

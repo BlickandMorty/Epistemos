@@ -320,101 +320,6 @@ struct BlockParserTests {
     }
 }
 
-@Suite("Block Reconciler")
-@MainActor
-struct BlockReconcilerTests {
-    
-    @Test("Reconcile adds new blocks")
-    func reconcileAdds() async {
-        let reconciler = BlockReconciler()
-        let diff = BlockDiff(
-            added: [ParsedBlock(content: "New", order: 0)],
-            modified: [],
-            moved: [],
-            deleted: []
-        )
-        let result = await reconciler.apply(diff: diff, to: [])
-        #expect(result.count == 1)
-    }
-    
-    @Test("Reconcile modifies existing blocks")
-    func reconcileModifies() async {
-        let reconciler = BlockReconciler()
-        let existing = [SDBlock(pageId: "p1", content: "Old", order: 0)]
-        let diff = BlockDiff(
-            added: [],
-            modified: [(id: existing[0].id, newContent: "New")],
-            moved: [],
-            deleted: []
-        )
-        let result = await reconciler.apply(diff: diff, to: existing)
-        #expect(result[0].content == "New")
-    }
-    
-    @Test("Reconcile moves blocks")
-    func reconcileMoves() async {
-        let reconciler = BlockReconciler()
-        let existing = [
-            SDBlock(pageId: "p1", content: "First", order: 0),
-            SDBlock(pageId: "p1", content: "Second", order: 1)
-        ]
-        let diff = BlockDiff(
-            added: [],
-            modified: [],
-            moved: [(id: existing[0].id, newOrder: 1)],
-            deleted: []
-        )
-        let result = await reconciler.apply(diff: diff, to: existing)
-        #expect(result[0].order == 1)
-    }
-    
-    @Test("Reconcile deletes blocks")
-    func reconcileDeletes() async {
-        let reconciler = BlockReconciler()
-        let existing = [
-            SDBlock(pageId: "p1", content: "Keep", order: 0),
-            SDBlock(pageId: "p1", content: "Delete", order: 1)
-        ]
-        let diff = BlockDiff(
-            added: [],
-            modified: [],
-            moved: [],
-            deleted: [existing[1].id]
-        )
-        let result = await reconciler.apply(diff: diff, to: existing)
-        #expect(result.count == 1)
-    }
-    
-    @Test("Reconcile preserves IDs when possible")
-    func reconcilePreservesIds() async {
-        let reconciler = BlockReconciler()
-        let existing = [SDBlock(pageId: "p1", content: "Content", order: 0)]
-        let oldId = existing[0].id
-        
-        let diff = BlockDiff(
-            added: [],
-            modified: [(id: oldId, newContent: "Modified")],
-            moved: [],
-            deleted: []
-        )
-        let result = await reconciler.apply(diff: diff, to: existing)
-        #expect(result[0].id == oldId)
-    }
-    
-    @Test("Reconcile handles nested structure")
-    func reconcileNested() async {
-        let reconciler = BlockReconciler()
-        let parent = SDBlock(pageId: "p1", content: "Parent", order: 0)
-        let child = SDBlock(pageId: "p1", content: "Child", order: 1, depth: 1, parentBlockId: parent.id)
-        
-        let existing = [parent, child]
-        let diff = BlockDiff(added: [], modified: [], moved: [], deleted: [])
-        
-        let result = await reconciler.apply(diff: diff, to: existing)
-        #expect(result[1].parentBlockId == parent.id)
-    }
-}
-
 @Suite("File Watcher")
 @MainActor
 struct FileWatcherTests {
@@ -605,10 +510,6 @@ struct BlockDiff {
     let modified: [(id: String, newContent: String)]
     let moved: [(id: String, newOrder: Int)]
     let deleted: [String]
-}
-
-class BlockReconciler {
-    func apply(diff: BlockDiff, to blocks: [SDBlock]) async -> [SDBlock] { blocks }
 }
 
 class FileWatcher {
