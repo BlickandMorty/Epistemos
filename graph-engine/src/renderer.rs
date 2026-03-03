@@ -72,10 +72,6 @@ const DIM_ALPHA: f32 = 0.04;
 /// Dimmed edge alpha when highlight is active.
 const EDGE_DIM_ALPHA: f32 = 0.02;
 
-/// Number of bezier segments per curved edge.
-const CURVE_SEGMENTS: usize = 4;
-/// Stiffness constant for velocity-based edge curvature (limits max bow).
-const CURVE_STIFFNESS: f32 = 0.15;
 /// Hot orange color for maximally stressed edges.
 const TENSION_COLOR: [f32; 4] = [1.0, 0.3, 0.1, 0.8];
 /// Stretch percentage at which edge reaches max tension color (50% = k_yield).
@@ -100,37 +96,6 @@ fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
     ]
 }
 
-/// Compute bezier control point with baseline arc + velocity-based elastic curvature.
-/// At rest, edges bow gently (each edge direction determined by endpoint hash).
-/// During drag, velocity adds additional rubber-band curvature on top.
-#[inline]
-fn edge_control_point(
-    p0: [f32; 2], p1: [f32; 2],
-    v0: [f32; 2], v1: [f32; 2],
-    stiffness: f32,
-) -> [f32; 2] {
-    let dx = p1[0] - p0[0];
-    let dy = p1[1] - p0[1];
-    let dist = (dx * dx + dy * dy).sqrt().max(1.0);
-    let nx = -dy / dist;
-    let ny = dx / dist;
-
-    // Baseline arc: gentle bow proportional to edge length.
-    // Direction determined by endpoint coordinates so each edge bows uniquely.
-    let hash = (p0[0] * 73.7 + p0[1] * 137.3 + p1[0] * 59.1 + p1[1] * 103.9) as i32;
-    let sign = if hash % 2 == 0 { 1.0_f32 } else { -1.0 };
-    let baseline_bow = sign * dist * 0.08; // 8% of edge length
-
-    // Velocity-based elastic curvature (adds to baseline during movement).
-    let avg_vx = (v0[0] + v1[0]) * 0.5;
-    let avg_vy = (v0[1] + v1[1]) * 0.5;
-    let v_perp = avg_vx * nx + avg_vy * ny;
-
-    [
-        (p0[0] + p1[0]) * 0.5 + nx * (baseline_bow + v_perp * stiffness),
-        (p0[1] + p1[1]) * 0.5 + ny * (baseline_bow + v_perp * stiffness),
-    ]
-}
 
 // ── Metal Shader Source ─────────────────────────────────────────────────────
 
@@ -852,9 +817,9 @@ impl Renderer {
             }
         }
 
-        // Curved edge instances (CURVE_SEGMENTS bezier sub-segments per edge).
+        // Straight edge instances (one line segment per edge).
         let mut edge_instances: Vec<LineEdgeInstance> =
-            Vec::with_capacity(graph.edges.len() * CURVE_SEGMENTS);
+            Vec::with_capacity(graph.edges.len());
 
         for edge in &graph.edges {
             let si = graph.id_to_index.get(&edge.source);
@@ -885,7 +850,6 @@ impl Renderer {
                         [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
                     }
                 } else if self.enable_tension_coloring {
-                    // Tension coloring: edges heat up as they stretch past rest length.
                     let dx = p1[0] - p0[0];
                     let dy = p1[1] - p0[1];
                     let dist = (dx * dx + dy * dy).sqrt();
@@ -901,25 +865,7 @@ impl Renderer {
                     base_edge
                 };
 
-                let stiffness = if self.enable_elastic_edges {
-                    self.edge_elasticity * 0.3
-                } else {
-                    0.0
-                };
-                let v0 = [src.vx, src.vy];
-                let v1 = [tgt.vx, tgt.vy];
-                let cp = edge_control_point(p0, p1, v0, v1, stiffness);
-                let mut prev = p0;
-                for seg in 1..=CURVE_SEGMENTS {
-                    let t = seg as f32 / CURVE_SEGMENTS as f32;
-                    let t_mid = (t + (seg - 1) as f32 / CURVE_SEGMENTS as f32) * 0.5;
-                    let taper = (4.0 * t_mid * (1.0 - t_mid)).min(1.0);
-                    let mut seg_color = color;
-                    seg_color[3] *= 0.4 + 0.6 * taper;
-                    let next = bezier_point(p0, cp, p1, t);
-                    edge_instances.push(LineEdgeInstance { p0: prev, p1: next, color: seg_color });
-                    prev = next;
-                }
+                edge_instances.push(LineEdgeInstance { p0, p1, color });
             }
         }
 
@@ -1103,29 +1049,12 @@ impl Renderer {
                             e
                         };
 
-                        let stiffness = if self.enable_elastic_edges {
-                            self.edge_elasticity * 0.3
-                        } else {
-                            0.0
-                        };
-                        let v0 = [src.vx, src.vy];
-                        let v1 = [tgt.vx, tgt.vy];
-                        let cp = edge_control_point(p0, p1, v0, v1, stiffness);
-                        let mut prev = p0;
-                        for seg in 1..=CURVE_SEGMENTS {
-                            if inst_idx >= self.edge_instance_capacity { break; }
-                            let t = seg as f32 / CURVE_SEGMENTS as f32;
-                            let t_mid = (t + (seg - 1) as f32 / CURVE_SEGMENTS as f32) * 0.5;
-                            let taper = (4.0 * t_mid * (1.0 - t_mid)).min(1.0);
-                            let mut seg_color = color;
-                            seg_color[3] *= 0.4 + 0.6 * taper;
-                            let next = bezier_point(p0, cp, p1, t);
+                        if inst_idx < self.edge_instance_capacity {
                             let inst = &mut *ptr.add(inst_idx);
-                            inst.p0 = prev;
-                            inst.p1 = next;
-                            inst.color = seg_color;
+                            inst.p0 = p0;
+                            inst.p1 = p1;
+                            inst.color = color;
                             inst_idx += 1;
-                            prev = next;
                         }
                     }
                 }
@@ -1543,58 +1472,6 @@ impl Renderer {
 mod tests {
     use super::*;
 
-    #[test]
-    fn edge_control_point_has_baseline_arc_at_rest() {
-        // Zero velocity → control point offset from midpoint by baseline bow.
-        let p0 = [0.0, 0.0];
-        let p1 = [100.0, 0.0];
-        let v0 = [0.0, 0.0];
-        let v1 = [0.0, 0.0];
-        let cp = edge_control_point(p0, p1, v0, v1, 0.15);
-        assert!((cp[0] - 50.0).abs() < 0.01, "Control point X should be at midpoint");
-        // Baseline bow = ±dist * 0.08 = ±8.0, applied along perpendicular.
-        assert!(cp[1].abs() > 1.0, "At-rest edges should have baseline curvature, got {}", cp[1]);
-    }
-
-    #[test]
-    fn edge_control_point_velocity_adds_to_baseline() {
-        let p0 = [0.0, 0.0];
-        let p1 = [100.0, 0.0];
-        let v_zero = [0.0, 0.0];
-        let v_perp = [0.0, 50.0];
-        let cp_rest = edge_control_point(p0, p1, v_zero, v_zero, 0.15);
-        let cp_moving = edge_control_point(p0, p1, v_perp, v_perp, 0.15);
-        // Velocity should shift the control point further from the rest position.
-        let rest_offset = cp_rest[1].abs();
-        let move_offset = cp_moving[1].abs();
-        assert!(move_offset > rest_offset,
-            "Velocity should increase curvature: rest={}, moving={}", rest_offset, move_offset);
-    }
-
-    #[test]
-    fn edge_control_point_zero_stiffness_still_has_baseline() {
-        let p0 = [0.0, 0.0];
-        let p1 = [100.0, 0.0];
-        let v0 = [0.0, 100.0]; // Strong velocity
-        let v1 = [0.0, 100.0];
-        let cp = edge_control_point(p0, p1, v0, v1, 0.0); // zero stiffness
-        assert!((cp[0] - 50.0).abs() < 0.01);
-        // Zero stiffness ignores velocity but baseline arc remains.
-        assert!(cp[1].abs() > 1.0, "Baseline arc should persist at zero stiffness, got {}", cp[1]);
-    }
-
-    #[test]
-    fn bezier_point_endpoints() {
-        let p0 = [0.0, 0.0];
-        let cp = [50.0, 100.0];
-        let p1 = [100.0, 0.0];
-        let start = bezier_point(p0, cp, p1, 0.0);
-        let end = bezier_point(p0, cp, p1, 1.0);
-        assert!((start[0] - p0[0]).abs() < 0.01);
-        assert!((start[1] - p0[1]).abs() < 0.01);
-        assert!((end[0] - p1[0]).abs() < 0.01);
-        assert!((end[1] - p1[1]).abs() < 0.01);
-    }
 
     #[test]
     fn z_for_link_count_tiers() {

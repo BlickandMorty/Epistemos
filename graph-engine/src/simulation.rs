@@ -535,10 +535,10 @@ impl Simulation {
             }
         }
 
-        // Scale force parameters for medium graphs (500-1500 nodes).
+        // Scale force parameters for medium graphs (500+ nodes).
         if node_count > 500 {
             self.params.link_distance = self.params.link_distance.min(180.0);
-            self.params.velocity_decay = self.params.velocity_decay.max(0.85);
+            self.params.velocity_decay = self.params.velocity_decay.max(0.4);
         }
 
         // Reset simulation state for fresh run (skip if user-frozen).

@@ -254,11 +254,12 @@ impl Engine {
 
                 // Pre-settle: run physics ticks before first render so the graph
                 // opens with nodes already near equilibrium (no visible drift).
-                // Entrance uses lower alpha to avoid explosive first ticks with
-                // charge_strength=-500. More ticks at gentle alpha = smooth convergence.
+                // BFS layout places connected nodes near parents, so moderate alpha
+                // is safe — repulsion fine-tunes spacing without explosive separation.
                 let max_ticks = if entrance { 1200 } else { 50 };
                 if entrance {
-                    sim.params.alpha = 0.05; // Gentle start for entrance
+                    sim.params.alpha = 0.15;
+                    sim.params.alpha_decay = 0.01; // Slower decay → more effective ticks
                 }
                 if sn < 2000 {
                     for _ in 0..max_ticks {
