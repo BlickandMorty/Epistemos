@@ -27,6 +27,7 @@ struct ProseEditorView: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(NoteChatState.self) private var noteChatState
+    @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
 
     @State private var bodyText: String = ""
     /// Snapshot of the last body persisted to disk. Avoids disk reads on every keystroke.
@@ -158,36 +159,71 @@ struct ProseEditorView: View {
     // MARK: - Wikilink Navigation
 
     private func handleWikilinkClick(_ title: String) {
-        let lowered = title.lowercased()
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
 
-        // Search SwiftData for existing page with this title
-        let descriptor = FetchDescriptor<SDPage>(
-            predicate: #Predicate<SDPage> { $0.title == lowered || $0.title == title }
+        // Step 1: Exact case-sensitive match (fast, uses SwiftData index).
+        let exactDesc = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.title == trimmed }
         )
+        // Step 2: Only if exact match fails, scan for case-insensitive match.
+        let lowered = trimmed.lowercased()
+        let existing: SDPage? = (try? modelContext.fetch(exactDesc))?.first ?? {
+            let allDesc = FetchDescriptor<SDPage>()
+            guard let pages = try? modelContext.fetch(allDesc) else { return nil }
+            return pages.first(where: { $0.title.lowercased() == lowered })
+        }()
 
-        if let existing = try? modelContext.fetch(descriptor).first {
-            NoteWindowManager.shared.open(pageId: existing.id, fromPageId: page.id)
+        if let existing {
+            navigateToPage(existing)
         } else {
-            // Create new page for dangling wikilink
-            let sourcePageId = page.id
+            // Create new page for dangling wikilink — stay in same window
             Task {
-                if let newId = await vaultSync.createPage(title: title) {
-                    NoteWindowManager.shared.open(pageId: newId, fromPageId: sourcePageId)
+                if let newId = await vaultSync.createPage(title: trimmed) {
+                    if let navState {
+                        navState.push(pageId: newId, title: trimmed)
+                    } else {
+                        NoteWindowManager.shared.open(pageId: newId)
+                    }
                 }
             }
+        }
+    }
+
+    /// Navigate to an existing page — in-place via navState if available, new tab otherwise.
+    private func navigateToPage(_ target: SDPage) {
+        let pageTitle = target.title.isEmpty ? "Untitled" : target.title
+        // Skip if navigating to the current page
+        guard target.id != page.id else { return }
+        if let navState {
+            navState.push(pageId: target.id, title: pageTitle)
+        } else {
+            NoteWindowManager.shared.open(pageId: target.id)
         }
     }
 
     // MARK: - Block Reference Navigation
 
     private func handleBlockRefClick(_ blockId: String) {
+        guard !blockId.isEmpty else { return }
         // Resolve block ID to its source page via SDBlock lookup
         let descriptor = FetchDescriptor<SDBlock>(
             predicate: #Predicate<SDBlock> { $0.id == blockId }
         )
         guard let block = try? modelContext.fetch(descriptor).first else { return }
+        // Skip if block is on the current page
+        guard block.pageId != page.id else { return }
 
-        // Navigate to the page containing the block
-        NoteWindowManager.shared.open(pageId: block.pageId, fromPageId: page.id)
+        // Look up the page title for the breadcrumb
+        let targetPageId = block.pageId
+        let pageDesc = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == targetPageId }
+        )
+        let title = (try? modelContext.fetch(pageDesc).first)?.title ?? "Untitled"
+        if let navState {
+            navState.push(pageId: block.pageId, title: title)
+        } else {
+            NoteWindowManager.shared.open(pageId: block.pageId)
+        }
     }
 }

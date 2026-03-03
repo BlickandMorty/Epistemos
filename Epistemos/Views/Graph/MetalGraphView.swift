@@ -327,7 +327,16 @@ final class MetalGraphNSView: NSView {
         let isSmallGraph = graphState.store.nodeCount <= GraphState.staticLayoutThreshold
         let entrance: UInt8 = (isCommitted || (!isSmallGraph && graphState.hasPlayedEntrance)) ? 0 : 1
         graph_engine_commit(engine, entrance)
-        if entrance == 1 { graphState.hasPlayedEntrance = true }
+        if entrance == 1 {
+            graphState.hasPlayedEntrance = true
+            // Rust clears user_frozen on entrance — sync Swift side so the
+            // freeze toggle reflects the actual engine state.
+            if graphState.isPhysicsFrozen {
+                graphState.isPhysicsFrozen = false
+                graphState.physicsFrozenVersion += 1
+                graphState.savePhysicsSettings()
+            }
+        }
 
         // Update static layout flag — physics controls grey out when true.
         graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0

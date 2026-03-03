@@ -18,6 +18,7 @@ final class NodeInspectorState {
     // MARK: - Summary
 
     var summaryText: String = ""
+    var displayedSummary: String = ""
     var isSummarizing: Bool = false
 
     // MARK: - Chat
@@ -29,7 +30,6 @@ final class NodeInspectorState {
 
     enum ChatScope: String, CaseIterable {
         case node = "Node"
-        case knowledgeBase = "Knowledge Base"
     }
 
     // MARK: - Internal
@@ -37,6 +37,7 @@ final class NodeInspectorState {
     private var summaryTask: Task<Void, Never>?
     private var chatTask: Task<Void, Never>?
     private var summaryCache: [String: String] = [:]
+    private var revealTask: Task<Void, Never>?
 
     // MARK: - Node Selection
 
@@ -57,6 +58,8 @@ final class NodeInspectorState {
         selectedNodeId = node.id
         selectedNode = node
         summaryText = ""
+        displayedSummary = ""
+        revealTask?.cancel()
 
         summarizeNode(node, store: store, modelContext: modelContext)
     }
@@ -64,9 +67,11 @@ final class NodeInspectorState {
     func clearSelection() {
         summaryTask?.cancel()
         chatTask?.cancel()
+        revealTask?.cancel()
         selectedNodeId = nil
         selectedNode = nil
         summaryText = ""
+        displayedSummary = ""
         isSummarizing = false
         chatMessages = []
         chatInput = ""
@@ -86,6 +91,7 @@ final class NodeInspectorState {
         if let cached = summaryCache[node.id] {
             summaryText = cached
             isSummarizing = false
+            startSummaryReveal()
             return
         }
 
@@ -99,6 +105,7 @@ final class NodeInspectorState {
 
             guard !content.isEmpty else {
                 summaryText = "No content available for this node."
+                startSummaryReveal()
                 return
             }
 
@@ -121,6 +128,7 @@ final class NodeInspectorState {
                 }
                 summaryText = result
                 summaryCache[node.id] = result
+                startSummaryReveal()
             } catch {
                 guard !Task.isCancelled else { return }
                 Log.engine.info("Apple Intelligence unavailable for summary, trying cloud API: \(error.localizedDescription, privacy: .public)")
@@ -140,14 +148,36 @@ final class NodeInspectorState {
                         } else {
                             summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
                         }
+                        startSummaryReveal()
                     } catch {
                         guard !Task.isCancelled else { return }
                         Log.engine.info("Cloud API also unavailable for summary: \(error.localizedDescription, privacy: .public)")
                         summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
+                        startSummaryReveal()
                     }
                 } else {
                     summaryText = String(content.prefix(300)) + (content.count > 300 ? "…" : "")
+                    startSummaryReveal()
                 }
+            }
+        }
+    }
+
+    private func startSummaryReveal() {
+        revealTask?.cancel()
+        let full = summaryText
+        guard !full.isEmpty else {
+            displayedSummary = ""
+            return
+        }
+        displayedSummary = ""
+        revealTask = Task {
+            var pos = full.startIndex
+            while pos < full.endIndex, !Task.isCancelled {
+                let next = full.index(pos, offsetBy: 2, limitedBy: full.endIndex) ?? full.endIndex
+                pos = next
+                displayedSummary = String(full[..<pos])
+                try? await Task.sleep(for: .milliseconds(16))
             }
         }
     }
@@ -252,20 +282,10 @@ final class NodeInspectorState {
                 return
             }
 
-            let systemPrompt: String
-            if chatScope == .knowledgeBase {
-                systemPrompt = """
-                You are a knowledge base analyst for Epistemos with access to the user's full vault index. \
-                Answer questions by synthesizing information across the selected node, its graph neighbors, and the broader vault. \
-                Reference specific notes by title. Identify connections the user might not see. \
-                If the vault doesn't cover something, say so and offer what you know from general knowledge.
-                """
-            } else {
-                systemPrompt = """
+            let systemPrompt = """
                 You are a note analyst for Epistemos. Answer the user's question about this specific node. \
                 Be concise, analytical, and helpful. If the content doesn't address their question, say so.
                 """
-            }
 
             let stream = triage.streamGeneral(
                 prompt: context,
@@ -300,25 +320,6 @@ final class NodeInspectorState {
         let nodeContent = fetchContent(for: node, store: store, modelContext: modelContext)
         var context = "Selected node: \(node.label) (\(node.type.displayName))\n\n"
         context += "Content:\n\(String(nodeContent.prefix(3000)))\n\n"
-
-        if chatScope == .knowledgeBase {
-            let neighborIds = store.adjacency[node.id] ?? []
-            let neighbors = neighborIds.compactMap { store.nodes[$0] }.prefix(5)
-            if !neighbors.isEmpty {
-                context += "Connected nodes:\n"
-                for n in neighbors {
-                    let content = fetchPageContent(n, modelContext: modelContext)
-                    context += "- \(n.label): \(String(content.prefix(500)))\n"
-                }
-                context += "\n"
-            }
-
-            // Inject ambient vault manifest for full vault awareness
-            if let manifest = AppBootstrap.shared?.ambientManifest {
-                context += manifest.asManifestOnly() + "\n\n"
-            }
-        }
-
         context += "User question: \(query)"
         return context
     }

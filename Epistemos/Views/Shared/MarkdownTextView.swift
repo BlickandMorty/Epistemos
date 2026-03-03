@@ -185,7 +185,7 @@ struct MarkdownTextView: View {
                     .foregroundStyle(theme.foreground)
             }
             .padding(.leading, 16)
-            .padding(.vertical, 1)
+            .padding(.vertical, 3)
         case .numberedItem(let number, let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(number)
@@ -196,7 +196,7 @@ struct MarkdownTextView: View {
                     .foregroundStyle(theme.foreground)
             }
             .padding(.leading, 16)
-            .padding(.vertical, 1)
+            .padding(.vertical, 3)
         case .checkItem(let checked, let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: checked ? "checkmark.square.fill" : "square")
@@ -208,7 +208,7 @@ struct MarkdownTextView: View {
                     .strikethrough(checked)
             }
             .padding(.leading, 16)
-            .padding(.vertical, 1)
+            .padding(.vertical, 3)
         case .blockquote(let text):
             HStack(spacing: 0) {
                 RoundedRectangle(cornerRadius: 1)

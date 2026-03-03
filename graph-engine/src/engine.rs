@@ -133,6 +133,12 @@ impl Engine {
         // Wake rendering for the new graph data.
         self.idle_frame_count = 0;
 
+        // Fresh graph load: clear user freeze so physics starts fresh.
+        // User must explicitly re-freeze if they want static layout.
+        if entrance {
+            self.sim.lock().user_frozen = false;
+        }
+
         // Stop existing physics thread.
         self.stop_physics();
 
@@ -195,9 +201,11 @@ impl Engine {
                     sim.cluster_ids = (0..sn as u32).collect();
                 }
 
-                // Brief pre-settle for recommits (filter changes).
-                if !entrance && sn < 1000 {
-                    let max_ticks = 30;
+                // Pre-settle: run physics ticks before first render so the graph
+                // opens with nodes already near equilibrium (no visible drift).
+                // Entrance needs more ticks since spiral is far from equilibrium.
+                let max_ticks = if entrance { 200 } else { 30 };
+                if sn < 2000 {
                     for _ in 0..max_ticks {
                         sim.tick();
                         if sim.is_settled { break; }
@@ -726,6 +734,7 @@ impl Engine {
     // ── Force Parameters ─────────────────────────────────────────────
 
     /// Update the 4 core force parameters and reheat.
+    /// All values clamped to safe ranges to prevent physics instability.
     pub fn set_force_params(
         &mut self,
         link_distance: f32,
@@ -735,10 +744,10 @@ impl Engine {
     ) {
         self.idle_frame_count = 0;
         let mut sim = self.sim.lock();
-        sim.params.link_distance = link_distance;
-        sim.params.charge_strength = charge_strength;
-        sim.params.charge_range = charge_range;
-        sim.params.link_strength = link_strength;
+        sim.params.link_distance = link_distance.clamp(10.0, 2000.0);
+        sim.params.charge_strength = charge_strength.clamp(-100_000.0, 0.0);
+        sim.params.charge_range = charge_range.clamp(10.0, 5000.0);
+        sim.params.link_strength = link_strength.clamp(0.0, 10.0);
         sim.reheat();
     }
 
@@ -1711,10 +1720,10 @@ mod tests {
     }
 
     #[test]
-    fn stress_3000_nodes_static_layout() {
-        // 3000 nodes exceeds static layout threshold (2500).
+    fn stress_10000_nodes_static_layout() {
+        // 10000 nodes exceeds static layout threshold (9000).
         // Physics should be completely disabled.
-        let graph = make_large_graph(3000);
+        let graph = make_large_graph(10_000);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
 

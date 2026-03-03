@@ -44,7 +44,7 @@ struct RelationshipBrowser: View {
                     .padding(.bottom, 6)
 
                 ScrollView {
-                    VStack(spacing: 2) {
+                    VStack(spacing: 4) {
                         ForEach(groups) { group in
                             RelationshipSection(group: group, onNavigate: onNavigate)
                         }
@@ -113,7 +113,7 @@ private struct RelationshipSection: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                VStack(spacing: 1) {
+                VStack(spacing: 3) {
                     ForEach(group.entries) { entry in
                         RelationshipRow(entry: entry, edgeType: group.edgeType, onNavigate: onNavigate)
                     }
@@ -157,7 +157,7 @@ private struct RelationshipRow: View {
                     .foregroundStyle(.quaternary)
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

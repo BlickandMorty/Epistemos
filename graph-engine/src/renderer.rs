@@ -620,6 +620,15 @@ impl Renderer {
                 let p0 = [src.x, src.y];
                 let p1 = [tgt.x, tgt.y];
 
+                // Skip edges with uninitialized or degenerate positions —
+                // prevents streaks from (0,0) to distant nodes.
+                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
+                    continue;
+                }
+                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
+                    continue;
+                }
+
                 edge_instances.push(LineEdgeInstance { p0, p1, color });
             }
         }
@@ -735,6 +744,14 @@ impl Renderer {
 
                         let p0 = [src.x, src.y];
                         let p1 = [tgt.x, tgt.y];
+
+                        // Skip uninitialized/degenerate positions (prevents streaks).
+                        if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
+                            continue;
+                        }
+                        if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
+                            continue;
+                        }
 
                         if inst_idx >= self.edge_instance_capacity { break; }
 

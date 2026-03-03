@@ -586,7 +586,7 @@ private struct UnifiedDiffLine: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 1)
+        .padding(.vertical, 3)
         .background(bgColor)
     }
 
@@ -709,7 +709,7 @@ private struct SplitDiffLine: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 4)
-        .padding(.vertical, 1)
+        .padding(.vertical, 3)
         .background(bgColor)
     }
 

@@ -46,7 +46,7 @@ struct VaultChangesPanel: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 1) {
+                    LazyVStack(spacing: 3) {
                         ForEach(dirtyPages, id: \.id) { page in
                             DirtyPageRow(page: page)
                                 .contentShape(Rectangle())

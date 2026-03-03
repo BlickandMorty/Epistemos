@@ -96,15 +96,6 @@ struct HologramNodeInspector: View {
 
                 Spacer()
 
-                if section == .chat && expandedSection != .chat {
-                    Picker("", selection: Bindable(inspectorState).chatScope) {
-                        ForEach(NodeInspectorState.ChatScope.allCases, id: \.self) { scope in
-                            Text(scope.rawValue).tag(scope)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 140)
-                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -187,7 +178,7 @@ struct HologramNodeInspector: View {
                             .frame(maxWidth: .infinity, minHeight: 40)
                     }
                 } else {
-                    Text(inspectorState.summaryText)
+                    Text(inspectorState.displayedSummary)
                         .font(.callout)
                         .lineSpacing(3)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -208,21 +199,6 @@ struct HologramNodeInspector: View {
 
     private var chatBody: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .center) {
-                Spacer()
-                Picker("", selection: Bindable(inspectorState).chatScope) {
-                    ForEach(NodeInspectorState.ChatScope.allCases, id: \.self) { scope in
-                        Text(scope.rawValue).tag(scope)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-
-            Divider()
-
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 10) {

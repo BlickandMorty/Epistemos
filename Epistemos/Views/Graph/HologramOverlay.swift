@@ -733,13 +733,6 @@ final class HologramOverlay {
         // Search sidebar (SwiftUI hosted on the left).
         let sidebarView = NSHostingView(
             rootView: HologramSearchSidebar(
-                searchText: .init(
-                    get: { [weak graphView] in graphView?.searchQuery ?? "" },
-                    set: { [weak graphView] in graphView?.searchQuery = $0 }
-                ),
-                onSearchChanged: { [weak graphView] query in
-                    graphView?.searchHighlight(query)
-                },
                 onSelectNode: { [weak graphView, weak self] uuid in
                     graphView?.isolateNode(uuid)
                     self?.graphState.selectNode(uuid)

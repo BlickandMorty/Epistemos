@@ -1,22 +1,17 @@
 import SwiftUI
 
 // MARK: - HologramSidebar
-// Floating left panel mirroring NotesSidebar structure for the graph overlay.
-// Three tabs: Search (live node filtering), Notes (folder tree — note nodes only),
-// and Knowledge (non-note types grouped by category: tags, ideas, sources, quotes, chats).
+// Floating left panel for the graph overlay.
+// Two tabs: Notes (folder tree — note nodes only) and Query (AI-powered graph queries).
 
 struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
-    @Binding var searchText: String
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
-    @State private var expandedTypes: Set<GraphNodeType> = [.tag]
-    @State private var cachedSearchResults: [GraphStore.SearchHit] = []
 
-    var onSearchChanged: (String) -> Void
     var onSelectNode: (String) -> Void
 
-    enum SidebarTab { case search, notes, knowledge, query }
+    enum SidebarTab { case notes, query }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -24,12 +19,8 @@ struct HologramSearchSidebar: View {
             Divider().opacity(0.2)
 
             switch activeTab {
-            case .search:
-                searchContent
             case .notes:
                 notesContent
-            case .knowledge:
-                knowledgeContent
             case .query:
                 queryContent
             }
@@ -52,9 +43,7 @@ struct HologramSearchSidebar: View {
 
     private var tabPills: some View {
         HStack(spacing: 4) {
-            tabButton("Search", icon: "magnifyingglass", tab: .search)
             tabButton("Notes", icon: "doc.text", tab: .notes)
-            tabButton("Knowledge", icon: "brain.head.profile", tab: .knowledge)
             tabButton("Query", icon: "point.3.connected.trianglepath.dotted", tab: .query)
             Spacer()
         }
@@ -78,68 +67,6 @@ struct HologramSearchSidebar: View {
             .foregroundStyle(Color.primary.opacity(activeTab == tab ? 1.0 : 0.45))
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Search Content
-
-    private var searchContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            searchField
-            Divider().opacity(0.2)
-            searchResultsList
-        }
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.4))
-
-            TextField("Search nodes…", text: $searchText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundStyle(.primary)
-                .onChange(of: searchText) { _, newValue in
-                    // Synchronous search — Rust FFI is sub-1ms, no debounce needed.
-                    cachedSearchResults = newValue.isEmpty
-                        ? []
-                        : graphState.rustSearch(query: newValue, limit: 50)
-                    onSearchChanged(newValue)
-                }
-
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                    cachedSearchResults = []
-                    onSearchChanged("")
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.primary.opacity(0.3))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
-
-    private var searchResultsList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
-                if searchText.isEmpty {
-                    hintText("Type to search notes, ideas, tags…")
-                } else if cachedSearchResults.isEmpty {
-                    hintText("No matching nodes")
-                } else {
-                    ForEach(cachedSearchResults, id: \.id) { hit in
-                        nodeRow(hit.node)
-                    }
-                }
-            }
-            .padding(.vertical, 6)
-        }
     }
 
     // MARK: - Notes Content (mirrors NotesSidebar: recursive folder tree)
@@ -217,7 +144,7 @@ struct HologramSearchSidebar: View {
 
     private var notesContent: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
+            LazyVStack(alignment: .leading, spacing: 4) {
                 // Recursive folder tree
                 ForEach(rootFolders, id: \.id) { folder in
                     recursiveFolderRow(folder, indent: 0)
@@ -239,86 +166,6 @@ struct HologramSearchSidebar: View {
                 }
             }
             .padding(.vertical, 6)
-        }
-    }
-
-    // MARK: - Knowledge Content (non-note types grouped by category)
-
-    private static let knowledgeTypes: [GraphNodeType] = [.tag, .idea, .source, .quote, .chat]
-
-    private func nodesOfType(_ type: GraphNodeType) -> [GraphNodeRecord] {
-        graphState.store.nodes.values
-            .filter { $0.type == type }
-            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
-    }
-
-    private var knowledgeContent: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
-                ForEach(Self.knowledgeTypes, id: \.self) { type in
-                    let nodes = nodesOfType(type)
-                    if !nodes.isEmpty {
-                        typeSection(type, nodes: nodes)
-                    }
-                }
-
-                let totalKnowledge = Self.knowledgeTypes.reduce(0) { $0 + nodesOfType($1).count }
-                if totalKnowledge == 0 {
-                    emptyState("No knowledge nodes yet", icon: "brain.head.profile")
-                }
-            }
-            .padding(.vertical, 6)
-        }
-    }
-
-    private func typeSection(_ type: GraphNodeType, nodes: [GraphNodeRecord]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(.smooth(duration: 0.2)) {
-                    if expandedTypes.contains(type) {
-                        expandedTypes.remove(type)
-                    } else {
-                        expandedTypes.insert(type)
-                    }
-                }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: expandedTypes.contains(type) ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.35))
-                        .frame(width: 12)
-
-                    Image(systemName: type.icon)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(type.swiftUIColor)
-
-                    Text(type.displayName + "s")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.7))
-                        .textCase(.uppercase)
-                        .tracking(0.4)
-
-                    Spacer()
-
-                    Text("\(nodes.count)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.primary.opacity(0.25))
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if expandedTypes.contains(type) {
-                ForEach(nodes.prefix(30), id: \.id) { node in
-                    nodeRow(node, indent: 1)
-                }
-                if nodes.count > 30 {
-                    hintText("\(nodes.count - 30) more…")
-                        .padding(.leading, 20)
-                }
-            }
         }
     }
 
@@ -384,7 +231,7 @@ struct HologramSearchSidebar: View {
                 }
                 .padding(.leading, CGFloat(indent) * 16 + 12)
                 .padding(.trailing, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -676,7 +523,7 @@ private struct NodeRowButton: View {
             }
             .padding(.leading, CGFloat(indent) * 16 + 12)
             .padding(.trailing, 12)
-            .padding(.vertical, 5)
+            .padding(.vertical, 7)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(.primary.opacity(isHovered ? 0.06 : 0))

@@ -136,7 +136,7 @@ final class GraphState {
     var isStaticLayout: Bool = false
 
     /// The threshold above which physics is disabled. Shown in the UI tooltip.
-    static let staticLayoutThreshold = 2500
+    static let staticLayoutThreshold = 9000
 
     /// User-controlled physics freeze (persisted across launches).
     var isPhysicsFrozen: Bool = false

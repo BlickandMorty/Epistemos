@@ -10,7 +10,7 @@ struct QueryResultsView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
+            LazyVStack(alignment: .leading, spacing: 4) {
                 // Execution time
                 HStack {
                     Text("\(result.nodes.count + result.edges.count + (result.aggregation?.rows.count ?? 0)) results")
@@ -91,7 +91,7 @@ struct QueryResultsView: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 5)
+            .padding(.vertical, 7)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -114,7 +114,7 @@ struct QueryResultsView: View {
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.4))
                 .padding(.horizontal, 4)
-                .padding(.vertical, 1)
+                .padding(.vertical, 2)
                 .background(.primary.opacity(0.08), in: Capsule())
 
             Image(systemName: "arrow.right")
@@ -127,7 +127,7 @@ struct QueryResultsView: View {
                 .lineLimit(1)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 5)
+        .padding(.vertical, 7)
     }
 
     // MARK: - Aggregation

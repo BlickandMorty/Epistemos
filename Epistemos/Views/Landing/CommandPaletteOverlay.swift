@@ -100,23 +100,23 @@ struct CommandPaletteOverlay: View {
             }
             .animation(Motion.smooth, value: mode)
         }
-        .frame(width: 680)
+        .frame(width: 520)
         .frame(maxHeight: mode == .chat ? .infinity : nil)
         .fixedSize(horizontal: false, vertical: mode == .search)
         .background {
             ZStack {
                 if theme.isDark {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(theme.background.opacity(0.55))
                 } else {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(theme.glassBg)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 // Inner top highlight
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
@@ -130,11 +130,10 @@ struct CommandPaletteOverlay: View {
                     )
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: .black.opacity(0.03), radius: 1, y: 0.5)
         .shadow(color: .black.opacity(theme.isDark ? 0.2 : 0.06), radius: 8, y: 3)
         .shadow(color: .black.opacity(theme.isDark ? 0.35 : 0.10), radius: 30, y: 10)
-        .siriGlow(cornerRadius: 22, lineWidth: 1.5, isActive: isSearchFocused || isChatFocused || threadState.paletteIsStreaming)
         .scaleEffect(appeared ? 1.0 : 0.96)
         .opacity(appeared ? 1.0 : 0.0)
         .preferredColorScheme(theme.isDark ? .dark : .light)
@@ -142,9 +141,11 @@ struct CommandPaletteOverlay: View {
         .animation(Motion.smooth, value: appeared)
         .onAppear {
             appeared = true
+            // Immediate focus claim — then retry after layout settles.
+            isSearchFocused = true
             Task { @MainActor in
-                try? await Task.sleep(for: .seconds(0.15))
-                isSearchFocused = true
+                try? await Task.sleep(for: .milliseconds(50))
+                if !isSearchFocused { isSearchFocused = true }
             }
         }
         .onExitCommand { handleEscape() }
@@ -165,7 +166,7 @@ struct CommandPaletteOverlay: View {
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             if mode == .chat {
                 Button {
                     withAnimation(Motion.smooth) { mode = .search }
@@ -175,9 +176,9 @@ struct CommandPaletteOverlay: View {
                     }
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(theme.textSecondary)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 24, height: 24)
                         .background(theme.muted.opacity(0.5), in: Circle())
                 }
                 .buttonStyle(.plain)
@@ -201,72 +202,83 @@ struct CommandPaletteOverlay: View {
                         .controlSize(.small)
                 }
             } else {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
-                                Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
-                                Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                                        Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                                        Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
 
-                TextField("Search or ask anything\u{2026}", text: $searchText)
-                    .font(.system(size: 20, weight: .regular, design: .rounded))
-                    .foregroundStyle(theme.foreground)
-                    .textFieldStyle(.plain)
-                    .focused($isSearchFocused)
-                    .onSubmit { executeSelected() }
+                        TextField("Search or ask anything\u{2026}", text: $searchText)
+                            .font(.system(size: 16, weight: .regular, design: .rounded))
+                            .foregroundStyle(theme.foreground)
+                            .textFieldStyle(.plain)
+                            .focused($isSearchFocused)
+                            .onSubmit { executeSelected() }
 
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                        cachedSearchResults = []
-                        selectedIndex = 0
-                        graphState.searchHighlight("")
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(theme.textTertiary)
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                                cachedSearchResults = []
+                                selectedIndex = 0
+                                graphState.searchHighlight("")
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(theme.textTertiary)
+                            }
+                            .buttonStyle(.plain)
+                            .transition(.scale(scale: 0.5).combined(with: .opacity))
+                            .animation(Motion.quick, value: searchText.isEmpty)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .transition(.scale(scale: 0.5).combined(with: .opacity))
-                    .animation(Motion.quick, value: searchText.isEmpty)
-                }
 
-                // Research Mode toggle
-                Button {
-                    if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
-                } label: {
-                    Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
-                        .frame(width: 28, height: 28)
-                        .background(chat.isResearchMode ? theme.accent.opacity(0.15) : .clear, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .help(chat.isResearchMode ? "Research Mode: ON (full pipeline)" : "Research Mode: OFF (direct chat)")
+                    HStack(spacing: 4) {
+                        Button {
+                            if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
+                        } label: {
+                            Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
+                                .frame(width: 24, height: 24)
+                                .background(chat.isResearchMode ? theme.accent.opacity(0.15) : .clear, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(chat.isResearchMode ? "Research Mode: ON (full pipeline)" : "Research Mode: OFF (direct chat)")
 
-                // Incognito toggle
-                Button {
-                    chat.isIncognito.toggle()
-                } label: {
-                    Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(chat.isIncognito ? .orange : theme.textTertiary)
-                        .frame(width: 28, height: 28)
-                        .background(chat.isIncognito ? Color.orange.opacity(0.15) : .clear, in: Circle())
+                        Button {
+                            chat.isIncognito.toggle()
+                        } label: {
+                            Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(chat.isIncognito ? .orange : theme.textTertiary)
+                                .frame(width: 24, height: 24)
+                                .background(chat.isIncognito ? Color.orange.opacity(0.15) : .clear, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(chat.isIncognito ? "Incognito: ON (not saved)" : "Incognito: OFF")
+
+                        Spacer()
+
+                        Text("\u{2325}Space")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(theme.textTertiary.opacity(0.5))
+                    }
+                    .padding(.top, 6)
                 }
-                .buttonStyle(.plain)
-                .help(chat.isIncognito ? "Incognito: ON (not saved)" : "Incognito: OFF")
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Results Section
@@ -280,7 +292,7 @@ struct CommandPaletteOverlay: View {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 8)
             }
-            .frame(maxHeight: 340)
+            .frame(maxHeight: 280)
             .onChange(of: selectedIndex) { _, idx in
                 withAnimation(Motion.micro) { proxy.scrollTo(idx, anchor: .center) }
             }
@@ -558,7 +570,7 @@ struct CommandPaletteOverlay: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
         }
     }
 
@@ -1045,16 +1057,32 @@ struct CommandPaletteOverlay: View {
     private func computeTitleResults(for query: String, excluding graphPageIds: Set<String>) -> [LandingCommandItem] {
         guard !query.isEmpty else { return [] }
         let q = query.lowercased()
-        let index = pageIndex
 
-        return allPages
+        // Relevance scoring: exact > prefix > contains > tag match.
+        // Within same tier, shorter titles rank higher (closer match).
+        let scored: [(page: SDPage, score: Int)] = allPages
             .filter { !graphPageIds.contains($0.id) }
-            .filter { page in
-                page.title.lowercased().contains(q)
-                    || page.tags.contains(where: { $0.lowercased().contains(q) })
+            .compactMap { page in
+                let title = page.title.lowercased()
+                let score: Int
+                if title == q {
+                    score = 400
+                } else if title.hasPrefix(q) {
+                    score = 300 - min(title.count, 100)
+                } else if title.contains(q) {
+                    score = 200 - min(title.count, 100)
+                } else if page.tags.contains(where: { $0.lowercased().contains(q) }) {
+                    score = 100
+                } else {
+                    return nil
+                }
+                return (page, score)
             }
-            .prefix(10)
-            .map { page in
+            .sorted { $0.score > $1.score }
+
+        return scored.prefix(10)
+            .map { entry in
+                let page = entry.page
                 let emoji = page.emoji.isEmpty ? "" : "\(page.emoji) "
                 let label = "\(emoji)\(page.title.isEmpty ? "Untitled" : page.title)"
                 let parts = [
@@ -1188,30 +1216,18 @@ struct CommandPaletteOverlay: View {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        // Route to main chat only when the main window is on the home/landing page.
-        // NSApp.isActive is unreliable here — show() activates the app before submitChat runs.
-        // chat.messages.isEmpty is unreliable — empty chat doesn't mean user is on landing.
-        let onHomeLanding = ui.activePanel == .home && chat.showLanding
-
-        if onHomeLanding {
-            // Navigate to main chat page (original behavior)
-            chat.startNewChat()
-            chat.submitQuery(trimmed)
-            dismiss()
-            ui.setActivePanel(.home)
-        } else {
-            // Morph palette into floating chat mode
-            withAnimation(Motion.smooth) {
-                mode = .chat
-                searchText = ""
-                cachedSearchResults = []
-            }
-            chatInput = trimmed
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(100))
-                sendChatMessage()
-                isChatFocused = true
-            }
+        // Always use the palette's own floating chat (ThreadState).
+        // Never route to the main landing page ChatState.
+        withAnimation(Motion.smooth) {
+            mode = .chat
+            searchText = ""
+            cachedSearchResults = []
+        }
+        chatInput = trimmed
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            sendChatMessage()
+            isChatFocused = true
         }
     }
 
@@ -1402,19 +1418,19 @@ private struct SpotlightRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .fill(isSelected ? theme.accent.opacity(0.15) : theme.muted.opacity(0.6))
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
                     .overlay {
                         Image(systemName: command.icon)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(isSelected ? theme.accent : theme.textSecondary)
                     }
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(command.label)
-                        .font(.system(size: 14, weight: .regular))
+                        .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(theme.foreground)
                         .lineLimit(1)
 
@@ -1448,8 +1464,8 @@ private struct SpotlightRow: View {
                         }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

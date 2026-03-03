@@ -533,7 +533,7 @@ private struct SuggestionCard: View {
                     Text(tag)
                         .font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
+                        .padding(.vertical, 2)
                         .background(theme.accent.opacity(0.15), in: Capsule())
                         .foregroundStyle(theme.accent)
                 }

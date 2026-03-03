@@ -19,8 +19,7 @@ extension Notification.Name {
 
 private class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
-    // Panels should NOT become main — that would steal main window status
-    // from the Epistemos window and break context detection.
+    override var canBecomeMain: Bool { false }
 }
 
 @MainActor
@@ -61,19 +60,29 @@ final class CommandPaletteWindowController {
         let panelSize = panel.frame.size
         let screenFrame = screen.visibleFrame
         let x = screenFrame.midX - panelSize.width / 2
-        let y = screenFrame.midY - panelSize.height / 2 + screenFrame.height * 0.1
+        let y = screenFrame.midY - panelSize.height / 2 + screenFrame.height * 0.15
         panel.setFrameOrigin(NSPoint(x: x, y: y))
 
         isShowing = true
-        panel.makeKeyAndOrderFront(nil)
+        // Activate BEFORE ordering front — ensures macOS routes keyboard events to us
+        // even when other apps (ChatGPT, Raycast) have floating panels.
         NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
 
-        // Delay first responder assignment so the hosting view has time to lay out.
-        // This ensures SwiftUI's @FocusState connects to AppKit's responder chain.
+        // Immediate first responder claim — no gap for other panels to steal focus.
+        if let contentView = panel.contentView {
+            panel.makeFirstResponder(contentView)
+        }
+
+        // Second attempt after SwiftUI has laid out @FocusState-connected views.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(50))
-            if let contentView = panel.contentView {
-                panel.makeFirstResponder(contentView)
+            // Re-assert: another overlay may have stolen key status in the gap.
+            if panel.isVisible {
+                panel.makeKeyAndOrderFront(nil)
+                if let contentView = panel.contentView {
+                    panel.makeFirstResponder(contentView)
+                }
             }
             isShowing = false
         }
@@ -131,24 +140,30 @@ final class CommandPaletteWindowController {
         guard panel == nil else { return }
 
         let p = KeyablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 700, height: 460),
-            styleMask: [.borderless, .resizable, .fullSizeContentView, .nonactivatingPanel],
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 120),
+            styleMask: [.borderless, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        p.level = .floating
+        // Above .floating (level 3) — beats ChatGPT/Raycast/Alfred overlays.
+        // .statusBar is level 25, safely above all standard floating panels.
+        p.level = .statusBar
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.isReleasedWhenClosed = false
         p.backgroundColor = .clear
         p.isOpaque = false
-        p.hasShadow = false  // SwiftUI draws its own shadow
-        p.isMovableByWindowBackground = true  // Draggable in chat mode; search TextField captures mouse in search mode
-        p.minSize = NSSize(width: 500, height: 300)
-        p.maxSize = NSSize(width: 900, height: 800)
+        p.hasShadow = false
+        p.isMovableByWindowBackground = true
+        p.minSize = NSSize(width: 520, height: 80)
+        p.maxSize = NSSize(width: 680, height: 780)
 
         guard let bootstrap = AppBootstrap.shared else { return }
 
+        // Wrap overlay in padding so SwiftUI's shadow renders outside the content
+        // without being clipped by the window edge. The window itself is transparent
+        // and borderless — only the SwiftUI RoundedRectangle is visible.
         let content = CommandPaletteOverlay()
+            .padding(40) // Room for shadow to render
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
@@ -163,8 +178,6 @@ final class CommandPaletteWindowController {
 
         let host = NSHostingView(rootView: AnyView(content))
         host.wantsLayer = true
-        host.layer?.cornerRadius = 22
-        host.layer?.masksToBounds = true
         host.layer?.backgroundColor = .clear
         p.contentView = host
         self.hostView = host

@@ -36,11 +36,11 @@ struct NotesMentionDropdown: View {
                             HStack(spacing: 6) {
                                 if let folder = entry.folderName {
                                     Text(folder)
-                                        .font(.system(size: 9))
+                                        .font(.system(size: 10))
                                         .foregroundStyle(theme.textTertiary)
                                 }
                                 Text(entry.updatedAt.formatted(.relative(presentation: .named)))
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 10))
                                     .foregroundStyle(theme.textTertiary.opacity(0.6))
                             }
                         }

@@ -7,13 +7,102 @@ import os
 
 // MARK: - Note Window Manager
 // Manages note editor windows as a native macOS tab group.
-// Every note opens as a tab using NoteTabView (fixed pageId, self-contained).
+// Every note opens as a tab using NoteTabShell (navigation) + NotePageContent (editor).
 // Single entry point: open(pageId:) — fetches page, highlights sidebar, opens tab.
 
 /// A single item in the wikilink navigation breadcrumb trail.
 struct BreadcrumbItem: Identifiable {
     let id: String   // pageId
-    let title: String
+    var title: String
+}
+
+// MARK: - NoteNavigationState
+// Per-tab navigation state for in-place wikilink traversal.
+// Owns the breadcrumb stack — first item is the root page, last is current.
+// The shell view uses .id(currentPageId) to force NotePageContent recreation
+// on each navigation, giving a fresh @Query and @State.
+
+@MainActor @Observable
+final class NoteNavigationState {
+
+    /// The breadcrumb stack — first item is the root page, last is current.
+    private(set) var stack: [BreadcrumbItem]
+
+    /// Pages popped by back() — enables forward navigation (Cmd+]).
+    /// Cleared on any new push() (new navigation branch).
+    private(set) var forwardStack: [BreadcrumbItem] = []
+
+    /// Fallback ID — the root page this tab was opened with.
+    let rootPageId: String
+
+    /// The page currently displayed in this tab.
+    var currentPageId: String {
+        stack.last?.id ?? rootPageId
+    }
+
+    /// True when there's a navigation trail worth showing (2+ items or forward history).
+    var hasBreadcrumb: Bool { stack.count > 1 || !forwardStack.isEmpty }
+
+    /// True when back navigation is possible (2+ items in stack).
+    var canGoBack: Bool { stack.count > 1 }
+
+    /// True when forward navigation is possible (items in forward stack).
+    var canGoForward: Bool { !forwardStack.isEmpty }
+
+    init(rootPageId: String, rootTitle: String) {
+        self.rootPageId = rootPageId
+        self.stack = [BreadcrumbItem(id: rootPageId, title: rootTitle)]
+    }
+
+    /// Push a new page onto the navigation stack (wikilink click).
+    /// Clears forward history — new navigation branch.
+    func push(pageId: String, title: String) {
+        guard !pageId.isEmpty else { return }
+        guard pageId != currentPageId else { return }
+        // If already in the stack, truncate to that point instead of duplicating.
+        if let existingIndex = stack.firstIndex(where: { $0.id == pageId }) {
+            stack = Array(stack[...existingIndex])
+        } else {
+            stack.append(BreadcrumbItem(id: pageId, title: title))
+        }
+        forwardStack.removeAll()
+    }
+
+    /// Navigate back one level. Returns the new current page ID, or nil if already at root.
+    @discardableResult
+    func back() -> String? {
+        guard stack.count > 1 else { return nil }
+        forwardStack.append(stack.removeLast())
+        return currentPageId
+    }
+
+    /// Navigate forward one level. Returns the new current page ID, or nil if no forward history.
+    @discardableResult
+    func forward() -> String? {
+        guard let item = forwardStack.popLast() else { return nil }
+        stack.append(item)
+        return currentPageId
+    }
+
+    /// Navigate to a breadcrumb item — truncates the stack to that point.
+    /// Items after the target are moved to forward stack.
+    func navigateTo(pageId: String) {
+        guard let index = stack.firstIndex(where: { $0.id == pageId }) else { return }
+        let removed = stack[(index + 1)...]
+        forwardStack.append(contentsOf: removed.reversed())
+        stack = Array(stack[...index])
+    }
+
+    /// Update a breadcrumb title when the page is renamed.
+    func syncTitle(pageId: String, title: String) {
+        if let idx = stack.firstIndex(where: { $0.id == pageId }) {
+            guard stack[idx].title != title else { return }
+            stack[idx].title = title
+        }
+        if let idx = forwardStack.firstIndex(where: { $0.id == pageId }) {
+            forwardStack[idx].title = title
+        }
+    }
 }
 
 @MainActor
@@ -26,18 +115,33 @@ final class NoteWindowManager {
     private let tabDelegate = NoteTabDelegate()
     nonisolated static let log = Logger(subsystem: "com.epistemos", category: "NoteWindow")
 
-    /// Breadcrumb trails per page — tracks how a user navigated to each tab via wikilinks.
-    /// Key = pageId, Value = trail from root to this page (inclusive).
-    private(set) var breadcrumbs: [String: [BreadcrumbItem]] = [:]
+    /// Per-tab navigation states — tracks in-place wikilink navigation.
+    /// Key = root tab pageId, Value = NoteNavigationState for that tab.
+    private var navigationStates: [String: NoteNavigationState] = [:]
 
     private init() {}
+
+    // MARK: - Navigation State Registration
+
+    func registerNavState(_ state: NoteNavigationState, forTab tabPageId: String) {
+        navigationStates[tabPageId] = state
+    }
+
+    func unregisterNavState(forTab tabPageId: String) {
+        navigationStates.removeValue(forKey: tabPageId)
+    }
+
+    /// The page currently displayed in the tab (may differ from root if user navigated via wikilinks).
+    func currentPageId(forTab tabPageId: String) -> String {
+        navigationStates[tabPageId]?.currentPageId ?? tabPageId
+    }
 
     // MARK: - Open Note (Single Entry Point)
 
     /// Open a note by ID — fetches the page, highlights in sidebar, opens as tab.
-    /// Single entry point for all note-opening actions across the app.
-    /// `fromPageId`: when non-nil, this was a wikilink navigation — extends that page's breadcrumb.
-    func open(pageId: String, fromPageId: String? = nil) {
+    /// Single entry point for sidebar / command palette note opens.
+    /// Wikilink navigation uses NoteNavigationState.push() instead.
+    func open(pageId: String) {
         guard let bootstrap = AppBootstrap.shared else { return }
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
@@ -46,46 +150,34 @@ final class NoteWindowManager {
             return
         }
 
-        // Build breadcrumb trail
-        let pageTitle = page.title.isEmpty ? "Untitled" : page.title
-        if let from = fromPageId, let parentTrail = breadcrumbs[from] {
-            // Wikilink navigation: extend the parent's trail
-            breadcrumbs[pageId] = parentTrail + [BreadcrumbItem(id: pageId, title: pageTitle)]
-        } else if breadcrumbs[pageId] == nil {
-            // Opened from sidebar or fresh — single-item trail (no breadcrumb shown)
-            breadcrumbs[pageId] = [BreadcrumbItem(id: pageId, title: pageTitle)]
-        }
-        // If breadcrumbs[pageId] already exists (re-activating tab), keep existing trail.
-
         bootstrap.notesUI.openPage(pageId)
         openWindow(for: page)
 
-        // Donate intent + register NSUserActivity so Siri learns from usage
-        donateNoteActivity(page: page)
+        // Donate Spotlight activity async — never block note opening on indexing.
+        let pageId = page.id
+        let pageTitle = page.title
+        let pageTags = page.tags
+        Task { @MainActor [weak self] in
+            self?.donateNoteActivity(pageId: pageId, title: pageTitle, tags: pageTags)
+        }
     }
 
-    /// Donates an OpenVaultFile intent and registers an NSUserActivity for Siri Suggestions.
-    private func donateNoteActivity(page: SDPage) {
-        // 1. Donate the "Open Vault File" intent so Siri learns note-opening patterns
-        let intent = OpenVaultFileIntent()
-        intent.target = page.toNoteEntity()
-        Task { try? await intent.donate() }
-
-        // 2. Register NSUserActivity for Spotlight Suggestions & Handoff
+    /// Donates an NSUserActivity for Spotlight Suggestions.
+    /// Decoupled from SDPage to avoid SwiftData faults during donation.
+    private func donateNoteActivity(pageId: String, title: String, tags: [String]) {
         let activity = NSUserActivity(activityType: "com.epistemos.openNote")
-        activity.title = page.title
+        activity.title = title
         activity.isEligibleForSearch = true
-        activity.persistentIdentifier = page.id
-        activity.userInfo = [CSSearchableItemActivityIdentifier: page.id]
+        activity.persistentIdentifier = pageId
+        activity.userInfo = [CSSearchableItemActivityIdentifier: pageId]
 
         let attributes = CSSearchableItemAttributeSet(contentType: .text)
-        attributes.title = page.title
-        attributes.contentDescription = page.tags.isEmpty
+        attributes.title = title
+        attributes.contentDescription = tags.isEmpty
             ? "Note in Epistemos"
-            : "Tags: \(page.tags.joined(separator: ", "))"
+            : "Tags: \(tags.joined(separator: ", "))"
         activity.contentAttributeSet = attributes
 
-        // Keep a strong reference — the activity must stay alive while the note is open
         activeUserActivity = activity
         activity.becomeCurrent()
     }
@@ -110,7 +202,8 @@ final class NoteWindowManager {
 
         // Create hosting view with full environment injection.
         // Uses withAppEnvironment() to stay in sync with AppEnvironment.swift.
-        let editorView = NoteTabView(pageId: page.id)
+        let pageTitle = page.title.isEmpty ? "Untitled" : page.title
+        let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
             .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
@@ -183,7 +276,7 @@ final class NoteWindowManager {
             NotificationCenter.default.removeObserver(observer)
         }
         windows.removeValue(forKey: pageId)
-        breadcrumbs.removeValue(forKey: pageId)
+        navigationStates.removeValue(forKey: pageId)
     }
 
     // MARK: - Version Tab (Read-Only)
@@ -289,15 +382,60 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
     }
 }
 
-// MARK: - Note Tab View
-// Self-contained note editor for each tab window.
-// Resolves pageId → SDPage via @Query, shows ProseEditorView,
-// adds sidebar toggle + Cmd+S / Cmd+Shift+S shortcuts.
-// Toolbar (left → right): New Note | Pin, Favorite, Lock | Format, Preview, Info, Share | Sidebar, Save, Diff, Chat
+// MARK: - Note Tab Shell
+// Thin wrapper that owns NoteNavigationState for in-tab wikilink navigation.
+// Renders breadcrumb bar + NotePageContent. Uses .id(currentPageId) to force
+// full view recreation on navigation (fresh @Query, @State, NoteChatState).
 
-private struct NoteTabView: View {
+private struct NoteTabShell: View {
+    @State private var navState: NoteNavigationState
+
+    init(pageId: String, pageTitle: String) {
+        _navState = State(initialValue: NoteNavigationState(
+            rootPageId: pageId, rootTitle: pageTitle
+        ))
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if navState.hasBreadcrumb {
+                NoteBreadcrumbBar(navState: navState)
+            }
+            NotePageContent(pageId: navState.currentPageId)
+                .id(navState.currentPageId)
+                .environment(navState)
+        }
+        .onChange(of: navState.currentPageId) { _, newPageId in
+            // Sync window title to the currently displayed page.
+            let targetId = newPageId
+            if let window = NSApp.keyWindow {
+                let desc = FetchDescriptor<SDPage>(
+                    predicate: #Predicate<SDPage> { $0.id == targetId }
+                )
+                if let page = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(desc).first {
+                    window.title = page.title.isEmpty ? "Untitled" : page.title
+                }
+            }
+            AppBootstrap.shared?.notesUI.openPage(newPageId)
+        }
+        .onAppear {
+            NoteWindowManager.shared.registerNavState(navState, forTab: navState.rootPageId)
+        }
+        .onDisappear {
+            NoteWindowManager.shared.unregisterNavState(forTab: navState.rootPageId)
+        }
+    }
+}
+
+// MARK: - Note Page Content
+// Self-contained note editor for each page within a tab.
+// Resolves pageId → SDPage via @Query, shows ProseEditorView,
+// adds toolbar + Cmd+S / Cmd+Shift+S shortcuts.
+
+private struct NotePageContent: View {
     let pageId: String
 
+    @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(ResearchState.self) private var researchState
@@ -335,19 +473,8 @@ private struct NoteTabView: View {
         _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
     }
 
-    /// The breadcrumb trail for this page — only shown when 2+ items (i.e. arrived via wikilink).
-    private var breadcrumb: [BreadcrumbItem] {
-        NoteWindowManager.shared.breadcrumbs[pageId] ?? []
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
-            // Breadcrumb trail — shown only when navigated via wikilinks (2+ items)
-            if breadcrumb.count > 1 {
-                NoteBreadcrumbBar(trail: breadcrumb, currentPageId: pageId, theme: ui.theme)
-            }
-
-            HStack(spacing: 0) {
+        HStack(spacing: 0) {
                 ZStack {
                     if let page = pages.first {
                         if showWriterMode {
@@ -401,7 +528,6 @@ private struct NoteTabView: View {
                 }
             }
             .animation(.smooth(duration: 0.2), value: showTableOfContents)
-        }
         .background(ui.theme.background)
         .toolbarBackground(.hidden, for: .windowToolbar)
         .toolbar {
@@ -560,11 +686,21 @@ private struct NoteTabView: View {
             }
             .keyboardShortcut("l", modifiers: [.command, .shift])
             .hidden()
+            Button("") { navState?.back() }
+                .keyboardShortcut("[", modifiers: .command)
+                .hidden()
+            Button("") { navState?.forward() }
+                .keyboardShortcut("]", modifiers: .command)
+                .hidden()
         }
         .sheet(isPresented: $showDiffSheet) {
             if let page = pages.first {
                 DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.loadBody())
             }
+        }
+        .onChange(of: pages.first?.title) { _, newTitle in
+            guard let newTitle, !newTitle.isEmpty else { return }
+            navState?.syncTitle(pageId: pageId, title: newTitle)
         }
         .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
@@ -1712,52 +1848,76 @@ private struct IdeaRow: View {
 // Each crumb is clickable to activate that note's tab.
 
 private struct NoteBreadcrumbBar: View {
-    let trail: [BreadcrumbItem]
-    let currentPageId: String
-    let theme: EpistemosTheme
+    let navState: NoteNavigationState
+    @Environment(UIState.self) private var ui
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                ForEach(Array(trail.enumerated()), id: \.element.id) { index, item in
-                    if index > 0 {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 7, weight: .semibold))
-                            .foregroundStyle(theme.textTertiary.opacity(0.4))
-                    }
-
-                    Button {
-                        NoteWindowManager.shared.open(pageId: item.id)
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: "doc.text")
-                                .font(.system(size: 8))
-                            Text(item.title)
-                                .font(.system(size: 10, weight: item.id == currentPageId ? .semibold : .regular))
-                                .lineLimit(1)
-                        }
-                        .foregroundStyle(item.id == currentPageId
-                                         ? theme.accent
-                                         : theme.mutedForeground.opacity(0.7))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            item.id == currentPageId
-                                ? theme.accent.opacity(0.08)
-                                : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 4)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
+        HStack(spacing: 0) {
+            // Back / Forward buttons
+            Button { navState.back() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(ui.theme.mutedForeground.opacity(navState.canGoBack ? 0.6 : 0.25))
+                    .frame(width: 20, height: 20)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
+            .buttonStyle(.plain)
+            .disabled(!navState.canGoBack)
+            .help("Back (⌘[)")
+
+            Button { navState.forward() } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(ui.theme.mutedForeground.opacity(navState.canGoForward ? 0.6 : 0.25))
+                    .frame(width: 20, height: 20)
+            }
+            .buttonStyle(.plain)
+            .disabled(!navState.canGoForward)
+            .padding(.leading, -4)
+            .padding(.trailing, 2)
+            .help("Forward (⌘])")
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    ForEach(Array(navState.stack.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(ui.theme.textTertiary.opacity(0.4))
+                        }
+
+                        Button {
+                            navState.navigateTo(pageId: item.id)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.text")
+                                    .font(.system(size: 9))
+                                Text(item.title)
+                                    .font(.system(size: 11, weight: item.id == navState.currentPageId ? .semibold : .regular))
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(item.id == navState.currentPageId
+                                             ? ui.theme.accent
+                                             : ui.theme.mutedForeground.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                item.id == navState.currentPageId
+                                    ? ui.theme.accent.opacity(0.08)
+                                    : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 4)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+            }
         }
         .frame(height: 24)
-        .background(theme.background.opacity(0.95))
+        .background(ui.theme.background.opacity(0.95))
         .overlay(alignment: .bottom) {
-            theme.glassBorder.frame(height: 0.5)
+            ui.theme.glassBorder.frame(height: 0.5)
         }
     }
 }

@@ -339,7 +339,7 @@ struct NotesSidebar: View {
         onAction: @escaping (SidebarAction) -> Void
     ) -> some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 2) {
                 if !notesUI.searchQuery.isEmpty {
                     searchResultsView(onAction: onAction)
                 } else {
@@ -1298,7 +1298,7 @@ private struct IdeaRow: View {
                     .foregroundStyle(item.type == .idea ? .yellow : .purple)
                     .frame(width: 14)
 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(item.title.isEmpty ? "Untitled" : item.title)
                         .font(.epBody)
                         .foregroundStyle(theme.foreground.opacity(0.8))
@@ -1584,7 +1584,7 @@ private struct EditorActionsBar: View {
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
+                        .padding(.vertical, 2)
                         .background(Capsule().fill(.red))
                         .offset(x: 4, y: -4)
                 }

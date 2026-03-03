@@ -238,7 +238,7 @@ impl Simulation {
         // When user focuses on a subset, visible count drops below threshold
         // and physics re-enables automatically via the next load_from_graph().
         let node_count = self.x.len();
-        const STATIC_LAYOUT_THRESHOLD: usize = 2500;
+        const STATIC_LAYOUT_THRESHOLD: usize = 9000;
         if node_count > STATIC_LAYOUT_THRESHOLD {
             self.static_layout = true;
             self.is_settled = true;
@@ -358,22 +358,33 @@ impl Simulation {
 
         let n = self.x.len();
 
-        // 1. Alpha decay
+        // 1. Alpha decay — converges toward alpha_target.
         self.params.alpha +=
             (self.params.alpha_target - self.params.alpha) * self.params.alpha_decay;
 
-        // Don't settle while any node is fixed (being dragged) — neighbors
-        // still need forces applied to smoothly adjust around the dragged node.
-        let any_fixed = self.fx.iter().any(|f| f.is_some());
-        if self.params.alpha < self.params.alpha_min && !any_fixed {
-            self.is_settled = true;
-            return;
+        // Clamp alpha to a small floor instead of letting it reach zero.
+        // Physics keeps running at negligible energy so the graph can respond
+        // to drag/interaction without a visible reheat delay.
+        // Only user_frozen or static_layout fully stops the simulation.
+        const ALPHA_FLOOR: f32 = 0.0005;
+        let at_floor = self.params.alpha < ALPHA_FLOOR;
+        if at_floor {
+            self.params.alpha = ALPHA_FLOOR;
         }
-        self.is_settled = false;
+
+        // Settled = alpha at floor and no nodes being dragged.
+        // When settled, physics thread sleeps longer and render loop idles,
+        // but tick() still runs (no early return) so forces stay responsive.
+        let any_fixed = self.fx.iter().any(|f| f.is_some());
+        self.is_settled = at_floor && !any_fixed;
 
         let alpha = self.params.alpha;
 
         // 2. Apply forces in d3/LogSeq order: link → many-body → collide → center
+        //
+        // When at floor, skip expensive forces (Barnes-Hut, collision, cluster,
+        // semantic) — only link + center maintain equilibrium. This keeps CPU
+        // near-zero when idle while still allowing immediate force response on reheat.
 
         // Link force (springs along edges, per-edge weight modulates distance)
         forces::force_link(
@@ -389,40 +400,42 @@ impl Simulation {
             alpha,
         );
 
-        // Many-body force (Barnes-Hut repulsion) — reuses scratch buffer.
-        self.bodies_scratch.clear();
-        forces::force_many_body_with_scratch(
-            &self.x,
-            &self.y,
-            &mut self.vx,
-            &mut self.vy,
-            self.params.charge_strength,
-            self.params.charge_range,
-            1.0, // distance_min (d3 default)
-            alpha,
-            &mut self.bodies_scratch,
-        );
+        if !at_floor {
+            // Many-body force (Barnes-Hut repulsion) — reuses scratch buffer.
+            self.bodies_scratch.clear();
+            forces::force_many_body_with_scratch(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                self.params.charge_strength,
+                self.params.charge_range,
+                1.0, // distance_min (d3 default)
+                alpha,
+                &mut self.bodies_scratch,
+            );
 
-        // Collision force (position-based overlap prevention) — reuses scratch grid.
-        // Passes fx/fy so fixed (dragged) nodes don't get pushed by collision.
-        // Full clear every 120 ticks to prevent stale key accumulation.
-        self.tick_count = self.tick_count.wrapping_add(1);
-        if self.tick_count.is_multiple_of(120) {
-            self.collision_grid.clear();
-        } else {
-            for v in self.collision_grid.values_mut() {
-                v.clear();
+            // Collision force (position-based overlap prevention) — reuses scratch grid.
+            // Passes fx/fy so fixed (dragged) nodes don't get pushed by collision.
+            // Full clear every 120 ticks to prevent stale key accumulation.
+            self.tick_count = self.tick_count.wrapping_add(1);
+            if self.tick_count.is_multiple_of(120) {
+                self.collision_grid.clear();
+            } else {
+                for v in self.collision_grid.values_mut() {
+                    v.clear();
+                }
             }
+            forces::force_collide_with_scratch(
+                &mut self.x,
+                &mut self.y,
+                &self.collision_radii,
+                &self.fx,
+                &self.fy,
+                self.params.collision_iterations,
+                &mut self.collision_grid,
+            );
         }
-        forces::force_collide_with_scratch(
-            &mut self.x,
-            &mut self.y,
-            &self.collision_radii,
-            &self.fx,
-            &self.fy,
-            self.params.collision_iterations,
-            &mut self.collision_grid,
-        );
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
         let (cx, cy) = match self.anchor_center {
@@ -447,39 +460,42 @@ impl Simulation {
             );
         }
 
-        // Cluster cohesion force (skipped in lite mode).
-        // Uses pre-allocated centroid buffers to avoid per-tick allocation.
-        if !self.lite_mode && self.params.cluster_strength > 0.001 && !self.cluster_ids.is_empty() {
-            forces::force_cluster_with_scratch(
-                &self.x,
-                &self.y,
-                &mut self.vx,
-                &mut self.vy,
-                &self.cluster_ids,
-                self.params.cluster_strength,
-                alpha,
-                &mut self.cluster_cx,
-                &mut self.cluster_cy,
-                &mut self.cluster_counts,
-            );
+        if !at_floor {
+            // Cluster cohesion force (skipped in lite mode and at floor).
+            if !self.lite_mode && self.params.cluster_strength > 0.001 && !self.cluster_ids.is_empty() {
+                forces::force_cluster_with_scratch(
+                    &self.x,
+                    &self.y,
+                    &mut self.vx,
+                    &mut self.vy,
+                    &self.cluster_ids,
+                    self.params.cluster_strength,
+                    alpha,
+                    &mut self.cluster_cx,
+                    &mut self.cluster_cy,
+                    &mut self.cluster_counts,
+                );
+            }
+
+            // Semantic attraction force (skipped in lite mode and at floor).
+            if !self.lite_mode && self.params.semantic_strength > 0.001 && !self.semantic_neighbors.is_empty() {
+                forces::force_semantic(
+                    &self.x,
+                    &self.y,
+                    &mut self.vx,
+                    &mut self.vy,
+                    &self.semantic_neighbors,
+                    self.params.semantic_strength,
+                    self.params.link_distance,
+                    alpha,
+                );
+            }
         }
 
-        // Semantic attraction force (skipped in lite mode).
-        if !self.lite_mode && self.params.semantic_strength > 0.001 && !self.semantic_neighbors.is_empty() {
-            forces::force_semantic(
-                &self.x,
-                &self.y,
-                &mut self.vx,
-                &mut self.vy,
-                &self.semantic_neighbors,
-                self.params.semantic_strength,
-                self.params.link_distance,
-                alpha,
-            );
-        }
-
-        // 3. Velocity Verlet integration with decay.
+        // 3. Velocity Verlet integration with decay + velocity clamping.
         // High-degree nodes get extra damping via smoothstep to prevent jitter.
+        // Velocity clamped to prevent nodes escaping to extreme coordinates.
+        let max_velocity = self.params.link_distance * 2.0;
         for i in 0..n {
             let decay = if self.degrees[i] >= 10 {
                 // Smoothstep: gradual onset from degree 10, saturates at degree 40.
@@ -495,6 +511,7 @@ impl Simulation {
                 self.vx[i] = 0.0;
             } else {
                 self.vx[i] *= decay;
+                self.vx[i] = self.vx[i].clamp(-max_velocity, max_velocity);
                 self.x[i] += self.vx[i];
             }
             if let Some(fy_val) = self.fy[i] {
@@ -502,8 +519,13 @@ impl Simulation {
                 self.vy[i] = 0.0;
             } else {
                 self.vy[i] *= decay;
+                self.vy[i] = self.vy[i].clamp(-max_velocity, max_velocity);
                 self.y[i] += self.vy[i];
             }
+
+            // Safety: reset NaN/Inf positions to origin.
+            if !self.x[i].is_finite() { self.x[i] = 0.0; self.vx[i] = 0.0; }
+            if !self.y[i].is_finite() { self.y[i] = 0.0; self.vy[i] = 0.0; }
         }
     }
 
@@ -1159,7 +1181,7 @@ mod tests {
     #[test]
     fn is_settled_with_static_layout() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2061,7 +2083,7 @@ mod tests {
     #[test]
     fn static_layout_triggered_for_many_nodes() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2073,7 +2095,7 @@ mod tests {
     #[test]
     fn static_layout_no_physics() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2088,7 +2110,7 @@ mod tests {
     #[test]
     fn static_layout_velocities_zero() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
             graph.nodes[i].vx = 100.0;
         }
@@ -2102,7 +2124,7 @@ mod tests {
     #[test]
     fn static_layout_alpha_zero() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2113,7 +2135,7 @@ mod tests {
     #[test]
     fn static_layout_reheat_no_effect() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2126,7 +2148,7 @@ mod tests {
     #[test]
     fn static_layout_preserves_positions() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 5.0, (i as f32) * 3.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2140,7 +2162,7 @@ mod tests {
     #[test]
     fn static_layout_below_threshold_disabled() {
         let mut graph = Graph::new();
-        for i in 0..2000 {
+        for i in 0..8000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2151,7 +2173,7 @@ mod tests {
     #[test]
     fn static_layout_at_threshold_disabled() {
         let mut graph = Graph::new();
-        for i in 0..2500 {
+        for i in 0..9000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();
@@ -2162,7 +2184,7 @@ mod tests {
     #[test]
     fn static_layout_computes_degrees() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         for i in 0..100 {
@@ -2608,7 +2630,7 @@ mod tests {
     #[test]
     fn tick_count_with_static_layout() {
         let mut graph = Graph::new();
-        for i in 0..3000 {
+        for i in 0..10_000 {
             graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
         }
         let mut sim = Simulation::new();

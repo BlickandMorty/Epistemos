@@ -101,7 +101,7 @@ struct PipelineProgressPopover: View {
                     .foregroundStyle(theme.success.opacity(0.7))
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
         .padding(.horizontal, 4)
         .background(
             isActive ? theme.accent.opacity(0.06) : Color.clear,
