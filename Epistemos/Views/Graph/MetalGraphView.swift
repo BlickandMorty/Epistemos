@@ -732,6 +732,11 @@ final class MetalGraphNSView: NSView {
     override var acceptsFirstResponder: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
+        // Claim first responder on click so subsequent gestures (magnify, scroll) route here.
+        if window?.firstResponder !== self {
+            window?.makeFirstResponder(self)
+        }
+
         guard let engine else { return }
 
         // In connection mode, don't start drag/pan — handle in mouseUp.

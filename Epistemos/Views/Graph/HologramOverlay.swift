@@ -2,15 +2,6 @@ import SwiftUI
 import SwiftData
 import AppKit
 
-// MARK: - KeyableWindow
-// Borderless windows return false from canBecomeKey by default,
-// which prevents SwiftUI TextFields from accepting keyboard input.
-
-private final class KeyableWindow: NSWindow {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
-}
-
 // MARK: - HologramOverlay
 // Full-screen borderless NSWindow that renders the knowledge graph
 // on top of a heavy frosted-glass blur. Triggered by a global hotkey.
@@ -48,14 +39,21 @@ final class HologramOverlay {
     private var appearanceObserver: NSKeyValueObservation?
 
     // Mini floating panel (chromeless glass float).
-    private var miniPanel: NSWindow?
+    private var miniPanel: GraphOverlayPanel?
     /// Companion panel: holds the inspector alongside the mini graph when minimized.
-    private var miniInspectorPanel: NSWindow?
+    private var miniInspectorPanel: GraphOverlayPanel?
     private(set) var isMinimized = false
     private var selectionObserverTask: Task<Void, Never>?
     private var minimizeObserver: Any?
     private var restoreObserver: Any?
     private var closeObserver: Any?
+
+    // Fullscreen transition observers
+    private var fullscreenEnterObserver: Any?
+    private var fullscreenExitObserver: Any?
+    // Parent window miniaturize observers
+    private var parentMiniaturizeObserver: Any?
+    private var parentDeminiaturizeObserver: Any?
 
     init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil) {
         self.graphState = graphState
@@ -202,105 +200,143 @@ final class HologramOverlay {
     // MARK: - Minimize / Restore
 
     /// Shrink the full-screen overlay into a chromeless glass float.
-    /// The MetalGraphNSView is reparented (not recreated) to keep the engine alive.
+    /// The same window transforms to mini mode — no Metal view reparenting.
     func minimize() {
         guard let metalView, let window, !isMinimized else { return }
 
-        // 1. Pause engine during reparent.
-        metalView.pauseEngine()
-
-        // 2. Remove metalView from overlay.
-        metalView.removeFromSuperview()
-
-        // 3. Create the mini panel.
-        let panel = createMiniPanel()
-        self.miniPanel = panel
-
-        // 4. Add metalView to the mini panel's content.
-        metalView.isMiniMode = true
-        metalView.autoresizingMask = [.width, .height]
-        metalView.frame = panel.contentView!.bounds
-        panel.contentView!.addSubview(metalView)
-
-        // 5. Add expand button overlay.
-        addExpandButton(to: panel)
-
-        // 6. Animate: overlay fades out, mini panel fades in.
         isMinimized = true
-        panel.alphaValue = 0
-        panel.makeKeyAndOrderFront(nil)
-        panel.makeFirstResponder(metalView)
 
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            window.animator().alphaValue = 0
-            panel.animator().alphaValue = 1.0
-        } completionHandler: { [weak self] in
-            self?.window?.orderOut(nil)
+        // 1. Remove child window relationship (re-add with mini frame).
+        if let parent = window.parent {
+            parent.removeChildWindow(window)
         }
 
-        // 7. Observe node selection to lazily show/hide inspector.
-        observeNodeSelection()
+        // 2. Hide blur/darken/controls (they're subviews of window.contentView).
+        blurView?.isHidden = true
+        darkenLayer?.isHidden = true
+        // Hide all subviews except metalView.
+        for subview in window.contentView?.subviews ?? [] {
+            if subview !== metalView {
+                subview.isHidden = true
+            }
+        }
 
-        // 8. Resume engine in the new context.
-        metalView.layout()
-        metalView.resumeEngine()
+        // 3. Configure window for mini mode.
+        window.styleMask = [.nonactivatingPanel, .borderless, .resizable]
+        window.hasShadow = true
+        window.level = .floating
+        metalView.isMiniMode = true
+
+        // 4. Animate frame change to mini size in bottom-right.
+        let miniFrame: NSRect
+        if let screen = NSScreen.main {
+            let x = screen.visibleFrame.maxX - 520
+            let y = screen.visibleFrame.minY + 20
+            miniFrame = NSRect(x: x, y: y, width: 500, height: 380)
+        } else {
+            miniFrame = NSRect(x: 100, y: 100, width: 500, height: 380)
+        }
+
+        // Add frosted glass background for mini mode.
+        let miniBlur = NSVisualEffectView(frame: window.contentView!.bounds)
+        miniBlur.material = .hudWindow
+        miniBlur.blendingMode = .behindWindow
+        miniBlur.state = .active
+        miniBlur.autoresizingMask = [.width, .height]
+        miniBlur.identifier = NSUserInterfaceItemIdentifier("miniBlur") // Identifier for easy removal on restore
+        window.contentView!.addSubview(miniBlur, positioned: .below, relativeTo: metalView)
+
+        // Round corners for mini mode.
+        window.contentView!.wantsLayer = true
+        window.contentView!.layer?.cornerRadius = 16
+        window.contentView!.layer?.masksToBounds = true
+
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.3
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(miniFrame, display: true)
+        }
+
+        addExpandButton(to: window)
+
+        // Re-attach as child.
+        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is GraphOverlayPanel) }) {
+            mainWindow.addChildWindow(window, ordered: .above)
+        }
+
+        // Alias the full-screen window as miniPanel so downstream code
+        // (inspector, escape handler, first responder queries) works.
+        self.miniPanel = window as? GraphOverlayPanel
+
+        window.makeFirstResponder(metalView)
+        observeNodeSelection()
     }
 
     /// Restore the mini panel back to the full-screen overlay.
+    /// The same window transforms to full-screen — no Metal view reparenting.
     func restore() {
-        guard let metalView, let miniPanel, isMinimized else { return }
+        guard let metalView, let window, isMinimized else { return }
 
         // Cold-started in mini mode (e.g., via command palette) — no full-screen window exists.
         // Clean teardown, then ask HologramController to create everything fresh.
-        if window == nil {
+        if self.window == nil {
             teardown()
             HologramController.shared.show()
             return
         }
 
-        // 1. Pause engine.
-        metalView.pauseEngine()
-
-        // 2. Remove metalView from mini panel.
-        metalView.removeFromSuperview()
-
-        // 3. Re-add metalView to the overlay window's content view.
-        guard let contentView = window?.contentView else {
-            // Overlay window was lost — recreate everything.
-            metalView.resumeEngine()
-            teardown()
-            return
-        }
-        metalView.isMiniMode = false
-        metalView.autoresizingMask = [.width, .height]
-        metalView.frame = contentView.bounds
-        // Insert behind the floating controls/sidebar/inspector.
-        contentView.addSubview(metalView, positioned: .below, relativeTo: contentView.subviews.first { $0 is NSHostingView<AnyView> || $0 !== blurView && $0 !== darkenLayer })
-
-        // 4. Animate: mini panel fades out, overlay fades in.
         isMinimized = false
-        window?.alphaValue = 0
-        window?.makeKeyAndOrderFront(nil)
-        window?.makeFirstResponder(metalView)
+        metalView.isMiniMode = false
+        miniPanel = nil  // Clear alias set by minimize()
+
+        // 1. Remove child relationship.
+        if let parent = window.parent {
+            parent.removeChildWindow(window)
+        }
+
+        // 2. Remove mini-mode additions (blur with tag 999, expand button).
+        window.contentView?.subviews
+            .filter { $0.identifier == NSUserInterfaceItemIdentifier("miniBlur") || ($0 is NSHostingView<AnyView> && $0.frame.width < 100) }
+            .forEach { $0.removeFromSuperview() }
+
+        // 3. Un-hide full-screen subviews.
+        blurView?.isHidden = false
+        darkenLayer?.isHidden = false
+        for subview in window.contentView?.subviews ?? [] {
+            subview.isHidden = false
+        }
+
+        // 4. Remove corner radius.
+        window.contentView?.layer?.cornerRadius = 0
+        window.contentView?.layer?.masksToBounds = false
+
+        // 5. Animate frame change to full screen.
+        window.hasShadow = false
+        guard let screen = NSScreen.main else { return }
 
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.3
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            self.window?.animator().alphaValue = 1.0
-            miniPanel.animator().alphaValue = 0
-            self.miniInspectorPanel?.animator().alphaValue = 0
-        } completionHandler: { [weak self] in
-            self?.miniPanel?.orderOut(nil)
-            self?.miniPanel = nil
-            self?.miniInspectorPanel?.orderOut(nil)
-            self?.miniInspectorPanel = nil
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(screen.frame, display: true)
         }
 
-        // 5. Resume engine.
-        metalView.layout()
-        metalView.resumeEngine()
+        window.makeFirstResponder(metalView)
+
+        // Re-attach as child.
+        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is GraphOverlayPanel) }) {
+            mainWindow.addChildWindow(window, ordered: .above)
+        }
+
+        // Hide mini inspector if shown
+        if let inspector = miniInspectorPanel {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.2
+                inspector.animator().alphaValue = 0
+            }, completionHandler: { [weak self] in
+                self?.miniInspectorPanel?.orderOut(nil as NSWindow?)
+                self?.miniInspectorPanel = nil
+            })
+        }
     }
 
     // MARK: - Show Mini (Cold Start)
@@ -333,6 +369,11 @@ final class HologramOverlay {
 
         let panel = createMiniPanel()
         self.miniPanel = panel
+
+        // Attach as child of main app window for proper z-ordering.
+        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
+            mainWindow.addChildWindow(panel, ordered: .above)
+        }
 
         graphView.autoresizingMask = [.width, .height]
         graphView.frame = panel.contentView!.bounds
@@ -373,24 +414,10 @@ final class HologramOverlay {
 
     // MARK: - Mini Panel Creation
 
-    private func createMiniPanel() -> NSWindow {
-        let panel = KeyableWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 380),
-            styleMask: [.borderless, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false          // We use a custom glow instead
-        panel.isMovableByWindowBackground = false  // Metal view handles its own drag
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.isReleasedWhenClosed = false
+    private func createMiniPanel() -> GraphOverlayPanel {
+        let panel = GraphOverlayPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 380))
         panel.minSize = NSSize(width: 320, height: 240)
         panel.maxSize = NSSize(width: 1200, height: 900)
-        panel.ignoresMouseEvents = false
-        panel.acceptsMouseMovedEvents = true
 
         // Position: bottom-right of main screen with padding.
         if let screen = NSScreen.main {
@@ -429,23 +456,12 @@ final class HologramOverlay {
     }
 
     /// Create a companion inspector panel positioned to the right of the mini graph.
-    private func createMiniInspectorPanel(relativeTo graphPanel: NSWindow) -> NSWindow {
+    private func createMiniInspectorPanel(relativeTo graphPanel: NSWindow) -> GraphOverlayPanel {
         let inspectorWidth: CGFloat = 380
         let inspectorHeight: CGFloat = 620
 
-        let panel = KeyableWindow(
-            contentRect: NSRect(x: 0, y: 0, width: inspectorWidth, height: inspectorHeight),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.isMovableByWindowBackground = true
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        panel.isReleasedWhenClosed = false
+        let panel = GraphOverlayPanel(contentRect: NSRect(x: 0, y: 0, width: inspectorWidth, height: inspectorHeight))
+        panel.styleMask = [.nonactivatingPanel, .borderless]  // Inspector is not resizable
 
         // Position: to the left of the mini graph panel with a small gap.
         if let screen = NSScreen.main {
@@ -595,6 +611,84 @@ final class HologramOverlay {
         }
     }
 
+    // MARK: - Fullscreen Handling
+
+    private func observeFullscreenTransitions() {
+        fullscreenEnterObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willEnterFullScreenNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            // Hide overlay during fullscreen animation to prevent flash.
+            self?.window?.orderOut(nil)
+            self?.miniPanel?.orderOut(nil as NSWindow?)
+            self?.miniInspectorPanel?.orderOut(nil)
+        }
+
+        fullscreenExitObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didExitFullScreenNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            // Re-show if the overlay was visible before fullscreen.
+            if self.isMinimized {
+                self.miniPanel?.orderFront(nil as NSWindow?)
+            } else if self.window != nil {
+                // Only re-show if it was previously visible (not hidden).
+            }
+        }
+
+        // Re-attach and re-show after entering fullscreen
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didEnterFullScreenNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self, self.isVisible else { return }
+            // Re-attach as child of the now-fullscreen window.
+            if let fsWindow = notification.object as? NSWindow {
+                if let w = self.window, !self.isMinimized {
+                    fsWindow.addChildWindow(w, ordered: .above)
+                    w.orderFront(nil)
+                }
+                if let mp = self.miniPanel, self.isMinimized {
+                    fsWindow.addChildWindow(mp, ordered: .above)
+                    mp.orderFront(nil)
+                }
+            }
+        }
+    }
+
+    private func observeParentMiniaturize() {
+        let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) })
+
+        parentMiniaturizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willMiniaturizeNotification,
+            object: mainWindow,
+            queue: .main
+        ) { [weak self] _ in
+            // Hide overlay when parent minimizes to Dock.
+            self?.window?.orderOut(nil)
+            self?.miniPanel?.orderOut(nil as NSWindow?)
+            self?.miniInspectorPanel?.orderOut(nil)
+        }
+
+        parentDeminiaturizeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didDeminiaturizeNotification,
+            object: mainWindow,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            // Re-show overlay after parent restores from Dock.
+            if self.isMinimized {
+                self.miniPanel?.orderFront(nil as NSWindow?)
+            } else if self.window != nil, self.isVisible {
+                self.window?.orderFront(nil)
+            }
+        }
+    }
+
     /// Re-sync blur, tint, and graph color palette to match current system appearance.
     private func syncTheme() {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -627,6 +721,16 @@ final class HologramOverlay {
         minimizeObserver = nil
         restoreObserver = nil
         closeObserver = nil
+        // Remove fullscreen transition observers.
+        if let obs = fullscreenEnterObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = fullscreenExitObserver { NotificationCenter.default.removeObserver(obs) }
+        fullscreenEnterObserver = nil
+        fullscreenExitObserver = nil
+        // Remove parent miniaturize observers.
+        if let obs = parentMiniaturizeObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = parentDeminiaturizeObserver { NotificationCenter.default.removeObserver(obs) }
+        parentMiniaturizeObserver = nil
+        parentDeminiaturizeObserver = nil
         // Cancel node selection observer.
         selectionObserverTask?.cancel()
         selectionObserverTask = nil
@@ -640,7 +744,7 @@ final class HologramOverlay {
         blurView = nil
         noteWindowFrame = nil
         // Close and nil mini panel + inspector companion.
-        miniPanel?.orderOut(nil)
+        miniPanel?.orderOut(nil as NSWindow?)
         miniPanel = nil
         miniInspectorPanel?.orderOut(nil)
         miniInspectorPanel = nil
@@ -667,21 +771,10 @@ final class HologramOverlay {
 
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
 
-        let window = KeyableWindow(
-            contentRect: screen.frame,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.level = .floating
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = false
-        window.isReleasedWhenClosed = false
+        let window = GraphOverlayPanel(contentRect: screen.frame)
         window.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        window.ignoresMouseEvents = false
-        window.acceptsMouseMovedEvents = true
+        // Full-screen overlay doesn't need a shadow (blur background covers everything).
+        window.hasShadow = false
 
         // Build the content: blur + Metal graph + floating controls + search sidebar.
         let contentView = NSView(frame: screen.frame)
@@ -807,6 +900,11 @@ final class HologramOverlay {
         self.window = window
         self.metalView = graphView
 
+        // Attach as child of main app window for proper z-ordering and fullscreen behavior.
+        if let mainWindow = NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
+            mainWindow.addChildWindow(window, ordered: .above)
+        }
+
         window.makeFirstResponder(graphView)
 
         // Commit graph data after window is set up.
@@ -837,6 +935,10 @@ final class HologramOverlay {
                 self?.syncTheme()
             }
         }
+
+        // Observe fullscreen transitions and parent window miniaturize.
+        observeFullscreenTransitions()
+        observeParentMiniaturize()
     }
 
 }
