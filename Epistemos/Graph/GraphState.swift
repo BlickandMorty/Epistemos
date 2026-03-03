@@ -128,18 +128,18 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var centerStrength: Float {
         switch self {
-        case .observatory:   return 0
-        case .nebula:        return 0.002
+        case .observatory:   return 0.02
+        case .nebula:        return 0.005
         case .crystal:       return 0.02
         case .fluid:         return 0.008
-        case .constellation: return 0.001
+        case .constellation: return 0.002
         case .deepSea:       return 0.005
         case .solarSystem:   return 0.003
-        case .windTunnel:    return 0.001
+        case .windTunnel:    return 0.002
         case .snowflake:     return 0.015
         case .rubberBand:    return 0.005
-        case .zenGarden:     return 0
-        case .chaos:         return 0
+        case .zenGarden:     return 0.001
+        case .chaos:         return 0.001
         }
     }
     var collisionRadius: Float {
@@ -356,7 +356,7 @@ final class GraphState {
     /// Velocity damping (0 = no friction/bouncy, 0.95 = viscous). Low = calm, fluid drift.
     var velocityDecay: Float = 0.05
     /// Center gravity pull strength (0 = none, 1.0 = strong).
-    var centerStrength: Float = 1.0
+    var centerStrength: Float = 0.02
     /// Collision buffer zone in pixels. ~66 gives nodes breathing room.
     var collisionRadius: Float = 66.0
 
@@ -431,7 +431,7 @@ final class GraphState {
 
     /// Restore force parameters from UserDefaults. No-op if never saved.
     /// Uses a version key to force reset when defaults change across app updates.
-    private static let physicsVersion = 6  // Bump to force reset on next launch
+    private static let physicsVersion = 7  // Bump to force reset on next launch
     private func restorePhysicsSettings() {
         let d = UserDefaults.standard
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }

@@ -53,17 +53,16 @@ mod physics_audit_tests {
 
     #[test]
     fn test_distant_nodes_with_zero_center_gravity() {
-        // This test documents the "halo of orphan nodes" bug
+        // Orphan nodes are now always pulled toward center (unconditional),
+        // even when center_strength = 0.  This prevents the "halo" bug.
         let mut sim = setup_sim_with_nodes(1);
-        
-        sim.params.center_strength = 0.0; // The bug state
+
+        sim.params.center_strength = 0.0;
         sim.params.velocity_decay = 0.05;
 
-        // Place node far away
+        // Place orphan node far away with slight outward velocity.
         sim.x[0] = 5000.0;
         sim.y[0] = 0.0;
-        
-        // Give it slight outward velocity from a recent blast
         sim.vx[0] = 10.0;
         sim.vy[0] = 0.0;
 
@@ -71,9 +70,9 @@ mod physics_audit_tests {
             sim.tick();
         }
 
-        // It should still be traveling further outwards or resting far away
-        // because there is no gravity to pull it back
-        assert!(sim.x[0] > 5000.0);
+        // With the fix, the orphan should be pulled back toward center.
+        assert!(sim.x[0] < 5000.0,
+            "Orphan should move toward center even with center_strength=0, got x={}", sim.x[0]);
     }
 
     #[test]

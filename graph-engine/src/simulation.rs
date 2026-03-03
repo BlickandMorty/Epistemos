@@ -715,11 +715,19 @@ impl Simulation {
                 alpha,
             );
         }
-        // Extra center pull for orphan nodes (degree 0) — prevents void drift.
+        // Unconditional center pull for low-degree nodes — prevents void drift.
+        // Strength scales inversely with degree: orphans (0) get strongest pull,
+        // leaves (1-2) get moderate pull. Nodes with 3+ links are anchored by springs.
         for i in 0..n {
-            if self.degrees[i] == 0 {
-                self.vx[i] += (cx - self.x[i]) * alpha * 0.08;
-                self.vy[i] += (cy - self.y[i]) * alpha * 0.08;
+            let strength = match self.degrees[i] {
+                0 => 0.10,     // Orphans: strong pull (no springs to anchor them)
+                1 => 0.04,     // Leaves: moderate pull (one weak spring)
+                2 => 0.015,    // Low-degree: gentle pull
+                _ => 0.0,      // Well-connected: springs handle positioning
+            };
+            if strength > 0.0 {
+                self.vx[i] += (cx - self.x[i]) * alpha * strength;
+                self.vy[i] += (cy - self.y[i]) * alpha * strength;
             }
         }
 
