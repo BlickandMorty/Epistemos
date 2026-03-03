@@ -67,6 +67,9 @@ Fixes total: 18 (16 prior + 2 deferred→done) | Deferred: 3 (W12.1, W17.13, W17
 - [x] 1.12: Incremental FFI Graph Updates — FIXED (commit 97f4a59, pending queue + render loop drain)
 - [x] 7.1: Unbounded Version Storage — FIXED (commit 79be726, 10K global limit)
 
+## Post-Audit Fix (2026-03-03)
+- [x] 17.16: Note-Saving Bug — FIXED (commit 7db6a00, removed premature modelContext.save() calls)
+
 ## Previously Deferred → Now Confirmed Implemented
 - [x] 7.4: Graph Store Memory Explosion — IMPLEMENTED (Int-indexed arrays: _nodeIdx, _neighbors, _edgesOf + AdjacencyProxy/EdgesByNodeProxy wrappers)
 - [x] 13.2: Fuzzy Search Scalability — IMPLEMENTED (trigram index: _trigramIdx with posting lists)
