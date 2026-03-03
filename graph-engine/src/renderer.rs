@@ -47,6 +47,7 @@ struct Uniforms {
     zoom_velocity: f32,        // zoom delta per frame (for motion blur)
     lite_mode: f32,            // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
     impact_intensity: f32,     // 1.0 on heavy collision → 0.0 (chromatic aberration)
+    _pad: f32,                 // pad to 64 bytes (Metal 16-byte struct alignment)
 }
 
 /// Compute z-depth from link count using 3 discrete tiers (Observatory layered planes).
@@ -140,6 +141,7 @@ struct Uniforms {
     float zoom_velocity;
     float lite_mode;   // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
     float impact_intensity; // chromatic aberration on collision
+    float _pad;             // 16-byte alignment padding
 };
 
 // ── Node shaders (instanced circles with depth perspective) ──────────
@@ -1410,6 +1412,7 @@ impl Renderer {
                 zoom_velocity: 0.0,
                 lite_mode: self.quality_level as f32,
                 impact_intensity: self.impact_intensity,
+                _pad: 0.0,
             };
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;
@@ -1600,11 +1603,9 @@ mod tests {
 
     #[test]
     fn uniforms_size_matches_metal() {
-        // Uniforms must be consistent between Rust and Metal.
-        // Field count: viewport_size(2) + camera_offset(2) + camera_zoom(1) + time(1)
-        //   + pulse_origin(2) + pulse_time(1) + focal_length(1) + camera_velocity(2)
-        //   + zoom_velocity(1) + lite_mode(1) + impact_intensity(1) = 15 floats = 60 bytes.
-        assert_eq!(std::mem::size_of::<Uniforms>(), 60);
+        // Uniforms must be consistent between Rust and Metal (16-byte aligned).
+        // 15 data floats + 1 padding float = 16 floats = 64 bytes.
+        assert_eq!(std::mem::size_of::<Uniforms>(), 64);
     }
 
     #[test]
