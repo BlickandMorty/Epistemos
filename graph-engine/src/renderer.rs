@@ -100,9 +100,9 @@ fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
     ]
 }
 
-/// Compute bezier control point using node velocities for elastic curvature.
-/// When nodes are at rest (vx/vy ≈ 0), edges are straight.
-/// When dragging, velocity creates organic rubber-band curvature.
+/// Compute bezier control point with baseline arc + velocity-based elastic curvature.
+/// At rest, edges bow gently (each edge direction determined by endpoint hash).
+/// During drag, velocity adds additional rubber-band curvature on top.
 #[inline]
 fn edge_control_point(
     p0: [f32; 2], p1: [f32; 2],
@@ -114,12 +114,21 @@ fn edge_control_point(
     let dist = (dx * dx + dy * dy).sqrt().max(1.0);
     let nx = -dy / dist;
     let ny = dx / dist;
+
+    // Baseline arc: gentle bow proportional to edge length.
+    // Direction determined by endpoint coordinates so each edge bows uniquely.
+    let hash = (p0[0] * 73.7 + p0[1] * 137.3 + p1[0] * 59.1 + p1[1] * 103.9) as i32;
+    let sign = if hash % 2 == 0 { 1.0_f32 } else { -1.0 };
+    let baseline_bow = sign * dist * 0.08; // 8% of edge length
+
+    // Velocity-based elastic curvature (adds to baseline during movement).
     let avg_vx = (v0[0] + v1[0]) * 0.5;
     let avg_vy = (v0[1] + v1[1]) * 0.5;
     let v_perp = avg_vx * nx + avg_vy * ny;
+
     [
-        (p0[0] + p1[0]) * 0.5 + nx * v_perp * stiffness,
-        (p0[1] + p1[1]) * 0.5 + ny * v_perp * stiffness,
+        (p0[0] + p1[0]) * 0.5 + nx * (baseline_bow + v_perp * stiffness),
+        (p0[1] + p1[1]) * 0.5 + ny * (baseline_bow + v_perp * stiffness),
     ]
 }
 
@@ -1535,42 +1544,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn edge_control_point_straight_at_rest() {
-        // Zero velocity → control point at midpoint → straight edge.
+    fn edge_control_point_has_baseline_arc_at_rest() {
+        // Zero velocity → control point offset from midpoint by baseline bow.
         let p0 = [0.0, 0.0];
         let p1 = [100.0, 0.0];
         let v0 = [0.0, 0.0];
         let v1 = [0.0, 0.0];
         let cp = edge_control_point(p0, p1, v0, v1, 0.15);
         assert!((cp[0] - 50.0).abs() < 0.01, "Control point X should be at midpoint");
-        assert!(cp[1].abs() < 0.01, "Control point Y should be near zero");
+        // Baseline bow = ±dist * 0.08 = ±8.0, applied along perpendicular.
+        assert!(cp[1].abs() > 1.0, "At-rest edges should have baseline curvature, got {}", cp[1]);
     }
 
     #[test]
-    fn edge_control_point_curves_with_velocity() {
+    fn edge_control_point_velocity_adds_to_baseline() {
         let p0 = [0.0, 0.0];
         let p1 = [100.0, 0.0];
-        // Perpendicular velocity should deflect control point.
-        let v0 = [0.0, 50.0];
-        let v1 = [0.0, 50.0];
-        let cp = edge_control_point(p0, p1, v0, v1, 0.15);
-        assert!((cp[0] - 50.0).abs() < 0.01, "X should stay at midpoint");
-        // Perpendicular velocity should create offset in Y direction.
-        // Perpendicular to (100,0) is (0,-1) or (0,1). v_perp = avg_vy * nx.
-        // nx = -dy/dist = 0, ny = dx/dist = 1. v_perp = 0*0 + 50*1 = 50.
-        // cp_y = 0 + ny * v_perp * 0.15 = 1 * 50 * 0.15 = 7.5
-        assert!((cp[1] - 7.5).abs() < 0.5, "Y should be offset by velocity, got {}", cp[1]);
+        let v_zero = [0.0, 0.0];
+        let v_perp = [0.0, 50.0];
+        let cp_rest = edge_control_point(p0, p1, v_zero, v_zero, 0.15);
+        let cp_moving = edge_control_point(p0, p1, v_perp, v_perp, 0.15);
+        // Velocity should shift the control point further from the rest position.
+        let rest_offset = cp_rest[1].abs();
+        let move_offset = cp_moving[1].abs();
+        assert!(move_offset > rest_offset,
+            "Velocity should increase curvature: rest={}, moving={}", rest_offset, move_offset);
     }
 
     #[test]
-    fn edge_control_point_zero_stiffness_gives_midpoint() {
+    fn edge_control_point_zero_stiffness_still_has_baseline() {
         let p0 = [0.0, 0.0];
         let p1 = [100.0, 0.0];
         let v0 = [0.0, 100.0]; // Strong velocity
         let v1 = [0.0, 100.0];
         let cp = edge_control_point(p0, p1, v0, v1, 0.0); // zero stiffness
         assert!((cp[0] - 50.0).abs() < 0.01);
-        assert!(cp[1].abs() < 0.01, "Zero stiffness should ignore velocity");
+        // Zero stiffness ignores velocity but baseline arc remains.
+        assert!(cp[1].abs() > 1.0, "Baseline arc should persist at zero stiffness, got {}", cp[1]);
     }
 
     #[test]
