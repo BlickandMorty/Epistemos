@@ -175,6 +175,7 @@
 		B101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift */; };
 		B101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift */; };
 		34AB035DB3836B164B7043AC /* BlockSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C476599982FABD5D575935 /* BlockSearchTests.swift */; };
+		F1E2D3C4B5A697887654321A /* BlockEmbeddingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607890ABCDEF1 /* BlockEmbeddingTests.swift */; };
 		B101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift */; };
 		B101A3F40D1E4A21B2C30007 /* VaultManifestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F101A3F40D1E4A21B2C30007 /* VaultManifestTests.swift */; };
 		B38D69510B1266DAC78BC3AE /* ChatCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 957E722596BA7B2B51EBB3BD /* ChatCoordinator.swift */; };
@@ -482,6 +483,7 @@
 		F101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDPageQueryDescriptorTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndexServiceIntegrationTests.swift; sourceTree = "<group>"; };
 		64C476599982FABD5D575935 /* BlockSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockSearchTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F607890ABCDEF1 /* BlockEmbeddingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEmbeddingTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultIndexActorTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30007 /* VaultManifestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManifestTests.swift; sourceTree = "<group>"; };
 		F13CBB89380150C108F3D764 /* FFIStringTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FFIStringTests.swift; sourceTree = "<group>"; };
@@ -898,6 +900,7 @@
 				F101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift */,
 				F101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift */,
 				64C476599982FABD5D575935 /* BlockSearchTests.swift */,
+				A1B2C3D4E5F607890ABCDEF1 /* BlockEmbeddingTests.swift */,
 				A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */,
 				38A3BAA118559377272F67AB /* FilterEngineTests.swift */,
 				8222061E754EB69684B019E8 /* GraphModelTests.swift */,
@@ -1128,6 +1131,7 @@
 				B101A3F40D1E4A21B2C30004 /* SDPageQueryDescriptorTests.swift in Sources */,
 				B101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift in Sources */,
 				34AB035DB3836B164B7043AC /* BlockSearchTests.swift in Sources */,
+				F1E2D3C4B5A697887654321A /* BlockEmbeddingTests.swift in Sources */,
 				D5BB2F79FFF66EF142F8DC66 /* SignalGeneratorTests.swift in Sources */,
 				3D887E06783CB902C43B69F6 /* FilterEngineTests.swift in Sources */,
 				E1AA6C3399E169EF56475AAB /* GraphModelTests.swift in Sources */,

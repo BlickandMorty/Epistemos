@@ -128,4 +128,60 @@ final class EmbeddingService {
     func embedding(for nodeId: String) -> [Float]? {
         embeddings[nodeId]
     }
+
+    // MARK: - Block Embeddings
+
+    /// Compute embedding vectors for a set of blocks using NLEmbedding word-averaging.
+    /// Pure computation — does NOT push to Rust. Returns blockId -> vector dict.
+    /// Blocks with empty content or no recognized words are skipped.
+    nonisolated func computeBlockVectors(blocks: [(id: String, content: String)]) -> [String: [Float]] {
+        guard let nlEmbedding = NLEmbedding.wordEmbedding(for: .english) else { return [:] }
+
+        let dim = nlEmbedding.dimension
+        var result: [String: [Float]] = [:]
+        result.reserveCapacity(blocks.count)
+        var floatBuffer = [Float](repeating: 0, count: dim)
+
+        for block in blocks {
+            let words = block.content.lowercased()
+                .components(separatedBy: .alphanumerics.inverted)
+                .filter { $0.count > 1 }
+
+            var sumVector = [Float](repeating: 0, count: dim)
+            var count = 0
+
+            for word in words {
+                if let vec = nlEmbedding.vector(for: word) {
+                    vDSP.convertElements(of: vec, to: &floatBuffer)
+                    vDSP.add(sumVector, floatBuffer, result: &sumVector)
+                    count += 1
+                }
+            }
+
+            if count > 0 {
+                var scaled = [Float](repeating: 0, count: dim)
+                vDSP.multiply(1.0 / Float(count), sumVector, result: &scaled)
+                result[block.id] = scaled
+            }
+        }
+
+        return result
+    }
+
+    /// Push pre-computed block embeddings to the Rust engine via FFI.
+    /// Same pattern as node embedding push — requires MainActor for engineHandle access.
+    func pushBlockEmbeddings(_ embeddings: [String: [Float]]) {
+        guard let engine = graphState?.engineHandle else { return }
+        guard let firstVector = embeddings.values.first else { return }
+        let dim = firstVector.count
+
+        for (blockId, vector) in embeddings {
+            vector.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                blockId.withCString { cId in
+                    graph_engine_set_node_embedding(engine, cId, base, UInt32(dim))
+                }
+            }
+        }
+    }
 }
