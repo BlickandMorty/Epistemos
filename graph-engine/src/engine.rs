@@ -147,37 +147,83 @@ impl Engine {
         let n = self.graph.nodes.len();
 
         // ── Initial Layout ──────────────────────────────────────────────
-        // Phyllotaxis (golden-angle) spiral gives well-separated initial positions.
-        // Spacing scales with graph size: small vaults get a tighter spiral so nodes
-        // fill the viewport from the start, large vaults spread more to avoid overlap.
-        if entrance {
+        // BFS from hubs: connected nodes start near their parent.
+        // This ensures springs only need fine-tuning, not long-range hauling.
+        if entrance && n > 0 {
+            use std::collections::VecDeque;
             let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());
-            // Spacing must exceed link_distance (243) so nodes start farther apart
-            // than their rest length. Initial force is gentle attraction (pulling in)
-            // rather than violent repulsion (pushing out) with charge_strength=-500.
-            let spacing = if n > 5000 {
-                400.0_f32
-            } else if n > 500 {
-                380.0
-            } else if n > 100 {
-                350.0
-            } else {
-                320.0
-            };
 
-            // Sort by link_count descending so hub nodes land at inner spiral indices.
-            let mut sorted_indices: Vec<usize> = (0..n).collect();
-            sorted_indices.sort_unstable_by(|&a, &b| {
+            // Child placement distance: slightly under link_distance so springs
+            // gently push outward rather than needing to pull inward from far away.
+            let child_spacing = 150.0_f32;
+
+            // Build adjacency list from graph edges.
+            let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
+            for edge in &self.graph.edges {
+                if let (Some(&si), Some(&ti)) = (
+                    self.graph.id_to_index.get(&edge.source),
+                    self.graph.id_to_index.get(&edge.target),
+                ) {
+                    if si < n && ti < n {
+                        adj[si].push(ti);
+                        adj[ti].push(si);
+                    }
+                }
+            }
+
+            // Sort roots by degree descending (hubs first).
+            let mut roots: Vec<usize> = (0..n).collect();
+            roots.sort_unstable_by(|&a, &b| {
                 self.graph.nodes[b].link_count.cmp(&self.graph.nodes[a].link_count)
             });
 
-            for (spiral_idx, &node_idx) in sorted_indices.iter().enumerate() {
-                let r = spacing * (spiral_idx as f32).sqrt();
-                let theta = spiral_idx as f32 * golden_angle;
-                self.graph.nodes[node_idx].x = r * theta.cos();
-                self.graph.nodes[node_idx].y = r * theta.sin();
-                self.graph.nodes[node_idx].vx = 0.0;
-                self.graph.nodes[node_idx].vy = 0.0;
+            let mut placed = vec![false; n];
+            let mut queue: VecDeque<usize> = VecDeque::with_capacity(n);
+            let mut component_offset_x = 0.0_f32;
+            let mut component_max_x: f32;
+
+            for &root in &roots {
+                if placed[root] { continue; }
+
+                // Place component root.
+                self.graph.nodes[root].x = component_offset_x;
+                self.graph.nodes[root].y = 0.0;
+                self.graph.nodes[root].vx = 0.0;
+                self.graph.nodes[root].vy = 0.0;
+                placed[root] = true;
+                queue.push_back(root);
+                component_max_x = component_offset_x;
+
+                while let Some(parent) = queue.pop_front() {
+                    let px = self.graph.nodes[parent].x;
+                    let py = self.graph.nodes[parent].y;
+
+                    // Collect unplaced children.
+                    let children: Vec<usize> = adj[parent].iter()
+                        .filter(|&&c| !placed[c])
+                        .copied()
+                        .collect();
+
+                    let child_count = children.len();
+                    for (i, child) in children.into_iter().enumerate() {
+                        if placed[child] { continue; }
+
+                        // Golden-angle fan around parent — avoids overlap patterns.
+                        let angle = i as f32 * golden_angle;
+                        self.graph.nodes[child].x = px + child_spacing * angle.cos();
+                        self.graph.nodes[child].y = py + child_spacing * angle.sin();
+                        self.graph.nodes[child].vx = 0.0;
+                        self.graph.nodes[child].vy = 0.0;
+                        placed[child] = true;
+                        queue.push_back(child);
+
+                        component_max_x = component_max_x.max(self.graph.nodes[child].x);
+                    }
+                    let _ = child_count; // suppress unused warning
+                }
+
+                // Offset next disconnected component to the right.
+                component_offset_x = component_max_x + child_spacing * 4.0;
             }
         }
 
