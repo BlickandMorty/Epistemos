@@ -62,7 +62,6 @@
 		33C00A85A6F9B9522023D78D /* SDPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654F422C75468BDA30E3F786 /* SDPage.swift */; };
 		33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */; };
 		34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */; };
-		36F5E0ED551287EE05D19D60 /* QueryExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F79FAAD95D401EA18D8BD247 /* QueryExecutor.swift */; };
 		37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */; };
 		3A108651CC3EAA7022379103 /* WordProcessorIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9EF6E868A181F943681131F /* WordProcessorIntents.swift */; };
 		3CF4C6834A890BA2FD833164 /* SearchIndexService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9EDE6E0F0FCAECB658EEFF /* SearchIndexService.swift */; };
@@ -489,7 +488,6 @@
 		F13CBB89380150C108F3D764 /* FFIStringTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FFIStringTests.swift; sourceTree = "<group>"; };
 		F1457DCEF9E644AFAB25224D /* CitationExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CitationExtractor.swift; sourceTree = "<group>"; };
 		F2211321B9F2F95CDF0F7A69 /* ExtractionTypes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ExtractionTypes.swift; sourceTree = "<group>"; };
-		F79FAAD95D401EA18D8BD247 /* QueryExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryExecutor.swift; sourceTree = "<group>"; };
 		FB24375B0C39C436B8F01641 /* TaggedMarkdownTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaggedMarkdownTextView.swift; sourceTree = "<group>"; };
 		FBD4F31B576487CA28F2D7F4 /* SOARService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARService.swift; sourceTree = "<group>"; };
 		FCD3CB0ADAEE70EDE2CAEC60 /* SDGraphEdge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SDGraphEdge.swift; sourceTree = "<group>"; };
@@ -996,7 +994,6 @@
 				0CB55688D517985883EF8E0B /* QueryAnalyzer.swift */,
 				8FB044948A34572FFF0AD11E /* QueryEngine.swift */,
 				BCE3F8A21D4A7B5C8E9D0F1A2 /* BlockEditTranslator.swift */,
-				F79FAAD95D401EA18D8BD247 /* QueryExecutor.swift */,
 				7A9247984AB9177206C1F17D /* QueryParser.swift */,
 				7FDE141D4AA416CE0EC403BE /* ResearchService.swift */,
 				5D4B9B2A663CE3A6DA5BD213 /* SignalGenerator.swift */,
@@ -1272,7 +1269,6 @@
 				29FB64FBEB0765D1E8ABD11E /* QueryAnalyzer.swift in Sources */,
 				CA34D476FE015DE01662005C /* QueryEngine.swift in Sources */,
 				CDF4G9B32E5B8C6D0F1A2B3C4 /* BlockEditTranslator.swift in Sources */,
-				36F5E0ED551287EE05D19D60 /* QueryExecutor.swift in Sources */,
 				ACE601878C50BBF8D8CC6F03 /* QueryParser.swift in Sources */,
 				97CA10020A5F6C15307F94B1 /* QueryResultsView.swift in Sources */,
 				BC600D3489507B1C63BADA6B /* QueryTypes.swift in Sources */,

@@ -1,26 +1,22 @@
 import Foundation
 
-// MARK: - GraphQueryDSL
-// Structured query language for the knowledge graph.
-// Parsed from natural language by QueryParser, executed by QueryExecutor.
-//
-// Design: Each case maps cleanly to a backend:
-//   - findNodes/findEdges → GraphStore in-memory filter
-//   - pathBetween/neighbors → GraphStore BFS (already implemented)
-//   - contentSearch → SearchIndexService (GRDB FTS5)
-//   - semanticSearch → GraphState.hybridSearch (Rust FST + embeddings)
-//   - aggregation → in-memory computation over GraphStore
-//   - compound → set operations on sub-query results
+// MARK: - QueryPlan Types (Shared with QueryAST)
 
-enum GraphQueryDSL: Sendable {
-    case findNodes(NodeFilter)
-    case findEdges(EdgeFilter)
-    case pathBetween(from: NodeRef, to: NodeRef, maxHops: Int)
-    case neighbors(of: NodeRef, edgeTypes: [GraphEdgeType]?, depth: Int)
-    case aggregation(AggregationType)
-    case contentSearch(query: String, nodeTypes: [GraphNodeType]?)
-    case semanticSearch(query: String, limit: Int)
-    case compound([GraphQueryDSL], combiner: SetCombiner)
+enum SearchScope: Sendable {
+    case pages
+    case blocks
+    case all
+}
+
+enum CompOp: Sendable {
+    case eq, neq, lt, gt, lte, gte, contains
+}
+
+enum PropertyValue: Sendable {
+    case string(String)
+    case float(Float)
+    case int(Int)
+    case bool(Bool)
 }
 
 // MARK: - NodeFilter
@@ -30,7 +26,6 @@ struct NodeFilter: Sendable {
     var labelContains: String?
     var createdAfter: Date?
     var createdBefore: Date?
-    var metadata: MetadataFilter?
     var limit: Int = 50
 }
 
@@ -49,31 +44,6 @@ enum NodeRef: Sendable {
     case id(String)
     case label(String)
     case type(GraphNodeType)
-}
-
-// MARK: - MetadataFilter
-
-struct MetadataFilter: Sendable {
-    var researchStage: Int?
-    var hasURL: Bool?
-}
-
-// MARK: - AggregationType
-
-enum AggregationType: Sendable {
-    case countByType
-    case countByEdgeType
-    case mostConnected(limit: Int)
-    case recentlyCreated(limit: Int)
-    case orphans // Nodes with no edges
-}
-
-// MARK: - SetCombiner
-
-enum SetCombiner: Sendable {
-    case union
-    case intersection
-    case difference
 }
 
 // MARK: - QueryResult
@@ -122,4 +92,63 @@ struct QueryResultEdge: Identifiable, Sendable {
 struct QueryAggregation: Sendable {
     let title: String
     let rows: [(label: String, value: Int)]
+}
+
+// MARK: - QueryPlan
+// Compiled execution plan. Each step targets a specific backend.
+
+struct QueryPlan: Sendable {
+    let steps: [QueryStep]
+    let subPlans: [QueryPlan]
+    let combiner: PlanCombiner
+    let limit: Int?
+    let offset: Int?
+    let orderBy: OrderBy?
+
+    init(steps: [QueryStep], combiner: PlanCombiner) {
+        self.steps = steps
+        self.subPlans = []
+        self.combiner = combiner
+        self.limit = nil
+        self.offset = nil
+        self.orderBy = nil
+    }
+
+    init(subPlans: [QueryPlan], combiner: PlanCombiner) {
+        self.steps = []
+        self.subPlans = subPlans
+        self.combiner = combiner
+        self.limit = nil
+        self.offset = nil
+        self.orderBy = nil
+    }
+
+    init(inner: QueryPlan, limit: Int?, offset: Int?, orderBy: OrderBy?) {
+        self.steps = inner.steps
+        self.subPlans = inner.subPlans
+        self.combiner = inner.combiner
+        self.limit = limit
+        self.offset = offset
+        self.orderBy = orderBy
+    }
+
+    enum QueryStep: Sendable {
+        case graphStoreFilter(NodeFilter)
+        case graphStoreEdgeFilter(EdgeFilter)
+        case graphStorePath(from: NodeRef, to: NodeRef, maxHops: Int)
+        case graphStoreNeighbors(of: NodeRef, edgeTypes: [GraphEdgeType]?, depth: Int)
+        case fts5Search(query: String, scope: SearchScope)
+        case semanticSearch(query: String, threshold: Float, limit: Int)
+        case btkPropertyFilter(key: String, op: CompOp, value: PropertyValue)
+        case btkDepthFilter(op: CompOp, value: Int)
+        case inMemoryLabelFilter(String)
+    }
+
+    enum PlanCombiner: Sendable {
+        case single        // One step, return directly
+        case intersection  // AND: intersect result sets
+        case union         // OR: union result sets
+        case complement    // NOT: full universe minus matched set
+        case sequential    // Steps executed in order, results piped
+    }
 }

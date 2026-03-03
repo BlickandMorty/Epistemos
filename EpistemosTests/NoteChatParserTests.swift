@@ -52,40 +52,33 @@ struct GeneratedChatQueryParser1000Tests {
         switch i % 5 {
         case 0:
             let q = "find topic \(i)"
-            let parsed = QueryParser.parse(q)
-            switch parsed {
-            case .contentSearch(let query, _):
+            let parsed = QueryParser.parseToAST(q)
+            if case .ftsMatch(let query, _) = parsed {
                 #expect(query.contains("topic \(i)"))
-            default:
-                Issue.record("Expected content search for case \(i)")
+            } else {
+                Issue.record("Expected ftsMatch for case \(i)")
             }
 
         case 1:
-            let parsed = QueryParser.parse("all notes")
-            switch parsed {
-            case .findNodes(let filter):
-                #expect(filter.types?.contains(.note) == true)
-            default:
-                Issue.record("Expected findNodes(.note) for case \(i)")
+            let parsed = QueryParser.parseToAST("all notes")
+            if case .typeFilter(let types) = parsed {
+                #expect(types.contains(.note))
+            } else {
+                Issue.record("Expected typeFilter(.note) for case \(i)")
             }
 
         case 2:
-            let parsed = QueryParser.parse("how many notes")
-            switch parsed {
-            case .aggregation(let agg):
-                if case .countByType = agg {
-                    #expect(true)
-                } else {
-                    Issue.record("Expected .countByType aggregation for case \(i)")
-                }
-            default:
-                Issue.record("Expected aggregation for case \(i)")
+            let parsed = QueryParser.parseToAST("how many notes")
+            // No aggregation in QueryAST — falls through to FTS
+            if case .ftsMatch = parsed {
+                #expect(true)
+            } else {
+                Issue.record("Expected ftsMatch fallback for case \(i)")
             }
 
         case 3:
-            let parsed = QueryParser.parse("path from alpha\(i) to beta\(i)")
-            switch parsed {
-            case .pathBetween(from: let from, to: let to, maxHops: let hops):
+            let parsed = QueryParser.parseToAST("path from alpha\(i) to beta\(i)")
+            if case .graphPath(from: let from, to: let to, maxHops: let hops) = parsed {
                 #expect(hops == 6)
                 if case .label(let fromLabel) = from {
                     #expect(fromLabel.contains("alpha\(i)"))
@@ -97,18 +90,17 @@ struct GeneratedChatQueryParser1000Tests {
                 } else {
                     Issue.record("Expected to NodeRef.label for case \(i)")
                 }
-            default:
-                Issue.record("Expected pathBetween for case \(i)")
+            } else {
+                Issue.record("Expected graphPath for case \(i)")
             }
 
         default:
-            let parsed = QueryParser.parse("similar to topic \(i)")
-            switch parsed {
-            case .semanticSearch(let query, let limit):
+            let parsed = QueryParser.parseToAST("similar to topic \(i)")
+            if case .semanticSimilar(let query, _, let limit) = parsed {
                 #expect(query.contains("topic \(i)"))
                 #expect(limit == 10)
-            default:
-                Issue.record("Expected semanticSearch for case \(i)")
+            } else {
+                Issue.record("Expected semanticSimilar for case \(i)")
             }
         }
     }

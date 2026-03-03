@@ -523,7 +523,7 @@ struct GeneratedReliabilityMatrixTests {
 
         for j in 0..<iterations {
             let query = "find topic \(i)-\(j) with references and synthesis"
-            _ = QueryParser.parse(query)
+            _ = QueryParser.parseToAST(query)
 
             let markdown = """
             # Heading \(i)-\(j)
@@ -591,7 +591,7 @@ struct GeneratedReliabilityMatrixTests {
         let payloadB = String(repeating: "\\", count: 64 + (i % 128))
         let payloadC = String(repeating: ">", count: 64 + (i % 128))
 
-        _ = QueryParser.parse(payloadA + payloadB + payloadC)
+        _ = QueryParser.parseToAST(payloadA + payloadB + payloadC)
         let toc = TOCParser.parse(payloadA + "\n" + payloadC)
         let diff = LineDiff.compute(old: payloadA, new: payloadA + payloadB)
 
@@ -606,15 +606,15 @@ struct GeneratedReliabilityMatrixTests {
         store.loadDirect(nodes: nodes, edges: edges)
 
         let malformed = String(repeating: "]", count: 256 + (i % 128))
-        _ = QueryParser.parse(malformed)
+        _ = QueryParser.parseToAST(malformed)
         _ = TOCParser.parse(malformed)
         _ = LineDiff.compute(old: malformed, new: malformed + "x")
 
         let connected = store.connected(to: nodes[0].id, maxDepth: 3)
-        let parsed = QueryParser.parse("all notes")
+        let parsed = QueryParser.parseToAST("all notes")
 
-        if case .findNodes(let filter) = parsed {
-            #expect(filter.types?.contains(.note) == true)
+        if case .typeFilter(let types) = parsed {
+            #expect(types.contains(.note))
         } else {
             Issue.record("Recovery parser check failed for case \(i)")
         }
@@ -631,7 +631,7 @@ struct GeneratedReliabilityMatrixTests {
                     for j in 0..<25 {
                         let query = "path from node\(i)-\(worker)-\(j) to node\(j)-\(i)"
                         await MainActor.run {
-                            _ = QueryParser.parse(query)
+                            _ = QueryParser.parseToAST(query)
                             _ = LineDiff.compute(old: "a\(j)", new: "a\(j)-\(i)")
                         }
                     }
