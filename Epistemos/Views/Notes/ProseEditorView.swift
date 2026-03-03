@@ -59,7 +59,6 @@ struct ProseEditorView: View {
                 if let oldPage = try? modelContext.fetch(desc).first {
                     oldPage.saveBody(currentText)
                     oldPage.needsVaultSync = true
-                    try? modelContext.save()
                 }
             },
             graphState: graphState
@@ -107,7 +106,6 @@ struct ProseEditorView: View {
             page.saveBody(bodyText)
             lastPersistedBody = bodyText
             page.needsVaultSync = true
-            try? modelContext.save()
         }
     }
 
@@ -129,8 +127,6 @@ struct ProseEditorView: View {
             guard !Task.isCancelled else { return }
             guard newValue != lastPersistedBody else { return }
             page.needsVaultSync = true
-            // Persist the dirty flag so @Query in sidebar sees it and vault sync finds it.
-            try? modelContext.save()
             // File write off main thread (nonisolated NoteFileStorage is thread-safe).
             await Task.detached(priority: .utility) {
                 NoteFileStorage.writeBody(pageId: pageId, content: newValue)
