@@ -140,7 +140,7 @@ final class CommandPaletteWindowController {
         guard panel == nil else { return }
 
         let p = KeyablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 120),
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 120),
             styleMask: [.borderless, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -154,8 +154,8 @@ final class CommandPaletteWindowController {
         p.isOpaque = false
         p.hasShadow = false
         p.isMovableByWindowBackground = true
-        p.minSize = NSSize(width: 520, height: 80)
-        p.maxSize = NSSize(width: 680, height: 780)
+        p.minSize = NSSize(width: 600, height: 80)
+        p.maxSize = NSSize(width: 740, height: 780)
 
         guard let bootstrap = AppBootstrap.shared else { return }
 
