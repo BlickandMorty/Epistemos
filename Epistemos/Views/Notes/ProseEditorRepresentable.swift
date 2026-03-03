@@ -51,6 +51,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     /// updateNSView + SwiftUI onChange.
     var onPageFlush: ((String, String) -> Void)?
 
+    /// Graph state for BTK (Block Transaction Kernel) access to the Rust engine.
+    var graphState: GraphState?
+
     /// Max readable content width (Obsidian-style centered column).
     private static let maxReadableWidth: CGFloat = 720
     /// Minimum horizontal padding even at narrow widths.
@@ -154,10 +157,13 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         context.coordinator.textView = tv
         context.coordinator.storage = storage
 
-        // Transclusion overlays — shows ((block-ref)) content inline
+        // Transclusion overlays — editable inline block-ref content
         let transclusionMgr = TransclusionOverlayManager(textView: tv)
         if let mc = modelContext {
             transclusionMgr.configure(modelContext: mc)
+        }
+        transclusionMgr.onBlockEdit = { [weak context = context.coordinator] blockId, newContent in
+            context?.handleTransclusionEdit(blockId: blockId, newContent: newContent)
         }
         context.coordinator.transclusionManager = transclusionMgr
 
@@ -315,6 +321,26 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             // Clear transclusion overlays from previous page
             coord.transclusionManager?.removeAll()
             coord.blockRefAutocomplete?.dismiss()
+
+            // BTK: Initialize block edit translator when BTK is enabled.
+            if UserDefaults.standard.bool(forKey: "epistemos.btk.enabled"),
+               let graphState = graphState {
+                // Create translator and initialize with existing blocks
+                coord.blockEditTranslator = BlockEditTranslator(
+                    pageId: pageId, graphState: graphState
+                )
+                // Fetch existing blocks from SwiftData and initialize
+                if let mc = modelContext {
+                    let descriptor = FetchDescriptor<SDBlock>(
+                        predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+                        sortBy: [SortDescriptor(\.order)]
+                    )
+                    let existingBlocks = (try? mc.fetch(descriptor)) ?? []
+                    coord.blockEditTranslator?.initIfNeeded(existingBlocks: existingBlocks)
+                }
+            } else {
+                coord.blockEditTranslator = nil
+            }
         }
 
         // === GUARD ALL WORK WITH COORDINATOR CACHE (Pitfall #6) ===
@@ -512,6 +538,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         var tableBorderLayer: CAShapeLayer?
         nonisolated(unsafe) var borderScrollObserver: (any NSObjectProtocol)?
 
+        /// Block Transaction Kernel translator — tracks edits as block ops.
+        var blockEditTranslator: BlockEditTranslator?
+
         init(_ parent: ProseEditorRepresentable) {
             self.parent = parent
             self.lastIsDark = parent.isDark
@@ -583,6 +612,17 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Check for (( autocomplete trigger
             blockRefAutocomplete?.checkTrigger()
+
+            // BTK: translate edit into block ops (translator non-nil iff BTK enabled)
+            if let translator = blockEditTranslator,
+               let storage = tv.textStorage {
+                // Get the edited range from the text storage
+                let editedRange = storage.editedRange
+                let changeInLength = storage.changeInLength
+                let oldLength = editedRange.length - changeInLength
+                let newText = (storage.string as NSString).substring(with: editedRange)
+                translator.translateEdit(offset: editedRange.location, oldLength: oldLength, newText: newText)
+            }
 
             // Auto-align table columns (500ms debounce)
             scheduleTableAlignment(tv)
@@ -852,6 +892,24 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 textView.setSelectedRange(NSRange(location: min(newCursorPos, (textView.string as NSString).length), length: 0))
             }
             return true
+        }
+
+        // MARK: - Transclusion Edit
+
+        /// Handle edits from an EditableTransclusionView overlay.
+        /// Updates the source SDBlock in SwiftData directly.
+        func handleTransclusionEdit(blockId: String, newContent: String) {
+            guard let mc = parent.modelContext else { return }
+
+            let descriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.id == blockId }
+            )
+            guard let block = try? mc.fetch(descriptor).first else { return }
+            block.content = newContent
+            block.updatedAt = .now
+
+            // TODO: Route through BTK (blockEditTranslator) when UpdateBlock FFI is available.
+            // For now, direct SwiftData mutation is the edit path.
         }
 
         // MARK: - Binding Sync

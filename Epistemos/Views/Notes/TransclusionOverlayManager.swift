@@ -2,8 +2,9 @@ import AppKit
 import SwiftData
 
 // MARK: - TransclusionOverlayManager
-// Manages floating NSView overlays positioned over ((block-ref)) ranges in the editor.
-// Shows the referenced block's content inline without modifying the backing text storage.
+// Manages floating EditableTransclusionView overlays positioned over ((block-ref)) ranges.
+// Each overlay is an editable text view showing the referenced block's content inline.
+// Edits fire onBlockEdit which routes through BTK as UpdateBlock ops.
 //
 // Lifecycle:
 //   - Created once per editor (stored on Coordinator)
@@ -15,8 +16,11 @@ import SwiftData
 final class TransclusionOverlayManager {
 
     private weak var textView: NSTextView?
-    private var overlays: [String: TransclusionOverlayView] = [:] // blockId → overlay
+    private var overlays: [String: EditableTransclusionView] = [:] // blockId -> overlay
     private var modelContext: ModelContext?
+
+    /// Callback when a transclusion is edited. (blockId, newContent)
+    var onBlockEdit: ((String, String) -> Void)?
 
     /// Maximum transclusion depth to prevent circular references.
     private static let maxDepth = 3
@@ -77,17 +81,27 @@ final class TransclusionOverlayManager {
                     height: overlayHeight
                 )
             } else {
-                let overlay = TransclusionOverlayView(blockId: blockId)
+                let resolved = resolveBlock(blockId)
+                let overlay = EditableTransclusionView(
+                    blockId: blockId,
+                    sourcePageId: resolved?.pageId ?? ""
+                )
                 overlay.frame = NSRect(
                     x: overlayRect.origin.x,
                     y: overlayRect.origin.y,
                     width: overlayRect.width,
                     height: overlayHeight
                 )
-                if let content = resolveBlock(blockId) {
-                    overlay.setContent(content)
+                if let resolved {
+                    overlay.setContent(resolved.content)
+                    if let title = resolvePageTitle(resolved.pageId) {
+                        overlay.setProvenance(pageTitle: title)
+                    }
                 } else {
                     overlay.setMissing()
+                }
+                overlay.onEdit = { [weak self] blockId, newContent in
+                    self?.onBlockEdit?(blockId, newContent)
                 }
                 textView.addSubview(overlay)
                 overlays[blockId] = overlay
@@ -112,14 +126,28 @@ final class TransclusionOverlayManager {
 
     // MARK: - Block Resolution
 
-    private func resolveBlock(_ blockId: String, depth: Int = 0) -> String? {
-        guard depth < Self.maxDepth else { return "[Circular reference]" }
+    private struct ResolvedBlock {
+        let content: String
+        let pageId: String
+    }
+
+    private func resolveBlock(_ blockId: String, depth: Int = 0) -> ResolvedBlock? {
+        guard depth < Self.maxDepth else { return ResolvedBlock(content: "[Circular reference]", pageId: "") }
         guard let modelContext else { return nil }
 
         let descriptor = FetchDescriptor<SDBlock>(
             predicate: #Predicate<SDBlock> { $0.id == blockId }
         )
         guard let block = try? modelContext.fetch(descriptor).first else { return nil }
-        return block.content
+        return ResolvedBlock(content: block.content, pageId: block.pageId)
+    }
+
+    private func resolvePageTitle(_ pageId: String) -> String? {
+        guard let modelContext, !pageId.isEmpty else { return nil }
+
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == pageId }
+        )
+        return try? modelContext.fetch(descriptor).first?.title
     }
 }

@@ -12,6 +12,7 @@
 		03080C020849EDF12EF27D59 /* PipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 818ABA625E1915138186C72C /* PipelineService.swift */; };
 		036A5D4AC164253635DB8168 /* VersionPruningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0793E801105A00644A5B437 /* VersionPruningTests.swift */; };
 		040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */; };
+		040E15E508A34F7E890D6BA1 /* EditableTransclusionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78C1D41B9E064ABAA03A0B58 /* EditableTransclusionView.swift */; };
 		0421C1D3B7F67F34F49539E3 /* GradeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12DE96DC3ED4E824BEB4BC4F /* GradeTests.swift */; };
 		056F0543057D1A792D82BCB7 /* CommandPaletteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84BDAD491E8FB25B8E1E3D1A /* CommandPaletteWindowController.swift */; };
 		05DF67064FF54B3C374F4211 /* SDPageVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B436566D022F335FA30747 /* SDPageVersion.swift */; };
@@ -354,6 +355,7 @@
 		7400E696A0043AC669C74D8A /* SOARTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTests.swift; sourceTree = "<group>"; };
 		7780DFBBFC8FF86CCE3C1191 /* GraphEdgeCaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphEdgeCaseTests.swift; sourceTree = "<group>"; };
 		78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransclusionOverlayView.swift; sourceTree = "<group>"; };
+		78C1D41B9E064ABAA03A0B58 /* EditableTransclusionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditableTransclusionView.swift; sourceTree = "<group>"; };
 		7A2C0D9640D6DF3417E41438 /* SDFolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDFolder.swift; sourceTree = "<group>"; };
 		7A7C0D17A60C84BA43D81ECB /* EnrichmentControllerComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EnrichmentControllerComprehensiveTests.swift; sourceTree = "<group>"; };
 		7A9247984AB9177206C1F17D /* QueryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryParser.swift; sourceTree = "<group>"; };
@@ -682,6 +684,7 @@
 				4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */,
 				30407D838F9E4C9AAFDD5B28 /* TransclusionOverlayManager.swift */,
 				78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */,
+				78C1D41B9E064ABAA03A0B58 /* EditableTransclusionView.swift */,
 				8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */,
 				B980FE6E8ADB38B410D728FC /* LineDiff.swift */,
 				9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */,
@@ -1189,6 +1192,7 @@
 				OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */,
 				0F330C5227384BC39A376243 /* TransclusionOverlayManager.swift in Sources */,
 				040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */,
+				040E15E508A34F7E890D6BA1 /* EditableTransclusionView.swift in Sources */,
 				A29025410BEF420590AC1E9A /* BlockRefAutocomplete.swift in Sources */,
 				ACAD000200000000STYLE002 /* AcademicStyle.swift in Sources */,
 				ACAD000200000000FMTST02 /* WriterFormatState.swift in Sources */,
