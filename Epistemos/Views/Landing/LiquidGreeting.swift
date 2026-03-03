@@ -97,6 +97,7 @@ struct LiquidGreeting: View {
 
     @MainActor
     private func retractText() async {
+        guard !displayText.isEmpty else { return }
         while !displayText.isEmpty && !Task.isCancelled {
             displayText.removeLast()
             try? await Task.sleep(for: .milliseconds(15))
