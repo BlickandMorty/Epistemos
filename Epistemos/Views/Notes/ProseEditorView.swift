@@ -131,8 +131,6 @@ struct ProseEditorView: View {
             await Task.detached(priority: .utility) {
                 NoteFileStorage.writeBody(pageId: pageId, content: newValue)
             }.value
-            // SwiftData mutation stays on main thread.
-            if !page.body.isEmpty { page.body = "" }
             lastPersistedBody = newValue
         }
     }

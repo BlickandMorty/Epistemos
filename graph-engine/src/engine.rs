@@ -22,6 +22,8 @@ use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
 use crate::types::Graph;
 use crate::version::VersionStore;
+use crate::block_kernel::{BlockTree, OpLog};
+use std::collections::HashMap;
 
 /// Physics thread target rate — 60Hz is sufficient for force simulation.
 const PHYSICS_HZ: f64 = 60.0;
@@ -96,6 +98,11 @@ pub struct Engine {
 
     /// Quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
     pub(crate) quality_level: u8,
+
+    /// Block Transaction Kernel: page_id → block tree
+    pub btk_trees: HashMap<String, BlockTree>,
+    /// Block Transaction Kernel: page_id → op log
+    pub btk_logs: HashMap<String, OpLog>,
 }
 
 impl Engine {
@@ -126,6 +133,8 @@ impl Engine {
             time_filter: None,
             version_store: VersionStore::new(),
             quality_level: 0,  // Cinematic
+            btk_trees: HashMap::new(),
+            btk_logs: HashMap::new(),
         })
     }
 
@@ -899,7 +908,7 @@ impl Engine {
     ) {
         self.idle_frame_count = 0;
         let mut sim = self.sim.lock();
-        sim.params.velocity_decay = velocity_decay.clamp(0.0, 0.95);
+        sim.params.velocity_decay = velocity_decay.clamp(0.01, 0.99);
         sim.params.center_strength = center_strength.clamp(0.0, 0.2);
         sim.params.collision_radius = collision_radius.clamp(0.0, 100.0);
 
@@ -1017,18 +1026,18 @@ impl Engine {
         let mut sim = self.sim.lock();
         if mode == 1 {
             // Page mode: tighter clustering, stronger center pull.
-            sim.params.link_distance = 150.0;
-            sim.params.charge_strength = -400.0;
-            sim.params.charge_range = 800.0;
-            sim.params.center_strength = 0.02;
+            sim.params.link_distance = 80.0;
+            sim.params.charge_strength = -800.0;
+            sim.params.charge_range = 400.0;
+            sim.params.center_strength = 0.05;
         } else {
-            // Global mode: restore calm defaults.
+            // Global mode: canonical d3/Logseq defaults.
             self.anchor_rect = None;
             sim.anchor_center = None;
-            sim.params.link_distance = 200.0;
-            sim.params.charge_strength = -400.0;
-            sim.params.charge_range = 1500.0;
-            sim.params.center_strength = 0.005;
+            sim.params.link_distance = 120.0;
+            sim.params.charge_strength = -600.0;
+            sim.params.charge_range = 600.0;
+            sim.params.center_strength = 0.02;
         }
         sim.reheat();
     }
@@ -1696,13 +1705,13 @@ mod tests {
 
         // Reheat.
         sim.reheat();
-        assert!((sim.params.alpha - 0.05).abs() < f32::EPSILON);
+        assert!((sim.params.alpha - 0.3).abs() < f32::EPSILON);
 
         // Should eventually settle again.
-        for _ in 0..500 {
+        for _ in 0..600 {
             sim.tick();
         }
-        assert!(sim.is_settled, "should settle after reheat + 500 ticks");
+        assert!(sim.is_settled, "should settle after reheat + 600 ticks");
     }
 
     #[test]

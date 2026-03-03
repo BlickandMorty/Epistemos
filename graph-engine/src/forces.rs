@@ -54,13 +54,7 @@ pub fn force_link(
 
         // Per-edge weight: higher weight = shorter distance, stronger spring.
         let w = edge_weights.get(ei).copied().unwrap_or(1.0).max(0.1);
-        // Degree-aware rest length: leaf-hub edges are shorter so satellites orbit tight.
-        // Same-degree edges keep full length. Ratio: 0.5 (leaf-hub) to 1.0 (same-degree).
-        let src_d = degrees[si].max(1) as f32;
-        let tgt_d = degrees[ti].max(1) as f32;
-        let degree_ratio = src_d.min(tgt_d) / src_d.max(tgt_d);
-        let dist_scale = 0.5 + 0.5 * degree_ratio;
-        let edge_dist = link_distance * dist_scale / w;
+        let edge_dist = link_distance / w;
 
         // Strength: 1 / min(degree(source), degree(target)), or override.
         // Scaled by weight so containment edges pull harder.
@@ -141,17 +135,14 @@ pub fn force_many_body_with_scratch(
         return;
     }
 
-    // Build Barnes-Hut tree with degree-scaled charge.
-    // Leaf nodes (degree 1) get base charge → weak repulsion → they stay near parents.
-    // Hub nodes (degree 20) get sqrt(20)× charge → strong repulsion → hubs space out.
+    // Build Barnes-Hut tree with uniform charge (canonical d3-force behavior).
     bodies.clear();
     bodies.extend((0..n).map(|i| {
-        let deg = degrees.get(i).copied().unwrap_or(1).max(1) as f32;
         Body {
             index: i,
             x: x[i],
             y: y[i],
-            strength: charge_strength * deg.sqrt(),
+            strength: charge_strength,
         }
     }));
 

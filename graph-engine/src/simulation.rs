@@ -91,36 +91,40 @@ pub struct ForceParams {
 impl Default for ForceParams {
     fn default() -> Self {
         Self {
-            // Tighter layout: moderate repulsion, shorter links, stronger springs.
-            // Keeps satellite nodes close to hubs instead of fan-spreading.
-            link_distance: 160.0,
-            charge_strength: -280.0,
-            charge_range: 200.0,
-            link_strength: 0.65,
+            // Canonical d3-force / Logseq defaults.
+            // link_distance: d3 default 30, Logseq ~120. We use 120 for knowledge-graph scale.
+            link_distance: 120.0,
+            // charge_strength: d3 default -30, Logseq -600. Uniform repulsion.
+            charge_strength: -600.0,
+            // charge_range: Logseq 600. Limits Barnes-Hut range for performance.
+            charge_range: 600.0,
+            // link_strength: 0 = auto (d3 formula: 1/min(deg(src), deg(tgt))).
+            link_strength: 0.0,
 
-            // Low friction = calm, fluid drift. Nodes float gently.
-            velocity_decay: 0.05,
+            // velocity_decay: d3 uses `node.vx *= (1 - velocityDecay)` where
+            // velocityDecay=0.4, so the retain multiplier is 0.6. Nodes keep 60% velocity.
+            velocity_decay: 0.6,
             center_strength: 0.02,
-            collision_radius: 35.0,
+            collision_radius: 26.0,
             collision_iterations: 2,
-            cluster_strength: 0.83,
+            // Extras off by default — clean d3-force baseline.
+            cluster_strength: 0.0,
             center_mode: CenterMode::Attract,
-            semantic_strength: 1.0,
+            semantic_strength: 0.0,
 
-            enable_fluid_dynamics: true,
-            enable_torsional_springs: true,
+            enable_fluid_dynamics: false,
+            enable_torsional_springs: false,
             fluid_viscosity: 0.5,
             torsion_rigidity: 0.5,
-            boids_cohesion: 0.5,
+            boids_cohesion: 0.0,
             wind_x: 0.0,
             wind_y: 0.0,
             enable_orbital: false,
             orbital_speed: 0.3,
 
-            // Simulation state — moderate alpha for stable onset with charge=-280.
-            alpha: 0.15,
+            // d3 default: alpha starts at 1.0, decays to alpha_min over ~300 ticks.
+            alpha: 1.0,
             alpha_min: 0.001,
-            // d3 default: 1 - pow(0.001, 1/300) ≈ 0.0228
             alpha_decay: 0.0228,
             alpha_target: 0.0,
         }
@@ -536,20 +540,10 @@ impl Simulation {
             }
         }
 
-        // Scale force parameters for medium graphs (500+ nodes).
-        if node_count > 500 {
-            self.params.link_distance = self.params.link_distance.min(180.0);
-            self.params.velocity_decay = self.params.velocity_decay.max(0.4);
-        }
-
         // Reset simulation state for fresh run (skip if user-frozen).
         if !self.user_frozen {
-            self.params.alpha = if node_count > 500 {
-                0.2
-            } else {
-                0.3
-            };
-            self.params.alpha_decay = 0.0228; // d3 default: 1 - (0.001)^(1/300)
+            self.params.alpha = 1.0; // d3 default
+            self.params.alpha_decay = 0.0228;
             self.params.alpha_target = 0.0;
             self.is_settled = false;
         }
@@ -717,21 +711,7 @@ impl Simulation {
                 alpha,
             );
         }
-        // Unconditional center pull for low-degree nodes — prevents void drift.
-        // Strength scales inversely with degree: orphans (0) get strongest pull,
-        // leaves (1-2) get moderate pull. Nodes with 3+ links are anchored by springs.
-        for i in 0..n {
-            let strength = match self.degrees[i] {
-                0 => 0.10,     // Orphans: strong pull (no springs to anchor them)
-                1 => 0.04,     // Leaves: moderate pull (one weak spring)
-                2 => 0.015,    // Low-degree: gentle pull
-                _ => 0.0,      // Well-connected: springs handle positioning
-            };
-            if strength > 0.0 {
-                self.vx[i] += (cx - self.x[i]) * alpha * strength;
-                self.vy[i] += (cy - self.y[i]) * alpha * strength;
-            }
-        }
+        // Center force handles all nodes uniformly (d3 canonical behavior).
 
         if !at_floor {
             // Cluster cohesion force (skipped in lite mode and at floor).
@@ -809,30 +789,18 @@ impl Simulation {
             }
         }
 
-        // 3. Velocity Verlet integration with decay + velocity clamping.
-        // High-degree nodes get extra damping via smoothstep to prevent jitter.
-        // Velocity clamped to prevent nodes escaping to extreme coordinates.
-        let max_velocity = self.params.link_distance * 0.25;
+        // 3. Velocity Verlet integration with uniform decay (d3 canonical).
+        // Safety clamp prevents numerical explosion with extreme parameters.
+        const MAX_VELOCITY: f32 = 500.0;
+        let decay = self.params.velocity_decay;
         let mut max_speed_sq: f32 = 0.0;
         for i in 0..n {
-            let decay = if self.degrees[i] >= 10 {
-                // Smoothstep: gradual onset from degree 10, saturates at degree 40.
-                // Cap at 0.12 — hubs retain 12% velocity/tick, near-instant damping.
-                let t = ((self.degrees[i] - 10) as f32 / 30.0).min(1.0);
-                let smooth = t * t * (3.0 - 2.0 * t); // Hermite smoothstep
-                self.params.velocity_decay + smooth * (0.12 - self.params.velocity_decay)
-            } else {
-                self.params.velocity_decay
-            };
-
             if let Some(fx_val) = self.fx[i] {
-                // Retain implicit drag velocity so the node carries momentum
-                // on release instead of dead-stopping and snapping back.
                 self.vx[i] = fx_val - self.x[i];
                 self.x[i] = fx_val;
             } else {
                 self.vx[i] *= decay;
-                self.vx[i] = self.vx[i].clamp(-max_velocity, max_velocity);
+                self.vx[i] = self.vx[i].clamp(-MAX_VELOCITY, MAX_VELOCITY);
                 self.x[i] += self.vx[i];
                 let spd = self.vx[i] * self.vx[i] + self.vy[i] * self.vy[i];
                 if spd > max_speed_sq { max_speed_sq = spd; }
@@ -842,7 +810,7 @@ impl Simulation {
                 self.y[i] = fy_val;
             } else {
                 self.vy[i] *= decay;
-                self.vy[i] = self.vy[i].clamp(-max_velocity, max_velocity);
+                self.vy[i] = self.vy[i].clamp(-MAX_VELOCITY, MAX_VELOCITY);
                 self.y[i] += self.vy[i];
             }
 
@@ -878,7 +846,7 @@ impl Simulation {
         if self.static_layout {
             return;
         }
-        self.params.alpha = 0.05;
+        self.params.alpha = 0.3;
         self.is_settled = false;
     }
 
@@ -970,8 +938,8 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
 
-        // Settle.
-        for _ in 0..500 {
+        // Settle (alpha starts at 1.0, needs ~300 ticks with d3 decay).
+        for _ in 0..600 {
             sim.tick();
         }
         assert!(sim.is_settled);
@@ -979,10 +947,10 @@ mod tests {
         // Reheat.
         sim.reheat();
         assert!(!sim.is_settled);
-        assert!(sim.params.alpha >= 0.05);
+        assert!(sim.params.alpha >= 0.3);
 
         // Should eventually settle again.
-        for _ in 0..300 {
+        for _ in 0..600 {
             sim.tick();
         }
         assert!(sim.is_settled);
@@ -1074,14 +1042,14 @@ mod tests {
     #[test]
     fn default_params_match_observatory() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 160.0);
-        assert_eq!(p.charge_strength, -280.0);
-        assert_eq!(p.charge_range, 200.0);
-        assert_eq!(p.velocity_decay, 0.05);
+        assert_eq!(p.link_distance, 120.0);
+        assert_eq!(p.charge_strength, -600.0);
+        assert_eq!(p.charge_range, 600.0);
+        assert_eq!(p.velocity_decay, 0.6);
         assert_eq!(p.center_strength, 0.02);
-        assert_eq!(p.collision_radius, 35.0);
+        assert_eq!(p.collision_radius, 26.0);
         assert_eq!(p.collision_iterations, 2);
-        assert_eq!(p.cluster_strength, 0.83);
+        assert_eq!(p.cluster_strength, 0.0);
         assert_eq!(p.center_mode, CenterMode::Attract);
     }
 
@@ -1183,9 +1151,9 @@ mod tests {
     #[test]
     fn simulation_empty_params_reasonable() {
         let sim = Simulation::new();
-        assert_eq!(sim.params.alpha, 0.15);
+        assert_eq!(sim.params.alpha, 1.0);
         assert_eq!(sim.params.alpha_min, 0.001);
-        assert_eq!(sim.params.velocity_decay, 0.05);
+        assert_eq!(sim.params.velocity_decay, 0.6);
     }
 
     #[test]
@@ -1407,7 +1375,7 @@ mod tests {
     #[test]
     fn alpha_start_value() {
         let p = ForceParams::default();
-        assert_eq!(p.alpha, 0.15);
+        assert_eq!(p.alpha, 1.0);
     }
 
     #[test]
@@ -1562,17 +1530,17 @@ mod tests {
     #[test]
     fn parameters_default_values() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 160.0);
-        assert_eq!(p.charge_strength, -280.0);
-        assert_eq!(p.charge_range, 200.0);
-        assert_eq!(p.velocity_decay, 0.05);
+        assert_eq!(p.link_distance, 120.0);
+        assert_eq!(p.charge_strength, -600.0);
+        assert_eq!(p.charge_range, 600.0);
+        assert_eq!(p.velocity_decay, 0.6);
         assert_eq!(p.center_strength, 0.02);
-        assert_eq!(p.collision_radius, 35.0);
+        assert_eq!(p.collision_radius, 26.0);
         assert_eq!(p.collision_iterations, 2);
-        assert_eq!(p.cluster_strength, 0.83);
+        assert_eq!(p.cluster_strength, 0.0);
         assert_eq!(p.center_mode, CenterMode::Attract);
-        assert_eq!(p.semantic_strength, 1.0);
-        assert_eq!(p.alpha, 0.15);
+        assert_eq!(p.semantic_strength, 0.0);
+        assert_eq!(p.alpha, 1.0);
         assert_eq!(p.alpha_min, 0.001);
     }
 
@@ -3132,7 +3100,7 @@ mod tests {
     #[test]
     fn default_charge_range_reduced() {
         let p = ForceParams::default();
-        assert_eq!(p.charge_range, 200.0);
+        assert_eq!(p.charge_range, 600.0);
     }
 
     #[test]
