@@ -242,6 +242,9 @@
 		OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */; };
 		WIRE00000000000000000003 /* DataIntegrityEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D7EBA13712C88AE73C8D858 /* DataIntegrityEdgeCaseTests.swift */; };
 		WIRE00000000000000000004 /* MemoryStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174D03C81BEE6EB5556066 /* MemoryStressTests.swift */; };
+		BLKPROP0000000000000001 /* BlockPropertyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLKPROP0000000000000010 /* BlockPropertyParser.swift */; };
+		BLKPROP0000000000000002 /* BlockPropertySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLKPROP0000000000000020 /* BlockPropertySheet.swift */; };
+		BLKPROP0000000000000003 /* BlockPropertyParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLKPROP0000000000000030 /* BlockPropertyParsingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -496,6 +499,9 @@
 		OBJCEXC00000000000000001 /* ObjCExceptionCatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObjCExceptionCatcher.h; sourceTree = "<group>"; };
 		OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ObjCExceptionCatcher.m; sourceTree = "<group>"; };
 		OBJCEXC00000000000000003 /* Epistemos-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Epistemos-Bridging-Header.h"; sourceTree = "<group>"; };
+		BLKPROP0000000000000010 /* BlockPropertyParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPropertyParser.swift; sourceTree = "<group>"; };
+		BLKPROP0000000000000020 /* BlockPropertySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPropertySheet.swift; sourceTree = "<group>"; };
+		BLKPROP0000000000000030 /* BlockPropertyParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPropertyParsingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -671,6 +677,7 @@
 		59232DB203359E4AB1C72A7B /* Notes */ = {
 			isa = PBXGroup;
 			children = (
+				BLKPROP0000000000000020 /* BlockPropertySheet.swift */,
 				631B76DC8FFADF44A0EB0F6C /* ClickableTextView.swift */,
 				4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */,
 				30407D838F9E4C9AAFDD5B28 /* TransclusionOverlayManager.swift */,
@@ -794,6 +801,7 @@
 			isa = PBXGroup;
 			children = (
 				5B2A3C4D5E6F70890B1C2D3E /* BlockParser.swift */,
+				BLKPROP0000000000000010 /* BlockPropertyParser.swift */,
 				5B3A4C5D6E7F80901C2D3E4F /* BlockReconciler.swift */,
 				CC2760010046AC639AF26F58 /* CollectionRegistry.swift */,
 				4E1F2A3C5C6D7E8F91A1B2C4 /* MappedNoteBody.swift */,
@@ -899,6 +907,7 @@
 				F101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift */,
 				64C476599982FABD5D575935 /* BlockSearchTests.swift */,
 				A1B2C3D4E5F607890ABCDEF1 /* BlockEmbeddingTests.swift */,
+				BLKPROP0000000000000030 /* BlockPropertyParsingTests.swift */,
 				A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */,
 				38A3BAA118559377272F67AB /* FilterEngineTests.swift */,
 				8222061E754EB69684B019E8 /* GraphModelTests.swift */,
@@ -1129,6 +1138,7 @@
 				B101A3F40D1E4A21B2C30005 /* SearchIndexServiceIntegrationTests.swift in Sources */,
 				34AB035DB3836B164B7043AC /* BlockSearchTests.swift in Sources */,
 				F1E2D3C4B5A697887654321A /* BlockEmbeddingTests.swift in Sources */,
+				BLKPROP0000000000000003 /* BlockPropertyParsingTests.swift in Sources */,
 				D5BB2F79FFF66EF142F8DC66 /* SignalGeneratorTests.swift in Sources */,
 				3D887E06783CB902C43B69F6 /* FilterEngineTests.swift in Sources */,
 				E1AA6C3399E169EF56475AAB /* GraphModelTests.swift in Sources */,
@@ -1345,6 +1355,8 @@
 				DD2E6F70829304B5CD1E2F30 /* EmbeddingService.swift in Sources */,
 				6B1A2C3D4E5F60789A0B1C2D /* SDBlock.swift in Sources */,
 				6B2A3C4D5E6F70890B1C2D3E /* BlockParser.swift in Sources */,
+				BLKPROP0000000000000001 /* BlockPropertyParser.swift in Sources */,
+				BLKPROP0000000000000002 /* BlockPropertySheet.swift in Sources */,
 				6B3A4C5D6E7F80901C2D3E4F /* BlockReconciler.swift in Sources */,
 				68FFAE298011042579FF85DF /* BackgroundGraphActor.swift in Sources */,
 				00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */,

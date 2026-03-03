@@ -12,7 +12,7 @@ enum CompOp: Sendable {
     case eq, neq, lt, gt, lte, gte, contains
 }
 
-enum PropertyValue: Sendable {
+enum PropertyValue: Sendable, Equatable {
     case string(String)
     case float(Float)
     case int(Int)

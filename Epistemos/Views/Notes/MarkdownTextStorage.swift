@@ -258,6 +258,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 }
             } else {
                 applyLineStyle(line: line, range: styleRange)
+                styleBlockPropertyChips(in: line, lineStart: lineRange.location, styleRange: styleRange)
             }
 
             loc = lineRange.location + lineRange.length
@@ -507,6 +508,55 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         // Empty lines: no special styling. They inherit base font/style from applyBaseStyle().
         // Setting a different font size on empty lines triggers NSLayoutManager to re-flow
         // the entire document (line height changed) on every keystroke.
+    }
+
+    // MARK: - Block Property Chips (@key=value)
+
+    private static let blockPropertyRegex = try! NSRegularExpression(pattern: #"@(\w+)=([^\s@]+)"#)
+
+    /// Style trailing @key=value tokens as inline chips: smaller font, secondary color,
+    /// subtle background. Adds a custom attribute for click handling.
+    private func styleBlockPropertyChips(in line: String, lineStart: Int, styleRange: NSRange) {
+        guard styleRange.location + styleRange.length <= backing.length else { return }
+        let nsLine = line as NSString
+        let lineLen = nsLine.length
+        let matches = Self.blockPropertyRegex.matches(in: line, range: NSRange(location: 0, length: lineLen))
+        guard !matches.isEmpty else { return }
+
+        // Only style trailing properties (contiguous block at end of line, ignoring trailing whitespace)
+        let trimmedEnd = lineLen - line.reversed().prefix(while: { $0.isWhitespace }).count
+        var trailingStart = trimmedEnd
+        for match in matches.reversed() {
+            let matchEnd = match.range.location + match.range.length
+            if matchEnd == trailingStart || (matchEnd < trailingStart &&
+                nsLine.substring(with: NSRange(location: matchEnd, length: trailingStart - matchEnd))
+                    .allSatisfy({ $0.isWhitespace })) {
+                trailingStart = match.range.location
+            } else {
+                break
+            }
+        }
+
+        let chipFont = NSFont.systemFont(ofSize: max(baseFontSize - 3, 9), weight: .medium)
+        let chipColor: NSColor = isDark
+            ? .white.withAlphaComponent(0.50)
+            : NSColor(white: 0.40, alpha: 1)
+        let chipBg: NSColor = isDark
+            ? .white.withAlphaComponent(0.06)
+            : NSColor(white: 0.0, alpha: 0.06)
+
+        for match in matches where match.range.location >= trailingStart {
+            let chipRange = NSRange(location: lineStart + match.range.location,
+                                    length: match.range.length)
+            guard chipRange.location + chipRange.length <= backing.length else { continue }
+            let kvString = nsLine.substring(with: match.range)
+            backing.addAttributes([
+                .font: chipFont,
+                .foregroundColor: chipColor,
+                .backgroundColor: chipBg,
+                .init("EpistemosBlockProperty"): kvString
+            ], range: chipRange)
+        }
     }
 
     // MARK: - Inline Styles (Rust pulldown-cmark parser via FFI)

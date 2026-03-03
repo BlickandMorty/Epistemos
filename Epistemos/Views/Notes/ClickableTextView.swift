@@ -27,6 +27,8 @@ final class ClickableTextView: NSTextView {
     static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
     /// AI operation from context menu. userInfo: ["operation": String, "selectedText": String?]
     static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
+    /// Block property edit from context menu. userInfo: ["lineText": String, "lineRange": NSRange, "pageId": String?]
+    static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
 
     // MARK: - Wikilink Click Handling
 
@@ -291,6 +293,16 @@ final class ClickableTextView: NSTextView {
             menu.addItem(graphItem)
         }
 
+        // Set Property — opens BlockPropertySheet for current line
+        let propItem = NSMenuItem(
+            title: "Set Property\u{2026}",
+            action: #selector(openBlockPropertySheet),
+            keyEquivalent: ""
+        )
+        propItem.image = NSImage(systemSymbolName: "tag", accessibilityDescription: "Property")
+        propItem.target = self
+        menu.addItem(propItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let ideaItem = NSMenuItem(
@@ -377,5 +389,21 @@ final class ClickableTextView: NSTextView {
             userInfo["selectedText"] = str.substring(with: sel)
         }
         NotificationCenter.default.post(name: Self.aiOperationNotification, object: nil, userInfo: userInfo)
+    }
+
+    @objc private func openBlockPropertySheet() {
+        let nsStr = string as NSString
+        let cursorLoc = selectedRange().location
+        let lineRange = nsStr.lineRange(for: NSRange(location: cursorLoc, length: 0))
+        let lineText = nsStr.substring(with: lineRange).trimmingCharacters(in: .newlines)
+
+        var userInfo: [String: Any] = [
+            "lineText": lineText,
+            "lineRange": lineRange
+        ]
+        if let pageId { userInfo["pageId"] = pageId }
+        NotificationCenter.default.post(
+            name: Self.blockPropertyNotification, object: nil, userInfo: userInfo
+        )
     }
 }
