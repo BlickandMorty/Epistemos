@@ -73,6 +73,12 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .block:  return 7
         }
     }
+
+    /// Parse from display name (case-insensitive).
+    static func from(displayName: String) -> GraphNodeType? {
+        let lower = displayName.lowercased()
+        return allCases.first { $0.displayName.lowercased() == lower || $0.rawValue.lowercased() == lower }
+    }
 }
 
 // MARK: - GraphEdgeType

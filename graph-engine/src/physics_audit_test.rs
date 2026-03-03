@@ -190,16 +190,84 @@ mod physics_audit_tests {
     #[test]
     fn test_physics_alpha_cooling_converges() {
         let mut sim = setup_sim_with_nodes(2);
-        
+
         sim.params.alpha = 0.15;
         sim.params.alpha_min = 0.001;
         sim.params.alpha_decay = 0.0228;
 
         let original_alpha = sim.params.alpha;
-        
+
         sim.tick();
 
         assert!(sim.params.alpha < original_alpha); // Must decrease
         assert!(sim.params.alpha > 0.0);           // But not disappear instantly
+    }
+
+    #[test]
+    fn test_all_edges_loaded_no_cap() {
+        // Regression: edge cap (12 per node) used to orphan subtrees.
+        // Hub with 30 connections should keep ALL edges in physics.
+        let mut graph = Graph::new();
+        // Hub node at center
+        graph.add_node("hub".to_string(), 0.0, 0.0, 0, 30, "Hub".to_string());
+        // 30 leaf nodes arranged around hub
+        for i in 0..30 {
+            let angle = (i as f32) * std::f32::consts::TAU / 30.0;
+            graph.add_node(
+                format!("leaf-{}", i), 120.0 * angle.cos(), 120.0 * angle.sin(),
+                0, 1, format!("Leaf {}", i),
+            );
+            graph.add_edge("hub", &format!("leaf-{}", i), 1.0, 0);
+        }
+
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+
+        // All 30 edges must be loaded — no cap.
+        assert_eq!(sim.edges.len(), 30, "All 30 hub edges must be in physics sim");
+        // Hub degree must be 30.
+        assert_eq!(sim.degrees[0], 30, "Hub degree must reflect all connections");
+    }
+
+    #[test]
+    fn test_intermediate_node_stays_near_parent() {
+        // Regression: intermediate nodes (nested folder in a folder)
+        // used to scatter because their edge to the parent hub was dropped.
+        let mut graph = Graph::new();
+        // Hub with 25 connections (well above old cap of 12)
+        graph.add_node("hub".to_string(), 0.0, 0.0, 0, 25, "Hub".to_string());
+        for i in 0..25 {
+            let angle = (i as f32) * std::f32::consts::TAU / 25.0;
+            let r = 120.0;
+            graph.add_node(
+                format!("child-{}", i), r * angle.cos(), r * angle.sin(),
+                0, 2, format!("Child {}", i),
+            );
+            graph.add_edge("hub", &format!("child-{}", i), 1.0, 0);
+        }
+        // Intermediate node connected to child-0 (nested folder)
+        graph.add_node("nested".to_string(), 240.0, 0.0, 0, 1, "Nested".to_string());
+        graph.add_edge("child-0", "nested", 1.0, 0);
+
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        sim.params.alpha_decay = 0.0; // Keep physics running
+
+        // Run 500 ticks to reach equilibrium
+        for _ in 0..500 { sim.tick(); }
+
+        // Find nested node's sim index (last node added = index 26)
+        let nested_idx = 26;
+        let child0_idx = 1; // first child after hub
+
+        let dx = sim.x[nested_idx] - sim.x[child0_idx];
+        let dy = sim.y[nested_idx] - sim.y[child0_idx];
+        let dist_to_parent = (dx * dx + dy * dy).sqrt();
+
+        // Nested node must stay within reasonable distance of its parent.
+        // With link_distance=120, it should settle near that distance.
+        assert!(dist_to_parent < 400.0,
+            "Nested node should stay near parent (child-0), but distance was {:.1}",
+            dist_to_parent);
     }
 }

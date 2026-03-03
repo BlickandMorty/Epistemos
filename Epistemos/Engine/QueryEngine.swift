@@ -2,8 +2,8 @@ import Foundation
 import SwiftUI
 
 // MARK: - QueryEngine
-// @Observable coordinator for the natural language query system.
-// Wires QueryParser → QueryExecutor with state management.
+// @Observable coordinator for the query system.
+// Wires QueryParser/StructuredQueryParser → QueryCompiler → QueryRuntime.
 // Injected as environment object; consumed by HologramSearchSidebar and CommandPalette.
 
 @MainActor
@@ -20,11 +20,11 @@ final class QueryEngine {
 
     // MARK: - Dependencies
 
-    private var executor: QueryExecutor?
+    private var runtime: QueryRuntime?
 
     /// Configure with live dependencies. Called once during app bootstrap.
     func configure(graphStore: GraphStore, graphState: GraphState, searchIndex: SearchIndexService) {
-        self.executor = QueryExecutor(
+        self.runtime = QueryRuntime(
             graphStore: graphStore,
             graphState: graphState,
             searchIndex: searchIndex
@@ -33,11 +33,12 @@ final class QueryEngine {
 
     // MARK: - Execute
 
-    /// Execute a natural language query.
+    /// Execute a query (NL or structured with ? prefix).
+    /// Routes ?-prefix to StructuredQueryParser, natural language to QueryParser.
     func execute(query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard let executor else {
+        guard let runtime else {
             errorMessage = "Query engine not configured"
             return
         }
@@ -46,15 +47,10 @@ final class QueryEngine {
         errorMessage = nil
         currentQuery = trimmed
 
-        // Parse NL → DSL
-        guard let dsl = QueryParser.parse(trimmed) else {
-            isProcessing = false
-            errorMessage = "Could not understand query"
-            return
-        }
-
-        // Execute DSL → Results
-        let result = executor.execute(dsl)
+        // Use the runtime's unified query interface
+        // It automatically handles ? prefix routing
+        let result = runtime.query(trimmed)
+        
         currentResult = result
         isProcessing = false
 

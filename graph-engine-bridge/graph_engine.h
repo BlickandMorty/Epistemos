@@ -371,6 +371,46 @@ uint8_t markdown_parse(
 /// Free a spans array previously returned by markdown_parse.
 void markdown_free_spans(StyleSpan* spans, uint32_t count);
 
+// ── Block Transaction Kernel (BTK) ───────────────────────────────────────────
+
+/// Block FFI struct for loading existing blocks from SwiftData
+typedef struct {
+    uint8_t  id[16];
+    uint8_t  parent_id[16];
+    const char* content_ptr;
+    uint16_t depth;
+    uint32_t order;
+} BlockFFI;
+
+/// Initialize BTK for a page. Call once when a page is opened.
+uint8_t graph_engine_btk_init(Engine* engine, const char* page_id);
+
+/// Load existing blocks from Swift (migration from SDBlock).
+/// blocks_ptr is a pointer to an array of BlockFFI structs.
+uint8_t graph_engine_btk_load_blocks(
+    Engine* engine,
+    const char* page_id,
+    const BlockFFI* blocks_ptr,
+    uint32_t count
+);
+
+/// Translate a text edit into block ops and apply them.
+/// Returns the number of ops applied.
+uint32_t graph_engine_btk_translate_edit(
+    Engine* engine,
+    const char* page_id,
+    uint32_t edit_offset,
+    uint32_t old_length,
+    const char* new_text
+);
+
+/// Get the current markdown projection for a page.
+/// Returns a C string that must be freed with graph_engine_free_string.
+const char* graph_engine_btk_get_markdown(Engine* engine, const char* page_id);
+
+/// Free a string returned by graph_engine_btk_get_markdown.
+void graph_engine_free_string(char* s);
+
 #ifdef __cplusplus
 }
 #endif

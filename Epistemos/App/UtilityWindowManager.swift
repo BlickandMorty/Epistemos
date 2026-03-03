@@ -138,6 +138,9 @@ final class UtilityWindowManager {
             window.minSize = NSSize(width: 500, height: 400)
             window.setFrameAutosaveName("epistemos-\(kind.rawValue)")
 
+            // Zoom instead of fullscreen — green button fills screen without entering a Space.
+            window.collectionBehavior.remove(.fullScreenPrimary)
+
             // Unified toolbar for glass chrome
             let toolbar = NSToolbar(identifier: "Window-\(kind.rawValue)")
             window.toolbar = toolbar

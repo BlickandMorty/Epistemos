@@ -491,14 +491,8 @@ impl Simulation {
         }
 
         // Re-index edges to simulation indices, compute degrees.
-        // Cap physics edges per node to prevent jitter from hyper-connected nodes.
-        // Data stays in SwiftData — only the physics simulation is simplified.
-        // Edge cap values tuned empirically: enough structure to see clusters,
-        // few enough to prevent competing-force jitter.
-        let max_physics_edges_per_node: u32 = if node_count > 500 { 12 } else { 20 };
-
-        // First pass: collect and sort edges by weight (highest first = structural edges kept).
-        let mut candidate_edges: Vec<(usize, usize, f32, u8)> = Vec::with_capacity(graph.edges.len());
+        // d3-force processes ALL edges — no cap. The link strength formula
+        // (1/min(deg)) naturally softens edges on high-degree hubs.
         for edge in &graph.edges {
             let si_src = graph
                 .id_to_index
@@ -510,27 +504,12 @@ impl Simulation {
                 .and_then(|&gi| graph_to_sim[gi]);
 
             if let (Some(src), Some(tgt)) = (si_src, si_tgt) {
-                candidate_edges.push((src, tgt, edge.weight, edge.edge_type));
+                self.edges.push((src, tgt));
+                self.edge_weights.push(edge.weight);
+                self.edge_types.push(edge.edge_type);
+                self.degrees[src] += 1;
+                self.degrees[tgt] += 1;
             }
-        }
-        // Sort descending by weight — structural/containment edges (weight > 1) come first.
-        candidate_edges.sort_unstable_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-
-        // Second pass: add edges, skipping if either endpoint is over the cap.
-        let mut edge_counts: Vec<u32> = vec![0; self.x.len()];
-        for (src, tgt, weight, etype) in candidate_edges {
-            if edge_counts[src] >= max_physics_edges_per_node
-                || edge_counts[tgt] >= max_physics_edges_per_node
-            {
-                continue; // Either endpoint saturated — skip.
-            }
-            self.edges.push((src, tgt));
-            self.edge_weights.push(weight);
-            self.edge_types.push(etype);
-            self.degrees[src] += 1;
-            self.degrees[tgt] += 1;
-            edge_counts[src] += 1;
-            edge_counts[tgt] += 1;
         }
 
         // Ensure minimum degree of 1 for link strength calculation.

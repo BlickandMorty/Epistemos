@@ -13,6 +13,7 @@ pub mod cluster;
 pub mod search;
 pub mod embedding;
 pub mod version;
+pub mod block_kernel;
 
 #[cfg(test)]
 pub mod physics_audit_test;
@@ -920,4 +921,154 @@ pub extern "C" fn graph_engine_get_version_count(
     ffi_engine_or!(engine, 0);
     let uuid = ffi_cstr!(node_uuid);
     engine.version_store.version_count(uuid)
+}
+
+// ── Block Transaction Kernel (BTK) ───────────────────────────────────────────
+
+/// Initialize BTK for a page. Call once when a page is opened.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_init(
+    engine: *mut Engine,
+    page_id: *const c_char,
+) -> u8 {
+    ffi_engine_or!(engine, 0);
+    let page_id = ffi_cstr!(page_id);
+    if page_id.is_empty() { return 0; }
+
+    engine.btk_trees.entry(page_id.to_string())
+        .or_insert_with(block_kernel::BlockTree::new);
+    engine.btk_logs.entry(page_id.to_string())
+        .or_insert_with(block_kernel::op_log::OpLog::new);
+    1
+}
+
+/// BlockFFI struct for loading existing blocks from Swift
+#[repr(C)]
+pub struct BlockFFI {
+    pub id: [u8; 16],           // UUID as 16 bytes
+    pub parent_id: [u8; 16],    // Zero = no parent
+    pub content_ptr: *const c_char,
+    pub depth: u16,
+    pub order: u32,
+}
+
+/// Load existing blocks from Swift (migration from SDBlock).
+/// blocks_ptr is a pointer to an array of BlockFFI structs.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_load_blocks(
+    engine: *mut Engine,
+    page_id: *const c_char,
+    blocks_ptr: *const BlockFFI,
+    count: u32,
+) -> u8 {
+    ffi_engine_or!(engine, 0);
+    let page_id_str = ffi_cstr!(page_id);
+    if page_id_str.is_empty() || blocks_ptr.is_null() { return 0; }
+
+    let tree = engine.btk_trees.entry(page_id_str.to_string())
+        .or_insert_with(block_kernel::BlockTree::new);
+    let log = engine.btk_logs.entry(page_id_str.to_string())
+        .or_insert_with(block_kernel::op_log::OpLog::new);
+
+    // SAFETY: Swift passes a valid array of `count` BlockFFI structs.
+    let blocks = unsafe { std::slice::from_raw_parts(blocks_ptr, count as usize) };
+
+    for b in blocks {
+        let content = if b.content_ptr.is_null() {
+            String::new()
+        } else {
+            // SAFETY: Swift passes a valid null-terminated UTF-8 string; lifetime spans this loop iteration.
+            unsafe { CStr::from_ptr(b.content_ptr) }
+                .to_str().unwrap_or("").to_string()
+        };
+
+        let block_id = block_kernel::BlockId(b.id);
+        let parent_id = if b.parent_id == [0u8; 16] {
+            None
+        } else {
+            Some(block_kernel::BlockId(b.parent_id))
+        };
+
+        let op = block_kernel::Op::InsertBlock {
+            block_id,
+            parent_id,
+            position: b.order,
+            content,
+            depth: b.depth,
+        };
+        tree.apply(&op);
+        log.append(op);
+    }
+
+    1
+}
+
+/// Translate a text edit into block ops and apply them.
+/// Returns the number of ops applied.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_translate_edit(
+    engine: *mut Engine,
+    page_id: *const c_char,
+    edit_offset: u32,
+    old_length: u32,
+    new_text: *const c_char,
+) -> u32 {
+    ffi_engine_or!(engine, 0);
+    let page_id_str = ffi_cstr!(page_id);
+    let new_text_str = ffi_cstr!(new_text);
+
+    let ops = {
+        let tree = match engine.btk_trees.get(page_id_str) {
+            Some(t) => t,
+            None => return 0,
+        };
+        block_kernel::translator::translate_edit(tree, edit_offset, old_length, new_text_str)
+    };
+
+    let count = ops.len() as u32;
+
+    // Apply ops to both tree and log
+    if let Some(tree) = engine.btk_trees.get_mut(page_id_str) {
+        if let Some(log) = engine.btk_logs.get_mut(page_id_str) {
+            for op in ops {
+                tree.apply(&op);
+                log.append(op);
+            }
+        }
+    }
+
+    count
+}
+
+/// Get the current markdown projection for a page.
+/// Returns a C string that must be freed with graph_engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_get_markdown(
+    engine: *mut Engine,
+    page_id: *const c_char,
+) -> *const c_char {
+    ffi_engine_or!(engine, std::ptr::null());
+    let page_id_str = ffi_cstr!(page_id);
+
+    let tree = match engine.btk_trees.get(page_id_str) {
+        Some(t) => t,
+        None => return std::ptr::null(),
+    };
+
+    let md = block_kernel::projection::project(tree);
+    match CString::new(md) {
+        Ok(cs) => cs.into_raw(),
+        Err(_) => std::ptr::null(),
+    }
+}
+
+/// Free a string returned by graph_engine_btk_get_markdown.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_free_string(s: *mut c_char) {
+    if !s.is_null() {
+        // SAFETY: `s` was allocated by CString::into_raw in graph_engine_btk_get_markdown.
+        unsafe {
+            let _ = CString::from_raw(s);
+        }
+    }
 }

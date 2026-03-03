@@ -61,6 +61,16 @@ struct EpistemosApp: App {
 
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Main window: zoom instead of fullscreen (green button fills screen, no separate Space).
+        // Graph overlay is the only fullscreen-capable surface.
+        Task { @MainActor in
+            for window in NSApp.windows where window.title == "Epistemos" {
+                window.collectionBehavior.remove(.fullScreenPrimary)
+            }
+        }
+    }
+
     /// Native macOS dock menu — right-click the dock icon for quick actions.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
