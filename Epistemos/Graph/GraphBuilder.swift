@@ -213,13 +213,28 @@ final class GraphBuilder {
         }
 
         // ────────────────────────────────────────────
-        // 6. Chats — skipped for graph
+        // 6. Chats — standalone nodes (no page link yet)
         // ────────────────────────────────────────────
-        // SDChat has no page/note relationship, so chat nodes would be pure orphans
-        // (zero edges, scattered by repulsion). Excluded until SDChat gains a pageId
-        // field that allows connecting them to their associated note.
+        let chats: [SDChat]
+        do {
+            chats = try context.fetch(FetchDescriptor<SDChat>())
+        } catch {
+            Log.app.error("GraphBuilder: failed to fetch chats: \(error.localizedDescription, privacy: .public)")
+            chats = []
+        }
 
-        Log.app.info("GraphBuilder: \(pages.count) pages → \(nodes.count) nodes, \(edges.count) edges")
+        for chat in chats {
+            let chatKey = "chat-\(chat.id)"
+            guard existingSourceIds.insert(chatKey).inserted else { continue }
+
+            let label = chat.title.isEmpty ? "Untitled Chat" : chat.title
+            let node = SDGraphNode(type: .chat, label: label, sourceId: chat.id)
+            node.createdAt = chat.createdAt
+            nodes.append(node)
+            sourceIdToNodeId[chat.id] = node.id
+        }
+
+        Log.app.info("GraphBuilder: \(pages.count) pages, \(chats.count) chats → \(nodes.count) nodes, \(edges.count) edges")
         return (nodes: nodes, edges: edges)
     }
 
@@ -316,8 +331,15 @@ final class GraphBuilder {
             }
         }
 
-        // Delete removed nodes.
+        // Delete removed nodes — but only types that this builder manages.
+        // Extraction-created nodes (source, quote, block) are preserved.
+        let builderOwnedTypes: Set<String> = [
+            GraphNodeType.note.rawValue, GraphNodeType.folder.rawValue,
+            GraphNodeType.tag.rawValue, GraphNodeType.idea.rawValue,
+            GraphNodeType.chat.rawValue,
+        ]
         for (key, existing) in currentNodeMap where expectedNodeMap[key] == nil {
+            guard builderOwnedTypes.contains(existing.type) else { continue }
             context.delete(existing)
             deleted += 1
         }
@@ -415,8 +437,14 @@ final class GraphBuilder {
             }
         }
 
-        // Delete removed edges.
+        // Delete removed edges — but only types that this builder manages.
+        // Extraction-created edges (mentions, cites, authored, etc.) are preserved.
+        let builderOwnedEdgeTypes: Set<String> = [
+            GraphEdgeType.reference.rawValue, GraphEdgeType.contains.rawValue,
+            GraphEdgeType.tagged.rawValue,
+        ]
         for (key, existing) in currentEdgeMap where expectedEdgeMap[key] == nil {
+            guard builderOwnedEdgeTypes.contains(existing.type) else { continue }
             context.delete(existing)
             edgeDeleted += 1
         }

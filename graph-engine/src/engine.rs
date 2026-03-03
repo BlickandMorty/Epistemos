@@ -1025,19 +1025,19 @@ impl Engine {
         self.mode = mode;
         let mut sim = self.sim.lock();
         if mode == 1 {
-            // Page mode: tighter clustering, stronger center pull.
-            sim.params.link_distance = 80.0;
-            sim.params.charge_strength = -800.0;
-            sim.params.charge_range = 400.0;
-            sim.params.center_strength = 0.05;
+            // Page mode: tight clustering beside the note window.
+            sim.params.link_distance = 60.0;
+            sim.params.charge_strength = -400.0;
+            sim.params.charge_range = 250.0;
+            sim.params.center_strength = 0.06;
         } else {
-            // Global mode: canonical d3/Logseq defaults.
+            // Global mode: dense knowledge-graph layout.
             self.anchor_rect = None;
             sim.anchor_center = None;
-            sim.params.link_distance = 120.0;
-            sim.params.charge_strength = -600.0;
-            sim.params.charge_range = 600.0;
-            sim.params.center_strength = 0.02;
+            sim.params.link_distance = 80.0;
+            sim.params.charge_strength = -300.0;
+            sim.params.charge_range = 400.0;
+            sim.params.center_strength = 0.03;
         }
         sim.reheat();
     }

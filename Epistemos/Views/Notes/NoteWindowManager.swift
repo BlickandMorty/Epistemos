@@ -923,6 +923,7 @@ private struct NotePageContent: View {
             page.saveBody(fullText)
             page.needsVaultSync = true
             page.updatedAt = .now
+            try? modelContext.save()
             AppBootstrap.shared?.graphState.needsRefresh = true
         }
     }

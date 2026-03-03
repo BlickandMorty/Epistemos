@@ -91,20 +91,20 @@ pub struct ForceParams {
 impl Default for ForceParams {
     fn default() -> Self {
         Self {
-            // Canonical d3-force / Logseq defaults.
-            // link_distance: d3 default 30, Logseq ~120. We use 120 for knowledge-graph scale.
-            link_distance: 120.0,
-            // charge_strength: d3 default -30, Logseq -600. Uniform repulsion.
-            charge_strength: -600.0,
-            // charge_range: Logseq 600. Limits Barnes-Hut range for performance.
-            charge_range: 600.0,
+            // Tuned for dense knowledge-graph layout.
+            // link_distance 80 → tighter springs pull connected nodes closer.
+            link_distance: 80.0,
+            // charge_strength -300 → softer repulsion (ratio -300/80 = -3.75 vs old -5).
+            charge_strength: -300.0,
+            // charge_range 400 → wide enough to prevent collapse, tight enough to avoid scattering.
+            charge_range: 400.0,
             // link_strength: 0 = auto (d3 formula: 1/min(deg(src), deg(tgt))).
             link_strength: 0.0,
 
             // velocity_decay: d3 uses `node.vx *= (1 - velocityDecay)` where
             // velocityDecay=0.4, so the retain multiplier is 0.6. Nodes keep 60% velocity.
             velocity_decay: 0.6,
-            center_strength: 0.02,
+            center_strength: 0.03,
             collision_radius: 26.0,
             collision_iterations: 2,
             // Extras off by default — clean d3-force baseline.
@@ -1021,11 +1021,11 @@ mod tests {
     #[test]
     fn default_params_match_observatory() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 120.0);
-        assert_eq!(p.charge_strength, -600.0);
-        assert_eq!(p.charge_range, 600.0);
+        assert_eq!(p.link_distance, 80.0);
+        assert_eq!(p.charge_strength, -300.0);
+        assert_eq!(p.charge_range, 400.0);
         assert_eq!(p.velocity_decay, 0.6);
-        assert_eq!(p.center_strength, 0.02);
+        assert_eq!(p.center_strength, 0.03);
         assert_eq!(p.collision_radius, 26.0);
         assert_eq!(p.collision_iterations, 2);
         assert_eq!(p.cluster_strength, 0.0);
@@ -1509,11 +1509,11 @@ mod tests {
     #[test]
     fn parameters_default_values() {
         let p = ForceParams::default();
-        assert_eq!(p.link_distance, 120.0);
-        assert_eq!(p.charge_strength, -600.0);
-        assert_eq!(p.charge_range, 600.0);
+        assert_eq!(p.link_distance, 80.0);
+        assert_eq!(p.charge_strength, -300.0);
+        assert_eq!(p.charge_range, 400.0);
         assert_eq!(p.velocity_decay, 0.6);
-        assert_eq!(p.center_strength, 0.02);
+        assert_eq!(p.center_strength, 0.03);
         assert_eq!(p.collision_radius, 26.0);
         assert_eq!(p.collision_iterations, 2);
         assert_eq!(p.cluster_strength, 0.0);
@@ -3073,13 +3073,13 @@ mod tests {
     #[test]
     fn default_center_strength_nonzero() {
         let p = ForceParams::default();
-        assert_eq!(p.center_strength, 0.02);
+        assert_eq!(p.center_strength, 0.03);
     }
 
     #[test]
     fn default_charge_range_reduced() {
         let p = ForceParams::default();
-        assert_eq!(p.charge_range, 600.0);
+        assert_eq!(p.charge_range, 400.0);
     }
 
     #[test]

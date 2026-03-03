@@ -1389,7 +1389,7 @@ struct GraphBuilderAdditionalEdgeCaseTests {
             let result = builder.build(context: context)
             
             #expect(result.nodes.count == 1)
-            #expect(result.nodes.first?.label == "")
+            #expect(result.nodes.first?.label == "Untitled Chat")
         } catch {
             Issue.record("Test failed: \(error)")
         }

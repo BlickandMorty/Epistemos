@@ -77,6 +77,7 @@ struct WriterModeView: View {
     private func debouncedSave(_ newValue: String) {
         saveTask?.cancel()
         page.needsVaultSync = true
+        try? modelContext.save()
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled else { return }
@@ -94,6 +95,7 @@ struct WriterModeView: View {
             page.saveBody(bodyText)
             page.needsVaultSync = true
             page.updatedAt = .now
+            try? modelContext.save()
         }
     }
 

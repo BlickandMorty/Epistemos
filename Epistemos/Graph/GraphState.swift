@@ -47,9 +47,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
 
     var linkDistance: Float {
         switch self {
-        case .observatory:   return 120
+        case .observatory:   return 80
         case .nebula:        return 280
-        case .crystal:       return 120
+        case .crystal:       return 80
         case .fluid:         return 180
         case .constellation: return 350
         case .deepSea:       return 200
@@ -63,9 +63,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var chargeStrength: Float {
         switch self {
-        case .observatory:   return -600
+        case .observatory:   return -300
         case .nebula:        return -250
-        case .crystal:       return -600
+        case .crystal:       return -300
         case .fluid:         return -350
         case .constellation: return -200
         case .deepSea:       return -300
@@ -79,9 +79,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var chargeRange: Float {
         switch self {
-        case .observatory:   return 600
+        case .observatory:   return 400
         case .nebula:        return 1200
-        case .crystal:       return 800
+        case .crystal:       return 400
         case .fluid:         return 1000
         case .constellation: return 1500
         case .deepSea:       return 800
@@ -128,9 +128,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
     var centerStrength: Float {
         switch self {
-        case .observatory:   return 0.02
+        case .observatory:   return 0.03
         case .nebula:        return 0.005
-        case .crystal:       return 0.02
+        case .crystal:       return 0.03
         case .fluid:         return 0.008
         case .constellation: return 0.002
         case .deepSea:       return 0.005
@@ -342,21 +342,21 @@ final class GraphState {
     // extended via graph_engine_set_extended_force_params().
 
     // ── Core ──
-    // Canonical d3-force / Logseq defaults.
-    /// Natural resting length of edge springs (d3 default 30, Logseq ~120).
-    var linkDistance: Float = 120.0
-    /// Many-body charge strength (negative = repulsion). Logseq: -600.
-    var chargeStrength: Float = -600.0
-    /// Maximum range for many-body repulsion. Logseq: 600.
-    var chargeRange: Float = 600.0
+    // Tuned for dense knowledge-graph layout.
+    /// Natural resting length of edge springs.
+    var linkDistance: Float = 80.0
+    /// Many-body charge strength (negative = repulsion).
+    var chargeStrength: Float = -300.0
+    /// Maximum range for many-body repulsion.
+    var chargeRange: Float = 400.0
     /// Link spring strength. 0 = auto (d3: 1 / min(degree)).
     var linkStrength: Float = 0.0
 
     // ── Extended ──
     /// Velocity retain multiplier (d3: 0.6 = retain 60% per tick).
     var velocityDecay: Float = 0.6
-    /// Center gravity pull strength (Logseq: 0.02).
-    var centerStrength: Float = 0.02
+    /// Center gravity pull strength.
+    var centerStrength: Float = 0.03
     /// Collision buffer zone in pixels. Logseq: 26.
     var collisionRadius: Float = 26.0
 
@@ -431,7 +431,7 @@ final class GraphState {
 
     /// Restore force parameters from UserDefaults. No-op if never saved.
     /// Uses a version key to force reset when defaults change across app updates.
-    private static let physicsVersion = 8  // Bump to force reset: d3-force canonical defaults
+    private static let physicsVersion = 10  // Bump to force reset: tighter layout (linkDist 80, charge -300, range 400)
     private func restorePhysicsSettings() {
         let d = UserDefaults.standard
         guard d.bool(forKey: "epistemos.physics.hasSavedSettings") else { return }

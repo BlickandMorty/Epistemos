@@ -93,6 +93,9 @@ Second query when `hasDivider` is already true — tokens appended raw without p
 ### The Environment Sync Drift
 NoteWindowManager had a manual list of `.environment()` calls that drifted from `AppEnvironment.swift`. Any new state object added to AppEnvironment but not to NoteWindowManager caused runtime crashes. **Fix:** Use `withAppEnvironment(bootstrap)` everywhere. Single source of truth.
 
+### The Unpersisted Dirty Flag
+Setting `page.needsVaultSync = true` without `modelContext.save()` appears to work in memory but the `@Query(filter: #Predicate { $0.needsVaultSync == true })` in the sidebar never sees it, and `isDirtyVault` returns false after a context refresh. **Fix:** Always call `try? modelContext.save()` immediately after setting dirty flags. See `docs/bug-fixes/2026-03-03-note-saving-fix.md`.
+
 ## Service Architecture
 
 ### TriageService — AI Routing

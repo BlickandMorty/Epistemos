@@ -489,14 +489,34 @@ actor VaultIndexActor {
         let parsedWordCount = countWords(body)
 
         if let page = existing.first {
+            // Guard: if the note-body file on disk is newer than the vault .md file,
+            // the user edited in-app after the last auto-save export. Preserve their
+            // edits by skipping the body overwrite — only update metadata from vault.
+            let noteBodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(page.id).md")
+            let noteBodyModDate = (try? noteBodyURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            let vaultModDate = (try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            let noteBodyIsNewer = noteBodyModDate != nil && vaultModDate != nil && noteBodyModDate! > vaultModDate!
+
+            // Only preserve in-app body if it's non-empty. A zero-byte note-body
+            // (from historical DB reset or write failure) should never win over vault content.
+            let currentBody = page.loadBody(mapped: true)
+            let preserveBody = noteBodyIsNewer && !currentBody.isEmpty
+
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
-            if page.loadBody(mapped: true) != body || page.title != parsedTitle || page.tags != parsedTags
+            if currentBody != body || page.title != parsedTitle || page.tags != parsedTags
                 || page.emoji != parsedEmoji || page.frontMatter != frontMatter
                 || page.wordCount != parsedWordCount
             {
-                page.saveBody(body)
+                if preserveBody {
+                    log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — note-body newer than vault .md")
+                    page.needsVaultSync = true
+                } else {
+                    page.saveBody(body)
+                }
                 page.updatedAt = .now
-                page.wordCount = parsedWordCount
+                if !preserveBody {
+                    page.wordCount = parsedWordCount
+                }
                 page.title = Self.sanitizeTitle(parsedTitle)
                 page.tags = parsedTags
                 page.emoji = parsedEmoji
@@ -519,9 +539,10 @@ actor VaultIndexActor {
                     // folder relationship will be re-wired by synthesis/repair
                 }
 
+                let indexBody = preserveBody ? currentBody : body
                 do {
                     try searchService?.upsert(
-                        id: page.id, title: page.title, body: body,
+                        id: page.id, title: page.title, body: indexBody,
                         tags: page.tags.joined(separator: " "), updatedAt: page.updatedAt
                     )
                 } catch {

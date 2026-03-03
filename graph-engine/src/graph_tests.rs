@@ -85,11 +85,10 @@ mod tests {
     #[test]
     fn physics_symmetric_forces() {
         let mut g = Graph::new();
-        // Place nodes closer than charge_range (280) and link_distance (243) so both
-        // many-body repulsion and link spring push them apart. At distance 100 < 243,
-        // the spring is compressed → repels. Both forces are symmetric.
-        g.add_node("a".into(), -50.0, 0.0, 0, 1, "A".into());
-        g.add_node("b".into(), 50.0, 0.0, 0, 1, "B".into());
+        // Place nodes closer than link_distance (80) so both charge repulsion
+        // and spring compression push them apart. Distance 40 < 80 → spring repels.
+        g.add_node("a".into(), -20.0, 0.0, 0, 1, "A".into());
+        g.add_node("b".into(), 20.0, 0.0, 0, 1, "B".into());
         g.add_edge("a", "b", 1.0, 0);
 
         let mut sim = Simulation::new();
@@ -107,7 +106,7 @@ mod tests {
         let vx0 = sim.vx[0];
         let vx1 = sim.vx[1];
 
-        // Nodes at distance 100, within charge_range (280) and closer than link_distance (243).
+        // Nodes at distance 40, within charge_range (400) and closer than link_distance (80).
         // Both charge repulsion and spring repulsion push them apart.
         assert!(vx0 < 0.0, "Left node should move left (repelled), got vx0={}", vx0);
         assert!(vx1 > 0.0, "Right node should move right (repelled), got vx1={}", vx1);
