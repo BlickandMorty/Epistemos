@@ -965,10 +965,21 @@ struct CommandPaletteOverlay: View {
 
         if newText.isEmpty {
             searchHighlightTask?.cancel()
+            ftsDebounceTask?.cancel()
             cachedSearchResults = []
             selectedIndex = 0
             graphState.searchHighlight("")
             graphState.setSearchActive(false)
+            return
+        }
+
+        // Structured query mode: route ? prefix through QueryEngine
+        if newText.hasPrefix("?") {
+            ftsDebounceTask?.cancel()
+            searchHighlightTask?.cancel()
+            cachedSearchResults = computeStructuredQueryResults(for: newText)
+            let askOffset = cachedSearchResults.isEmpty ? 0 : 2
+            selectedIndex = askOffset
             return
         }
 
@@ -995,7 +1006,7 @@ struct CommandPaletteOverlay: View {
         }
 
         if !cachedSearchResults.isEmpty {
-            let askOffset = (newText.hasPrefix("?") || newText.hasPrefix("/query ")) ? 2 : 1
+            let askOffset = newText.hasPrefix("/query ") ? 2 : 1
             selectedIndex = askOffset
         } else {
             selectedIndex = 0
@@ -1286,6 +1297,76 @@ struct CommandPaletteOverlay: View {
                 ) { [self] in
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
+                })
+        }
+
+        return items
+    }
+
+    private func computeStructuredQueryResults(for input: String) -> [LandingCommandItem] {
+        queryEngine.execute(query: input)
+        guard let result = queryEngine.currentResult else { return [] }
+
+        let index = pageIndex
+        var items: [LandingCommandItem] = []
+
+        for node in result.nodes.prefix(30) {
+            let nodeId = node.id
+            let sourceId = node.sourceId
+            let nodeType = node.type
+
+            var label = node.label
+            var subtitle = nodeType.displayName
+            let icon = nodeType.icon
+
+            if nodeType == .note, let sid = sourceId, let page = index[sid] {
+                if !page.emoji.isEmpty { label = "\(page.emoji) \(label)" }
+                let parts = [
+                    "\(page.wordCount)w",
+                    page.tags.prefix(2).joined(separator: ", "),
+                    relativeDate(page.updatedAt),
+                ].filter { !$0.isEmpty }
+                subtitle = parts.joined(separator: " \u{00B7} ")
+            }
+
+            if let snippet = node.snippet {
+                subtitle = snippet
+            }
+
+            var contextActions: [LandingCommandItem.ContextAction] = []
+            if nodeType == .note, let pid = sourceId {
+                contextActions.append(.init(label: "Open in Notes", icon: "doc.text") { [self] in
+                    dismiss()
+                    NoteWindowManager.shared.open(pageId: pid)
+                })
+            }
+            contextActions.append(.init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
+                dismiss()
+                HologramController.shared.show()
+                graphState.selectNode(nodeId)
+                if nodeType == .note, sourceId != nil {
+                    graphState.mode = .page(nodeId: nodeId)
+                    graphState.focusOnNode(nodeId, depth: 2)
+                    graphState.requestRecommit()
+                } else {
+                    graphState.pendingCenterNodeId = nodeId
+                }
+            })
+
+            items.append(
+                LandingCommandItem(
+                    id: "sq-\(nodeId)", label: label, icon: icon,
+                    category: "Query Result", subtitle: subtitle,
+                    contextActions: contextActions
+                ) { [self] in
+                    dismiss()
+                    if nodeType == .note, let pageId = sourceId {
+                        NoteWindowManager.shared.open(pageId: pageId)
+                    } else {
+                        HologramController.shared.show()
+                        graphState.selectNode(nodeId)
+                        graphState.pendingCenterNodeId = nodeId
+                    }
                 })
         }
 
