@@ -42,6 +42,8 @@ struct CommandPaletteOverlay: View {
     @State private var ftsDebounceTask: Task<Void, Never>?
     @State private var appeared = false
     @FocusState private var isSearchFocused: Bool
+    @State private var retractNow = false
+    @State private var isTypewriterVisible = true
 
     // MARK: - Chat State
 
@@ -100,7 +102,7 @@ struct CommandPaletteOverlay: View {
             }
             .animation(Motion.smooth, value: mode)
         }
-        .frame(width: 520)
+        .frame(width: 640)
         .frame(maxHeight: mode == .chat ? .infinity : nil)
         .fixedSize(horizontal: false, vertical: mode == .search)
         .background {
@@ -164,6 +166,8 @@ struct CommandPaletteOverlay: View {
         .onReceive(NotificationCenter.default.publisher(for: .commandPaletteDidHide)) { _ in
             isSearchFocused = false
             isChatFocused = false
+            retractNow = false
+            isTypewriterVisible = true
         }
     }
 
@@ -207,44 +211,104 @@ struct CommandPaletteOverlay: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [
-                                        Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
-                                        Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
-                                        Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                    ZStack {
+                        if isTypewriterVisible {
+                            HStack(spacing: 10) {
+                                sparklesIcon
+
+                                LiquidGreeting(
+                                    compact: true,
+                                    retractNow: $retractNow,
+                                    onRetractComplete: {
+                                        withAnimation(Motion.quick) {
+                                            isTypewriterVisible = false
+                                        }
+                                    }
                                 )
-                            )
-
-                        TextField("Search or ask anything\u{2026}", text: $searchText)
-                            .font(.system(size: 16, weight: .regular, design: .rounded))
-                            .foregroundStyle(theme.foreground)
-                            .textFieldStyle(.plain)
-                            .focused($isSearchFocused)
-                            .onSubmit { executeSelected() }
-
-                        if !searchText.isEmpty {
-                            Button {
-                                searchText = ""
-                                cachedSearchResults = []
-                                selectedIndex = 0
-                                graphState.searchHighlight("")
-                                graphState.setSearchActive(false)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(theme.textTertiary)
                             }
-                            .buttonStyle(.plain)
-                            .transition(.scale(scale: 0.5).combined(with: .opacity))
-                            .animation(Motion.quick, value: searchText.isEmpty)
+                            .transition(.opacity)
                         }
+
+                        HStack(spacing: 10) {
+                            if !isTypewriterVisible {
+                                sparklesIcon
+                            }
+
+                            TextField("Search or ask anything\u{2026}", text: $searchText)
+                                .font(.system(size: 16, weight: .regular, design: .rounded))
+                                .foregroundStyle(theme.foreground)
+                                .textFieldStyle(.plain)
+                                .focused($isSearchFocused)
+                                .onSubmit { executeSelected() }
+                                .opacity(isTypewriterVisible ? 0 : 1)
+
+                            if !searchText.isEmpty {
+                                Button {
+                                    searchText = ""
+                                    cachedSearchResults = []
+                                    selectedIndex = 0
+                                    graphState.searchHighlight("")
+                                    graphState.setSearchActive(false)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(theme.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+                                .transition(.scale(scale: 0.5).combined(with: .opacity))
+                                .animation(Motion.quick, value: searchText.isEmpty)
+                            }
+                        }
+                    }
+                    .frame(height: 30)
+                    .onChange(of: searchText) { oldValue, newValue in
+                        if oldValue.isEmpty && !newValue.isEmpty && isTypewriterVisible {
+                            retractNow = true
+                        }
+                        if newValue.isEmpty && !isTypewriterVisible {
+                            retractNow = false
+                            withAnimation(Motion.smooth) {
+                                isTypewriterVisible = true
+                            }
+                        }
+                    }
+
+                    if isTypewriterVisible && searchText.isEmpty {
+                        HStack(spacing: 8) {
+                            paletteChip(label: "New Note", icon: "doc.badge.plus") {
+                                CommandPaletteWindowController.shared.hide()
+                                Task { @MainActor in
+                                    if let pageId = await vaultSync.createPage(title: "Untitled") {
+                                        NoteWindowManager.shared.open(pageId: pageId)
+                                    }
+                                }
+                            }
+                            paletteChip(label: "Quick Idea", icon: "lightbulb") {
+                                CommandPaletteWindowController.shared.hide()
+                                Task { @MainActor in
+                                    if let pageId = await vaultSync.createPage(title: "Quick Idea") {
+                                        NoteWindowManager.shared.open(pageId: pageId)
+                                    }
+                                }
+                            }
+                            paletteChip(label: "Vault Briefing", icon: "book.pages") {
+                                CommandPaletteWindowController.shared.hide()
+                                chat.startNewChat()
+                                ui.setActivePanel(.home)
+                                AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
+                                NSApp.activate()
+                                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+                                    main.makeKeyAndOrderFront(nil)
+                                }
+                            }
+                            paletteChip(label: "Daily Brief", icon: "newspaper.fill") {
+                                CommandPaletteWindowController.shared.hide()
+                                let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
+                                dailyBrief.requestDailyBrief(prompt: prompt)
+                            }
+                        }
+                        .padding(.top, 8)
+                        .transition(.opacity.combined(with: .blurReplace))
                     }
 
                     HStack(spacing: 4) {
@@ -280,6 +344,7 @@ struct CommandPaletteOverlay: View {
                     }
                     .padding(.top, 6)
                 }
+                .animation(Motion.smooth, value: isTypewriterVisible)
             }
         }
         .padding(.horizontal, 16)
@@ -1286,6 +1351,42 @@ struct CommandPaletteOverlay: View {
                 NoteWindowManager.shared.open(pageId: pageId)
             }
         }
+    }
+
+    // MARK: - Palette UI Components
+
+    private var sparklesIcon: some View {
+        Image(systemName: "sparkles")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [
+                        Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                        Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                        Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+    }
+
+    private func paletteChip(label: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(theme.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background {
+                Capsule().fill(theme.foreground.opacity(0.06))
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Helpers
