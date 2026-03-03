@@ -208,28 +208,16 @@ final class GraphBuilder {
                   let childNodeId = sourceIdToNodeId[page.id],
                   let parentNodeId = sourceIdToNodeId[parentId]
             else { continue }
-            edges.append(SDGraphEdge(source: childNodeId, target: parentNodeId, type: .reference))
+            // Weight 3.0 matches containment edges so nested pages stay close to parent.
+            edges.append(SDGraphEdge(source: childNodeId, target: parentNodeId, type: .reference, weight: 3.0))
         }
 
         // ────────────────────────────────────────────
-        // 6. Chats
+        // 6. Chats — skipped for graph
         // ────────────────────────────────────────────
-        let chats: [SDChat]
-        do { chats = try context.fetch(FetchDescriptor<SDChat>()) }
-        catch {
-            Log.app.error("GraphBuilder: failed to fetch chats: \(error.localizedDescription, privacy: .public)")
-            chats = []
-        }
-
-        for chat in chats {
-            let chatKey = "chat-\(chat.id)"
-            guard existingSourceIds.insert(chatKey).inserted else { continue }
-
-            let node = SDGraphNode(type: .chat, label: chat.title, sourceId: chat.id)
-            node.createdAt = chat.createdAt
-            nodes.append(node)
-            sourceIdToNodeId[chat.id] = node.id
-        }
+        // SDChat has no page/note relationship, so chat nodes would be pure orphans
+        // (zero edges, scattered by repulsion). Excluded until SDChat gains a pageId
+        // field that allows connecting them to their associated note.
 
         Log.app.info("GraphBuilder: \(pages.count) pages → \(nodes.count) nodes, \(edges.count) edges")
         return (nodes: nodes, edges: edges)
