@@ -232,6 +232,9 @@ final class NoteWindowManager {
         window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         window.backgroundColor = NSColor(theme.background)
 
+        // Zoom instead of fullscreen — green button fills screen without entering a Space.
+        window.collectionBehavior.remove(.fullScreenPrimary)
+
         // Native macOS Finder-style tab bar
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
@@ -318,6 +321,9 @@ final class NoteWindowManager {
         let theme = bootstrap.uiState.theme
         window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         window.backgroundColor = NSColor(theme.background)
+
+        // Zoom instead of fullscreen
+        window.collectionBehavior.remove(.fullScreenPrimary)
 
         // Join the note tab group
         window.tabbingMode = .preferred
@@ -450,6 +456,9 @@ private struct NotePageContent: View {
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showTableOfContents = false
+    @State private var showBlockPropertySheet = false
+    @State private var blockPropertyLineText = ""
+    @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
     /// Pre-selected idea tab when opened from right-click context menu.
     @State private var contextMenuIdeaTab: IdeasPanel.IdeaTab?
     /// Editor selection captured BEFORE the popover steals focus.
@@ -698,6 +707,16 @@ private struct NotePageContent: View {
                 DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.loadBody())
             }
         }
+        .sheet(isPresented: $showBlockPropertySheet) {
+            BlockPropertySheet(
+                existing: BlockPropertyParser.parse(blockPropertyLineText).map { ($0.key, $0.value) },
+                onSave: { properties in
+                    applyBlockProperties(properties, lineRange: blockPropertyLineRange)
+                    showBlockPropertySheet = false
+                },
+                onCancel: { showBlockPropertySheet = false }
+            )
+        }
         .onChange(of: pages.first?.title) { _, newTitle in
             guard let newTitle, !newTitle.isEmpty else { return }
             navState?.syncTitle(pageId: pageId, title: newTitle)
@@ -720,6 +739,16 @@ private struct NotePageContent: View {
                   info["pageId"] == pageId else { return }
             let selected = info["selectedText"]
             handleAIContextMenuOperation(op, selectedText: selected)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.blockPropertyNotification)) { notif in
+            guard let info = notif.userInfo as? [String: Any],
+                  info["pageId"] as? String == pageId,
+                  let lineText = info["lineText"] as? String else { return }
+            blockPropertyLineText = lineText
+            if let rangeValue = info["lineRange"] as? NSValue {
+                blockPropertyLineRange = rangeValue.rangeValue
+            }
+            showBlockPropertySheet = true
         }
         .onChange(of: showIdeasPopover) { _, isShown in
             if !isShown {
@@ -756,6 +785,39 @@ private struct NotePageContent: View {
     }
 
     // MARK: - AI Context Menu Operations
+
+    private func applyBlockProperties(_ properties: [(String, PropertyValue)], lineRange: NSRange) {
+        // Build the @key=value suffix string
+        let suffix = properties.map { key, value in
+            let valStr: String = switch value {
+            case .string(let s): s
+            case .float(let f): String(f)
+            case .int(let i): String(i)
+            case .bool(let b): b ? "true" : "false"
+            }
+            return "@\(key)=\(valStr)"
+        }.joined(separator: " ")
+
+        // Strip existing trailing @key=value from the line and append new ones
+        let currentLine = blockPropertyLineText
+        let stripped = currentLine.replacingOccurrences(
+            of: #"\s+@\w+=\S+(?:\s+@\w+=\S+)*\s*$"#,
+            with: "",
+            options: .regularExpression
+        )
+        let newLine = suffix.isEmpty ? stripped : "\(stripped) \(suffix)"
+
+        // Post notification to update the editor text
+        NotificationCenter.default.post(
+            name: NSNotification.Name("EpistemosReplaceRange"),
+            object: nil,
+            userInfo: [
+                "pageId": pageId,
+                "range": NSValue(range: lineRange),
+                "replacement": newLine
+            ]
+        )
+    }
 
     private func handleAIContextMenuOperation(_ op: String, selectedText: String?) {
         let mapping: (operation: NotesOperation, systemPrompt: String, userPrompt: String) = {
