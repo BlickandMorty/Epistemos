@@ -135,10 +135,16 @@ Isolated nodes = lone outposts
 
 **Phase 2 — Layout:**
 ```
-Settlement centers placed using graph's existing force-directed positions
-  rescaled to tile-space coordinates
-Player spawns at the largest cluster
+Node positions come from GraphStore's stored position hints (phyllotaxis layout
+  or last-saved positions), NOT from live Rust engine simulation positions.
+  The Swift-side GraphStore already has x/y per node — these are exported in the JSON.
+  If positions are too bunched or sparse, Bevy rescales to tile-space with a
+  simple normalize-to-bounding-box pass.
+Settlement centers = cluster centroids (average of member node positions).
+Player spawns at the largest cluster's centroid.
 ```
+
+Note: v1 does NOT require a position-export API from the Rust engine. `GraphStore` positions are sufficient. If live simulation positions are desired later (v2), an FFI function `graph_engine_export_positions()` would need to be added.
 
 **Phase 3 — Terrain (Perlin noise):**
 ```
@@ -273,7 +279,24 @@ Swift → Game:  {"type":"error","requestId":"q1","message":"Service unavailable
 
 Every query/response pair carries a `requestId` (monotonic counter). This prevents races when the player switches NPCs quickly or closes the dialogue while a stream is in-flight. Bevy ignores tokens with stale requestIds. Swift cancels in-flight TriageService streams on `cancel`.
 
-Swift owns all persona/archetype/care logic. Bevy reads persona snapshots from the graph JSON export but never derives, decays, or transitions mood/health/attention.
+Swift owns all persona/archetype/care logic. Bevy reads persona snapshots from the graph JSON export but never derives, decays, or transitions mood/health/attention itself.
+
+### Explorer Care Sync
+
+The initial persona snapshot exported at launch is a starting point, not frozen state. Care state stays live during an Explorer session via IPC:
+
+```
+After each dialogue interaction completes:
+Swift → Game:  {"type":"care_update","nodeId":"abc","mood":"thriving","health":0.85,"attention":0.91}
+```
+
+Swift runs `DialogueNodeProfile.recordInteraction()` and `DialogueCareState.applyDecay()` on its side (same code path as `.dialogue` mode), then pushes the updated snapshot to Bevy. Bevy updates the NPC's displayed mood/health bars and portrait crest label — purely visual, no logic.
+
+This means:
+- Opening a dialogue → Swift runs `care.markOpened()` → pushes update
+- Submitting a query → Swift runs `care.recordInteraction()` → pushes update after `done`
+- Time decay → Swift runs `care.applyDecay()` before each interaction, same as existing code
+- Bevy never computes care state — it only renders what Swift tells it
 
 **Shutdown:** User switches away from Explorer mode → send `{"type":"quit"}` to stdin → terminate after 1s grace → clean up temp JSON.
 
