@@ -48,6 +48,7 @@ final class MetalGraphNSView: NSView {
         let noteBody: String
         let linkedLabels: [String]
         let insight: DialogueNodeInsight
+        let neighborContext: [(label: String, relationship: String, body: String)]
     }
 
     private static let dialogueDepthPalette: [DialogueDepthColor] = [
@@ -1352,14 +1353,47 @@ final class MetalGraphNSView: NSView {
         } else {
             noteBody = ""
         }
-        let linkedLabels = graphState.store.neighbors(of: nodeId).map(\.label)
+        let neighbors = graphState.store.neighbors(of: nodeId)
+        let linkedLabels = neighbors.map(\.label)
         let insight = dialogueInsight(
             for: node,
             noteBody: noteBody,
             linkedNodeLabels: linkedLabels,
             graphState: graphState
         )
-        return DialogueContextSnapshot(node: node, noteBody: noteBody, linkedLabels: linkedLabels, insight: insight)
+
+        // Gather parent + neighbor context (up to 6 neighbors, 2000 chars each)
+        let edges = graphState.store.edges(for: nodeId)
+        var neighborContext: [(label: String, relationship: String, body: String)] = []
+
+        // Parents first (folders containing this node)
+        for edge in edges where edge.type == .contains && edge.targetNodeId == nodeId {
+            guard let parent = graphState.store.nodes[edge.sourceNodeId] else { continue }
+            let siblingLabels = graphState.store.neighbors(of: parent.id)
+                .filter { $0.id != nodeId }
+                .prefix(10)
+                .map(\.label)
+            let parentBody = "Contains: \(siblingLabels.joined(separator: ", "))"
+            neighborContext.append((label: parent.label, relationship: "parent", body: parentBody))
+        }
+
+        // Direct neighbors (notes/ideas/sources — fetch their content)
+        for neighbor in neighbors.prefix(6) where neighborContext.count < 7 {
+            if neighborContext.contains(where: { $0.label == neighbor.label }) { continue }
+            let relationship = edges.first { e in
+                (e.sourceNodeId == nodeId && e.targetNodeId == neighbor.id) ||
+                (e.targetNodeId == nodeId && e.sourceNodeId == neighbor.id)
+            }?.type.rawValue ?? "linked"
+            let body: String
+            if neighbor.type == .note, let sid = neighbor.sourceId {
+                body = String(NoteFileStorage.readBody(pageId: sid).prefix(2000))
+            } else {
+                body = ""
+            }
+            neighborContext.append((label: neighbor.label, relationship: relationship, body: body))
+        }
+
+        return DialogueContextSnapshot(node: node, noteBody: noteBody, linkedLabels: linkedLabels, insight: insight, neighborContext: neighborContext)
     }
 
     private func dialogueInsight(
@@ -1671,6 +1705,7 @@ final class MetalGraphNSView: NSView {
         dialogueChatState.submitQuery(
             noteBody: dialogueContext.noteBody,
             linkedNodeLabels: dialogueContext.linkedLabels,
+            neighborContext: dialogueContext.neighborContext,
             nodeType: nodeType,
             insight: dialogueContext.insight,
             triageService: triageService

@@ -118,29 +118,29 @@ struct DialogueLayoutMetrics {
 fn dialogue_layout_metrics(zoom: f32) -> DialogueLayoutMetrics {
     if zoom < 0.38 {
         DialogueLayoutMetrics {
-            box_screen_width: 468.0,
-            box_screen_height: 184.0,
+            box_screen_width: 620.0,
+            box_screen_height: 340.0,
             tail_screen_height: 22.0,
             gap_screen: 28.0,
-            side_gap_screen: 104.0,
+            side_gap_screen: 80.0,
             compact: true,
         }
     } else if zoom < 0.82 {
         DialogueLayoutMetrics {
-            box_screen_width: 632.0,
-            box_screen_height: 286.0,
+            box_screen_width: 820.0,
+            box_screen_height: 480.0,
             tail_screen_height: 30.0,
             gap_screen: 34.0,
-            side_gap_screen: 118.0,
+            side_gap_screen: 90.0,
             compact: false,
         }
     } else {
         DialogueLayoutMetrics {
-            box_screen_width: 780.0,
-            box_screen_height: 392.0,
+            box_screen_width: 960.0,
+            box_screen_height: 560.0,
             tail_screen_height: 36.0,
             gap_screen: 38.0,
-            side_gap_screen: 132.0,
+            side_gap_screen: 100.0,
             compact: false,
         }
     }
@@ -549,7 +549,8 @@ struct NodeVertexOut {
     float4 color;
     float2 uv;
     float  depth;
-    float  highlight_dim;  // 1.0 = normal, DIM_ALPHA = dimmed
+    float  highlight_dim;  // 1.0 = normal, <1.0 = dimmed
+    float  desaturate;     // 0.0 = full color, 1.0 = grayscale
     float  is_lite;        // 1.0 = lite mode, 0.0 = full mode
     float2 world_pos;      // world-space base position for pulse wave
 };
@@ -610,9 +611,10 @@ vertex NodeVertexOut node_vertex(
     float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
     float ndc_z = 0.5 - depth * 0.1;
 
-    // Highlight flags: 0 = normal, 1 = highlighted (boosted), 2+ = dimmed (flag/255).
+    // Highlight flags: 0 = normal, 1 = highlighted (boosted), 2 = grayscale, 3+ = dimmed.
     uchar flag = highlight_flags[instance_id];
-    float highlight_dim = flag == 0 ? 1.0 : (flag == 1 ? 1.50 : (float(flag) / 255.0));
+    float highlight_dim = flag == 0 ? 1.0 : (flag == 1 ? 1.50 : (flag == 2 ? 0.70 : (float(flag) / 255.0)));
+    float desaturate = flag == 2 ? 1.0 : 0.0;
 
     NodeVertexOut out;
     out.position = float4(ndc, ndc_z, 1.0);
@@ -620,6 +622,7 @@ vertex NodeVertexOut node_vertex(
     out.uv = corner;
     out.depth = depth;
     out.highlight_dim = highlight_dim;
+    out.desaturate = desaturate;
     out.is_lite = uniforms.lite_mode;
     out.world_pos = base_pos;
     return out;
@@ -643,14 +646,24 @@ fragment float4 node_fragment(
             glow *= 1.0 + 0.25 * sin(uniforms.time * 2.0 + length(in.world_pos) * 0.01);
         }
         if (glow < 0.01) discard_fragment();
-        return float4(in.color.rgb, in.color.a * glow * in.highlight_dim);
+        float3 glow_rgb = in.color.rgb;
+        if (in.desaturate > 0.5) {
+            float lum = dot(glow_rgb, float3(0.299, 0.587, 0.114));
+            glow_rgb = mix(glow_rgb, float3(lum), 0.85);
+        }
+        return float4(glow_rgb, in.color.a * glow * in.highlight_dim);
     }
 
     // ── Performance: flat colored circle, ~3 ALU ops ──
     if (in.is_lite > 1.5) {
         float alpha = 1.0 - smoothstep(0.85, 1.0, dist);
         if (alpha < 0.01) discard_fragment();
-        return float4(in.color.rgb, in.color.a * alpha * in.highlight_dim);
+        float3 perf_rgb = in.color.rgb;
+        if (in.desaturate > 0.5) {
+            float lum = dot(perf_rgb, float3(0.299, 0.587, 0.114));
+            perf_rgb = mix(perf_rgb, float3(lum), 0.85);
+        }
+        return float4(perf_rgb, in.color.a * alpha * in.highlight_dim);
     }
 
     // ── Balanced + Cinematic: pixel art + sphere shading ──
@@ -721,6 +734,12 @@ fragment float4 node_fragment(
         float ca = uniforms.impact_intensity * 0.12;
         result_color.r += ca * in.uv.x;
         result_color.b -= ca * in.uv.x;
+    }
+
+    // ── Grayscale desaturation for non-highlighted nodes ──
+    if (in.desaturate > 0.5) {
+        float lum = dot(result_color, float3(0.299, 0.587, 0.114));
+        result_color = mix(result_color, float3(lum), 0.85);
     }
 
     return float4(result_color, in.color.a * final_alpha * depth_fade * in.highlight_dim);
@@ -1424,7 +1443,9 @@ impl Renderer {
             if src_lit && tgt_lit {
                 EDGE_HIGHLIGHT_COLOR
             } else {
-                [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
+                // Grayscale: desaturate non-highlighted edges, keep visible
+                let lum = base_edge[0] * 0.299 + base_edge[1] * 0.587 + base_edge[2] * 0.114;
+                [lum, lum, lum, base_edge[3] * 0.18]
             }
         } else if self.enable_tension_coloring {
             let dx = p1[0] - p0[0];
@@ -2019,9 +2040,8 @@ impl Renderer {
         let total = self.glow_count + self.node_count + self.face_feature_count + self.highlight_count;
         if total == 0 { return; }
 
-        // Encode dim factor: 0 = normal (1.0), non-zero = dim (value/255).
-        // DIM_ALPHA (0.04) → 10, glow dim (DIM_ALPHA * 0.4 ≈ 0.016) → 4.
-        const NODE_DIM: u8 = 10;   // 0.04 * 255 ≈ 10
+        // Flag encoding: 0 = normal, 1 = highlighted (boosted), 2 = grayscale, 3+ = dim (value/255).
+        const NODE_GRAY: u8 = 2;   // grayscale (visible but desaturated)
         const GLOW_DIM: u8 = 4;    // glow dim factor ≈ 0.016
 
         // Reuse pre-allocated scratch buffer (avoids heap allocation every frame).
@@ -2049,11 +2069,11 @@ impl Renderer {
             // Pad or truncate to exactly glow_count (safety net).
             self.highlight_flag_scratch.resize(self.glow_count, 0);
 
-            // Regular node flags: 1 = highlighted (bright), NODE_DIM = dimmed
+            // Regular node flags: 1 = highlighted (bright), NODE_GRAY = grayscale
             for &node_index in &self.rendered_node_indices {
                 let graph_node = &world.graph_node[node_index];
                 let lit = self.highlight.highlighted_ids.contains(&graph_node.node_id);
-                self.highlight_flag_scratch.push(if lit { 1 } else { NODE_DIM });
+                self.highlight_flag_scratch.push(if lit { 1 } else { NODE_GRAY });
             }
             self.highlight_flag_scratch.resize(
                 self.glow_count + self.node_count + self.face_feature_count,
@@ -2360,49 +2380,9 @@ impl Renderer {
         let box_top = geometry.top;
         let box_bottom = geometry.bottom;
 
-        // Colors: soft translucent gradient (lets graph show through).
-        let color_top = [0.12_f32, 0.14, 0.22, 0.55];
-        let color_bot = [0.08_f32, 0.10, 0.18, 0.55];
-
-        // Background: 2 triangles forming a quad.
-        // Tri 1: top-left, top-right, bottom-left
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_top], color: color_top });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: color_top });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_bottom], color: color_bot });
-        // Tri 2: top-right, bottom-right, bottom-left
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: color_top });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_bottom], color: color_bot });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_bottom], color: color_bot });
-
-        // Tail: triangle from box bottom-center to node, fading toward tip.
-        let tail_half_w = if layout.compact { 10.0 } else { 12.0 } / zoom;
-        let tail_tip_color = [color_bot[0], color_bot[1], color_bot[2], 0.15];
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_base_center_x - tail_half_w, box_bottom], color: color_bot });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_base_center_x + tail_half_w, box_bottom], color: color_bot });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_tip_x, geometry.tail_tip_y], color: tail_tip_color });
-
-        // Nameplate bar at top: 2 triangles, subtle tint of node type color.
-        let np_full = self.node_color_for_u8(world.hierarchy[node_index].node_type);
-        let np_color = [np_full[0], np_full[1], np_full[2], np_full[3] * 0.45];
-        let np_bottom = box_top + nameplate_h;
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_top], color: np_color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: np_color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, np_bottom], color: np_color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: np_color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, np_bottom], color: np_color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, np_bottom], color: np_color });
-
-        // Border: 4 thin quads (top, bottom, left, right) — subtle white.
-        let border_color = [1.0_f32, 1.0, 1.0, 0.18];
-
-        // Top border
-        self.push_border_quad(left, box_top, right, box_top + border_w, border_color);
-        // Bottom border
-        self.push_border_quad(left, box_bottom - border_w, right, box_bottom, border_color);
-        // Left border
-        self.push_border_quad(left, box_top, left + border_w, box_bottom, border_color);
-        // Right border
-        self.push_border_quad(right - border_w, box_top, right, box_bottom, border_color);
+        // No Metal-drawn box — the SwiftUI overlay (DialogueOverlayView) handles all visuals.
+        // Geometry is still computed above for box_screen_rect positioning.
+        let _ = (left, right, box_top, box_bottom, border_w, nameplate_h);
     }
 
     fn push_border_quad(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 4]) {
