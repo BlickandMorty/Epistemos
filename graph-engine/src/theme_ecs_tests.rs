@@ -13,25 +13,25 @@ mod theme_ecs_tests {
     // ── Theme Switching ──────────────────────────────────────────────────────
 
     #[test]
-    fn theme_pixel_is_default() {
+    fn theme_dialogue_is_default() {
         let theme = VisualTheme::from_u8(0);
-        assert_eq!(theme, VisualTheme::Pixel);
+        assert_eq!(theme, VisualTheme::Dialogue);
     }
 
     #[test]
-    fn theme_switch_pixel_to_classic() {
-        let mut theme = VisualTheme::Pixel;
-        assert_eq!(theme, VisualTheme::Pixel);
+    fn theme_switch_dialogue_to_classic() {
+        let mut theme = VisualTheme::Dialogue;
+        assert_eq!(theme, VisualTheme::Dialogue);
 
         theme = VisualTheme::from_u8(1);
         assert_eq!(theme, VisualTheme::Classic);
     }
 
     #[test]
-    fn theme_switch_classic_to_pixel() {
+    fn theme_switch_classic_to_dialogue() {
         let mut theme = VisualTheme::Classic;
         theme = VisualTheme::from_u8(0);
-        assert_eq!(theme, VisualTheme::Pixel);
+        assert_eq!(theme, VisualTheme::Dialogue);
     }
 
     #[test]

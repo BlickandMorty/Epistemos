@@ -573,7 +573,6 @@ impl Engine {
         }
 
         // Issue draw commands — all themes use the classic renderer.
-        // (Pixel variant temporarily falls through to Classic until Task 2 renames it.)
         self.renderer.draw(width, height, &self.world);
 
         u32::from(needs_frame)
@@ -1256,7 +1255,7 @@ impl Engine {
         self.sim.lock().lite_mode = clamped >= 2;
     }
 
-    /// Set visual theme: 0 = Pixel (default), 1 = Classic.
+    /// Set visual theme: 0 = Dialogue (default), 1 = Classic.
     pub fn set_visual_theme(&mut self, theme: u8) {
         self.renderer.visual_theme = VisualTheme::from_u8(theme);
     }
@@ -1906,13 +1905,13 @@ mod tests {
 
     #[test]
     fn zoom_clamp_floor_is_one_for_all_themes() {
-        assert_eq!(clamp_zoom_for_theme(VisualTheme::Pixel, 0.35), 1.0);
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Dialogue, 0.35), 1.0);
         assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 0.35), 1.0);
     }
 
     #[test]
     fn zoom_clamp_ceiling_is_ten_for_all_themes() {
-        assert_eq!(clamp_zoom_for_theme(VisualTheme::Pixel, 15.0), 10.0);
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Dialogue, 15.0), 10.0);
         assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 15.0), 10.0);
     }
 

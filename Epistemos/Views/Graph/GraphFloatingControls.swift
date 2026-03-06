@@ -38,8 +38,6 @@ struct GraphFloatingControls: View {
 
                 themeToggle
 
-                pixelScaleControl
-
                 Divider()
                     .frame(height: 20)
                     .opacity(0.3)
@@ -176,7 +174,7 @@ struct GraphFloatingControls: View {
 
     private var themeToggle: some View {
         HStack(spacing: 2) {
-            themeButton(label: "Pixel", icon: "square.grid.3x3.fill", theme: .pixel)
+            themeButton(label: "Dialogue", icon: "bubble.left.fill", theme: .dialogue)
             themeButton(label: "Classic", icon: "circle.fill", theme: .classic)
         }
     }
@@ -198,32 +196,6 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
-    }
-
-    // MARK: - Pixel Scale Slider
-
-    @ViewBuilder
-    private var pixelScaleControl: some View {
-        if graphState.visualTheme == .pixel {
-            HStack(spacing: 4) {
-                Text("Scale")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.5))
-                Slider(
-                    value: Binding(
-                        get: { Double(graphState.pixelScale) },
-                        set: { graphState.pixelScale = UInt8($0) }
-                    ),
-                    in: 2...16,
-                    step: 1
-                )
-                .frame(width: 60)
-                Text("\(graphState.pixelScale)")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.primary.opacity(0.5))
-                    .frame(width: 16)
-            }
-        }
     }
 
     // MARK: - Quality Preset Toggle

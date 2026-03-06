@@ -584,7 +584,7 @@ pub extern "C" fn graph_engine_set_quality_level(engine: *mut Engine, level: u8)
     engine.set_quality_level(level);
 }
 
-/// Set visual theme: 0 = Pixel (default), 1 = Classic.
+/// Set visual theme: 0 = Dialogue (default), 1 = Classic.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_visual_theme(engine: *mut Engine, theme: u8) {
     ffi_engine!(engine);

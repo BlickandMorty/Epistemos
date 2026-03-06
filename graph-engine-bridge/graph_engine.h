@@ -217,7 +217,7 @@ void graph_engine_set_light_mode(Engine* engine, uint8_t enabled);
 /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
 void graph_engine_set_quality_level(Engine* engine, uint8_t level);
 
-/// Set visual theme: 0 = Pixel (default), 1 = Classic.
+/// Set visual theme: 0 = Dialogue (default), 1 = Classic.
 void graph_engine_set_visual_theme(Engine* engine, uint8_t theme);
 
 /// Set per-node color override by UUID. Pass alpha=0 to clear.

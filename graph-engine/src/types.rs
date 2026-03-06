@@ -245,19 +245,19 @@ impl Graph {
 
 // ── Theme Types ─────────────────────────────────────────────────────────────
 
-/// Graph visual theme — selects between classic SDF renderer and pixel art renderer.
+/// Graph visual theme — selects rendering style.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VisualTheme {
-    Pixel = 0,   // Default — pixel art blocks with nearest-neighbor upscale
-    Classic = 1, // Original SDF circles + smooth lines
+    Dialogue = 0, // FFT-style dialogue box on node selection
+    Classic = 1,  // Original SDF circles + smooth lines
 }
 
 impl VisualTheme {
     pub fn from_u8(v: u8) -> Self {
         match v {
             1 => Self::Classic,
-            _ => Self::Pixel, // Default to Pixel
+            _ => Self::Dialogue,
         }
     }
 }
@@ -908,9 +908,9 @@ mod tests {
 
     #[test]
     fn test_visual_theme_from_u8() {
-        assert_eq!(VisualTheme::from_u8(0), VisualTheme::Pixel);
+        assert_eq!(VisualTheme::from_u8(0), VisualTheme::Dialogue);
         assert_eq!(VisualTheme::from_u8(1), VisualTheme::Classic);
-        assert_eq!(VisualTheme::from_u8(255), VisualTheme::Pixel); // default
+        assert_eq!(VisualTheme::from_u8(255), VisualTheme::Dialogue); // default
     }
 
 }

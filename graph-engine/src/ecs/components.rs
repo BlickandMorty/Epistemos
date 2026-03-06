@@ -40,16 +40,6 @@ impl Default for HierarchyComponent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BlockType {
-    Core = 0,
-    Primary = 1,
-    Secondary = 2,
-    Tertiary = 3,
-    Leaf = 4,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AIState {
     Idle = 0,
     Swimming = 1,

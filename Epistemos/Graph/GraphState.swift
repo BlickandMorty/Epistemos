@@ -2,24 +2,16 @@ import Foundation
 import NaturalLanguage
 import SwiftData
 
-// MARK: - UInt8 Clamped Helper
-
-private extension UInt8 {
-    func clamped(to range: ClosedRange<UInt8>, default defaultValue: UInt8) -> UInt8 {
-        self == 0 ? defaultValue : Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
-    }
-}
-
 // MARK: - GraphVisualTheme
 
 enum GraphVisualTheme: UInt8, CaseIterable, Codable {
-    case pixel = 0
+    case dialogue = 0
     case classic = 1
 
     var displayName: String {
         switch self {
-        case .pixel:   "Pixel Blocks"
-        case .classic: "Classic"
+        case .dialogue: "Dialogue"
+        case .classic:  "Classic"
         }
     }
 }
@@ -360,11 +352,11 @@ final class GraphState {
 
     // MARK: - Visual Theme
 
-    /// Pixel art vs Classic SDF renderer. Persisted via UserDefaults.
+    /// Dialogue vs Classic SDF renderer. Persisted via UserDefaults.
     var visualTheme: GraphVisualTheme = {
         let raw = UserDefaults.standard.integer(forKey: "graphVisualTheme")
-        guard (0...255).contains(raw) else { return .pixel }
-        return GraphVisualTheme(rawValue: UInt8(raw)) ?? .pixel
+        guard (0...255).contains(raw) else { return .dialogue }
+        return GraphVisualTheme(rawValue: UInt8(raw)) ?? .dialogue
     }() {
         didSet {
             UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: "graphVisualTheme")
@@ -372,18 +364,6 @@ final class GraphState {
         }
     }
     var visualThemeVersion: Int = 0
-
-    /// Pixel art upscale factor (2-16, default 4). Persisted via UserDefaults.
-    var pixelScale: UInt8 = {
-        let raw = UserDefaults.standard.integer(forKey: "graphPixelScale")
-        guard (0...255).contains(raw) else { return 4 }
-        return UInt8(raw).clamped(to: 2...16, default: 4)
-    }() {
-        didSet {
-            UserDefaults.standard.set(Int(pixelScale), forKey: "graphPixelScale")
-            visualThemeVersion += 1
-        }
-    }
 
     // MARK: - Force Parameters
     // Core 4 params (basic panel) + 5 extended params (advanced panel).

@@ -355,7 +355,6 @@ final class MetalGraphNSView: NSView {
 
         // Push visual theme to Rust.
         graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
-        graph_engine_set_pixel_scale(engine, graphState.pixelScale)
         lastVisualThemeVersion = graphState.visualThemeVersion
 
         if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
@@ -665,7 +664,6 @@ final class MetalGraphNSView: NSView {
         if let graphState, engine != nil, lastVisualThemeVersion != graphState.visualThemeVersion {
             lastVisualThemeVersion = graphState.visualThemeVersion
             graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
-            graph_engine_set_pixel_scale(engine, graphState.pixelScale)
         }
 
         // Sync laboratory params (toggles + knobs for advanced physics).

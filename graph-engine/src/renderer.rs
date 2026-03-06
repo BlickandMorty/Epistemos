@@ -760,7 +760,7 @@ impl Renderer {
             wind_rng_state: 12345,
             last_viewport_width: 0.0,
             last_viewport_height: 0.0,
-            visual_theme: VisualTheme::Pixel,
+            visual_theme: VisualTheme::Dialogue,
         })
     }
 

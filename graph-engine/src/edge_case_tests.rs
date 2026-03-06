@@ -253,21 +253,21 @@ mod edge_case_tests {
 
     #[test]
     fn visual_theme_from_u8_valid_values() {
-        assert_eq!(VisualTheme::from_u8(0), VisualTheme::Pixel);
+        assert_eq!(VisualTheme::from_u8(0), VisualTheme::Dialogue);
         assert_eq!(VisualTheme::from_u8(1), VisualTheme::Classic);
     }
 
     #[test]
-    fn visual_theme_from_u8_invalid_defaults_to_pixel() {
-        assert_eq!(VisualTheme::from_u8(2), VisualTheme::Pixel);
-        assert_eq!(VisualTheme::from_u8(128), VisualTheme::Pixel);
-        assert_eq!(VisualTheme::from_u8(255), VisualTheme::Pixel);
-        assert_eq!(VisualTheme::from_u8(42), VisualTheme::Pixel);
+    fn visual_theme_from_u8_invalid_defaults_to_dialogue() {
+        assert_eq!(VisualTheme::from_u8(2), VisualTheme::Dialogue);
+        assert_eq!(VisualTheme::from_u8(128), VisualTheme::Dialogue);
+        assert_eq!(VisualTheme::from_u8(255), VisualTheme::Dialogue);
+        assert_eq!(VisualTheme::from_u8(42), VisualTheme::Dialogue);
     }
 
     #[test]
     fn visual_theme_repr_values() {
-        assert_eq!(VisualTheme::Pixel as u8, 0);
+        assert_eq!(VisualTheme::Dialogue as u8, 0);
         assert_eq!(VisualTheme::Classic as u8, 1);
     }
 
@@ -281,16 +281,7 @@ mod edge_case_tests {
         assert_ne!(a, c);
     }
 
-    // ── BlockType / AIState Edge Cases ────────────────────────────────────────
-
-    #[test]
-    fn block_type_all_variants() {
-        assert_eq!(BlockType::Core as u8, 0);
-        assert_eq!(BlockType::Primary as u8, 1);
-        assert_eq!(BlockType::Secondary as u8, 2);
-        assert_eq!(BlockType::Tertiary as u8, 3);
-        assert_eq!(BlockType::Leaf as u8, 4);
-    }
+    // ── AIState Edge Cases ─────────────────────────────────────────────────────
 
     #[test]
     fn ai_state_all_variants() {
