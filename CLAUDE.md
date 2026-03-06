@@ -96,6 +96,9 @@ NoteWindowManager had a manual list of `.environment()` calls that drifted from 
 ### The Unpersisted Dirty Flag
 Setting `page.needsVaultSync = true` without `modelContext.save()` appears to work in memory but the `@Query(filter: #Predicate { $0.needsVaultSync == true })` in the sidebar never sees it, and `isDirtyVault` returns false after a context refresh. **Fix:** Always call `try? modelContext.save()` immediately after setting dirty flags. See `docs/bug-fixes/2026-03-03-note-saving-fix.md`.
 
+### The textDidChange Silent Crash (March 2026 — 827 zero-byte files)
+BTK block edit translator calls `substringWithRange:` with `NSNotFound` (from `storage.editedRange` after `processEditing`). AppKit catches the NSException, but `textDidChange` aborts before reaching the binding sync and save code. Result: every keystroke fires `textDidChange`, prints the SAVE-AUDIT log, then **silently crashes** — no saves ever happen. 827 note files became zero bytes over 3 days before discovery. **Fix:** Save-critical code (binding sync + direct file save) MUST be at the TOP of `textDidChange`, before any crash-prone code (bracket auto-close, BTK translator, table alignment). Added `NSNotFound` bounds checks on all `substringWithRange` calls. Added defense-in-depth direct file save that bypasses the entire SwiftUI binding chain. **Rule:** Never add code above the save block in `textDidChange`. Never remove bounds checks on `editedRange`.
+
 ## Service Architecture
 
 ### TriageService — AI Routing

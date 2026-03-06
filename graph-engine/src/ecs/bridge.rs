@@ -72,8 +72,9 @@ impl World {
             id_map.insert(node.id, entity);
         }
 
-        world.spatial_grid.rebuild(&world.transform);
-        world.node_id_to_entity = id_map;
+        world.spatial_grid.rebuild(&world.entities, &world.transform);
+        world.node_id_to_entity = id_map.clone();
+        world.entity_to_node_id = id_map.into_iter().map(|(nid, eid)| (eid, nid)).collect();
         world
     }
 }

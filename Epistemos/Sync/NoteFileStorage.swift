@@ -69,6 +69,12 @@ enum NoteFileStorage {
             return
         }
         let url = storageDirectory().appendingPathComponent("\(pageId).md")
+
+        // Empty writes are legitimate (user cleared the note). The original zero-byte
+        // bug is fixed by textDidChange restructure + NSNotFound bounds checks + direct
+        // file save bypassing the SwiftUI binding chain. No need to block empty writes here.
+
+        print("SAVE-AUDIT: writeBody pageId=\(pageId.prefix(8)) len=\(content.count)")
         do {
             try content.write(to: url, atomically: true, encoding: .utf8)
         } catch {
@@ -88,5 +94,19 @@ enum NoteFileStorage {
         guard isValidPageId(pageId) else { return false }
         let url = storageDirectory().appendingPathComponent("\(pageId).md")
         return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    // MARK: - External Body Change Notification
+
+    /// Posted when note body is changed outside the editor (restore-to-version, vault sync, etc.).
+    /// `userInfo["pageId"]` contains the affected page ID as `String`.
+    /// ProseEditorView listens for this to reload from disk without relying on `page.body` (which
+    /// is always "" for migrated notes and therefore useless as a change signal).
+    nonisolated static let pageBodyDidChange = Notification.Name("EpistemosPageBodyDidChange")
+
+    /// Post the body-changed notification on the main thread.
+    /// Call after `saveBody()` completes in any external mutation path (restore, sync, etc.).
+    @MainActor static func notifyBodyChanged(pageId: String) {
+        NotificationCenter.default.post(name: pageBodyDidChange, object: nil, userInfo: ["pageId": pageId])
     }
 }

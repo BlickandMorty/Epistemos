@@ -27,6 +27,8 @@ pub struct World {
 
     /// Maps Graph node IDs to ECS entity IDs for FFI lookups during migration.
     pub node_id_to_entity: FxHashMap<u32, Entity>,
+    /// Reverse map: entity ID → graph node ID, for cleanup on despawn.
+    pub entity_to_node_id: FxHashMap<Entity, u32>,
 
     // Physics hot-path SoA arrays — flat f32 slices for force functions.
     // Duplicates transform.x/y and velocity.vx/vy to avoid struct-of-struct
@@ -58,6 +60,7 @@ impl World {
             ai: Vec::new(),
             spatial_grid: SpatialGrid::new(50.0),
             node_id_to_entity: FxHashMap::default(),
+            entity_to_node_id: FxHashMap::default(),
             px: Vec::new(),
             py: Vec::new(),
             pvx: Vec::new(),
@@ -78,7 +81,8 @@ impl World {
             render: Vec::with_capacity(cap),
             ai: Vec::with_capacity(cap),
             spatial_grid: SpatialGrid::new(50.0),
-            node_id_to_entity: FxHashMap::default(),
+            node_id_to_entity: FxHashMap::with_capacity_and_hasher(cap, Default::default()),
+            entity_to_node_id: FxHashMap::with_capacity_and_hasher(cap, Default::default()),
             px: Vec::with_capacity(cap),
             py: Vec::with_capacity(cap),
             pvx: Vec::with_capacity(cap),
@@ -155,6 +159,11 @@ impl World {
         self.pfy.pop();
 
         self.entity_to_index.remove(&entity);
+
+        // Clean up node_id_to_entity reverse mapping
+        if let Some(node_id) = self.entity_to_node_id.remove(&entity) {
+            self.node_id_to_entity.remove(&node_id);
+        }
     }
 
     pub fn len(&self) -> usize {

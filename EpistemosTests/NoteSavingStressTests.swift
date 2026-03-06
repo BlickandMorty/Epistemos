@@ -314,6 +314,103 @@ struct NoteSavingStressTests {
         }
     }
     
+    // MARK: - Blank-Note Save Regression Tests (W17.16)
+    // Validates that intentionally clearing a note to blank persists correctly.
+    // Regression: empty-write guards (defense-in-depth for zero-byte bug) were
+    // blocking legitimate blank saves. The root cause fix (textDidChange restructure,
+    // NSNotFound bounds checks, direct file save) makes empty-write guards redundant.
+
+    @Test("clear note to blank — content becomes empty string on disk")
+    func clearNoteToBlank() async throws {
+        let pageId = createTestPageId()
+
+        // GIVEN: A note with real content
+        NoteFileStorage.writeBody(pageId: pageId, content: "# My Important Note\n\nWith several paragraphs of content.")
+        #expect(NoteFileStorage.readBody(pageId: pageId).count > 0)
+
+        // WHEN: User selects all and deletes (clears to blank)
+        NoteFileStorage.writeBody(pageId: pageId, content: "")
+
+        // THEN: Disk content is empty string, not the old content
+        let disk = NoteFileStorage.readBody(pageId: pageId)
+        #expect(disk == "", "Blank save must persist — got \(disk.count) bytes instead of 0")
+        #expect(NoteFileStorage.bodyExists(pageId: pageId), "File should still exist after blanking")
+    }
+
+    @Test("blank note survives page switch — flush writes empty")
+    func blankNoteSurvivesPageSwitch() async throws {
+        let pageA = createTestPageId()
+        let pageB = createTestPageId()
+
+        // GIVEN: Page A has content, page B has content
+        NoteFileStorage.writeBody(pageId: pageA, content: "Page A content")
+        NoteFileStorage.writeBody(pageId: pageB, content: "Page B content")
+
+        // WHEN: User clears page A to blank, then switches to page B
+        // (page swap flushes page A's current text — which is now empty)
+        NoteFileStorage.writeBody(pageId: pageA, content: "")
+
+        // Simulate: switch to page B, read it
+        let bContent = NoteFileStorage.readBody(pageId: pageB)
+        #expect(bContent == "Page B content")
+
+        // THEN: Page A is still blank on disk (switch didn't restore old content)
+        let aContent = NoteFileStorage.readBody(pageId: pageA)
+        #expect(aContent == "", "Page A should remain blank after switch — got \(aContent.count) bytes")
+    }
+
+    @Test("blank note survives quit/reopen — readBody returns empty")
+    func blankNoteSurvivesQuitReopen() async throws {
+        let pageId = createTestPageId()
+
+        // GIVEN: Note with content
+        NoteFileStorage.writeBody(pageId: pageId, content: "Content before quit")
+        #expect(NoteFileStorage.readBody(pageId: pageId) == "Content before quit")
+
+        // WHEN: User clears note and "quits" (flushIfNeeded writes empty)
+        NoteFileStorage.writeBody(pageId: pageId, content: "")
+
+        // Simulate quit + reopen: fresh read from disk
+        let afterReopen = NoteFileStorage.readBody(pageId: pageId)
+        #expect(afterReopen == "", "Blank note must survive quit/reopen — got '\(afterReopen)'")
+    }
+
+    @Test("multiple blank-then-restore cycles — no stale content leaks")
+    func blankThenRestoreCycles() async throws {
+        let pageId = createTestPageId()
+
+        for i in 0..<5 {
+            // Write content
+            let content = "Cycle \(i) content: \(UUID().uuidString)"
+            NoteFileStorage.writeBody(pageId: pageId, content: content)
+            #expect(NoteFileStorage.readBody(pageId: pageId) == content)
+
+            // Clear to blank
+            NoteFileStorage.writeBody(pageId: pageId, content: "")
+            #expect(NoteFileStorage.readBody(pageId: pageId) == "",
+                    "Cycle \(i): blank save failed")
+        }
+
+        // Final state: blank
+        #expect(NoteFileStorage.readBody(pageId: pageId) == "")
+    }
+
+    @Test("blank note disk bytes are exactly zero")
+    func blankNoteDiskBytesZero() async throws {
+        let pageId = createTestPageId()
+
+        // GIVEN: Note with content
+        NoteFileStorage.writeBody(pageId: pageId, content: "Some content here")
+
+        // WHEN: Cleared to blank
+        NoteFileStorage.writeBody(pageId: pageId, content: "")
+
+        // THEN: Raw file data is exactly 0 bytes (not whitespace, not BOM, not null bytes)
+        let data = NoteFileStorage.readBodyData(pageId: pageId)
+        #expect(data != nil, "File should exist")
+        #expect(data?.count == 0, "File should be exactly 0 bytes — got \(data?.count ?? -1)")
+    }
+
     @Test("rapid open-close-open cycle")
     func rapidOpenCloseCycle() async throws {
         // GIVEN: A page being opened, edited, closed, reopened repeatedly

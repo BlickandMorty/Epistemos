@@ -332,7 +332,7 @@ final class GraphBuilder {
         }
 
         // Delete removed nodes — but only types that this builder manages.
-        // Extraction-created nodes (source, quote, block) are preserved.
+        // Extraction-created nodes (quote, block) are preserved.
         let builderOwnedTypes: Set<String> = [
             GraphNodeType.note.rawValue, GraphNodeType.folder.rawValue,
             GraphNodeType.tag.rawValue, GraphNodeType.idea.rawValue,
@@ -438,7 +438,7 @@ final class GraphBuilder {
         }
 
         // Delete removed edges — but only types that this builder manages.
-        // Extraction-created edges (mentions, cites, authored, etc.) are preserved.
+        // Extraction-created edges (authored, quotes, supports, contradicts, expands, questions) are preserved.
         let builderOwnedEdgeTypes: Set<String> = [
             GraphEdgeType.reference.rawValue, GraphEdgeType.contains.rawValue,
             GraphEdgeType.tagged.rawValue,

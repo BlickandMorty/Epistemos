@@ -5,6 +5,7 @@ import SwiftUI
 extension Notification.Name {
     static let commandPaletteSwitchToChat = Notification.Name("commandPaletteSwitchToChat")
     static let commandPaletteDidHide = Notification.Name("commandPaletteDidHide")
+    static let commandPaletteClaimFocus = Notification.Name("commandPaletteClaimFocus")
 }
 
 // MARK: - Command Palette Window Controller
@@ -72,16 +73,19 @@ final class CommandPaletteWindowController {
         // Immediate first responder claim — no gap for other panels to steal focus.
         if let contentView = panel.contentView {
             panel.makeFirstResponder(contentView)
+            // Force the view to accept first responder status
+            contentView.window?.makeFirstResponder(contentView)
         }
 
-        // Second attempt after SwiftUI has laid out @FocusState-connected views.
+        // Multiple aggressive attempts to claim focus — keyboard input is critical
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(50))
-            // Re-assert: another overlay may have stolen key status in the gap.
-            if panel.isVisible {
+            for delayMs in [50, 100, 200, 400] {
+                try? await Task.sleep(for: .milliseconds(delayMs))
+                guard panel.isVisible else { break }
                 panel.makeKeyAndOrderFront(nil)
                 if let contentView = panel.contentView {
                     panel.makeFirstResponder(contentView)
+                    contentView.window?.makeFirstResponder(contentView)
                 }
             }
             isShowing = false
@@ -163,7 +167,7 @@ final class CommandPaletteWindowController {
         // without being clipped by the window edge. The window itself is transparent
         // and borderless — only the SwiftUI RoundedRectangle is visible.
         let content = CommandPaletteOverlay()
-            .padding(40) // Room for shadow to render
+            .padding(24) // Reduced padding for tighter shadow
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
@@ -172,6 +176,15 @@ final class CommandPaletteWindowController {
                         // Don't dismiss during the show sequence (activate can cause a brief resign)
                         guard !CommandPaletteWindowController.shared.isShowing else { return }
                         CommandPaletteWindowController.shared.hide()
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .commandPaletteClaimFocus)) { _ in
+                // Re-assert focus when overlay requests it
+                Task { @MainActor in
+                    p.makeKeyAndOrderFront(nil)
+                    if let contentView = p.contentView {
+                        p.makeFirstResponder(contentView)
                     }
                 }
             }

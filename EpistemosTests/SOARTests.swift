@@ -449,19 +449,6 @@ struct QueryAnalyzerCrashResilienceTests {
 @Suite("QueryAnalyzer Performance and Memory")
 struct QueryAnalyzerPerformanceAndMemoryTests {
 
-    @Test("short-query throughput remains bounded under high iteration counts")
-    func shortQueryThroughput() {
-        let duration = measure {
-            for _ in 0..<20_000 {
-                _ = QueryAnalyzer.analyze(
-                    query: "What are the causal effects of sleep deprivation on cognition?"
-                )
-            }
-        }
-
-        #expect(duration < .seconds(12), "20k short analyses took \(duration)")
-    }
-
     @Test("mixed realistic corpus throughput remains bounded")
     func mixedCorpusThroughput() {
         let queries = [

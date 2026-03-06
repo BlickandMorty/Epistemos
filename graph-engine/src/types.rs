@@ -145,6 +145,8 @@ pub struct Node {
     pub updated_at: f64,
     /// Confidence score (0.0–1.0) from enrichment pipeline. 0.0 = not set.
     pub confidence: f32,
+    /// Per-node RGBA color override. alpha > 0 means active.
+    pub color_override: [f32; 4],
 }
 
 #[derive(Clone)]
@@ -218,6 +220,7 @@ impl Graph {
             created_at: 0.0,
             updated_at: 0.0,
             confidence: 0.0,
+            color_override: [0.0; 4],
         };
         let index = self.nodes.len();
         self.uuid_to_id.insert(uuid, id);

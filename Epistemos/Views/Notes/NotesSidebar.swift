@@ -641,8 +641,13 @@ struct NotesSidebar: View {
 
         case .renamePage(let id, let newTitle):
             if let page = fetchPage(id) {
-                page.title = VaultIndexActor.sanitizeTitle(newTitle)
+                let sanitized = VaultIndexActor.sanitizeTitle(newTitle)
+                page.title = sanitized
                 page.updatedAt = .now
+                page.needsVaultSync = true
+                try? modelContext.save()
+                // Rename the vault .md file to match the new title
+                vaultSync.renamePageFile(pageId: id, newTitle: sanitized)
                 setNeedsRebuild()
             }
 

@@ -259,6 +259,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         guard let tv = scrollView.documentView as? ClickableTextView else { return }
         let coord = context.coordinator
 
+        // Keep Coordinator's parent in sync so its @Binding stays connected to
+        // the current @State. Without this, flushBindingSync writes to a stale binding.
+        coord.parent = self
+
         // === PAGE SWAP via storage swap ===
         if coord.lastPageId != pageId {
             coord.isSwappingPage = true
@@ -268,6 +272,14 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Save outgoing page — text to SwiftData + visual state to pool
             if let oldId = coord.lastPageId, !oldId.isEmpty {
+                // Cancel any pending direct save — we're flushing now
+                coord.directSaveTask?.cancel()
+
+                // Direct file write FIRST — guaranteed content preservation on page swap
+                let swapContent = tv.string
+                print("SAVE-AUDIT: pageSwap directWrite pageId=\(oldId.prefix(8)) len=\(swapContent.count)")
+                NoteFileStorage.writeBody(pageId: oldId, content: swapContent)
+
                 // Flush text to SwiftData via callback (single source of truth for flush)
                 coord.parent.onPageFlush?(oldId, tv.string)
 
@@ -520,6 +532,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Scroll save throttle (CACurrentMediaTime)
         var lastScrollSaveTime: Double = 0
 
+        /// Direct file save — bypasses the SwiftUI binding chain entirely.
+        /// Defense-in-depth: ensures content is persisted even if binding → onChange → debouncedSave fails.
+        var directSaveTask: Task<Void, Never>?
+
         // Auto-close [[brackets]]
         private var isInsertingBrackets = false
 
@@ -558,24 +574,50 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
+            print("SAVE-AUDIT: textDidChange pageId=\(parent.pageId.prefix(8)) len=\(tv.string.count) swapping=\(isSwappingPage) flushing=\(isFlushingTokens) marked=\(tv.hasMarkedText())")
 
             // Don't sync during IME composition — wait for committed text.
-            // Syncing partial marked text can corrupt characters (e.g. dead-key backtick).
             guard !tv.hasMarkedText() else { return }
 
-            // Suppress binding sync during programmatic content changes (page swap / load).
-            // textDidChange fires synchronously inside storage.replaceCharacters() when called
-            // from updateNSView/makeNSView. Setting the binding from within an update is
-            // undefined behavior and would let the text sync guard overwrite new content
-            // with stale @State.
+            // Suppress during programmatic content changes (page swap / load).
             guard !isSwappingPage else { return }
 
-            // Suppress binding sync during AI token flushing — the AI text
-            // is transient in storage and should not trigger debouncedSave cascade.
+            // Suppress during AI token flushing.
             guard !isFlushingTokens else { return }
 
+            // ═══════════════════════════════════════════════════════════
+            // SAVE-CRITICAL: binding sync + direct file save FIRST.
+            // Everything below this block is non-critical (bracket auto-close,
+            // BTK, table alignment). A crash there must NOT prevent saving.
+            // ═══════════════════════════════════════════════════════════
+
+            // Debounced binding sync — NSTextStorage is always source of truth.
+            hasPendingBindingSync = true
+            bindingSyncTask?.cancel()
+            bindingSyncTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(300))
+                guard let self, !Task.isCancelled else { return }
+                self.flushBindingSync()
+            }
+
+            // Direct file save — bypasses the entire SwiftUI binding chain.
+            directSaveTask?.cancel()
+            let savePageId = parent.pageId
+            let saveContent = tv.string
+            directSaveTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                guard let self, !Task.isCancelled else { return }
+                print("SAVE-AUDIT: directSave WRITING pageId=\(savePageId.prefix(8)) len=\(saveContent.count)")
+                Task.detached(priority: .utility) {
+                    NoteFileStorage.writeBody(pageId: savePageId, content: saveContent)
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // NON-CRITICAL: UI niceties. A crash here won't lose data.
+            // ═══════════════════════════════════════════════════════════
+
             // Notify template overlay that user started typing (short docs only).
-            // Use utf16Count instead of trimmingCharacters to avoid O(n) on large docs.
             if tv.textStorage?.length ?? 0 <= 10 {
                 NotificationCenter.default.post(
                     name: .init("ProseEditorUserDidType"),
@@ -588,15 +630,12 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             if !isInsertingBrackets {
                 let str = tv.string as NSString
                 let cursorLoc = tv.selectedRange().location
-                if cursorLoc >= 2,
+                if cursorLoc != NSNotFound, cursorLoc >= 2, cursorLoc <= str.length,
                     str.substring(with: NSRange(location: cursorLoc - 2, length: 2)) == "[["
                 {
-                    let hasClosing =
-                        cursorLoc < str.length - 1
-                        && str.substring(
-                            with: NSRange(
-                                location: cursorLoc, length: min(2, str.length - cursorLoc)))
-                            == "]]"
+                    let remaining = str.length - cursorLoc
+                    let hasClosing = remaining >= 2
+                        && str.substring(with: NSRange(location: cursorLoc, length: 2)) == "]]"
                     if !hasClosing {
                         isInsertingBrackets = true
                         tv.insertText(
@@ -613,12 +652,15 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             // BTK: translate edit into block ops (translator non-nil iff BTK enabled)
             if let translator = blockEditTranslator,
                let storage = tv.textStorage {
-                // Get the edited range from the text storage
                 let editedRange = storage.editedRange
-                let changeInLength = storage.changeInLength
-                let oldLength = editedRange.length - changeInLength
-                let newText = (storage.string as NSString).substring(with: editedRange)
-                translator.translateEdit(offset: editedRange.location, oldLength: oldLength, newText: newText)
+                // Guard: editedRange can be {NSNotFound, 0} after processEditing completes
+                if editedRange.location != NSNotFound,
+                   editedRange.location + editedRange.length <= storage.length {
+                    let changeInLength = storage.changeInLength
+                    let oldLength = editedRange.length - changeInLength
+                    let newText = (storage.string as NSString).substring(with: editedRange)
+                    translator.translateEdit(offset: editedRange.location, oldLength: oldLength, newText: newText)
+                }
             }
 
             // Auto-align table columns (500ms debounce)
@@ -629,16 +671,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Refresh transclusion overlays
             transclusionManager?.refresh()
-
-            // Debounced binding sync — NSTextStorage is always source of truth.
-            // Binding only needs updating for debouncedSave (5s) and page swap.
-            hasPendingBindingSync = true
-            bindingSyncTask?.cancel()
-            bindingSyncTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .milliseconds(300))
-                guard let self, !Task.isCancelled else { return }
-                self.flushBindingSync()
-            }
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
@@ -917,6 +949,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             hasPendingBindingSync = false
             bindingSyncTask?.cancel()
             bindingSyncTask = nil
+            let tvLen = tv.string.count
+            print("SAVE-AUDIT: flushBindingSync pageId=\(parent.pageId.prefix(8)) tvLen=\(tvLen)")
             isUserEditing = true
             parent.text = tv.string
             isUserEditing = false

@@ -980,7 +980,8 @@ impl Renderer {
 
         for (_gi, node) in graph.nodes.iter().enumerate() {
             if !node.visible { continue; }
-            let color = self.node_color(&node.node_type);
+            let co = node.color_override;
+            let color = if co[3] > 0.0 { co } else { self.node_color(&node.node_type) };
 
             let is_performance = self.quality_level >= 2;
             let is_cinematic = self.quality_level == 0;
@@ -1225,7 +1226,8 @@ impl Renderer {
                     inst.position = pos;
                     inst.z = z;
 
-                    let mut color = self.node_color(&node.node_type);
+                    let co = node.color_override;
+                    let mut color = if co[3] > 0.0 { co } else { self.node_color(&node.node_type) };
                     color[3] *= BASE_NODE_ALPHA;
                     inst.color = color;
 
@@ -1684,7 +1686,8 @@ impl Renderer {
 
         for i in 0..n {
             let block_type = world.render[i].block_type;
-            let base = palette.color_for_block(block_type);
+            let co = world.render[i].color_override;
+            let base = if co[3] > 0.0 { co } else { palette.color_for_block(block_type) };
 
             // Size from block type: Core=16, Primary=12, Secondary=10, Tertiary=8, Leaf=6
             let size = match block_type {
@@ -1793,7 +1796,7 @@ impl Renderer {
         self.ensure_pixel_offscreen(vw, vh);
         let offscreen_tex = match &self.pixel_offscreen_texture { Some(t) => t.clone(), None => return };
 
-        let palette = if self.light_mode { VoxelPalette::light() } else { VoxelPalette::dark() };
+        let palette = self.pixel_palette; // Copy — avoids &self borrow conflict with &mut self methods
 
         // Build instance buffers
         let node_count = self.build_pixel_node_instances(world, &palette);
@@ -1896,7 +1899,7 @@ impl Renderer {
         });
     }
 
-    pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
+    pub fn draw(&mut self, viewport_width: u32, viewport_height: u32, _world: &World, _graph: &Graph) {
         self.last_viewport_width = viewport_width as f32;
         self.last_viewport_height = viewport_height as f32;
         autoreleasepool(|| {

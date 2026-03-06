@@ -361,7 +361,11 @@ final class GraphState {
     // MARK: - Visual Theme
 
     /// Pixel art vs Classic SDF renderer. Persisted via UserDefaults.
-    var visualTheme: GraphVisualTheme = GraphVisualTheme(rawValue: UInt8(UserDefaults.standard.integer(forKey: "graphVisualTheme"))) ?? .pixel {
+    var visualTheme: GraphVisualTheme = {
+        let raw = UserDefaults.standard.integer(forKey: "graphVisualTheme")
+        guard (0...255).contains(raw) else { return .pixel }
+        return GraphVisualTheme(rawValue: UInt8(raw)) ?? .pixel
+    }() {
         didSet {
             UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: "graphVisualTheme")
             visualThemeVersion += 1
@@ -370,7 +374,11 @@ final class GraphState {
     var visualThemeVersion: Int = 0
 
     /// Pixel art upscale factor (2-16, default 8). Persisted via UserDefaults.
-    var pixelScale: UInt8 = UInt8(UserDefaults.standard.integer(forKey: "graphPixelScale")).clamped(to: 2...16, default: 8) {
+    var pixelScale: UInt8 = {
+        let raw = UserDefaults.standard.integer(forKey: "graphPixelScale")
+        guard (0...255).contains(raw) else { return 8 }
+        return UInt8(raw).clamped(to: 2...16, default: 8)
+    }() {
         didSet {
             UserDefaults.standard.set(Int(pixelScale), forKey: "graphPixelScale")
             visualThemeVersion += 1

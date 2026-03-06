@@ -44,6 +44,13 @@ struct CommandPaletteOverlay: View {
     @FocusState private var isSearchFocused: Bool
     @State private var retractNow = false
     @State private var isTypewriterVisible = true
+    @State private var animationPhase: AnimationPhase = .squished
+
+    private enum AnimationPhase {
+        case squished
+        case revealing
+        case revealed
+    }
 
     // MARK: - Chat State
 
@@ -137,21 +144,39 @@ struct CommandPaletteOverlay: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(theme.border.opacity(theme.isDark ? 0.4 : 0.25), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.03), radius: 1, y: 0.5)
-        .shadow(color: .black.opacity(theme.isDark ? 0.2 : 0.06), radius: 8, y: 3)
-        .shadow(color: .black.opacity(theme.isDark ? 0.35 : 0.10), radius: 30, y: 10)
-        .scaleEffect(appeared ? 1.0 : 0.96)
-        .opacity(appeared ? 1.0 : 0.0)
+        // Tighter, closer shadow — less dramatic
+        .shadow(color: .black.opacity(0.04), radius: 2, x: 0, y: 1)
+        .shadow(color: .black.opacity(theme.isDark ? 0.15 : 0.06), radius: 6, x: 0, y: 2)
+        .shadow(color: .black.opacity(theme.isDark ? 0.22 : 0.08), radius: 12, x: 0, y: 4)
+        // Squish-then-reveal animation (video game UI style)
+        .scaleEffect(
+            x: animationPhase == .squished ? 0.85 : (animationPhase == .revealing ? 1.02 : 1.0),
+            y: animationPhase == .squished ? 0.75 : (animationPhase == .revealing ? 1.05 : 1.0)
+        )
+        .opacity(animationPhase == .squished ? 0 : 1)
         .preferredColorScheme(theme.isDark ? .dark : .light)
         .animation(Motion.smooth, value: showResults)
-        .animation(Motion.smooth, value: appeared)
+        .animation(.spring(response: 0.35, dampingFraction: 0.65), value: animationPhase)
         .onAppear {
-            appeared = true
-            // Immediate focus claim — then retry after layout settles.
+            // Start squished, then animate through phases
+            animationPhase = .squished
+            Task { @MainActor in
+                // Phase 1: Hold squished briefly
+                try? await Task.sleep(for: .milliseconds(30))
+                animationPhase = .revealing
+                // Phase 2: Overshoot settle
+                try? await Task.sleep(for: .milliseconds(180))
+                animationPhase = .revealed
+            }
+            // Aggressive focus handling — multiple attempts with increasing delays
             isSearchFocused = true
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(50))
-                if !isSearchFocused { isSearchFocused = true }
+                for delayMs in [50, 100, 200, 350] {
+                    try? await Task.sleep(for: .milliseconds(delayMs))
+                    if !isSearchFocused { isSearchFocused = true }
+                    // Also try to claim first responder through window
+                    NotificationCenter.default.post(name: .commandPaletteClaimFocus, object: nil)
+                }
             }
         }
         .onExitCommand { handleEscape() }
@@ -214,8 +239,30 @@ struct CommandPaletteOverlay: View {
                     HStack(spacing: 10) {
                         sparklesIcon
 
+                        // Input container with guaranteed tappable area
                         ZStack(alignment: .leading) {
-                            if isTypewriterVisible {
+                            // Invisible background to ensure full area is tappable
+                            Color.clear
+                                .frame(minWidth: 200, maxWidth: .infinity, minHeight: 30)
+                            
+                            // TextField always present and tappable
+                            TextField("", text: $searchText)
+                                .font(.custom("RetroGaming", size: 16))
+                                .foregroundStyle(theme.foreground)
+                                .textFieldStyle(.plain)
+                                .focused($isSearchFocused)
+                                .onSubmit { executeSelected() }
+                            
+                            // Placeholder hint (visible when empty and greeting hidden)
+                            if searchText.isEmpty && !isTypewriterVisible {
+                                Text("Search or ask anything…")
+                                    .font(.custom("RetroGaming", size: 16))
+                                    .foregroundStyle(theme.textTertiary)
+                                    .allowsHitTesting(false)
+                            }
+                            
+                            // Greeting overlays the field but doesn't block touches
+                            if isTypewriterVisible && searchText.isEmpty {
                                 LiquidGreeting(
                                     compact: true,
                                     retractNow: $retractNow,
@@ -227,16 +274,12 @@ struct CommandPaletteOverlay: View {
                                     }
                                 )
                                 .transition(.opacity)
+                                .allowsHitTesting(false) // Clicks pass through to TextField
+                                .fixedSize() // Prevent greeting from expanding ZStack
                             }
-
-                            TextField("Search or ask anything\u{2026}", text: $searchText)
-                                .font(.system(size: 16, weight: .regular, design: .rounded))
-                                .foregroundStyle(theme.foreground)
-                                .textFieldStyle(.plain)
-                                .focused($isSearchFocused)
-                                .onSubmit { executeSelected() }
-                                .opacity(isTypewriterVisible ? 0 : 1)
                         }
+                        .frame(minWidth: 200, maxWidth: .infinity, minHeight: 30)
+                        .contentShape(Rectangle()) // Ensure entire area is tappable
 
                         if !searchText.isEmpty {
                             Button {
@@ -272,6 +315,14 @@ struct CommandPaletteOverlay: View {
 
                     if isTypewriterVisible && searchText.isEmpty {
                         HStack(spacing: 8) {
+                            paletteChip(label: "Open Graph", icon: "network") {
+                                CommandPaletteWindowController.shared.hide()
+                                HologramController.shared.show()
+                            }
+                            paletteChip(label: "Open Notes", icon: "note.text") {
+                                CommandPaletteWindowController.shared.hide()
+                                UtilityWindowManager.shared.show(.notes)
+                            }
                             paletteChip(label: "New Note", icon: "doc.badge.plus") {
                                 CommandPaletteWindowController.shared.hide()
                                 Task { @MainActor in
@@ -279,29 +330,6 @@ struct CommandPaletteOverlay: View {
                                         NoteWindowManager.shared.open(pageId: pageId)
                                     }
                                 }
-                            }
-                            paletteChip(label: "Quick Idea", icon: "lightbulb") {
-                                CommandPaletteWindowController.shared.hide()
-                                Task { @MainActor in
-                                    if let pageId = await vaultSync.createPage(title: "Quick Idea") {
-                                        NoteWindowManager.shared.open(pageId: pageId)
-                                    }
-                                }
-                            }
-                            paletteChip(label: "Vault Briefing", icon: "book.pages") {
-                                CommandPaletteWindowController.shared.hide()
-                                chat.startNewChat()
-                                ui.setActivePanel(.home)
-                                AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
-                                NSApp.activate()
-                                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                                    main.makeKeyAndOrderFront(nil)
-                                }
-                            }
-                            paletteChip(label: "Daily Brief", icon: "newspaper.fill") {
-                                CommandPaletteWindowController.shared.hide()
-                                let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
-                                dailyBrief.requestDailyBrief(prompt: prompt)
                             }
                         }
                         .padding(.top, 8)

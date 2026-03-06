@@ -21,7 +21,7 @@ use crate::embedding::EmbeddingStore;
 use crate::renderer::Renderer;
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
-use crate::types::{Graph, VisualTheme};
+use crate::types::{Graph, VisualTheme, VoxelPalette};
 use crate::version::VersionStore;
 use crate::block_kernel::{BlockTree, OpLog};
 use std::collections::HashMap;
@@ -503,12 +503,15 @@ impl Engine {
         }
 
         // Issue draw commands — dispatch based on visual theme.
+        // Both paths receive &World + &Graph. Pixel reads positions from World (ECS SoA).
+        // Classic still reads positions from Graph (AoS) — full ECS migration is Phase 4
+        // once visibility, radius, and confidence are tracked in ECS components.
         match self.renderer.visual_theme {
             VisualTheme::Pixel => {
                 self.renderer.draw_pixel(width, height, &self.world, &self.graph);
             }
             VisualTheme::Classic => {
-                self.renderer.draw(width, height);
+                self.renderer.draw(width, height, &self.world, &self.graph);
             }
         }
 
@@ -1151,6 +1154,11 @@ impl Engine {
     /// Switch renderer between light and dark mode color palettes.
     pub fn set_light_mode(&mut self, enabled: bool) {
         self.renderer.light_mode = enabled;
+        self.renderer.pixel_palette = if enabled {
+            VoxelPalette::light()
+        } else {
+            VoxelPalette::dark()
+        };
     }
 
     /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
@@ -1166,9 +1174,9 @@ impl Engine {
         self.renderer.visual_theme = VisualTheme::from_u8(theme);
     }
 
-    /// Set pixel art upscale factor (1-16, default 8).
+    /// Set pixel art upscale factor (2-16, default 8).
     pub fn set_pixel_scale(&mut self, scale: u8) {
-        self.renderer.pixel_scale = scale.clamp(1, 16);
+        self.renderer.pixel_scale = scale.clamp(2, 16);
     }
 
     /// Store color override for a node type tier in pixel art mode.
@@ -1181,6 +1189,23 @@ impl Engine {
             3 => self.renderer.pixel_palette.tertiary = color,
             4 => self.renderer.pixel_palette.leaf = color,
             _ => {}
+        }
+    }
+
+    /// Set per-node color override by UUID. Pass alpha=0 to clear.
+    /// Updates both Graph node and ECS RenderComponent for theme-agnostic rendering.
+    pub fn set_node_color_override(&mut self, uuid: &str, r: f32, g: f32, b: f32, a: f32) {
+        let color = [r, g, b, a];
+        if let Some(&id) = self.graph.uuid_to_id.get(uuid) {
+            if let Some(&idx) = self.graph.id_to_index.get(&id) {
+                self.graph.nodes[idx].color_override = color;
+            }
+            // Mirror to ECS World
+            if let Some(&entity) = self.world.node_id_to_entity.get(&id) {
+                if let Some(ei) = self.world.index_of(entity) {
+                    self.world.render[ei].color_override = color;
+                }
+            }
         }
     }
 

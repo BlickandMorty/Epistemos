@@ -40,6 +40,15 @@ pub mod advanced_chaos_tests;
 #[cfg(test)]
 pub mod hardened_race_tests;
 
+#[cfg(test)]
+mod bench_tests;
+
+#[cfg(test)]
+mod edge_case_tests;
+
+#[cfg(test)]
+mod theme_ecs_tests;
+
 // ── FFI Boundary ────────────────────────────────────────────────────────────
 //
 // Every function below is called from Swift via the C bridge header.
@@ -597,6 +606,18 @@ pub extern "C" fn graph_engine_set_node_type_color(
 ) {
     ffi_engine!(engine);
     engine.set_node_type_color(node_type, r, g, b, a);
+}
+
+/// Set per-node color override by UUID. Pass alpha=0 to clear the override.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_node_color_override(
+    engine: *mut Engine,
+    uuid: *const c_char,
+    r: f32, g: f32, b: f32, a: f32,
+) {
+    ffi_engine!(engine);
+    let uuid_str = ffi_cstr!(uuid);
+    engine.set_node_color_override(uuid_str, r, g, b, a);
 }
 
 // ── 3D Orbit Camera ────────────────────────────────────────────────────────
