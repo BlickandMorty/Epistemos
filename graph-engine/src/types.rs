@@ -240,6 +240,79 @@ impl Graph {
     }
 }
 
+// ── Theme Types ─────────────────────────────────────────────────────────────
+
+/// Graph visual theme — selects between classic SDF renderer and pixel art renderer.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VisualTheme {
+    Pixel = 0,   // Default — pixel art blocks with nearest-neighbor upscale
+    Classic = 1, // Original SDF circles + smooth lines
+}
+
+impl VisualTheme {
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::Classic,
+            _ => Self::Pixel, // Default to Pixel
+        }
+    }
+}
+
+/// Color palette for the pixel art theme.
+/// All colors are [R, G, B, A] in 0.0-1.0 range.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct VoxelPalette {
+    pub background: [f32; 4],
+    pub core: [f32; 4],       // Folder (red accent)
+    pub primary: [f32; 4],    // Note (near-black/white)
+    pub secondary: [f32; 4],  // Source, Idea (gray)
+    pub tertiary: [f32; 4],   // Chat, Quote (medium gray)
+    pub leaf: [f32; 4],       // Tag, Block (teal/light gray)
+    pub edge: [f32; 4],       // Monochrome edge color
+}
+
+impl VoxelPalette {
+    /// Light mode: dark blocks on white background.
+    pub fn light() -> Self {
+        Self {
+            background: [1.0, 1.0, 1.0, 1.0],
+            core:       [0.9, 0.2, 0.2, 1.0],
+            primary:    [0.15, 0.15, 0.15, 1.0],
+            secondary:  [0.35, 0.35, 0.35, 0.9],
+            tertiary:   [0.55, 0.55, 0.55, 0.8],
+            leaf:       [0.39, 0.70, 0.65, 0.7],
+            edge:       [0.0, 0.0, 0.0, 0.4],
+        }
+    }
+
+    /// Dark mode: light blocks on black background.
+    pub fn dark() -> Self {
+        Self {
+            background: [0.0, 0.0, 0.0, 1.0],
+            core:       [1.0, 0.25, 0.25, 1.0],
+            primary:    [0.9, 0.9, 0.9, 1.0],
+            secondary:  [0.6, 0.6, 0.6, 0.9],
+            tertiary:   [0.45, 0.45, 0.45, 0.8],
+            leaf:       [0.35, 0.55, 0.50, 0.7],
+            edge:       [1.0, 1.0, 1.0, 0.4],
+        }
+    }
+
+    /// Get palette color for a BlockType tier.
+    pub fn color_for_block(&self, block_type: u8) -> [f32; 4] {
+        match block_type {
+            0 => self.core,
+            1 => self.primary,
+            2 => self.secondary,
+            3 => self.tertiary,
+            4 => self.leaf,
+            _ => self.primary,
+        }
+    }
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -878,5 +951,39 @@ mod tests {
     fn node_alignment() {
         let align = std::mem::align_of::<Node>();
         assert!(align <= 8, "Node alignment {} seems too large", align);
+    }
+
+    // =========================================================================
+    // VisualTheme Tests (3 tests)
+    // =========================================================================
+
+    #[test]
+    fn test_visual_theme_from_u8() {
+        assert_eq!(VisualTheme::from_u8(0), VisualTheme::Pixel);
+        assert_eq!(VisualTheme::from_u8(1), VisualTheme::Classic);
+        assert_eq!(VisualTheme::from_u8(255), VisualTheme::Pixel); // default
+    }
+
+    #[test]
+    fn test_voxel_palette_light_dark() {
+        let light = VoxelPalette::light();
+        let dark = VoxelPalette::dark();
+        // Backgrounds must differ
+        assert_ne!(light.background, dark.background);
+        // Light background is white
+        assert_eq!(light.background, [1.0, 1.0, 1.0, 1.0]);
+        // Dark background is black
+        assert_eq!(dark.background, [0.0, 0.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn test_color_for_block() {
+        let p = VoxelPalette::light();
+        assert_eq!(p.color_for_block(0), p.core);
+        assert_eq!(p.color_for_block(1), p.primary);
+        assert_eq!(p.color_for_block(2), p.secondary);
+        assert_eq!(p.color_for_block(3), p.tertiary);
+        assert_eq!(p.color_for_block(4), p.leaf);
+        assert_eq!(p.color_for_block(255), p.primary); // unknown → primary
     }
 }
