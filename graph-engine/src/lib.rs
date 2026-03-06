@@ -591,25 +591,6 @@ pub extern "C" fn graph_engine_set_visual_theme(engine: *mut Engine, theme: u8) 
     engine.set_visual_theme(theme);
 }
 
-/// Set pixel art upscale factor (1-16, default 8).
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_pixel_scale(engine: *mut Engine, scale: u8) {
-    ffi_engine!(engine);
-    engine.set_pixel_scale(scale);
-}
-
-/// Override color for a node type (block tier) in pixel art mode.
-/// node_type: 0=Core, 1=Primary, 2=Secondary, 3=Tertiary, 4=Leaf.
-#[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_node_type_color(
-    engine: *mut Engine,
-    node_type: u8,
-    r: f32, g: f32, b: f32, a: f32,
-) {
-    ffi_engine!(engine);
-    engine.set_node_type_color(node_type, r, g, b, a);
-}
-
 /// Set per-node color override by UUID. Pass alpha=0 to clear the override.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_node_color_override(

@@ -220,13 +220,6 @@ void graph_engine_set_quality_level(Engine* engine, uint8_t level);
 /// Set visual theme: 0 = Pixel (default), 1 = Classic.
 void graph_engine_set_visual_theme(Engine* engine, uint8_t theme);
 
-/// Set pixel art upscale factor (2-16, default 8).
-void graph_engine_set_pixel_scale(Engine* engine, uint8_t scale);
-
-/// Override color for a node type in pixel art mode.
-/// node_type: 0=Core, 1=Primary, 2=Secondary, 3=Tertiary, 4=Leaf.
-void graph_engine_set_node_type_color(Engine* engine, uint8_t node_type, float r, float g, float b, float a);
-
 /// Set per-node color override by UUID. Pass alpha=0 to clear.
 void graph_engine_set_node_color_override(Engine* engine, const char* uuid, float r, float g, float b, float a);
 

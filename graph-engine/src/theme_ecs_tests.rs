@@ -1,6 +1,6 @@
 //! Comprehensive tests for theme system and ECS integration.
 //!
-//! Covers: theme switching, palette color overrides, ECS spawn at scale,
+//! Covers: theme switching, ECS spawn at scale,
 //! SpatialGrid correctness, World::from_graph bridge, and node_id_to_entity lookups.
 
 #[cfg(test)]
@@ -8,7 +8,7 @@ mod theme_ecs_tests {
     use crate::ecs::components::*;
     use crate::ecs::spatial_grid::SpatialGrid;
     use crate::ecs::World;
-    use crate::types::{Graph, NodeType, VisualTheme, VoxelPalette};
+    use crate::types::{Graph, NodeType, VisualTheme};
 
     // ── Theme Switching ──────────────────────────────────────────────────────
 
@@ -35,69 +35,10 @@ mod theme_ecs_tests {
     }
 
     #[test]
-    fn theme_paired_with_palette() {
-        // Pixel theme uses VoxelPalette; Classic uses NodeType::color().
-        // Verify both paths produce valid colors.
-        let pixel_palette = VoxelPalette::dark();
-        for block_type in 0..=4u8 {
-            let color = pixel_palette.color_for_block(block_type);
-            assert_eq!(color[3].is_finite(), true);
-            assert!(color[3] > 0.0, "palette alpha should be positive");
-        }
-
+    fn theme_classic_colors_valid() {
         for nt in 0..=7u8 {
             let color = NodeType::from_u8(nt).color();
             assert_eq!(color[3], 1.0, "classic mode node colors should be fully opaque");
-        }
-    }
-
-    // ── Color Overrides ──────────────────────────────────────────────────────
-
-    #[test]
-    fn palette_custom_colors_persist() {
-        let mut palette = VoxelPalette::light();
-        let custom = [0.1, 0.2, 0.3, 0.9];
-        palette.core = custom;
-        assert_eq!(palette.core, custom);
-        assert_eq!(palette.color_for_block(0), custom);
-    }
-
-    #[test]
-    fn palette_overrides_reset_on_reinit() {
-        // Document expected behavior: reinitializing palette resets overrides.
-        let mut palette = VoxelPalette::dark();
-        palette.core = [0.99, 0.88, 0.77, 0.66];
-        assert_eq!(palette.core, [0.99, 0.88, 0.77, 0.66]);
-
-        // Re-create palette — overrides are lost. This is expected.
-        palette = VoxelPalette::dark();
-        assert_ne!(palette.core, [0.99, 0.88, 0.77, 0.66]);
-        assert_eq!(palette.core, [1.0, 0.25, 0.25, 1.0]); // default dark core
-    }
-
-    #[test]
-    fn palette_toggle_light_dark_resets_overrides() {
-        let mut palette = VoxelPalette::light();
-        palette.primary = [0.5, 0.5, 0.5, 0.5];
-
-        // Switch to dark — overrides are lost.
-        palette = VoxelPalette::dark();
-        assert_ne!(palette.primary, [0.5, 0.5, 0.5, 0.5]);
-    }
-
-    #[test]
-    fn palette_all_block_types_return_unique_colors() {
-        let palette = VoxelPalette::light();
-        let colors: Vec<[f32; 4]> = (0..=4u8)
-            .map(|bt| palette.color_for_block(bt))
-            .collect();
-
-        // Each block type should have a distinct color
-        for i in 0..colors.len() {
-            for j in (i + 1)..colors.len() {
-                assert_ne!(colors[i], colors[j],
-                    "block types {i} and {j} should have distinct colors");
-            }
         }
     }
 
@@ -253,58 +194,6 @@ mod theme_ecs_tests {
         }
     }
 
-    #[test]
-    fn from_graph_block_type_mapping() {
-        let mut graph = Graph::new();
-        // Folder → Core
-        graph.add_node("folder".into(), 0.0, 0.0, NodeType::Folder as u8, 1, "F".into());
-        // Note → Primary
-        graph.add_node("note".into(), 0.0, 0.0, NodeType::Note as u8, 1, "N".into());
-        // Source → Secondary
-        graph.add_node("source".into(), 0.0, 0.0, NodeType::Source as u8, 1, "S".into());
-        // Chat → Tertiary
-        graph.add_node("chat".into(), 0.0, 0.0, NodeType::Chat as u8, 1, "C".into());
-        // Tag → Leaf
-        graph.add_node("tag".into(), 0.0, 0.0, NodeType::Tag as u8, 1, "T".into());
-
-        let world = World::from_graph(&graph);
-
-        let check = |graph_id: u32, expected_bt: BlockType| {
-            let entity = world.node_id_to_entity[&graph_id];
-            let idx = world.index_of(entity).unwrap();
-            assert_eq!(world.render[idx].block_type, expected_bt as u8,
-                "graph node {graph_id} should map to {:?}", expected_bt);
-        };
-
-        check(0, BlockType::Core);     // Folder
-        check(1, BlockType::Primary);  // Note
-        check(2, BlockType::Secondary);// Source
-        check(3, BlockType::Tertiary); // Chat
-        check(4, BlockType::Leaf);     // Tag
-    }
-
-    #[test]
-    fn from_graph_glare_assignment() {
-        let mut graph = Graph::new();
-        graph.add_node("folder".into(), 0.0, 0.0, NodeType::Folder as u8, 1, "F".into());
-        graph.add_node("note".into(), 0.0, 0.0, NodeType::Note as u8, 1, "N".into());
-        graph.add_node("tag".into(), 0.0, 0.0, NodeType::Tag as u8, 1, "T".into());
-        graph.add_node("chat".into(), 0.0, 0.0, NodeType::Chat as u8, 1, "C".into());
-
-        let world = World::from_graph(&graph);
-
-        // Core and Primary get glare (1), others don't (0)
-        let folder_e = world.node_id_to_entity[&0];
-        let note_e = world.node_id_to_entity[&1];
-        let tag_e = world.node_id_to_entity[&2];
-        let chat_e = world.node_id_to_entity[&3];
-
-        assert_eq!(world.render[world.index_of(folder_e).unwrap()].has_glare, 1);
-        assert_eq!(world.render[world.index_of(note_e).unwrap()].has_glare, 1);
-        assert_eq!(world.render[world.index_of(tag_e).unwrap()].has_glare, 0);
-        assert_eq!(world.render[world.index_of(chat_e).unwrap()].has_glare, 0);
-    }
-
     // ── node_id_to_entity Lookup ─────────────────────────────────────────────
 
     #[test]
@@ -357,16 +246,6 @@ mod theme_ecs_tests {
         assert!(neighbors.contains(&0), "near entity should be found");
         assert!(neighbors.contains(&1), "also-near entity should be found");
         assert!(!neighbors.contains(&2), "far entity should not be found");
-    }
-
-    // ── VoxelPalette Repr ────────────────────────────────────────────────────
-
-    #[test]
-    fn voxel_palette_is_repr_c() {
-        // VoxelPalette is #[repr(C)] — verify size is predictable.
-        // 7 fields * 4 components * 4 bytes = 112 bytes
-        let size = std::mem::size_of::<VoxelPalette>();
-        assert_eq!(size, 112, "VoxelPalette should be exactly 112 bytes (7 * [f32;4])");
     }
 
     #[test]

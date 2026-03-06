@@ -6,29 +6,10 @@
 use rustc_hash::FxHashMap;
 
 use super::{
-    BlockType, EdgeComponent, GraphNodeComponent, HierarchyComponent, RenderComponent,
+    EdgeComponent, GraphNodeComponent, HierarchyComponent, RenderComponent,
     TransformComponent, VelocityComponent, World,
 };
-use crate::types::{Graph, NodeType};
-
-/// Maps `NodeType` → `BlockType` for the pixel art renderer.
-fn block_type_for_node(node_type: NodeType) -> BlockType {
-    match node_type {
-        NodeType::Folder => BlockType::Core,
-        NodeType::Note => BlockType::Primary,
-        NodeType::Source | NodeType::Idea => BlockType::Secondary,
-        NodeType::Chat | NodeType::Quote => BlockType::Tertiary,
-        NodeType::Tag | NodeType::Block => BlockType::Leaf,
-    }
-}
-
-/// Returns 1 if this block type gets a glare highlight, 0 otherwise.
-fn has_glare_for_block(bt: BlockType) -> u8 {
-    match bt {
-        BlockType::Core | BlockType::Primary => 1,
-        _ => 0,
-    }
-}
+use crate::types::Graph;
 
 impl World {
     /// Build an ECS `World` from an existing `Graph`.
@@ -62,11 +43,8 @@ impl World {
                 link_count: node.link_count,
             };
 
-            let bt = block_type_for_node(node.node_type);
             world.render[idx] = RenderComponent {
-                block_type: bt as u8,
-                has_glare: has_glare_for_block(bt),
-                _pad: [0; 2],
+                _pad: [0; 4],
                 color_override: node.color_override,
             };
 
@@ -130,7 +108,7 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Graph;
+    use crate::types::{Graph, NodeType};
 
     #[test]
     fn test_from_graph_empty() {
@@ -160,8 +138,6 @@ mod tests {
         assert_eq!(world.transform[ni].scale, 1.0);
         assert_eq!(world.hierarchy[ni].node_type, NodeType::Note as u8);
         assert_eq!(world.hierarchy[ni].link_count, 5);
-        assert_eq!(world.render[ni].block_type, BlockType::Primary as u8);
-        assert_eq!(world.render[ni].has_glare, 1);
         assert_eq!(world.graph_node[ni].node_id, 0);
         assert_eq!(world.graph_node[ni].visible, 1);
         assert_eq!(world.graph_node[ni].cluster_id, u32::MAX);
@@ -173,22 +149,8 @@ mod tests {
         assert_eq!(world.transform[fi].y, 40.0);
         assert_eq!(world.hierarchy[fi].node_type, NodeType::Folder as u8);
         assert_eq!(world.hierarchy[fi].link_count, 12);
-        assert_eq!(world.render[fi].block_type, BlockType::Core as u8);
-        assert_eq!(world.render[fi].has_glare, 1);
         assert_eq!(world.graph_node[fi].node_id, 1);
         assert_eq!(world.graph_node[fi].cluster_id, u32::MAX);
-    }
-
-    #[test]
-    fn test_node_type_to_block_type() {
-        assert_eq!(block_type_for_node(NodeType::Folder), BlockType::Core);
-        assert_eq!(block_type_for_node(NodeType::Note), BlockType::Primary);
-        assert_eq!(block_type_for_node(NodeType::Source), BlockType::Secondary);
-        assert_eq!(block_type_for_node(NodeType::Idea), BlockType::Secondary);
-        assert_eq!(block_type_for_node(NodeType::Chat), BlockType::Tertiary);
-        assert_eq!(block_type_for_node(NodeType::Quote), BlockType::Tertiary);
-        assert_eq!(block_type_for_node(NodeType::Tag), BlockType::Leaf);
-        assert_eq!(block_type_for_node(NodeType::Block), BlockType::Leaf);
     }
 
     #[test]

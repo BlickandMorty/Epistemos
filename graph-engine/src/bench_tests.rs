@@ -34,9 +34,7 @@ mod bench_tests {
                 link_count: (i % 20),
             };
             world.render[idx] = RenderComponent {
-                block_type: (i % 5) as u8,
-                has_glare: if i % 3 == 0 { 1 } else { 0 },
-                _pad: [0; 2],
+                _pad: [0; 4],
                 color_override: [0.0; 4],
             };
         }

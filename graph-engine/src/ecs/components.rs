@@ -62,18 +62,14 @@ pub enum AIState {
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct RenderComponent {
-    pub block_type: u8,
-    pub has_glare: u8,            // 0 = false, 1 = true (u8 for FFI safety)
-    pub _pad: [u8; 2],            // explicit padding for f32 alignment
+    pub _pad: [u8; 4],            // explicit padding for f32 alignment
     pub color_override: [f32; 4], // [0,0,0,0] = use default palette
 }
 
 impl Default for RenderComponent {
     fn default() -> Self {
         Self {
-            block_type: BlockType::Primary as u8,
-            has_glare: 0,
-            _pad: [0; 2],
+            _pad: [0; 4],
             color_override: [0.0; 4],
         }
     }

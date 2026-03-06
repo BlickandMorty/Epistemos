@@ -19,10 +19,10 @@ use rustc_hash::FxHashSet;
 use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
-use crate::renderer::{Renderer, pixel_block_half_extent};
+use crate::renderer::Renderer;
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
-use crate::types::{Graph, VisualTheme, VoxelPalette};
+use crate::types::{Graph, VisualTheme};
 use crate::version::VersionStore;
 use crate::block_kernel::{BlockTree, OpLog};
 use std::collections::HashMap;
@@ -50,11 +50,8 @@ fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Duration) {
     }
 }
 
-fn clamp_zoom_for_theme(theme: VisualTheme, zoom: f32) -> f32 {
-    match theme {
-        VisualTheme::Pixel => zoom.clamp(0.05, 10.0),
-        VisualTheme::Classic => zoom.clamp(1.0, 10.0),
-    }
+fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
+    zoom.clamp(1.0, 10.0)
 }
 
 /// Drag state for d3-style fx/fy constraint.
@@ -575,15 +572,9 @@ impl Engine {
             self.renderer.update_field_lines(self.hovered_id, &self.world, time);
         }
 
-        // Issue draw commands — both themes now read from the ECS World.
-        match self.renderer.visual_theme {
-            VisualTheme::Pixel => {
-                self.renderer.draw_pixel(width, height, &self.world);
-            }
-            VisualTheme::Classic => {
-                self.renderer.draw(width, height, &self.world);
-            }
-        }
+        // Issue draw commands — all themes use the classic renderer.
+        // (Pixel variant temporarily falls through to Classic until Task 2 renames it.)
+        self.renderer.draw(width, height, &self.world);
 
         u32::from(needs_frame)
     }
@@ -985,35 +976,17 @@ impl Engine {
         let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
         let mut any = false;
 
-        match self.renderer.visual_theme {
-            VisualTheme::Pixel => {
-                for index in 0..self.world.len() {
-                    if self.world.graph_node[index].visible == 0 {
-                        continue;
-                    }
-                    any = true;
-                    let pos = &self.world.transform[index];
-                    let half_extent = pixel_block_half_extent(self.world.render[index].block_type);
-                    min_x = min_x.min(pos.x - half_extent);
-                    min_y = min_y.min(pos.y - half_extent);
-                    max_x = max_x.max(pos.x + half_extent);
-                    max_y = max_y.max(pos.y + half_extent);
-                }
+        for index in 0..self.world.len() {
+            if self.world.graph_node[index].visible == 0 {
+                continue;
             }
-            VisualTheme::Classic => {
-                for index in 0..self.world.len() {
-                    if self.world.graph_node[index].visible == 0 {
-                        continue;
-                    }
-                    any = true;
-                    let pos = &self.world.transform[index];
-                    let radius = self.world.graph_node[index].radius;
-                    min_x = min_x.min(pos.x - radius);
-                    min_y = min_y.min(pos.y - radius);
-                    max_x = max_x.max(pos.x + radius);
-                    max_y = max_y.max(pos.y + radius);
-                }
-            }
+            any = true;
+            let pos = &self.world.transform[index];
+            let radius = self.world.graph_node[index].radius;
+            min_x = min_x.min(pos.x - radius);
+            min_y = min_y.min(pos.y - radius);
+            max_x = max_x.max(pos.x + radius);
+            max_y = max_y.max(pos.y + radius);
         }
 
         if !any {
@@ -1026,10 +999,7 @@ impl Engine {
         let graph_h = (max_y - min_y).max(1.0);
         let w = self.viewport_width as f32;
         let h = self.viewport_height as f32;
-        let padding = match self.renderer.visual_theme {
-            VisualTheme::Pixel => 0.9,
-            VisualTheme::Classic => 1.5,
-        };
+        let padding = 1.5;
         let zoom = (w / graph_w).min(h / graph_h) * padding;
 
         self.renderer.target_offset = [cx, cy];
@@ -1276,11 +1246,6 @@ impl Engine {
     /// Switch renderer between light and dark mode color palettes.
     pub fn set_light_mode(&mut self, enabled: bool) {
         self.renderer.light_mode = enabled;
-        self.renderer.pixel_palette = if enabled {
-            VoxelPalette::light()
-        } else {
-            VoxelPalette::dark()
-        };
     }
 
     /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
@@ -1296,23 +1261,6 @@ impl Engine {
         self.renderer.visual_theme = VisualTheme::from_u8(theme);
     }
 
-    /// Set pixel art upscale factor (2-16, default 8).
-    pub fn set_pixel_scale(&mut self, scale: u8) {
-        self.renderer.pixel_scale = scale.clamp(2, 16);
-    }
-
-    /// Store color override for a node type tier in pixel art mode.
-    pub fn set_node_type_color(&mut self, node_type: u8, r: f32, g: f32, b: f32, a: f32) {
-        let color = [r, g, b, a];
-        match node_type {
-            0 => self.renderer.pixel_palette.core = color,
-            1 => self.renderer.pixel_palette.primary = color,
-            2 => self.renderer.pixel_palette.secondary = color,
-            3 => self.renderer.pixel_palette.tertiary = color,
-            4 => self.renderer.pixel_palette.leaf = color,
-            _ => {}
-        }
-    }
 
     /// Set per-node color override by UUID. Pass alpha=0 to clear.
     /// Updates both Graph node and ECS RenderComponent for theme-agnostic rendering.
@@ -1957,16 +1905,15 @@ mod tests {
     }
 
     #[test]
-    fn pixel_zoom_clamp_allows_zooming_out_below_one() {
-        assert!(
-            (clamp_zoom_for_theme(VisualTheme::Pixel, 0.35) - 0.35).abs() < f32::EPSILON,
-            "pixel theme should preserve wide zoom-out"
-        );
+    fn zoom_clamp_floor_is_one_for_all_themes() {
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Pixel, 0.35), 1.0);
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 0.35), 1.0);
     }
 
     #[test]
-    fn classic_zoom_clamp_keeps_existing_floor() {
-        assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 0.35), 1.0);
+    fn zoom_clamp_ceiling_is_ten_for_all_themes() {
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Pixel, 15.0), 10.0);
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 15.0), 10.0);
     }
 
     #[test]

@@ -1,14 +1,14 @@
-//! Edge case tests for ECS World, SpatialGrid, VoxelPalette, and VisualTheme.
+//! Edge case tests for ECS World, SpatialGrid, and VisualTheme.
 //!
 //! Covers: empty states, single-entity operations, boundary values,
-//! rapid spawn/despawn cycles, invalid enum conversions, and palette invariants.
+//! rapid spawn/despawn cycles, invalid enum conversions.
 
 #[cfg(test)]
 mod edge_case_tests {
     use crate::ecs::components::*;
     use crate::ecs::spatial_grid::SpatialGrid;
     use crate::ecs::World;
-    use crate::types::{VisualTheme, VoxelPalette};
+    use crate::types::VisualTheme;
 
     // ── Empty World Operations ──────────────────────────────────────────────
 
@@ -76,7 +76,6 @@ mod edge_case_tests {
         assert_eq!(world.velocity[idx].vy, 0.0);
         assert_eq!(world.hierarchy[idx].depth, 0);
         assert_eq!(world.hierarchy[idx].parent, u32::MAX);
-        assert_eq!(world.render[idx].block_type, BlockType::Primary as u8);
         assert_eq!(world.ai[idx].state, AIState::Idle as u8);
     }
 
@@ -248,74 +247,6 @@ mod edge_case_tests {
         let idx1 = world.index_of(e1).unwrap();
         assert_eq!(idx1, 1);
         assert_eq!(world.transform[idx1].x, 30.0);
-    }
-
-    // ── VoxelPalette Edge Cases ──────────────────────────────────────────────
-
-    #[test]
-    fn color_for_block_all_valid_depths() {
-        let palette = VoxelPalette::light();
-
-        assert_eq!(palette.color_for_block(0), palette.core);
-        assert_eq!(palette.color_for_block(1), palette.primary);
-        assert_eq!(palette.color_for_block(2), palette.secondary);
-        assert_eq!(palette.color_for_block(3), palette.tertiary);
-        assert_eq!(palette.color_for_block(4), palette.leaf);
-    }
-
-    #[test]
-    fn color_for_block_out_of_range_defaults_to_primary() {
-        let palette = VoxelPalette::dark();
-
-        assert_eq!(palette.color_for_block(5), palette.primary);
-        assert_eq!(palette.color_for_block(10), palette.primary);
-        assert_eq!(palette.color_for_block(128), palette.primary);
-        assert_eq!(palette.color_for_block(255), palette.primary);
-    }
-
-    #[test]
-    fn palette_light_all_colors_in_range() {
-        let palette = VoxelPalette::light();
-        let colors = [
-            palette.background, palette.core, palette.primary,
-            palette.secondary, palette.tertiary, palette.leaf, palette.edge,
-        ];
-        for color in &colors {
-            for &component in color {
-                assert!(component >= 0.0 && component <= 1.0,
-                    "color component {component} out of [0, 1]");
-            }
-        }
-    }
-
-    #[test]
-    fn palette_dark_all_colors_in_range() {
-        let palette = VoxelPalette::dark();
-        let colors = [
-            palette.background, palette.core, palette.primary,
-            palette.secondary, palette.tertiary, palette.leaf, palette.edge,
-        ];
-        for color in &colors {
-            for &component in color {
-                assert!(component >= 0.0 && component <= 1.0,
-                    "color component {component} out of [0, 1]");
-            }
-        }
-    }
-
-    #[test]
-    fn palette_light_vs_dark_differ() {
-        let light = VoxelPalette::light();
-        let dark = VoxelPalette::dark();
-
-        // Every corresponding field should differ between light and dark
-        assert_ne!(light.background, dark.background);
-        assert_ne!(light.core, dark.core);
-        assert_ne!(light.primary, dark.primary);
-        assert_ne!(light.secondary, dark.secondary);
-        assert_ne!(light.tertiary, dark.tertiary);
-        assert_ne!(light.leaf, dark.leaf);
-        assert_ne!(light.edge, dark.edge);
     }
 
     // ── VisualTheme Edge Cases ───────────────────────────────────────────────
