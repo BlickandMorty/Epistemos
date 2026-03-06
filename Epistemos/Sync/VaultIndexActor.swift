@@ -470,6 +470,12 @@ actor VaultIndexActor {
             } catch {
                 log.error("FTS5 delete failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
+            // Clean up orphaned SDNoteInsight
+            let pageId = page.id
+            let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
+            if let insight = try? modelContext.fetch(insightDesc).first {
+                modelContext.delete(insight)
+            }
             modelContext.delete(page)
         }
         try modelContext.save()

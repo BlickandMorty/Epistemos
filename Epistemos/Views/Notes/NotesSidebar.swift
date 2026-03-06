@@ -26,6 +26,10 @@ private struct SidebarPageItem: Identifiable, Equatable {
     /// Denormalized subfolder path from SDPage.subfolder — always a plain String,
     /// never depends on relationship faulting. Used as fallback matching.
     let subfolder: String?
+    /// FTS snippet from body/block search. Nil for title-only matches.
+    var snippet: String?
+    /// Category label for search results (e.g. "Body Match", "Block Match").
+    var matchCategory: String?
 
     init(_ page: SDPage) {
         id = page.id
@@ -521,29 +525,51 @@ struct NotesSidebar: View {
         return Array(combined.prefix(50))
     }
 
-    /// Run body search via trigram index when debounced query changes (microseconds, no disk I/O).
+    /// Run body + block search via FTS5 with snippets.
     private func performBodySearch(query: String) {
         guard !query.isEmpty else {
             bodySearchResults = []
             return
         }
         Task {
-            let matchedIds = await vaultSync.searchIndex(query: query)
-            guard !matchedIds.isEmpty else {
-                bodySearchResults = []
-                return
-            }
-            // Individual fetches — SwiftData #Predicate can't reliably translate
-            // local array .contains() to SQL, causing runtime crashes.
+            let bodyHits = await vaultSync.searchFullAsync(query: query, limit: 30)
+            let blockHits = await vaultSync.searchBlocksAsync(query: query, limit: 10)
+
             var results: [SidebarPageItem] = []
-            for id in matchedIds {
-                let descriptor = FetchDescriptor<SDPage>(
-                    predicate: #Predicate { $0.id == id }
-                )
-                if let page = try? modelContext.fetch(descriptor).first {
-                    results.append(SidebarPageItem(page))
+            var seenPageIds: Set<String> = []
+
+            // Body matches — with snippet
+            for hit in bodyHits {
+                let pageId = hit.pageId
+                guard !seenPageIds.contains(pageId) else { continue }
+                seenPageIds.insert(pageId)
+                let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                if var item = (try? modelContext.fetch(descriptor).first).map({ SidebarPageItem($0) }) {
+                    let rawSnippet = hit.snippet
+                        .replacingOccurrences(of: "<b>", with: "")
+                        .replacingOccurrences(of: "</b>", with: "")
+                    item.snippet = rawSnippet.isEmpty ? nil : rawSnippet
+                    item.matchCategory = "Body Match"
+                    results.append(item)
                 }
             }
+
+            // Block matches — with snippet, deduplicated against body results
+            for hit in blockHits {
+                let pageId = hit.pageId
+                guard !seenPageIds.contains(pageId) else { continue }
+                seenPageIds.insert(pageId)
+                let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                if var item = (try? modelContext.fetch(descriptor).first).map({ SidebarPageItem($0) }) {
+                    let rawSnippet = hit.snippet
+                        .replacingOccurrences(of: "<b>", with: "")
+                        .replacingOccurrences(of: "</b>", with: "")
+                    item.snippet = rawSnippet.isEmpty ? nil : rawSnippet
+                    item.matchCategory = "Block Match"
+                    results.append(item)
+                }
+            }
+
             bodySearchResults = results
         }
     }
@@ -825,6 +851,12 @@ struct NotesSidebar: View {
         notesUI.closeTab(item.id)
         if let page = fetchPage(item.id) {
             vaultSync.deletePageFromDisk(filePath: page.filePath)
+            // Clean up orphaned SDNoteInsight before deleting the page
+            let pageId = page.id
+            let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
+            if let insight = try? modelContext.fetch(insightDesc).first {
+                modelContext.delete(insight)
+            }
             modelContext.delete(page)
         }
         pendingDeletePage = nil
@@ -1479,7 +1511,7 @@ private struct SearchResultRow: View {
                         Text(item.emoji)
                             .font(.epSmall)
                     } else {
-                        Image(systemName: "doc.text")
+                        Image(systemName: item.matchCategory == "Block Match" ? "cube.transparent" : "doc.text")
                             .font(.epSmall)
                             .foregroundStyle(theme.accent.opacity(0.6))
                     }
@@ -1487,8 +1519,23 @@ private struct SearchResultRow: View {
                         .font(.epBody).fontWeight(.medium)
                         .foregroundStyle(theme.foreground)
                         .lineLimit(1)
+
+                    if let category = item.matchCategory {
+                        Text(category)
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(theme.textTertiary.opacity(0.6))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(theme.muted.opacity(0.5), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+                    }
                 }
-                if !item.tags.isEmpty {
+                if let snippet = item.snippet {
+                    Text(snippet)
+                        .font(.epCaption)
+                        .foregroundStyle(theme.textSecondary.opacity(0.7))
+                        .lineLimit(2)
+                }
+                if !item.tags.isEmpty && item.snippet == nil {
                     Text(item.tags.joined(separator: ", "))
                         .font(.epCaption)
                         .foregroundStyle(theme.mutedForeground)

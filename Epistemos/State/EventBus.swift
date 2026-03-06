@@ -11,6 +11,8 @@ enum AppEvent: Sendable {
     case error(String)
     case toast(String, ToastType)
     case vaultChanged
+    case vaultPageChanged(pageId: String)
+    case vaultPageDeleted(pageId: String)
 
     // Learning events
     case custom(name: String, payload: AnySendable?)

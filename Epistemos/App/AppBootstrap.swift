@@ -52,6 +52,7 @@ final class AppBootstrap {
     let triageService: TriageService
     let researchService: ResearchService
     let vaultSync: VaultSyncService
+    let noteInsightService: NoteInsightService
     let pipelineService: PipelineService
     let soarService: SOARService
 
@@ -110,6 +111,9 @@ final class AppBootstrap {
 
         // VaultSyncService — hybrid persistence bridge
         self.vaultSync = VaultSyncService(modelContainer: container)
+
+        // NoteInsightService — on-device ML analysis for all notes
+        self.noteInsightService = NoteInsightService(modelContainer: container)
 
         // SOARService — teacher-student-reward learning engine
         let soar = SOARService(soarState: soarState, llmService: llm, eventBus: eventBus)
@@ -263,6 +267,7 @@ final class AppBootstrap {
             try context.delete(model: SDMessage.self)
             try context.delete(model: SDChat.self)
             try context.delete(model: SDPageVersion.self)
+            try context.delete(model: SDNoteInsight.self)
             try context.delete(model: SDPage.self)
             try context.delete(model: SDFolder.self)
             try context.save()

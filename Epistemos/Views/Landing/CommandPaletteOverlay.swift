@@ -353,7 +353,7 @@ struct CommandPaletteOverlay: View {
     private var resultsSection: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 0) {
+                VStack(spacing: 0) {
                     searchResultsView
                 }
                 .padding(.vertical, 8)

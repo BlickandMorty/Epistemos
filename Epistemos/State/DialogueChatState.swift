@@ -1,5 +1,7 @@
 import Foundation
+import NaturalLanguage
 import Observation
+import SwiftData
 
 enum DialoguePresentationTheme: UInt8, CaseIterable, Codable {
     case tactics = 0
@@ -206,6 +208,91 @@ struct DialogueNodeInsight: Sendable, Equatable {
     }
 }
 
+// MARK: - On-Device Content Analysis (NaturalLanguage framework)
+
+struct ContentPersonalitySignals: Sendable, Equatable {
+    let sentiment: Double          // -1.0 (negative) to +1.0 (positive)
+    let questionDensity: Double    // 0.0 to 1.0
+    let formalityScore: Double     // 0.0 (casual) to 1.0 (formal/academic)
+    let vocabDiversity: Double     // 0.0 to 1.0 (unique words / total words)
+    let entityKeywords: [String]   // NER-extracted named entities
+    let dominantTopics: [String]   // top nouns by frequency
+
+    nonisolated static let empty = ContentPersonalitySignals(
+        sentiment: 0, questionDensity: 0, formalityScore: 0,
+        vocabDiversity: 0, entityKeywords: [], dominantTopics: []
+    )
+
+    nonisolated static func analyze(_ text: String) -> ContentPersonalitySignals {
+        let trimmed = String(text.prefix(6000))
+        guard trimmed.count >= 50 else { return .empty }
+
+        // Sentiment via NLTagger
+        let sentimentTagger = NLTagger(tagSchemes: [.sentimentScore])
+        sentimentTagger.string = trimmed
+        let sentimentTag = sentimentTagger.tag(at: trimmed.startIndex, unit: .paragraph, scheme: .sentimentScore).0
+        let sentiment = Double(sentimentTag?.rawValue ?? "0") ?? 0.0
+
+        // POS tagging for formality + topic extraction
+        let posTagger = NLTagger(tagSchemes: [.lexicalClass, .nameType])
+        posTagger.string = trimmed
+
+        var nounCount = 0
+        var verbCount = 0
+        var adjCount = 0
+        var totalTokens = 0
+        var uniqueWords: Set<String> = []
+        var nounFreq: [String: Int] = [:]
+        var entities: [String] = []
+        var questionMarks = 0
+
+        posTagger.enumerateTags(in: trimmed.startIndex..<trimmed.endIndex, unit: .word, scheme: .lexicalClass) { tag, range in
+            totalTokens += 1
+            let word = String(trimmed[range]).lowercased()
+            uniqueWords.insert(word)
+
+            if word == "?" { questionMarks += 1 }
+
+            switch tag {
+            case .noun:
+                nounCount += 1
+                if word.count >= 4 { nounFreq[word, default: 0] += 1 }
+            case .verb: verbCount += 1
+            case .adjective: adjCount += 1
+            default: break
+            }
+            return true
+        }
+
+        // Named entity extraction
+        posTagger.enumerateTags(in: trimmed.startIndex..<trimmed.endIndex, unit: .word, scheme: .nameType) { tag, range in
+            if let tag, tag != .otherWord {
+                let entity = String(trimmed[range])
+                if entity.count >= 2 && !entities.contains(entity) {
+                    entities.append(entity)
+                }
+            }
+            return entities.count < 6
+        }
+
+        let total = max(1, totalTokens)
+        let questionDensity = min(1.0, Double(questionMarks) / max(1, Double(total) / 20.0))
+        let formalityScore = min(1.0, (Double(nounCount + adjCount) / Double(total)) * 1.8)
+        let vocabDiversity = Double(uniqueWords.count) / Double(total)
+
+        let topNouns = nounFreq.sorted { $0.value > $1.value }.prefix(5).map(\.key)
+
+        return ContentPersonalitySignals(
+            sentiment: sentiment,
+            questionDensity: questionDensity,
+            formalityScore: formalityScore,
+            vocabDiversity: vocabDiversity,
+            entityKeywords: entities,
+            dominantTopics: topNouns
+        )
+    }
+}
+
 struct DialogueNodeProfile: Sendable, Equatable {
     let nodeId: String
     let label: String
@@ -237,11 +324,26 @@ struct DialogueNodeProfile: Sendable, Equatable {
         nodeType: GraphNodeType,
         noteBody: String,
         linkedNodeLabels: [String],
-        insight: DialogueNodeInsight? = nil
+        insight: DialogueNodeInsight? = nil,
+        cachedSignals: ContentPersonalitySignals? = nil
     ) -> DialogueNodeProfile {
         let normalizedBody = noteBody.trimmingCharacters(in: .whitespacesAndNewlines)
         let tokens = normalizedTokens(in: normalizedBody)
-        let keywords = focusKeywords(in: normalizedBody, linkedNodeLabels: linkedNodeLabels)
+
+        // Use cached ML signals from NoteInsightService when available, otherwise analyze live
+        let ml = cachedSignals ?? ContentPersonalitySignals.analyze(normalizedBody)
+
+        // Merge ML entities with frequency-based keywords
+        let freqKeywords = focusKeywords(in: normalizedBody, linkedNodeLabels: linkedNodeLabels)
+        var keywords: [String] = []
+        for kw in ml.entityKeywords + ml.dominantTopics + freqKeywords {
+            let lower = kw.lowercased()
+            if !keywords.contains(where: { $0.lowercased() == lower }) {
+                keywords.append(kw)
+            }
+            if keywords.count >= 6 { break }
+        }
+
         let resolvedInsight = insight ?? DialogueNodeInsight.fallback(
             nodeType: nodeType,
             noteBody: normalizedBody,
@@ -251,7 +353,8 @@ struct DialogueNodeProfile: Sendable, Equatable {
             nodeType: nodeType,
             body: normalizedBody,
             tokens: tokens,
-            linkedNodeLabels: linkedNodeLabels
+            linkedNodeLabels: linkedNodeLabels,
+            ml: ml
         )
         let richness = contentRichness(
             body: normalizedBody,
@@ -262,7 +365,8 @@ struct DialogueNodeProfile: Sendable, Equatable {
             body: normalizedBody,
             tokens: tokens,
             richness: richness,
-            linkedNodeLabels: linkedNodeLabels
+            linkedNodeLabels: linkedNodeLabels,
+            ml: ml
         )
         let summary = "\(label) \(archetype.summaryTemplate), operating at \(resolvedInsight.hierarchyLabel.lowercased()) as a \(resolvedInsight.tier.displayName.lowercased()) node."
         let portrait = portraitAsset(for: archetype, mood: mood)
@@ -327,7 +431,8 @@ struct DialogueNodeProfile: Sendable, Equatable {
         nodeType: GraphNodeType,
         body: String,
         tokens: [String],
-        linkedNodeLabels: [String]
+        linkedNodeLabels: [String],
+        ml: ContentPersonalitySignals = .empty
     ) -> DialogueArchetype {
         let lowerBody = body.lowercased()
         let questionHits = questionSignalCount(in: lowerBody)
@@ -335,10 +440,20 @@ struct DialogueNodeProfile: Sendable, Equatable {
         let ideaHits = ideaSignalCount(in: lowerBody)
 
         if nodeType == .folder { return .gardener }
-        if nodeType == .source || citationHits >= 2 { return .archivist }
-        if questionHits >= 2 { return .examiner }
-        if nodeType == .idea || ideaHits >= 2 { return .dreamer }
-        if linkedNodeLabels.count >= 4 || tokens.contains("system") || tokens.contains("pattern") || tokens.contains("workflow") {
+
+        // ML-enhanced: high formality + citations = archivist
+        if nodeType == .source || citationHits >= 2 || (ml.formalityScore > 0.65 && citationHits >= 1) {
+            return .archivist
+        }
+        // ML-enhanced: question density from NLTagger
+        if questionHits >= 2 || ml.questionDensity > 0.3 { return .examiner }
+        // ML-enhanced: positive sentiment + creative signals = dreamer
+        if nodeType == .idea || ideaHits >= 2 || (ml.sentiment > 0.3 && ml.vocabDiversity > 0.5) {
+            return .dreamer
+        }
+        // ML-enhanced: high vocab diversity + many links = guide
+        if linkedNodeLabels.count >= 4 || ml.vocabDiversity > 0.6 ||
+           tokens.contains("system") || tokens.contains("pattern") || tokens.contains("workflow") {
             return .guide
         }
         return .sentinel
@@ -348,10 +463,14 @@ struct DialogueNodeProfile: Sendable, Equatable {
         body: String,
         tokens: [String],
         richness: Double,
-        linkedNodeLabels: [String]
+        linkedNodeLabels: [String],
+        ml: ContentPersonalitySignals = .empty
     ) -> DialogueMood {
         if body.isEmpty { return .fragile }
-        if questionSignalCount(in: body.lowercased()) >= 2 { return .curious }
+        // ML-enhanced: use sentiment score to influence mood
+        if ml.sentiment < -0.3 { return .fragile }
+        if ml.questionDensity > 0.3 || questionSignalCount(in: body.lowercased()) >= 2 { return .curious }
+        if ml.sentiment > 0.3 && richness > 0.5 { return .thriving }
         if richness > 0.74 { return .thriving }
         if linkedNodeLabels.isEmpty && tokens.count < 12 { return .lonely }
         return .steady
@@ -522,6 +641,9 @@ final class DialogueChatState {
         linkedNodeLabels: [String],
         insight: DialogueNodeInsight? = nil
     ) {
+        // Look up cached ML signals from NoteInsightService (avoids live NLTagger on open)
+        let cached = Self.cachedSignals(for: nodeId)
+
         let now = Date.now
         if activeNodeId == nodeId {
             var profile = nodeProfiles[nodeId] ?? DialogueNodeProfile.derive(
@@ -530,7 +652,8 @@ final class DialogueChatState {
                 nodeType: nodeType,
                 noteBody: noteBody,
                 linkedNodeLabels: linkedNodeLabels,
-                insight: insight
+                insight: insight,
+                cachedSignals: cached
             )
             profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: now, insight: insight)
             profile.care.markOpened(now: now)
@@ -545,7 +668,8 @@ final class DialogueChatState {
             nodeType: nodeType,
             noteBody: noteBody,
             linkedNodeLabels: linkedNodeLabels,
-            insight: insight
+            insight: insight,
+            cachedSignals: cached
         )
         profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: now, insight: insight)
         profile.care.markOpened(now: now)
@@ -560,6 +684,21 @@ final class DialogueChatState {
         revealedCharCount = 0
         messages.append(Message(role: .assistant, text: profile.openingLine))
         startTypewriter()
+    }
+
+    /// Build ContentPersonalitySignals from a cached SDNoteInsight, avoiding live NLTagger work.
+    private static func cachedSignals(for pageId: String) -> ContentPersonalitySignals? {
+        guard let bootstrap = AppBootstrap.shared else { return nil }
+        let context = bootstrap.modelContainer.mainContext
+        guard let insight = bootstrap.noteInsightService.fetchInsight(pageId: pageId, context: context) else { return nil }
+        return ContentPersonalitySignals(
+            sentiment: insight.sentiment,
+            questionDensity: insight.questionDensity,
+            formalityScore: insight.formality,
+            vocabDiversity: insight.vocabDiversity,
+            entityKeywords: insight.entityKeywords,
+            dominantTopics: insight.topicNouns
+        )
     }
 
     func close() {
@@ -578,13 +717,16 @@ final class DialogueChatState {
     func submitQuery(
         noteBody: String,
         linkedNodeLabels: [String],
+        neighborContext: [(label: String, relationship: String, body: String)] = [],
         nodeType: GraphNodeType,
         insight: DialogueNodeInsight? = nil,
         triageService: TriageService
     ) {
         let query = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return }
+        guard !isStreaming else { return }
         inputText = ""
+        streamingTask?.cancel()
 
         if let activeNodeId {
             var profile = nodeProfiles[activeNodeId] ?? DialogueNodeProfile.derive(
@@ -605,7 +747,7 @@ final class DialogueChatState {
         messages.append(Message(role: .assistant, text: ""))
         revealedCharCount = 0
 
-        let systemPrompt = buildSystemPrompt(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels)
+        let systemPrompt = buildSystemPrompt(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, neighborContext: neighborContext)
 
         isStreaming = true
         onStreamingChanged?(true)
@@ -678,8 +820,31 @@ final class DialogueChatState {
 
     // MARK: - System Prompt
 
-    private func buildSystemPrompt(noteBody: String, linkedNodeLabels: [String]) -> String {
-        """
+    private func buildSystemPrompt(
+        noteBody: String,
+        linkedNodeLabels: [String],
+        neighborContext: [(label: String, relationship: String, body: String)] = []
+    ) -> String {
+        var neighborSection = ""
+        if !neighborContext.isEmpty {
+            neighborSection = "\n\n--- CONNECTED NODES ---\n"
+            for neighbor in neighborContext {
+                neighborSection += "[\(neighbor.relationship.uppercased())] \(neighbor.label)"
+                if !neighbor.body.isEmpty {
+                    neighborSection += ":\n\(neighbor.body)\n"
+                }
+                neighborSection += "\n"
+            }
+            neighborSection += "--- END CONNECTIONS ---"
+        }
+
+        // Inject related notes from NoteInsightService (cross-note intelligence)
+        var relatedSection = ""
+        if let nodeId = activeNodeId {
+            relatedSection = Self.buildRelatedNotesSection(for: nodeId)
+        }
+
+        return """
         You are "\(activeNodeLabel)", a character in a knowledge graph.
         Persona: \(activeProfile.archetype.title)
         Current mood: \(activeProfile.care.mood.displayName)
@@ -694,14 +859,54 @@ final class DialogueChatState {
         Your personality comes from your content:
 
         --- CONTENT ---
-        \(noteBody.prefix(50_000))
+        \(noteBody.prefix(6_000))
         --- END ---
+        \(String(neighborSection.prefix(3_000)))
+        \(String(relatedSection.prefix(2_000)))
 
         You speak in character. Be playful, observant, and helpful.
         Your connections: \(linkedNodeLabels.joined(separator: ", "))
+        You know the content of your connected nodes above. Reference them naturally when relevant.\
+        \(relatedSection.isEmpty ? "" : " You also know your ML-identified related notes — weave them in when relevant.")
         The user is your creator. Help them learn and remember your content.
         Ask sharp follow-up questions when the node is curious or fragile.
         Keep responses concise (2-3 sentences unless asked for more).
         """
+    }
+
+    /// Build a concise section listing ML-identified related notes (max 3, 1000 chars each).
+    private static func buildRelatedNotesSection(for pageId: String) -> String {
+        guard let bootstrap = AppBootstrap.shared else { return "" }
+        let context = bootstrap.modelContainer.mainContext
+        guard let insight = bootstrap.noteInsightService.fetchInsight(pageId: pageId, context: context) else { return "" }
+
+        let relatedIds = insight.relatedNoteIds
+        let reasons = insight.relatednessReasons
+        guard !relatedIds.isEmpty else { return "" }
+
+        var section = "\n\n--- RELATED NOTES (ML-identified) ---\n"
+        let cap = min(3, relatedIds.count)
+        for i in 0..<cap {
+            let relId = relatedIds[i]
+            let reasonList = i < reasons.count ? reasons[i].joined(separator: ", ") : "similarity"
+
+            // Look up the note's label
+            let targetId = relId
+            let page = try? context.fetch(
+                FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
+            ).first
+            let label = page?.title ?? relId.prefix(8).description
+
+            // Read a snippet of the related note's body
+            let body = String(NoteFileStorage.readBody(pageId: relId).prefix(1_000))
+
+            section += "[\(reasonList.uppercased())] \(label)"
+            if !body.isEmpty {
+                section += ":\n\(body)\n"
+            }
+            section += "\n"
+        }
+        section += "--- END RELATED ---"
+        return section
     }
 }

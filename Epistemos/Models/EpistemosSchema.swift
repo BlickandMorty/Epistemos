@@ -10,6 +10,7 @@ import SwiftData
 enum EpistemosSchema {
     static var models: [any PersistentModel.Type] {
         [SDPage.self, SDFolder.self, SDChat.self, SDMessage.self,
-         SDPageVersion.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self]
+         SDPageVersion.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self,
+         SDNoteInsight.self]
     }
 }

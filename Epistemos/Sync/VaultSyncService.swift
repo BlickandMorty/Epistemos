@@ -337,6 +337,7 @@ final class VaultSyncService {
         do {
             try context.delete(model: SDBlock.self)
             try context.delete(model: SDPageVersion.self)
+            try context.delete(model: SDNoteInsight.self)
             try context.delete(model: SDPage.self)
             try context.delete(model: SDFolder.self)
             try context.delete(model: SDGraphNode.self)
@@ -594,7 +595,7 @@ final class VaultSyncService {
                 }
 
                 await MainActor.run { [weak self] in
-                    self?.eventBus?.emit(.vaultChanged)
+                    self?.eventBus?.emit(.vaultPageChanged(pageId: pageId))
                 }
             } catch {
                 log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")

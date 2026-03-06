@@ -93,6 +93,10 @@ final class AppCoordinator {
             switch event {
             case .vaultChanged:
                 self.refreshAmbientManifest()
+                self.bootstrap.noteInsightService.reindex()
+            case .vaultPageChanged(let pageId):
+                self.refreshAmbientManifest()
+                self.bootstrap.noteInsightService.reanalyze(pageId: pageId)
             default:
                 break
             }
