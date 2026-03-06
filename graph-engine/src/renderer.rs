@@ -734,7 +734,8 @@ pub struct Renderer {
     last_viewport_height: f32,
     // ── Pixel art theme state ───────────────────────────────────────
     pub visual_theme: VisualTheme,
-    pixel_scale: u8,
+    pub pixel_scale: u8,
+    pub pixel_palette: VoxelPalette,
     pixel_offscreen_texture: Option<Texture>,
     pixel_offscreen_width: u32,
     pixel_offscreen_height: u32,
@@ -871,6 +872,7 @@ impl Renderer {
             last_viewport_height: 1080.0,
             visual_theme: VisualTheme::Pixel,
             pixel_scale: 8,
+            pixel_palette: VoxelPalette::dark(),
             pixel_offscreen_texture: None,
             pixel_offscreen_width: 0,
             pixel_offscreen_height: 0,

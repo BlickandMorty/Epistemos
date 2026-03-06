@@ -2,6 +2,28 @@ import Foundation
 import NaturalLanguage
 import SwiftData
 
+// MARK: - UInt8 Clamped Helper
+
+private extension UInt8 {
+    func clamped(to range: ClosedRange<UInt8>, default defaultValue: UInt8) -> UInt8 {
+        self == 0 ? defaultValue : Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+// MARK: - GraphVisualTheme
+
+enum GraphVisualTheme: UInt8, CaseIterable, Codable {
+    case pixel = 0
+    case classic = 1
+
+    var displayName: String {
+        switch self {
+        case .pixel:   "Pixel Blocks"
+        case .classic: "Classic"
+        }
+    }
+}
+
 // MARK: - GraphMode
 // Two graph views matching LogSeq: global (all nodes) and page (node + neighbors).
 
@@ -335,6 +357,25 @@ final class GraphState {
 
     /// Incremented when quality changes so MetalGraphView can detect and push to Rust.
     var liteModeVersion: Int = 0
+
+    // MARK: - Visual Theme
+
+    /// Pixel art vs Classic SDF renderer. Persisted via UserDefaults.
+    var visualTheme: GraphVisualTheme = GraphVisualTheme(rawValue: UInt8(UserDefaults.standard.integer(forKey: "graphVisualTheme"))) ?? .pixel {
+        didSet {
+            UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: "graphVisualTheme")
+            visualThemeVersion += 1
+        }
+    }
+    var visualThemeVersion: Int = 0
+
+    /// Pixel art upscale factor (2-16, default 8). Persisted via UserDefaults.
+    var pixelScale: UInt8 = UInt8(UserDefaults.standard.integer(forKey: "graphPixelScale")).clamped(to: 2...16, default: 8) {
+        didSet {
+            UserDefaults.standard.set(Int(pixelScale), forKey: "graphPixelScale")
+            visualThemeVersion += 1
+        }
+    }
 
     // MARK: - Force Parameters
     // Core 4 params (basic panel) + 5 extended params (advanced panel).

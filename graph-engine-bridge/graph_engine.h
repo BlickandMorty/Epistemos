@@ -217,6 +217,16 @@ void graph_engine_set_light_mode(Engine* engine, uint8_t enabled);
 /// Set quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
 void graph_engine_set_quality_level(Engine* engine, uint8_t level);
 
+/// Set visual theme: 0 = Pixel (default), 1 = Classic.
+void graph_engine_set_visual_theme(Engine* engine, uint8_t theme);
+
+/// Set pixel art upscale factor (1-16, default 8).
+void graph_engine_set_pixel_scale(Engine* engine, uint8_t scale);
+
+/// Override color for a node type in pixel art mode.
+/// node_type: 0=Core, 1=Primary, 2=Secondary, 3=Tertiary, 4=Leaf.
+void graph_engine_set_node_type_color(Engine* engine, uint8_t node_type, float r, float g, float b, float a);
+
 /// Set the note window rect in screen pixels for page mode anchor positioning.
 void graph_engine_set_anchor_rect(Engine* engine, float x, float y, float w, float h);
 
