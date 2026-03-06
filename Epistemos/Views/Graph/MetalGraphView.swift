@@ -828,16 +828,6 @@ final class MetalGraphNSView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
 
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        if let hosting = dialogueHostingView {
-            let local = convert(point, to: hosting)
-            if hosting.bounds.contains(local) {
-                return hosting.hitTest(local)
-            }
-        }
-        return super.hitTest(point)
-    }
-
     override func mouseDown(with event: NSEvent) {
         // Let the dialogue overlay handle its own clicks.
         if let hosting = dialogueHostingView {

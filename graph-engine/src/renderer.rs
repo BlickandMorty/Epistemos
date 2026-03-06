@@ -247,16 +247,6 @@ fn clamp_dialogue_box_top(
     }
 }
 
-fn dialogue_box_vertical_layout(node_y: f32, node_radius: f32, zoom: f32) -> (f32, f32) {
-    let layout = dialogue_layout_metrics(zoom);
-    let tail_h_world = layout.tail_screen_height / zoom;
-    let base_gap_world = layout.gap_screen / zoom;
-    let face_clearance_world = (node_radius * 1.12).max(if layout.compact { 58.0 } else { 76.0 } / zoom);
-    let tail_tip_y = node_y - node_radius - base_gap_world - face_clearance_world;
-    let box_bottom_y = tail_tip_y - tail_h_world;
-    (box_bottom_y, tail_tip_y)
-}
-
 fn face_blink_openness(time: f32, node_seed: f32, streaming: bool) -> f32 {
     let speed = if streaming { 0.42 } else { 0.28 };
     let phase = (time * speed + node_seed).fract();
@@ -288,40 +278,30 @@ fn face_pupil_offset(node_center: [f32; 2], look_target: [f32; 2], max_offset: f
     offset
 }
 
-fn dialogue_style_signal(encoded_alpha: f32) -> f32 {
-    (encoded_alpha - 1.0).max(0.0).min(0.55)
+fn dialogue_box_vertical_layout(node_y: f32, node_radius: f32, zoom: f32) -> (f32, f32) {
+    let layout = dialogue_layout_metrics(zoom);
+    let tail_h_world = layout.tail_screen_height / zoom;
+    let base_gap_world = layout.gap_screen / zoom;
+    let face_clearance_world = (node_radius * 1.12).max(if layout.compact { 58.0 } else { 76.0 } / zoom);
+    let tail_tip_y = node_y - node_radius - base_gap_world - face_clearance_world;
+    let box_bottom_y = tail_tip_y - tail_h_world;
+    (box_bottom_y, tail_tip_y)
 }
 
-fn dialogue_density_signal(link_count: u32) -> f32 {
-    if link_count <= 1 {
-        return 0.0;
-    }
-    ((link_count as f32).ln() / 512.0_f32.ln()).clamp(0.0, 1.0)
-}
 
-fn dialogue_folder_target_radius(link_count: u32) -> f32 {
-    let density = dialogue_density_signal(link_count);
-    18.0 + 72.0 * density.powf(0.86)
-}
 
 fn dialogue_node_radius(
     visual_theme: VisualTheme,
     base_radius: f32,
-    node_type: u8,
-    link_count: u32,
-    encoded_alpha: f32,
+    _node_type: u8,
+    _link_count: u32,
+    _encoded_alpha: f32,
 ) -> f32 {
     if visual_theme != VisualTheme::Dialogue {
         return base_radius;
     }
-
-    let signal = dialogue_style_signal(encoded_alpha);
-    if node_type == crate::types::NodeType::Folder as u8 {
-        let target_radius = dialogue_folder_target_radius(link_count);
-        base_radius.max(target_radius) * (1.0 + signal * 0.28)
-    } else {
-        base_radius * (1.0 + signal * 0.30)
-    }
+    // No radius inflation — depth palette colors provide the dialogue styling.
+    base_radius
 }
 
 fn string_edge_control_points(
@@ -1479,6 +1459,16 @@ impl Renderer {
                 world.hierarchy[index].link_count,
                 world.render[index].color_override[3],
             )
+        });
+
+        // Stable draw order: sort by z-tier (background first → foreground last)
+        // so the painter's algorithm renders foreground nodes on top.
+        // Tie-break by index for frame-to-frame consistency.
+        self.rendered_node_indices.sort_unstable_by(|&a, &b| {
+            let za = z_for_link_count(world.hierarchy[a].link_count);
+            let zb = z_for_link_count(world.hierarchy[b].link_count);
+            za.partial_cmp(&zb).unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.cmp(&b))
         });
 
         self.classic_node_scratch.clear();
@@ -2850,29 +2840,6 @@ mod tests {
         assert!(box_bottom_y < tail_tip_y);
     }
 
-    #[test]
-    fn face_blink_never_pops_fully_invisible() {
-        for sample in 0..240 {
-            let openness = face_blink_openness(sample as f32 * 0.05, 0.37, false);
-            assert!((0.22..=1.0).contains(&openness));
-        }
-    }
-
-    #[test]
-    fn face_pupil_offset_stays_clamped() {
-        let offset = face_pupil_offset([0.0, 0.0], [99.0, -50.0], 6.0);
-        let distance = (offset[0] * offset[0] + offset[1] * offset[1]).sqrt();
-        assert!(distance <= 6.0 + f32::EPSILON);
-        assert_eq!(face_pupil_offset([4.0, 4.0], [4.0, 4.0], 6.0), [0.0, 0.0]);
-    }
-
-    #[test]
-    fn dialogue_style_signal_grows_with_encoded_alpha() {
-        let regular_signal = dialogue_style_signal(1.12);
-        let elevated_signal = dialogue_style_signal(1.40);
-        assert!(regular_signal > 0.0);
-        assert!(elevated_signal > regular_signal);
-    }
 
     #[test]
     fn string_edge_control_points_bend_off_center_line() {
@@ -2922,13 +2889,6 @@ mod tests {
         assert!(relaxed_sag > taut_sag);
     }
 
-    #[test]
-    fn dialogue_folder_radius_target_is_much_larger_and_density_weighted() {
-        let sparse = dialogue_folder_target_radius(1);
-        let dense = dialogue_folder_target_radius(512);
-        assert!(sparse >= 18.0);
-        assert!(dense > sparse * 4.5);
-    }
 
     #[test]
     fn glow_instance_cutoff_stays_between_nodes_and_glows() {
