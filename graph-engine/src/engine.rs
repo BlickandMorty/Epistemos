@@ -16,11 +16,12 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use rustc_hash::FxHashSet;
 
+use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
 use crate::renderer::Renderer;
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
-use crate::types::Graph;
+use crate::types::{Graph, VisualTheme};
 use crate::version::VersionStore;
 use crate::block_kernel::{BlockTree, OpLog};
 use std::collections::HashMap;
@@ -103,6 +104,9 @@ pub struct Engine {
     pub btk_trees: HashMap<String, BlockTree>,
     /// Block Transaction Kernel: page_id → op log
     pub btk_logs: HashMap<String, OpLog>,
+
+    /// ECS mirror of graph data, synced from Simulation each frame.
+    world: World,
 }
 
 impl Engine {
@@ -135,6 +139,7 @@ impl Engine {
             quality_level: 0,  // Cinematic
             btk_trees: HashMap::new(),
             btk_logs: HashMap::new(),
+            world: World::new(),
         })
     }
 
@@ -282,6 +287,9 @@ impl Engine {
         // Copy positions back to graph nodes for rendering + spatial index.
         self.sync_positions();
 
+        // Build ECS World from Graph data (positions are current after sync).
+        self.world = World::from_graph(&self.graph);
+
         // Sync renderer's link_distance for tension coloring.
         self.renderer.link_distance = self.sim.lock().params.link_distance;
 
@@ -407,10 +415,44 @@ impl Engine {
         !sim.is_settled
     }
 
+    /// Sync Simulation positions/velocities into the ECS World.
+    /// Called from render() to keep World in sync for pixel art rendering.
+    fn sync_sim_to_world(&mut self) {
+        let sim = self.sim.lock();
+        let n = sim.x.len();
+
+        // Size mismatch — wait for next commit() to rebuild World.
+        if self.world.len() != n {
+            return;
+        }
+
+        for i in 0..n {
+            self.world.transform[i].x = sim.x[i];
+            self.world.transform[i].y = sim.y[i];
+            self.world.velocity[i].vx = sim.vx[i];
+            self.world.velocity[i].vy = sim.vy[i];
+        }
+
+        // Sync flat physics arrays for future ECS systems.
+        self.world.px.resize(n, 0.0);
+        self.world.py.resize(n, 0.0);
+        self.world.pvx.resize(n, 0.0);
+        self.world.pvy.resize(n, 0.0);
+        for i in 0..n {
+            self.world.px[i] = sim.x[i];
+            self.world.py[i] = sim.y[i];
+            self.world.pvx[i] = sim.vx[i];
+            self.world.pvy[i] = sim.vy[i];
+        }
+    }
+
     /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
     pub fn render(&mut self, width: u32, height: u32) -> u32 {
         self.viewport_width = width;
         self.viewport_height = height;
+
+        // Keep ECS World positions current for pixel art renderer.
+        self.sync_sim_to_world();
 
         let positions_changed = self.sync_positions();
 
@@ -460,8 +502,15 @@ impl Engine {
             self.renderer.update_field_lines(self.hovered_id, &self.graph, time);
         }
 
-        // Issue draw commands.
-        self.renderer.draw(width, height);
+        // Issue draw commands — dispatch based on visual theme.
+        match self.renderer.visual_theme {
+            VisualTheme::Pixel => {
+                self.renderer.draw_pixel(width, height, &self.world, &self.graph);
+            }
+            VisualTheme::Classic => {
+                self.renderer.draw(width, height);
+            }
+        }
 
         u32::from(needs_frame)
     }
@@ -1137,6 +1186,11 @@ impl Engine {
     /// Read-only access to the graph.
     pub fn graph(&self) -> &Graph {
         &self.graph
+    }
+
+    /// Read-only access to the ECS World.
+    pub fn world(&self) -> &World {
+        &self.world
     }
 
     /// Reheat the physics simulation (after embeddings change, etc.).
