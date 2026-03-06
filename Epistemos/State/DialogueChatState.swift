@@ -57,6 +57,7 @@ final class DialogueChatState {
         typewriterTask?.cancel()
         activeNodeId = nil
         isStreaming = false
+        onStreamingChanged = nil
     }
 
     // MARK: - Query

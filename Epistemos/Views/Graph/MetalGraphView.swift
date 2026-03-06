@@ -74,6 +74,8 @@ final class MetalGraphNSView: NSView {
     nonisolated(unsafe) var physicsCoordinator: PhysicsCoordinator?
     nonisolated(unsafe) var dialogueChatState: DialogueChatState?
     private var dialogueHostingView: NSHostingView<AnyView>?
+    /// Reused buffer for reading dialogue screen rect from Rust (zero per-frame allocation).
+    private var dialogueRectBuf: [Float] = [0, 0, 0, 0]
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastLiteModeVersion = -1
@@ -774,14 +776,13 @@ final class MetalGraphNSView: NSView {
 
         // Update dialogue overlay position from Rust screen rect.
         if graph_engine_dialogue_is_active(engine) != 0 {
-            var rect: [Float] = [0, 0, 0, 0]
-            graph_engine_dialogue_screen_rect(engine, &rect)
+            graph_engine_dialogue_screen_rect(engine, &dialogueRectBuf)
             let scale = metalLayer?.contentsScale ?? 2.0
             let pointRect = CGRect(
-                x: CGFloat(rect[0]) / scale,
-                y: bounds.height - CGFloat(rect[1] + rect[3]) / scale,
-                width: CGFloat(rect[2]) / scale,
-                height: CGFloat(rect[3]) / scale
+                x: CGFloat(dialogueRectBuf[0]) / scale,
+                y: bounds.height - CGFloat(dialogueRectBuf[1] + dialogueRectBuf[3]) / scale,
+                width: CGFloat(dialogueRectBuf[2]) / scale,
+                height: CGFloat(dialogueRectBuf[3]) / scale
             )
             updateDialogueOverlay(rect: pointRect)
         } else {
@@ -899,11 +900,14 @@ final class MetalGraphNSView: NSView {
                     graph_engine_dialogue_open(engine, cstr)
                 }
                 let label = graphState?.store.nodes[uuid]?.label ?? "Unknown"
+                let isNewNode = dialogueChatState.activeNodeId != uuid
                 dialogueChatState.open(nodeId: uuid, label: label)
-                dialogueChatState.onStreamingChanged = { [weak self] streaming in
-                    guard let engine = self?.engine else { return }
-                    graph_engine_dialogue_set_streaming(engine, streaming ? 1 : 0)
-                    self?.needsRender = true
+                if isNewNode {
+                    dialogueChatState.onStreamingChanged = { [weak self] streaming in
+                        guard let engine = self?.engine else { return }
+                        graph_engine_dialogue_set_streaming(engine, streaming ? 1 : 0)
+                        self?.needsRender = true
+                    }
                 }
                 needsRender = true
             }
@@ -1299,7 +1303,6 @@ final class MetalGraphNSView: NSView {
         if dialogueHostingView == nil {
             let overlay = DialogueOverlayView(
                 chatState: dialogueChatState,
-                screenRect: rect,
                 onSubmit: { [weak self] _ in
                     self?.submitDialogueQuery()
                 },
@@ -1311,19 +1314,10 @@ final class MetalGraphNSView: NSView {
             hosting.frame = rect
             addSubview(hosting)
             dialogueHostingView = hosting
+            return
         }
 
-        let overlay = DialogueOverlayView(
-            chatState: dialogueChatState,
-            screenRect: rect,
-            onSubmit: { [weak self] _ in
-                self?.submitDialogueQuery()
-            },
-            onDismiss: { [weak self] in
-                self?.dismissDialogue()
-            }
-        )
-        dialogueHostingView?.rootView = AnyView(overlay)
+        // Only update frame; @Observable on DialogueChatState drives content updates.
         dialogueHostingView?.frame = rect
     }
 

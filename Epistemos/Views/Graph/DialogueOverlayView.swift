@@ -4,7 +4,6 @@ import SwiftUI
 /// Uses RetroGaming.ttf for the authentic FFT dialogue aesthetic.
 struct DialogueOverlayView: View {
     @Bindable var chatState: DialogueChatState
-    var screenRect: CGRect
     var onSubmit: (String) -> Void
     var onDismiss: () -> Void
 
@@ -56,8 +55,7 @@ struct DialogueOverlayView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
         }
-        .frame(width: screenRect.width - 4, height: screenRect.height - 4)
-        .position(x: screenRect.midX, y: screenRect.midY)
+        .padding(2)
         .onAppear { inputFocused = true }
         .onExitCommand { onDismiss() }
     }
