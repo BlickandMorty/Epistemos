@@ -28,5 +28,6 @@ extension View {
             .environment(bootstrap.graphState)
             .environment(bootstrap.queryEngine)
             .environment(bootstrap.physicsCoordinator)
+            .environment(bootstrap.dialogueChatState)
     }
 }

@@ -23,6 +23,7 @@ final class HologramController {
     private var queryEngine: QueryEngine?
     private var modelContainer: ModelContainer?
     private var physicsCoordinator: PhysicsCoordinator?
+    private var dialogueChatState: DialogueChatState?
 
     // Screen-change observer.
     private var screenObserver: Any?
@@ -32,11 +33,12 @@ final class HologramController {
     // MARK: - Setup
 
     /// Call once at app launch with the shared GraphState and ModelContainer.
-    func setup(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer, physicsCoordinator: PhysicsCoordinator? = nil) {
+    func setup(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
         self.graphState = graphState
         self.queryEngine = queryEngine
         self.modelContainer = modelContainer
         self.physicsCoordinator = physicsCoordinator
+        self.dialogueChatState = dialogueChatState
         // Provide a ModelContext for interactive graph mutations (node/edge creation).
         graphState.modelContext = modelContainer.mainContext
         // Global hotkey (⌘G) is now registered in CommandPaletteWindowController
@@ -136,7 +138,7 @@ final class HologramController {
             graphState.refreshStructuralData(context: modelContainer.mainContext)
         }
 
-        overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer, physicsCoordinator: physicsCoordinator)
+        overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer, physicsCoordinator: physicsCoordinator, dialogueChatState: dialogueChatState)
     }
 
     // MARK: - Screen Changes

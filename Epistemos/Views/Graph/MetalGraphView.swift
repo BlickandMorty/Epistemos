@@ -10,11 +10,13 @@ import Synchronization
 struct MetalGraphView: NSViewRepresentable {
     @Environment(GraphState.self) private var graphState
     @Environment(PhysicsCoordinator.self) private var physicsCoordinator
+    @Environment(DialogueChatState.self) private var dialogueChatState
 
     func makeNSView(context: Context) -> MetalGraphNSView {
         let view = MetalGraphNSView()
         view.graphState = graphState
         view.physicsCoordinator = physicsCoordinator
+        view.dialogueChatState = dialogueChatState
         return view
     }
 
@@ -70,6 +72,8 @@ final class MetalGraphNSView: NSView {
     /// nonisolated(unsafe): written from AppKit event handlers (main thread)
     /// but compiler can't prove @MainActor isolation on NSView subclass.
     nonisolated(unsafe) var physicsCoordinator: PhysicsCoordinator?
+    nonisolated(unsafe) var dialogueChatState: DialogueChatState?
+    private var dialogueHostingView: NSHostingView<AnyView>?
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastLiteModeVersion = -1
@@ -767,6 +771,23 @@ final class MetalGraphNSView: NSView {
         guard w > 0, h > 0 else { return }
 
         let result = graph_engine_render(engine, w, h)
+
+        // Update dialogue overlay position from Rust screen rect.
+        if graph_engine_dialogue_is_active(engine) != 0 {
+            var rect: [Float] = [0, 0, 0, 0]
+            graph_engine_dialogue_screen_rect(engine, &rect)
+            let scale = metalLayer?.contentsScale ?? 2.0
+            let pointRect = CGRect(
+                x: CGFloat(rect[0]) / scale,
+                y: bounds.height - CGFloat(rect[1] + rect[3]) / scale,
+                width: CGFloat(rect[2]) / scale,
+                height: CGFloat(rect[3]) / scale
+            )
+            updateDialogueOverlay(rect: pointRect)
+        } else {
+            hideDialogueOverlay()
+        }
+
         needsRender = result != 0
     }
 
@@ -872,12 +893,35 @@ final class MetalGraphNSView: NSView {
             let uuid = String(cString: uuidPtr)
             graphState?.selectNode(uuid)
 
+            // Dialogue theme: open dialogue on selected node.
+            if graphState?.visualTheme == .dialogue, let dialogueChatState {
+                uuid.withCString { cstr in
+                    graph_engine_dialogue_open(engine, cstr)
+                }
+                let label = graphState?.store.nodes[uuid]?.label ?? "Unknown"
+                dialogueChatState.open(nodeId: uuid, label: label)
+                dialogueChatState.onStreamingChanged = { [weak self] streaming in
+                    guard let engine = self?.engine else { return }
+                    graph_engine_dialogue_set_streaming(engine, streaming ? 1 : 0)
+                    self?.needsRender = true
+                }
+                needsRender = true
+            }
+
             // Notify in-note graph mode about the tap (if callback is set).
             if let onNodeTap, let sourceId = graphState?.store.nodes[uuid]?.sourceId {
                 onNodeTap(sourceId)
             }
         } else {
             graphState?.selectNode(nil)
+
+            // Dialogue theme: close dialogue on background click.
+            if graphState?.visualTheme == .dialogue {
+                graph_engine_dialogue_close(engine)
+                dialogueChatState?.close()
+                hideDialogueOverlay()
+                needsRender = true
+            }
 
             // Background tap: if mouse barely moved, treat as click-outside dismiss.
             // Disabled in mini mode — mini graph stays open.
@@ -1244,9 +1288,86 @@ final class MetalGraphNSView: NSView {
         }
     }
 
+    // MARK: - Dialogue Overlay
+
+    private func updateDialogueOverlay(rect: CGRect) {
+        guard let dialogueChatState, dialogueChatState.activeNodeId != nil else {
+            hideDialogueOverlay()
+            return
+        }
+
+        if dialogueHostingView == nil {
+            let overlay = DialogueOverlayView(
+                chatState: dialogueChatState,
+                screenRect: rect,
+                onSubmit: { [weak self] _ in
+                    self?.submitDialogueQuery()
+                },
+                onDismiss: { [weak self] in
+                    self?.dismissDialogue()
+                }
+            )
+            let hosting = NSHostingView(rootView: AnyView(overlay))
+            hosting.frame = rect
+            addSubview(hosting)
+            dialogueHostingView = hosting
+        }
+
+        let overlay = DialogueOverlayView(
+            chatState: dialogueChatState,
+            screenRect: rect,
+            onSubmit: { [weak self] _ in
+                self?.submitDialogueQuery()
+            },
+            onDismiss: { [weak self] in
+                self?.dismissDialogue()
+            }
+        )
+        dialogueHostingView?.rootView = AnyView(overlay)
+        dialogueHostingView?.frame = rect
+    }
+
+    private func hideDialogueOverlay() {
+        dialogueHostingView?.removeFromSuperview()
+        dialogueHostingView = nil
+    }
+
+    private func dismissDialogue() {
+        guard let engine else { return }
+        graph_engine_dialogue_close(engine)
+        dialogueChatState?.close()
+        hideDialogueOverlay()
+        needsRender = true
+    }
+
+    private func submitDialogueQuery() {
+        guard let dialogueChatState,
+              let nodeId = dialogueChatState.activeNodeId,
+              let graphState else { return }
+
+        let noteBody: String
+        if let sourceId = graphState.store.nodes[nodeId]?.sourceId {
+            noteBody = NoteFileStorage.readBody(pageId: sourceId)
+        } else {
+            noteBody = ""
+        }
+
+        let linkedLabels = graphState.store.neighbors(of: nodeId).map { $0.label }
+
+        guard let triageService = AppBootstrap.shared?.triageService else { return }
+
+        dialogueChatState.submitQuery(
+            noteBody: noteBody,
+            linkedNodeLabels: linkedLabels,
+            triageService: triageService
+        )
+    }
+
     // MARK: - Cleanup
 
     deinit {
+        dialogueHostingView?.removeFromSuperview()
+        dialogueHostingView = nil
         // Mark invalidated FIRST so any in-flight DispatchQueue.main.async from
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.

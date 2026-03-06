@@ -24,6 +24,7 @@ final class HologramOverlay {
     private var queryEngine: QueryEngine
     private var modelContainer: ModelContainer?
     private var physicsCoordinator: PhysicsCoordinator?
+    private var dialogueChatState: DialogueChatState?
     private let inspectorState = NodeInspectorState()
 
     // Blur transition layers (stored for page mode animation).
@@ -55,11 +56,12 @@ final class HologramOverlay {
     private var parentMiniaturizeObserver: Any?
     private var parentDeminiaturizeObserver: Any?
 
-    init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil) {
+    init(graphState: GraphState, queryEngine: QueryEngine, modelContainer: ModelContainer?, physicsCoordinator: PhysicsCoordinator? = nil, dialogueChatState: DialogueChatState? = nil) {
         self.graphState = graphState
         self.queryEngine = queryEngine
         self.modelContainer = modelContainer
         self.physicsCoordinator = physicsCoordinator
+        self.dialogueChatState = dialogueChatState
         observeMinimizeNotifications()
     }
 
@@ -362,6 +364,7 @@ final class HologramOverlay {
         let graphView = MetalGraphNSView(frame: NSRect(x: 0, y: 0, width: 500, height: 380))
         graphView.graphState = graphState
         graphView.physicsCoordinator = physicsCoordinator
+        graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
         graphView.setLightMode(!isDark)
         graphView.isMiniMode = true
@@ -804,6 +807,7 @@ final class HologramOverlay {
         let graphView = MetalGraphNSView(frame: screen.frame)
         graphView.graphState = graphState
         graphView.physicsCoordinator = physicsCoordinator
+        graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
         graphView.setLightMode(!isDark)
         graphView.autoresizingMask = [.width, .height]

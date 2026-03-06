@@ -19,7 +19,7 @@ struct EpistemosApp: App {
                 .withAppEnvironment(bootstrap)
                 .onAppear {
                     StatusBar.shared.setup()
-                    HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator)
+                    HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
                     CommandPaletteWindowController.shared.setup(bootstrap: bootstrap)
                 }
                 // Handle Spotlight deep-links — user tapped a note in Spotlight results

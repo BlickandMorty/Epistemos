@@ -33,6 +33,7 @@ final class AppBootstrap {
     let graphState = GraphState()
     let queryEngine = QueryEngine()
     let physicsCoordinator = PhysicsCoordinator()
+    let dialogueChatState = DialogueChatState()
 
     // MARK: - Ambient Vault Manifest
     /// Always-available vault manifest — built eagerly on vault attach, refreshed on changes.
