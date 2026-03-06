@@ -1233,6 +1233,57 @@ impl Renderer {
         if lod.cluster_nodes {
             self.glow_count = 0;
         }
+
+        // Face geometry: Kirby-style eyes + mouth on dialogue-active node.
+        if self.dialogue.active {
+            if let Some(node_idx) = self.dialogue.node_index {
+                if node_idx < world.transform.len() {
+                    let nx = world.transform[node_idx].x;
+                    let ny = world.transform[node_idx].y;
+                    let r = world.graph_node[node_idx].radius;
+                    let eye_r = r * 0.12;
+                    let eye_spacing = r * 0.28;
+                    let eye_y = ny - r * 0.15;
+                    let mouth_y = ny + r * 0.25;
+
+                    let time = self.start_time.elapsed().as_secs_f32();
+                    let blink_cycle = (time * 0.33).fract();
+                    let eyes_visible = blink_cycle < 0.92 || blink_cycle > 0.96;
+
+                    if eyes_visible {
+                        self.classic_node_scratch.push(NodeInstance {
+                            position: [nx - eye_spacing, eye_y],
+                            radius: eye_r,
+                            z: 0.99,
+                            color: [1.0, 1.0, 1.0, 1.0],
+                        });
+                        self.classic_velocity_scratch.push([0.0, 0.0]);
+
+                        self.classic_node_scratch.push(NodeInstance {
+                            position: [nx + eye_spacing, eye_y],
+                            radius: eye_r,
+                            z: 0.99,
+                            color: [1.0, 1.0, 1.0, 1.0],
+                        });
+                        self.classic_velocity_scratch.push([0.0, 0.0]);
+                    }
+
+                    let mouth_r = if self.dialogue.is_streaming {
+                        eye_r * (0.6 + 0.4 * (time * 8.0).sin().abs())
+                    } else {
+                        eye_r * 0.5
+                    };
+                    self.classic_node_scratch.push(NodeInstance {
+                        position: [nx, mouth_y],
+                        radius: mouth_r,
+                        z: 0.99,
+                        color: [1.0, 1.0, 1.0, 0.9],
+                    });
+                    self.classic_velocity_scratch.push([0.0, 0.0]);
+                }
+            }
+        }
+
         let total_node_instances = self.classic_node_scratch.len();
 
         if total_node_instances == 0 {
