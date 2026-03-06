@@ -34,6 +34,54 @@ struct LineEdgeInstance {
     color: [f32; 4],  // offset 16
 }
 
+/// State for the FFT-style dialogue box overlay.
+#[derive(Clone)]
+pub(crate) struct DialogueState {
+    pub active: bool,
+    pub node_index: Option<usize>,
+    pub is_streaming: bool,
+    /// Box rect in screen coords (x, y, w, h) for SwiftUI overlay.
+    pub box_screen_rect: [f32; 4],
+    /// Selected node center in screen coords.
+    pub node_screen_pos: [f32; 2],
+}
+
+impl Default for DialogueState {
+    fn default() -> Self {
+        Self {
+            active: false,
+            node_index: None,
+            is_streaming: false,
+            box_screen_rect: [0.0; 4],
+            node_screen_pos: [0.0; 2],
+        }
+    }
+}
+
+/// Per-vertex data for dialogue box rendering (position + color).
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct DialogueVertex {
+    position: [f32; 2],
+    color: [f32; 4],
+}
+
+/// Uniform data for dialogue shader (simpler than main uniforms).
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct DialogueUniforms {
+    viewport_size: [f32; 2],
+    camera_offset: [f32; 2],
+    camera_zoom: f32,
+    time: f32,
+    _pad: [f32; 2],
+}
+
+const DIALOGUE_BOX_SCREEN_WIDTH: f32 = 280.0;
+const DIALOGUE_BOX_SCREEN_HEIGHT: f32 = 160.0;
+const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 20.0;
+const DIALOGUE_GAP_SCREEN: f32 = 10.0;
+
 /// Uniform data sent to all shaders (camera transform + animation).
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -504,6 +552,49 @@ fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
 
 "#;
 
+const DIALOGUE_SHADER_SOURCE: &str = r#"
+#include <metal_stdlib>
+using namespace metal;
+
+struct DialogueVertexIn {
+    float2 position [[attribute(0)]];
+    float4 color    [[attribute(1)]];
+};
+
+struct DialogueVertexOut {
+    float4 position [[position]];
+    float4 color;
+};
+
+struct DialogueUniforms {
+    float2 viewport_size;
+    float2 camera_offset;
+    float  camera_zoom;
+    float  time;
+    float2 _pad;
+};
+
+vertex DialogueVertexOut dialogue_vertex(
+    const device DialogueVertexIn* vertices [[buffer(0)]],
+    constant DialogueUniforms& u [[buffer(1)]],
+    uint vid [[vertex_id]]
+) {
+    DialogueVertexOut out;
+    // Vertices are already in world coords — apply camera transform.
+    float2 wp = vertices[vid].position;
+    float2 sp = (wp - u.camera_offset) * u.camera_zoom;
+    sp.x =  sp.x / (u.viewport_size.x * 0.5);
+    sp.y = -sp.y / (u.viewport_size.y * 0.5);
+    out.position = float4(sp, 0.0, 1.0);
+    out.color = vertices[vid].color;
+    return out;
+}
+
+fragment float4 dialogue_fragment(DialogueVertexOut in [[stage_in]]) {
+    return in.color;
+}
+"#;
+
 // ── Highlight State ─────────────────────────────────────────────────────────
 
 /// Neighbor highlight state for shift+click.
@@ -622,6 +713,12 @@ pub struct Renderer {
     last_viewport_height: f32,
     // ── Theme state ────────────────────────────────────────────────
     pub visual_theme: VisualTheme,
+    // ── Dialogue box state ───────────────────────────────────────
+    pub(crate) dialogue: DialogueState,
+    dialogue_pipeline: Option<RenderPipelineState>,
+    dialogue_vertex_buf: Option<Buffer>,
+    dialogue_vertex_scratch: Vec<DialogueVertex>,
+    dialogue_uniform_buf: Option<Buffer>,
 }
 
 impl Renderer {
@@ -761,6 +858,11 @@ impl Renderer {
             last_viewport_width: 0.0,
             last_viewport_height: 0.0,
             visual_theme: VisualTheme::Dialogue,
+            dialogue: DialogueState::default(),
+            dialogue_pipeline: None,
+            dialogue_vertex_buf: None,
+            dialogue_vertex_scratch: Vec::new(),
+            dialogue_uniform_buf: None,
         })
     }
 
@@ -1617,6 +1719,279 @@ impl Renderer {
         }
     }
 
+    // ── Dialogue Box Rendering ────────────────────────────────────────────────
+
+    fn ensure_dialogue_pipeline(&mut self) {
+        if self.dialogue_pipeline.is_some() {
+            return;
+        }
+        let library = match self.device.new_library_with_source(
+            DIALOGUE_SHADER_SOURCE,
+            &CompileOptions::new(),
+        ) {
+            Ok(lib) => lib,
+            Err(e) => {
+                eprintln!("dialogue shader compile: {e}");
+                return;
+            }
+        };
+        let vert = match library.get_function("dialogue_vertex", None) {
+            Ok(f) => f,
+            Err(_) => return,
+        };
+        let frag = match library.get_function("dialogue_fragment", None) {
+            Ok(f) => f,
+            Err(_) => return,
+        };
+
+        let desc = RenderPipelineDescriptor::new();
+        desc.set_vertex_function(Some(&vert));
+        desc.set_fragment_function(Some(&frag));
+
+        // Vertex descriptor: float2 position at offset 0, float4 color at offset 8, stride 24.
+        let vd = VertexDescriptor::new();
+        let attrs = vd.attributes();
+        // position: float2 at offset 0
+        if let Some(attr0) = attrs.object_at(0) {
+            attr0.set_format(MTLVertexFormat::Float2);
+            attr0.set_offset(0);
+            attr0.set_buffer_index(0);
+        }
+        // color: float4 at offset 8
+        if let Some(attr1) = attrs.object_at(1) {
+            attr1.set_format(MTLVertexFormat::Float4);
+            attr1.set_offset(8);
+            attr1.set_buffer_index(0);
+        }
+        // layout
+        let layouts = vd.layouts();
+        if let Some(layout0) = layouts.object_at(0) {
+            layout0.set_stride(std::mem::size_of::<DialogueVertex>() as u64);
+            layout0.set_step_function(MTLVertexStepFunction::PerVertex);
+            layout0.set_step_rate(1);
+        }
+        desc.set_vertex_descriptor(Some(&vd));
+
+        // Alpha blending (same as classic pipelines).
+        if let Some(color_attach) = desc.color_attachments().object_at(0) {
+            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+            color_attach.set_blending_enabled(true);
+            color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
+            color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+            color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
+            color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+        }
+
+        self.dialogue_pipeline = self.device.new_render_pipeline_state(&desc).ok();
+    }
+
+    fn compute_dialogue_box_position(&mut self, world: &World) {
+        let Some(node_index) = self.dialogue.node_index else {
+            return;
+        };
+        if node_index >= world.len() {
+            return;
+        }
+
+        let node_x = world.transform[node_index].x;
+        let node_y = world.transform[node_index].y;
+        let node_radius = world.graph_node[node_index].radius;
+        let zoom = self.camera_zoom.max(0.01);
+
+        // Convert screen-space dimensions to world-space.
+        let box_w_world = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
+        let box_h_world = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
+        let tail_h_world = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
+        let gap_world = DIALOGUE_GAP_SCREEN / zoom;
+
+        // Box is centered above the node.
+        let box_center_x = node_x;
+        let box_bottom_y = node_y - node_radius - gap_world - tail_h_world;
+        let box_top_y = box_bottom_y - box_h_world;
+        let box_left = box_center_x - box_w_world * 0.5;
+
+        // Store world-space rect for vertex building (left, top, width, height).
+        // We use node_screen_pos temporarily to cache the world-space tail tip.
+        let vw = self.last_viewport_width;
+        let vh = self.last_viewport_height;
+
+        // World → screen: screen = (world - camera) * zoom + viewport/2
+        let screen_box_x = (box_left - self.camera_offset[0]) * zoom + vw * 0.5;
+        let screen_box_y = (box_top_y - self.camera_offset[1]) * zoom + vh * 0.5;
+        let screen_box_w = box_w_world * zoom;
+        let screen_box_h = box_h_world * zoom;
+
+        self.dialogue.box_screen_rect = [screen_box_x, screen_box_y, screen_box_w, screen_box_h];
+        let node_screen_x = (node_x - self.camera_offset[0]) * zoom + vw * 0.5;
+        let node_screen_y = (node_y - self.camera_offset[1]) * zoom + vh * 0.5;
+        self.dialogue.node_screen_pos = [node_screen_x, node_screen_y];
+    }
+
+    fn build_dialogue_vertices(&mut self, world: &World) {
+        self.dialogue_vertex_scratch.clear();
+
+        let Some(node_index) = self.dialogue.node_index else {
+            return;
+        };
+        if node_index >= world.len() {
+            return;
+        }
+
+        let node_x = world.transform[node_index].x;
+        let node_y = world.transform[node_index].y;
+        let node_radius = world.graph_node[node_index].radius;
+        let zoom = self.camera_zoom.max(0.01);
+
+        let box_w = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
+        let box_h = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
+        let tail_h = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
+        let gap = DIALOGUE_GAP_SCREEN / zoom;
+        let border_w = 2.0 / zoom;
+        let nameplate_h = 24.0 / zoom;
+
+        let cx = node_x;
+        let box_bottom = node_y - node_radius - gap - tail_h;
+        let box_top = box_bottom - box_h;
+        let left = cx - box_w * 0.5;
+        let right = cx + box_w * 0.5;
+
+        // Colors: dark blue gradient.
+        let color_top = [0.08_f32, 0.10, 0.22, 0.92];
+        let color_bot = [0.04_f32, 0.06, 0.14, 0.92];
+
+        // Background: 2 triangles forming a quad.
+        // Tri 1: top-left, top-right, bottom-left
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_top], color: color_top });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: color_top });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_bottom], color: color_bot });
+        // Tri 2: top-right, bottom-right, bottom-left
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: color_top });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_bottom], color: color_bot });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_bottom], color: color_bot });
+
+        // Tail: triangle from box bottom-center to node.
+        let tail_tip_y = node_y - node_radius - gap;
+        let tail_half_w = 12.0 / zoom;
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [cx - tail_half_w, box_bottom], color: color_bot });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [cx + tail_half_w, box_bottom], color: color_bot });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [cx, tail_tip_y], color: color_bot });
+
+        // Nameplate bar at top: 2 triangles, uses node type color.
+        let np_color = self.node_color_for_u8(world.hierarchy[node_index].node_type);
+        let np_bottom = box_top + nameplate_h;
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_top], color: np_color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: np_color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, np_bottom], color: np_color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: np_color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, np_bottom], color: np_color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, np_bottom], color: np_color });
+
+        // Border: 4 thin quads (top, bottom, left, right) — white.
+        let border_color = [1.0_f32, 1.0, 1.0, 0.85];
+
+        // Top border
+        self.push_border_quad(left, box_top, right, box_top + border_w, border_color);
+        // Bottom border
+        self.push_border_quad(left, box_bottom - border_w, right, box_bottom, border_color);
+        // Left border
+        self.push_border_quad(left, box_top, left + border_w, box_bottom, border_color);
+        // Right border
+        self.push_border_quad(right - border_w, box_top, right, box_bottom, border_color);
+    }
+
+    fn push_border_quad(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 4]) {
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x0, y0], color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x1, y0], color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x0, y1], color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x1, y0], color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x1, y1], color });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x0, y1], color });
+    }
+
+    /// Prepare dialogue box GPU data. Call before the render pass.
+    /// Builds vertices, uploads buffers, ensures pipeline is compiled.
+    pub fn prepare_dialogue_box(&mut self, world: &World) {
+        if !self.dialogue.active {
+            return;
+        }
+
+        self.ensure_dialogue_pipeline();
+        self.compute_dialogue_box_position(world);
+        self.build_dialogue_vertices(world);
+
+        let vertex_count = self.dialogue_vertex_scratch.len();
+        if vertex_count == 0 {
+            return;
+        }
+
+        // Upload vertices to GPU buffer.
+        let needed_bytes = (vertex_count * std::mem::size_of::<DialogueVertex>()) as u64;
+        if self.dialogue_vertex_buf.as_ref().is_none_or(|b| b.length() < needed_bytes) {
+            let capacity_bytes = (needed_bytes * 3 / 2).max(1024);
+            self.dialogue_vertex_buf = Some(
+                self.device.new_buffer(capacity_bytes, MTLResourceOptions::StorageModeShared),
+            );
+        }
+        if let Some(buf) = &self.dialogue_vertex_buf {
+            // SAFETY: buf.contents() is valid for buf.length() bytes; we ensured capacity above.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.dialogue_vertex_scratch.as_ptr(),
+                    buf.contents() as *mut DialogueVertex,
+                    vertex_count,
+                );
+            }
+        }
+
+        // Upload dialogue uniforms.
+        let elapsed = self.start_time.elapsed().as_secs_f32();
+        let du = DialogueUniforms {
+            viewport_size: [self.last_viewport_width, self.last_viewport_height],
+            camera_offset: self.camera_offset,
+            camera_zoom: self.camera_zoom,
+            time: elapsed,
+            _pad: [0.0; 2],
+        };
+        if self.dialogue_uniform_buf.is_none() {
+            self.dialogue_uniform_buf = Some(self.device.new_buffer(
+                std::mem::size_of::<DialogueUniforms>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            ));
+        }
+        if let Some(ubuf) = &self.dialogue_uniform_buf {
+            // SAFETY: ubuf is large enough for DialogueUniforms (32 bytes).
+            unsafe {
+                let ptr = ubuf.contents() as *mut DialogueUniforms;
+                *ptr = du;
+            }
+        }
+    }
+
+    /// Issue dialogue box draw commands into the encoder.
+    /// Call after prepare_dialogue_box, inside the render pass.
+    fn draw_dialogue_commands(&self, encoder: &RenderCommandEncoderRef) {
+        if !self.dialogue.active {
+            return;
+        }
+        let vertex_count = self.dialogue_vertex_scratch.len();
+        if vertex_count == 0 {
+            return;
+        }
+        let Some(pipeline) = &self.dialogue_pipeline else {
+            return;
+        };
+        encoder.set_render_pipeline_state(pipeline);
+        if let (Some(vbuf), Some(ubuf)) = (&self.dialogue_vertex_buf, &self.dialogue_uniform_buf) {
+            encoder.set_vertex_buffer(0, Some(vbuf), 0);
+            encoder.set_vertex_buffer(1, Some(ubuf), 0);
+            encoder.draw_primitives(
+                MTLPrimitiveType::Triangle,
+                0,
+                vertex_count as u64,
+            );
+        }
+    }
+
     /// Camera smoothing factor. Higher = faster. 3.0 = gentle cinematic glide.
     const CAMERA_LAMBDA: f32 = 3.0;
 
@@ -1646,8 +2021,9 @@ impl Renderer {
         }
     }
 
-    pub fn draw(&mut self, viewport_width: u32, viewport_height: u32, _world: &World) {
+    pub fn draw(&mut self, viewport_width: u32, viewport_height: u32, world: &World) {
         self.set_viewport_size(viewport_width, viewport_height);
+        self.prepare_dialogue_box(world);
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
                 Some(d) => d,
@@ -1795,6 +2171,9 @@ impl Renderer {
                 }
             }
 
+            // Draw dialogue box overlay (after nodes, on top).
+            self.draw_dialogue_commands(encoder);
+
             encoder.end_encoding();
 
             cmd_buf.present_drawable(drawable);
@@ -1885,5 +2264,35 @@ mod tests {
         let bounds = viewport_bounds([0.0, 0.0], 1.0, [200.0, 200.0], 0.0);
         assert!(bounds_intersects_circle(bounds, [90.0, 0.0], 12.0));
         assert!(!bounds_intersects_circle(bounds, [150.0, 0.0], 12.0));
+    }
+
+    #[test]
+    fn dialogue_state_default_inactive() {
+        let state = DialogueState::default();
+        assert!(!state.active);
+        assert!(state.node_index.is_none());
+        assert!(!state.is_streaming);
+        assert_eq!(state.box_screen_rect, [0.0; 4]);
+        assert_eq!(state.node_screen_pos, [0.0; 2]);
+    }
+
+    #[test]
+    fn dialogue_vertex_size() {
+        // position(8) + color(16) = 24 bytes.
+        assert_eq!(std::mem::size_of::<DialogueVertex>(), 24);
+    }
+
+    #[test]
+    fn dialogue_uniforms_size() {
+        // viewport_size(8) + camera_offset(8) + camera_zoom(4) + time(4) + _pad(8) = 32 bytes.
+        assert_eq!(std::mem::size_of::<DialogueUniforms>(), 32);
+    }
+
+    #[test]
+    fn dialogue_constants_positive() {
+        assert!(DIALOGUE_BOX_SCREEN_WIDTH > 0.0);
+        assert!(DIALOGUE_BOX_SCREEN_HEIGHT > 0.0);
+        assert!(DIALOGUE_TAIL_SCREEN_HEIGHT > 0.0);
+        assert!(DIALOGUE_GAP_SCREEN > 0.0);
     }
 }
