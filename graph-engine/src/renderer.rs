@@ -1408,11 +1408,11 @@ impl Renderer {
     fn classic_node_instance(&self, world: &World, node_index: usize) -> NodeInstance {
         let co = world.render[node_index].color_override;
         let mut color = if co[3] > 0.0 {
-            co
+            // Depth palette encodes style signal in alpha > 1.0 — clamp for rendering.
+            [co[0], co[1], co[2], co[3].min(1.0)]
         } else {
             self.node_color_for_u8(world.hierarchy[node_index].node_type)
         };
-        color[3] *= BASE_NODE_ALPHA;
         let z = if self.quality_level >= 2 {
             0.0
         } else {
@@ -1544,7 +1544,8 @@ impl Renderer {
 
             self.node_count = self.classic_node_scratch.len();
         } else {
-            if lod.draw_glow {
+            let draw_glow = lod.draw_glow && self.visual_theme != VisualTheme::Dialogue;
+            if draw_glow {
                 for &node_index in &self.rendered_node_indices {
                     let pos = [world.transform[node_index].x, world.transform[node_index].y];
                     let node_instance = self.classic_node_instance(world, node_index);
@@ -1579,13 +1580,13 @@ impl Renderer {
                 }
             }
 
-            if lod.draw_glow && self.last_viewport_width > 0.0 && self.last_viewport_height > 0.0 {
+            if draw_glow && self.last_viewport_width > 0.0 && self.last_viewport_height > 0.0 {
                 self.update_wind_particles([self.last_viewport_width, self.last_viewport_height], self.camera_zoom);
             } else {
                 self.wind_particle_count = 0;
             }
 
-            if lod.draw_glow && self.wind_active {
+            if draw_glow && self.wind_active {
                 for particle in &self.wind_particles {
                     self.classic_node_scratch.push(NodeInstance {
                         position: [particle[0], particle[1]],

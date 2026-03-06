@@ -1636,8 +1636,12 @@ final class MetalGraphNSView: NSView {
                     self?.dismissDialogue()
                 }
             )
-            var root: AnyView = AnyView(overlay.environment(graphState))
-            if let uiState { root = AnyView(root.environment(uiState)) }
+            guard let uiState else { return }
+            let root = AnyView(
+                overlay
+                    .environment(graphState)
+                    .environment(uiState)
+            )
             let hosting = NSHostingView(rootView: root)
             hosting.frame = rect
             addSubview(hosting)
