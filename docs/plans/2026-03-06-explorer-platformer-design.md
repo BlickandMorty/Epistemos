@@ -1,17 +1,18 @@
-# Epistemos Explorer — 2D Top-Down RPG Mode (v2, revised)
+# Epistemos Explorer — 2D Top-Down RPG Mode (v3, revised)
 
-> Incorporates feedback from Codex review. Explorer is additive (third mode), not a replacement.
+> Incorporates two rounds of Codex review. Explorer is a separate experience mode, not a visual theme.
 
 ## Summary
 
-Add a **third visual theme** (`.explorer`) that launches a standalone Bevy top-down RPG window. Graph nodes become NPCs and buildings in a procedurally generated world. The player walks around, talks to node-NPCs, and gets AI-powered dialogue driven by the existing persona/archetype system.
+Add a **third graph experience mode** — Explorer — that launches a standalone Bevy top-down RPG window. Graph nodes become NPCs and buildings in a procedurally generated world. The player walks around, talks to node-NPCs, and gets AI-powered dialogue driven by the existing persona/archetype system.
 
-The existing `.dialogue` mode (SwiftUI overlay, Metal rendering, personas, care state, two skins) is **kept intact**. Explorer is a separate, additive mode.
+Explorer is **not** a `VisualTheme` variant. The Rust-facing `GraphVisualTheme` enum stays as-is (`.classic` / `.dialogue`). Explorer is a Swift-side presentation mode that lives alongside the graph view, not inside it.
+
+The existing `.dialogue` mode (SwiftUI overlay, Metal rendering, personas, care state, two skins) is **kept intact**. Explorer is separate and additive.
 
 ```
-VisualTheme:
-  .classic   → MetalGraphView (force-directed graph, unchanged)
-  .dialogue  → MetalGraphView + DialogueOverlayView (existing, unchanged)
+GraphExperienceMode (Swift-only, not sent to Rust):
+  .graph     → MetalGraphView with VisualTheme (.classic or .dialogue)
   .explorer  → Standalone Bevy window (NEW)
 ```
 
@@ -30,16 +31,26 @@ VisualTheme:
 ```
 Epistemos (Swift/Metal)
   ├── Main Window
-  │   ├── theme == .classic   → MetalGraphView (existing)
-  │   ├── theme == .dialogue  → MetalGraphView + DialogueOverlayView (existing)
-  │   └── theme == .explorer  → launches standalone Bevy window (new)
+  │   ├── GraphExperienceMode == .graph
+  │   │   └── MetalGraphView (classic or dialogue VisualTheme, unchanged)
+  │   └── GraphExperienceMode == .explorer
+  │       └── launches standalone Bevy window (new)
   │
-  └── Data flow: GraphStore → JSON file → Bevy loads at startup
+  └── Data flow: GraphStore (current filtered projection) → JSON → Bevy
 ```
 
 The Bevy app is a **separate binary** (`epistemos-explorer`) in a new workspace crate. Swift spawns it as a child process when Explorer mode activates. Bevy creates its own standalone window via winit (no child-window reparenting — that's brittle). Swift communicates via stdin/stdout JSON IPC for AI dialogue.
 
-**No existing code is deleted.** The dialogue mode, DialogueOverlayView, DialogueChatState, persona/archetype/care system, Metal dialogue shader — all stay. Explorer is purely additive.
+**No existing code is deleted.** The Rust-facing `GraphVisualTheme` enum is not modified. The dialogue mode, DialogueOverlayView, DialogueChatState, persona/archetype/care system, Metal dialogue shader — all stay. Explorer is purely additive.
+
+### Graph Data Export
+
+Explorer consumes the **current filtered/mode-scoped graph projection**, not the full graph. Whatever the user sees in the graph view is what gets exported:
+- If in `.global` mode → full graph
+- If in `.page(nodeId:)` mode → that page's subgraph
+- If time-filtered or semantically filtered → the filtered subset
+
+This means the JSON export reads from `GraphState`'s current visible nodes/edges, not from the raw `GraphStore`. The export includes persona snapshots (see below).
 
 ---
 
@@ -180,7 +191,7 @@ This avoids the per-edge explosion on dense graphs. A graph with 500 edges but 8
 
 **Player:** WASD/arrows, 4-directional, ~120 px/s. Simple AABB collision against terrain and buildings (no Rapier in v1). State machine: Idle → Walk (on input), Walk → Idle (no input), Walk/Idle → Talk (E near NPC), Talk → Idle (dismiss). Sprite from Ninja Adventure, 4-frame walk cycles per direction.
 
-**NPCs:** One per graph node. Static, face player when nearby. AABB interaction zone (~48px radius). When player enters zone: "E to talk" prompt appears. NpcData carries node_id, label, archetype, mood, health, attention, opening_line — all derived from persona system (same logic as DialogueNodeProfile).
+**NPCs:** One per graph node. Static, face player when nearby. AABB interaction zone (~48px radius). When player enters zone: "E to talk" prompt appears. NpcData carries node_id, label, archetype, mood, health, attention, opening_line — all from a **persona snapshot exported by Swift** in the graph JSON (see Data Export below). Bevy does NOT reimplement persona derivation, care decay, or mood transitions. Swift owns all persona logic; Bevy just reads the snapshot.
 
 **Dialogue box (Bevy-native, in-game):**
 ```
@@ -213,19 +224,56 @@ ExplorerWindowController {
 ```
 
 **Launch:** When user selects Explorer mode:
-1. Swift serializes GraphStore → JSON at temp path
+1. Swift exports current graph projection + persona snapshots → JSON at temp path
 2. Spawns `epistemos-explorer --graph <path>` as child process
 3. Bevy creates its own standalone window via winit (no reparenting)
 4. Swift reads game's stdout on background thread for IPC
 
-**IPC (line-delimited JSON over stdin/stdout):**
-```
-Game → Swift:  {"type":"query","nodeId":"abc","text":"Tell me about..."}
-Swift → Game:  {"type":"token","text":"The "}
-Swift → Game:  {"type":"done"}
+**Graph JSON schema:**
+```json
+{
+  "nodes": [
+    {
+      "id": "uuid-123",
+      "label": "Research Notes",
+      "type": "note",
+      "sourceId": "page-uuid",
+      "x": 142.5,
+      "y": -87.3,
+      "persona": {
+        "archetype": "archivist",
+        "mood": "curious",
+        "health": 0.72,
+        "attention": 0.58,
+        "openingLine": "I kept the receipts...",
+        "summary": "Research Notes guards receipts...",
+        "focusKeywords": ["methodology", "evidence"],
+        "portrait": { "symbol": "books.vertical.fill", "crestLabel": "Catalog" }
+      }
+    }
+  ],
+  "edges": [
+    { "from": "uuid-123", "to": "uuid-456", "type": "reference" }
+  ]
+}
 ```
 
-Swift routes queries through the existing TriageService (same AI pipeline as DialogueChatState). The persona/archetype derivation logic is duplicated in the Bevy crate (pure Rust, no Swift dependency) for NPC initialization, but AI routing stays in Swift.
+Persona snapshots are computed by Swift using the existing `DialogueNodeProfile.derive()` + `DialogueCareState` at export time. Bevy reads them as-is — no derivation logic in Rust.
+
+**IPC (line-delimited JSON over stdin/stdout):**
+```
+Game → Swift:  {"type":"query","requestId":"q1","nodeId":"abc","text":"Tell me about..."}
+Game → Swift:  {"type":"cancel","requestId":"q1"}
+
+Swift → Game:  {"type":"token","requestId":"q1","text":"The "}
+Swift → Game:  {"type":"token","requestId":"q1","text":"key insight "}
+Swift → Game:  {"type":"done","requestId":"q1"}
+Swift → Game:  {"type":"error","requestId":"q1","message":"Service unavailable"}
+```
+
+Every query/response pair carries a `requestId` (monotonic counter). This prevents races when the player switches NPCs quickly or closes the dialogue while a stream is in-flight. Bevy ignores tokens with stale requestIds. Swift cancels in-flight TriageService streams on `cancel`.
+
+Swift owns all persona/archetype/care logic. Bevy reads persona snapshots from the graph JSON export but never derives, decays, or transitions mood/health/attention.
 
 **Shutdown:** User switches away from Explorer mode → send `{"type":"quit"}` to stdin → terminate after 1s grace → clean up temp JSON.
 
@@ -239,8 +287,9 @@ Swift routes queries through the existing TriageService (same AI pipeline as Dia
 
 **New Swift code:**
 - `ExplorerWindowController.swift` — process lifecycle + IPC
-- `VisualTheme.explorer` case added to enum
+- `GraphExperienceMode` enum (`.graph` / `.explorer`) on GraphState — Swift-only, not sent to Rust
 - Explorer toggle button in GraphFloatingControls
+- Graph JSON export function that reads current filtered projection + persona snapshots
 
 ---
 
