@@ -1,6 +1,6 @@
-# Epistemos Explorer — 2D Top-Down RPG Mode (v3, revised)
+# Epistemos Explorer — 2D Top-Down RPG Mode
 
-> Incorporates two rounds of Codex review. Explorer is a separate experience mode, not a visual theme.
+> Approved design. Explorer is a separate experience mode, not a visual theme.
 
 ## Summary
 
@@ -135,8 +135,8 @@ Isolated nodes = lone outposts
 
 **Phase 2 — Layout:**
 ```
-Node positions come from GraphStore's stored position hints (phyllotaxis layout
-  or last-saved positions), NOT from live Rust engine simulation positions.
+Node positions come from stored GraphStore position hints (phyllotaxis layout),
+  NOT from live Rust engine simulation positions.
   The Swift-side GraphStore already has x/y per node — these are exported in the JSON.
   If positions are too bunched or sparse, Bevy rescales to tile-space with a
   simple normalize-to-bounding-box pass.
