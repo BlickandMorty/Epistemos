@@ -364,6 +364,15 @@ final class GraphState {
         }
     }
     var visualThemeVersion: Int = 0
+    var dialoguePresentationTheme: DialoguePresentationTheme = {
+        let raw = UserDefaults.standard.integer(forKey: "graphDialogueOverlayTheme")
+        guard (0...255).contains(raw) else { return .tactics }
+        return DialoguePresentationTheme(rawValue: UInt8(raw)) ?? .tactics
+    }() {
+        didSet {
+            UserDefaults.standard.set(Int(dialoguePresentationTheme.rawValue), forKey: "graphDialogueOverlayTheme")
+        }
+    }
 
     // MARK: - Force Parameters
     // Core 4 params (basic panel) + 5 extended params (advanced panel).

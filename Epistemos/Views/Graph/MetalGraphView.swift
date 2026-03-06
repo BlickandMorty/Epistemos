@@ -21,6 +21,9 @@ struct MetalGraphView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: MetalGraphNSView, context: Context) {
+        nsView.graphState = graphState
+        nsView.physicsCoordinator = physicsCoordinator
+        nsView.dialogueChatState = dialogueChatState
         // Wake the render loop whenever SwiftUI detects a GraphState change.
         // This ensures version-based syncs in renderFrame() (lite mode, force params,
         // cluster params, etc.) fire even when physics is settled and renderNeeded=false.
@@ -899,9 +902,23 @@ final class MetalGraphNSView: NSView {
                 uuid.withCString { cstr in
                     graph_engine_dialogue_open(engine, cstr)
                 }
-                let label = graphState?.store.nodes[uuid]?.label ?? "Unknown"
+                let nodeRecord = graphState?.store.nodes[uuid]
+                let label = nodeRecord?.label ?? "Unknown"
+                let noteBody: String
+                if let sourceId = nodeRecord?.sourceId {
+                    noteBody = NoteFileStorage.readBody(pageId: sourceId)
+                } else {
+                    noteBody = ""
+                }
+                let linkedLabels = graphState?.store.neighbors(of: uuid).map(\.label) ?? []
                 let isNewNode = dialogueChatState.activeNodeId != uuid
-                dialogueChatState.open(nodeId: uuid, label: label)
+                dialogueChatState.open(
+                    nodeId: uuid,
+                    label: label,
+                    nodeType: nodeRecord?.type ?? .note,
+                    noteBody: noteBody,
+                    linkedNodeLabels: linkedLabels
+                )
                 if isNewNode {
                     dialogueChatState.onStreamingChanged = { [weak self] streaming in
                         guard let engine = self?.engine else { return }
@@ -1295,7 +1312,9 @@ final class MetalGraphNSView: NSView {
     // MARK: - Dialogue Overlay
 
     private func updateDialogueOverlay(rect: CGRect) {
-        guard let dialogueChatState, dialogueChatState.activeNodeId != nil else {
+        guard let dialogueChatState,
+              dialogueChatState.activeNodeId != nil,
+              let graphState else {
             hideDialogueOverlay()
             return
         }
@@ -1310,7 +1329,7 @@ final class MetalGraphNSView: NSView {
                     self?.dismissDialogue()
                 }
             )
-            let hosting = NSHostingView(rootView: AnyView(overlay))
+            let hosting = NSHostingView(rootView: AnyView(overlay.environment(graphState)))
             hosting.frame = rect
             addSubview(hosting)
             dialogueHostingView = hosting
@@ -1347,12 +1366,14 @@ final class MetalGraphNSView: NSView {
         }
 
         let linkedLabels = graphState.store.neighbors(of: nodeId).map { $0.label }
+        let nodeType = graphState.store.nodes[nodeId]?.type ?? .note
 
         guard let triageService = AppBootstrap.shared?.triageService else { return }
 
         dialogueChatState.submitQuery(
             noteBody: noteBody,
             linkedNodeLabels: linkedLabels,
+            nodeType: nodeType,
             triageService: triageService
         )
     }

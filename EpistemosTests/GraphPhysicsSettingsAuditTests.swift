@@ -107,3 +107,70 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!UserDefaults.standard.bool(forKey: "epistemos.physics.useSemanticClustering"))
     }
 }
+
+@Suite("Dialogue Game State")
+struct DialogueGameStateAuditTests {
+
+    @Test("citation-heavy content derives archivist persona")
+    func archivistPersona() {
+        let profile = DialogueNodeProfile.derive(
+            nodeId: "node-1",
+            label: "Research Notes",
+            nodeType: .note,
+            noteBody: """
+            DOI:10.1000/example. Journal of Systems, 2024.
+            This review cites multiple studies and compares methodologies.
+            """,
+            linkedNodeLabels: ["Method", "Evidence", "Study"]
+        )
+
+        #expect(profile.archetype == .archivist)
+        #expect(profile.portrait.symbol == "books.vertical.fill")
+        #expect(profile.care.health > 0.45)
+        #expect(!profile.focusKeywords.isEmpty)
+    }
+
+    @Test("question-heavy content derives examiner persona")
+    func examinerPersona() {
+        let profile = DialogueNodeProfile.derive(
+            nodeId: "node-2",
+            label: "Open Problems",
+            nodeType: .idea,
+            noteBody: """
+            Why does this break under load? How should the system respond?
+            What evidence would falsify the current hypothesis?
+            """,
+            linkedNodeLabels: ["Hypothesis", "Load Test"]
+        )
+
+        #expect(profile.archetype == .examiner)
+        #expect(profile.care.mood == .curious)
+        #expect(profile.summary.contains("asks"))
+    }
+
+    @Test("interaction feed boosts attention and health")
+    func interactionImprovesVitals() {
+        var profile = DialogueNodeProfile.derive(
+            nodeId: "node-3",
+            label: "Sparse Note",
+            nodeType: .note,
+            noteBody: "",
+            linkedNodeLabels: []
+        )
+
+        let initialHealth = profile.care.health
+        let initialAttention = profile.care.attention
+
+        profile.recordInteraction(userText: "How are you holding up?")
+
+        #expect(profile.care.health > initialHealth)
+        #expect(profile.care.attention > initialAttention)
+        #expect(profile.care.interactionCount == 1)
+    }
+
+    @Test("dialogue themes stay distinct")
+    func dialogueThemesDistinct() {
+        #expect(DialoguePresentationTheme.tactics.displayName != DialoguePresentationTheme.nocturne.displayName)
+        #expect(DialoguePresentationTheme.tactics.chromeLabel != DialoguePresentationTheme.nocturne.chromeLabel)
+    }
+}

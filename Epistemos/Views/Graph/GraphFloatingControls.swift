@@ -38,6 +38,14 @@ struct GraphFloatingControls: View {
 
                 themeToggle
 
+                if graphState.visualTheme == .dialogue {
+                    Divider()
+                        .frame(height: 20)
+                        .opacity(0.3)
+
+                    dialogueThemeToggle
+                }
+
                 Divider()
                     .frame(height: 20)
                     .opacity(0.3)
@@ -193,6 +201,28 @@ struct GraphFloatingControls: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 4)
             .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
+    }
+
+    private var dialogueThemeToggle: some View {
+        HStack(spacing: 2) {
+            dialogueThemeButton(theme: .tactics)
+            dialogueThemeButton(theme: .nocturne)
+        }
+    }
+
+    private func dialogueThemeButton(theme: DialoguePresentationTheme) -> some View {
+        let isSelected = graphState.dialoguePresentationTheme == theme
+        return Button {
+            graphState.dialoguePresentationTheme = theme
+        } label: {
+            Text(theme.displayName)
+                .font(.system(size: 10, weight: .medium))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
