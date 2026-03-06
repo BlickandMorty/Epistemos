@@ -520,24 +520,7 @@ impl Engine {
         if positions_changed || camera_moving || viewport_changed {
             self.renderer.update_positions(&self.world);
         }
-        let use_aggregated_edges = self.renderer.visual_theme == VisualTheme::Classic
-            && self.renderer.camera_zoom < crate::edge_aggregation::AGGREGATION_THRESHOLD;
-        if use_aggregated_edges && (positions_changed || camera_moving || viewport_changed) {
-            let cluster_sync = {
-                let sim = self.sim.lock();
-                self.cluster_cache
-                    .assignments_for_zoom(self.renderer.camera_zoom)
-                    .map(|assignments| (assignments.to_vec(), sim.graph_indices.clone()))
-            };
-
-            if let Some((assignments, graph_indices)) = cluster_sync {
-                self.world.sync_clusters(&assignments, &graph_indices);
-                let aggregated_edges = crate::edge_aggregation::build_aggregated_edges(&self.world);
-                self.renderer.upload_aggregated_edges(&aggregated_edges);
-            } else {
-                self.renderer.clear_aggregated_edges();
-            }
-        } else if self.renderer.use_aggregated_edges {
+        if self.renderer.use_aggregated_edges {
             self.renderer.clear_aggregated_edges();
         }
         if positions_changed {
@@ -1107,14 +1090,7 @@ impl Engine {
             .build(cluster_state.0.clone(), &cluster_state.1, &cluster_state.2);
         self.world.sync_clusters(&cluster_state.0, &cluster_state.2);
 
-        if self.renderer.visual_theme == VisualTheme::Classic
-            && self.renderer.camera_zoom < crate::edge_aggregation::AGGREGATION_THRESHOLD
-        {
-            let aggregated_edges = crate::edge_aggregation::build_aggregated_edges(&self.world);
-            self.renderer.upload_aggregated_edges(&aggregated_edges);
-        } else {
-            self.renderer.clear_aggregated_edges();
-        }
+        self.renderer.clear_aggregated_edges();
     }
 
     /// Push semantic neighbor pairs to the simulation thread.

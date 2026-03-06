@@ -137,24 +137,27 @@ pub(crate) fn viewport_bounds(
 }
 
 pub(crate) fn lod_profile_for_zoom(_zoom: f32, quality_level: u8) -> LodProfile {
-    let zoom = _zoom.max(0.01);
-    LodProfile {
-        draw_edges: zoom >= 0.08,
-        draw_glow: quality_level == 0 && zoom >= 0.18,
-        cluster_nodes: zoom < 0.08,
-        edge_degree_threshold: if zoom < 0.16 {
-            16
-        } else if zoom < 0.30 {
-            36
-        } else {
-            u32::MAX
+    match quality_level {
+        0 => LodProfile {
+            draw_edges: true,
+            draw_glow: true,
+            cluster_nodes: false,
+            edge_degree_threshold: u32::MAX,
+            max_edges_per_node: u16::MAX,
         },
-        max_edges_per_node: if zoom < 0.16 {
-            4
-        } else if zoom < 0.30 {
-            10
-        } else {
-            u16::MAX
+        1 => LodProfile {
+            draw_edges: true,
+            draw_glow: false,
+            cluster_nodes: false,
+            edge_degree_threshold: u32::MAX,
+            max_edges_per_node: u16::MAX,
+        },
+        _ => LodProfile {
+            draw_edges: true,
+            draw_glow: false,
+            cluster_nodes: false,
+            edge_degree_threshold: 36,
+            max_edges_per_node: 10,
         },
     }
 }
@@ -2608,20 +2611,13 @@ mod tests {
     }
 
     #[test]
-    fn lod_profile_hides_edges_when_zoomed_far_out() {
-        let lod = lod_profile_for_zoom(0.08, 0);
-        assert!(lod.draw_edges);
-        assert!(!lod.draw_glow);
-        assert!(!lod.cluster_nodes);
-    }
-
-    #[test]
-    fn lod_profile_switches_to_density_clusters_far_out() {
-        let lod = lod_profile_for_zoom(0.05, 0);
-        assert!(!lod.draw_edges);
-        assert!(lod.cluster_nodes);
-        assert_eq!(lod.edge_degree_threshold, 16);
-        assert_eq!(lod.max_edges_per_node, 4);
+    fn lod_profile_is_zoom_stable_in_cinematic_mode() {
+        let near = lod_profile_for_zoom(1.0, 0);
+        let far = lod_profile_for_zoom(0.05, 0);
+        assert_eq!(near, far);
+        assert!(near.draw_edges);
+        assert!(near.draw_glow);
+        assert!(!near.cluster_nodes);
     }
 
     #[test]
@@ -2630,12 +2626,15 @@ mod tests {
     }
 
     #[test]
-    fn lod_profile_reduces_hub_edge_budget_before_disabling_edges() {
-        let lod = lod_profile_for_zoom(0.12, 0);
-        assert!(lod.draw_edges);
-        assert!(!lod.cluster_nodes);
-        assert_eq!(lod.edge_degree_threshold, 16);
-        assert_eq!(lod.max_edges_per_node, 4);
+    fn lod_profile_is_zoom_stable_in_performance_mode() {
+        let near = lod_profile_for_zoom(1.0, 2);
+        let far = lod_profile_for_zoom(0.05, 2);
+        assert_eq!(near, far);
+        assert!(near.draw_edges);
+        assert!(!near.draw_glow);
+        assert!(!near.cluster_nodes);
+        assert_eq!(near.edge_degree_threshold, 36);
+        assert_eq!(near.max_edges_per_node, 10);
     }
 
     #[test]
