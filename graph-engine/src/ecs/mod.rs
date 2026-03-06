@@ -1,5 +1,6 @@
 //! ECS World — SoA (Struct of Arrays) storage for cache-friendly iteration.
 
+pub mod bridge;
 pub mod components;
 pub mod spatial_grid;
 
@@ -22,6 +23,9 @@ pub struct World {
     pub render: Vec<RenderComponent>,
     pub ai: Vec<AIComponent>,
     pub spatial_grid: SpatialGrid,
+
+    /// Maps Graph node IDs to ECS entity IDs for FFI lookups during migration.
+    pub node_id_to_entity: FxHashMap<u32, Entity>,
 }
 
 impl Default for World {
@@ -42,6 +46,7 @@ impl World {
             render: Vec::new(),
             ai: Vec::new(),
             spatial_grid: SpatialGrid::new(50.0),
+            node_id_to_entity: FxHashMap::default(),
         }
     }
 
@@ -56,6 +61,7 @@ impl World {
             render: Vec::with_capacity(cap),
             ai: Vec::with_capacity(cap),
             spatial_grid: SpatialGrid::new(50.0),
+            node_id_to_entity: FxHashMap::default(),
         }
     }
 
