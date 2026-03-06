@@ -34,6 +34,22 @@ const SETTLED_SLEEP_MS: u64 = 50;
 /// Above this threshold, use cheap spatial clustering instead of Louvain.
 const LOUVAIN_MAX_NODES: usize = 10_000;
 
+fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Duration) {
+    if !entrance {
+        return (24, Duration::from_millis(2));
+    }
+
+    if node_count < 128 {
+        (180, Duration::from_millis(12))
+    } else if node_count < 512 {
+        (120, Duration::from_millis(10))
+    } else if node_count < 1_200 {
+        (72, Duration::from_millis(8))
+    } else {
+        (36, Duration::from_millis(6))
+    }
+}
+
 fn clamp_zoom_for_theme(theme: VisualTheme, zoom: f32) -> f32 {
     match theme {
         VisualTheme::Pixel => zoom.clamp(0.05, 10.0),
@@ -119,6 +135,10 @@ pub struct Engine {
     world: World,
     /// Tracks whether the previous rendered frame still had active physics.
     last_sim_active: bool,
+    /// Defers expensive cull/buffer rebuilds until a camera move finishes.
+    camera_rebuild_pending: bool,
+    /// Rebuild per-node highlight flags only when highlight state changes.
+    highlight_dirty: bool,
     cluster_cache: ClusterCache,
 }
 
@@ -154,6 +174,8 @@ impl Engine {
             btk_logs: HashMap::new(),
             world: World::new(),
             last_sim_active: false,
+            camera_rebuild_pending: false,
+            highlight_dirty: true,
             cluster_cache: ClusterCache::new(),
         })
     }
@@ -278,15 +300,18 @@ impl Engine {
                 // BFS layout places connected nodes near parents, so moderate alpha
                 // is safe — repulsion fine-tunes spacing without explosive separation.
                 let sn = sim.x.len();
-                let max_ticks = if entrance { 1200 } else { 50 };
+                let (max_ticks, time_budget) = presettle_limits(sn, entrance);
                 if entrance {
-                    sim.params.alpha = 0.15;
-                    sim.params.alpha_decay = 0.01; // Slower decay → more effective ticks
+                    sim.params.alpha = 0.12;
+                    sim.params.alpha_decay = 0.02;
                 }
-                if sn < 2000 {
+                if sn < 2000 && max_ticks > 0 {
+                    let start = Instant::now();
                     for _ in 0..max_ticks {
                         sim.tick();
-                        if sim.is_settled { break; }
+                        if sim.is_settled || start.elapsed() >= time_budget {
+                            break;
+                        }
                     }
                 }
             }
@@ -319,6 +344,7 @@ impl Engine {
         self.drag = None;
         self.renderer.highlight.active = false;
         self.renderer.highlight.highlighted_ids.clear();
+        self.highlight_dirty = true;
 
         // ── Start Physics ────────────────────────────────────────────
         self.start_physics();
@@ -504,7 +530,10 @@ impl Engine {
 
         // Request next frame only when something is animating.
         let camera_moving = self.renderer.is_animating;
-        let needs_frame = sim_active || camera_moving || viewport_changed;
+        let camera_refresh_due = self.camera_rebuild_pending && !camera_moving;
+        let instance_buffers_changed = positions_changed || viewport_changed || camera_refresh_due;
+        let needs_frame =
+            sim_active || camera_moving || viewport_changed || camera_refresh_due || self.highlight_dirty;
 
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
@@ -517,8 +546,9 @@ impl Engine {
             self.idle_frame_count = 0;
         }
 
-        if positions_changed || camera_moving || viewport_changed {
+        if instance_buffers_changed {
             self.renderer.update_positions(&self.world);
+            self.camera_rebuild_pending = false;
         }
         if self.renderer.use_aggregated_edges {
             self.renderer.clear_aggregated_edges();
@@ -533,8 +563,9 @@ impl Engine {
 
         // Rebuild per-instance highlight flags only when something visual changed.
         // Skipping this when idle saves O(N) work per frame at 10K nodes.
-        if positions_changed || needs_frame {
+        if instance_buffers_changed || self.highlight_dirty {
             self.renderer.rebuild_highlight_flags(&self.world);
+            self.highlight_dirty = false;
         }
 
         // Update magnetic field lines only when hovering (skip in lite mode entirely).
@@ -747,6 +778,7 @@ impl Engine {
         self.renderer.camera_offset[0] -= delta_x / zoom;
         self.renderer.camera_offset[1] += delta_y / zoom;
         self.renderer.target_offset = self.renderer.camera_offset;
+        self.camera_rebuild_pending = true;
     }
 
     /// Pinch-to-zoom toward the cursor position.
@@ -769,6 +801,7 @@ impl Engine {
         self.renderer.camera_offset = [new_ox, new_oy];
         self.renderer.target_zoom = new_zoom;
         self.renderer.target_offset = [new_ox, new_oy];
+        self.camera_rebuild_pending = true;
     }
 
     // ── Neighbor Highlighting ────────────────────────────────────────
@@ -805,6 +838,7 @@ impl Engine {
     fn highlight_neighbors_by_id(&mut self, node_id: u32) {
         self.renderer.highlight.highlighted_ids = self.neighbor_ids(node_id);
         self.renderer.highlight.active = true;
+        self.highlight_dirty = true;
         self.idle_frame_count = 0;
     }
 
@@ -874,6 +908,7 @@ impl Engine {
         if self.renderer.highlight.active {
             self.renderer.highlight.active = false;
             self.renderer.highlight.highlighted_ids.clear();
+            self.highlight_dirty = true;
             self.idle_frame_count = 0;
         }
     }
@@ -903,6 +938,7 @@ impl Engine {
             self.renderer.highlight.highlighted_ids = ids;
             self.renderer.highlight.active = true;
         }
+        self.highlight_dirty = true;
         self.idle_frame_count = 0;
     }
 
@@ -923,6 +959,7 @@ impl Engine {
             cy /= count as f32;
             self.renderer.target_offset = [cx, cy];
             self.renderer.is_animating = true;
+            self.camera_rebuild_pending = true;
         }
     }
 
@@ -935,6 +972,7 @@ impl Engine {
             self.renderer.target_offset = [node.x, node.y];
             self.renderer.target_zoom = 3.5; // Close-up zoom for page mode
             self.renderer.is_animating = true;
+            self.camera_rebuild_pending = true;
         }
     }
 
@@ -997,6 +1035,7 @@ impl Engine {
         self.renderer.target_offset = [cx, cy];
         self.renderer.target_zoom = clamp_zoom_for_theme(self.renderer.visual_theme, zoom);
         self.renderer.is_animating = true;
+        self.camera_rebuild_pending = true;
     }
 
     // ── Force Parameters ─────────────────────────────────────────────
@@ -1928,6 +1967,20 @@ mod tests {
     #[test]
     fn classic_zoom_clamp_keeps_existing_floor() {
         assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 0.35), 1.0);
+    }
+
+    #[test]
+    fn entrance_presettle_budget_is_bounded() {
+        let (ticks, budget) = presettle_limits(1_900, true);
+        assert!(ticks < 1_200, "entrance pre-settle should no longer block on 1200 ticks");
+        assert!(budget <= Duration::from_millis(6));
+    }
+
+    #[test]
+    fn non_entrance_presettle_budget_stays_tiny() {
+        let (ticks, budget) = presettle_limits(400, false);
+        assert_eq!(ticks, 24);
+        assert_eq!(budget, Duration::from_millis(2));
     }
 
     #[test]
