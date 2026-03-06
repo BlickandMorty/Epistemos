@@ -21,6 +21,12 @@ pub struct World {
     pub ai: Vec<AIComponent>,
 }
 
+impl Default for World {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl World {
     pub fn new() -> Self {
         Self {
@@ -49,8 +55,9 @@ impl World {
     }
 
     pub fn spawn(&mut self, transform: TransformComponent) -> Entity {
+        debug_assert!(self.next_entity_id < u32::MAX, "entity ID space exhausted");
         let entity = self.next_entity_id;
-        self.next_entity_id += 1;
+        self.next_entity_id = self.next_entity_id.wrapping_add(1);
 
         let index = self.entities.len();
         self.entities.push(entity);
@@ -70,7 +77,9 @@ impl World {
             return;
         };
 
-        let last = self.entities.len() - 1;
+        let Some(last) = self.entities.len().checked_sub(1) else {
+            return;
+        };
 
         if index != last {
             // Swap-remove: move last element into the vacated slot
@@ -99,6 +108,10 @@ impl World {
         self.entities.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.entities.is_empty()
+    }
+
     pub fn index_of(&self, entity: Entity) -> Option<usize> {
         self.entity_to_index.get(&entity).copied()
     }
@@ -107,6 +120,16 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn assert_world_invariants(world: &World) {
+        let n = world.entities.len();
+        assert_eq!(world.transform.len(), n);
+        assert_eq!(world.velocity.len(), n);
+        assert_eq!(world.hierarchy.len(), n);
+        assert_eq!(world.render.len(), n);
+        assert_eq!(world.ai.len(), n);
+        assert_eq!(world.entity_to_index.len(), n);
+    }
 
     #[test]
     fn test_world_add_entity() {
@@ -119,6 +142,7 @@ mod tests {
         assert_eq!(world.transform[idx].x, 1.0);
         assert_eq!(world.transform[idx].y, 2.0);
         assert_eq!(world.transform[idx].scale, 3.0);
+        assert_world_invariants(&world);
     }
 
     #[test]
@@ -132,12 +156,12 @@ mod tests {
         world.despawn(e0);
 
         assert_eq!(world.len(), 1);
-        // e1 should have been swapped into index 0
         let idx = world.index_of(e1).unwrap();
         assert_eq!(idx, 0);
         assert_eq!(world.transform[0].x, 30.0);
         assert_eq!(world.transform[0].y, 40.0);
         assert!(world.index_of(e0).is_none());
+        assert_world_invariants(&world);
     }
 
     #[test]
@@ -151,6 +175,7 @@ mod tests {
         assert!(world.render.capacity() >= 1024);
         assert!(world.ai.capacity() >= 1024);
         assert!(world.entities.capacity() >= 1024);
+        assert_world_invariants(&world);
     }
 
     #[test]
@@ -168,6 +193,7 @@ mod tests {
             let idx = world.index_of(e).unwrap();
             assert_eq!(world.transform[idx].x, i as f32);
         }
+        assert_world_invariants(&world);
     }
 
     #[test]
@@ -178,7 +204,6 @@ mod tests {
         let e0 = world.spawn(t0);
         let e1 = world.spawn(t1);
 
-        // Despawn last — no swap needed
         world.despawn(e1);
 
         assert_eq!(world.len(), 1);
@@ -186,6 +211,7 @@ mod tests {
         let idx = world.index_of(e0).unwrap();
         assert_eq!(idx, 0);
         assert_eq!(world.transform[0].x, 1.0);
+        assert_world_invariants(&world);
     }
 
     #[test]
@@ -194,10 +220,10 @@ mod tests {
         let t = TransformComponent { x: 1.0, y: 2.0, scale: 1.0 };
         world.spawn(t);
 
-        // Despawn entity that doesn't exist — should be no-op
         world.despawn(999);
 
         assert_eq!(world.len(), 1);
+        assert_world_invariants(&world);
     }
 
     #[test]
@@ -214,11 +240,50 @@ mod tests {
         assert_eq!(world.index_of(e1), Some(1));
         assert_eq!(world.index_of(e2), Some(2));
 
-        // After despawning e0, e2 moves to index 0
         world.despawn(e0);
 
         assert_eq!(world.index_of(e0), None);
         assert_eq!(world.index_of(e1), Some(1));
         assert_eq!(world.index_of(e2), Some(0));
+        assert_world_invariants(&world);
+    }
+
+    #[test]
+    fn test_full_cycle_consistency() {
+        let mut world = World::with_capacity(4);
+        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+        let e1 = world.spawn(TransformComponent { x: 1.0, y: 1.0, scale: 1.0 });
+        let e2 = world.spawn(TransformComponent { x: 2.0, y: 2.0, scale: 1.0 });
+
+        world.despawn(e1); // middle swap — e2 moves to index 1
+        assert_world_invariants(&world);
+
+        world.despawn(e0); // e2 (now at index 0 after swap) stays, e0 removed
+        assert_world_invariants(&world);
+
+        assert_eq!(world.len(), 1);
+        let idx = world.index_of(e2).unwrap();
+        assert_eq!(world.transform[idx].x, 2.0);
+
+        // Re-spawn after full cycle — new IDs, no collision
+        let e3 = world.spawn(TransformComponent { x: 3.0, y: 3.0, scale: 1.0 });
+        assert_eq!(world.len(), 2);
+        assert!(world.index_of(e0).is_none());
+        assert!(world.index_of(e1).is_none());
+        assert!(world.index_of(e3).is_some());
+        assert_world_invariants(&world);
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let mut world = World::new();
+        assert!(world.is_empty());
+
+        let e = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+        assert!(!world.is_empty());
+
+        world.despawn(e);
+        assert!(world.is_empty());
+        assert_world_invariants(&world);
     }
 }
