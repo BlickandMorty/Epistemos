@@ -4,7 +4,8 @@ use metal::foreign_types::ForeignType;
 use metal::*;
 use objc::rc::autoreleasepool;
 
-use crate::types::{Graph, edge_type_color, edge_type_color_light};
+use crate::ecs::World;
+use crate::types::{Graph, VisualTheme, VoxelPalette, edge_type_color, edge_type_color_light};
 
 // Direct Objective-C runtime call — avoids macro import issues with Rust 2024 edition.
 unsafe extern "C" {
@@ -48,6 +49,45 @@ struct Uniforms {
     lite_mode: f32,            // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
     impact_intensity: f32,     // 1.0 on heavy collision → 0.0 (chromatic aberration)
     _pad: f32,                 // pad to 64 bytes (Metal 16-byte struct alignment)
+}
+
+// ── Pixel art GPU data structs (must match PIXEL_SHADER_SOURCE layouts) ──────
+
+/// Per-instance data for pixel art node rendering (square block with optional glare).
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct PixelNodeInstance {
+    position: [f32; 2],       // offset 0  — world position (snapped in shader)
+    size: f32,                // offset 8  — block size in offscreen pixels
+    _pad0: f32,               // offset 12 — align base_color to 16 bytes
+    base_color: [f32; 4],     // offset 16
+    highlight_color: [f32; 4],// offset 32 — glare highlight (top-left)
+    shadow_color: [f32; 4],   // offset 48 — glare shadow (bottom-right)
+    has_glare: u32,           // offset 64 — 0 or 1
+    _pad1: [u32; 3],          // offset 68 — pad to 80 bytes (16-byte aligned)
+}
+
+/// Per-instance data for pixel art edge rendering (jagged line with jitter).
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct PixelEdgeInstance {
+    p0: [f32; 2],             // offset 0
+    p1: [f32; 2],             // offset 8
+    color: [f32; 4],          // offset 16
+    edge_id: u32,             // offset 32 — deterministic jitter seed
+    _pad: [u32; 3],           // offset 36 — pad to 48 bytes (16-byte aligned)
+}
+
+/// Uniform data for pixel art shaders (simpler than classic: no perspective, no animation).
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct PixelUniforms {
+    viewport_size: [f32; 2],  // offscreen texture size (low-res)
+    camera_offset: [f32; 2],
+    camera_zoom: f32,
+    frame_count: u32,         // for edge jitter
+    _pad0: f32,
+    _pad1: f32,
 }
 
 /// Compute z-depth from link count using 3 discrete tiers (Observatory layered planes).
@@ -373,6 +413,222 @@ fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
 
 "#;
 
+// ── Pixel Art Metal Shader Source ──────────────────────────────────────────
+
+const PIXEL_SHADER_SOURCE: &str = r#"
+#include <metal_stdlib>
+using namespace metal;
+
+// Pixel art uniforms — simpler than classic (no perspective, no animation)
+struct PixelUniforms {
+    float2 viewport_size;    // offscreen texture size (low-res)
+    float2 camera_offset;
+    float camera_zoom;
+    uint frame_count;        // for edge jitter
+    float _pad0;
+    float _pad1;
+};
+
+// ── Pixel Node (square block with optional glare) ──
+
+struct PixelNodeInstance {
+    float2 position;        // world position (will be snapped to integer in shader)
+    float  size;            // block size in offscreen pixels
+    float  _pad0;
+    float4 base_color;
+    float4 highlight_color; // glare highlight (top-left)
+    float4 shadow_color;    // glare shadow (bottom-right)
+    uint   has_glare;       // 0 or 1
+    uint3  _pad1;
+};
+
+struct PixelNodeOut {
+    float4 position [[position]];
+    float2 uv;             // 0..1 across the block
+    uint   has_glare;
+    float4 base_color;
+    float4 highlight_color;
+    float4 shadow_color;
+};
+
+vertex PixelNodeOut pixel_node_vertex(
+    uint vid [[vertex_id]],
+    uint iid [[instance_id]],
+    constant PixelNodeInstance* nodes [[buffer(0)]],
+    constant PixelUniforms& u [[buffer(1)]]
+) {
+    // 6-vertex quad (two triangles)
+    float2 corners[6] = {
+        float2(-0.5, -0.5), float2(0.5, -0.5), float2(-0.5, 0.5),
+        float2(-0.5, 0.5), float2(0.5, -0.5), float2(0.5, 0.5)
+    };
+
+    PixelNodeInstance node = nodes[iid];
+    float2 corner = corners[vid];
+
+    // Snap world position to integer pixel grid
+    float2 world_pos = round(node.position);
+
+    // Camera transform to screen space
+    float2 screen = (world_pos - u.camera_offset) * u.camera_zoom + corner * node.size;
+
+    // Snap screen position to integer pixel in offscreen texture
+    screen = round(screen);
+
+    // NDC transform
+    float2 ndc = screen / (u.viewport_size * 0.5);
+    ndc.y = -ndc.y;
+
+    PixelNodeOut out;
+    out.position = float4(ndc, 0.0, 1.0);
+    out.uv = corner + 0.5;  // 0..1
+    out.has_glare = node.has_glare;
+    out.base_color = node.base_color;
+    out.highlight_color = node.highlight_color;
+    out.shadow_color = node.shadow_color;
+    return out;
+}
+
+fragment float4 pixel_node_fragment(PixelNodeOut in [[stage_in]]) {
+    float4 color = in.base_color;
+
+    if (in.has_glare != 0) {
+        // 3-tone pixel glare: top-left highlight, center base, bottom-right shadow
+        float2 uv = in.uv;
+
+        if (uv.x < 0.3 && uv.y < 0.3) {
+            color = in.highlight_color;
+        } else if (uv.x > 0.7 && uv.y > 0.7) {
+            color = in.shadow_color;
+        }
+    }
+
+    return color;
+}
+
+// ── Pixel Edge (jagged line with hard cutoff) ──
+
+struct PixelEdgeInstance {
+    float2 p0;
+    float2 p1;
+    float4 color;
+    uint   edge_id;   // for deterministic jitter
+    uint3  _pad;
+};
+
+struct PixelEdgeOut {
+    float4 position [[position]];
+    float2 frag_coord;  // position on the quad in offscreen pixels
+    float2 line_p0;
+    float2 line_p1;
+    float4 color;
+    float  thickness;
+};
+
+vertex PixelEdgeOut pixel_edge_vertex(
+    uint vid [[vertex_id]],
+    uint iid [[instance_id]],
+    constant PixelEdgeInstance* edges [[buffer(0)]],
+    constant PixelUniforms& u [[buffer(1)]]
+) {
+    PixelEdgeInstance edge = edges[iid];
+
+    // Transform endpoints to screen space and snap
+    float2 sp0 = round((edge.p0 - u.camera_offset) * u.camera_zoom);
+    float2 sp1 = round((edge.p1 - u.camera_offset) * u.camera_zoom);
+
+    // Deterministic jitter: subtle per-frame stair-step variance
+    uint seed = edge.edge_id * 2654435761u + u.frame_count * 1013904223u;
+    float jx = (float(seed & 0xFFu) / 255.0 - 0.5) * 1.5;
+    float jy = (float((seed >> 8) & 0xFFu) / 255.0 - 0.5) * 1.5;
+    sp0 += float2(jx, jy) * 0.3;
+    sp1 += float2(jx, jy) * 0.3;
+    // Re-snap after jitter
+    sp0 = round(sp0);
+    sp1 = round(sp1);
+
+    // Build quad around the line segment with padding
+    float2 dir = sp1 - sp0;
+    float len = length(dir);
+    if (len < 0.001) { len = 1.0; dir = float2(1, 0); }
+    float2 norm = normalize(dir);
+    float2 perp = float2(-norm.y, norm.x);
+    float thickness = 1.0;  // 1 virtual pixel thick
+    float pad = thickness + 1.0;
+
+    // 6-vertex quad
+    float2 offsets[6] = {
+        float2(-pad, -pad), float2(len + pad, -pad), float2(-pad, pad),
+        float2(-pad, pad), float2(len + pad, -pad), float2(len + pad, pad)
+    };
+    float2 offset = offsets[vid];
+    float2 world = sp0 + norm * offset.x + perp * offset.y;
+
+    float2 ndc = world / (u.viewport_size * 0.5);
+    ndc.y = -ndc.y;
+
+    PixelEdgeOut out;
+    out.position = float4(ndc, 0.0, 1.0);
+    out.frag_coord = world;
+    out.line_p0 = sp0;
+    out.line_p1 = sp1;
+    out.color = edge.color;
+    out.thickness = thickness;
+    return out;
+}
+
+fragment float4 pixel_edge_fragment(PixelEdgeOut in [[stage_in]]) {
+    // SDF distance to line segment — hard boolean cutoff
+    float2 pa = in.frag_coord - in.line_p0;
+    float2 ba = in.line_p1 - in.line_p0;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    float dist = length(pa - ba * h);
+
+    // Angle compensation for uniform perceived thickness
+    float2 dir = normalize(ba);
+    float angle_factor = abs(dot(dir, float2(1, 0)));
+    float threshold = (in.thickness - 1.0 + angle_factor) * 0.5 + 0.5;
+
+    // HARD binary cutoff — pixel ON or OFF. No smoothstep.
+    if (dist > threshold) discard_fragment();
+
+    return in.color;
+}
+
+// ── Upscale Pass (nearest-neighbor full-screen quad) ──
+
+struct UpscaleOut {
+    float4 position [[position]];
+    float2 uv;
+};
+
+vertex UpscaleOut upscale_vertex(uint vid [[vertex_id]]) {
+    // Full-screen quad from 6 vertices
+    float2 positions[6] = {
+        float2(-1, -1), float2(1, -1), float2(-1, 1),
+        float2(-1, 1), float2(1, -1), float2(1, 1)
+    };
+    float2 uvs[6] = {
+        float2(0, 1), float2(1, 1), float2(0, 0),
+        float2(0, 0), float2(1, 1), float2(1, 0)
+    };
+
+    UpscaleOut out;
+    out.position = float4(positions[vid], 0.0, 1.0);
+    out.uv = uvs[vid];
+    return out;
+}
+
+fragment float4 upscale_fragment(
+    UpscaleOut in [[stage_in]],
+    texture2d<float> scene [[texture(0)]],
+    sampler nearest [[sampler(0)]]
+) {
+    return scene.sample(nearest, in.uv);
+}
+
+"#;
+
 // ── Highlight State ─────────────────────────────────────────────────────────
 
 /// Neighbor highlight state for shift+click.
@@ -476,6 +732,22 @@ pub struct Renderer {
     // Cached viewport size for particle bounds (set in draw()).
     last_viewport_width: f32,
     last_viewport_height: f32,
+    // ── Pixel art theme state ───────────────────────────────────────
+    pub visual_theme: VisualTheme,
+    pixel_scale: u8,
+    pixel_offscreen_texture: Option<Texture>,
+    pixel_offscreen_width: u32,
+    pixel_offscreen_height: u32,
+    pixel_nearest_sampler: Option<SamplerState>,
+    pixel_node_pipeline: Option<RenderPipelineState>,
+    pixel_edge_pipeline: Option<RenderPipelineState>,
+    pixel_upscale_pipeline: Option<RenderPipelineState>,
+    pixel_node_buf: Option<Buffer>,
+    pixel_node_capacity: usize,
+    pixel_edge_buf: Option<Buffer>,
+    pixel_edge_capacity: usize,
+    pixel_uniform_buf: Option<Buffer>,
+    pixel_frame_count: u32,
 }
 
 impl Renderer {
@@ -597,6 +869,21 @@ impl Renderer {
             wind_rng_state: 12345,
             last_viewport_width: 1920.0,
             last_viewport_height: 1080.0,
+            visual_theme: VisualTheme::Pixel,
+            pixel_scale: 8,
+            pixel_offscreen_texture: None,
+            pixel_offscreen_width: 0,
+            pixel_offscreen_height: 0,
+            pixel_nearest_sampler: None,
+            pixel_node_pipeline: None,
+            pixel_edge_pipeline: None,
+            pixel_upscale_pipeline: None,
+            pixel_node_buf: None,
+            pixel_node_capacity: 0,
+            pixel_edge_buf: None,
+            pixel_edge_capacity: 0,
+            pixel_uniform_buf: None,
+            pixel_frame_count: 0,
         })
     }
 
@@ -1315,6 +1602,298 @@ impl Renderer {
         }
     }
 
+    // ── Pixel Art Pipeline ────────────────────────────────────────────
+
+    /// Compile PIXEL_SHADER_SOURCE and create pipelines for node, edge, and upscale passes.
+    fn create_pixel_pipelines(&mut self) {
+        let library = match self.device.new_library_with_source(PIXEL_SHADER_SOURCE, &CompileOptions::new()) {
+            Ok(lib) => lib,
+            Err(e) => {
+                eprintln!("pixel shader compile error: {e}");
+                return;
+            }
+        };
+
+        let make_pipeline = |vert_name: &str, frag_name: &str, blend: bool| -> Option<RenderPipelineState> {
+            let vert = library.get_function(vert_name, None).ok()?;
+            let frag = library.get_function(frag_name, None).ok()?;
+            let desc = RenderPipelineDescriptor::new();
+            desc.set_vertex_function(Some(&vert));
+            desc.set_fragment_function(Some(&frag));
+            let color_attach = desc.color_attachments().object_at(0)?;
+            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+            if blend {
+                color_attach.set_blending_enabled(true);
+                color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
+                color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+                color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
+                color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+            }
+            self.device.new_render_pipeline_state(&desc).ok()
+        };
+
+        self.pixel_node_pipeline = make_pipeline("pixel_node_vertex", "pixel_node_fragment", true);
+        self.pixel_edge_pipeline = make_pipeline("pixel_edge_vertex", "pixel_edge_fragment", true);
+        self.pixel_upscale_pipeline = make_pipeline("upscale_vertex", "upscale_fragment", false);
+    }
+
+    /// Create or resize the offscreen texture for the low-res pixel art pass.
+    fn ensure_pixel_offscreen(&mut self, w: u32, h: u32) {
+        if self.pixel_offscreen_width == w && self.pixel_offscreen_height == h && self.pixel_offscreen_texture.is_some() {
+            return;
+        }
+        let desc = TextureDescriptor::new();
+        desc.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+        desc.set_width(w as u64);
+        desc.set_height(h as u64);
+        desc.set_storage_mode(MTLStorageMode::Private);
+        desc.set_usage(MTLTextureUsage::RenderTarget | MTLTextureUsage::ShaderRead);
+        self.pixel_offscreen_texture = Some(self.device.new_texture(&desc));
+        self.pixel_offscreen_width = w;
+        self.pixel_offscreen_height = h;
+    }
+
+    /// Create a nearest-neighbor sampler for the upscale pass.
+    fn create_pixel_sampler(&mut self) {
+        let desc = SamplerDescriptor::new();
+        desc.set_min_filter(MTLSamplerMinMagFilter::Nearest);
+        desc.set_mag_filter(MTLSamplerMinMagFilter::Nearest);
+        desc.set_mip_filter(MTLSamplerMipFilter::NotMipmapped);
+        desc.set_address_mode_s(MTLSamplerAddressMode::ClampToEdge);
+        desc.set_address_mode_t(MTLSamplerAddressMode::ClampToEdge);
+        self.pixel_nearest_sampler = Some(self.device.new_sampler(&desc));
+    }
+
+    /// Build the pixel art node instance buffer from ECS World data.
+    /// Returns the number of instances written.
+    fn build_pixel_node_instances(&mut self, world: &World, palette: &VoxelPalette) -> usize {
+        let n = world.len();
+        if n == 0 { return 0; }
+
+        if n > self.pixel_node_capacity {
+            let cap = (n * 3 / 2).max(64);
+            let size = (cap * std::mem::size_of::<PixelNodeInstance>()) as u64;
+            self.pixel_node_buf = Some(self.device.new_buffer(size, MTLResourceOptions::StorageModeShared));
+            self.pixel_node_capacity = cap;
+        }
+
+        let buf = self.pixel_node_buf.as_ref().unwrap();
+        let ptr = buf.contents() as *mut PixelNodeInstance;
+
+        for i in 0..n {
+            let block_type = world.render[i].block_type;
+            let base = palette.color_for_block(block_type);
+
+            // Size from block type: Core=16, Primary=12, Secondary=10, Tertiary=8, Leaf=6
+            let size = match block_type {
+                0 => 16.0_f32, 1 => 12.0, 2 => 10.0, 3 => 8.0, 4 => 6.0, _ => 8.0,
+            };
+
+            let highlight = [
+                (base[0] + 0.3).min(1.0),
+                (base[1] + 0.3).min(1.0),
+                (base[2] + 0.3).min(1.0),
+                base[3],
+            ];
+            let shadow = [
+                (base[0] - 0.3).max(0.0),
+                (base[1] - 0.3).max(0.0),
+                (base[2] - 0.3).max(0.0),
+                base[3],
+            ];
+
+            // SAFETY: i < n <= pixel_node_capacity, buffer was allocated above.
+            unsafe {
+                *ptr.add(i) = PixelNodeInstance {
+                    position: [world.transform[i].x, world.transform[i].y],
+                    size,
+                    _pad0: 0.0,
+                    base_color: base,
+                    highlight_color: highlight,
+                    shadow_color: shadow,
+                    has_glare: world.render[i].has_glare as u32,
+                    _pad1: [0; 3],
+                };
+            }
+        }
+        n
+    }
+
+    /// Build the pixel art edge instance buffer from Graph data.
+    /// Returns the number of instances written.
+    fn build_pixel_edge_instances(&mut self, graph: &Graph, palette: &VoxelPalette) -> usize {
+        let edge_count = graph.edges.len();
+        if edge_count == 0 { return 0; }
+
+        if edge_count > self.pixel_edge_capacity {
+            let cap = (edge_count * 3 / 2).max(64);
+            let size = (cap * std::mem::size_of::<PixelEdgeInstance>()) as u64;
+            self.pixel_edge_buf = Some(self.device.new_buffer(size, MTLResourceOptions::StorageModeShared));
+            self.pixel_edge_capacity = cap;
+        }
+
+        let buf = self.pixel_edge_buf.as_ref().unwrap();
+        let ptr = buf.contents() as *mut PixelEdgeInstance;
+        let mut count = 0usize;
+
+        for (ei, edge) in graph.edges.iter().enumerate() {
+            let si = graph.id_to_index.get(&edge.source);
+            let ti = graph.id_to_index.get(&edge.target);
+            if let (Some(&si), Some(&ti)) = (si, ti) {
+                let src = &graph.nodes[si];
+                let tgt = &graph.nodes[ti];
+                if !src.visible || !tgt.visible { continue; }
+
+                let p0 = [src.x, src.y];
+                let p1 = [tgt.x, tgt.y];
+
+                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) { continue; }
+                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() { continue; }
+
+                if count < self.pixel_edge_capacity {
+                    // SAFETY: count < pixel_edge_capacity, buffer was allocated above.
+                    unsafe {
+                        *ptr.add(count) = PixelEdgeInstance {
+                            p0,
+                            p1,
+                            color: palette.edge,
+                            edge_id: ei as u32,
+                            _pad: [0; 3],
+                        };
+                    }
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    /// Two-pass pixel art render: low-res offscreen then nearest-neighbor upscale.
+    pub fn draw_pixel(&mut self, viewport_w: u32, viewport_h: u32, world: &World, graph: &Graph) {
+        self.last_viewport_width = viewport_w as f32;
+        self.last_viewport_height = viewport_h as f32;
+
+        let scale = self.pixel_scale as u32;
+        let vw = (viewport_w / scale).max(1);
+        let vh = (viewport_h / scale).max(1);
+
+        // Lazy-init pipelines and sampler
+        if self.pixel_node_pipeline.is_none() { self.create_pixel_pipelines(); }
+        if self.pixel_nearest_sampler.is_none() { self.create_pixel_sampler(); }
+
+        // Bail if pipelines failed to compile — clone handles immediately to release borrows.
+        let node_pipeline = match &self.pixel_node_pipeline { Some(p) => p.clone(), None => return };
+        let edge_pipeline = match &self.pixel_edge_pipeline { Some(p) => p.clone(), None => return };
+        let upscale_pipeline = match &self.pixel_upscale_pipeline { Some(p) => p.clone(), None => return };
+        let sampler = match &self.pixel_nearest_sampler { Some(s) => s.clone(), None => return };
+
+        // Ensure offscreen texture at correct size
+        self.ensure_pixel_offscreen(vw, vh);
+        let offscreen_tex = match &self.pixel_offscreen_texture { Some(t) => t.clone(), None => return };
+
+        let palette = if self.light_mode { VoxelPalette::light() } else { VoxelPalette::dark() };
+
+        // Build instance buffers
+        let node_count = self.build_pixel_node_instances(world, &palette);
+        let edge_count = self.build_pixel_edge_instances(graph, &palette);
+
+        // Ensure uniform buffer exists
+        if self.pixel_uniform_buf.is_none() {
+            self.pixel_uniform_buf = Some(self.device.new_buffer(
+                std::mem::size_of::<PixelUniforms>() as u64,
+                MTLResourceOptions::StorageModeShared,
+            ));
+        }
+
+        // Write uniforms
+        let uniforms = PixelUniforms {
+            viewport_size: [vw as f32, vh as f32],
+            camera_offset: self.camera_offset,
+            camera_zoom: self.camera_zoom / scale as f32,
+            frame_count: self.pixel_frame_count,
+            _pad0: 0.0,
+            _pad1: 0.0,
+        };
+        if let Some(ubuf) = &self.pixel_uniform_buf {
+            // SAFETY: buffer is sized for PixelUniforms, single writer.
+            unsafe {
+                let ptr = ubuf.contents() as *mut PixelUniforms;
+                *ptr = uniforms;
+            }
+        }
+        self.pixel_frame_count = self.pixel_frame_count.wrapping_add(1);
+
+        let bg = palette.background;
+
+        autoreleasepool(|| {
+            let drawable = match self.layer.next_drawable() {
+                Some(d) => d,
+                None => return,
+            };
+
+            let cmd_buf = self.command_queue.new_command_buffer();
+
+            // ── PASS 1: Render to low-res offscreen ──────────────────
+            {
+                let pass_desc = RenderPassDescriptor::new();
+                let Some(color) = pass_desc.color_attachments().object_at(0) else { return; };
+                color.set_texture(Some(&offscreen_tex));
+                color.set_load_action(MTLLoadAction::Clear);
+                color.set_clear_color(MTLClearColor::new(
+                    bg[0] as f64, bg[1] as f64, bg[2] as f64, bg[3] as f64,
+                ));
+                color.set_store_action(MTLStoreAction::Store);
+
+                let enc = cmd_buf.new_render_command_encoder(pass_desc);
+
+                // Draw edges first (behind nodes)
+                if edge_count > 0 {
+                    if let (Some(ebuf), Some(ubuf)) = (&self.pixel_edge_buf, &self.pixel_uniform_buf) {
+                        enc.set_render_pipeline_state(&edge_pipeline);
+                        enc.set_vertex_buffer(0, Some(ebuf), 0);
+                        enc.set_vertex_buffer(1, Some(ubuf), 0);
+                        enc.draw_primitives_instanced(
+                            MTLPrimitiveType::Triangle, 0, 6, edge_count as u64,
+                        );
+                    }
+                }
+
+                // Draw nodes
+                if node_count > 0 {
+                    if let (Some(nbuf), Some(ubuf)) = (&self.pixel_node_buf, &self.pixel_uniform_buf) {
+                        enc.set_render_pipeline_state(&node_pipeline);
+                        enc.set_vertex_buffer(0, Some(nbuf), 0);
+                        enc.set_vertex_buffer(1, Some(ubuf), 0);
+                        enc.draw_primitives_instanced(
+                            MTLPrimitiveType::Triangle, 0, 6, node_count as u64,
+                        );
+                    }
+                }
+
+                enc.end_encoding();
+            }
+
+            // ── PASS 2: Upscale to drawable ──────────────────────────
+            {
+                let pass_desc = RenderPassDescriptor::new();
+                let Some(color) = pass_desc.color_attachments().object_at(0) else { return; };
+                color.set_texture(Some(drawable.texture()));
+                color.set_load_action(MTLLoadAction::DontCare);
+                color.set_store_action(MTLStoreAction::Store);
+
+                let enc = cmd_buf.new_render_command_encoder(pass_desc);
+                enc.set_render_pipeline_state(&upscale_pipeline);
+                enc.set_fragment_texture(0, Some(&offscreen_tex));
+                enc.set_fragment_sampler_state(0, Some(&sampler));
+                enc.draw_primitives(MTLPrimitiveType::Triangle, 0, 6);
+                enc.end_encoding();
+            }
+
+            cmd_buf.present_drawable(drawable);
+            cmd_buf.commit();
+        });
+    }
+
     pub fn draw(&mut self, viewport_width: u32, viewport_height: u32) {
         self.last_viewport_width = viewport_width as f32;
         self.last_viewport_height = viewport_height as f32;
@@ -1505,5 +2084,59 @@ mod tests {
     fn line_edge_instance_size() {
         // p0(8) + p1(8) + color(16) = 32 bytes.
         assert_eq!(std::mem::size_of::<LineEdgeInstance>(), 32);
+    }
+
+    // ── Pixel art struct layout tests ────────────────────────────────
+
+    #[test]
+    fn pixel_node_instance_size() {
+        // position(8) + size(4) + _pad0(4) + base_color(16) + highlight_color(16)
+        // + shadow_color(16) + has_glare(4) + _pad1(12) = 80 bytes.
+        assert_eq!(std::mem::size_of::<PixelNodeInstance>(), 80);
+    }
+
+    #[test]
+    fn pixel_node_instance_alignment() {
+        // Must be 4-byte aligned at minimum for Metal buffer binding.
+        assert!(std::mem::align_of::<PixelNodeInstance>() >= 4);
+    }
+
+    #[test]
+    fn pixel_edge_instance_size() {
+        // p0(8) + p1(8) + color(16) + edge_id(4) + _pad(12) = 48 bytes.
+        assert_eq!(std::mem::size_of::<PixelEdgeInstance>(), 48);
+    }
+
+    #[test]
+    fn pixel_edge_instance_alignment() {
+        assert!(std::mem::align_of::<PixelEdgeInstance>() >= 4);
+    }
+
+    #[test]
+    fn pixel_uniforms_size() {
+        // viewport_size(8) + camera_offset(8) + camera_zoom(4) + frame_count(4)
+        // + _pad0(4) + _pad1(4) = 32 bytes.
+        assert_eq!(std::mem::size_of::<PixelUniforms>(), 32);
+    }
+
+    #[test]
+    fn pixel_uniforms_alignment() {
+        assert!(std::mem::align_of::<PixelUniforms>() >= 4);
+    }
+
+    #[test]
+    fn pixel_node_instance_16_byte_aligned_size() {
+        // Metal requires buffer contents to be 16-byte aligned for structs.
+        assert_eq!(std::mem::size_of::<PixelNodeInstance>() % 16, 0);
+    }
+
+    #[test]
+    fn pixel_edge_instance_16_byte_aligned_size() {
+        assert_eq!(std::mem::size_of::<PixelEdgeInstance>() % 16, 0);
+    }
+
+    #[test]
+    fn pixel_uniforms_16_byte_aligned_size() {
+        assert_eq!(std::mem::size_of::<PixelUniforms>() % 16, 0);
     }
 }
