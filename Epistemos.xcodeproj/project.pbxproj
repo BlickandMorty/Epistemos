@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
+		D1A1C2B3E4F5A6B7C8D90001 /* DialogueChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A1C2B3E4F5A6B7C8D90002 /* DialogueChatState.swift */; };
+		D1A1C2B3E4F5A6B7C8D90003 /* DialogueOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A1C2B3E4F5A6B7C8D90004 /* DialogueOverlayView.swift */; };
 		03080C020849EDF12EF27D59 /* PipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 818ABA625E1915138186C72C /* PipelineService.swift */; };
 		036A5D4AC164253635DB8168 /* VersionPruningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0793E801105A00644A5B437 /* VersionPruningTests.swift */; };
 		040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */; };
@@ -262,6 +264,8 @@
 		01E39AEBA6CCBE938F617A0F /* SignalGeneratorComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignalGeneratorComprehensiveTests.swift; sourceTree = "<group>"; };
 		048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteOverlay.swift; sourceTree = "<group>"; };
 		064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoteChatState.swift; sourceTree = "<group>"; };
+		D1A1C2B3E4F5A6B7C8D90002 /* DialogueChatState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogueChatState.swift; sourceTree = "<group>"; };
+		D1A1C2B3E4F5A6B7C8D90004 /* DialogueOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogueOverlayView.swift; sourceTree = "<group>"; };
 		065AEAF8FDD302F81324DEE6 /* ConceptMiniMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConceptMiniMap.swift; sourceTree = "<group>"; };
 		0718573D4BE2D44999758A16 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		0735CB2532A434111036257E /* PageEditorCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageEditorCache.swift; sourceTree = "<group>"; };
@@ -669,6 +673,7 @@
 				56735F8C49D2024C45FFE4F9 /* ThreadState.swift */,
 				BCD7A388F49B9F141F03D340 /* UIState.swift */,
 				064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */,
+				D1A1C2B3E4F5A6B7C8D90002 /* DialogueChatState.swift */,
 				6F6A5E68F12257A443037CC2 /* PhysicsCoordinator.swift */,
 			);
 			path = State;
@@ -852,6 +857,7 @@
 				DAD3CAC3378F8B6999B406ED /* QueryResultsView.swift */,
 				AA1B2C3D4E5F60718A0B1C2D /* TimeSliderOverlay.swift */,
 				BB1C3D4E5F6071829A0B2C3D /* RelationshipBrowser.swift */,
+				D1A1C2B3E4F5A6B7C8D90004 /* DialogueOverlayView.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -1360,6 +1366,8 @@
 				BLKPROP0000000000000002 /* BlockPropertySheet.swift in Sources */,
 				68FFAE298011042579FF85DF /* BackgroundGraphActor.swift in Sources */,
 				00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */,
+				D1A1C2B3E4F5A6B7C8D90001 /* DialogueChatState.swift in Sources */,
+				D1A1C2B3E4F5A6B7C8D90003 /* DialogueOverlayView.swift in Sources */,
 				C886A789A972BC02BB03188B /* PhysicsCoordinator.swift in Sources */,
 				6E467612B90C638773ABD3E0 /* NoteChatParser.swift in Sources */,
 				064F4D5F2022D67933C31016 /* NoteChatOrb.swift in Sources */,
