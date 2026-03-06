@@ -14,6 +14,7 @@ pub mod search;
 pub mod embedding;
 pub mod version;
 pub mod block_kernel;
+pub mod ecs;
 
 #[cfg(test)]
 pub mod physics_audit_test;
