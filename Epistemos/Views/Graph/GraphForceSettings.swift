@@ -254,13 +254,17 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Clustering", icon: "circle.grid.3x3")
 
+            if graphState.qualityLevel >= 2 {
+                settingNote("Performance quality disables cluster and semantic forces.")
+            }
+
             forceSlider(
                 label: "Cluster Bubbles",
                 value: gs.clusterStrength,
                 range: 0...1,
                 format: "%.2f",
                 subtitle: "0 = off, 1 = strong bubbles",
-                onChange: { graphState.pushClusterChange() }
+                onChange: { graphState.pushClusterChange(); selectedPreset = nil }
             )
 
             forceSlider(
@@ -268,9 +272,20 @@ struct GraphForceSettings: View {
                 value: gs.semanticStrength,
                 range: 0...1,
                 format: "%.2f",
-                subtitle: "0 = off, 1 = strong",
-                onChange: { graphState.pushSemanticChange() }
+                subtitle: "Similarity pull",
+                onChange: { graphState.pushSemanticChange(); selectedPreset = nil }
             )
+
+            if graphState.semanticStrength > 0.001 {
+                forceSlider(
+                    label: "Cohesion",
+                    value: gs.boidsCohesion,
+                    range: 0...1,
+                    format: "%.2f",
+                    subtitle: "Loose \u{2194} Swarm",
+                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                )
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Center Force")
@@ -286,6 +301,7 @@ struct GraphForceSettings: View {
                 .controlSize(.small)
                 .onChange(of: graphState.centerMode) {
                     graphState.pushClusterChange()
+                    selectedPreset = nil
                 }
             }
         }
@@ -320,65 +336,31 @@ struct GraphForceSettings: View {
                 labToggle(
                     label: "Fluid Wake Physics",
                     isOn: gs.enableFluidDynamics,
-                    onChange: { graphState.pushLabChange() }
+                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
                 )
                 if graphState.enableFluidDynamics {
+                    settingNote("Wake only appears while dragging nodes.")
                     forceSlider(
                         label: "Viscosity",
                         value: gs.fluidViscosity,
                         range: 0...1,
                         format: "%.2f",
                         subtitle: "Water \u{2194} Honey",
-                        onChange: { graphState.pushLabChange() }
-                    )
-                }
-
-                labToggle(
-                    label: "Semantic Schooling (Boids)",
-                    isOn: Binding(
-                        get: { graphState.semanticStrength > 0.001 },
-                        set: { graphState.semanticStrength = $0 ? 1.0 : 0.0; graphState.pushSemanticChange() }
-                    ),
-                    onChange: {}
-                )
-                if graphState.semanticStrength > 0.001 {
-                    forceSlider(
-                        label: "Cohesion",
-                        value: gs.boidsCohesion,
-                        range: 0...1,
-                        format: "%.2f",
-                        subtitle: "Loose \u{2194} Swarm",
-                        onChange: { graphState.pushLabChange() }
+                        onChange: { graphState.pushLabChange(); selectedPreset = nil }
                     )
                 }
             }
 
             Divider().opacity(0.2)
 
-            // ── Materials ──
+            // ── Structure ──
             VStack(alignment: .leading, spacing: 8) {
-                sectionHeader("Materials", icon: "cube.transparent")
-
-                labToggle(
-                    label: "Elastic Links",
-                    isOn: gs.enableElasticEdges,
-                    onChange: { graphState.pushLabChange() }
-                )
-                if graphState.enableElasticEdges {
-                    forceSlider(
-                        label: "Rubber Band Snap",
-                        value: gs.edgeElasticity,
-                        range: 0...1,
-                        format: "%.2f",
-                        subtitle: "Taut \u{2194} Sloppy",
-                        onChange: { graphState.pushLabChange() }
-                    )
-                }
+                sectionHeader("Structure", icon: "cube.transparent")
 
                 labToggle(
                     label: "Crystalline Angular Tension",
                     isOn: gs.enableTorsionalSprings,
-                    onChange: { graphState.pushLabChange() }
+                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
                 )
                 if graphState.enableTorsionalSprings {
                     forceSlider(
@@ -387,7 +369,7 @@ struct GraphForceSettings: View {
                         range: 0...1,
                         format: "%.2f",
                         subtitle: "Organic Blob \u{2194} Snowflake",
-                        onChange: { graphState.pushLabChange() }
+                        onChange: { graphState.pushLabChange(); selectedPreset = nil }
                     )
                 }
             }
@@ -404,7 +386,7 @@ struct GraphForceSettings: View {
                     range: -50...50,
                     format: "%.1f",
                     subtitle: "Left \u{2194} Right drift",
-                    onChange: { graphState.pushLabChange() }
+                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
                 )
                 forceSlider(
                     label: "Wind Y",
@@ -412,22 +394,23 @@ struct GraphForceSettings: View {
                     range: -50...50,
                     format: "%.1f",
                     subtitle: "Up \u{2194} Down drift",
-                    onChange: { graphState.pushLabChange() }
+                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
                 )
 
                 labToggle(
                     label: "Orbital Hierarchies",
                     isOn: gs.enableOrbital,
-                    onChange: { graphState.pushLabChange() }
+                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
                 )
                 if graphState.enableOrbital {
+                    settingNote("Only affects contains/authored links.")
                     forceSlider(
                         label: "Orbital Speed",
                         value: gs.orbitalSpeed,
                         range: 0...1,
                         format: "%.2f",
                         subtitle: "Still \u{2194} Fast",
-                        onChange: { graphState.pushLabChange() }
+                        onChange: { graphState.pushLabChange(); selectedPreset = nil }
                     )
                 }
             }
@@ -439,10 +422,11 @@ struct GraphForceSettings: View {
                 sectionHeader("Optics", icon: "eye")
 
                 labToggle(
-                    label: "High-Tension Edge Glow",
+                    label: "Edge Stress Tint",
                     isOn: gs.enableTensionColoring,
-                    onChange: { graphState.pushLabChange() }
+                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
                 )
+                settingNote("Classic theme only.")
             }
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -497,7 +481,7 @@ struct GraphForceSettings: View {
         switch graphState.qualityLevel {
         case 0: "Glow, breathing, perspective depth, field lines, depth-of-field."
         case 1: "Sphere shading, no animated effects. Good balance of look and speed."
-        default: "Flat circles, minimal GPU usage. Best for large graphs."
+        default: "Flat circles, minimal GPU usage. Disables semantic and cluster forces for speed."
         }
     }
 
@@ -556,5 +540,12 @@ struct GraphForceSettings: View {
         .toggleStyle(.switch)
         .controlSize(.mini)
         .onChange(of: isOn.wrappedValue) { onChange() }
+    }
+
+    private func settingNote(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9))
+            .foregroundStyle(.tertiary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

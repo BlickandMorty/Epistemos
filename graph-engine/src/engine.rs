@@ -842,14 +842,7 @@ impl Engine {
     /// When active: heavy damping + low alpha_target for slow-motion drift.
     pub fn set_search_active(&self, active: bool) {
         let mut sim = self.sim.lock();
-        if active {
-            sim.params.velocity_decay = 0.4;
-            sim.params.alpha_target = 0.02;
-            sim.is_settled = false;
-        } else {
-            sim.params.velocity_decay = 0.05;
-            sim.params.alpha_target = 0.0;
-        }
+        sim.set_search_active(active);
     }
 
     /// Update laboratory physics toggles and tuning knobs.
@@ -2175,31 +2168,18 @@ mod tests {
 
     #[test]
     fn search_active_physics_params() {
-        let sim = Arc::new(Mutex::new(Simulation::new()));
-        // Simulate set_search_active(true) logic.
-        {
-            let mut s = sim.lock();
-            s.params.velocity_decay = 0.4;
-            s.params.alpha_target = 0.02;
-            s.is_settled = false;
-        }
-        {
-            let s = sim.lock();
-            assert!((s.params.velocity_decay - 0.4).abs() < 0.01);
-            assert!((s.params.alpha_target - 0.02).abs() < 0.01);
-            assert!(!s.is_settled);
-        }
-        // Simulate set_search_active(false) logic.
-        {
-            let mut s = sim.lock();
-            s.params.velocity_decay = 0.05;
-            s.params.alpha_target = 0.0;
-        }
-        {
-            let s = sim.lock();
-            assert!((s.params.velocity_decay - 0.05).abs() < 0.01);
-            assert!(s.params.alpha_target.abs() < 0.01);
-        }
+        let mut sim = Simulation::new();
+        sim.params.velocity_decay = 0.73;
+        sim.params.alpha_target = 0.11;
+
+        sim.set_search_active(true);
+        assert!((sim.params.velocity_decay - 0.4).abs() < 0.01);
+        assert!((sim.params.alpha_target - 0.02).abs() < 0.01);
+        assert!(!sim.is_settled);
+
+        sim.set_search_active(false);
+        assert!((sim.params.velocity_decay - 0.73).abs() < 0.01);
+        assert!((sim.params.alpha_target - 0.11).abs() < 0.01);
     }
 
     #[test]

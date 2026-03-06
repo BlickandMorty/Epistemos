@@ -44,7 +44,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     case solarSystem = "Solar System"    // Orbital hierarchies, wide spacing
     case windTunnel = "Wind Tunnel"      // Lateral wind, low friction
     case snowflake = "Snowflake"         // Max torsion, crystalline
-    case rubberBand = "Rubber Band"      // Elastic edges, bouncy
+    case rubberBand = "Rubber Band"      // Strong springs, bouncy
     case zenGarden = "Zen Garden"        // Minimal forces, peaceful drift
     case chaos = "Chaos"                 // Everything cranked, wild
 
@@ -126,7 +126,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .solarSystem:   return 0.3
         case .windTunnel:    return 0
         case .snowflake:     return 0.8
-        case .rubberBand:    return 0
+        case .rubberBand:    return 1.1
         case .zenGarden:     return 0
         case .chaos:         return 0
         }
@@ -183,7 +183,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
 
     // MARK: - Laboratory Overrides
 
-    /// Lab params that differ from defaults. nil = keep current user setting.
+    /// Lab params that differ from defaults. nil = use the baseline preset default.
     struct LabOverrides {
         var enableFluid: Bool?
         var enableTorsion: Bool?
@@ -216,8 +216,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
             return LabOverrides(enableTorsion: true, enableElastic: false,
                               torsionRigidity: 1.0, windX: 0, windY: 0)
         case .rubberBand:
-            return LabOverrides(enableElastic: true, enableTension: true,
-                              edgeElasticity: 1.0, windX: 0, windY: 0)
+            return LabOverrides(enableTension: true, windX: 0, windY: 0)
         case .zenGarden:
             return LabOverrides(enableFluid: false, enableTorsion: false, enableElastic: false,
                               windX: 0, windY: 0, enableOrbital: false)
@@ -270,6 +269,7 @@ final class GraphState {
 
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
     let embeddingService: EmbeddingService
+    private var isRestoringPhysicsSettings = false
 
     init() {
         let svc = EmbeddingService()
@@ -490,6 +490,8 @@ final class GraphState {
             d.set(Self.physicsVersion, forKey: "epistemos.physics.version")
             return  // Use hardcoded defaults instead
         }
+        isRestoringPhysicsSettings = true
+        defer { isRestoringPhysicsSettings = false }
         linkDistance = d.float(forKey: "epistemos.physics.linkDistance")
         chargeStrength = d.float(forKey: "epistemos.physics.chargeStrength")
         chargeRange = d.float(forKey: "epistemos.physics.chargeRange")
@@ -524,6 +526,7 @@ final class GraphState {
     var clusterStrength: Float = 0.0
     var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
     var semanticStrength: Float = 0.0
+    var semanticForceConfigVersion: Int = 0
 
     // ── Time-Travel ──
     /// Computed date range of all graph nodes. Set during commit.
@@ -537,8 +540,8 @@ final class GraphState {
     var clusterConfigVersion: Int = 0
     func pushClusterChange() { clusterConfigVersion += 1; savePhysicsSettings() }
     func pushSemanticChange() {
-        guard let engine = engineHandle else { return }
-        graph_engine_set_semantic_strength(engine, semanticStrength)
+        semanticForceConfigVersion += 1
+        savePhysicsSettings()
     }
 
     /// Compute the date range of all nodes in the store (for time slider bounds).
@@ -573,6 +576,24 @@ final class GraphState {
         graph_engine_set_time_filter(engine, 0.0, 1e18)
     }
 
+    private func resetPresetSensitiveSettings() {
+        clusterStrength = 0.0
+        centerMode = 0
+        semanticStrength = 0.0
+        enableFluidDynamics = false
+        enableTorsionalSprings = false
+        enableElasticEdges = true
+        enableTensionColoring = true
+        fluidViscosity = 0.5
+        edgeElasticity = 0.5
+        torsionRigidity = 0.5
+        boidsCohesion = 0.0
+        windX = 0.0
+        windY = 0.0
+        enableOrbital = false
+        orbitalSpeed = 0.3
+    }
+
     /// Apply a named physics preset.
     func applyPreset(_ preset: PhysicsPreset) {
         linkDistance = preset.linkDistance
@@ -583,7 +604,9 @@ final class GraphState {
         centerStrength = preset.centerStrength
         collisionRadius = preset.collisionRadius
 
-        // Apply lab overrides from preset (nil = keep current value).
+        resetPresetSensitiveSettings()
+
+        // Apply lab overrides from preset (nil = baseline default).
         let lab = preset.labOverrides
         if let v = lab.enableFluid    { enableFluidDynamics = v }
         if let v = lab.enableTorsion  { enableTorsionalSprings = v }
@@ -600,6 +623,8 @@ final class GraphState {
 
         forceConfigVersion += 1
         extendedForceConfigVersion += 1
+        clusterConfigVersion += 1
+        semanticForceConfigVersion += 1
         labConfigVersion += 1
         savePhysicsSettings()
     }
@@ -607,7 +632,13 @@ final class GraphState {
     // MARK: - Semantic Clustering
 
     /// When true, uses NLEmbedding-based semantic clusters instead of Louvain topology clusters.
-    var useSemanticClustering = true
+    var useSemanticClustering = true {
+        didSet {
+            if !isRestoringPhysicsSettings, useSemanticClustering != oldValue {
+                savePhysicsSettings()
+            }
+        }
+    }
 
     /// Cached semantic cluster IDs (nodeId → clusterId). Recomputed when graph data changes.
     private(set) var semanticClusterIds: [String: UInt32] = [:]

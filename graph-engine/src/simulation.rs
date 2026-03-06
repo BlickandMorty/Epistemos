@@ -358,6 +358,9 @@ pub struct Simulation {
     pub impact_frames: u16,
     /// Low-resolution velocity field for drag wake effects.
     pub fluid_grid: FluidGrid,
+    /// Original params temporarily overridden by search bullet-time.
+    pub search_saved_velocity_decay: Option<f32>,
+    pub search_saved_alpha_target: Option<f32>,
 }
 
 impl Default for Simulation {
@@ -399,6 +402,8 @@ impl Simulation {
             haptic_event: 0,
             impact_frames: 0,
             fluid_grid: FluidGrid::new(),
+            search_saved_velocity_decay: None,
+            search_saved_alpha_target: None,
         }
     }
 
@@ -844,6 +849,29 @@ impl Simulation {
         }
     }
 
+    /// Enable/disable temporary bullet-time search tuning without destroying
+    /// the user's configured friction.
+    pub fn set_search_active(&mut self, active: bool) {
+        if active {
+            if self.search_saved_velocity_decay.is_none() {
+                self.search_saved_velocity_decay = Some(self.params.velocity_decay);
+                self.search_saved_alpha_target = Some(self.params.alpha_target);
+            }
+            self.params.velocity_decay = 0.4;
+            self.params.alpha_target = 0.02;
+            self.is_settled = false;
+        } else {
+            if let Some(saved) = self.search_saved_velocity_decay.take() {
+                self.params.velocity_decay = saved;
+            }
+            if let Some(saved) = self.search_saved_alpha_target.take() {
+                self.params.alpha_target = saved;
+            } else {
+                self.params.alpha_target = 0.0;
+            }
+        }
+    }
+
     /// Set fixed position for a node (drag constraint, d3 style).
     /// While fixed, the node snaps to (fx, fy) and velocity is zeroed.
     pub fn fix_node(&mut self, sim_index: usize, fx: f32, fy: f32) {
@@ -973,6 +1001,23 @@ mod tests {
             (sim.x[0] - x_before).abs() > 0.01,
             "unfixed node should move"
         );
+    }
+
+    #[test]
+    fn search_active_restores_previous_params() {
+        let graph = make_test_graph(2, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        sim.params.velocity_decay = 0.73;
+        sim.params.alpha_target = 0.11;
+
+        sim.set_search_active(true);
+        assert!((sim.params.velocity_decay - 0.4).abs() < f32::EPSILON);
+        assert!((sim.params.alpha_target - 0.02).abs() < f32::EPSILON);
+
+        sim.set_search_active(false);
+        assert!((sim.params.velocity_decay - 0.73).abs() < f32::EPSILON);
+        assert!((sim.params.alpha_target - 0.11).abs() < f32::EPSILON);
     }
 
     #[test]

@@ -74,6 +74,7 @@ final class MetalGraphNSView: NSView {
     var lastGraphDataVersion = 0
     var lastLiteModeVersion = -1
     var lastVisualThemeVersion: Int = -1
+    var lastSemanticForceConfigVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
     var searchQuery: String = ""
 
@@ -343,6 +344,10 @@ final class MetalGraphNSView: NSView {
         graphState.isStaticLayout = graph_engine_is_static_layout(engine) != 0
 
         pushForceParams()
+        pushExtendedForceParams()
+        pushClusterParams()
+        pushSemanticForce()
+        pushLabParams()
 
         // Push quality level to Rust and sync version tracker.
         graph_engine_set_quality_level(engine, graphState.qualityLevel)
@@ -352,6 +357,21 @@ final class MetalGraphNSView: NSView {
         graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
         graph_engine_set_pixel_scale(engine, graphState.pixelScale)
         lastVisualThemeVersion = graphState.visualThemeVersion
+
+        if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
+            pushSemanticClusters()
+            lastSemanticClusterVersion = graphState.semanticClusterVersion
+        } else {
+            lastSemanticClusterVersion = -1
+        }
+
+        graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
+        lastForceConfigVersion = graphState.forceConfigVersion
+        lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
+        lastClusterConfigVersion = graphState.clusterConfigVersion
+        lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
+        lastLabConfigVersion = graphState.labConfigVersion
+        lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
 
         isCommitted = true
         needsRender = true
@@ -509,6 +529,12 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
+    func pushSemanticForce() {
+        guard let engine, let graphState else { return }
+        graph_engine_set_semantic_strength(engine, graphState.semanticStrength)
+        needsRender = true
+    }
+
     func pushSemanticClusters() {
         guard let engine, let graphState else { return }
         let clusterMap = graphState.semanticClusterIds
@@ -652,6 +678,12 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastClusterConfigVersion != graphState.clusterConfigVersion {
             lastClusterConfigVersion = graphState.clusterConfigVersion
             pushClusterParams()
+        }
+
+        // Sync semantic attraction force independently from semantic cluster IDs.
+        if let graphState, lastSemanticForceConfigVersion != graphState.semanticForceConfigVersion {
+            lastSemanticForceConfigVersion = graphState.semanticForceConfigVersion
+            pushSemanticForce()
         }
 
         // Sync semantic cluster IDs when they change.
