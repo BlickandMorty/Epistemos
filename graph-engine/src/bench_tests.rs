@@ -30,8 +30,11 @@ mod bench_tests {
                 depth: (i % 5) as u32,
                 parent: u32::MAX,
                 node_type: (i % 8) as u8,
-                _pad: [0; 3],
+                visible: 1,
+                _pad: [0; 2],
                 link_count: (i % 20),
+                radius: 8.0,
+                cluster_id: u32::MAX,
             };
             world.render[idx] = RenderComponent {
                 block_type: (i % 5) as u8,

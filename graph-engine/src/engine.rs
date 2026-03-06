@@ -16,11 +16,12 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use rustc_hash::FxHashSet;
 
+use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
 use crate::renderer::Renderer;
 use crate::simulation::Simulation;
-use crate::spatial::SpatialIndex;
+// SpatialIndex (quadtree) replaced by ECS SpatialGrid for hit-testing.
 use crate::types::{Graph, VisualTheme, VoxelPalette};
 use crate::version::VersionStore;
 use crate::block_kernel::{BlockTree, OpLog};
@@ -47,7 +48,6 @@ pub struct Engine {
     graph: Graph,
     sim: Arc<Mutex<Simulation>>,
     renderer: Renderer,
-    spatial: SpatialIndex,
 
     // Physics thread control
     physics_handle: Option<std::thread::JoinHandle<()>>,
@@ -105,6 +105,9 @@ pub struct Engine {
     /// Block Transaction Kernel: page_id → op log
     pub btk_logs: HashMap<String, OpLog>,
 
+    /// Multi-scale cluster cache — avoids re-running Louvain when topology is unchanged.
+    cluster_cache: ClusterCache,
+
     /// ECS mirror of graph data, synced from Simulation each frame.
     world: World,
 }
@@ -116,7 +119,6 @@ impl Engine {
             graph: Graph::new(),
             sim: Arc::new(Mutex::new(Simulation::new())),
             renderer,
-            spatial: SpatialIndex::new(),
             physics_handle: None,
             stop_flag: Arc::new(AtomicBool::new(false)),
             viewport_width: 1,
@@ -139,6 +141,7 @@ impl Engine {
             quality_level: 0,  // Cinematic
             btk_trees: HashMap::new(),
             btk_logs: HashMap::new(),
+            cluster_cache: ClusterCache::new(),
             world: World::new(),
         })
     }
@@ -257,10 +260,19 @@ impl Engine {
 
             // Skip expensive operations for static layout (> 1500 nodes).
             if !sim.static_layout {
-                // Louvain community detection (O(N*E) -- skip for large graphs).
+                // Louvain community detection with multi-scale caching.
+                // Only re-runs if topology (node_count, edge_count) changed.
                 let sn = sim.x.len();
-                if sn < 5000 {
+                let edge_count = sim.edges.len();
+                if self.cluster_cache.is_valid(sn, edge_count) {
+                    // Cache hit: reuse Level 1 assignments (skip Louvain entirely).
+                    if let Some(l1) = self.cluster_cache.assignments_for_zoom(0.3) {
+                        sim.cluster_ids = l1.to_vec();
+                    }
+                } else if sn < 5000 {
                     let cluster_ids = crate::cluster::detect_communities(sn, &sim.edges);
+                    // Build multi-scale cache from fresh Louvain results.
+                    self.cluster_cache.build(cluster_ids.clone(), &sim.edges, sn, edge_count);
                     sim.cluster_ids = cluster_ids;
                 } else {
                     sim.cluster_ids = (0..sn as u32).collect();
@@ -295,9 +307,6 @@ impl Engine {
 
         // Allocate renderer buffers and upload initial data.
         self.renderer.allocate_buffers(&self.graph);
-
-        // Build spatial index for hit testing.
-        self.spatial.build(&self.graph.nodes);
 
         // Build fuzzy search index over node labels.
         self.search_index.build(&self.graph.nodes);
@@ -355,10 +364,16 @@ impl Engine {
         {
             let mut sim = self.sim.lock();
             sim.load_from_graph(&self.graph);
-            // Louvain is O(E*passes) — skip for large graphs to avoid blocking main thread.
+            // Louvain with multi-scale caching — visibility change alters topology.
             let n = sim.x.len();
-            if n < 5_000 {
+            let edge_count = sim.edges.len();
+            if self.cluster_cache.is_valid(n, edge_count) {
+                if let Some(l1) = self.cluster_cache.assignments_for_zoom(0.3) {
+                    sim.cluster_ids = l1.to_vec();
+                }
+            } else if n < 5_000 {
                 let cluster_ids = crate::cluster::detect_communities(n, &sim.edges);
+                self.cluster_cache.build(cluster_ids.clone(), &sim.edges, n, edge_count);
                 sim.cluster_ids = cluster_ids;
             }
             sim.reheat();
@@ -366,9 +381,6 @@ impl Engine {
 
         // Re-upload graph to renderer (only visible nodes are drawn).
         self.renderer.upload_graph(&self.graph);
-
-        // Rebuild spatial index so invisible nodes aren't hittable.
-        self.spatial.build(&self.graph.nodes);
 
         // Invalidate drag state — sim indices are stale after reload.
         // The dragged node's fx/fy constraints will be cleared by load_from_graph
@@ -416,34 +428,28 @@ impl Engine {
     }
 
     /// Sync Simulation positions/velocities into the ECS World.
-    /// Called from render() to keep World in sync for pixel art rendering.
+    /// Called from render() to keep World in sync for pixel art rendering + hit-testing.
+    /// Uses `graph_indices` mapping so it works regardless of visibility filtering.
     fn sync_sim_to_world(&mut self) {
         let sim = self.sim.lock();
-        let n = sim.x.len();
+        let wlen = self.world.len();
 
-        // Size mismatch — wait for next commit() to rebuild World.
-        if self.world.len() != n {
-            return;
+        for (si, &gi) in sim.graph_indices.iter().enumerate() {
+            if gi < wlen {
+                self.world.transform[gi].x = sim.x[si];
+                self.world.transform[gi].y = sim.y[si];
+                self.world.velocity[gi].vx = sim.vx[si];
+                self.world.velocity[gi].vy = sim.vy[si];
+                self.world.px[gi] = sim.x[si];
+                self.world.py[gi] = sim.y[si];
+                self.world.pvx[gi] = sim.vx[si];
+                self.world.pvy[gi] = sim.vy[si];
+            }
         }
+        drop(sim);
 
-        for i in 0..n {
-            self.world.transform[i].x = sim.x[i];
-            self.world.transform[i].y = sim.y[i];
-            self.world.velocity[i].vx = sim.vx[i];
-            self.world.velocity[i].vy = sim.vy[i];
-        }
-
-        // Sync flat physics arrays for future ECS systems.
-        self.world.px.resize(n, 0.0);
-        self.world.py.resize(n, 0.0);
-        self.world.pvx.resize(n, 0.0);
-        self.world.pvy.resize(n, 0.0);
-        for i in 0..n {
-            self.world.px[i] = sim.x[i];
-            self.world.py[i] = sim.y[i];
-            self.world.pvx[i] = sim.vx[i];
-            self.world.pvy[i] = sim.vy[i];
-        }
+        // Rebuild spatial grid so hit-testing reads current positions.
+        self.world.spatial_grid.rebuild(&self.world.entities, &self.world.transform);
     }
 
     /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
@@ -482,7 +488,20 @@ impl Engine {
 
         if positions_changed {
             self.renderer.update_positions(&self.graph);
-            self.spatial.build(&self.graph.nodes);
+        }
+
+        // Select cluster tier based on zoom and sync to World for edge aggregation.
+        if let Some(assignments) = self.cluster_cache.assignments_for_zoom(self.renderer.camera_zoom) {
+            let sim = self.sim.lock();
+            self.world.sync_clusters(assignments, &sim.graph_indices);
+        }
+
+        // Edge aggregation: when zoomed out, replace individual edges with cluster bundles.
+        if self.renderer.camera_zoom < crate::edge_aggregation::AGGREGATION_THRESHOLD {
+            let agg = crate::edge_aggregation::build_aggregated_edges(&self.graph, &self.world);
+            self.renderer.upload_aggregated_edges(&agg);
+        } else if self.renderer.use_aggregated_edges {
+            self.renderer.clear_aggregated_edges();
         }
 
         // Append selection/hover highlight rings (only updates 2 instances -- cheap).
@@ -538,7 +557,11 @@ impl Engine {
     pub fn mouse_down(&mut self, screen_x: f32, screen_y: f32, shift: bool) {
         self.idle_frame_count = 0;
         let (wx, wy) = self.screen_to_world(screen_x, screen_y);
-        let hit = self.spatial.query_point(wx, wy);
+        let hit = self.world.spatial_grid.query_point(
+            wx, wy,
+            &self.world.transform, &self.world.hierarchy,
+            &self.world.entity_to_index, 1.5,
+        ).and_then(|e| self.world.entity_to_node_id.get(&e).copied());
 
         if let Some(node_id) = hit {
             if shift {
@@ -636,7 +659,11 @@ impl Engine {
         } else {
             // Hover detection.
             let (wx, wy) = self.screen_to_world(screen_x, screen_y);
-            self.hovered_id = self.spatial.query_point(wx, wy);
+            self.hovered_id = self.world.spatial_grid.query_point(
+                wx, wy,
+                &self.world.transform, &self.world.hierarchy,
+                &self.world.entity_to_index, 1.5,
+            ).and_then(|e| self.world.entity_to_node_id.get(&e).copied());
         }
     }
 
@@ -1662,19 +1689,27 @@ mod tests {
         let sx = (-50.0 - offset[0]) * zoom + viewport_w as f32 * 0.5;
         let sy = (0.0 - offset[1]) * zoom + viewport_h as f32 * 0.5;
 
-        // Build spatial index.
-        let mut spatial = SpatialIndex::new();
-        spatial.build(&graph.nodes);
+        // Build ECS World for hit-testing via spatial grid.
+        let world = World::from_graph(&graph);
 
         // Test hit detection on node "a".
         let (wx, wy) = ((sx - viewport_w as f32 * 0.5) / zoom + offset[0], (sy - viewport_h as f32 * 0.5) / zoom + offset[1]);
-        let hit = spatial.query_point(wx, wy);
+        let hit_entity = world.spatial_grid.query_point(
+            wx, wy,
+            &world.transform, &world.hierarchy,
+            &world.entity_to_index, 1.5,
+        );
+        let hit = hit_entity.and_then(|e| world.entity_to_node_id.get(&e).copied());
         assert_eq!(hit, Some(0), "should hit node 'a' (id=0)");
 
         // Test miss on background.
         let (bx, by) = ((-300.0 - offset[0]) * zoom + viewport_w as f32 * 0.5, (300.0 - offset[1]) * zoom + viewport_h as f32 * 0.5);
         let (bwx, bwy) = ((bx - viewport_w as f32 * 0.5) / zoom + offset[0], (by - viewport_h as f32 * 0.5) / zoom + offset[1]);
-        let bg_hit = spatial.query_point(bwx, bwy);
+        let bg_hit = world.spatial_grid.query_point(
+            bwx, bwy,
+            &world.transform, &world.hierarchy,
+            &world.entity_to_index, 1.5,
+        ).and_then(|e| world.entity_to_node_id.get(&e).copied());
         assert_eq!(bg_hit, None, "background click should miss all nodes");
     }
 

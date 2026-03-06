@@ -20,10 +20,13 @@ pub struct VelocityComponent {
 #[derive(Clone, Copy, Debug)]
 pub struct HierarchyComponent {
     pub depth: u32,
-    pub parent: u32,      // u32::MAX = no parent
+    pub parent: u32,       // u32::MAX = no parent
     pub node_type: u8,
-    pub _pad: [u8; 3],    // explicit padding for u32 alignment
+    pub visible: u8,       // 0 = hidden, 1 = visible (u8 for FFI safety)
+    pub _pad: [u8; 2],    // explicit padding for u32 alignment
     pub link_count: u32,
+    pub radius: f32,       // world-space hit radius (from radius_for_link_count)
+    pub cluster_id: u32,   // Louvain cluster assignment, u32::MAX = unassigned
 }
 
 impl Default for HierarchyComponent {
@@ -32,8 +35,11 @@ impl Default for HierarchyComponent {
             depth: 0,
             parent: u32::MAX,
             node_type: 0,
-            _pad: [0; 3],
+            visible: 1,
+            _pad: [0; 2],
             link_count: 0,
+            radius: 8.0,
+            cluster_id: u32::MAX,
         }
     }
 }

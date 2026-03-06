@@ -8,7 +8,7 @@ use rustc_hash::FxHashMap;
 use super::{
     BlockType, HierarchyComponent, RenderComponent, TransformComponent, VelocityComponent, World,
 };
-use crate::types::{Graph, NodeType};
+use crate::types::{radius_for_link_count, Graph, NodeType};
 
 /// Maps `NodeType` → `BlockType` for the pixel art renderer.
 fn block_type_for_node(node_type: NodeType) -> BlockType {
@@ -57,8 +57,11 @@ impl World {
                 depth: 0,
                 parent: u32::MAX,
                 node_type: node.node_type as u8,
-                _pad: [0; 3],
+                visible: node.visible as u8,
+                _pad: [0; 2],
                 link_count: node.link_count,
+                radius: radius_for_link_count(node.link_count),
+                cluster_id: u32::MAX,
             };
 
             let bt = block_type_for_node(node.node_type);
@@ -76,6 +79,23 @@ impl World {
         world.node_id_to_entity = id_map.clone();
         world.entity_to_node_id = id_map.into_iter().map(|(nid, eid)| (eid, nid)).collect();
         world
+    }
+
+    /// Copy Louvain cluster assignments from simulation to ECS hierarchy.
+    ///
+    /// `graph_indices[sim_idx]` maps simulation index → graph node index.
+    /// Graph node index == world entity index (since `from_graph` iterates in order).
+    pub fn sync_clusters(&mut self, cluster_ids: &[u32], graph_indices: &[usize]) {
+        // Reset all to unassigned
+        for h in &mut self.hierarchy {
+            h.cluster_id = u32::MAX;
+        }
+        // Map sim_index → graph_index → world array index
+        for (si, &gi) in graph_indices.iter().enumerate() {
+            if si < cluster_ids.len() && gi < self.hierarchy.len() {
+                self.hierarchy[gi].cluster_id = cluster_ids[si];
+            }
+        }
     }
 }
 
@@ -112,6 +132,9 @@ mod tests {
         assert_eq!(world.transform[ni].scale, 1.0);
         assert_eq!(world.hierarchy[ni].node_type, NodeType::Note as u8);
         assert_eq!(world.hierarchy[ni].link_count, 5);
+        assert_eq!(world.hierarchy[ni].visible, 1);
+        assert!(world.hierarchy[ni].radius > 0.0);
+        assert_eq!(world.hierarchy[ni].cluster_id, u32::MAX);
         assert_eq!(world.render[ni].block_type, BlockType::Primary as u8);
         assert_eq!(world.render[ni].has_glare, 1);
 
@@ -122,6 +145,8 @@ mod tests {
         assert_eq!(world.transform[fi].y, 40.0);
         assert_eq!(world.hierarchy[fi].node_type, NodeType::Folder as u8);
         assert_eq!(world.hierarchy[fi].link_count, 12);
+        assert_eq!(world.hierarchy[fi].visible, 1);
+        assert!(world.hierarchy[fi].radius > world.hierarchy[ni].radius); // 12 links > 5 links
         assert_eq!(world.render[fi].block_type, BlockType::Core as u8);
         assert_eq!(world.render[fi].has_glare, 1);
     }
@@ -136,6 +161,54 @@ mod tests {
         assert_eq!(block_type_for_node(NodeType::Quote), BlockType::Tertiary);
         assert_eq!(block_type_for_node(NodeType::Tag), BlockType::Leaf);
         assert_eq!(block_type_for_node(NodeType::Block), BlockType::Leaf);
+    }
+
+    #[test]
+    fn test_from_graph_hidden_node() {
+        let mut graph = Graph::new();
+        graph.add_node("hidden".into(), 0.0, 0.0, 0, 1, "Hidden".into());
+        graph.nodes[0].visible = false;
+
+        let world = World::from_graph(&graph);
+        let entity = world.node_id_to_entity[&0];
+        let idx = world.index_of(entity).unwrap();
+        assert_eq!(world.hierarchy[idx].visible, 0);
+    }
+
+    #[test]
+    fn test_sync_clusters() {
+        let mut graph = Graph::new();
+        graph.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        graph.add_node("b".into(), 10.0, 10.0, 0, 1, "B".into());
+        graph.add_node("c".into(), 20.0, 20.0, 0, 1, "C".into());
+
+        let mut world = World::from_graph(&graph);
+
+        // Simulate: only nodes 0 and 2 are in the simulation (indices 0 and 1)
+        let cluster_ids = vec![5, 5]; // both in cluster 5
+        let graph_indices = vec![0, 2]; // sim idx 0 → graph idx 0, sim idx 1 → graph idx 2
+
+        world.sync_clusters(&cluster_ids, &graph_indices);
+
+        assert_eq!(world.hierarchy[0].cluster_id, 5);
+        assert_eq!(world.hierarchy[1].cluster_id, u32::MAX); // node 1 not in sim
+        assert_eq!(world.hierarchy[2].cluster_id, 5);
+    }
+
+    #[test]
+    fn test_sync_clusters_empty() {
+        let mut graph = Graph::new();
+        graph.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+
+        let mut world = World::from_graph(&graph);
+        world.sync_clusters(&[], &[]);
+
+        assert_eq!(world.hierarchy[0].cluster_id, u32::MAX);
+    }
+
+    #[test]
+    fn test_hierarchy_component_size() {
+        assert_eq!(std::mem::size_of::<HierarchyComponent>(), 24);
     }
 
     #[test]

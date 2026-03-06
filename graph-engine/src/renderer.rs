@@ -749,6 +749,11 @@ pub struct Renderer {
     pixel_edge_capacity: usize,
     pixel_uniform_buf: Option<Buffer>,
     pixel_frame_count: u32,
+    // ── Edge aggregation (cluster LOD) ────────────────────────────
+    /// When true, use aggregated cluster edges instead of individual edges.
+    pub use_aggregated_edges: bool,
+    /// Cached aggregated edge count for the current frame.
+    aggregated_edge_count: usize,
 }
 
 impl Renderer {
@@ -886,6 +891,8 @@ impl Renderer {
             pixel_edge_capacity: 0,
             pixel_uniform_buf: None,
             pixel_frame_count: 0,
+            use_aggregated_edges: false,
+            aggregated_edge_count: 0,
         })
     }
 
@@ -1185,6 +1192,54 @@ impl Renderer {
         } else {
             self.edge_instance_buf = None;
         }
+    }
+
+    /// Upload aggregated cluster edges to the edge instance buffer.
+    /// Called by engine when zoom < AGGREGATION_THRESHOLD.
+    pub fn upload_aggregated_edges(&mut self, edges: &[crate::edge_aggregation::AggregatedEdge]) {
+        self.use_aggregated_edges = !edges.is_empty();
+        if edges.is_empty() {
+            self.aggregated_edge_count = 0;
+            return;
+        }
+
+        let count = edges.len();
+        // Ensure buffer capacity
+        if count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+            let capacity = (count * 3 / 2).max(64);
+            let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
+            self.edge_instance_buf = Some(
+                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+            );
+            self.edge_instance_capacity = capacity;
+        }
+
+        if let Some(buf) = &self.edge_instance_buf {
+            // SAFETY: count <= edge_instance_capacity, buffer allocated above.
+            unsafe {
+                let ptr = buf.contents() as *mut LineEdgeInstance;
+                for (i, agg) in edges.iter().enumerate() {
+                    // Neutral aggregate color: gray with computed alpha
+                    let base = if self.light_mode {
+                        [0.35, 0.35, 0.40]
+                    } else {
+                        [0.55, 0.55, 0.60]
+                    };
+                    *ptr.add(i) = LineEdgeInstance {
+                        p0: agg.p0,
+                        p1: agg.p1,
+                        color: [base[0], base[1], base[2], agg.alpha],
+                    };
+                }
+            }
+        }
+        self.aggregated_edge_count = count;
+    }
+
+    /// Clear aggregated edge mode (return to individual edges).
+    pub fn clear_aggregated_edges(&mut self) {
+        self.use_aggregated_edges = false;
+        self.aggregated_edge_count = 0;
     }
 
     /// Update positions in-place (called every frame after sync_positions).
@@ -1960,11 +2015,16 @@ impl Renderer {
             let encoder = cmd_buf.new_render_command_encoder(render_desc);
 
             // Draw edges first (behind nodes)
-            if self.edge_instance_count > 0
+            let effective_edge_count = if self.use_aggregated_edges {
+                self.aggregated_edge_count
+            } else {
+                self.edge_instance_count
+            };
+            if effective_edge_count > 0
                 && let Some(inst_buf) = &self.edge_instance_buf
             {
                 // Clamp to buffer capacity to prevent Metal validation crash.
-                let edge_draw = self.edge_instance_count.min(self.edge_instance_capacity);
+                let edge_draw = effective_edge_count.min(self.edge_instance_capacity);
                 encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);

@@ -15,6 +15,8 @@ pub mod embedding;
 pub mod version;
 pub mod block_kernel;
 pub mod ecs;
+pub mod edge_aggregation;
+pub mod cluster_cache;
 
 #[cfg(test)]
 pub mod physics_audit_test;

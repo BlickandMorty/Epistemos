@@ -5,7 +5,7 @@
 
 use rustc_hash::FxHashMap;
 
-use super::TransformComponent;
+use super::{HierarchyComponent, TransformComponent};
 
 pub struct SpatialGrid {
     cell_size: f32,
@@ -80,6 +80,51 @@ impl SpatialGrid {
         result
     }
 
+    /// Find the closest visible entity within hit radius of `(x, y)`.
+    ///
+    /// Checks the 9 cells around the point, filters by visibility, and returns
+    /// the entity whose center is closest and within `radius * hit_padding`.
+    /// `entity_to_index` maps entity ID → array index in the SoA arrays.
+    pub fn query_point(
+        &self,
+        x: f32,
+        y: f32,
+        transforms: &[TransformComponent],
+        hierarchy: &[HierarchyComponent],
+        entity_to_index: &FxHashMap<u32, usize>,
+        hit_padding: f32,
+    ) -> Option<u32> {
+        let (cx, cy) = self.cell_coords(x, y);
+        let mut best_entity: Option<u32> = None;
+        let mut best_dist_sq = f32::MAX;
+
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                if let Some(entities) = self.cells.get(&(cx + dx, cy + dy)) {
+                    for &entity in entities {
+                        let Some(&idx) = entity_to_index.get(&entity) else {
+                            continue;
+                        };
+                        if hierarchy[idx].visible == 0 {
+                            continue;
+                        }
+                        let t = &transforms[idx];
+                        let ddx = x - t.x;
+                        let ddy = y - t.y;
+                        let dist_sq = ddx * ddx + ddy * ddy;
+                        let hit_r = hierarchy[idx].radius * hit_padding;
+                        if dist_sq < hit_r * hit_r && dist_sq < best_dist_sq {
+                            best_dist_sq = dist_sq;
+                            best_entity = Some(entity);
+                        }
+                    }
+                }
+            }
+        }
+
+        best_entity
+    }
+
     /// Optimized query checking only the 9 cells around `(x, y)` (center + 8 adjacent).
     /// Best when `cell_size` matches the perception/interaction radius.
     pub fn query_neighbors(&self, x: f32, y: f32) -> Vec<u32> {
@@ -101,6 +146,117 @@ impl SpatialGrid {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn make_hierarchy(visible: bool, radius: f32) -> HierarchyComponent {
+        HierarchyComponent {
+            visible: visible as u8,
+            radius,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_query_point_empty() {
+        let grid = SpatialGrid::new(50.0);
+        let transforms: Vec<TransformComponent> = vec![];
+        let hierarchy: Vec<HierarchyComponent> = vec![];
+        let map = FxHashMap::default();
+        assert!(grid.query_point(0.0, 0.0, &transforms, &hierarchy, &map, 1.5).is_none());
+    }
+
+    #[test]
+    fn test_query_point_hit() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(0, 10.0, 10.0);
+        let transforms = vec![TransformComponent { x: 10.0, y: 10.0, scale: 1.0 }];
+        let hierarchy = vec![make_hierarchy(true, 8.0)];
+        let mut map = FxHashMap::default();
+        map.insert(0, 0);
+
+        // Click right on the entity — should hit
+        let result = grid.query_point(10.0, 10.0, &transforms, &hierarchy, &map, 1.5);
+        assert_eq!(result, Some(0));
+    }
+
+    #[test]
+    fn test_query_point_miss() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(0, 10.0, 10.0);
+        let transforms = vec![TransformComponent { x: 10.0, y: 10.0, scale: 1.0 }];
+        let hierarchy = vec![make_hierarchy(true, 8.0)];
+        let mut map = FxHashMap::default();
+        map.insert(0, 0);
+
+        // Click far from entity (radius*1.5 = 12.0, clicking at distance ~50)
+        let result = grid.query_point(60.0, 10.0, &transforms, &hierarchy, &map, 1.5);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_query_point_closest_wins() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(0, 5.0, 5.0);
+        grid.insert(1, 10.0, 10.0);
+        let transforms = vec![
+            TransformComponent { x: 5.0, y: 5.0, scale: 1.0 },
+            TransformComponent { x: 10.0, y: 10.0, scale: 1.0 },
+        ];
+        let hierarchy = vec![make_hierarchy(true, 20.0), make_hierarchy(true, 20.0)];
+        let mut map = FxHashMap::default();
+        map.insert(0, 0);
+        map.insert(1, 1);
+
+        // Click at (7, 7) — closer to entity 0 at (5,5) than entity 1 at (10,10)
+        let result = grid.query_point(7.0, 7.0, &transforms, &hierarchy, &map, 1.5);
+        assert_eq!(result, Some(0));
+    }
+
+    #[test]
+    fn test_query_point_invisible_skipped() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(0, 10.0, 10.0);
+        let transforms = vec![TransformComponent { x: 10.0, y: 10.0, scale: 1.0 }];
+        let hierarchy = vec![make_hierarchy(false, 8.0)];
+        let mut map = FxHashMap::default();
+        map.insert(0, 0);
+
+        let result = grid.query_point(10.0, 10.0, &transforms, &hierarchy, &map, 1.5);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_query_point_zero_radius() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(0, 10.0, 10.0);
+        let transforms = vec![TransformComponent { x: 10.0, y: 10.0, scale: 1.0 }];
+        let hierarchy = vec![make_hierarchy(true, 0.0)];
+        let mut map = FxHashMap::default();
+        map.insert(0, 0);
+
+        // Exact position match but radius is 0 — no hit (dist_sq=0 < 0 is false)
+        let result = grid.query_point(10.0, 10.0, &transforms, &hierarchy, &map, 1.5);
+        // dist_sq=0 < 0*1.5^2=0 is false, so no hit
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_query_point_boundary() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(0, 10.0, 10.0);
+        let transforms = vec![TransformComponent { x: 10.0, y: 10.0, scale: 1.0 }];
+        let hierarchy = vec![make_hierarchy(true, 10.0)];
+        let mut map = FxHashMap::default();
+        map.insert(0, 0);
+
+        // Click at exactly hit_radius distance (10.0 * 1.5 = 15.0)
+        // At (25.0, 10.0) -> distance = 15.0, hit_r = 15.0, dist_sq == hit_r^2 -> NOT hit (strict <)
+        let result = grid.query_point(25.0, 10.0, &transforms, &hierarchy, &map, 1.5);
+        assert!(result.is_none());
+
+        // Just inside: at (24.9, 10.0) -> distance < 15.0
+        let result = grid.query_point(24.9, 10.0, &transforms, &hierarchy, &map, 1.5);
+        assert_eq!(result, Some(0));
+    }
 
     #[test]
     fn test_spatial_grid_insert_query() {
