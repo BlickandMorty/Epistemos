@@ -17,8 +17,8 @@ struct DialogueOverlayView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            HStack(spacing: 18) {
-                VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 22) {
+                VStack(alignment: .leading, spacing: 14) {
                     header
                     transcript
                     inputBar
@@ -28,7 +28,7 @@ struct DialogueOverlayView: View {
                 portraitPanel
                     .frame(width: min(124, proxy.size.width * 0.24))
             }
-            .padding(18)
+            .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(dialogueBackground)
             .overlay(dialogueBorder)
@@ -103,12 +103,28 @@ struct DialogueOverlayView: View {
             Text(">")
                 .font(chromeFont)
                 .foregroundStyle(palette.secondaryText)
+                .frame(width: 14, alignment: .leading)
 
             TextField("Ask \(chatState.activeNodeLabel) something...", text: $chatState.inputText)
                 .font(inputFont)
                 .foregroundStyle(palette.primaryText)
                 .textFieldStyle(.plain)
                 .focused($inputFocused)
+                .submitLabel(.send)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(palette.transcriptFill.opacity(0.92))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(palette.softStroke, lineWidth: 1)
+                )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    inputFocused = true
+                }
                 .onSubmit {
                     onSubmit(chatState.inputText)
                 }
@@ -119,15 +135,15 @@ struct DialogueOverlayView: View {
             .buttonStyle(.plain)
             .font(chromeFont)
             .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .frame(minWidth: 68, minHeight: 42)
             .background(
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(palette.actionFill)
             )
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.vertical, 12)
+        .frame(minHeight: 68)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(palette.inputFill)
@@ -136,6 +152,10 @@ struct DialogueOverlayView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(palette.chromeStroke, lineWidth: 2)
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            inputFocused = true
+        }
     }
 
     private var portraitPanel: some View {

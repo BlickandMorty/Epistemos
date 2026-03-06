@@ -94,8 +94,8 @@ struct DialogueBoxGeometry {
 
 const DIALOGUE_BOX_SCREEN_WIDTH: f32 = 640.0;
 const DIALOGUE_BOX_SCREEN_HEIGHT: f32 = 320.0;
-const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 22.0;
-const DIALOGUE_GAP_SCREEN: f32 = 22.0;
+const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 34.0;
+const DIALOGUE_GAP_SCREEN: f32 = 34.0;
 const DIALOGUE_VIEWPORT_MARGIN_SCREEN: f32 = 18.0;
 
 /// Uniform data sent to all shaders (camera transform + animation).
@@ -202,7 +202,7 @@ fn clamp_dialogue_box_top(
 fn dialogue_box_vertical_layout(node_y: f32, node_radius: f32, zoom: f32) -> (f32, f32) {
     let tail_h_world = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
     let base_gap_world = DIALOGUE_GAP_SCREEN / zoom;
-    let face_clearance_world = (node_radius * 0.35).max(20.0 / zoom);
+    let face_clearance_world = (node_radius * 0.9).max(54.0 / zoom);
     let tail_tip_y = node_y - node_radius - base_gap_world - face_clearance_world;
     let box_bottom_y = tail_tip_y - tail_h_world;
     (box_bottom_y, tail_tip_y)
@@ -2013,7 +2013,11 @@ impl Renderer {
         // Convert screen-space dimensions to world-space.
         let box_w_world = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
         let box_h_world = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
-        let preferred_left = node_x - box_w_world * 0.5;
+        let preferred_left = if node_x <= self.camera_offset[0] {
+            node_x - box_w_world * 0.18
+        } else {
+            node_x - box_w_world * 0.82
+        };
         let box_left = clamp_dialogue_box_left(
             preferred_left,
             self.camera_offset[0],
