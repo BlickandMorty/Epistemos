@@ -416,6 +416,45 @@ actor VaultIndexActor {
         return fileURL.path
     }
 
+    // MARK: - Rename Page File
+
+    /// Rename a page's vault .md file to match a new title.
+    /// Moves the file on disk and updates page.filePath.
+    func renamePageFile(pageId: String, newTitle: String, vaultURL: URL) throws {
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate { $0.id == pageId }
+        )
+        guard let page = try modelContext.fetch(descriptor).first else { return }
+        guard let oldPath = page.filePath else { return }
+
+        let oldURL = URL(filePath: oldPath)
+        let parentURL = oldURL.deletingLastPathComponent()
+        let newBaseName = sanitizeFileName(newTitle)
+        var newURL = parentURL.appendingPathComponent("\(newBaseName).md")
+
+        // Skip if the filename is already correct
+        guard newURL.path != oldURL.path else { return }
+
+        // Dedup if target already exists (and isn't the same file)
+        var suffix = 1
+        while FileManager.default.fileExists(atPath: newURL.path) {
+            if suffix > 100 {
+                let uuid8 = UUID().uuidString.prefix(8)
+                newURL = parentURL.appendingPathComponent("\(newBaseName)-\(uuid8).md")
+                break
+            }
+            newURL = parentURL.appendingPathComponent("\(newBaseName)-\(suffix).md")
+            suffix += 1
+        }
+
+        // Move the file
+        guard FileManager.default.fileExists(atPath: oldURL.path) else { return }
+        try FileManager.default.moveItem(at: oldURL, to: newURL)
+        page.filePath = newURL.path
+        try modelContext.save()
+        log.info("Renamed page file: \(oldURL.lastPathComponent, privacy: .public) → \(newURL.lastPathComponent, privacy: .public)")
+    }
+
     // MARK: - Handle Deletion
 
     /// Remove a page from SwiftData when its .md file is deleted externally.
@@ -512,6 +551,11 @@ actor VaultIndexActor {
                     page.needsVaultSync = true
                 } else {
                     page.saveBody(body)
+                    // Notify editor to reload — vault replaced the body externally.
+                    let changedId = page.id
+                    Task { @MainActor in
+                        NoteFileStorage.notifyBodyChanged(pageId: changedId)
+                    }
                 }
                 page.updatedAt = .now
                 if !preserveBody {

@@ -378,10 +378,8 @@ struct DiffSheetView: View {
         preRestoreBody = currentBody
 
         // Overwrite page body with the selected version
-        page.saveBody(version.body)
-        page.wordCount = version.body.split(separator: " ").count
         do {
-            try modelContext.save()
+            try Self.persistRestoredBody(version.body, to: page, modelContext: modelContext)
         } catch {
             Log.db.error("Failed to save after version restore for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
@@ -389,6 +387,9 @@ struct DiffSheetView: View {
         // Update live state
         liveBody = version.body
         loadVersions()
+
+        // Notify open editor to reload from disk
+        NoteFileStorage.notifyBodyChanged(pageId: pageId)
 
         // Show confirmation toast
         withAnimation { restoredNotice = true }
@@ -404,10 +405,8 @@ struct DiffSheetView: View {
         let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = try? modelContext.fetch(desc).first else { return }
 
-        page.saveBody(oldBody)
-        page.wordCount = oldBody.split(separator: " ").count
         do {
-            try modelContext.save()
+            try Self.persistRestoredBody(oldBody, to: page, modelContext: modelContext)
         } catch {
             Log.db.error("Failed to save after undo restore for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
@@ -415,6 +414,9 @@ struct DiffSheetView: View {
         liveBody = oldBody
         preRestoreBody = nil
         loadVersions()
+
+        // Notify open editor to reload from disk
+        NoteFileStorage.notifyBodyChanged(pageId: pageId)
     }
 
     // MARK: - Actions
@@ -426,6 +428,14 @@ struct DiffSheetView: View {
             body: version.body,
             date: version.createdAt
         )
+    }
+
+    @MainActor
+    static func persistRestoredBody(_ body: String, to page: SDPage, modelContext: ModelContext) throws {
+        page.saveBody(body)
+        page.wordCount = body.split(separator: " ").count
+        page.needsVaultSync = true
+        try modelContext.save()
     }
 
     private func copyVersionText() {

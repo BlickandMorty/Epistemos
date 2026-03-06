@@ -7,9 +7,10 @@ import SwiftUI
 // Content loads instantly from pre-styled storage (no restyling needed).
 //
 // Data flow:
-//   1. SDPage.body (SwiftData) -> @State bodyText -> ProseEditorRepresentable
-//   2. User types -> Coordinator updates binding -> onChange debounces -> SDPage.body
-//   3. SDPage.body is the sole source of truth — no live .md sync
+//   1. Disk file (NoteFileStorage) -> @State bodyText -> ProseEditorRepresentable
+//   2. User types -> Coordinator updates binding -> onChange debounces -> disk file
+//   3. Disk file is the sole source of truth — page.body is always "" post-migration.
+//      External changes (restore, vault sync) signal via NoteFileStorage.pageBodyDidChange.
 //      Vault .md files are updated on explicit Save / Save All / auto-save interval.
 //
 // This view is the SwiftUI container that handles:
@@ -57,8 +58,10 @@ struct ProseEditorView: View {
                     predicate: #Predicate<SDPage> { $0.id == oldPageId }
                 )
                 if let oldPage = try? modelContext.fetch(desc).first {
+                    // File write first, dirty flag + save after — same ordering as debouncedSave.
                     oldPage.saveBody(currentText)
                     oldPage.needsVaultSync = true
+                    try? modelContext.save()
                 }
             },
             graphState: graphState
@@ -81,14 +84,18 @@ struct ProseEditorView: View {
             guard newValue != lastPersistedBody else { return }
             debouncedSave(newValue)
         }
-        // Detect external body changes (restore-to-version, sync, etc.)
-        // page.body can change via DiffSheetView restore or VaultSync —
-        // update bodyText so the NSTextView picks it up in updateNSView.
-        // NOTE: post-migration body is always "" so this fires once and is harmless.
-        .onChange(of: page.body) { _, newBody in
-            guard newBody != bodyText else { return }
+        // Detect external body changes (restore-to-version, vault sync, etc.)
+        // page.body is always "" for migrated notes, so it's useless as a change signal.
+        // Instead, listen for an explicit notification keyed by pageId.
+        .onReceive(
+            NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyDidChange)
+        ) { notification in
+            guard let changedId = notification.userInfo?["pageId"] as? String,
+                  changedId == page.id else { return }
             saveTask?.cancel()
-            bodyText = newBody
+            let fresh = page.loadBody()
+            bodyText = fresh
+            lastPersistedBody = fresh
         }
         .onDisappear {
             flushIfNeeded()
@@ -106,6 +113,7 @@ struct ProseEditorView: View {
             page.saveBody(bodyText)
             lastPersistedBody = bodyText
             page.needsVaultSync = true
+            try? modelContext.save()
         }
     }
 
@@ -124,14 +132,22 @@ struct ProseEditorView: View {
         let pageId = page.id
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))
-            guard !Task.isCancelled else { return }
-            guard newValue != lastPersistedBody else { return }
-            page.needsVaultSync = true
-            // File write off main thread (nonisolated NoteFileStorage is thread-safe).
+            guard !Task.isCancelled else {
+                return
+            }
+            guard newValue != lastPersistedBody else {
+                return
+            }
+            // File write FIRST — disk is source of truth. Must complete before
+            // modelContext.save() so any @Query cascade reads correct content.
             await Task.detached(priority: .utility) {
                 NoteFileStorage.writeBody(pageId: pageId, content: newValue)
             }.value
             lastPersistedBody = newValue
+            // Persist dirty flag AFTER file write. This ensures loadBody() returns
+            // the new content if @Query refetch triggers view re-evaluation.
+            page.needsVaultSync = true
+            try? modelContext.save()
         }
     }
 

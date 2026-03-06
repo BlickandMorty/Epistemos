@@ -557,6 +557,7 @@ final class VaultSyncService {
                 if let path = exportedPath {
                     log.info("Saved page to vault: \(path, privacy: .private)")
                 }
+
                 await MainActor.run { [weak self] in
                     self?.eventBus?.emit(.vaultChanged)
                 }
@@ -942,6 +943,23 @@ final class VaultSyncService {
         }
     }
 
+    /// Rename a page's vault .md file to match a new title.
+    /// Call this after updating page.title so the Finder filename stays in sync.
+    func renamePageFile(pageId: String, newTitle: String) {
+        guard let vaultURL else {
+            log.warning("Cannot rename page file: no vault URL")
+            return
+        }
+        let actor = indexActor
+        Task {
+            do {
+                try await actor?.renamePageFile(pageId: pageId, newTitle: newTitle, vaultURL: vaultURL)
+            } catch {
+                log.error("Failed to rename page file: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     /// Rename a directory in the vault. Both paths are relative to vault root.
     func renameDirectory(from oldRelativePath: String, to newRelativePath: String) {
         guard let vaultURL else {
@@ -970,4 +988,5 @@ final class VaultSyncService {
             log.error("Failed to rename directory: \(error.localizedDescription, privacy: .public)")
         }
     }
+
 }

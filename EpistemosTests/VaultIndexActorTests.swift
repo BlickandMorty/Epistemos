@@ -12,6 +12,13 @@ struct VaultIndexActorTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
+    private func makeTempDirectory() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vault-index-actor-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     @discardableResult
     private func insertPage(
         in context: ModelContext,
@@ -262,5 +269,77 @@ struct VaultIndexActorTests {
         #expect(VaultIndexActor.sanitizeTitle("Bad\u{0000}Title") == "BadTitle")
         #expect(VaultIndexActor.sanitizeTitle(" \n\t ") == "Untitled")
     }
-}
 
+    @Test("persistRestoredBody marks page dirty for vault export")
+    func persistRestoredBodyMarksPageDirty() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let page = insertPage(in: context, title: "Restore", body: "")
+        try context.save()
+
+        try DiffSheetView.persistRestoredBody("Restored body text", to: page, modelContext: context)
+
+        #expect(page.loadBody() == "Restored body text")
+        #expect(page.wordCount == 3)
+        #expect(page.needsVaultSync)
+    }
+
+    @Test("renamePageFile renames file and updates filePath")
+    func renamePageFileUpdatesStoredPath() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let oldURL = vaultURL.appendingPathComponent("Old Title.md")
+        try "body".write(to: oldURL, atomically: true, encoding: .utf8)
+
+        let page = insertPage(in: context, title: "Old Title", body: "")
+        page.filePath = oldURL.path
+        try context.save()
+
+        try await actor.renamePageFile(pageId: page.id, newTitle: "New Title", vaultURL: vaultURL)
+
+        let newURL = vaultURL.appendingPathComponent("New Title.md")
+        #expect(!FileManager.default.fileExists(atPath: oldURL.path))
+        #expect(FileManager.default.fileExists(atPath: newURL.path))
+
+        let verifyContext = ModelContext(container)
+        let pageId = page.id
+        let desc = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == pageId })
+        let updated = try verifyContext.fetch(desc).first
+        #expect(updated?.filePath == newURL.path)
+    }
+
+    @Test("renamePageFile dedupes when target filename already exists")
+    func renamePageFileDedupesExistingTarget() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let oldURL = vaultURL.appendingPathComponent("Original.md")
+        let occupiedURL = vaultURL.appendingPathComponent("Renamed.md")
+        try "old".write(to: oldURL, atomically: true, encoding: .utf8)
+        try "existing".write(to: occupiedURL, atomically: true, encoding: .utf8)
+
+        let page = insertPage(in: context, title: "Original", body: "")
+        page.filePath = oldURL.path
+        try context.save()
+
+        try await actor.renamePageFile(pageId: page.id, newTitle: "Renamed", vaultURL: vaultURL)
+
+        let dedupedURL = vaultURL.appendingPathComponent("Renamed-1.md")
+        #expect(FileManager.default.fileExists(atPath: occupiedURL.path))
+        #expect(FileManager.default.fileExists(atPath: dedupedURL.path))
+
+        let verifyContext = ModelContext(container)
+        let pageId = page.id
+        let desc = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == pageId })
+        let updated = try verifyContext.fetch(desc).first
+        #expect(updated?.filePath == dedupedURL.path)
+    }
+}
