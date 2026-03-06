@@ -140,6 +140,72 @@ struct DialogueCareState: Sendable, Equatable {
     }
 }
 
+enum DialogueDepthTier: String, Codable, Sendable, Equatable {
+    case root
+    case branch
+    case focus
+    case detail
+    case trace
+
+    var displayName: String {
+        switch self {
+        case .root: "Root"
+        case .branch: "Branch"
+        case .focus: "Focus"
+        case .detail: "Detail"
+        case .trace: "Trace"
+        }
+    }
+}
+
+struct DialogueNodeInsight: Sendable, Equatable {
+    let structureDepth: Int
+    let contentWords: Int
+    let childCount: Int
+    let tier: DialogueDepthTier
+    let prominence: Double
+
+    static func fallback(nodeType: GraphNodeType, noteBody: String, linkedNodeCount: Int) -> DialogueNodeInsight {
+        let contentWords = noteBody
+            .split { !$0.isLetter && !$0.isNumber }
+            .count
+        let structureDepth: Int = switch nodeType {
+        case .folder: 0
+        case .note, .chat: 2
+        case .idea, .source, .quote: 3
+        case .tag, .block: 4
+        }
+        let prominence = min(1.0, Double(contentWords) / 1800.0 + Double(linkedNodeCount) * 0.04)
+        return DialogueNodeInsight(
+            structureDepth: structureDepth,
+            contentWords: contentWords,
+            childCount: linkedNodeCount,
+            tier: Self.tier(for: structureDepth),
+            prominence: prominence
+        )
+    }
+
+    static func tier(for structureDepth: Int) -> DialogueDepthTier {
+        switch structureDepth {
+        case ..<1: .root
+        case 1: .branch
+        case 2...3: .focus
+        case 4...5: .detail
+        default: .trace
+        }
+    }
+
+    var contentLabel: String {
+        if contentWords > 0 { return "\(contentWords)w" }
+        if childCount > 0 { return "\(childCount) links" }
+        return "thin"
+    }
+
+    var hierarchyLabel: String {
+        "Layer \(structureDepth)"
+    }
+}
+
 struct DialogueNodeProfile: Sendable, Equatable {
     let nodeId: String
     let label: String
@@ -149,6 +215,7 @@ struct DialogueNodeProfile: Sendable, Equatable {
     let openingLine: String
     let focusKeywords: [String]
     let portrait: DialoguePortraitAsset
+    let insight: DialogueNodeInsight
     var care: DialogueCareState
 
     static let placeholder = DialogueNodeProfile(
@@ -160,6 +227,7 @@ struct DialogueNodeProfile: Sendable, Equatable {
         openingLine: "",
         focusKeywords: [],
         portrait: DialoguePortraitAsset(symbol: "sparkles.rectangle.stack.fill", crestLabel: "Dormant"),
+        insight: DialogueNodeInsight(structureDepth: 0, contentWords: 0, childCount: 0, tier: .root, prominence: 0.0),
         care: DialogueCareState(health: 0.5, attention: 0.5, mood: .steady, interactionCount: 0, lastInteractionAt: nil)
     )
 
@@ -168,11 +236,17 @@ struct DialogueNodeProfile: Sendable, Equatable {
         label: String,
         nodeType: GraphNodeType,
         noteBody: String,
-        linkedNodeLabels: [String]
+        linkedNodeLabels: [String],
+        insight: DialogueNodeInsight? = nil
     ) -> DialogueNodeProfile {
         let normalizedBody = noteBody.trimmingCharacters(in: .whitespacesAndNewlines)
         let tokens = normalizedTokens(in: normalizedBody)
         let keywords = focusKeywords(in: normalizedBody, linkedNodeLabels: linkedNodeLabels)
+        let resolvedInsight = insight ?? DialogueNodeInsight.fallback(
+            nodeType: nodeType,
+            noteBody: normalizedBody,
+            linkedNodeCount: linkedNodeLabels.count
+        )
         let archetype = deriveArchetype(
             nodeType: nodeType,
             body: normalizedBody,
@@ -190,11 +264,11 @@ struct DialogueNodeProfile: Sendable, Equatable {
             richness: richness,
             linkedNodeLabels: linkedNodeLabels
         )
-        let summary = "\(label) \(archetype.summaryTemplate)."
+        let summary = "\(label) \(archetype.summaryTemplate), operating at \(resolvedInsight.hierarchyLabel.lowercased()) as a \(resolvedInsight.tier.displayName.lowercased()) node."
         let portrait = portraitAsset(for: archetype, mood: mood)
         let care = DialogueCareState(
-            health: min(1.0, max(0.0, 0.28 + richness * 0.58)),
-            attention: min(1.0, max(0.0, 0.42 + min(0.22, Double(linkedNodeLabels.count) * 0.03))),
+            health: min(1.0, max(0.0, 0.20 + richness * 0.34 + resolvedInsight.prominence * 0.30 + depthResilience(for: resolvedInsight) * 0.14)),
+            attention: min(1.0, max(0.0, 0.34 + min(0.18, Double(linkedNodeLabels.count) * 0.025) + resolvedInsight.prominence * 0.18 + depthCuriosity(for: resolvedInsight))),
             mood: mood,
             interactionCount: 0,
             lastInteractionAt: nil
@@ -209,17 +283,24 @@ struct DialogueNodeProfile: Sendable, Equatable {
             openingLine: archetype.openingLine,
             focusKeywords: keywords,
             portrait: portrait,
+            insight: resolvedInsight,
             care: care
         )
     }
 
-    func refreshed(noteBody: String, linkedNodeLabels: [String], now: Date) -> DialogueNodeProfile {
+    func refreshed(
+        noteBody: String,
+        linkedNodeLabels: [String],
+        now: Date,
+        insight: DialogueNodeInsight? = nil
+    ) -> DialogueNodeProfile {
         let derived = Self.derive(
             nodeId: nodeId,
             label: label,
             nodeType: nodeType,
             noteBody: noteBody,
-            linkedNodeLabels: linkedNodeLabels
+            linkedNodeLabels: linkedNodeLabels,
+            insight: insight
         )
         var merged = derived
         merged.care = care
@@ -285,6 +366,26 @@ struct DialogueNodeProfile: Sendable, Equatable {
         let linkScore = min(0.18, Double(linkedNodeLabels.count) * 0.03)
         let keywordScore = min(0.10, Double(keywords.count) * 0.03)
         return min(1.0, bodyScore + linkScore + keywordScore)
+    }
+
+    private static func depthResilience(for insight: DialogueNodeInsight) -> Double {
+        switch insight.tier {
+        case .root: 0.18
+        case .branch: 0.14
+        case .focus: 0.10
+        case .detail: 0.07
+        case .trace: 0.04
+        }
+    }
+
+    private static func depthCuriosity(for insight: DialogueNodeInsight) -> Double {
+        switch insight.tier {
+        case .root: 0.02
+        case .branch: 0.05
+        case .focus: 0.08
+        case .detail: 0.10
+        case .trace: 0.12
+        }
     }
 
     private static func portraitAsset(for archetype: DialogueArchetype, mood: DialogueMood) -> DialoguePortraitAsset {
@@ -418,7 +519,8 @@ final class DialogueChatState {
         label: String,
         nodeType: GraphNodeType,
         noteBody: String,
-        linkedNodeLabels: [String]
+        linkedNodeLabels: [String],
+        insight: DialogueNodeInsight? = nil
     ) {
         let now = Date.now
         if activeNodeId == nodeId {
@@ -427,9 +529,10 @@ final class DialogueChatState {
                 label: label,
                 nodeType: nodeType,
                 noteBody: noteBody,
-                linkedNodeLabels: linkedNodeLabels
+                linkedNodeLabels: linkedNodeLabels,
+                insight: insight
             )
-            profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: now)
+            profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: now, insight: insight)
             profile.care.markOpened(now: now)
             nodeProfiles[nodeId] = profile
             activeProfile = profile
@@ -441,9 +544,10 @@ final class DialogueChatState {
             label: label,
             nodeType: nodeType,
             noteBody: noteBody,
-            linkedNodeLabels: linkedNodeLabels
+            linkedNodeLabels: linkedNodeLabels,
+            insight: insight
         )
-        profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: now)
+        profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: now, insight: insight)
         profile.care.markOpened(now: now)
         nodeProfiles[nodeId] = profile
 
@@ -475,6 +579,7 @@ final class DialogueChatState {
         noteBody: String,
         linkedNodeLabels: [String],
         nodeType: GraphNodeType,
+        insight: DialogueNodeInsight? = nil,
         triageService: TriageService
     ) {
         let query = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -487,9 +592,10 @@ final class DialogueChatState {
                 label: activeNodeLabel,
                 nodeType: nodeType,
                 noteBody: noteBody,
-                linkedNodeLabels: linkedNodeLabels
+                linkedNodeLabels: linkedNodeLabels,
+                insight: insight
             )
-            profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: .now)
+            profile = profile.refreshed(noteBody: noteBody, linkedNodeLabels: linkedNodeLabels, now: .now, insight: insight)
             profile.recordInteraction(userText: query)
             nodeProfiles[activeNodeId] = profile
             activeProfile = profile
@@ -577,6 +683,9 @@ final class DialogueChatState {
         You are "\(activeNodeLabel)", a character in a knowledge graph.
         Persona: \(activeProfile.archetype.title)
         Current mood: \(activeProfile.care.mood.displayName)
+        Depth tier: \(activeProfile.insight.tier.displayName)
+        Structure: \(activeProfile.insight.hierarchyLabel)
+        Content mass: \(activeProfile.insight.contentLabel)
         Health: \(String(format: "%.2f", activeProfile.care.health))
         Attention: \(String(format: "%.2f", activeProfile.care.attention))
         Focus keywords: \(activeProfile.focusKeywords.joined(separator: ", "))

@@ -38,19 +38,11 @@ struct GraphFloatingControls: View {
 
                 themeToggle
 
-                if graphState.visualTheme == .dialogue {
-                    Divider()
-                        .frame(height: 20)
-                        .opacity(0.3)
-
-                    dialogueThemeToggle
-                }
-
                 Divider()
                     .frame(height: 20)
                     .opacity(0.3)
 
-                liteModeToggle
+                renderingBadge
 
                 Divider()
                     .frame(height: 20)
@@ -85,6 +77,11 @@ struct GraphFloatingControls: View {
             .popover(isPresented: $showForceSettings, arrowEdge: .top) {
                 GraphForceSettings()
                     .environment(graphState)
+            }
+        }
+        .onAppear {
+            if graphState.visualTheme != .dialogue {
+                graphState.visualTheme = .dialogue
             }
         }
     }
@@ -182,71 +179,21 @@ struct GraphFloatingControls: View {
 
     private var themeToggle: some View {
         HStack(spacing: 2) {
-            themeButton(label: "Dialogue", icon: "bubble.left.fill", theme: .dialogue)
-            themeButton(label: "Classic", icon: "circle.fill", theme: .classic)
+            themeButton(theme: .tactics, icon: "shield.lefthalf.filled")
+            themeButton(theme: .nocturne, icon: "moon.stars.fill")
         }
     }
 
-    private func themeButton(label: String, icon: String, theme: GraphVisualTheme) -> some View {
-        let isSelected = graphState.visualTheme == theme
-        return Button {
-            graphState.visualTheme = theme
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-            .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
-    }
-
-    private var dialogueThemeToggle: some View {
-        HStack(spacing: 2) {
-            dialogueThemeButton(theme: .tactics)
-            dialogueThemeButton(theme: .nocturne)
-        }
-    }
-
-    private func dialogueThemeButton(theme: DialoguePresentationTheme) -> some View {
+    private func themeButton(theme: DialoguePresentationTheme, icon: String) -> some View {
         let isSelected = graphState.dialoguePresentationTheme == theme
         return Button {
+            graphState.visualTheme = .dialogue
             graphState.dialoguePresentationTheme = theme
-        } label: {
-            Text(theme.displayName)
-                .font(.system(size: 10, weight: .medium))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 4)
-                .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
-    }
-
-    // MARK: - Quality Preset Toggle
-
-    private var liteModeToggle: some View {
-        HStack(spacing: 2) {
-            qualityButton(label: "Cine", icon: "sparkles", level: 0)
-            qualityButton(label: "Balanced", icon: "circle.grid.2x1", level: 1)
-            qualityButton(label: "Perf", icon: "hare", level: 2)
-        }
-    }
-
-    private func qualityButton(label: String, icon: String, level: UInt8) -> some View {
-        let isSelected = graphState.qualityLevel == level
-        return Button {
-            graphState.qualityLevel = level
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .medium))
-                Text(label)
+                Text(theme.displayName)
                     .font(.system(size: 10, weight: .medium))
             }
             .padding(.horizontal, 6)
@@ -255,6 +202,21 @@ struct GraphFloatingControls: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
+    }
+
+    // MARK: - Rendering Badge
+
+    private var renderingBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 10, weight: .medium))
+            Text("Cine")
+                .font(.system(size: 11, weight: .medium))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.primary.opacity(0.15), in: Capsule())
+        .foregroundStyle(Color.primary.opacity(0.9))
     }
 
     // MARK: - Physics Toggle
@@ -403,23 +365,35 @@ struct GraphFloatingControls: View {
 // MARK: - FilterPill
 
 private struct FilterPill: View {
+    @Environment(GraphState.self) private var graphState
     let type: GraphNodeType
     let isActive: Bool
     let action: () -> Void
 
+    private var usesDepthPalette: Bool {
+        graphState.visualTheme == .dialogue
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 3) {
-                Circle()
-                    .fill(type.swiftUIColor)
-                    .frame(width: 7, height: 7)
+                if !usesDepthPalette {
+                    Circle()
+                        .fill(type.swiftUIColor)
+                        .frame(width: 7, height: 7)
+                }
 
                 Text(type.displayName)
                     .font(.system(size: 10, weight: .medium))
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(isActive ? type.swiftUIColor.opacity(0.15) : Color.primary.opacity(0.05), in: Capsule())
+            .background(
+                usesDepthPalette
+                    ? (isActive ? Color.primary.opacity(0.15) : Color.primary.opacity(0.05))
+                    : (isActive ? type.swiftUIColor.opacity(0.15) : Color.primary.opacity(0.05)),
+                in: Capsule()
+            )
             .foregroundStyle(Color.primary.opacity(isActive ? 1.0 : 0.35))
         }
         .buttonStyle(.plain)

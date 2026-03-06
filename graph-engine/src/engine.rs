@@ -59,8 +59,12 @@ fn should_update_field_lines(
     hovered_id: Option<u32>,
     field_line_count: usize,
     dragging: bool,
+    dialogue_active: bool,
 ) -> bool {
-    quality_level == 0 && !dragging && (hovered_id.is_some() || field_line_count > 0)
+    quality_level == 0
+        && !dragging
+        && !dialogue_active
+        && (hovered_id.is_some() || field_line_count > 0)
 }
 
 /// Drag state for d3-style fx/fy constraint.
@@ -582,9 +586,12 @@ impl Engine {
             self.hovered_id,
             self.renderer.field_line_count,
             self.drag.is_some(),
+            self.renderer.dialogue.active,
         ) {
             let time = self.renderer.start_time.elapsed().as_secs_f32();
             self.renderer.update_field_lines(self.hovered_id, &self.world, time);
+        } else if self.renderer.field_line_count > 0 {
+            self.renderer.update_field_lines(None, &self.world, 0.0);
         }
 
         // Issue draw commands — all themes use the classic renderer.
@@ -2268,9 +2275,10 @@ mod tests {
 
     #[test]
     fn field_lines_disable_while_dragging() {
-        assert!(!should_update_field_lines(0, Some(7), 3, true));
-        assert!(!should_update_field_lines(1, Some(7), 3, false));
-        assert!(should_update_field_lines(0, Some(7), 0, false));
-        assert!(should_update_field_lines(0, None, 3, false));
+        assert!(!should_update_field_lines(0, Some(7), 3, true, false));
+        assert!(!should_update_field_lines(1, Some(7), 3, false, false));
+        assert!(should_update_field_lines(0, Some(7), 0, false, false));
+        assert!(should_update_field_lines(0, None, 3, false, false));
+        assert!(!should_update_field_lines(0, Some(7), 3, false, true));
     }
 }

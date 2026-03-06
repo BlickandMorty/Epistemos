@@ -531,13 +531,13 @@ struct ConcurrencyGraphStateTests {
         }
     }
     
-    @Test("Quality level changes")
+    @Test("Quality level stays cinematic")
     func qualityLevelChanges() {
         let state = GraphState()
         
         for level: UInt8 in [0, 1, 2] {
             state.qualityLevel = level
-            #expect(state.qualityLevel == level)
+            #expect(state.qualityLevel == 0)
         }
     }
     

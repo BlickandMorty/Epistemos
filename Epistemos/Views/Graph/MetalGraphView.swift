@@ -1,6 +1,7 @@
 import SwiftUI
 import MetalKit
 import Synchronization
+import SwiftData
 
 // MARK: - MetalGraphView
 // NSViewRepresentable wrapping a CAMetalLayer for the Rust graph engine.
@@ -11,12 +12,14 @@ struct MetalGraphView: NSViewRepresentable {
     @Environment(GraphState.self) private var graphState
     @Environment(PhysicsCoordinator.self) private var physicsCoordinator
     @Environment(DialogueChatState.self) private var dialogueChatState
+    @Environment(UIState.self) private var uiState
 
     func makeNSView(context: Context) -> MetalGraphNSView {
         let view = MetalGraphNSView()
         view.graphState = graphState
         view.physicsCoordinator = physicsCoordinator
         view.dialogueChatState = dialogueChatState
+        view.uiState = uiState
         return view
     }
 
@@ -24,6 +27,7 @@ struct MetalGraphView: NSViewRepresentable {
         nsView.graphState = graphState
         nsView.physicsCoordinator = physicsCoordinator
         nsView.dialogueChatState = dialogueChatState
+        nsView.uiState = uiState
         // Wake the render loop whenever SwiftUI detects a GraphState change.
         // This ensures version-based syncs in renderFrame() (lite mode, force params,
         // cluster params, etc.) fire even when physics is settled and renderNeeded=false.
@@ -37,6 +41,24 @@ struct MetalGraphView: NSViewRepresentable {
 // Uses CVDisplayLink for frame pacing (only renders when the engine requests it).
 
 final class MetalGraphNSView: NSView {
+    private typealias DialogueDepthColor = (r: Float, g: Float, b: Float, a: Float)
+
+    private struct DialogueContextSnapshot {
+        let node: GraphNodeRecord?
+        let noteBody: String
+        let linkedLabels: [String]
+        let insight: DialogueNodeInsight
+    }
+
+    private static let dialogueDepthPalette: [DialogueDepthColor] = [
+        (0.98, 0.96, 0.90, 1.0),
+        (0.95, 0.82, 0.34, 1.0),
+        (0.90, 0.66, 0.27, 1.0),
+        (0.58, 0.76, 0.43, 1.0),
+        (0.34, 0.70, 0.70, 1.0),
+        (0.42, 0.56, 0.88, 1.0),
+    ]
+
     nonisolated(unsafe) private var engine: OpaquePointer?
     nonisolated(unsafe) private var displayLink: CVDisplayLink?
     private var metalLayer: CAMetalLayer?
@@ -76,6 +98,7 @@ final class MetalGraphNSView: NSView {
     /// but compiler can't prove @MainActor isolation on NSView subclass.
     nonisolated(unsafe) var physicsCoordinator: PhysicsCoordinator?
     nonisolated(unsafe) var dialogueChatState: DialogueChatState?
+    nonisolated(unsafe) var uiState: UIState?
     private var dialogueHostingView: NSHostingView<AnyView>?
     /// Reused buffer for reading dialogue screen rect from Rust (zero per-frame allocation).
     private var dialogueRectBuf: [Float] = [0, 0, 0, 0]
@@ -364,6 +387,7 @@ final class MetalGraphNSView: NSView {
 
         // Push visual theme to Rust.
         graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
+        applyDialogueDepthPalette()
         lastVisualThemeVersion = graphState.visualThemeVersion
 
         if graphState.useSemanticClustering, !graphState.semanticClusterIds.isEmpty {
@@ -449,6 +473,10 @@ final class MetalGraphNSView: NSView {
 
         if !graphState.pendingNodeAdds.isEmpty || !graphState.pendingEdgeAdds.isEmpty {
             graph_engine_commit(engine, 0)
+            let pendingIds = graphState.pendingNodeAdds.map(\.id)
+            if !pendingIds.isEmpty {
+                applyDialogueDepthPalette(for: pendingIds)
+            }
         }
 
         graphState.pendingNodeAdds.removeAll()
@@ -673,6 +701,7 @@ final class MetalGraphNSView: NSView {
         if let graphState, engine != nil, lastVisualThemeVersion != graphState.visualThemeVersion {
             lastVisualThemeVersion = graphState.visualThemeVersion
             graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
+            applyDialogueDepthPalette()
         }
 
         // Sync laboratory params (toggles + knobs for advanced physics).
@@ -799,7 +828,23 @@ final class MetalGraphNSView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if let hosting = dialogueHostingView {
+            let local = convert(point, to: hosting)
+            if hosting.bounds.contains(local) {
+                return hosting.hitTest(local)
+            }
+        }
+        return super.hitTest(point)
+    }
+
     override func mouseDown(with event: NSEvent) {
+        // Let the dialogue overlay handle its own clicks.
+        if let hosting = dialogueHostingView {
+            let loc = convert(event.locationInWindow, from: nil)
+            if hosting.frame.contains(loc) { return }
+        }
+
         // Claim first responder on click so subsequent gestures (magnify, scroll) route here.
         if window?.firstResponder !== self {
             window?.makeFirstResponder(self)
@@ -902,22 +947,17 @@ final class MetalGraphNSView: NSView {
                 uuid.withCString { cstr in
                     graph_engine_dialogue_open(engine, cstr)
                 }
-                let nodeRecord = graphState?.store.nodes[uuid]
+                let dialogueContext = graphState.map { buildDialogueContextSnapshot(for: uuid, graphState: $0) }
+                let nodeRecord = dialogueContext?.node
                 let label = nodeRecord?.label ?? "Unknown"
-                let noteBody: String
-                if let sourceId = nodeRecord?.sourceId {
-                    noteBody = NoteFileStorage.readBody(pageId: sourceId)
-                } else {
-                    noteBody = ""
-                }
-                let linkedLabels = graphState?.store.neighbors(of: uuid).map(\.label) ?? []
                 let isNewNode = dialogueChatState.activeNodeId != uuid
                 dialogueChatState.open(
                     nodeId: uuid,
                     label: label,
                     nodeType: nodeRecord?.type ?? .note,
-                    noteBody: noteBody,
-                    linkedNodeLabels: linkedLabels
+                    noteBody: dialogueContext?.noteBody ?? "",
+                    linkedNodeLabels: dialogueContext?.linkedLabels ?? [],
+                    insight: dialogueContext?.insight
                 )
                 if isNewNode {
                     dialogueChatState.onStreamingChanged = { [weak self] streaming in
@@ -936,12 +976,17 @@ final class MetalGraphNSView: NSView {
         } else {
             graphState?.selectNode(nil)
 
-            // Dialogue theme: close dialogue on background click.
+            // Dialogue theme: close dialogue on background click (not inside overlay).
             if graphState?.visualTheme == .dialogue {
-                graph_engine_dialogue_close(engine)
-                dialogueChatState?.close()
-                hideDialogueOverlay()
-                needsRender = true
+                let clickInOverlay = dialogueHostingView.map { hosting in
+                    hosting.frame.contains(convert(event.locationInWindow, from: nil))
+                } ?? false
+                if !clickInOverlay {
+                    graph_engine_dialogue_close(engine)
+                    dialogueChatState?.close()
+                    hideDialogueOverlay()
+                    needsRender = true
+                }
             }
 
             // Background tap: if mouse barely moved, treat as click-outside dismiss.
@@ -1309,6 +1354,268 @@ final class MetalGraphNSView: NSView {
         }
     }
 
+    private func buildDialogueContextSnapshot(for nodeId: String, graphState: GraphState) -> DialogueContextSnapshot {
+        let node = graphState.store.nodes[nodeId]
+        let noteBody: String
+        if node?.type == .note, let sourceId = node?.sourceId {
+            noteBody = NoteFileStorage.readBody(pageId: sourceId)
+        } else {
+            noteBody = ""
+        }
+        let linkedLabels = graphState.store.neighbors(of: nodeId).map(\.label)
+        let insight = dialogueInsight(
+            for: node,
+            noteBody: noteBody,
+            linkedNodeLabels: linkedLabels,
+            graphState: graphState
+        )
+        return DialogueContextSnapshot(node: node, noteBody: noteBody, linkedLabels: linkedLabels, insight: insight)
+    }
+
+    private func dialogueInsight(
+        for node: GraphNodeRecord?,
+        noteBody: String,
+        linkedNodeLabels: [String],
+        graphState: GraphState
+    ) -> DialogueNodeInsight {
+        guard let node else {
+            return DialogueNodeInsight.fallback(nodeType: .note, noteBody: noteBody, linkedNodeCount: linkedNodeLabels.count)
+        }
+
+        if node.type == .folder,
+           let sourceId = node.sourceId,
+           let context = graphState.modelContext,
+           let folder = fetchFolder(id: sourceId, context: context) {
+            let stats = folderAggregateStats(folder)
+            let depth = folderDepth(folder)
+            let contentWords = max(stats.words, Int(node.weight * 90.0))
+            let childCount = stats.pageCount + stats.childFolders
+            let prominence = min(
+                1.0,
+                Double(contentWords) / 3200.0 +
+                Double(childCount) * 0.025 +
+                min(0.20, node.weight / 24.0) +
+                (depth == 0 ? 0.16 : 0.0)
+            )
+            return DialogueNodeInsight(
+                structureDepth: depth,
+                contentWords: contentWords,
+                childCount: childCount,
+                tier: DialogueNodeInsight.tier(for: depth),
+                prominence: prominence
+            )
+        }
+
+        if node.type == .note,
+           let sourceId = node.sourceId,
+           let context = graphState.modelContext,
+           let page = fetchPage(id: sourceId, context: context) {
+            let depth = pageDepth(page)
+            let bodyWords = noteBody.split { !$0.isLetter && !$0.isNumber }.count
+            let childCount = linkedNodeLabels.count + (page.childPages?.count ?? 0)
+            let contentWords = max(page.wordCount, bodyWords)
+            let prominence = min(
+                1.0,
+                Double(contentWords) / 2200.0 +
+                Double(childCount) * 0.024 +
+                min(0.18, node.weight / 16.0)
+            )
+            return DialogueNodeInsight(
+                structureDepth: depth,
+                contentWords: contentWords,
+                childCount: childCount,
+                tier: DialogueNodeInsight.tier(for: depth),
+                prominence: prominence
+            )
+        }
+
+        let fallback = DialogueNodeInsight.fallback(
+            nodeType: node.type,
+            noteBody: noteBody,
+            linkedNodeCount: linkedNodeLabels.count
+        )
+        let depth = graphDepthLevels(store: graphState.store)[node.id] ?? fallback.structureDepth
+        return DialogueNodeInsight(
+            structureDepth: depth,
+            contentWords: fallback.contentWords,
+            childCount: max(fallback.childCount, linkedNodeLabels.count),
+            tier: DialogueNodeInsight.tier(for: depth),
+            prominence: min(1.0, fallback.prominence + min(0.12, node.weight / 20.0))
+        )
+    }
+
+    private func fetchPage(id: String, context: ModelContext) -> SDPage? {
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
+        return try? context.fetch(descriptor).first
+    }
+
+    private func fetchFolder(id: String, context: ModelContext) -> SDFolder? {
+        let descriptor = FetchDescriptor<SDFolder>(predicate: #Predicate { $0.id == id })
+        return try? context.fetch(descriptor).first
+    }
+
+    private func folderDepth(_ folder: SDFolder) -> Int {
+        var depth = 0
+        var current = folder.parent
+        var visited = Set<String>([folder.id])
+        while let parent = current, visited.insert(parent.id).inserted {
+            depth += 1
+            current = parent.parent
+        }
+        return depth
+    }
+
+    private func pageDepth(_ page: SDPage) -> Int {
+        var depth = page.folder.map { folderDepth($0) + 1 } ?? 1
+        var current = page.parentPage
+        var visited = Set<String>([page.id])
+        while let parent = current, visited.insert(parent.id).inserted {
+            depth += 1
+            current = parent.parentPage
+        }
+        return depth
+    }
+
+    private func folderAggregateStats(_ folder: SDFolder) -> (pageCount: Int, childFolders: Int, words: Int) {
+        var visited = Set<String>()
+
+        func walk(_ current: SDFolder) -> (pageCount: Int, childFolders: Int, words: Int) {
+            guard visited.insert(current.id).inserted else { return (0, 0, 0) }
+            let pages = (current.pages ?? []).filter { !$0.isArchived }
+            var totals = (
+                pageCount: pages.count,
+                childFolders: 0,
+                words: pages.reduce(0) { $0 + max(0, $1.wordCount) }
+            )
+            for child in current.children ?? [] {
+                totals.childFolders += 1
+                let childTotals = walk(child)
+                totals.pageCount += childTotals.pageCount
+                totals.childFolders += childTotals.childFolders
+                totals.words += childTotals.words
+            }
+            return totals
+        }
+
+        return walk(folder)
+    }
+
+    private func graphBaseDepth(for type: GraphNodeType) -> Int {
+        switch type {
+        case .folder: 0
+        case .note, .chat: 2
+        case .idea, .source, .quote: 3
+        case .tag, .block: 4
+        }
+    }
+
+    private func graphDepthLevels(store: GraphStore) -> [String: Int] {
+        var depths: [String: Int] = [:]
+        var childFolderIds = Set<String>()
+        var folderChildren: [String: [String]] = [:]
+
+        for edge in store.edges.values {
+            guard edge.type == .contains,
+                  let source = store.nodes[edge.sourceNodeId],
+                  let target = store.nodes[edge.targetNodeId],
+                  source.type == .folder else { continue }
+            if target.type == .folder {
+                folderChildren[source.id, default: []].append(target.id)
+                childFolderIds.insert(target.id)
+            }
+        }
+
+        var queue = store.nodes.values
+            .filter { $0.type == .folder && !childFolderIds.contains($0.id) }
+            .map(\.id)
+        for nodeId in queue {
+            depths[nodeId] = 0
+        }
+
+        var index = 0
+        while index < queue.count {
+            let folderId = queue[index]
+            index += 1
+            let nextDepth = (depths[folderId] ?? 0) + 1
+            for childId in folderChildren[folderId] ?? [] {
+                if let existing = depths[childId], existing <= nextDepth { continue }
+                depths[childId] = nextDepth
+                queue.append(childId)
+            }
+        }
+
+        for node in store.nodes.values where node.type == .folder && depths[node.id] == nil {
+            depths[node.id] = 0
+        }
+
+        for edge in store.edges.values {
+            guard edge.type == .contains,
+                  let source = store.nodes[edge.sourceNodeId],
+                  let target = store.nodes[edge.targetNodeId],
+                  source.type == .folder else { continue }
+            guard target.type == .note || target.type == .chat else { continue }
+            let nextDepth = (depths[source.id] ?? 0) + 1
+            if let existing = depths[target.id], existing <= nextDepth { continue }
+            depths[target.id] = nextDepth
+        }
+
+        for node in store.nodes.values where depths[node.id] == nil {
+            let linkedDepth = store.neighbors(of: node.id).compactMap { depths[$0.id] }.min()
+            let baseDepth = graphBaseDepth(for: node.type)
+            depths[node.id] = linkedDepth.map { max(baseDepth, $0 + 1) } ?? baseDepth
+        }
+
+        return depths
+    }
+
+    private func dialogueDepthColor(for node: GraphNodeRecord, depth: Int, maxDepth: Int) -> DialogueDepthColor {
+        let paletteIndex = min(depth, Self.dialogueDepthPalette.count - 1)
+        let base = Self.dialogueDepthPalette[paletteIndex]
+        let folderBoost: Float = node.type == .folder ? 0.06 : 0.0
+        let sourceBoost: Float = node.type == .source ? 0.02 : 0.0
+        let slimPenalty: Float = node.type == .tag || node.type == .block ? -0.08 : 0.0
+        let weightBoost = min(0.10, Float(node.weight) * 0.015)
+        let prominence = min(1.0, Float(node.weight) * 0.035 + Float(depth) * 0.05)
+        func channel(_ value: Float) -> Float {
+            min(1.0, max(0.0, value + folderBoost + sourceBoost + slimPenalty + weightBoost))
+        }
+
+        return (
+            channel(base.r),
+            channel(base.g),
+            channel(base.b),
+            1.0 + min(0.22, prominence * 0.12 + Float(max(0, depth - 1)) * 0.015)
+        )
+    }
+
+    private func applyDialogueDepthPalette(for nodeIds: [String]? = nil) {
+        guard let engine, let graphState else { return }
+        let depths = graphDepthLevels(store: graphState.store)
+        let maxDepth = depths.values.max() ?? 0
+        let targetIds = nodeIds ?? Array(graphState.store.nodes.keys)
+        let shouldColorize = graphState.visualTheme == .dialogue
+
+        for nodeId in targetIds {
+            guard let node = graphState.store.nodes[nodeId],
+                  graphState.filter.isNodeVisible(node) else { continue }
+            let color: DialogueDepthColor
+            if shouldColorize {
+                color = dialogueDepthColor(
+                    for: node,
+                    depth: depths[nodeId] ?? graphBaseDepth(for: node.type),
+                    maxDepth: maxDepth
+                )
+            } else {
+                color = (0.0, 0.0, 0.0, 0.0)
+            }
+            node.id.withCString { uuidPtr in
+                graph_engine_set_node_color_override(engine, uuidPtr, color.r, color.g, color.b, color.a)
+            }
+        }
+
+        needsRender = true
+    }
+
     // MARK: - Dialogue Overlay
 
     private func updateDialogueOverlay(rect: CGRect) {
@@ -1322,14 +1629,16 @@ final class MetalGraphNSView: NSView {
         if dialogueHostingView == nil {
             let overlay = DialogueOverlayView(
                 chatState: dialogueChatState,
-                onSubmit: { [weak self] _ in
-                    self?.submitDialogueQuery()
+                onSubmit: { [weak self] query in
+                    self?.submitDialogueQuery(query)
                 },
                 onDismiss: { [weak self] in
                     self?.dismissDialogue()
                 }
             )
-            let hosting = NSHostingView(rootView: AnyView(overlay.environment(graphState)))
+            var root: AnyView = AnyView(overlay.environment(graphState))
+            if let uiState { root = AnyView(root.environment(uiState)) }
+            let hosting = NSHostingView(rootView: root)
             hosting.frame = rect
             addSubview(hosting)
             dialogueHostingView = hosting
@@ -1353,27 +1662,23 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
-    private func submitDialogueQuery() {
+    private func submitDialogueQuery(_ queryOverride: String? = nil) {
         guard let dialogueChatState,
               let nodeId = dialogueChatState.activeNodeId,
               let graphState else { return }
-
-        let noteBody: String
-        if let sourceId = graphState.store.nodes[nodeId]?.sourceId {
-            noteBody = NoteFileStorage.readBody(pageId: sourceId)
-        } else {
-            noteBody = ""
+        if let queryOverride {
+            dialogueChatState.inputText = queryOverride
         }
-
-        let linkedLabels = graphState.store.neighbors(of: nodeId).map { $0.label }
-        let nodeType = graphState.store.nodes[nodeId]?.type ?? .note
+        let dialogueContext = buildDialogueContextSnapshot(for: nodeId, graphState: graphState)
+        let nodeType = dialogueContext.node?.type ?? .note
 
         guard let triageService = AppBootstrap.shared?.triageService else { return }
 
         dialogueChatState.submitQuery(
-            noteBody: noteBody,
-            linkedNodeLabels: linkedLabels,
+            noteBody: dialogueContext.noteBody,
+            linkedNodeLabels: dialogueContext.linkedLabels,
             nodeType: nodeType,
+            insight: dialogueContext.insight,
             triageService: triageService
         )
     }

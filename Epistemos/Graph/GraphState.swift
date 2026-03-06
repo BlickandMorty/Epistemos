@@ -336,16 +336,26 @@ final class GraphState {
 
     // MARK: - Quality Level
 
-    /// Graph rendering quality: 0 = Cinematic, 1 = Balanced, 2 = Performance.
-    /// Cinematic: all effects (glow, breathing, perspective, field lines).
-    /// Balanced: sphere shading, no animation/glow.
-    /// Performance: flat circles, minimal GPU cost.
-    var qualityLevel: UInt8 = UInt8(UserDefaults.standard.integer(forKey: "epistemos.graph.qualityLevel")) {
-        didSet { UserDefaults.standard.set(Int(qualityLevel), forKey: "epistemos.graph.qualityLevel"); liteModeVersion += 1 }
+    private static let qualityDefaultsKey = "epistemos.graph.qualityLevel"
+    private static let cinematicQualityLevel: UInt8 = 0
+
+    /// Graph rendering quality is fixed to cinematic.
+    var qualityLevel: UInt8 = {
+        UserDefaults.standard.set(Int(GraphState.cinematicQualityLevel), forKey: GraphState.qualityDefaultsKey)
+        return GraphState.cinematicQualityLevel
+    }() {
+        didSet {
+            if qualityLevel != Self.cinematicQualityLevel {
+                qualityLevel = Self.cinematicQualityLevel
+                return
+            }
+            UserDefaults.standard.set(Int(Self.cinematicQualityLevel), forKey: Self.qualityDefaultsKey)
+            liteModeVersion += 1
+        }
     }
 
     /// Backwards-compatible getter for code that checks liteMode.
-    var liteMode: Bool { qualityLevel >= 2 }
+    var liteMode: Bool { false }
 
     /// Incremented when quality changes so MetalGraphView can detect and push to Rust.
     var liteModeVersion: Int = 0

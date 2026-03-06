@@ -34,6 +34,17 @@ struct LineEdgeInstance {
     color: [f32; 4],  // offset 16
 }
 
+/// Per-instance data for cubic graph-edge rendering.
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct CurveEdgeInstance {
+    p0: [f32; 2],
+    c0: [f32; 2],
+    c1: [f32; 2],
+    p1: [f32; 2],
+    color: [f32; 4],
+}
+
 /// State for the FFT-style dialogue box overlay.
 #[derive(Clone)]
 pub(crate) struct DialogueState {
@@ -92,11 +103,48 @@ struct DialogueBoxGeometry {
     node_screen_pos: [f32; 2],
 }
 
-const DIALOGUE_BOX_SCREEN_WIDTH: f32 = 640.0;
-const DIALOGUE_BOX_SCREEN_HEIGHT: f32 = 320.0;
-const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 34.0;
-const DIALOGUE_GAP_SCREEN: f32 = 34.0;
 const DIALOGUE_VIEWPORT_MARGIN_SCREEN: f32 = 18.0;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct DialogueLayoutMetrics {
+    box_screen_width: f32,
+    box_screen_height: f32,
+    tail_screen_height: f32,
+    gap_screen: f32,
+    side_gap_screen: f32,
+    compact: bool,
+}
+
+fn dialogue_layout_metrics(zoom: f32) -> DialogueLayoutMetrics {
+    if zoom < 0.38 {
+        DialogueLayoutMetrics {
+            box_screen_width: 468.0,
+            box_screen_height: 184.0,
+            tail_screen_height: 22.0,
+            gap_screen: 28.0,
+            side_gap_screen: 104.0,
+            compact: true,
+        }
+    } else if zoom < 0.82 {
+        DialogueLayoutMetrics {
+            box_screen_width: 632.0,
+            box_screen_height: 286.0,
+            tail_screen_height: 30.0,
+            gap_screen: 34.0,
+            side_gap_screen: 118.0,
+            compact: false,
+        }
+    } else {
+        DialogueLayoutMetrics {
+            box_screen_width: 780.0,
+            box_screen_height: 392.0,
+            tail_screen_height: 36.0,
+            gap_screen: 38.0,
+            side_gap_screen: 132.0,
+            compact: false,
+        }
+    }
+}
 
 /// Uniform data sent to all shaders (camera transform + animation).
 #[repr(C)]
@@ -113,7 +161,7 @@ struct Uniforms {
     zoom_velocity: f32,        // zoom delta per frame (for motion blur)
     lite_mode: f32,            // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
     impact_intensity: f32,     // 1.0 on heavy collision → 0.0 (chromatic aberration)
-    _pad: f32,                 // pad to 64 bytes (Metal 16-byte struct alignment)
+    dialogue_theme: f32,       // 1.0 = dialogue mode, 0.0 = classic
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -200,9 +248,10 @@ fn clamp_dialogue_box_top(
 }
 
 fn dialogue_box_vertical_layout(node_y: f32, node_radius: f32, zoom: f32) -> (f32, f32) {
-    let tail_h_world = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
-    let base_gap_world = DIALOGUE_GAP_SCREEN / zoom;
-    let face_clearance_world = (node_radius * 0.9).max(54.0 / zoom);
+    let layout = dialogue_layout_metrics(zoom);
+    let tail_h_world = layout.tail_screen_height / zoom;
+    let base_gap_world = layout.gap_screen / zoom;
+    let face_clearance_world = (node_radius * 1.12).max(if layout.compact { 58.0 } else { 76.0 } / zoom);
     let tail_tip_y = node_y - node_radius - base_gap_world - face_clearance_world;
     let box_bottom_y = tail_tip_y - tail_h_world;
     (box_bottom_y, tail_tip_y)
@@ -237,6 +286,117 @@ fn face_pupil_offset(node_center: [f32; 2], look_target: [f32; 2], max_offset: f
         offset[1] *= correction;
     }
     offset
+}
+
+fn dialogue_style_signal(encoded_alpha: f32) -> f32 {
+    (encoded_alpha - 1.0).max(0.0).min(0.55)
+}
+
+fn dialogue_density_signal(link_count: u32) -> f32 {
+    if link_count <= 1 {
+        return 0.0;
+    }
+    ((link_count as f32).ln() / 512.0_f32.ln()).clamp(0.0, 1.0)
+}
+
+fn dialogue_folder_target_radius(link_count: u32) -> f32 {
+    let density = dialogue_density_signal(link_count);
+    18.0 + 72.0 * density.powf(0.86)
+}
+
+fn dialogue_node_radius(
+    visual_theme: VisualTheme,
+    base_radius: f32,
+    node_type: u8,
+    link_count: u32,
+    encoded_alpha: f32,
+) -> f32 {
+    if visual_theme != VisualTheme::Dialogue {
+        return base_radius;
+    }
+
+    let signal = dialogue_style_signal(encoded_alpha);
+    if node_type == crate::types::NodeType::Folder as u8 {
+        let target_radius = dialogue_folder_target_radius(link_count);
+        base_radius.max(target_radius) * (1.0 + signal * 0.28)
+    } else {
+        base_radius * (1.0 + signal * 0.30)
+    }
+}
+
+fn string_edge_control_points(
+    p0: [f32; 2],
+    p1: [f32; 2],
+    v0: [f32; 2],
+    v1: [f32; 2],
+    ideal_length: f32,
+    curvature: f32,
+) -> ([f32; 2], [f32; 2]) {
+    let dx = p1[0] - p0[0];
+    let dy = p1[1] - p0[1];
+    let length = (dx * dx + dy * dy).sqrt();
+    if length <= f32::EPSILON || curvature <= 0.0 {
+        let handle = length * 0.25;
+        return ([p0[0] + handle, p0[1]], [p1[0] - handle, p1[1]]);
+    }
+
+    let direction = [dx / length, dy / length];
+    let normal = [-direction[1], direction[0]];
+    let ideal = ideal_length.max(1.0);
+    let slack = ((ideal - length) / ideal).clamp(0.0, 0.75);
+    let tension = ((length - ideal) / ideal).clamp(0.0, 1.25);
+    let relative_velocity = [v1[0] - v0[0], v1[1] - v0[1]];
+    let normal_motion =
+        (relative_velocity[0] * normal[0] + relative_velocity[1] * normal[1]).clamp(-180.0, 180.0)
+            / 180.0;
+
+    let handle = length * (0.20 + curvature * 0.26 + slack * 0.12);
+    let velocity_gain = (0.08 + slack * 0.14) * (1.0 - tension * 0.45).max(0.35);
+    let sag = (length * curvature * (0.18 + slack * 0.70) * (1.0 - tension * 0.7).max(0.14)
+        + normal_motion * length * 0.08)
+        .clamp(-length * 0.28, length * 0.28);
+
+    let c0 = [
+        p0[0] + direction[0] * handle + normal[0] * sag + v0[0] * velocity_gain,
+        p0[1] + direction[1] * handle + normal[1] * sag + v0[1] * velocity_gain,
+    ];
+    let c1 = [
+        p1[0] - direction[0] * handle + normal[0] * sag - v1[0] * velocity_gain,
+        p1[1] - direction[1] * handle + normal[1] * sag - v1[1] * velocity_gain,
+    ];
+    (c0, c1)
+}
+
+fn cubic_bezier_point(
+    p0: [f32; 2],
+    c0: [f32; 2],
+    c1: [f32; 2],
+    p1: [f32; 2],
+    t: f32,
+) -> [f32; 2] {
+    let one_minus_t = 1.0 - t;
+    let a = one_minus_t * one_minus_t * one_minus_t;
+    let b = 3.0 * one_minus_t * one_minus_t * t;
+    let c = 3.0 * one_minus_t * t * t;
+    let d = t * t * t;
+    [
+        a * p0[0] + b * c0[0] + c * c1[0] + d * p1[0],
+        a * p0[1] + b * c0[1] + c * c1[1] + d * p1[1],
+    ]
+}
+
+fn curve_intersects_bounds(
+    bounds: ViewBounds,
+    p0: [f32; 2],
+    c0: [f32; 2],
+    c1: [f32; 2],
+    p1: [f32; 2],
+) -> bool {
+    let min_x = p0[0].min(c0[0]).min(c1[0]).min(p1[0]);
+    let max_x = p0[0].max(c0[0]).max(c1[0]).max(p1[0]);
+    let min_y = p0[1].min(c0[1]).min(c1[1]).min(p1[1]);
+    let max_y = p0[1].max(c0[1]).max(c1[1]).max(p1[1]);
+    max_x >= bounds.min_x && min_x <= bounds.max_x && max_y >= bounds.min_y && min_y <= bounds.max_y
 }
 
 pub(crate) fn lod_profile_for_zoom(_zoom: f32, quality_level: u8) -> LodProfile {
@@ -359,6 +519,8 @@ const CONF_GLOW_RADIUS_BASE: f32 = 1.5;
 const CONF_GLOW_RADIUS_SCALE: f32 = 1.0;
 const CONF_GLOW_ALPHA_BASE: f32 = 0.03;
 const CONF_GLOW_ALPHA_SCALE: f32 = 0.08;
+const GLOW_INSTANCE_ALPHA_CUTOFF: f32 = 0.15;
+const CURVE_EDGE_STRIP_SEGMENTS: usize = 20;
 
 /// Evaluate a quadratic bezier at parameter t in [0, 1].
 fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
@@ -388,8 +550,10 @@ struct Uniforms {
     float zoom_velocity;
     float lite_mode;   // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
     float impact_intensity; // chromatic aberration on collision
-    float _pad;             // 16-byte alignment padding
+    float dialogue_theme;   // 1.0 = dialogue mode, 0.0 = classic
 };
+
+constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
 
 // ── Node shaders (instanced circles with depth perspective) ──────────
 
@@ -425,6 +589,7 @@ vertex NodeVertexOut node_vertex(
 
     NodeInstance inst = instances[instance_id];
     float2 corner = corners[vertex_id];
+    bool dialogue_theme = uniforms.dialogue_theme > 0.5;
 
     // Squash & stretch: deform quad along velocity direction (cinematic only).
     float2 vel = velocities[instance_id];
@@ -452,8 +617,8 @@ vertex NodeVertexOut node_vertex(
     } else {
         // Cinematic: breathing animation + perspective depth.
         float breath_speed = inst.z > 0.2 ? 0.7 : (inst.z > -0.1 ? 0.5 : 0.3);
-        float breath = sin(uniforms.time * breath_speed + float(instance_id) * 2.39996) * 0.18;
-        depth = inst.z + breath;
+        float breath = dialogue_theme ? 0.0 : (sin(uniforms.time * breath_speed + float(instance_id) * 2.39996) * 0.18);
+        depth = dialogue_theme ? inst.z * 0.35 : inst.z + breath;
         float perspective_scale = uniforms.focal_length / (uniforms.focal_length - depth);
         effective_radius = inst.radius * perspective_scale;
     }
@@ -484,13 +649,13 @@ fragment float4 node_fragment(
     NodeVertexOut in [[stage_in]],
     constant Uniforms& uniforms [[buffer(1)]]
 ) {
+    bool dialogue_theme = uniforms.dialogue_theme > 0.5;
     float dist = length(in.uv);
-
     if (in.highlight_dim < 0.001) discard_fragment();
 
     // ── Glow instances: soft radial gradient, no sphere shading ──
     // Detected by low alpha (glow alpha is 0.03–0.11, regular nodes are 0.5+).
-    if (in.color.a < 0.15) {
+    if (in.color.a < GLOW_INSTANCE_ALPHA_CUTOFF) {
         float glow = 1.0 - smoothstep(0.0, 1.0, dist);
         glow = glow * glow; // Quadratic falloff for soft edge
         // Pulsing aura: phase offset by world position so hubs pulse independently.
@@ -514,7 +679,6 @@ fragment float4 node_fragment(
     float2 quv = floor(in.uv * grid + 0.5) / grid;
     float2 final_uv = mix(in.uv, quv, pixel_strength);
     float qdist = length(final_uv);
-
     float smooth_alpha = 1.0 - smoothstep(0.85, 1.0, dist);
     float pixel_alpha = qdist < 0.92 ? 1.0 : 0.0;
     float alpha = mix(smooth_alpha, pixel_alpha, pixel_strength);
@@ -582,7 +746,17 @@ fragment float4 node_fragment(
     return float4(result_color, in.color.a * final_alpha * depth_fade * in.highlight_dim);
 }
 
-// ── Straight-line edge shaders ─────────────────────────────────────
+// ── Edge shaders ───────────────────────────────────────────────────
+
+constant uint CURVE_EDGE_SEGMENTS = 20;
+
+struct CurveEdgeInstance {
+    float2 p0;
+    float2 c0;
+    float2 c1;
+    float2 p1;
+    float4 color;
+};
 
 struct LineEdgeInstance {
     float2 p0;
@@ -595,6 +769,59 @@ struct LineVertexOut {
     float4 color [[flat]];
     float  dist_from_center;
 };
+
+float2 cubic_bezier_curve_point(float2 p0, float2 c0, float2 c1, float2 p1, float t) {
+    float one_minus_t = 1.0 - t;
+    float a = one_minus_t * one_minus_t * one_minus_t;
+    float b = 3.0 * one_minus_t * one_minus_t * t;
+    float c = 3.0 * one_minus_t * t * t;
+    float d = t * t * t;
+    return a * p0 + b * c0 + c * c1 + d * p1;
+}
+
+vertex LineVertexOut curve_edge_vertex(
+    uint vertex_id [[vertex_id]],
+    uint instance_id [[instance_id]],
+    constant CurveEdgeInstance* instances [[buffer(0)]],
+    constant Uniforms& u [[buffer(1)]]
+) {
+    CurveEdgeInstance inst = instances[instance_id];
+    uint segment = vertex_id / 6;
+    uint corner = vertex_id % 6;
+    float t0 = float(segment) / float(CURVE_EDGE_SEGMENTS);
+    float t1 = float(segment + 1) / float(CURVE_EDGE_SEGMENTS);
+    float2 p0 = cubic_bezier_curve_point(inst.p0, inst.c0, inst.c1, inst.p1, t0);
+    float2 p1 = cubic_bezier_curve_point(inst.p0, inst.c0, inst.c1, inst.p1, t1);
+
+    float2 screen0 = (p0 - u.camera_offset) * u.camera_zoom;
+    float2 ndc0 = screen0 / (u.viewport_size * 0.5) * float2(1, -1);
+    float2 screen1 = (p1 - u.camera_offset) * u.camera_zoom;
+    float2 ndc1 = screen1 / (u.viewport_size * 0.5) * float2(1, -1);
+
+    float2 dir = ndc1 - ndc0;
+    float len = length(dir);
+    if (len < 0.00001) dir = float2(1, 0);
+    else dir /= len;
+
+    float2 perp = float2(-dir.y, dir.x);
+    float2 pixel_to_ndc = 2.0 / u.viewport_size;
+    float half_width_px = 0.75;
+    float2 offset = perp * half_width_px * pixel_to_ndc;
+
+    float2 base_ndc[6] = {
+        ndc0 - offset, ndc0 + offset,
+        ndc1 - offset, ndc1 - offset,
+        ndc0 + offset, ndc1 + offset,
+    };
+
+    float dist_vals[6] = { -1, 1, -1, -1, 1, 1 };
+
+    LineVertexOut out;
+    out.position = float4(base_ndc[corner], 0.0, 1.0);
+    out.color = inst.color;
+    out.dist_from_center = dist_vals[corner];
+    return out;
+}
 
 vertex LineVertexOut line_edge_vertex(
     uint vertex_id [[vertex_id]],
@@ -722,6 +949,7 @@ pub struct Renderer {
     layer: MetalLayer,
     node_pipeline: RenderPipelineState,
     edge_pipeline: RenderPipelineState,
+    field_line_pipeline: RenderPipelineState,
     node_instance_buf: Option<Buffer>,
     edge_instance_buf: Option<Buffer>,
     uniform_buf: Buffer,
@@ -765,7 +993,7 @@ pub struct Renderer {
     edge_budget_scratch: Vec<u16>,
     density_clusters: FxHashMap<(i32, i32), DensityCluster>,
     classic_node_scratch: Vec<NodeInstance>,
-    classic_edge_scratch: Vec<LineEdgeInstance>,
+    classic_edge_scratch: Vec<CurveEdgeInstance>,
     classic_velocity_scratch: Vec<[f32; 2]>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
@@ -870,8 +1098,10 @@ impl Renderer {
 
         let node_vert = library.get_function("node_vertex", None).ok()?;
         let node_frag = library.get_function("node_fragment", None).ok()?;
-        let edge_vert = library.get_function("line_edge_vertex", None).ok()?;
+        let edge_vert = library.get_function("curve_edge_vertex", None).ok()?;
         let edge_frag = library.get_function("line_edge_fragment", None).ok()?;
+        let field_line_vert = library.get_function("line_edge_vertex", None).ok()?;
+        let field_line_frag = library.get_function("line_edge_fragment", None).ok()?;
 
         // Helper to create a pipeline with alpha blending.
         // Returns None if pipeline creation fails (e.g. incompatible GPU).
@@ -892,6 +1122,7 @@ impl Renderer {
 
         let node_pipeline = make_pipeline(&node_vert, &node_frag)?;
         let edge_pipeline = make_pipeline(&edge_vert, &edge_frag)?;
+        let field_line_pipeline = make_pipeline(&field_line_vert, &field_line_frag)?;
 
         let uniform_buf = device.new_buffer(
             std::mem::size_of::<Uniforms>() as u64,
@@ -904,6 +1135,7 @@ impl Renderer {
             layer,
             node_pipeline,
             edge_pipeline,
+            field_line_pipeline,
             node_instance_buf: None,
             edge_instance_buf: None,
             uniform_buf,
@@ -1006,16 +1238,6 @@ impl Renderer {
         radius: f32,
     ) -> bool {
         bounds.is_none_or(|view| bounds_intersects_circle(view, center, radius))
-    }
-
-    #[inline]
-    fn segment_in_view(
-        &self,
-        bounds: Option<ViewBounds>,
-        p0: [f32; 2],
-        p1: [f32; 2],
-    ) -> bool {
-        bounds.is_none_or(|view| segment_intersects_bounds(view, p0, p1))
     }
 
     fn collect_visible_node_indices<F>(
@@ -1140,9 +1362,50 @@ impl Renderer {
         true
     }
 
+    fn edge_curvature(&self) -> f32 {
+        let dialogue_bias = if self.visual_theme == VisualTheme::Dialogue { 0.20 } else { 0.12 };
+        let elastic_bias = if self.enable_elastic_edges {
+            0.06 + self.edge_elasticity.clamp(0.0, 1.0) * 0.20
+        } else {
+            0.0
+        };
+        dialogue_bias + elastic_bias
+    }
+
+    fn push_curve_edge_instance(
+        scratch: &mut Vec<CurveEdgeInstance>,
+        p0: [f32; 2],
+        p1: [f32; 2],
+        v0: [f32; 2],
+        v1: [f32; 2],
+        ideal_length: f32,
+        color: [f32; 4],
+        curvature: f32,
+    ) {
+        let dx = p1[0] - p0[0];
+        let dy = p1[1] - p0[1];
+        let length = (dx * dx + dy * dy).sqrt();
+        if length <= f32::EPSILON {
+            return;
+        }
+
+        let (c0, c1) = string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
+        scratch.push(CurveEdgeInstance { p0, c0, c1, p1, color });
+    }
+
+    #[inline]
+    fn classic_node_radius(&self, world: &World, node_index: usize) -> f32 {
+        dialogue_node_radius(
+            self.visual_theme,
+            world.graph_node[node_index].radius,
+            world.hierarchy[node_index].node_type,
+            world.hierarchy[node_index].link_count,
+            world.render[node_index].color_override[3],
+        )
+    }
+
     #[inline]
     fn classic_node_instance(&self, world: &World, node_index: usize) -> NodeInstance {
-        let graph_node = &world.graph_node[node_index];
         let co = world.render[node_index].color_override;
         let mut color = if co[3] > 0.0 {
             co
@@ -1155,9 +1418,10 @@ impl Renderer {
         } else {
             z_for_link_count(world.hierarchy[node_index].link_count)
         };
+        color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
         NodeInstance {
             position: [world.transform[node_index].x, world.transform[node_index].y],
-            radius: graph_node.radius,
+            radius: self.classic_node_radius(world, node_index),
             z,
             color,
         }
@@ -1206,8 +1470,15 @@ impl Renderer {
     fn rebuild_classic_buffers(&mut self, world: &World) {
         let view_bounds = self.current_view_bounds(Self::CLASSIC_CULL_PADDING_PIXELS);
         let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
+        let visual_theme = self.visual_theme;
         self.collect_visible_node_indices(world, view_bounds, |world, index| {
-            world.graph_node[index].radius
+            dialogue_node_radius(
+                visual_theme,
+                world.graph_node[index].radius,
+                world.hierarchy[index].node_type,
+                world.hierarchy[index].link_count,
+                world.render[index].color_override[3],
+            )
         });
 
         self.classic_node_scratch.clear();
@@ -1276,12 +1547,14 @@ impl Renderer {
             if lod.draw_glow {
                 for &node_index in &self.rendered_node_indices {
                     let pos = [world.transform[node_index].x, world.transform[node_index].y];
-                    let z = z_for_link_count(world.hierarchy[node_index].link_count);
-                    let color = self.classic_node_instance(world, node_index).color;
-                    let radius = world.graph_node[node_index].radius;
+                    let node_instance = self.classic_node_instance(world, node_index);
+                    let z = node_instance.z;
+                    let color = node_instance.color;
+                    let radius = node_instance.radius;
                     let confidence = world.graph_node[node_index].confidence;
-
-                    if world.hierarchy[node_index].link_count >= 9 {
+                    let link_count = world.hierarchy[node_index].link_count;
+                    let node_type = world.hierarchy[node_index].node_type;
+                    if link_count >= 9 {
                         self.classic_node_scratch.push(NodeInstance {
                             position: pos,
                             radius: radius * HUB_GLOW_RADIUS_FACTOR,
@@ -1347,39 +1620,30 @@ impl Renderer {
                 if node_idx < world.transform.len() {
                     let nx = world.transform[node_idx].x;
                     let ny = world.transform[node_idx].y;
-                    let r = world.graph_node[node_idx].radius;
+                    let r = self.classic_node_radius(world, node_idx);
                     let time = self.start_time.elapsed().as_secs_f32();
                     let node_seed = world.graph_node[node_idx].node_id as f32 * 0.173;
                     let bob_y = (time * (if self.dialogue.is_streaming { 2.8 } else { 1.45 }) + node_seed)
                         .sin()
                         * r
                         * 0.018;
-                    let eye_white_r = r * 0.17;
-                    let eye_lid_r = eye_white_r * 0.28;
-                    let pupil_r = eye_white_r * 0.42;
-                    let eye_spacing = r * 0.31;
-                    let eye_y = ny - r * 0.14 + bob_y;
-                    let cheek_y = ny + r * 0.05 + bob_y * 0.35;
-                    let mouth_y = ny + r * 0.28 + bob_y * 0.45;
+                    let eye_white_r = r * 0.15;
+                    let eye_lid_r = eye_white_r * 0.34;
+                    let pupil_r = eye_white_r * 0.30;
+                    let eye_spacing = r * 0.28;
+                    let eye_y = ny - r * 0.10 + bob_y;
+                    let brow_y = eye_y - r * 0.12;
+                    let mouth_y = ny + r * 0.24 + bob_y * 0.32;
                     let blink_open = face_blink_openness(time, node_seed, self.dialogue.is_streaming);
                     let pupil_offset =
-                        face_pupil_offset([nx, ny], self.dialogue.look_target_world, eye_white_r * 0.34);
+                        face_pupil_offset([nx, ny], self.dialogue.look_target_world, eye_white_r * 0.22);
 
-                    self.push_face_node(
-                        [nx - eye_spacing * 0.92, cheek_y],
-                        r * 0.075,
-                        [1.0, 0.72, 0.80, 0.10],
-                    );
-                    self.push_face_node(
-                        [nx + eye_spacing * 0.92, cheek_y],
-                        r * 0.075,
-                        [1.0, 0.72, 0.80, 0.10],
-                    );
+                    self.push_face_node([nx - eye_spacing, brow_y], eye_white_r * 0.34, [0.14, 0.18, 0.26, 0.82]);
+                    self.push_face_node([nx + eye_spacing, brow_y], eye_white_r * 0.34, [0.14, 0.18, 0.26, 0.82]);
 
                     if blink_open > 0.4 {
-                        let eye_color = [0.98, 0.99, 1.0, 0.96];
-                        let pupil_color = [0.13, 0.18, 0.28, 0.94];
-                        let catchlight_color = [1.0, 1.0, 1.0, 0.72];
+                        let eye_color = [0.96, 0.97, 0.98, 0.98];
+                        let pupil_color = [0.10, 0.12, 0.18, 0.98];
                         let left_eye = [nx - eye_spacing, eye_y];
                         let right_eye = [nx + eye_spacing, eye_y];
                         let left_pupil = [left_eye[0] + pupil_offset[0], left_eye[1] + pupil_offset[1]];
@@ -1389,45 +1653,26 @@ impl Renderer {
                         self.push_face_node(right_eye, eye_white_r * blink_open, eye_color);
                         self.push_face_node(left_pupil, pupil_r * blink_open, pupil_color);
                         self.push_face_node(right_pupil, pupil_r * blink_open, pupil_color);
-                        self.push_face_node(
-                            [left_pupil[0] - pupil_r * 0.28, left_pupil[1] - pupil_r * 0.24],
-                            pupil_r * 0.22,
-                            catchlight_color,
-                        );
-                        self.push_face_node(
-                            [right_pupil[0] - pupil_r * 0.28, right_pupil[1] - pupil_r * 0.24],
-                            pupil_r * 0.22,
-                            catchlight_color,
-                        );
                     } else {
-                        let lid_color = [0.16, 0.20, 0.28, 0.82];
+                        let lid_color = [0.12, 0.15, 0.22, 0.88];
                         self.push_face_node([nx - eye_spacing, eye_y], eye_lid_r, lid_color);
                         self.push_face_node([nx + eye_spacing, eye_y], eye_lid_r, lid_color);
                     }
 
                     if self.dialogue.is_streaming {
-                        let mouth_outer_r =
-                            eye_white_r * (0.66 + 0.24 * (time * 10.0 + node_seed).sin().abs());
-                        self.push_face_node([nx, mouth_y], mouth_outer_r, [0.16, 0.20, 0.30, 0.90]);
-                        self.push_face_node(
-                            [nx, mouth_y + mouth_outer_r * 0.08],
-                            mouth_outer_r * 0.56,
-                            [0.96, 0.58, 0.68, 0.32],
-                        );
+                        let chatter = 0.04 + 0.12 * (time * 10.0 + node_seed).sin().abs();
+                        let mouth_w = eye_white_r * 0.64;
+                        let mouth_h = eye_white_r * (0.24 + chatter);
+                        self.push_face_node([nx - mouth_w, mouth_y], mouth_h, [0.15, 0.18, 0.25, 0.92]);
+                        self.push_face_node([nx, mouth_y], mouth_h * 1.18, [0.15, 0.18, 0.25, 0.96]);
+                        self.push_face_node([nx + mouth_w, mouth_y], mouth_h, [0.15, 0.18, 0.25, 0.92]);
+                        self.push_face_node([nx, mouth_y + mouth_h * 0.18], mouth_h * 0.42, [0.90, 0.56, 0.58, 0.28]);
                     } else {
-                        let smile_color = [0.15, 0.18, 0.27, 0.86];
-                        let smile_r = eye_white_r * 0.24;
-                        self.push_face_node([nx, mouth_y], smile_r, smile_color);
-                        self.push_face_node(
-                            [nx - eye_spacing * 0.38, mouth_y - r * 0.028],
-                            smile_r * 0.82,
-                            smile_color,
-                        );
-                        self.push_face_node(
-                            [nx + eye_spacing * 0.38, mouth_y - r * 0.028],
-                            smile_r * 0.82,
-                            smile_color,
-                        );
+                        let smile_color = [0.15, 0.18, 0.25, 0.90];
+                        let smile_r = eye_white_r * 0.18;
+                        self.push_face_node([nx - eye_spacing * 0.34, mouth_y], smile_r, smile_color);
+                        self.push_face_node([nx, mouth_y + smile_r * 0.22], smile_r, smile_color);
+                        self.push_face_node([nx + eye_spacing * 0.34, mouth_y], smile_r, smile_color);
                     }
                 }
             }
@@ -1496,6 +1741,7 @@ impl Renderer {
         if lod.draw_edges && !lod.cluster_nodes {
             self.collect_candidate_edges(world);
             self.reset_edge_lod_budget(world, lod);
+            let curvature = self.edge_curvature();
             for candidate_index in 0..self.edge_candidate_indices.len() {
                 let edge_index = self.edge_candidate_indices[candidate_index];
                 let edge = &world.edges[edge_index];
@@ -1526,15 +1772,28 @@ impl Renderer {
                 if view_bounds.is_some() && !(src_in_view || tgt_in_view) {
                     continue;
                 }
-                if !self.segment_in_view(view_bounds, p0, p1) {
-                    continue;
+                let color = self.classic_edge_instance_color(world, edge, src_index, tgt_index, p0, p1);
+                let v0 = [world.velocity[src_index].vx, world.velocity[src_index].vy];
+                let v1 = [world.velocity[tgt_index].vx, world.velocity[tgt_index].vy];
+                let ideal_length = self.link_distance / edge.weight.max(0.01);
+                let (c0, c1) = string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
+                if let Some(bounds) = view_bounds {
+                    if !(segment_intersects_bounds(bounds, p0, p1)
+                        || curve_intersects_bounds(bounds, p0, c0, c1, p1))
+                    {
+                        continue;
+                    }
                 }
-
-                self.classic_edge_scratch.push(LineEdgeInstance {
+                Self::push_curve_edge_instance(
+                    &mut self.classic_edge_scratch,
                     p0,
                     p1,
-                    color: self.classic_edge_instance_color(world, edge, src_index, tgt_index, p0, p1),
-                });
+                    v0,
+                    v1,
+                    ideal_length,
+                    color,
+                    curvature,
+                );
             }
         }
 
@@ -1542,7 +1801,7 @@ impl Renderer {
         if self.edge_instance_count > 0 {
             if self.edge_instance_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
                 let capacity = (self.edge_instance_count * 3 / 2).max(64);
-                let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
+                let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
                 self.edge_instance_buf = Some(
                     self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
                 );
@@ -1553,7 +1812,7 @@ impl Renderer {
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         self.classic_edge_scratch.as_ptr(),
-                        buf.contents() as *mut LineEdgeInstance,
+                        buf.contents() as *mut CurveEdgeInstance,
                         self.edge_instance_count,
                     );
                 }
@@ -1565,18 +1824,9 @@ impl Renderer {
 
     pub fn upload_aggregated_edges(&mut self, edges: &[crate::edge_aggregation::AggregatedEdge]) {
         self.use_aggregated_edges = !edges.is_empty();
-        self.aggregated_edge_count = edges.len();
         if edges.is_empty() {
+            self.aggregated_edge_count = 0;
             return;
-        }
-
-        if edges.len() > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
-            let capacity = (edges.len() * 3 / 2).max(64);
-            let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
-            self.edge_instance_buf = Some(
-                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
-            );
-            self.edge_instance_capacity = capacity;
         }
 
         let base_rgb = if self.light_mode {
@@ -1585,16 +1835,39 @@ impl Renderer {
             [0.78, 0.82, 0.88]
         };
 
+        self.classic_edge_scratch.clear();
+        let curvature = (self.edge_curvature() * 0.8).max(0.10);
+        for edge in edges {
+            Self::push_curve_edge_instance(
+                &mut self.classic_edge_scratch,
+                edge.p0,
+                edge.p1,
+                [0.0, 0.0],
+                [0.0, 0.0],
+                ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2)).sqrt(),
+                [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha],
+                curvature,
+            );
+        }
+        self.aggregated_edge_count = self.classic_edge_scratch.len();
+
+        if self.aggregated_edge_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+            let capacity = (self.aggregated_edge_count * 3 / 2).max(64);
+            let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
+            self.edge_instance_buf = Some(
+                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+            );
+            self.edge_instance_capacity = capacity;
+        }
+
         if let Some(buf) = &self.edge_instance_buf {
             unsafe {
-                let ptr = buf.contents() as *mut LineEdgeInstance;
-                for (index, edge) in edges.iter().enumerate() {
-                    *ptr.add(index) = LineEdgeInstance {
-                        p0: edge.p0,
-                        p1: edge.p1,
-                        color: [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha],
-                    };
-                }
+                let ptr = buf.contents() as *mut CurveEdgeInstance;
+                std::ptr::copy_nonoverlapping(
+                    self.classic_edge_scratch.as_ptr(),
+                    ptr,
+                    self.aggregated_edge_count,
+                );
             }
         }
     }
@@ -1627,7 +1900,7 @@ impl Renderer {
 
         if edge_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
             let capacity = (edge_count * 3 / 2).max(64);
-            let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
+            let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
             self.edge_instance_buf = Some(
                 self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
@@ -2009,14 +2282,16 @@ impl Renderer {
         let node_y = world.transform[node_index].y;
         let node_radius = world.graph_node[node_index].radius;
         let zoom = self.camera_zoom.max(0.01);
+        let layout = dialogue_layout_metrics(zoom);
 
         // Convert screen-space dimensions to world-space.
-        let box_w_world = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
-        let box_h_world = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
+        let box_w_world = layout.box_screen_width / zoom;
+        let box_h_world = layout.box_screen_height / zoom;
+        let side_gap_world = node_radius + layout.side_gap_screen / zoom;
         let preferred_left = if node_x <= self.camera_offset[0] {
-            node_x - box_w_world * 0.18
+            node_x + side_gap_world
         } else {
-            node_x - box_w_world * 0.82
+            node_x - box_w_world - side_gap_world
         };
         let box_left = clamp_dialogue_box_left(
             preferred_left,
@@ -2025,13 +2300,13 @@ impl Renderer {
             self.last_viewport_width,
             box_w_world,
         );
-        let tail_half_w = 12.0 / zoom;
+        let tail_half_w = if layout.compact { 10.0 } else { 12.0 } / zoom;
         let tail_base_center_x = node_x.clamp(box_left + tail_half_w, box_left + box_w_world - tail_half_w);
         let vw = self.last_viewport_width;
         let vh = self.last_viewport_height;
         let (preferred_box_bottom_y, tail_tip_y) = dialogue_box_vertical_layout(node_y, node_radius, zoom);
         let preferred_box_top_y = preferred_box_bottom_y - box_h_world;
-        let max_box_top_y = tail_tip_y - DIALOGUE_TAIL_SCREEN_HEIGHT / zoom - box_h_world;
+        let max_box_top_y = tail_tip_y - layout.tail_screen_height / zoom - box_h_world;
         let box_top_y = clamp_dialogue_box_top(
             preferred_box_top_y,
             self.camera_offset[1],
@@ -2084,16 +2359,17 @@ impl Renderer {
         };
 
         let zoom = self.camera_zoom.max(0.01);
-        let border_w = 2.0 / zoom;
-        let nameplate_h = 34.0 / zoom;
+        let layout = dialogue_layout_metrics(zoom);
+        let border_w = 1.0 / zoom;
+        let nameplate_h = if layout.compact { 24.0 } else { 34.0 } / zoom;
         let left = geometry.left;
         let right = geometry.right;
         let box_top = geometry.top;
         let box_bottom = geometry.bottom;
 
-        // Colors: dark blue gradient.
-        let color_top = [0.08_f32, 0.10, 0.22, 0.92];
-        let color_bot = [0.04_f32, 0.06, 0.14, 0.92];
+        // Colors: soft translucent gradient (lets graph show through).
+        let color_top = [0.12_f32, 0.14, 0.22, 0.55];
+        let color_bot = [0.08_f32, 0.10, 0.18, 0.55];
 
         // Background: 2 triangles forming a quad.
         // Tri 1: top-left, top-right, bottom-left
@@ -2105,14 +2381,16 @@ impl Renderer {
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_bottom], color: color_bot });
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_bottom], color: color_bot });
 
-        // Tail: triangle from box bottom-center to node.
-        let tail_half_w = 12.0 / zoom;
+        // Tail: triangle from box bottom-center to node, fading toward tip.
+        let tail_half_w = if layout.compact { 10.0 } else { 12.0 } / zoom;
+        let tail_tip_color = [color_bot[0], color_bot[1], color_bot[2], 0.15];
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_base_center_x - tail_half_w, box_bottom], color: color_bot });
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_base_center_x + tail_half_w, box_bottom], color: color_bot });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_tip_x, geometry.tail_tip_y], color: color_bot });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_tip_x, geometry.tail_tip_y], color: tail_tip_color });
 
-        // Nameplate bar at top: 2 triangles, uses node type color.
-        let np_color = self.node_color_for_u8(world.hierarchy[node_index].node_type);
+        // Nameplate bar at top: 2 triangles, subtle tint of node type color.
+        let np_full = self.node_color_for_u8(world.hierarchy[node_index].node_type);
+        let np_color = [np_full[0], np_full[1], np_full[2], np_full[3] * 0.45];
         let np_bottom = box_top + nameplate_h;
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_top], color: np_color });
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, box_top], color: np_color });
@@ -2121,8 +2399,8 @@ impl Renderer {
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [right, np_bottom], color: np_color });
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, np_bottom], color: np_color });
 
-        // Border: 4 thin quads (top, bottom, left, right) — white.
-        let border_color = [1.0_f32, 1.0, 1.0, 0.85];
+        // Border: 4 thin quads (top, bottom, left, right) — subtle white.
+        let border_color = [1.0_f32, 1.0, 1.0, 0.18];
 
         // Top border
         self.push_border_quad(left, box_top, right, box_top + border_w, border_color);
@@ -2291,7 +2569,7 @@ impl Renderer {
                 zoom_velocity: 0.0,
                 lite_mode: self.quality_level as f32,
                 impact_intensity: self.impact_intensity,
-                _pad: 0.0,
+                dialogue_theme: if self.visual_theme == VisualTheme::Dialogue { 1.0 } else { 0.0 },
             };
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;
@@ -2333,7 +2611,7 @@ impl Renderer {
                 encoder.draw_primitives_instanced(
                     MTLPrimitiveType::Triangle,
                     0,
-                    6,
+                    (CURVE_EDGE_STRIP_SEGMENTS * 6) as u64,
                     edge_draw as u64,
                 );
             }
@@ -2343,7 +2621,7 @@ impl Renderer {
                 && let Some(fl_buf) = &self.field_line_buf
             {
                 let fl_draw = self.field_line_count.min(self.field_line_capacity);
-                encoder.set_render_pipeline_state(&self.edge_pipeline);
+                encoder.set_render_pipeline_state(&self.field_line_pipeline);
                 encoder.set_vertex_buffer(0, Some(fl_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
                 encoder.draw_primitives_instanced(
@@ -2458,6 +2736,12 @@ mod tests {
     }
 
     #[test]
+    fn curve_edge_instance_size() {
+        // p0(8) + c0(8) + c1(8) + p1(8) + color(16) = 48 bytes.
+        assert_eq!(std::mem::size_of::<CurveEdgeInstance>(), 48);
+    }
+
+    #[test]
     fn lod_profile_is_zoom_stable_in_cinematic_mode() {
         let near = lod_profile_for_zoom(1.0, 0);
         let far = lod_profile_for_zoom(0.05, 0);
@@ -2527,16 +2811,31 @@ mod tests {
 
     #[test]
     fn dialogue_constants_positive() {
-        assert!(DIALOGUE_BOX_SCREEN_WIDTH > 0.0);
-        assert!(DIALOGUE_BOX_SCREEN_HEIGHT > 0.0);
-        assert!(DIALOGUE_TAIL_SCREEN_HEIGHT > 0.0);
-        assert!(DIALOGUE_GAP_SCREEN > 0.0);
+        let compact = dialogue_layout_metrics(0.35);
+        let medium = dialogue_layout_metrics(0.7);
+        let full = dialogue_layout_metrics(1.0);
+        assert!(compact.box_screen_width > 0.0);
+        assert!(compact.box_screen_height > 0.0);
+        assert!(compact.tail_screen_height > 0.0);
+        assert!(compact.gap_screen > 0.0);
+        assert!(medium.box_screen_width > compact.box_screen_width);
+        assert!(full.box_screen_width > medium.box_screen_width);
     }
 
     #[test]
     fn dialogue_box_dimensions_are_roomy_enough_for_overlay_ui() {
-        assert!(DIALOGUE_BOX_SCREEN_WIDTH >= 600.0);
-        assert!(DIALOGUE_BOX_SCREEN_HEIGHT >= 280.0);
+        let full = dialogue_layout_metrics(1.0);
+        assert!(full.box_screen_width >= 640.0);
+        assert!(full.box_screen_height >= 320.0);
+    }
+
+    #[test]
+    fn dialogue_box_collapses_to_compact_teaser_at_far_zoom() {
+        let compact = dialogue_layout_metrics(0.35);
+        let full = dialogue_layout_metrics(1.0);
+        assert!(compact.compact);
+        assert!(compact.box_screen_width < full.box_screen_width);
+        assert!(compact.box_screen_height < full.box_screen_height);
     }
 
     #[test]
@@ -2565,19 +2864,99 @@ mod tests {
     }
 
     #[test]
+    fn dialogue_style_signal_grows_with_encoded_alpha() {
+        let regular_signal = dialogue_style_signal(1.12);
+        let elevated_signal = dialogue_style_signal(1.40);
+        assert!(regular_signal > 0.0);
+        assert!(elevated_signal > regular_signal);
+    }
+
+    #[test]
+    fn string_edge_control_points_bend_off_center_line() {
+        let (c0, c1) = string_edge_control_points(
+            [0.0, 0.0],
+            [100.0, 0.0],
+            [8.0, 0.0],
+            [-8.0, 0.0],
+            140.0,
+            0.22,
+        );
+        assert!(c0[0] > 0.0 && c0[0] < 60.0);
+        assert!(c1[0] > 40.0 && c1[0] < 100.0);
+        assert!(c0[1].abs().max(c1[1].abs()) >= 8.0);
+    }
+
+    #[test]
+    fn cubic_bezier_preserves_segment_endpoints() {
+        let p0 = [0.0, 0.0];
+        let c0 = [30.0, 22.0];
+        let c1 = [70.0, 22.0];
+        let p1 = [100.0, 0.0];
+        assert_eq!(cubic_bezier_point(p0, c0, c1, p1, 0.0), p0);
+        assert_eq!(cubic_bezier_point(p0, c0, c1, p1, 1.0), p1);
+    }
+
+    #[test]
+    fn string_edge_control_points_reduce_sag_under_high_tension() {
+        let relaxed = string_edge_control_points(
+            [0.0, 0.0],
+            [160.0, 0.0],
+            [0.0, 0.0],
+            [0.0, 0.0],
+            260.0,
+            1.0,
+        );
+        let taut = string_edge_control_points(
+            [0.0, 0.0],
+            [280.0, 0.0],
+            [0.0, 0.0],
+            [0.0, 0.0],
+            180.0,
+            1.0,
+        );
+        let relaxed_sag = relaxed.0[1].abs().max(relaxed.1[1].abs());
+        let taut_sag = taut.0[1].abs().max(taut.1[1].abs());
+        assert!(relaxed_sag > taut_sag);
+    }
+
+    #[test]
+    fn dialogue_folder_radius_target_is_much_larger_and_density_weighted() {
+        let sparse = dialogue_folder_target_radius(1);
+        let dense = dialogue_folder_target_radius(512);
+        assert!(sparse >= 18.0);
+        assert!(dense > sparse * 4.5);
+    }
+
+    #[test]
+    fn glow_instance_cutoff_stays_between_nodes_and_glows() {
+        // Glow alphas (0.03–0.11) must be below this cutoff,
+        // and regular nodes (BASE_NODE_ALPHA) must be above.
+        assert!(GLOW_INSTANCE_ALPHA_CUTOFF > CONF_GLOW_ALPHA_BASE + CONF_GLOW_ALPHA_SCALE);
+        assert!(GLOW_INSTANCE_ALPHA_CUTOFF < BASE_NODE_ALPHA);
+    }
+
+    #[test]
+    fn shader_source_defines_runtime_glow_cutoff_constant() {
+        assert!(SHADER_SOURCE.contains(&format!(
+            "constant float GLOW_INSTANCE_ALPHA_CUTOFF = {:.2};",
+            GLOW_INSTANCE_ALPHA_CUTOFF
+        )));
+    }
+
+    #[test]
     fn clamp_dialogue_box_left_keeps_box_inside_viewport() {
         let zoom = 1.0;
-        let box_width_world = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
-        let left = clamp_dialogue_box_left(400.0, 0.0, zoom, 800.0, box_width_world);
+        let box_width_world = dialogue_layout_metrics(zoom).box_screen_width / zoom;
+        let left = clamp_dialogue_box_left(520.0, 0.0, zoom, 1800.0, box_width_world);
         let margin = DIALOGUE_VIEWPORT_MARGIN_SCREEN / zoom;
-        let max_left = 400.0 - margin - box_width_world;
+        let max_left = 900.0 - margin - box_width_world;
         assert!((left - max_left).abs() < f32::EPSILON);
     }
 
     #[test]
     fn clamp_dialogue_box_top_keeps_box_inside_viewport_when_room_exists() {
         let zoom = 1.0;
-        let box_height_world = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
+        let box_height_world = dialogue_layout_metrics(zoom).box_screen_height / zoom;
         let top = clamp_dialogue_box_top(-360.0, 0.0, zoom, 900.0, box_height_world, -40.0);
         let min_top = -450.0 + DIALOGUE_VIEWPORT_MARGIN_SCREEN / zoom;
         let max_top = -40.0;

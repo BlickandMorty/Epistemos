@@ -173,4 +173,48 @@ struct DialogueGameStateAuditTests {
         #expect(DialoguePresentationTheme.tactics.displayName != DialoguePresentationTheme.nocturne.displayName)
         #expect(DialoguePresentationTheme.tactics.chromeLabel != DialoguePresentationTheme.nocturne.chromeLabel)
     }
+
+    @Test("explicit node insight drives depth tier and vitality")
+    func explicitInsightShapesProfile() {
+        let insight = DialogueNodeInsight(
+            structureDepth: 0,
+            contentWords: 2400,
+            childCount: 18,
+            tier: .root,
+            prominence: 0.96
+        )
+
+        let profile = DialogueNodeProfile.derive(
+            nodeId: "folder-root",
+            label: "Research Vault",
+            nodeType: .folder,
+            noteBody: "",
+            linkedNodeLabels: ["Methods", "Sources", "Experiments"],
+            insight: insight
+        )
+
+        #expect(profile.insight == insight)
+        #expect(profile.summary.contains("layer 0"))
+        #expect(profile.care.health > 0.72)
+        #expect(profile.care.attention > 0.50)
+    }
+
+    @Test("fallback insight counts words and marks thin content")
+    func fallbackInsightReflectsBodyMass() {
+        let thin = DialogueNodeInsight.fallback(
+            nodeType: .note,
+            noteBody: "",
+            linkedNodeCount: 0
+        )
+        let dense = DialogueNodeInsight.fallback(
+            nodeType: .note,
+            noteBody: "Alpha beta gamma delta epsilon zeta eta theta",
+            linkedNodeCount: 2
+        )
+
+        #expect(thin.contentLabel == "thin")
+        #expect(dense.contentWords == 8)
+        #expect(dense.contentLabel == "8w")
+        #expect(dense.prominence > thin.prominence)
+    }
 }

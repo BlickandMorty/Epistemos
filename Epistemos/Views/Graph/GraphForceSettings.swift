@@ -458,30 +458,17 @@ struct GraphForceSettings: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
 
-                Picker("Quality", selection: Binding(
-                    get: { graphState.qualityLevel },
-                    set: { graphState.qualityLevel = $0 }
-                )) {
-                    Text("Cinematic").tag(UInt8(0))
-                    Text("Balanced").tag(UInt8(1))
-                    Text("Performance").tag(UInt8(2))
-                }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
+                Text("Cinematic")
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.12), in: Capsule())
 
-                Text(qualityDescription)
+                Text("Full renderer only. Balanced and Performance were removed.")
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        }
-    }
-
-    private var qualityDescription: String {
-        switch graphState.qualityLevel {
-        case 0: "Glow, breathing, perspective depth, field lines, depth-of-field."
-        case 1: "Sphere shading, no animated effects. Good balance of look and speed."
-        default: "Flat circles, minimal GPU usage. Disables semantic and cluster forces for speed."
         }
     }
 
