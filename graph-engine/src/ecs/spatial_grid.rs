@@ -80,6 +80,36 @@ impl SpatialGrid {
         result
     }
 
+    /// Append candidate entities from cells overlapping the world-space rect.
+    /// Clears `out` first and reuses its allocation across calls.
+    pub fn query_bounds_into(
+        &self,
+        min_x: f32,
+        min_y: f32,
+        max_x: f32,
+        max_y: f32,
+        out: &mut Vec<u32>,
+    ) {
+        out.clear();
+        if !min_x.is_finite() || !min_y.is_finite() || !max_x.is_finite() || !max_y.is_finite() {
+            return;
+        }
+
+        let min = self.cell_coords(min_x, min_y);
+        let max = self.cell_coords(max_x, max_y);
+        let cells_x = (max.0 - min.0 + 1).max(0) as usize;
+        let cells_y = (max.1 - min.1 + 1).max(0) as usize;
+        out.reserve((cells_x * cells_y * 4).max(16));
+
+        for cx in min.0..=max.0 {
+            for cy in min.1..=max.1 {
+                if let Some(entities) = self.cells.get(&(cx, cy)) {
+                    out.extend(entities.iter().copied());
+                }
+            }
+        }
+    }
+
     /// Optimized query checking only the 9 cells around `(x, y)` (center + 8 adjacent).
     /// Best when `cell_size` matches the perception/interaction radius.
     pub fn query_neighbors(&self, x: f32, y: f32) -> Vec<u32> {
@@ -184,6 +214,21 @@ mod tests {
         assert!(neighbors.contains(&2));
         assert!(neighbors.contains(&3));
         assert!(!neighbors.contains(&4));
+    }
+
+    #[test]
+    fn test_query_bounds_into_rect_subset() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(0, 10.0, 10.0);
+        grid.insert(1, 60.0, 10.0);
+        grid.insert(2, 210.0, 210.0);
+
+        let mut out = Vec::new();
+        grid.query_bounds_into(-5.0, -5.0, 120.0, 40.0, &mut out);
+
+        assert!(out.contains(&0));
+        assert!(out.contains(&1));
+        assert!(!out.contains(&2));
     }
 
     #[test]

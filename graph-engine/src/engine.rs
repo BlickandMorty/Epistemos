@@ -18,7 +18,7 @@ use rustc_hash::FxHashSet;
 
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, pixel_block_half_extent};
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
 use crate::types::{Graph, VisualTheme, VoxelPalette};
@@ -30,6 +30,13 @@ use std::collections::HashMap;
 const PHYSICS_HZ: f64 = 60.0;
 /// Sleep duration (ms) when simulation is settled (avoids spinning).
 const SETTLED_SLEEP_MS: u64 = 50;
+
+fn clamp_zoom_for_theme(theme: VisualTheme, zoom: f32) -> f32 {
+    match theme {
+        VisualTheme::Pixel => zoom.clamp(0.05, 10.0),
+        VisualTheme::Classic => zoom.clamp(1.0, 10.0),
+    }
+}
 
 /// Drag state for d3-style fx/fy constraint.
 struct DragState {
@@ -107,6 +114,8 @@ pub struct Engine {
 
     /// ECS mirror of graph data, synced from Simulation each frame.
     world: World,
+    /// Tracks whether the previous rendered frame still had active physics.
+    last_sim_active: bool,
 }
 
 impl Engine {
@@ -140,6 +149,7 @@ impl Engine {
             btk_trees: HashMap::new(),
             btk_logs: HashMap::new(),
             world: World::new(),
+            last_sim_active: false,
         })
     }
 
@@ -294,7 +304,7 @@ impl Engine {
         self.renderer.link_distance = self.sim.lock().params.link_distance;
 
         // Allocate renderer buffers and upload initial data.
-        self.renderer.allocate_buffers(&self.graph);
+        self.renderer.allocate_buffers(&self.world);
 
         // Build spatial index for hit testing.
         self.spatial.build(&self.graph.nodes);
@@ -342,6 +352,9 @@ impl Engine {
             && let Some(&idx) = self.graph.id_to_index.get(&id)
         {
             self.graph.nodes[idx].visible = visible;
+            if let Some(world_index) = self.world.index_of_node_id(id) {
+                self.world.graph_node[world_index].visible = u8::from(visible);
+            }
         }
     }
 
@@ -364,8 +377,11 @@ impl Engine {
             sim.reheat();
         }
 
-        // Re-upload graph to renderer (only visible nodes are drawn).
-        self.renderer.upload_graph(&self.graph);
+        // Rebuild ECS World so topology, visibility, and metadata stay in sync.
+        self.world = World::from_graph(&self.graph);
+
+        // Re-upload ECS world to renderer (only visible nodes are drawn).
+        self.renderer.upload_graph(&self.world);
 
         // Rebuild spatial index so invisible nodes aren't hittable.
         self.spatial.build(&self.graph.nodes);
@@ -400,8 +416,7 @@ impl Engine {
     }
 
     /// Copy positions from simulation SoA arrays back to graph nodes.
-    /// Returns true if positions were updated (i.e., simulation is still running).
-    fn sync_positions(&mut self) -> bool {
+    fn sync_positions(&mut self) {
         let sim = self.sim.lock();
 
         for (si, &gi) in sim.graph_indices.iter().enumerate() {
@@ -412,7 +427,6 @@ impl Engine {
                 self.graph.nodes[gi].vy = sim.vy[si];
             }
         }
-        !sim.is_settled
     }
 
     /// Sync Simulation positions/velocities into the ECS World.
@@ -444,17 +458,23 @@ impl Engine {
             self.world.pvx[i] = sim.vx[i];
             self.world.pvy[i] = sim.vy[i];
         }
+
+        self.world.spatial_grid.rebuild(&self.world.entities, &self.world.transform);
     }
 
     /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
     pub fn render(&mut self, width: u32, height: u32) -> u32 {
         self.viewport_width = width;
         self.viewport_height = height;
+        let viewport_changed = self.renderer.set_viewport_size(width, height);
 
-        // Keep ECS World positions current for pixel art renderer.
-        self.sync_sim_to_world();
-
-        let positions_changed = self.sync_positions();
+        let sim_active = !self.sim.lock().is_settled;
+        let positions_changed = sim_active || self.last_sim_active;
+        if positions_changed {
+            self.sync_sim_to_world();
+            self.sync_positions();
+        }
+        self.last_sim_active = sim_active;
 
         // Trigger impact visual effects when heavy collision detected.
         if self.sim.lock().haptic_event >= 2 {
@@ -465,9 +485,8 @@ impl Engine {
         self.renderer.update_camera();
 
         // Request next frame only when something is animating.
-        let sim_active = !self.sim.lock().is_settled;
         let camera_moving = self.renderer.is_animating;
-        let needs_frame = sim_active || camera_moving;
+        let needs_frame = sim_active || camera_moving || viewport_changed;
 
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
@@ -480,38 +499,37 @@ impl Engine {
             self.idle_frame_count = 0;
         }
 
+        if positions_changed || camera_moving || viewport_changed {
+            self.renderer.update_positions(&self.world);
+        }
         if positions_changed {
-            self.renderer.update_positions(&self.graph);
             self.spatial.build(&self.graph.nodes);
         }
 
         // Append selection/hover highlight rings (only updates 2 instances -- cheap).
         self.renderer
-            .set_highlights(self.selected_id, self.hovered_id, &self.graph);
+            .set_highlights(self.selected_id, self.hovered_id, &self.world);
 
         // Rebuild per-instance highlight flags only when something visual changed.
         // Skipping this when idle saves O(N) work per frame at 10K nodes.
         if positions_changed || needs_frame {
-            self.renderer.rebuild_highlight_flags(&self.graph);
+            self.renderer.rebuild_highlight_flags(&self.world);
         }
 
         // Update magnetic field lines only when hovering (skip in lite mode entirely).
         // Field lines only in Cinematic mode (quality_level == 0).
         if self.quality_level == 0 && (self.hovered_id.is_some() || self.renderer.field_line_count > 0) {
             let time = self.renderer.start_time.elapsed().as_secs_f32();
-            self.renderer.update_field_lines(self.hovered_id, &self.graph, time);
+            self.renderer.update_field_lines(self.hovered_id, &self.world, time);
         }
 
-        // Issue draw commands — dispatch based on visual theme.
-        // Both paths receive &World + &Graph. Pixel reads positions from World (ECS SoA).
-        // Classic still reads positions from Graph (AoS) — full ECS migration is Phase 4
-        // once visibility, radius, and confidence are tracked in ECS components.
+        // Issue draw commands — both themes now read from the ECS World.
         match self.renderer.visual_theme {
             VisualTheme::Pixel => {
-                self.renderer.draw_pixel(width, height, &self.world, &self.graph);
+                self.renderer.draw_pixel(width, height, &self.world);
             }
             VisualTheme::Classic => {
-                self.renderer.draw(width, height, &self.world, &self.graph);
+                self.renderer.draw(width, height, &self.world);
             }
         }
 
@@ -663,16 +681,8 @@ impl Engine {
         // Track selection for FFI query.
         self.selected_id = Some(node_id);
 
-        // Collect the node + all direct neighbors.
-        let mut ids = FxHashSet::default();
-        ids.insert(node_id);
-        for edge in &self.graph.edges {
-            if edge.source == node_id {
-                ids.insert(edge.target);
-            } else if edge.target == node_id {
-                ids.insert(edge.source);
-            }
-        }
+        // Collect the node + all direct neighbors from ECS topology.
+        let ids = self.neighbor_ids(node_id);
 
         // Activate highlight (dims everything else).
         self.renderer.highlight.highlighted_ids = ids.clone();
@@ -683,12 +693,13 @@ impl Engine {
         let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
         let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
         for &nid in &ids {
-            if let Some(&gi) = self.graph.id_to_index.get(&nid) {
-                let n = &self.graph.nodes[gi];
-                min_x = min_x.min(n.x - n.radius);
-                min_y = min_y.min(n.y - n.radius);
-                max_x = max_x.max(n.x + n.radius);
-                max_y = max_y.max(n.y + n.radius);
+            if let Some(index) = self.world.index_of_node_id(nid) {
+                let pos = &self.world.transform[index];
+                let radius = self.world.graph_node[index].radius;
+                min_x = min_x.min(pos.x - radius);
+                min_y = min_y.min(pos.y - radius);
+                max_x = max_x.max(pos.x + radius);
+                max_y = max_y.max(pos.y + radius);
             }
         }
 
@@ -741,19 +752,37 @@ impl Engine {
 
     // ── Neighbor Highlighting ────────────────────────────────────────
 
-    fn highlight_neighbors_by_id(&mut self, node_id: u32) {
+    fn neighbor_ids(&self, node_id: u32) -> FxHashSet<u32> {
         let mut ids = FxHashSet::default();
         ids.insert(node_id);
 
-        for edge in &self.graph.edges {
-            if edge.source == node_id {
-                ids.insert(edge.target);
-            } else if edge.target == node_id {
-                ids.insert(edge.source);
+        let Some(entity) = self.world.entity_of_node_id(node_id) else {
+            return ids;
+        };
+        let Some(index) = self.world.index_of(entity) else {
+            return ids;
+        };
+
+        for &edge_index in self.world.edge_indices_for_index(index) {
+            let edge = &self.world.edges[edge_index];
+            let neighbor = if edge.source == entity {
+                edge.target
+            } else if edge.target == entity {
+                edge.source
+            } else {
+                continue;
+            };
+
+            if let Some(&neighbor_id) = self.world.entity_to_node_id.get(&neighbor) {
+                ids.insert(neighbor_id);
             }
         }
 
-        self.renderer.highlight.highlighted_ids = ids;
+        ids
+    }
+
+    fn highlight_neighbors_by_id(&mut self, node_id: u32) {
+        self.renderer.highlight.highlighted_ids = self.neighbor_ids(node_id);
         self.renderer.highlight.active = true;
         self.idle_frame_count = 0;
     }
@@ -897,19 +926,42 @@ impl Engine {
 
     /// Zoom to fit all visible nodes with padding.
     pub fn zoom_to_fit(&mut self) {
+        self.sync_positions();
+        self.sync_sim_to_world();
+
         let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
         let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
         let mut any = false;
 
-        for n in &self.graph.nodes {
-            if !n.visible {
-                continue;
+        match self.renderer.visual_theme {
+            VisualTheme::Pixel => {
+                for index in 0..self.world.len() {
+                    if self.world.graph_node[index].visible == 0 {
+                        continue;
+                    }
+                    any = true;
+                    let pos = &self.world.transform[index];
+                    let half_extent = pixel_block_half_extent(self.world.render[index].block_type);
+                    min_x = min_x.min(pos.x - half_extent);
+                    min_y = min_y.min(pos.y - half_extent);
+                    max_x = max_x.max(pos.x + half_extent);
+                    max_y = max_y.max(pos.y + half_extent);
+                }
             }
-            any = true;
-            min_x = min_x.min(n.x - n.radius);
-            min_y = min_y.min(n.y - n.radius);
-            max_x = max_x.max(n.x + n.radius);
-            max_y = max_y.max(n.y + n.radius);
+            VisualTheme::Classic => {
+                for index in 0..self.world.len() {
+                    if self.world.graph_node[index].visible == 0 {
+                        continue;
+                    }
+                    any = true;
+                    let pos = &self.world.transform[index];
+                    let radius = self.world.graph_node[index].radius;
+                    min_x = min_x.min(pos.x - radius);
+                    min_y = min_y.min(pos.y - radius);
+                    max_x = max_x.max(pos.x + radius);
+                    max_y = max_y.max(pos.y + radius);
+                }
+            }
         }
 
         if !any {
@@ -922,11 +974,14 @@ impl Engine {
         let graph_h = (max_y - min_y).max(1.0);
         let w = self.viewport_width as f32;
         let h = self.viewport_height as f32;
-        let padding = 1.5; // Zoom in closer — user prefers seeing nodes big
+        let padding = match self.renderer.visual_theme {
+            VisualTheme::Pixel => 0.9,
+            VisualTheme::Classic => 1.5,
+        };
         let zoom = (w / graph_w).min(h / graph_h) * padding;
 
         self.renderer.target_offset = [cx, cy];
-        self.renderer.target_zoom = zoom.clamp(1.0, 10.0); // Never start zoomed out beyond 1.0
+        self.renderer.target_zoom = clamp_zoom_for_theme(self.renderer.visual_theme, zoom);
         self.renderer.is_animating = true;
     }
 
@@ -1259,6 +1314,10 @@ impl Engine {
         {
             self.graph.nodes[idx].created_at = created_at;
             self.graph.nodes[idx].updated_at = updated_at;
+            if let Some(world_index) = self.world.index_of_node_id(id) {
+                self.world.graph_node[world_index].created_at = created_at;
+                self.world.graph_node[world_index].updated_at = updated_at;
+            }
         }
     }
 
@@ -1299,7 +1358,11 @@ impl Engine {
         if let Some(&id) = self.graph.uuid_to_id.get(uuid)
             && let Some(&idx) = self.graph.id_to_index.get(&id)
         {
-            self.graph.nodes[idx].confidence = confidence.clamp(0.0, 1.0);
+            let clamped = confidence.clamp(0.0, 1.0);
+            self.graph.nodes[idx].confidence = clamped;
+            if let Some(world_index) = self.world.index_of_node_id(id) {
+                self.world.graph_node[world_index].confidence = clamped;
+            }
         }
     }
 }
@@ -1824,6 +1887,19 @@ mod tests {
 
         // No nodes → min_x stays MAX → skip zoom.
         assert!(min_x > max_x, "empty graph should skip zoom computation");
+    }
+
+    #[test]
+    fn pixel_zoom_clamp_allows_zooming_out_below_one() {
+        assert!(
+            (clamp_zoom_for_theme(VisualTheme::Pixel, 0.35) - 0.35).abs() < f32::EPSILON,
+            "pixel theme should preserve wide zoom-out"
+        );
+    }
+
+    #[test]
+    fn classic_zoom_clamp_keeps_existing_floor() {
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 0.35), 1.0);
     }
 
     #[test]

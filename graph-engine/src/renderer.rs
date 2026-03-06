@@ -3,9 +3,10 @@ use std::ffi::c_void;
 use metal::foreign_types::ForeignType;
 use metal::*;
 use objc::rc::autoreleasepool;
+use rustc_hash::FxHashMap;
 
 use crate::ecs::World;
-use crate::types::{Graph, VisualTheme, VoxelPalette, edge_type_color, edge_type_color_light};
+use crate::types::{VisualTheme, VoxelPalette, edge_type_color, edge_type_color_light};
 
 // Direct Objective-C runtime call — avoids macro import issues with Rust 2024 edition.
 unsafe extern "C" {
@@ -58,7 +59,7 @@ struct Uniforms {
 #[derive(Clone, Copy)]
 struct PixelNodeInstance {
     position: [f32; 2],       // offset 0  — world position (snapped in shader)
-    size: f32,                // offset 8  — block size in offscreen pixels
+    size: f32,                // offset 8  — block size in world units
     _pad0: f32,               // offset 12 — align base_color to 16 bytes
     base_color: [f32; 4],     // offset 16
     highlight_color: [f32; 4],// offset 32 — glare highlight (top-left)
@@ -88,6 +89,173 @@ struct PixelUniforms {
     frame_count: u32,         // for edge jitter
     _pad0: f32,
     _pad1: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ViewBounds {
+    min_x: f32,
+    min_y: f32,
+    max_x: f32,
+    max_y: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct LodProfile {
+    draw_edges: bool,
+    draw_glow: bool,
+    cluster_nodes: bool,
+    edge_degree_threshold: u32,
+    max_edges_per_node: u16,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct DensityCluster {
+    sum_x: f32,
+    sum_y: f32,
+    sum_vx: f32,
+    sum_vy: f32,
+    sum_color: [f32; 4],
+    max_link_count: u32,
+    count: u32,
+}
+
+pub(crate) fn viewport_bounds(
+    camera_offset: [f32; 2],
+    camera_zoom: f32,
+    viewport_size: [f32; 2],
+    padding: f32,
+) -> ViewBounds {
+    let zoom = camera_zoom.max(0.01);
+    let half_w = viewport_size[0] * 0.5 / zoom + padding;
+    let half_h = viewport_size[1] * 0.5 / zoom + padding;
+    ViewBounds {
+        min_x: camera_offset[0] - half_w,
+        min_y: camera_offset[1] - half_h,
+        max_x: camera_offset[0] + half_w,
+        max_y: camera_offset[1] + half_h,
+    }
+}
+
+pub(crate) fn lod_profile_for_zoom(_zoom: f32, quality_level: u8) -> LodProfile {
+    let zoom = _zoom.max(0.01);
+    LodProfile {
+        draw_edges: zoom >= 0.08,
+        draw_glow: quality_level == 0 && zoom >= 0.18,
+        cluster_nodes: zoom < 0.08,
+        edge_degree_threshold: if zoom < 0.16 {
+            16
+        } else if zoom < 0.30 {
+            36
+        } else {
+            u32::MAX
+        },
+        max_edges_per_node: if zoom < 0.16 {
+            4
+        } else if zoom < 0.30 {
+            10
+        } else {
+            u16::MAX
+        },
+    }
+}
+
+fn density_cell_size_world(zoom: f32) -> f32 {
+    (48.0 / zoom.max(0.05)).clamp(72.0, 360.0)
+}
+
+fn density_proxy_screen_radius(count: u32) -> f32 {
+    (6.0 + (count as f32).sqrt() * 2.5).clamp(6.0, 18.0)
+}
+
+pub(crate) fn bounds_intersects_circle(bounds: ViewBounds, center: [f32; 2], radius: f32) -> bool {
+    center[0] + radius >= bounds.min_x
+        && center[0] - radius <= bounds.max_x
+        && center[1] + radius >= bounds.min_y
+        && center[1] - radius <= bounds.max_y
+}
+
+pub(crate) fn segment_intersects_bounds(bounds: ViewBounds, p0: [f32; 2], p1: [f32; 2]) -> bool {
+    let dx = p1[0] - p0[0];
+    let dy = p1[1] - p0[1];
+    if dx.abs() <= f32::EPSILON && dy.abs() <= f32::EPSILON {
+        return p0[0] >= bounds.min_x
+            && p0[0] <= bounds.max_x
+            && p0[1] >= bounds.min_y
+            && p0[1] <= bounds.max_y;
+    }
+
+    fn clip(p: f32, q: f32, t0: &mut f32, t1: &mut f32) -> bool {
+        if p.abs() <= f32::EPSILON {
+            return q >= 0.0;
+        }
+
+        let r = q / p;
+        if p < 0.0 {
+            if r > *t1 {
+                return false;
+            }
+            if r > *t0 {
+                *t0 = r;
+            }
+        } else if p > 0.0 {
+            if r < *t0 {
+                return false;
+            }
+            if r < *t1 {
+                *t1 = r;
+            }
+        }
+        true
+    }
+
+    let mut t0 = 0.0;
+    let mut t1 = 1.0;
+    clip(-dx, p0[0] - bounds.min_x, &mut t0, &mut t1)
+        && clip(dx, bounds.max_x - p0[0], &mut t0, &mut t1)
+        && clip(-dy, p0[1] - bounds.min_y, &mut t0, &mut t1)
+        && clip(dy, bounds.max_y - p0[1], &mut t0, &mut t1)
+        && t0 <= t1
+}
+
+pub(crate) fn pixel_block_size(block_type: u8) -> f32 {
+    match block_type {
+        0 => 16.0,
+        1 => 12.0,
+        2 => 10.0,
+        3 => 8.0,
+        4 => 6.0,
+        _ => 8.0,
+    }
+}
+
+pub(crate) fn pixel_block_half_extent(block_type: u8) -> f32 {
+    pixel_block_size(block_type) * 0.5
+}
+
+pub(crate) fn trim_pixel_edge_endpoints(
+    p0: [f32; 2],
+    p1: [f32; 2],
+    src_half_extent: f32,
+    tgt_half_extent: f32,
+) -> Option<([f32; 2], [f32; 2])> {
+    let dx = p1[0] - p0[0];
+    let dy = p1[1] - p0[1];
+    let len_sq = dx * dx + dy * dy;
+    if len_sq <= f32::EPSILON {
+        return None;
+    }
+    let len = len_sq.sqrt();
+    let dir = [dx / len, dy / len];
+    let src_step = src_half_extent / dir[0].abs().max(dir[1].abs()).max(0.001);
+    let tgt_step = tgt_half_extent / dir[0].abs().max(dir[1].abs()).max(0.001);
+    let start = [p0[0] + dir[0] * src_step, p0[1] + dir[1] * src_step];
+    let end = [p1[0] - dir[0] * tgt_step, p1[1] - dir[1] * tgt_step];
+    let trimmed_dx = end[0] - start[0];
+    let trimmed_dy = end[1] - start[1];
+    if trimmed_dx * trimmed_dx + trimmed_dy * trimmed_dy <= f32::EPSILON {
+        return None;
+    }
+    Some((start, end))
 }
 
 /// Compute z-depth from link count using 3 discrete tiers (Observatory layered planes).
@@ -433,7 +601,7 @@ struct PixelUniforms {
 
 struct PixelNodeInstance {
     float2 position;        // world position (will be snapped to integer in shader)
-    float  size;            // block size in offscreen pixels
+    float  size;            // block size in world units
     float  _pad0;
     float4 base_color;
     float4 highlight_color; // glare highlight (top-left)
@@ -466,11 +634,9 @@ vertex PixelNodeOut pixel_node_vertex(
     PixelNodeInstance node = nodes[iid];
     float2 corner = corners[vid];
 
-    // Snap world position to integer pixel grid
-    float2 world_pos = round(node.position);
-
-    // Camera transform to screen space
-    float2 screen = (world_pos - u.camera_offset) * u.camera_zoom + corner * node.size;
+    // Camera transform with world-space square extents so zoom actually affects block size.
+    float2 world_pos = node.position + corner * node.size;
+    float2 screen = (world_pos - u.camera_offset) * u.camera_zoom;
 
     // Snap screen position to integer pixel in offscreen texture
     screen = round(screen);
@@ -536,16 +702,6 @@ vertex PixelEdgeOut pixel_edge_vertex(
     // Transform endpoints to screen space and snap
     float2 sp0 = round((edge.p0 - u.camera_offset) * u.camera_zoom);
     float2 sp1 = round((edge.p1 - u.camera_offset) * u.camera_zoom);
-
-    // Deterministic jitter: subtle per-frame stair-step variance
-    uint seed = edge.edge_id * 2654435761u + u.frame_count * 1013904223u;
-    float jx = (float(seed & 0xFFu) / 255.0 - 0.5) * 1.5;
-    float jy = (float((seed >> 8) & 0xFFu) / 255.0 - 0.5) * 1.5;
-    sp0 += float2(jx, jy) * 0.3;
-    sp1 += float2(jx, jy) * 0.3;
-    // Re-snap after jitter
-    sp0 = round(sp0);
-    sp1 = round(sp1);
 
     // Build quad around the line segment with padding
     float2 dir = sp1 - sp0;
@@ -693,6 +849,17 @@ pub struct Renderer {
     field_line_scratch: Vec<LineEdgeInstance>,
     // Reusable highlight flag vector (avoids per-frame allocation).
     highlight_flag_scratch: Vec<u8>,
+    // Reusable culled render lists for Classic mode.
+    rendered_node_indices: Vec<usize>,
+    candidate_entities: Vec<u32>,
+    edge_candidate_indices: Vec<usize>,
+    edge_candidate_marks: Vec<u32>,
+    edge_candidate_generation: u32,
+    edge_budget_scratch: Vec<u16>,
+    density_clusters: FxHashMap<(i32, i32), DensityCluster>,
+    classic_node_scratch: Vec<NodeInstance>,
+    classic_edge_scratch: Vec<LineEdgeInstance>,
+    classic_velocity_scratch: Vec<[f32; 2]>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
     pub light_mode: bool,
@@ -755,6 +922,11 @@ impl Renderer {
     #[inline]
     fn node_color(&self, node_type: &crate::types::NodeType) -> [f32; 4] {
         if self.light_mode { node_type.color_light() } else { node_type.color() }
+    }
+
+    #[inline]
+    fn node_color_for_u8(&self, node_type: u8) -> [f32; 4] {
+        self.node_color(&crate::types::NodeType::from_u8(node_type))
     }
 
     #[inline]
@@ -847,6 +1019,16 @@ impl Renderer {
             field_line_capacity: 0,
             field_line_hovered_id: None,
             field_line_scratch: Vec::new(),
+            rendered_node_indices: Vec::new(),
+            candidate_entities: Vec::new(),
+            edge_candidate_indices: Vec::new(),
+            edge_candidate_marks: Vec::new(),
+            edge_candidate_generation: 0,
+            edge_budget_scratch: Vec::new(),
+            density_clusters: FxHashMap::default(),
+            classic_node_scratch: Vec::new(),
+            classic_edge_scratch: Vec::new(),
+            classic_velocity_scratch: Vec::new(),
             light_mode: false,
             clear_color: [0.07, 0.07, 0.09, 1.0],
             quality_level: 0,  // Cinematic by default
@@ -868,8 +1050,8 @@ impl Renderer {
             wind_x: 0.0,
             wind_y: 0.0,
             wind_rng_state: 12345,
-            last_viewport_width: 1920.0,
-            last_viewport_height: 1080.0,
+            last_viewport_width: 0.0,
+            last_viewport_height: 0.0,
             visual_theme: VisualTheme::Pixel,
             pixel_scale: 8,
             pixel_palette: VoxelPalette::dark(),
@@ -889,13 +1071,510 @@ impl Renderer {
         })
     }
 
+    const CLASSIC_CULL_PADDING_PIXELS: f32 = 160.0;
+    const PIXEL_CULL_PADDING_PIXELS: f32 = 96.0;
+
+    pub fn set_viewport_size(&mut self, viewport_width: u32, viewport_height: u32) -> bool {
+        let width = viewport_width as f32;
+        let height = viewport_height as f32;
+        let changed = (self.last_viewport_width - width).abs() > f32::EPSILON
+            || (self.last_viewport_height - height).abs() > f32::EPSILON;
+        self.last_viewport_width = width;
+        self.last_viewport_height = height;
+        changed
+    }
+
+    fn current_view_bounds(&self, padding_pixels: f32) -> Option<ViewBounds> {
+        if self.last_viewport_width <= 0.0 || self.last_viewport_height <= 0.0 {
+            return None;
+        }
+        let padding = padding_pixels / self.camera_zoom.max(0.05);
+        Some(viewport_bounds(
+            self.camera_offset,
+            self.camera_zoom,
+            [self.last_viewport_width, self.last_viewport_height],
+            padding,
+        ))
+    }
+
+    #[inline]
+    fn node_in_view(
+        &self,
+        bounds: Option<ViewBounds>,
+        center: [f32; 2],
+        radius: f32,
+    ) -> bool {
+        bounds.is_none_or(|view| bounds_intersects_circle(view, center, radius))
+    }
+
+    #[inline]
+    fn segment_in_view(
+        &self,
+        bounds: Option<ViewBounds>,
+        p0: [f32; 2],
+        p1: [f32; 2],
+    ) -> bool {
+        bounds.is_none_or(|view| segment_intersects_bounds(view, p0, p1))
+    }
+
+    fn collect_visible_node_indices<F>(
+        &mut self,
+        world: &World,
+        bounds: Option<ViewBounds>,
+        radius_for: F,
+    ) where
+        F: Fn(&World, usize) -> f32,
+    {
+        self.rendered_node_indices.clear();
+
+        if let Some(view) = bounds {
+            world.spatial_grid.query_bounds_into(
+                view.min_x,
+                view.min_y,
+                view.max_x,
+                view.max_y,
+                &mut self.candidate_entities,
+            );
+            for &entity in &self.candidate_entities {
+                let Some(index) = world.index_of(entity) else {
+                    continue;
+                };
+                if world.graph_node[index].visible == 0 {
+                    continue;
+                }
+
+                let position = [world.transform[index].x, world.transform[index].y];
+                if self.node_in_view(Some(view), position, radius_for(world, index)) {
+                    self.rendered_node_indices.push(index);
+                }
+            }
+            self.rendered_node_indices.sort_unstable();
+            self.rendered_node_indices.dedup();
+            return;
+        }
+
+        self.rendered_node_indices.extend(
+            (0..world.len()).filter(|&index| world.graph_node[index].visible != 0),
+        );
+    }
+
+    fn collect_candidate_edges(&mut self, world: &World) {
+        self.edge_candidate_indices.clear();
+        if world.edges.is_empty() || self.rendered_node_indices.is_empty() {
+            return;
+        }
+
+        if self.edge_candidate_marks.len() < world.edges.len() {
+            self.edge_candidate_marks.resize(world.edges.len(), 0);
+        }
+
+        self.edge_candidate_generation = self.edge_candidate_generation.wrapping_add(1);
+        if self.edge_candidate_generation == 0 {
+            self.edge_candidate_marks.fill(0);
+            self.edge_candidate_generation = 1;
+        }
+        let generation = self.edge_candidate_generation;
+
+        for &node_index in &self.rendered_node_indices {
+            for &edge_index in world.edge_indices_for_index(node_index) {
+                if self.edge_candidate_marks[edge_index] == generation {
+                    continue;
+                }
+                self.edge_candidate_marks[edge_index] = generation;
+                self.edge_candidate_indices.push(edge_index);
+            }
+        }
+    }
+
+    fn reset_edge_lod_budget(&mut self, world: &World, lod: LodProfile) {
+        if lod.max_edges_per_node == u16::MAX {
+            return;
+        }
+        if self.edge_budget_scratch.len() < world.len() {
+            self.edge_budget_scratch.resize(world.len(), 0);
+        }
+        self.edge_budget_scratch[..world.len()].fill(0);
+    }
+
+    fn edge_allowed_by_lod(
+        &mut self,
+        world: &World,
+        lod: LodProfile,
+        src_index: usize,
+        tgt_index: usize,
+    ) -> bool {
+        if lod.edge_degree_threshold != u32::MAX
+            && world.hierarchy[src_index].link_count >= lod.edge_degree_threshold
+            && world.hierarchy[tgt_index].link_count >= lod.edge_degree_threshold
+        {
+            return false;
+        }
+
+        if lod.max_edges_per_node == u16::MAX {
+            return true;
+        }
+
+        if src_index == tgt_index {
+            let budget = &mut self.edge_budget_scratch[src_index];
+            if *budget >= lod.max_edges_per_node {
+                return false;
+            }
+            *budget += 1;
+            return true;
+        }
+
+        let (low, high) = if src_index < tgt_index {
+            (src_index, tgt_index)
+        } else {
+            (tgt_index, src_index)
+        };
+        let (left, right) = self.edge_budget_scratch.split_at_mut(high);
+        let low_budget = &mut left[low];
+        let high_budget = &mut right[0];
+        if *low_budget >= lod.max_edges_per_node || *high_budget >= lod.max_edges_per_node {
+            return false;
+        }
+        *low_budget += 1;
+        *high_budget += 1;
+        true
+    }
+
+    #[inline]
+    fn classic_node_instance(&self, world: &World, node_index: usize) -> NodeInstance {
+        let graph_node = &world.graph_node[node_index];
+        let co = world.render[node_index].color_override;
+        let mut color = if co[3] > 0.0 {
+            co
+        } else {
+            self.node_color_for_u8(world.hierarchy[node_index].node_type)
+        };
+        color[3] *= BASE_NODE_ALPHA;
+        let z = if self.quality_level >= 2 {
+            0.0
+        } else {
+            z_for_link_count(world.hierarchy[node_index].link_count)
+        };
+        NodeInstance {
+            position: [world.transform[node_index].x, world.transform[node_index].y],
+            radius: graph_node.radius,
+            z,
+            color,
+        }
+    }
+
+    #[inline]
+    fn classic_edge_instance_color(
+        &self,
+        world: &World,
+        edge: &crate::ecs::EdgeComponent,
+        src_index: usize,
+        tgt_index: usize,
+        p0: [f32; 2],
+        p1: [f32; 2],
+    ) -> [f32; 4] {
+        let base_edge = self.edge_color(edge.edge_type);
+        if self.highlight.active {
+            let src_lit = self.highlight.highlighted_ids.contains(&world.graph_node[src_index].node_id);
+            let tgt_lit = self.highlight.highlighted_ids.contains(&world.graph_node[tgt_index].node_id);
+            if src_lit && tgt_lit {
+                EDGE_HIGHLIGHT_COLOR
+            } else {
+                [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
+            }
+        } else if self.enable_tension_coloring {
+            let dx = p1[0] - p0[0];
+            let dy = p1[1] - p0[1];
+            let dist = (dx * dx + dy * dy).sqrt();
+            let ideal = self.link_distance / edge.weight.max(0.01);
+            let stress = (((dist - ideal) / ideal).max(0.0) / TENSION_K_YIELD).min(1.0);
+            let mut color = [
+                base_edge[0] + stress * (TENSION_COLOR[0] - base_edge[0]),
+                base_edge[1] + stress * (TENSION_COLOR[1] - base_edge[1]),
+                base_edge[2] + stress * (TENSION_COLOR[2] - base_edge[2]),
+                base_edge[3] + stress * (TENSION_COLOR[3] - base_edge[3]),
+            ];
+            color[3] *= BASE_NODE_ALPHA;
+            color
+        } else {
+            let mut color = base_edge;
+            color[3] *= BASE_NODE_ALPHA;
+            color
+        }
+    }
+
+    fn rebuild_classic_buffers(&mut self, world: &World) {
+        let view_bounds = self.current_view_bounds(Self::CLASSIC_CULL_PADDING_PIXELS);
+        let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
+        self.collect_visible_node_indices(world, view_bounds, |world, index| {
+            world.graph_node[index].radius
+        });
+
+        self.classic_node_scratch.clear();
+        self.classic_velocity_scratch.clear();
+        self.classic_edge_scratch.clear();
+
+        if lod.cluster_nodes && !self.highlight.active {
+            self.density_clusters.clear();
+            let cell_size = density_cell_size_world(self.camera_zoom);
+            let inv_cell = 1.0 / cell_size;
+
+            for &node_index in &self.rendered_node_indices {
+                let graph_node = &world.graph_node[node_index];
+                let co = world.render[node_index].color_override;
+                let mut color = if co[3] > 0.0 {
+                    co
+                } else {
+                    self.node_color_for_u8(world.hierarchy[node_index].node_type)
+                };
+                color[3] *= BASE_NODE_ALPHA;
+
+                let position = [world.transform[node_index].x, world.transform[node_index].y];
+                let key = (
+                    (position[0] * inv_cell).floor() as i32,
+                    (position[1] * inv_cell).floor() as i32,
+                );
+                let cluster = self.density_clusters.entry(key).or_default();
+                cluster.sum_x += position[0];
+                cluster.sum_y += position[1];
+                cluster.sum_vx += world.velocity[node_index].vx;
+                cluster.sum_vy += world.velocity[node_index].vy;
+                for (sum, channel) in cluster.sum_color.iter_mut().zip(color) {
+                    *sum += channel;
+                }
+                cluster.max_link_count = cluster.max_link_count.max(world.hierarchy[node_index].link_count);
+                cluster.count += 1;
+                debug_assert!(graph_node.visible != 0);
+            }
+
+            self.glow_count = 0;
+            self.wind_particle_count = 0;
+
+            for cluster in self.density_clusters.values() {
+                let inv_count = 1.0 / cluster.count as f32;
+                let proxy_radius = density_proxy_screen_radius(cluster.count) / self.camera_zoom.max(0.05);
+                let mut color = [0.0; 4];
+                for (channel, sum) in color.iter_mut().zip(cluster.sum_color) {
+                    *channel = sum * inv_count;
+                }
+                color[3] = (0.42 + (cluster.count as f32).ln_1p() * 0.10).min(0.88);
+
+                self.classic_node_scratch.push(NodeInstance {
+                    position: [cluster.sum_x * inv_count, cluster.sum_y * inv_count],
+                    radius: proxy_radius,
+                    z: z_for_link_count(cluster.max_link_count),
+                    color,
+                });
+                self.classic_velocity_scratch.push([
+                    cluster.sum_vx * inv_count,
+                    cluster.sum_vy * inv_count,
+                ]);
+            }
+
+            self.node_count = self.classic_node_scratch.len();
+        } else {
+            if lod.draw_glow {
+                for &node_index in &self.rendered_node_indices {
+                    let pos = [world.transform[node_index].x, world.transform[node_index].y];
+                    let z = z_for_link_count(world.hierarchy[node_index].link_count);
+                    let color = self.classic_node_instance(world, node_index).color;
+                    let radius = world.graph_node[node_index].radius;
+                    let confidence = world.graph_node[node_index].confidence;
+
+                    if world.hierarchy[node_index].link_count >= 9 {
+                        self.classic_node_scratch.push(NodeInstance {
+                            position: pos,
+                            radius: radius * HUB_GLOW_RADIUS_FACTOR,
+                            z: z + HUB_GLOW_Z_OFFSET,
+                            color: [color[0], color[1], color[2], HUB_GLOW_ALPHA],
+                        });
+                        self.classic_velocity_scratch.push([0.0, 0.0]);
+                    }
+
+                    if confidence > 0.0 {
+                        let conf = confidence.clamp(0.0, 1.0);
+                        let glow_radius = radius * (CONF_GLOW_RADIUS_BASE + conf * CONF_GLOW_RADIUS_SCALE);
+                        let glow_alpha = CONF_GLOW_ALPHA_BASE + conf * CONF_GLOW_ALPHA_SCALE;
+                        self.classic_node_scratch.push(NodeInstance {
+                            position: pos,
+                            radius: glow_radius,
+                            z: z + CONF_GLOW_Z_OFFSET,
+                            color: [color[0], color[1], color[2], glow_alpha],
+                        });
+                        self.classic_velocity_scratch.push([0.0, 0.0]);
+                    }
+                }
+            }
+
+            if lod.draw_glow && self.last_viewport_width > 0.0 && self.last_viewport_height > 0.0 {
+                self.update_wind_particles([self.last_viewport_width, self.last_viewport_height], self.camera_zoom);
+            } else {
+                self.wind_particle_count = 0;
+            }
+
+            if lod.draw_glow && self.wind_active {
+                for particle in &self.wind_particles {
+                    self.classic_node_scratch.push(NodeInstance {
+                        position: [particle[0], particle[1]],
+                        radius: 1.5,
+                        z: -0.50,
+                        color: [0.7, 0.85, 1.0, 0.08],
+                    });
+                    self.classic_velocity_scratch.push([0.0, 0.0]);
+                }
+                self.wind_particle_count = self.wind_particles.len();
+            } else {
+                self.wind_particle_count = 0;
+            }
+
+            self.glow_count = self.classic_node_scratch.len();
+
+            for &node_index in &self.rendered_node_indices {
+                self.classic_node_scratch.push(self.classic_node_instance(world, node_index));
+                self.classic_velocity_scratch.push([world.velocity[node_index].vx, world.velocity[node_index].vy]);
+            }
+
+            self.node_count = self.rendered_node_indices.len();
+        }
+
+        if lod.cluster_nodes {
+            self.glow_count = 0;
+        }
+        let total_node_instances = self.classic_node_scratch.len();
+
+        if total_node_instances == 0 {
+            self.node_instance_buf = None;
+            self.edge_instance_buf = None;
+            self.glow_count = 0;
+            self.node_count = 0;
+            self.highlight_count = 0;
+            self.edge_instance_count = 0;
+            return;
+        }
+
+        if total_node_instances + 2 > self.node_instance_capacity || self.node_instance_buf.is_none() {
+            let capacity = ((total_node_instances + 2) * 3 / 2).max(64);
+            let buf_size = (capacity * std::mem::size_of::<NodeInstance>()) as u64;
+            self.node_instance_buf = Some(
+                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+            );
+            self.node_instance_capacity = capacity;
+        }
+
+        if let Some(buf) = &self.node_instance_buf {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.classic_node_scratch.as_ptr(),
+                    buf.contents() as *mut NodeInstance,
+                    total_node_instances,
+                );
+            }
+        }
+
+        let velocity_count = total_node_instances + 2;
+        if velocity_count > self.node_velocity_capacity || self.node_velocity_buf.is_none() {
+            let capacity = (velocity_count * 3 / 2).max(64);
+            let buf_size = (capacity * std::mem::size_of::<[f32; 2]>()) as u64;
+            self.node_velocity_buf = Some(
+                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+            );
+            self.node_velocity_capacity = capacity;
+        }
+
+        if let Some(buf) = &self.node_velocity_buf {
+            unsafe {
+                let ptr = buf.contents() as *mut [f32; 2];
+                std::ptr::copy_nonoverlapping(
+                    self.classic_velocity_scratch.as_ptr(),
+                    ptr,
+                    self.classic_velocity_scratch.len(),
+                );
+                for index in self.classic_velocity_scratch.len()..velocity_count.min(self.node_velocity_capacity) {
+                    *ptr.add(index) = [0.0, 0.0];
+                }
+            }
+        }
+
+        if lod.draw_edges && !lod.cluster_nodes {
+            self.collect_candidate_edges(world);
+            self.reset_edge_lod_budget(world, lod);
+            for candidate_index in 0..self.edge_candidate_indices.len() {
+                let edge_index = self.edge_candidate_indices[candidate_index];
+                let edge = &world.edges[edge_index];
+                let (Some(src_index), Some(tgt_index)) = (
+                    world.index_of(edge.source),
+                    world.index_of(edge.target),
+                ) else {
+                    continue;
+                };
+                if world.graph_node[src_index].visible == 0 || world.graph_node[tgt_index].visible == 0 {
+                    continue;
+                }
+
+                let p0 = [world.transform[src_index].x, world.transform[src_index].y];
+                let p1 = [world.transform[tgt_index].x, world.transform[tgt_index].y];
+                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
+                    continue;
+                }
+                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
+                    continue;
+                }
+                if !self.edge_allowed_by_lod(world, lod, src_index, tgt_index) {
+                    continue;
+                }
+
+                let src_in_view = self.node_in_view(view_bounds, p0, world.graph_node[src_index].radius);
+                let tgt_in_view = self.node_in_view(view_bounds, p1, world.graph_node[tgt_index].radius);
+                if view_bounds.is_some() && !(src_in_view || tgt_in_view) {
+                    continue;
+                }
+                if !self.segment_in_view(view_bounds, p0, p1) {
+                    continue;
+                }
+
+                self.classic_edge_scratch.push(LineEdgeInstance {
+                    p0,
+                    p1,
+                    color: self.classic_edge_instance_color(world, edge, src_index, tgt_index, p0, p1),
+                });
+            }
+        }
+
+        self.edge_instance_count = self.classic_edge_scratch.len();
+        if self.edge_instance_count > 0 {
+            if self.edge_instance_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+                let capacity = (self.edge_instance_count * 3 / 2).max(64);
+                let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
+                self.edge_instance_buf = Some(
+                    self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                );
+                self.edge_instance_capacity = capacity;
+            }
+
+            if let Some(buf) = &self.edge_instance_buf {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        self.classic_edge_scratch.as_ptr(),
+                        buf.contents() as *mut LineEdgeInstance,
+                        self.edge_instance_count,
+                    );
+                }
+            }
+        } else {
+            self.edge_instance_buf = None;
+        }
+    }
+
     /// Pre-allocate GPU buffers with headroom. Call once after commit.
     /// +2 for highlight rings, +hub_count for glow instances.
-    pub fn allocate_buffers(&mut self, graph: &Graph) {
-        let hub_count = graph.nodes.iter().filter(|n| n.visible && n.link_count >= 9).count();
-        let confidence_glow_count = graph.nodes.iter().filter(|n| n.visible && n.confidence > 0.0).count();
-        let node_count = graph.nodes.len() + 2 + hub_count + confidence_glow_count;
-        let edge_count = graph.edges.len();
+    pub fn allocate_buffers(&mut self, world: &World) {
+        let hub_count = (0..world.len())
+            .filter(|&index| world.graph_node[index].visible != 0 && world.hierarchy[index].link_count >= 9)
+            .count();
+        let confidence_glow_count = (0..world.len())
+            .filter(|&index| world.graph_node[index].visible != 0 && world.graph_node[index].confidence > 0.0)
+            .count();
+        let node_count = world.len() + 2 + hub_count + confidence_glow_count;
+        let edge_count = world.edges.len();
 
         if node_count > self.node_instance_capacity || self.node_instance_buf.is_none() {
             let capacity = (node_count * 3 / 2).max(64);
@@ -915,7 +1594,7 @@ impl Renderer {
             self.edge_instance_capacity = capacity;
         }
 
-        self.upload_graph(graph);
+        self.upload_graph(world);
     }
 
     /// Simple LCG random: returns float in [-1, 1].
@@ -973,391 +1652,18 @@ impl Renderer {
     }
 
     /// Full upload of graph data to GPU buffers.
-    pub fn upload_graph(&mut self, graph: &Graph) {
-        // Hub glow instances go first (rendered behind regular nodes via NDC z).
-        let mut glow_instances: Vec<NodeInstance> = Vec::new();
-        let mut instances: Vec<NodeInstance> = Vec::with_capacity(graph.nodes.len());
-
-        for (_gi, node) in graph.nodes.iter().enumerate() {
-            if !node.visible { continue; }
-            let co = node.color_override;
-            let color = if co[3] > 0.0 { co } else { self.node_color(&node.node_type) };
-
-            let is_performance = self.quality_level >= 2;
-            let is_cinematic = self.quality_level == 0;
-            let z = if is_performance { 0.0 } else { z_for_link_count(node.link_count) };
-            let pos = [node.x, node.y];
-
-            // Glow effects: only in Cinematic mode (not Balanced or Performance).
-            if is_cinematic {
-                if node.link_count >= 9 {
-                    glow_instances.push(NodeInstance {
-                        position: pos,
-                        radius: node.radius * HUB_GLOW_RADIUS_FACTOR,
-                        z: z + HUB_GLOW_Z_OFFSET,
-                        color: [color[0], color[1], color[2], HUB_GLOW_ALPHA],
-                    });
-                }
-
-                if node.confidence > 0.0 {
-                    let conf = node.confidence.clamp(0.0, 1.0);
-                    let glow_radius = node.radius * (CONF_GLOW_RADIUS_BASE + conf * CONF_GLOW_RADIUS_SCALE);
-                    let glow_alpha = CONF_GLOW_ALPHA_BASE + conf * CONF_GLOW_ALPHA_SCALE;
-                    glow_instances.push(NodeInstance {
-                        position: pos,
-                        radius: glow_radius,
-                        z: z + CONF_GLOW_Z_OFFSET,
-                        color: [color[0], color[1], color[2], glow_alpha],
-                    });
-                }
-            }
-
-            instances.push(NodeInstance {
-                position: pos,
-                radius: node.radius,
-                z,
-                color,
-            });
-        }
-
-        // Append wind advection particles to glow section (low alpha = glow fragment path).
-        if self.wind_active {
-            for p in &self.wind_particles {
-                glow_instances.push(NodeInstance {
-                    position: [p[0], p[1]],
-                    radius: 1.5,
-                    z: -0.50,
-                    color: [0.7, 0.85, 1.0, 0.08],
-                });
-            }
-            self.wind_particle_count = self.wind_particles.len();
-        } else {
-            self.wind_particle_count = 0;
-        }
-
-        // Glow instances first (behind), then regular nodes (in front).
-        let mut all_instances = glow_instances;
-        self.glow_count = all_instances.len();
-        all_instances.extend(instances);
-
-        self.node_count = all_instances.len() - self.glow_count;
-        let total_node_instances = all_instances.len();
-        if total_node_instances == 0 {
-            self.node_instance_buf = None;
-            self.edge_instance_buf = None;
-            self.edge_instance_count = 0;
-            return;
-        }
-
-        // Re-allocate node buffer if too small (graph grew since last allocate_buffers).
-        // +2 for highlight ring instances appended by set_highlights().
-        if total_node_instances + 2 > self.node_instance_capacity || self.node_instance_buf.is_none() {
-            let capacity = ((total_node_instances + 2) * 3 / 2).max(64);
-            let buf_size = (capacity * std::mem::size_of::<NodeInstance>()) as u64;
-            self.node_instance_buf = Some(
-                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
-            );
-            self.node_instance_capacity = capacity;
-        }
-
-        // Write node data into pre-allocated buffer in-place.
-        if let Some(buf) = &self.node_instance_buf {
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    all_instances.as_ptr(),
-                    buf.contents() as *mut NodeInstance,
-                    total_node_instances,
-                );
-            }
-        }
-
-        // Build velocity buffer parallel to instance buffer (for squash & stretch).
-        {
-            let vel_count = total_node_instances + 2; // +2 for highlight rings
-            if vel_count > self.node_velocity_capacity || self.node_velocity_buf.is_none() {
-                let capacity = (vel_count * 3 / 2).max(64);
-                let buf_size = (capacity * std::mem::size_of::<[f32; 2]>()) as u64;
-                self.node_velocity_buf = Some(
-                    self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
-                );
-                self.node_velocity_capacity = capacity;
-            }
-            if let Some(buf) = &self.node_velocity_buf {
-                unsafe {
-                    let ptr = buf.contents() as *mut [f32; 2];
-                    let mut idx = 0;
-                    // Glows: zero velocity
-                    for _ in 0..self.glow_count {
-                        *ptr.add(idx) = [0.0, 0.0];
-                        idx += 1;
-                    }
-                    // Nodes: actual velocity
-                    for node in graph.nodes.iter().filter(|n| n.visible) {
-                        if idx < vel_count {
-                            *ptr.add(idx) = [node.vx, node.vy];
-                            idx += 1;
-                        }
-                    }
-                    // Zero-fill remaining (highlight rings + padding)
-                    while idx < vel_count {
-                        *ptr.add(idx) = [0.0, 0.0];
-                        idx += 1;
-                    }
-                }
-            }
-        }
-
-        // Straight edge instances (one line segment per edge).
-        let mut edge_instances: Vec<LineEdgeInstance> =
-            Vec::with_capacity(graph.edges.len());
-
-        for edge in &graph.edges {
-            let si = graph.id_to_index.get(&edge.source);
-            let ti = graph.id_to_index.get(&edge.target);
-            if let (Some(&si), Some(&ti)) = (si, ti) {
-                let src = &graph.nodes[si];
-                let tgt = &graph.nodes[ti];
-                if !src.visible || !tgt.visible { continue; }
-
-                let p0 = [src.x, src.y];
-                let p1 = [tgt.x, tgt.y];
-
-                // Skip edges with uninitialized or degenerate positions.
-                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
-                    continue;
-                }
-                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
-                    continue;
-                }
-
-                let base_edge = self.edge_color(edge.edge_type);
-                let color = if self.highlight.active {
-                    let src_lit = self.highlight.highlighted_ids.contains(&src.id);
-                    let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
-                    if src_lit && tgt_lit {
-                        EDGE_HIGHLIGHT_COLOR
-                    } else {
-                        [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
-                    }
-                } else if self.enable_tension_coloring {
-                    let dx = p1[0] - p0[0];
-                    let dy = p1[1] - p0[1];
-                    let dist = (dx * dx + dy * dy).sqrt();
-                    let ideal = self.link_distance / edge.weight.max(0.01);
-                    let stress = (((dist - ideal) / ideal).max(0.0) / TENSION_K_YIELD).min(1.0);
-                    [
-                        base_edge[0] + stress * (TENSION_COLOR[0] - base_edge[0]),
-                        base_edge[1] + stress * (TENSION_COLOR[1] - base_edge[1]),
-                        base_edge[2] + stress * (TENSION_COLOR[2] - base_edge[2]),
-                        base_edge[3] + stress * (TENSION_COLOR[3] - base_edge[3]),
-                    ]
-                } else {
-                    base_edge
-                };
-
-                edge_instances.push(LineEdgeInstance { p0, p1, color });
-            }
-        }
-
-        self.edge_instance_count = edge_instances.len();
-
-        if self.edge_instance_count > 0 {
-            // Re-allocate edge buffer if too small.
-            if self.edge_instance_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
-                let capacity = (self.edge_instance_count * 3 / 2).max(64);
-                let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
-                self.edge_instance_buf = Some(
-                    self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
-                );
-                self.edge_instance_capacity = capacity;
-            }
-
-            // Write edge data into pre-allocated buffer in-place.
-            if let Some(buf) = &self.edge_instance_buf {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        edge_instances.as_ptr(),
-                        buf.contents() as *mut LineEdgeInstance,
-                        self.edge_instance_count,
-                    );
-                }
-            }
-        } else {
-            self.edge_instance_buf = None;
-        }
+    pub fn upload_graph(&mut self, world: &World) {
+        self.rebuild_classic_buffers(world);
     }
 
     /// Update positions in-place (called every frame after sync_positions).
     /// Buffer layout: [glow_count glows] [node_count nodes] [highlight rings].
-    pub fn update_positions(&mut self, graph: &Graph) {
-        let mut visible_count = 0usize;
-        let mut glow_idx = 0usize;
-        if let Some(buf) = &self.node_instance_buf {
-            unsafe {
-                let ptr = buf.contents() as *mut NodeInstance;
-                for (_gi, node) in graph.nodes.iter().enumerate() {
-                    if !node.visible { continue; }
-
-                    let pos = [node.x, node.y];
-                    let z = z_for_link_count(node.link_count);
-
-                    // Update glow instances (Cinematic only — matches upload_graph gate).
-                    let is_cinematic = self.quality_level == 0;
-                    if is_cinematic {
-                        if node.link_count >= 9 && glow_idx < self.glow_count {
-                            let glow = &mut *ptr.add(glow_idx);
-                            glow.position = pos;
-                            glow.z = z + HUB_GLOW_Z_OFFSET;
-                            glow.color[3] = HUB_GLOW_ALPHA;
-                            glow_idx += 1;
-                        }
-                        if node.confidence > 0.0 && glow_idx < self.glow_count {
-                            let conf = node.confidence.clamp(0.0, 1.0);
-                            let glow = &mut *ptr.add(glow_idx);
-                            glow.position = pos;
-                            glow.z = z + CONF_GLOW_Z_OFFSET;
-                            glow.color[3] = CONF_GLOW_ALPHA_BASE + conf * CONF_GLOW_ALPHA_SCALE;
-                            glow_idx += 1;
-                        }
-                    }
-
-                    // Update regular node instance (offset past glow instances).
-                    let inst = &mut *ptr.add(self.glow_count + visible_count);
-                    inst.position = pos;
-                    inst.z = z;
-
-                    let co = node.color_override;
-                    let mut color = if co[3] > 0.0 { co } else { self.node_color(&node.node_type) };
-                    color[3] *= BASE_NODE_ALPHA;
-                    inst.color = color;
-
-                    visible_count += 1;
-                }
-            }
-        }
-        // Update wind particle physics (positions computed CPU-side).
-        let vp = [self.last_viewport_width, self.last_viewport_height];
-        let zm = self.camera_zoom;
-        self.update_wind_particles(vp, zm);
-        // Update existing particle positions in the glow section of the buffer.
-        // Particles are only present if upload_graph() included them (wind_particle_count > 0).
-        // The buffer layout from upload_graph: [real_glows][wind_particles][nodes][highlights].
-        // Real glows end at glow_idx, particles start there.
-        if self.wind_particle_count > 0 {
-            if let Some(buf) = &self.node_instance_buf {
-                unsafe {
-                    let ptr = buf.contents() as *mut NodeInstance;
-                    for (i, p) in self.wind_particles.iter().enumerate() {
-                        if glow_idx + i < self.node_instance_capacity {
-                            let inst = &mut *ptr.add(glow_idx + i);
-                            inst.position = [p[0], p[1]];
-                        }
-                    }
-                }
-            }
-        }
-        // glow_count includes wind particles (set by upload_graph).
-        self.glow_count = glow_idx + self.wind_particle_count;
-        self.node_count = visible_count;
-
-        // Update velocity buffer in-place (parallel to instance buffer).
-        if let Some(buf) = &self.node_velocity_buf {
-            unsafe {
-                let ptr = buf.contents() as *mut [f32; 2];
-                let mut vi = 0;
-                // Glows: zero velocity
-                for _ in 0..self.glow_count {
-                    if vi < self.node_velocity_capacity {
-                        *ptr.add(vi) = [0.0, 0.0];
-                        vi += 1;
-                    }
-                }
-                // Nodes: actual velocity
-                for node in graph.nodes.iter().filter(|n| n.visible) {
-                    if vi < self.node_velocity_capacity {
-                        *ptr.add(vi) = [node.vx, node.vy];
-                        vi += 1;
-                    }
-                }
-            }
-        }
-
-        if self.node_count == 0 {
-            self.edge_instance_count = 0;
-            return;
-        }
-
-        // Update curved edge positions in-place.
-        if let Some(buf) = &self.edge_instance_buf {
-            let mut inst_idx = 0usize;
-            unsafe {
-                let ptr = buf.contents() as *mut LineEdgeInstance;
-                for edge in &graph.edges {
-                    let si = graph.id_to_index.get(&edge.source);
-                    let ti = graph.id_to_index.get(&edge.target);
-                    if let (Some(&si), Some(&ti)) = (si, ti) {
-                        let src = &graph.nodes[si];
-                        let tgt = &graph.nodes[ti];
-                        if !src.visible || !tgt.visible { continue; }
-
-                        let p0 = [src.x, src.y];
-                        let p1 = [tgt.x, tgt.y];
-
-                        // Skip uninitialized/degenerate positions (prevents streaks).
-                        if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
-                            continue;
-                        }
-                        if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
-                            continue;
-                        }
-
-                        let base_edge = self.edge_color(edge.edge_type);
-                        let color = if self.highlight.active {
-                            let src_lit = self.highlight.highlighted_ids.contains(&src.id);
-                            let tgt_lit = self.highlight.highlighted_ids.contains(&tgt.id);
-                            if src_lit && tgt_lit {
-                                EDGE_HIGHLIGHT_COLOR
-                            } else {
-                                [base_edge[0], base_edge[1], base_edge[2], EDGE_DIM_ALPHA]
-                            }
-                        } else if self.enable_tension_coloring {
-                            let dx = p1[0] - p0[0];
-                            let dy = p1[1] - p0[1];
-                            let dist = (dx * dx + dy * dy).sqrt();
-                            let ideal = self.link_distance / edge.weight.max(0.01);
-                            let stress = (((dist - ideal) / ideal).max(0.0) / TENSION_K_YIELD).min(1.0);
-                            let mut e = [
-                                base_edge[0] + stress * (TENSION_COLOR[0] - base_edge[0]),
-                                base_edge[1] + stress * (TENSION_COLOR[1] - base_edge[1]),
-                                base_edge[2] + stress * (TENSION_COLOR[2] - base_edge[2]),
-                                base_edge[3] + stress * (TENSION_COLOR[3] - base_edge[3]),
-                            ];
-                            e[3] *= BASE_NODE_ALPHA;
-                            e
-                        } else {
-                            let mut e = base_edge;
-                            e[3] *= BASE_NODE_ALPHA;
-                            e
-                        };
-
-                        if inst_idx < self.edge_instance_capacity {
-                            let inst = &mut *ptr.add(inst_idx);
-                            inst.p0 = p0;
-                            inst.p1 = p1;
-                            inst.color = color;
-                            inst_idx += 1;
-                        }
-                    }
-                }
-            }
-            self.edge_instance_count = inst_idx;
-        } else {
-            self.edge_instance_count = 0;
-        }
+    pub fn update_positions(&mut self, world: &World) {
+        self.rebuild_classic_buffers(world);
     }
 
     /// Append highlight ring instances after glow + regular node instances.
-    pub fn set_highlights(&mut self, selected: Option<u32>, hovered: Option<u32>, graph: &Graph) {
+    pub fn set_highlights(&mut self, selected: Option<u32>, hovered: Option<u32>, world: &World) {
         let Some(buf) = &self.node_instance_buf else { return };
         let ptr = buf.contents() as *mut NodeInstance;
         let mut idx = self.glow_count + self.node_count;
@@ -1365,16 +1671,15 @@ impl Renderer {
 
         if idx < capacity
             && let Some(sel_id) = selected
-            && let Some(&gi) = graph.id_to_index.get(&sel_id)
-            && let Some(node) = graph.nodes.get(gi)
-            && node.visible
+            && let Some(gi) = world.index_of_node_id(sel_id)
+            && world.graph_node[gi].visible != 0
         {
-            let color = self.node_color(&node.node_type);
+            let color = self.node_color_for_u8(world.hierarchy[gi].node_type);
             unsafe {
                 *ptr.add(idx) = NodeInstance {
-                    position: [node.x, node.y],
-                    radius: node.radius + 6.0,
-                    z: z_for_link_count(node.link_count),
+                    position: [world.transform[gi].x, world.transform[gi].y],
+                    radius: world.graph_node[gi].radius + 6.0,
+                    z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [color[0], color[1], color[2], 0.6],
                 };
             }
@@ -1384,15 +1689,14 @@ impl Renderer {
         if idx < capacity
             && let Some(hov_id) = hovered
             && Some(hov_id) != selected
-            && let Some(&gi) = graph.id_to_index.get(&hov_id)
-            && let Some(node) = graph.nodes.get(gi)
-            && node.visible
+            && let Some(gi) = world.index_of_node_id(hov_id)
+            && world.graph_node[gi].visible != 0
         {
             unsafe {
                 *ptr.add(idx) = NodeInstance {
-                    position: [node.x, node.y],
-                    radius: node.radius + 2.0,
-                    z: z_for_link_count(node.link_count),
+                    position: [world.transform[gi].x, world.transform[gi].y],
+                    radius: world.graph_node[gi].radius + 2.0,
+                    z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [1.0, 1.0, 1.0, 0.2],
                 };
             }
@@ -1405,7 +1709,7 @@ impl Renderer {
     /// Rebuild the per-instance highlight flag buffer.
     /// Called every frame — cheap (N bytes) and ensures highlight changes are always visible,
     /// even when physics is settled and update_positions isn't running.
-    pub fn rebuild_highlight_flags(&mut self, graph: &Graph) {
+    pub fn rebuild_highlight_flags(&mut self, world: &World) {
         let total = self.glow_count + self.node_count + self.highlight_count;
         if total == 0 { return; }
 
@@ -1424,13 +1728,14 @@ impl Renderer {
             // with the instance buffer, causing the wrong node to get highlighted.
             // Flag encoding: 0 = normal, 1 = highlighted (boosted), GLOW_DIM/NODE_DIM = dimmed.
             let mut glow_flags = 0usize;
-            for node in graph.nodes.iter().filter(|n| n.visible) {
-                let lit = self.highlight.highlighted_ids.contains(&node.id);
-                if node.link_count >= 9 && glow_flags < self.glow_count {
+            for &node_index in &self.rendered_node_indices {
+                let graph_node = &world.graph_node[node_index];
+                let lit = self.highlight.highlighted_ids.contains(&graph_node.node_id);
+                if world.hierarchy[node_index].link_count >= 9 && glow_flags < self.glow_count {
                     self.highlight_flag_scratch.push(if lit { 1 } else { GLOW_DIM });
                     glow_flags += 1;
                 }
-                if node.confidence > 0.0 && glow_flags < self.glow_count {
+                if graph_node.confidence > 0.0 && glow_flags < self.glow_count {
                     self.highlight_flag_scratch.push(if lit { 1 } else { GLOW_DIM });
                     glow_flags += 1;
                 }
@@ -1439,8 +1744,9 @@ impl Renderer {
             self.highlight_flag_scratch.resize(self.glow_count, 0);
 
             // Regular node flags: 1 = highlighted (bright), NODE_DIM = dimmed
-            for node in graph.nodes.iter().filter(|n| n.visible) {
-                let lit = self.highlight.highlighted_ids.contains(&node.id);
+            for &node_index in &self.rendered_node_indices {
+                let graph_node = &world.graph_node[node_index];
+                let lit = self.highlight.highlighted_ids.contains(&graph_node.node_id);
                 self.highlight_flag_scratch.push(if lit { 1 } else { NODE_DIM });
             }
         } else {
@@ -1476,7 +1782,7 @@ impl Renderer {
     /// Generate magnetic field lines for a hovered node.
     /// Creates 2-3 bezier curves per neighbor, slightly offset, for a field-line fan effect.
     /// Lines are rendered using the existing edge shader.
-    pub fn update_field_lines(&mut self, hovered: Option<u32>, graph: &Graph, time: f32) {
+    pub fn update_field_lines(&mut self, hovered: Option<u32>, world: &World, time: f32) {
         if hovered == self.field_line_hovered_id && hovered.is_some() {
             // Same node still hovered — just update positions with time animation.
             if hovered.is_none() { return; }
@@ -1488,19 +1794,21 @@ impl Renderer {
             return;
         };
 
-        // O(1) lookup via id_to_index instead of O(N) linear scan.
-        let Some(&hov_idx) = graph.id_to_index.get(&hov_id) else {
+        let Some(hov_entity) = world.entity_of_node_id(hov_id) else {
             self.field_line_count = 0;
             return;
         };
-        let hov_node = &graph.nodes[hov_idx];
-        if !hov_node.visible {
+        let Some(hov_idx) = world.index_of(hov_entity) else {
+            self.field_line_count = 0;
+            return;
+        };
+        if world.graph_node[hov_idx].visible == 0 {
             self.field_line_count = 0;
             return;
         }
 
-        let hov_pos = [hov_node.x, hov_node.y];
-        let hov_color = self.node_color(&hov_node.node_type);
+        let hov_pos = [world.transform[hov_idx].x, world.transform[hov_idx].y];
+        let hov_color = self.node_color_for_u8(world.hierarchy[hov_idx].node_type);
         let field_color = [hov_color[0], hov_color[1], hov_color[2], 0.12];
 
         // Reuse scratch buffer for field line segments.
@@ -1508,22 +1816,21 @@ impl Renderer {
         const FIELD_LINES_PER_NEIGHBOR: usize = 3;
         const FIELD_SEGMENTS: usize = 6;
 
-        // Find neighbors — scan edges for this node.
-        for edge in &graph.edges {
-            let neighbor_id = if edge.source == hov_id {
+        // Find neighbors from ECS edge topology.
+        for &edge_index in world.edge_indices_for_index(hov_idx) {
+            let edge = &world.edges[edge_index];
+            let neighbor_entity = if edge.source == hov_entity {
                 edge.target
-            } else if edge.target == hov_id {
+            } else if edge.target == hov_entity {
                 edge.source
             } else {
                 continue;
             };
 
-            // O(1) lookup instead of O(N) linear scan.
-            let Some(&n_idx) = graph.id_to_index.get(&neighbor_id) else { continue; };
-            let neighbor = &graph.nodes[n_idx];
-            if !neighbor.visible { continue; }
+            let Some(n_idx) = world.index_of(neighbor_entity) else { continue; };
+            if world.graph_node[n_idx].visible == 0 { continue; }
 
-            let n_pos = [neighbor.x, neighbor.y];
+            let n_pos = [world.transform[n_idx].x, world.transform[n_idx].y];
             let dx = n_pos[0] - hov_pos[0];
             let dy = n_pos[1] - hov_pos[1];
             let dist = (dx * dx + dy * dy).sqrt().max(1.0);
@@ -1673,6 +1980,11 @@ impl Renderer {
     fn build_pixel_node_instances(&mut self, world: &World, palette: &VoxelPalette) -> usize {
         let n = world.len();
         if n == 0 { return 0; }
+        let view_bounds = self.current_view_bounds(Self::PIXEL_CULL_PADDING_PIXELS);
+        let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
+        self.collect_visible_node_indices(world, view_bounds, |world, index| {
+            pixel_block_half_extent(world.render[index].block_type)
+        });
 
         if n > self.pixel_node_capacity {
             let cap = (n * 3 / 2).max(64);
@@ -1683,16 +1995,80 @@ impl Renderer {
 
         let buf = self.pixel_node_buf.as_ref().unwrap();
         let ptr = buf.contents() as *mut PixelNodeInstance;
+        let mut count = 0usize;
 
-        for i in 0..n {
+        if lod.cluster_nodes && !self.highlight.active {
+            self.density_clusters.clear();
+            let cell_size = density_cell_size_world(self.camera_zoom);
+            let inv_cell = 1.0 / cell_size;
+
+            for &node_index in &self.rendered_node_indices {
+                let co = world.render[node_index].color_override;
+                let base = if co[3] > 0.0 {
+                    co
+                } else {
+                    palette.color_for_block(world.render[node_index].block_type)
+                };
+                let position = [world.transform[node_index].x, world.transform[node_index].y];
+                let key = (
+                    (position[0] * inv_cell).floor() as i32,
+                    (position[1] * inv_cell).floor() as i32,
+                );
+                let cluster = self.density_clusters.entry(key).or_default();
+                cluster.sum_x += position[0];
+                cluster.sum_y += position[1];
+                cluster.sum_vx += world.velocity[node_index].vx;
+                cluster.sum_vy += world.velocity[node_index].vy;
+                for (sum, channel) in cluster.sum_color.iter_mut().zip(base) {
+                    *sum += channel;
+                }
+                cluster.max_link_count = cluster.max_link_count.max(world.hierarchy[node_index].link_count);
+                cluster.count += 1;
+            }
+
+            for cluster in self.density_clusters.values() {
+                let inv_count = 1.0 / cluster.count as f32;
+                let mut base = [0.0; 4];
+                for (channel, sum) in base.iter_mut().zip(cluster.sum_color) {
+                    *channel = sum * inv_count;
+                }
+                base[3] = (0.58 + (cluster.count as f32).ln_1p() * 0.08).min(1.0);
+                let highlight = [
+                    (base[0] + 0.3).min(1.0),
+                    (base[1] + 0.3).min(1.0),
+                    (base[2] + 0.3).min(1.0),
+                    base[3],
+                ];
+                let shadow = [
+                    (base[0] - 0.3).max(0.0),
+                    (base[1] - 0.3).max(0.0),
+                    (base[2] - 0.3).max(0.0),
+                    base[3],
+                ];
+                let size = density_proxy_screen_radius(cluster.count) * 2.0 / self.camera_zoom.max(0.05);
+
+                unsafe {
+                    *ptr.add(count) = PixelNodeInstance {
+                        position: [cluster.sum_x * inv_count, cluster.sum_y * inv_count],
+                        size,
+                        _pad0: 0.0,
+                        base_color: base,
+                        highlight_color: highlight,
+                        shadow_color: shadow,
+                        has_glare: 0,
+                        _pad1: [0; 3],
+                    };
+                }
+                count += 1;
+            }
+            return count;
+        }
+
+        for &i in &self.rendered_node_indices {
             let block_type = world.render[i].block_type;
             let co = world.render[i].color_override;
             let base = if co[3] > 0.0 { co } else { palette.color_for_block(block_type) };
-
-            // Size from block type: Core=16, Primary=12, Secondary=10, Tertiary=8, Leaf=6
-            let size = match block_type {
-                0 => 16.0_f32, 1 => 12.0, 2 => 10.0, 3 => 8.0, 4 => 6.0, _ => 8.0,
-            };
+            let size = pixel_block_size(block_type);
 
             let highlight = [
                 (base[0] + 0.3).min(1.0),
@@ -1707,28 +2083,33 @@ impl Renderer {
                 base[3],
             ];
 
-            // SAFETY: i < n <= pixel_node_capacity, buffer was allocated above.
             unsafe {
-                *ptr.add(i) = PixelNodeInstance {
+                *ptr.add(count) = PixelNodeInstance {
                     position: [world.transform[i].x, world.transform[i].y],
                     size,
                     _pad0: 0.0,
                     base_color: base,
                     highlight_color: highlight,
                     shadow_color: shadow,
-                    has_glare: world.render[i].has_glare as u32,
+                    has_glare: u32::from(lod.draw_glow && world.render[i].has_glare != 0),
                     _pad1: [0; 3],
                 };
             }
+            count += 1;
         }
-        n
+        count
     }
 
-    /// Build the pixel art edge instance buffer from Graph data.
+    /// Build the pixel art edge instance buffer from ECS topology.
     /// Returns the number of instances written.
-    fn build_pixel_edge_instances(&mut self, graph: &Graph, palette: &VoxelPalette) -> usize {
-        let edge_count = graph.edges.len();
+    fn build_pixel_edge_instances(&mut self, world: &World, palette: &VoxelPalette) -> usize {
+        let edge_count = world.edges.len();
         if edge_count == 0 { return 0; }
+        let view_bounds = self.current_view_bounds(Self::PIXEL_CULL_PADDING_PIXELS);
+        let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
+        if !lod.draw_edges || lod.cluster_nodes {
+            return 0;
+        }
 
         if edge_count > self.pixel_edge_capacity {
             let cap = (edge_count * 3 / 2).max(64);
@@ -1741,42 +2122,64 @@ impl Renderer {
         let ptr = buf.contents() as *mut PixelEdgeInstance;
         let mut count = 0usize;
 
-        for (ei, edge) in graph.edges.iter().enumerate() {
-            let si = graph.id_to_index.get(&edge.source);
-            let ti = graph.id_to_index.get(&edge.target);
-            if let (Some(&si), Some(&ti)) = (si, ti) {
-                let src = &graph.nodes[si];
-                let tgt = &graph.nodes[ti];
-                if !src.visible || !tgt.visible { continue; }
+        self.collect_candidate_edges(world);
+        self.reset_edge_lod_budget(world, lod);
 
-                let p0 = [src.x, src.y];
-                let p1 = [tgt.x, tgt.y];
+        for candidate_index in 0..self.edge_candidate_indices.len() {
+            let edge_index = self.edge_candidate_indices[candidate_index];
+            let edge = &world.edges[edge_index];
+            let (Some(src_index), Some(tgt_index)) = (
+                world.index_of(edge.source),
+                world.index_of(edge.target),
+            ) else {
+                continue;
+            };
+            if world.graph_node[src_index].visible == 0 || world.graph_node[tgt_index].visible == 0 {
+                continue;
+            }
 
-                if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) { continue; }
-                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() { continue; }
+            let src_pos = &world.transform[src_index];
+            let tgt_pos = &world.transform[tgt_index];
+            let p0 = [src_pos.x, src_pos.y];
+            let p1 = [tgt_pos.x, tgt_pos.y];
 
-                if count < self.pixel_edge_capacity {
-                    // SAFETY: count < pixel_edge_capacity, buffer was allocated above.
-                    unsafe {
-                        *ptr.add(count) = PixelEdgeInstance {
-                            p0,
-                            p1,
-                            color: palette.edge,
-                            edge_id: ei as u32,
-                            _pad: [0; 3],
-                        };
-                    }
-                    count += 1;
+            if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) { continue; }
+            if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() { continue; }
+            if !self.edge_allowed_by_lod(world, lod, src_index, tgt_index) { continue; }
+            let src_half_extent = pixel_block_half_extent(world.render[src_index].block_type);
+            let tgt_half_extent = pixel_block_half_extent(world.render[tgt_index].block_type);
+            let src_in_view = self.node_in_view(view_bounds, p0, src_half_extent);
+            let tgt_in_view = self.node_in_view(view_bounds, p1, tgt_half_extent);
+            if view_bounds.is_some() && !(src_in_view || tgt_in_view) {
+                continue;
+            }
+            let Some((p0, p1)) = trim_pixel_edge_endpoints(p0, p1, src_half_extent, tgt_half_extent) else {
+                continue;
+            };
+            if !self.segment_in_view(view_bounds, p0, p1) {
+                continue;
+            }
+
+            if count < self.pixel_edge_capacity {
+                // SAFETY: count < pixel_edge_capacity, buffer was allocated above.
+                unsafe {
+                    *ptr.add(count) = PixelEdgeInstance {
+                        p0,
+                        p1,
+                        color: palette.edge,
+                        edge_id: edge_index as u32,
+                        _pad: [0; 3],
+                    };
                 }
+                count += 1;
             }
         }
         count
     }
 
     /// Two-pass pixel art render: low-res offscreen then nearest-neighbor upscale.
-    pub fn draw_pixel(&mut self, viewport_w: u32, viewport_h: u32, world: &World, graph: &Graph) {
-        self.last_viewport_width = viewport_w as f32;
-        self.last_viewport_height = viewport_h as f32;
+    pub fn draw_pixel(&mut self, viewport_w: u32, viewport_h: u32, world: &World) {
+        self.set_viewport_size(viewport_w, viewport_h);
 
         let scale = self.pixel_scale as u32;
         let vw = (viewport_w / scale).max(1);
@@ -1800,7 +2203,7 @@ impl Renderer {
 
         // Build instance buffers
         let node_count = self.build_pixel_node_instances(world, &palette);
-        let edge_count = self.build_pixel_edge_instances(graph, &palette);
+        let edge_count = self.build_pixel_edge_instances(world, &palette);
 
         // Ensure uniform buffer exists
         if self.pixel_uniform_buf.is_none() {
@@ -1899,9 +2302,8 @@ impl Renderer {
         });
     }
 
-    pub fn draw(&mut self, viewport_width: u32, viewport_height: u32, _world: &World, _graph: &Graph) {
-        self.last_viewport_width = viewport_width as f32;
-        self.last_viewport_height = viewport_height as f32;
+    pub fn draw(&mut self, viewport_width: u32, viewport_height: u32, _world: &World) {
+        self.set_viewport_size(viewport_width, viewport_height);
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
                 Some(d) => d,
@@ -2143,5 +2545,64 @@ mod tests {
     #[test]
     fn pixel_uniforms_16_byte_aligned_size() {
         assert_eq!(std::mem::size_of::<PixelUniforms>() % 16, 0);
+    }
+
+    #[test]
+    fn pixel_edge_endpoints_trim_to_block_faces() {
+        let (p0, p1) = trim_pixel_edge_endpoints([0.0, 0.0], [30.0, 0.0], 8.0, 6.0)
+            .expect("separated nodes should produce an edge");
+        assert!((p0[0] - 8.0).abs() < 0.001, "source edge should start at block face");
+        assert!((p1[0] - 24.0).abs() < 0.001, "target edge should end at block face");
+        assert_eq!(p0[1], 0.0);
+        assert_eq!(p1[1], 0.0);
+    }
+
+    #[test]
+    fn lod_profile_hides_edges_when_zoomed_far_out() {
+        let lod = lod_profile_for_zoom(0.08, 0);
+        assert!(lod.draw_edges);
+        assert!(!lod.draw_glow);
+        assert!(!lod.cluster_nodes);
+    }
+
+    #[test]
+    fn lod_profile_switches_to_density_clusters_far_out() {
+        let lod = lod_profile_for_zoom(0.05, 0);
+        assert!(!lod.draw_edges);
+        assert!(lod.cluster_nodes);
+        assert_eq!(lod.edge_degree_threshold, 16);
+        assert_eq!(lod.max_edges_per_node, 4);
+    }
+
+    #[test]
+    fn density_cell_size_grows_when_zooming_out() {
+        assert!(density_cell_size_world(0.05) > density_cell_size_world(0.20));
+    }
+
+    #[test]
+    fn lod_profile_reduces_hub_edge_budget_before_disabling_edges() {
+        let lod = lod_profile_for_zoom(0.12, 0);
+        assert!(lod.draw_edges);
+        assert!(!lod.cluster_nodes);
+        assert_eq!(lod.edge_degree_threshold, 16);
+        assert_eq!(lod.max_edges_per_node, 4);
+    }
+
+    #[test]
+    fn segment_intersects_bounds_detects_crossing_line() {
+        let bounds = ViewBounds {
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 100.0,
+            max_y: 100.0,
+        };
+        assert!(segment_intersects_bounds(bounds, [-20.0, 50.0], [120.0, 50.0]));
+    }
+
+    #[test]
+    fn bounds_intersects_circle_excludes_far_node() {
+        let bounds = viewport_bounds([0.0, 0.0], 1.0, [200.0, 200.0], 0.0);
+        assert!(bounds_intersects_circle(bounds, [90.0, 0.0], 12.0));
+        assert!(!bounds_intersects_circle(bounds, [150.0, 0.0], 12.0));
     }
 }

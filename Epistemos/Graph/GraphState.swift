@@ -373,11 +373,11 @@ final class GraphState {
     }
     var visualThemeVersion: Int = 0
 
-    /// Pixel art upscale factor (2-16, default 8). Persisted via UserDefaults.
+    /// Pixel art upscale factor (2-16, default 4). Persisted via UserDefaults.
     var pixelScale: UInt8 = {
         let raw = UserDefaults.standard.integer(forKey: "graphPixelScale")
-        guard (0...255).contains(raw) else { return 8 }
-        return UInt8(raw).clamped(to: 2...16, default: 8)
+        guard (0...255).contains(raw) else { return 4 }
+        return UInt8(raw).clamped(to: 2...16, default: 4)
     }() {
         didSet {
             UserDefaults.standard.set(Int(pixelScale), forKey: "graphPixelScale")

@@ -81,6 +81,42 @@ impl Default for RenderComponent {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
+pub struct GraphNodeComponent {
+    pub node_id: u32,
+    pub visible: u8,
+    pub _pad0: [u8; 3],
+    pub radius: f32,
+    pub confidence: f32,
+    pub created_at: f64,
+    pub updated_at: f64,
+}
+
+impl Default for GraphNodeComponent {
+    fn default() -> Self {
+        Self {
+            node_id: 0,
+            visible: 1,
+            _pad0: [0; 3],
+            radius: 0.0,
+            confidence: 0.0,
+            created_at: 0.0,
+            updated_at: 0.0,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct EdgeComponent {
+    pub source: u32,
+    pub target: u32,
+    pub weight: f32,
+    pub edge_type: u8,
+    pub _pad0: [u8; 3],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct AIComponent {
     pub state: u8,
     pub _pad: [u8; 3],    // explicit padding for u32 alignment

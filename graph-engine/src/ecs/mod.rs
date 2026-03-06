@@ -22,7 +22,10 @@ pub struct World {
     pub velocity: Vec<VelocityComponent>,
     pub hierarchy: Vec<HierarchyComponent>,
     pub render: Vec<RenderComponent>,
+    pub graph_node: Vec<GraphNodeComponent>,
     pub ai: Vec<AIComponent>,
+    pub edges: Vec<EdgeComponent>,
+    pub edge_adjacency: Vec<Vec<usize>>,
     pub spatial_grid: SpatialGrid,
 
     /// Maps Graph node IDs to ECS entity IDs for FFI lookups during migration.
@@ -57,7 +60,10 @@ impl World {
             velocity: Vec::new(),
             hierarchy: Vec::new(),
             render: Vec::new(),
+            graph_node: Vec::new(),
             ai: Vec::new(),
+            edges: Vec::new(),
+            edge_adjacency: Vec::new(),
             spatial_grid: SpatialGrid::new(50.0),
             node_id_to_entity: FxHashMap::default(),
             entity_to_node_id: FxHashMap::default(),
@@ -79,7 +85,10 @@ impl World {
             velocity: Vec::with_capacity(cap),
             hierarchy: Vec::with_capacity(cap),
             render: Vec::with_capacity(cap),
+            graph_node: Vec::with_capacity(cap),
             ai: Vec::with_capacity(cap),
+            edges: Vec::with_capacity(cap.saturating_mul(2)),
+            edge_adjacency: Vec::with_capacity(cap),
             spatial_grid: SpatialGrid::new(50.0),
             node_id_to_entity: FxHashMap::with_capacity_and_hasher(cap, Default::default()),
             entity_to_node_id: FxHashMap::with_capacity_and_hasher(cap, Default::default()),
@@ -105,7 +114,9 @@ impl World {
         self.velocity.push(VelocityComponent::default());
         self.hierarchy.push(HierarchyComponent::default());
         self.render.push(RenderComponent::default());
+        self.graph_node.push(GraphNodeComponent::default());
         self.ai.push(AIComponent::default());
+        self.edge_adjacency.push(Vec::new());
 
         self.px.push(transform.x);
         self.py.push(transform.y);
@@ -134,6 +145,7 @@ impl World {
             self.velocity[index] = self.velocity[last];
             self.hierarchy[index] = self.hierarchy[last];
             self.render[index] = self.render[last];
+            self.graph_node[index] = self.graph_node[last];
             self.ai[index] = self.ai[last];
             self.px[index] = self.px[last];
             self.py[index] = self.py[last];
@@ -150,7 +162,9 @@ impl World {
         self.velocity.pop();
         self.hierarchy.pop();
         self.render.pop();
+        self.graph_node.pop();
         self.ai.pop();
+        self.edge_adjacency.pop();
         self.px.pop();
         self.py.pop();
         self.pvx.pop();
@@ -164,6 +178,9 @@ impl World {
         if let Some(node_id) = self.entity_to_node_id.remove(&entity) {
             self.node_id_to_entity.remove(&node_id);
         }
+
+        self.edges.retain(|edge| edge.source != entity && edge.target != entity);
+        self.rebuild_edge_adjacency();
     }
 
     pub fn len(&self) -> usize {
@@ -177,6 +194,40 @@ impl World {
     pub fn index_of(&self, entity: Entity) -> Option<usize> {
         self.entity_to_index.get(&entity).copied()
     }
+
+    pub fn entity_of_node_id(&self, node_id: u32) -> Option<Entity> {
+        self.node_id_to_entity.get(&node_id).copied()
+    }
+
+    pub fn index_of_node_id(&self, node_id: u32) -> Option<usize> {
+        self.entity_of_node_id(node_id)
+            .and_then(|entity| self.index_of(entity))
+    }
+
+    pub fn edge_indices_for_index(&self, index: usize) -> &[usize] {
+        self.edge_adjacency
+            .get(index)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
+    pub fn rebuild_edge_adjacency(&mut self) {
+        if self.edge_adjacency.len() < self.len() {
+            self.edge_adjacency.resize_with(self.len(), Vec::new);
+        }
+        for neighbors in &mut self.edge_adjacency {
+            neighbors.clear();
+        }
+
+        for (edge_index, edge) in self.edges.iter().enumerate() {
+            if let Some(src_index) = self.index_of(edge.source) {
+                self.edge_adjacency[src_index].push(edge_index);
+            }
+            if let Some(tgt_index) = self.index_of(edge.target) {
+                self.edge_adjacency[tgt_index].push(edge_index);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -189,7 +240,9 @@ mod tests {
         assert_eq!(world.velocity.len(), n);
         assert_eq!(world.hierarchy.len(), n);
         assert_eq!(world.render.len(), n);
+        assert_eq!(world.graph_node.len(), n);
         assert_eq!(world.ai.len(), n);
+        assert_eq!(world.edge_adjacency.len(), n);
         assert_eq!(world.entity_to_index.len(), n);
         assert_eq!(world.px.len(), n);
         assert_eq!(world.py.len(), n);
@@ -346,6 +399,47 @@ mod tests {
         assert!(world.index_of(e1).is_none());
         assert!(world.index_of(e3).is_some());
         assert_world_invariants(&world);
+    }
+
+    #[test]
+    fn test_despawn_removes_incident_edges() {
+        let mut world = World::new();
+        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+        let e1 = world.spawn(TransformComponent { x: 1.0, y: 1.0, scale: 1.0 });
+        let e2 = world.spawn(TransformComponent { x: 2.0, y: 2.0, scale: 1.0 });
+        world.edges.push(EdgeComponent { source: e0, target: e1, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
+        world.edges.push(EdgeComponent { source: e1, target: e2, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
+        world.edges.push(EdgeComponent { source: e0, target: e2, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
+        world.rebuild_edge_adjacency();
+
+        world.despawn(e1);
+
+        assert_eq!(world.edges.len(), 1);
+        assert_eq!(world.edges[0].source, e0);
+        assert_eq!(world.edges[0].target, e2);
+        let e0_index = world.index_of(e0).unwrap();
+        let e2_index = world.index_of(e2).unwrap();
+        assert_eq!(world.edge_indices_for_index(e0_index), &[0]);
+        assert_eq!(world.edge_indices_for_index(e2_index), &[0]);
+    }
+
+    #[test]
+    fn test_rebuild_edge_adjacency_tracks_incident_edges() {
+        let mut world = World::new();
+        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+        let e1 = world.spawn(TransformComponent { x: 1.0, y: 0.0, scale: 1.0 });
+        let e2 = world.spawn(TransformComponent { x: 2.0, y: 0.0, scale: 1.0 });
+
+        world.edges.push(EdgeComponent { source: e0, target: e1, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
+        world.edges.push(EdgeComponent { source: e1, target: e2, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
+        world.rebuild_edge_adjacency();
+
+        let i0 = world.index_of(e0).unwrap();
+        let i1 = world.index_of(e1).unwrap();
+        let i2 = world.index_of(e2).unwrap();
+        assert_eq!(world.edge_indices_for_index(i0), &[0]);
+        assert_eq!(world.edge_indices_for_index(i1), &[0, 1]);
+        assert_eq!(world.edge_indices_for_index(i2), &[1]);
     }
 
     #[test]

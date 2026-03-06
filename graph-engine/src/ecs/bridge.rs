@@ -1,12 +1,13 @@
 //! Graph → World bridge for ECS migration.
 //!
 //! Converts the existing `Graph` (AoS node storage) into an ECS `World` (SoA component arrays).
-//! Edges are NOT migrated — the renderer reads them directly from `Graph`.
+//! Topology is mirrored into ECS so render and gameplay systems can avoid the legacy `Graph` path.
 
 use rustc_hash::FxHashMap;
 
 use super::{
-    BlockType, HierarchyComponent, RenderComponent, TransformComponent, VelocityComponent, World,
+    BlockType, EdgeComponent, GraphNodeComponent, HierarchyComponent, RenderComponent,
+    TransformComponent, VelocityComponent, World,
 };
 use crate::types::{Graph, NodeType};
 
@@ -66,12 +67,37 @@ impl World {
                 block_type: bt as u8,
                 has_glare: has_glare_for_block(bt),
                 _pad: [0; 2],
-                color_override: [0.0; 4],
+                color_override: node.color_override,
+            };
+
+            world.graph_node[idx] = GraphNodeComponent {
+                node_id: node.id,
+                visible: u8::from(node.visible),
+                _pad0: [0; 3],
+                radius: node.radius,
+                confidence: node.confidence,
+                created_at: node.created_at,
+                updated_at: node.updated_at,
             };
 
             id_map.insert(node.id, entity);
         }
 
+        world.edges.reserve(graph.edges.len());
+        for edge in &graph.edges {
+            let (Some(&source), Some(&target)) = (id_map.get(&edge.source), id_map.get(&edge.target)) else {
+                continue;
+            };
+            world.edges.push(EdgeComponent {
+                source,
+                target,
+                weight: edge.weight,
+                edge_type: edge.edge_type,
+                _pad0: [0; 3],
+            });
+        }
+
+        world.rebuild_edge_adjacency();
         world.spatial_grid.rebuild(&world.entities, &world.transform);
         world.node_id_to_entity = id_map.clone();
         world.entity_to_node_id = id_map.into_iter().map(|(nid, eid)| (eid, nid)).collect();
@@ -114,6 +140,8 @@ mod tests {
         assert_eq!(world.hierarchy[ni].link_count, 5);
         assert_eq!(world.render[ni].block_type, BlockType::Primary as u8);
         assert_eq!(world.render[ni].has_glare, 1);
+        assert_eq!(world.graph_node[ni].node_id, 0);
+        assert_eq!(world.graph_node[ni].visible, 1);
 
         // Verify the folder entity
         let folder_entity = world.node_id_to_entity[&1];
@@ -124,6 +152,7 @@ mod tests {
         assert_eq!(world.hierarchy[fi].link_count, 12);
         assert_eq!(world.render[fi].block_type, BlockType::Core as u8);
         assert_eq!(world.render[fi].has_glare, 1);
+        assert_eq!(world.graph_node[fi].node_id, 1);
     }
 
     #[test]
@@ -153,5 +182,26 @@ mod tests {
         assert_eq!(world.transform[idx].y, 123.4);
         assert_eq!(world.velocity[idx].vx, 3.14);
         assert_eq!(world.velocity[idx].vy, -2.71);
+    }
+
+    #[test]
+    fn test_from_graph_preserves_edges() {
+        let mut graph = Graph::new();
+        graph.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        graph.add_node("b".into(), 10.0, 0.0, 0, 1, "B".into());
+        graph.add_edge("a", "b", 2.5, 4);
+
+        let world = World::from_graph(&graph);
+
+        assert_eq!(world.edges.len(), 1);
+        let edge = world.edges[0];
+        assert_eq!(world.entity_to_node_id[&edge.source], 0);
+        assert_eq!(world.entity_to_node_id[&edge.target], 1);
+        assert_eq!(edge.weight, 2.5);
+        assert_eq!(edge.edge_type, 4);
+        let source_index = world.index_of(edge.source).unwrap();
+        let target_index = world.index_of(edge.target).unwrap();
+        assert_eq!(world.edge_indices_for_index(source_index), &[0]);
+        assert_eq!(world.edge_indices_for_index(target_index), &[0]);
     }
 }
