@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use rustc_hash::FxHashSet;
 
+use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
 use crate::renderer::{Renderer, pixel_block_half_extent};
@@ -30,6 +31,8 @@ use std::collections::HashMap;
 const PHYSICS_HZ: f64 = 60.0;
 /// Sleep duration (ms) when simulation is settled (avoids spinning).
 const SETTLED_SLEEP_MS: u64 = 50;
+/// Above this threshold, use cheap spatial clustering instead of Louvain.
+const LOUVAIN_MAX_NODES: usize = 10_000;
 
 fn clamp_zoom_for_theme(theme: VisualTheme, zoom: f32) -> f32 {
     match theme {
@@ -116,6 +119,7 @@ pub struct Engine {
     world: World,
     /// Tracks whether the previous rendered frame still had active physics.
     last_sim_active: bool,
+    cluster_cache: ClusterCache,
 }
 
 impl Engine {
@@ -150,6 +154,7 @@ impl Engine {
             btk_logs: HashMap::new(),
             world: World::new(),
             last_sim_active: false,
+            cluster_cache: ClusterCache::new(),
         })
     }
 
@@ -255,6 +260,7 @@ impl Engine {
         {
             let mut sim = self.sim.lock();
             sim.load_from_graph(&self.graph);
+            Self::ensure_cluster_assignments(&mut self.cluster_cache, &mut sim);
 
             // Page mode always gets full physics — it shows a small subset
             // (focal node + 1-hop neighbors) regardless of total vault size.
@@ -265,21 +271,13 @@ impl Engine {
                 sim.params.alpha = 0.15;
             }
 
-            // Skip expensive operations for static layout (> 1500 nodes).
+            // Skip physics pre-settle for static layout.
             if !sim.static_layout {
-                // Louvain community detection (O(N*E) -- skip for large graphs).
-                let sn = sim.x.len();
-                if sn < 5000 {
-                    let cluster_ids = crate::cluster::detect_communities(sn, &sim.edges);
-                    sim.cluster_ids = cluster_ids;
-                } else {
-                    sim.cluster_ids = (0..sn as u32).collect();
-                }
-
                 // Pre-settle: run physics ticks before first render so the graph
                 // opens with nodes already near equilibrium (no visible drift).
                 // BFS layout places connected nodes near parents, so moderate alpha
                 // is safe — repulsion fine-tunes spacing without explosive separation.
+                let sn = sim.x.len();
                 let max_ticks = if entrance { 1200 } else { 50 };
                 if entrance {
                     sim.params.alpha = 0.15;
@@ -300,8 +298,11 @@ impl Engine {
         // Build ECS World from Graph data (positions are current after sync).
         self.world = World::from_graph(&self.graph);
 
-        // Sync renderer's link_distance for tension coloring.
-        self.renderer.link_distance = self.sim.lock().params.link_distance;
+        {
+            let sim = self.sim.lock();
+            self.world.sync_clusters(&sim.cluster_ids, &sim.graph_indices);
+            self.renderer.link_distance = sim.params.link_distance;
+        }
 
         // Allocate renderer buffers and upload initial data.
         self.renderer.allocate_buffers(&self.world);
@@ -342,6 +343,24 @@ impl Engine {
         }
     }
 
+    fn ensure_cluster_assignments(cluster_cache: &mut ClusterCache, sim: &mut Simulation) {
+        let topology_fingerprint = ClusterCache::topology_fingerprint(&sim.graph_indices, &sim.edges);
+        if cluster_cache.is_valid(topology_fingerprint)
+            && let Some(level1) = cluster_cache.level1_assignments()
+        {
+            sim.cluster_ids = level1.to_vec();
+            return;
+        }
+
+        let cluster_ids = if sim.x.len() <= LOUVAIN_MAX_NODES {
+            crate::cluster::detect_communities(sim.x.len(), &sim.edges)
+        } else {
+            ClusterCache::coarse_assignments(&sim.x, &sim.y)
+        };
+        cluster_cache.build(cluster_ids.clone(), &sim.edges, &sim.graph_indices);
+        sim.cluster_ids = cluster_ids;
+    }
+
     // ── Visibility (Lightweight Filtering) ──────────────────────────
 
     /// Toggle a single node's visibility by UUID.
@@ -368,17 +387,16 @@ impl Engine {
         {
             let mut sim = self.sim.lock();
             sim.load_from_graph(&self.graph);
-            // Louvain is O(E*passes) — skip for large graphs to avoid blocking main thread.
-            let n = sim.x.len();
-            if n < 5_000 {
-                let cluster_ids = crate::cluster::detect_communities(n, &sim.edges);
-                sim.cluster_ids = cluster_ids;
-            }
+            Self::ensure_cluster_assignments(&mut self.cluster_cache, &mut sim);
             sim.reheat();
         }
 
         // Rebuild ECS World so topology, visibility, and metadata stay in sync.
         self.world = World::from_graph(&self.graph);
+        {
+            let sim = self.sim.lock();
+            self.world.sync_clusters(&sim.cluster_ids, &sim.graph_indices);
+        }
 
         // Re-upload ECS world to renderer (only visible nodes are drawn).
         self.renderer.upload_graph(&self.world);
@@ -501,6 +519,26 @@ impl Engine {
 
         if positions_changed || camera_moving || viewport_changed {
             self.renderer.update_positions(&self.world);
+        }
+        let use_aggregated_edges = self.renderer.visual_theme == VisualTheme::Classic
+            && self.renderer.camera_zoom < crate::edge_aggregation::AGGREGATION_THRESHOLD;
+        if use_aggregated_edges && (positions_changed || camera_moving || viewport_changed) {
+            let cluster_sync = {
+                let sim = self.sim.lock();
+                self.cluster_cache
+                    .assignments_for_zoom(self.renderer.camera_zoom)
+                    .map(|assignments| (assignments.to_vec(), sim.graph_indices.clone()))
+            };
+
+            if let Some((assignments, graph_indices)) = cluster_sync {
+                self.world.sync_clusters(&assignments, &graph_indices);
+                let aggregated_edges = crate::edge_aggregation::build_aggregated_edges(&self.world);
+                self.renderer.upload_aggregated_edges(&aggregated_edges);
+            } else {
+                self.renderer.clear_aggregated_edges();
+            }
+        } else if self.renderer.use_aggregated_edges {
+            self.renderer.clear_aggregated_edges();
         }
         if positions_changed {
             self.spatial.build(&self.graph.nodes);
@@ -1046,23 +1084,44 @@ impl Engine {
     /// `cluster_ids` for matched nodes. Unmatched nodes keep their existing
     /// cluster assignment. Reheats the simulation so new clusters settle.
     pub fn set_cluster_ids(&mut self, uuid_to_cluster: &std::collections::HashMap<String, u32>) {
-        let mut sim = self.sim.lock();
-        let n = sim.x.len();
-        if sim.cluster_ids.len() != n {
-            sim.cluster_ids = vec![0; n];
-        }
+        self.idle_frame_count = 0;
+        let cluster_state = {
+            let mut sim = self.sim.lock();
+            let n = sim.x.len();
+            if sim.cluster_ids.len() != n {
+                sim.cluster_ids = vec![0; n];
+            }
 
-        for si in 0..n {
-            let gi = sim.graph_indices[si];
-            if gi < self.graph.nodes.len() {
-                let uuid = &self.graph.nodes[gi].uuid;
-                if let Some(&cid) = uuid_to_cluster.get(uuid) {
-                    sim.cluster_ids[si] = cid;
+            for si in 0..n {
+                let gi = sim.graph_indices[si];
+                if gi < self.graph.nodes.len() {
+                    let uuid = &self.graph.nodes[gi].uuid;
+                    if let Some(&cid) = uuid_to_cluster.get(uuid) {
+                        sim.cluster_ids[si] = cid;
+                    }
                 }
             }
-        }
 
-        sim.reheat();
+            sim.reheat();
+            (
+                sim.cluster_ids.clone(),
+                sim.edges.clone(),
+                sim.graph_indices.clone(),
+            )
+        };
+
+        self.cluster_cache
+            .build(cluster_state.0.clone(), &cluster_state.1, &cluster_state.2);
+        self.world.sync_clusters(&cluster_state.0, &cluster_state.2);
+
+        if self.renderer.visual_theme == VisualTheme::Classic
+            && self.renderer.camera_zoom < crate::edge_aggregation::AGGREGATION_THRESHOLD
+        {
+            let aggregated_edges = crate::edge_aggregation::build_aggregated_edges(&self.world);
+            self.renderer.upload_aggregated_edges(&aggregated_edges);
+        } else {
+            self.renderer.clear_aggregated_edges();
+        }
     }
 
     /// Push semantic neighbor pairs to the simulation thread.
@@ -2043,6 +2102,36 @@ mod tests {
             }
         }
         assert!(found.iter().all(|&f| f), "all nodes should be verified");
+    }
+
+    #[test]
+    fn cluster_cache_assignments_sync_back_into_world() {
+        let mut graph = Graph::new();
+        graph.add_node("uuid-a".into(), -50.0, 0.0, 0, 2, "A".into());
+        graph.add_node("uuid-b".into(), -40.0, 0.0, 0, 2, "B".into());
+        graph.add_node("uuid-c".into(), 40.0, 0.0, 0, 2, "C".into());
+        graph.add_node("uuid-d".into(), 50.0, 0.0, 0, 2, "D".into());
+        graph.add_edge("uuid-a", "uuid-b", 1.0, 0);
+        graph.add_edge("uuid-c", "uuid-d", 1.0, 0);
+        graph.add_edge("uuid-b", "uuid-c", 1.0, 0);
+
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        sim.cluster_ids = vec![10, 10, 20, 20];
+
+        let mut cache = crate::cluster_cache::ClusterCache::new();
+        cache.build(sim.cluster_ids.clone(), &sim.edges, &sim.graph_indices);
+
+        let mut world = crate::ecs::World::from_graph(&graph);
+        let assignments = cache
+            .assignments_for_zoom(0.2)
+            .expect("neighborhood zoom should use cached assignments");
+        world.sync_clusters(assignments, &sim.graph_indices);
+
+        assert_eq!(world.graph_node[0].cluster_id, 10);
+        assert_eq!(world.graph_node[1].cluster_id, 10);
+        assert_eq!(world.graph_node[2].cluster_id, 20);
+        assert_eq!(world.graph_node[3].cluster_id, 20);
     }
 
     #[test]

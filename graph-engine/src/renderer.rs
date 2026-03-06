@@ -834,6 +834,8 @@ pub struct Renderer {
     glow_count: usize,
     node_count: usize,
     edge_instance_count: usize,
+    pub use_aggregated_edges: bool,
+    aggregated_edge_count: usize,
     highlight_count: usize,
     // Highlight
     pub highlight: HighlightState,
@@ -1009,6 +1011,8 @@ impl Renderer {
             glow_count: 0,
             node_count: 0,
             edge_instance_count: 0,
+            use_aggregated_edges: false,
+            aggregated_edge_count: 0,
             highlight_count: 0,
             highlight: HighlightState::new(),
             highlight_flag_buf: None,
@@ -1562,6 +1566,47 @@ impl Renderer {
         } else {
             self.edge_instance_buf = None;
         }
+    }
+
+    pub fn upload_aggregated_edges(&mut self, edges: &[crate::edge_aggregation::AggregatedEdge]) {
+        self.use_aggregated_edges = !edges.is_empty();
+        self.aggregated_edge_count = edges.len();
+        if edges.is_empty() {
+            return;
+        }
+
+        if edges.len() > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+            let capacity = (edges.len() * 3 / 2).max(64);
+            let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
+            self.edge_instance_buf = Some(
+                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+            );
+            self.edge_instance_capacity = capacity;
+        }
+
+        let base_rgb = if self.light_mode {
+            [0.22, 0.25, 0.30]
+        } else {
+            [0.78, 0.82, 0.88]
+        };
+
+        if let Some(buf) = &self.edge_instance_buf {
+            unsafe {
+                let ptr = buf.contents() as *mut LineEdgeInstance;
+                for (index, edge) in edges.iter().enumerate() {
+                    *ptr.add(index) = LineEdgeInstance {
+                        p0: edge.p0,
+                        p1: edge.p1,
+                        color: [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha],
+                    };
+                }
+            }
+        }
+    }
+
+    pub fn clear_aggregated_edges(&mut self) {
+        self.use_aggregated_edges = false;
+        self.aggregated_edge_count = 0;
     }
 
     /// Pre-allocate GPU buffers with headroom. Call once after commit.
@@ -2362,11 +2407,16 @@ impl Renderer {
             let encoder = cmd_buf.new_render_command_encoder(render_desc);
 
             // Draw edges first (behind nodes)
-            if self.edge_instance_count > 0
+            let effective_edge_count = if self.use_aggregated_edges {
+                self.aggregated_edge_count
+            } else {
+                self.edge_instance_count
+            };
+            if effective_edge_count > 0
                 && let Some(inst_buf) = &self.edge_instance_buf
             {
                 // Clamp to buffer capacity to prevent Metal validation crash.
-                let edge_draw = self.edge_instance_count.min(self.edge_instance_capacity);
+                let edge_draw = effective_edge_count.min(self.edge_instance_capacity);
                 encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);

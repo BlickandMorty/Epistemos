@@ -76,6 +76,8 @@ impl World {
                 _pad0: [0; 3],
                 radius: node.radius,
                 confidence: node.confidence,
+                cluster_id: u32::MAX,
+                _pad1: [0; 4],
                 created_at: node.created_at,
                 updated_at: node.updated_at,
             };
@@ -85,7 +87,9 @@ impl World {
 
         world.edges.reserve(graph.edges.len());
         for edge in &graph.edges {
-            let (Some(&source), Some(&target)) = (id_map.get(&edge.source), id_map.get(&edge.target)) else {
+            let (Some(&source), Some(&target)) =
+                (id_map.get(&edge.source), id_map.get(&edge.target))
+            else {
                 continue;
             };
             world.edges.push(EdgeComponent {
@@ -98,10 +102,28 @@ impl World {
         }
 
         world.rebuild_edge_adjacency();
-        world.spatial_grid.rebuild(&world.entities, &world.transform);
+        world
+            .spatial_grid
+            .rebuild(&world.entities, &world.transform);
         world.node_id_to_entity = id_map.clone();
         world.entity_to_node_id = id_map.into_iter().map(|(nid, eid)| (eid, nid)).collect();
         world
+    }
+
+    /// Copy simulation cluster assignments into the ECS graph-node metadata.
+    ///
+    /// `graph_indices[sim_idx]` maps simulation indices back to graph/world indices.
+    pub fn sync_clusters(&mut self, cluster_ids: &[u32], graph_indices: &[usize]) {
+        for graph_node in &mut self.graph_node {
+            graph_node.cluster_id = u32::MAX;
+        }
+
+        for (sim_index, &graph_index) in graph_indices.iter().enumerate() {
+            if sim_index >= cluster_ids.len() || graph_index >= self.graph_node.len() {
+                continue;
+            }
+            self.graph_node[graph_index].cluster_id = cluster_ids[sim_index];
+        }
     }
 }
 
@@ -142,6 +164,7 @@ mod tests {
         assert_eq!(world.render[ni].has_glare, 1);
         assert_eq!(world.graph_node[ni].node_id, 0);
         assert_eq!(world.graph_node[ni].visible, 1);
+        assert_eq!(world.graph_node[ni].cluster_id, u32::MAX);
 
         // Verify the folder entity
         let folder_entity = world.node_id_to_entity[&1];
@@ -153,6 +176,7 @@ mod tests {
         assert_eq!(world.render[fi].block_type, BlockType::Core as u8);
         assert_eq!(world.render[fi].has_glare, 1);
         assert_eq!(world.graph_node[fi].node_id, 1);
+        assert_eq!(world.graph_node[fi].cluster_id, u32::MAX);
     }
 
     #[test]
@@ -203,5 +227,20 @@ mod tests {
         let target_index = world.index_of(edge.target).unwrap();
         assert_eq!(world.edge_indices_for_index(source_index), &[0]);
         assert_eq!(world.edge_indices_for_index(target_index), &[0]);
+    }
+
+    #[test]
+    fn test_sync_clusters_marks_only_visible_sim_nodes() {
+        let mut graph = Graph::new();
+        graph.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
+        graph.add_node("b".into(), 10.0, 0.0, 0, 1, "B".into());
+        graph.add_node("c".into(), 20.0, 0.0, 0, 1, "C".into());
+
+        let mut world = World::from_graph(&graph);
+        world.sync_clusters(&[4, 7], &[0, 2]);
+
+        assert_eq!(world.graph_node[0].cluster_id, 4);
+        assert_eq!(world.graph_node[1].cluster_id, u32::MAX);
+        assert_eq!(world.graph_node[2].cluster_id, 7);
     }
 }

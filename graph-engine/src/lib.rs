@@ -10,11 +10,13 @@ pub mod renderer;
 pub mod engine;
 pub mod markdown;
 pub mod cluster;
+pub mod cluster_cache;
 pub mod search;
 pub mod embedding;
 pub mod version;
 pub mod block_kernel;
 pub mod ecs;
+pub mod edge_aggregation;
 
 #[cfg(test)]
 pub mod physics_audit_test;

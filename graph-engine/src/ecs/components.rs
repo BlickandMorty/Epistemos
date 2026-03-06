@@ -20,9 +20,9 @@ pub struct VelocityComponent {
 #[derive(Clone, Copy, Debug)]
 pub struct HierarchyComponent {
     pub depth: u32,
-    pub parent: u32,      // u32::MAX = no parent
+    pub parent: u32, // u32::MAX = no parent
     pub node_type: u8,
-    pub _pad: [u8; 3],    // explicit padding for u32 alignment
+    pub _pad: [u8; 3], // explicit padding for u32 alignment
     pub link_count: u32,
 }
 
@@ -63,8 +63,8 @@ pub enum AIState {
 #[derive(Clone, Copy, Debug)]
 pub struct RenderComponent {
     pub block_type: u8,
-    pub has_glare: u8,     // 0 = false, 1 = true (u8 for FFI safety)
-    pub _pad: [u8; 2],    // explicit padding for f32 alignment
+    pub has_glare: u8,            // 0 = false, 1 = true (u8 for FFI safety)
+    pub _pad: [u8; 2],            // explicit padding for f32 alignment
     pub color_override: [f32; 4], // [0,0,0,0] = use default palette
 }
 
@@ -87,6 +87,8 @@ pub struct GraphNodeComponent {
     pub _pad0: [u8; 3],
     pub radius: f32,
     pub confidence: f32,
+    pub cluster_id: u32,
+    pub _pad1: [u8; 4],
     pub created_at: f64,
     pub updated_at: f64,
 }
@@ -99,6 +101,8 @@ impl Default for GraphNodeComponent {
             _pad0: [0; 3],
             radius: 0.0,
             confidence: 0.0,
+            cluster_id: u32::MAX,
+            _pad1: [0; 4],
             created_at: 0.0,
             updated_at: 0.0,
         }
@@ -119,7 +123,7 @@ pub struct EdgeComponent {
 #[derive(Clone, Copy, Debug)]
 pub struct AIComponent {
     pub state: u8,
-    pub _pad: [u8; 3],    // explicit padding for u32 alignment
+    pub _pad: [u8; 3], // explicit padding for u32 alignment
     pub personality_seed: u32,
     pub breath_phase: f32,
     pub breath_freq: f32,
