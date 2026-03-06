@@ -1141,6 +1141,7 @@ mod tests {
             created_at: 0.0,
             updated_at: 0.0,
             confidence: 0.0,
+            color_override: [0.0; 4],
         }
     }
 }

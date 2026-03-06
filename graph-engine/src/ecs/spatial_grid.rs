@@ -38,8 +38,11 @@ impl SpatialGrid {
         }
     }
 
-    /// Insert an entity at the given position.
+    /// Insert an entity at the given position. Skips non-finite coordinates.
     pub fn insert(&mut self, entity: u32, x: f32, y: f32) {
+        if !x.is_finite() || !y.is_finite() {
+            return;
+        }
         let key = self.cell_coords(x, y);
         self.cells
             .entry(key)
@@ -47,18 +50,17 @@ impl SpatialGrid {
             .push(entity);
     }
 
-    /// Clear and rebuild from the entire transforms array.
-    /// Entity IDs are the array indices (matching the ECS SoA layout).
-    pub fn rebuild(&mut self, transforms: &[TransformComponent]) {
+    /// Clear and rebuild from entity IDs + transforms (parallel arrays).
+    pub fn rebuild(&mut self, entities: &[u32], transforms: &[TransformComponent]) {
         self.clear();
-        for (i, t) in transforms.iter().enumerate() {
-            self.insert(i as u32, t.x, t.y);
+        for (&entity, t) in entities.iter().zip(transforms.iter()) {
+            self.insert(entity, t.x, t.y);
         }
     }
 
-    /// Find all entities within `radius` of `(x, y)`.
-    pub fn query(&self, x: f32, y: f32, radius: f32) -> Vec<u32> {
-        let r_sq = radius * radius;
+    /// Return candidate entities from cells overlapping the radius around `(x, y)`.
+    /// Does NOT filter by exact distance — caller must apply precise distance checks.
+    pub fn query_candidates(&self, x: f32, y: f32, radius: f32) -> Vec<u32> {
         let min = self.cell_coords(x - radius, y - radius);
         let max = self.cell_coords(x + radius, y + radius);
 
@@ -75,13 +77,6 @@ impl SpatialGrid {
             }
         }
 
-        // Post-filter: we collected all entities in overlapping cells,
-        // but the caller may want exact distance filtering.
-        // Since we don't store positions here, return all candidates.
-        // The physics system does the precise distance check.
-        // However, for small radii relative to cell_size, the cell query
-        // already provides a tight bound.
-        let _ = r_sq; // radius used for cell range calculation above
         result
     }
 
@@ -117,7 +112,7 @@ mod tests {
         grid.insert(2, 200.0, 200.0); // cell (4, 4) — far away
 
         // Query around (10, 10) with radius 70 — should find entities 0 and 1
-        let nearby = grid.query(10.0, 10.0, 70.0);
+        let nearby = grid.query_candidates(10.0, 10.0, 70.0);
         assert!(nearby.contains(&0));
         assert!(nearby.contains(&1));
         assert!(!nearby.contains(&2));
@@ -126,13 +121,14 @@ mod tests {
     #[test]
     fn test_spatial_grid_rebuild() {
         let mut grid = SpatialGrid::new(50.0);
+        let entities: Vec<u32> = vec![0, 1, 2];
         let transforms = vec![
             TransformComponent { x: 5.0, y: 5.0, scale: 1.0 },
             TransformComponent { x: 10.0, y: 10.0, scale: 1.0 },
             TransformComponent { x: 300.0, y: 300.0, scale: 1.0 },
         ];
 
-        grid.rebuild(&transforms);
+        grid.rebuild(&entities, &transforms);
 
         // Entities 0 and 1 are in/near cell (0,0); entity 2 is far away
         let nearby = grid.query_neighbors(5.0, 5.0);
@@ -160,7 +156,7 @@ mod tests {
     fn test_query_empty_grid() {
         let grid = SpatialGrid::new(50.0);
 
-        let result = grid.query(100.0, 100.0, 200.0);
+        let result = grid.query_candidates(100.0, 100.0, 200.0);
         assert!(result.is_empty());
 
         let result = grid.query_neighbors(0.0, 0.0);
@@ -202,7 +198,7 @@ mod tests {
         }
 
         // Query a small region — should return a subset, not all 1000
-        let result = grid.query(50.0, 50.0, 50.0);
+        let result = grid.query_candidates(50.0, 50.0, 50.0);
         assert!(!result.is_empty());
         assert!(result.len() < 1000);
 

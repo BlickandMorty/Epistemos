@@ -190,7 +190,7 @@ pub fn tick(
     sync_physics_to_transforms(world);
 
     // 6. Rebuild spatial grid from updated positions.
-    world.spatial_grid.rebuild(&world.transform);
+    world.spatial_grid.rebuild(&world.entities, &world.transform);
 }
 
 #[cfg(test)]

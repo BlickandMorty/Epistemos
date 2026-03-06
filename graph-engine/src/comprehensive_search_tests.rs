@@ -14,7 +14,7 @@ mod tests {
             radius: 8.0,
             label: label.to_string(),
             visible,
-            created_at: 0.0, updated_at: 0.0, confidence: 0.0,
+            created_at: 0.0, updated_at: 0.0, confidence: 0.0, color_override: [0.0; 4],
         }
     }
 
