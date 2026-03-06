@@ -1636,7 +1636,7 @@ final class MetalGraphNSView: NSView {
                     self?.dismissDialogue()
                 }
             )
-            guard let uiState else { return }
+            guard let uiState = self.uiState ?? AppBootstrap.shared?.uiState else { return }
             let root = AnyView(
                 overlay
                     .environment(graphState)

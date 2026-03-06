@@ -1989,10 +1989,11 @@ impl Renderer {
             && world.graph_node[gi].visible != 0
         {
             let color = self.node_color_for_u8(world.hierarchy[gi].node_type);
+            let r = self.classic_node_radius(world, gi);
             unsafe {
                 *ptr.add(idx) = NodeInstance {
                     position: [world.transform[gi].x, world.transform[gi].y],
-                    radius: world.graph_node[gi].radius + 6.0,
+                    radius: r + 6.0,
                     z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [color[0], color[1], color[2], 0.6],
                 };
@@ -2006,10 +2007,11 @@ impl Renderer {
             && let Some(gi) = world.index_of_node_id(hov_id)
             && world.graph_node[gi].visible != 0
         {
+            let r = self.classic_node_radius(world, gi);
             unsafe {
                 *ptr.add(idx) = NodeInstance {
                     position: [world.transform[gi].x, world.transform[gi].y],
-                    radius: world.graph_node[gi].radius + 2.0,
+                    radius: r + 2.0,
                     z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [1.0, 1.0, 1.0, 0.2],
                 };
