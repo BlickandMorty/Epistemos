@@ -1,8 +1,10 @@
 //! ECS World — SoA (Struct of Arrays) storage for cache-friendly iteration.
 
 pub mod components;
+pub mod spatial_grid;
 
 pub use components::*;
+pub use spatial_grid::SpatialGrid;
 
 use rustc_hash::FxHashMap;
 
@@ -19,6 +21,7 @@ pub struct World {
     pub hierarchy: Vec<HierarchyComponent>,
     pub render: Vec<RenderComponent>,
     pub ai: Vec<AIComponent>,
+    pub spatial_grid: SpatialGrid,
 }
 
 impl Default for World {
@@ -38,6 +41,7 @@ impl World {
             hierarchy: Vec::new(),
             render: Vec::new(),
             ai: Vec::new(),
+            spatial_grid: SpatialGrid::new(50.0),
         }
     }
 
@@ -51,6 +55,7 @@ impl World {
             hierarchy: Vec::with_capacity(cap),
             render: Vec::with_capacity(cap),
             ai: Vec::with_capacity(cap),
+            spatial_grid: SpatialGrid::new(50.0),
         }
     }
 
