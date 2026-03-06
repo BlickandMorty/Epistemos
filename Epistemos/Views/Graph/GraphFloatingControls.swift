@@ -36,6 +36,14 @@ struct GraphFloatingControls: View {
                     .frame(height: 20)
                     .opacity(0.3)
 
+                themeToggle
+
+                pixelScaleControl
+
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
+
                 liteModeToggle
 
                 Divider()
@@ -163,6 +171,60 @@ struct GraphFloatingControls: View {
         .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
     }
 
+
+    // MARK: - Theme Toggle
+
+    private var themeToggle: some View {
+        HStack(spacing: 2) {
+            themeButton(label: "Pixel", icon: "square.grid.3x3.fill", theme: .pixel)
+            themeButton(label: "Classic", icon: "circle.fill", theme: .classic)
+        }
+    }
+
+    private func themeButton(label: String, icon: String, theme: GraphVisualTheme) -> some View {
+        let isSelected = graphState.visualTheme == theme
+        return Button {
+            graphState.visualTheme = theme
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
+    }
+
+    // MARK: - Pixel Scale Slider
+
+    @ViewBuilder
+    private var pixelScaleControl: some View {
+        if graphState.visualTheme == .pixel {
+            HStack(spacing: 4) {
+                Text("Scale")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.5))
+                Slider(
+                    value: Binding(
+                        get: { Double(graphState.pixelScale) },
+                        set: { graphState.pixelScale = UInt8($0) }
+                    ),
+                    in: 2...16,
+                    step: 1
+                )
+                .frame(width: 60)
+                Text("\(graphState.pixelScale)")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.primary.opacity(0.5))
+                    .frame(width: 16)
+            }
+        }
+    }
 
     // MARK: - Quality Preset Toggle
 

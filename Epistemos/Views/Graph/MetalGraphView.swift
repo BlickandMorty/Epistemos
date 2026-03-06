@@ -73,6 +73,7 @@ final class MetalGraphNSView: NSView {
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastLiteModeVersion = -1
+    var lastVisualThemeVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
     var searchQuery: String = ""
 
@@ -346,6 +347,11 @@ final class MetalGraphNSView: NSView {
         // Push quality level to Rust and sync version tracker.
         graph_engine_set_quality_level(engine, graphState.qualityLevel)
         lastLiteModeVersion = graphState.liteModeVersion
+
+        // Push visual theme to Rust.
+        graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
+        graph_engine_set_pixel_scale(engine, graphState.pixelScale)
+        lastVisualThemeVersion = graphState.visualThemeVersion
 
         isCommitted = true
         needsRender = true
@@ -627,6 +633,13 @@ final class MetalGraphNSView: NSView {
         if let graphState, engine != nil, lastLiteModeVersion != graphState.liteModeVersion {
             lastLiteModeVersion = graphState.liteModeVersion
             graph_engine_set_quality_level(engine, graphState.qualityLevel)
+        }
+
+        // Sync visual theme when changed.
+        if let graphState, engine != nil, lastVisualThemeVersion != graphState.visualThemeVersion {
+            lastVisualThemeVersion = graphState.visualThemeVersion
+            graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
+            graph_engine_set_pixel_scale(engine, graphState.pixelScale)
         }
 
         // Sync laboratory params (toggles + knobs for advanced physics).

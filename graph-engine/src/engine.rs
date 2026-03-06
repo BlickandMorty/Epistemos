@@ -1161,6 +1161,29 @@ impl Engine {
         self.sim.lock().lite_mode = clamped >= 2;
     }
 
+    /// Set visual theme: 0 = Pixel (default), 1 = Classic.
+    pub fn set_visual_theme(&mut self, theme: u8) {
+        self.renderer.visual_theme = VisualTheme::from_u8(theme);
+    }
+
+    /// Set pixel art upscale factor (1-16, default 8).
+    pub fn set_pixel_scale(&mut self, scale: u8) {
+        self.renderer.pixel_scale = scale.clamp(1, 16);
+    }
+
+    /// Store color override for a node type tier in pixel art mode.
+    pub fn set_node_type_color(&mut self, node_type: u8, r: f32, g: f32, b: f32, a: f32) {
+        let color = [r, g, b, a];
+        match node_type {
+            0 => self.renderer.pixel_palette.core = color,
+            1 => self.renderer.pixel_palette.primary = color,
+            2 => self.renderer.pixel_palette.secondary = color,
+            3 => self.renderer.pixel_palette.tertiary = color,
+            4 => self.renderer.pixel_palette.leaf = color,
+            _ => {}
+        }
+    }
+
     /// Look up a node's UUID by its internal ID and store in the reusable buffer.
     /// Returns a C string pointer valid until the next call.
     pub fn node_uuid_by_id(&mut self, node_id: u32) -> *const std::ffi::c_char {
