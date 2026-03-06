@@ -77,10 +77,23 @@ struct DialogueUniforms {
     _pad: [f32; 2],
 }
 
-const DIALOGUE_BOX_SCREEN_WIDTH: f32 = 280.0;
-const DIALOGUE_BOX_SCREEN_HEIGHT: f32 = 160.0;
-const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 20.0;
-const DIALOGUE_GAP_SCREEN: f32 = 10.0;
+#[derive(Clone, Copy)]
+struct DialogueBoxGeometry {
+    left: f32,
+    right: f32,
+    top: f32,
+    bottom: f32,
+    tail_base_center_x: f32,
+    tail_tip_x: f32,
+    tail_tip_y: f32,
+    screen_rect: [f32; 4],
+    node_screen_pos: [f32; 2],
+}
+
+const DIALOGUE_BOX_SCREEN_WIDTH: f32 = 460.0;
+const DIALOGUE_BOX_SCREEN_HEIGHT: f32 = 220.0;
+const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 18.0;
+const DIALOGUE_GAP_SCREEN: f32 = 14.0;
 
 /// Uniform data sent to all shaders (camera transform + animation).
 #[repr(C)]
@@ -142,6 +155,24 @@ pub(crate) fn viewport_bounds(
         min_y: camera_offset[1] - half_h,
         max_x: camera_offset[0] + half_w,
         max_y: camera_offset[1] + half_h,
+    }
+}
+
+fn clamp_dialogue_box_left(
+    preferred_left: f32,
+    camera_offset_x: f32,
+    zoom: f32,
+    viewport_width: f32,
+    box_width_world: f32,
+) -> f32 {
+    let view_half_w = viewport_width * 0.5 / zoom;
+    let margin_world = 18.0 / zoom;
+    let min_left = camera_offset_x - view_half_w + margin_world;
+    let max_left = camera_offset_x + view_half_w - margin_world - box_width_world;
+    if min_left <= max_left {
+        preferred_left.clamp(min_left, max_left)
+    } else {
+        preferred_left
     }
 }
 
@@ -1836,12 +1867,12 @@ impl Renderer {
         self.dialogue_pipeline = self.device.new_render_pipeline_state(&desc).ok();
     }
 
-    fn compute_dialogue_box_position(&mut self, world: &World) {
+    fn dialogue_box_geometry(&self, world: &World) -> Option<DialogueBoxGeometry> {
         let Some(node_index) = self.dialogue.node_index else {
-            return;
+            return None;
         };
-        if node_index >= world.len() {
-            return;
+        if node_index >= world.len() || self.last_viewport_width <= 0.0 || self.last_viewport_height <= 0.0 {
+            return None;
         }
 
         let node_x = world.transform[node_index].x;
@@ -1855,27 +1886,47 @@ impl Renderer {
         let tail_h_world = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
         let gap_world = DIALOGUE_GAP_SCREEN / zoom;
 
-        // Box is centered above the node.
-        let box_center_x = node_x;
+        let preferred_left = node_x - box_w_world * 0.5;
+        let box_left = clamp_dialogue_box_left(
+            preferred_left,
+            self.camera_offset[0],
+            zoom,
+            self.last_viewport_width,
+            box_w_world,
+        );
+        let tail_half_w = 12.0 / zoom;
+        let tail_base_center_x = node_x.clamp(box_left + tail_half_w, box_left + box_w_world - tail_half_w);
         let box_bottom_y = node_y - node_radius - gap_world - tail_h_world;
         let box_top_y = box_bottom_y - box_h_world;
-        let box_left = box_center_x - box_w_world * 0.5;
-
-        // Store world-space rect for vertex building (left, top, width, height).
-        // We use node_screen_pos temporarily to cache the world-space tail tip.
         let vw = self.last_viewport_width;
         let vh = self.last_viewport_height;
 
-        // World → screen: screen = (world - camera) * zoom + viewport/2
         let screen_box_x = (box_left - self.camera_offset[0]) * zoom + vw * 0.5;
         let screen_box_y = (box_top_y - self.camera_offset[1]) * zoom + vh * 0.5;
         let screen_box_w = box_w_world * zoom;
         let screen_box_h = box_h_world * zoom;
-
-        self.dialogue.box_screen_rect = [screen_box_x, screen_box_y, screen_box_w, screen_box_h];
         let node_screen_x = (node_x - self.camera_offset[0]) * zoom + vw * 0.5;
         let node_screen_y = (node_y - self.camera_offset[1]) * zoom + vh * 0.5;
-        self.dialogue.node_screen_pos = [node_screen_x, node_screen_y];
+
+        Some(DialogueBoxGeometry {
+            left: box_left,
+            right: box_left + box_w_world,
+            top: box_top_y,
+            bottom: box_bottom_y,
+            tail_base_center_x,
+            tail_tip_x: node_x,
+            tail_tip_y: node_y - node_radius - gap_world,
+            screen_rect: [screen_box_x, screen_box_y, screen_box_w, screen_box_h],
+            node_screen_pos: [node_screen_x, node_screen_y],
+        })
+    }
+
+    fn compute_dialogue_box_position(&mut self, world: &World) {
+        let Some(geometry) = self.dialogue_box_geometry(world) else {
+            return;
+        };
+        self.dialogue.box_screen_rect = geometry.screen_rect;
+        self.dialogue.node_screen_pos = geometry.node_screen_pos;
     }
 
     fn build_dialogue_vertices(&mut self, world: &World) {
@@ -1887,24 +1938,17 @@ impl Renderer {
         if node_index >= world.len() {
             return;
         }
+        let Some(geometry) = self.dialogue_box_geometry(world) else {
+            return;
+        };
 
-        let node_x = world.transform[node_index].x;
-        let node_y = world.transform[node_index].y;
-        let node_radius = world.graph_node[node_index].radius;
         let zoom = self.camera_zoom.max(0.01);
-
-        let box_w = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
-        let box_h = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
-        let tail_h = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
-        let gap = DIALOGUE_GAP_SCREEN / zoom;
         let border_w = 2.0 / zoom;
-        let nameplate_h = 24.0 / zoom;
-
-        let cx = node_x;
-        let box_bottom = node_y - node_radius - gap - tail_h;
-        let box_top = box_bottom - box_h;
-        let left = cx - box_w * 0.5;
-        let right = cx + box_w * 0.5;
+        let nameplate_h = 34.0 / zoom;
+        let left = geometry.left;
+        let right = geometry.right;
+        let box_top = geometry.top;
+        let box_bottom = geometry.bottom;
 
         // Colors: dark blue gradient.
         let color_top = [0.08_f32, 0.10, 0.22, 0.92];
@@ -1921,11 +1965,10 @@ impl Renderer {
         self.dialogue_vertex_scratch.push(DialogueVertex { position: [left, box_bottom], color: color_bot });
 
         // Tail: triangle from box bottom-center to node.
-        let tail_tip_y = node_y - node_radius - gap;
         let tail_half_w = 12.0 / zoom;
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [cx - tail_half_w, box_bottom], color: color_bot });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [cx + tail_half_w, box_bottom], color: color_bot });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [cx, tail_tip_y], color: color_bot });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_base_center_x - tail_half_w, box_bottom], color: color_bot });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_base_center_x + tail_half_w, box_bottom], color: color_bot });
+        self.dialogue_vertex_scratch.push(DialogueVertex { position: [geometry.tail_tip_x, geometry.tail_tip_y], color: color_bot });
 
         // Nameplate bar at top: 2 triangles, uses node type color.
         let np_color = self.node_color_for_u8(world.hierarchy[node_index].node_type);
@@ -2345,5 +2388,15 @@ mod tests {
         assert!(DIALOGUE_BOX_SCREEN_HEIGHT > 0.0);
         assert!(DIALOGUE_TAIL_SCREEN_HEIGHT > 0.0);
         assert!(DIALOGUE_GAP_SCREEN > 0.0);
+    }
+
+    #[test]
+    fn clamp_dialogue_box_left_keeps_box_inside_viewport() {
+        let zoom = 1.0;
+        let box_width_world = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
+        let left = clamp_dialogue_box_left(400.0, 0.0, zoom, 800.0, box_width_world);
+        let margin = 18.0 / zoom;
+        let max_left = 400.0 - margin - box_width_world;
+        assert!((left - max_left).abs() < f32::EPSILON);
     }
 }
