@@ -3,6 +3,7 @@
 pub mod bridge;
 pub mod components;
 pub mod spatial_grid;
+pub mod systems;
 
 pub use components::*;
 pub use spatial_grid::SpatialGrid;
@@ -26,6 +27,16 @@ pub struct World {
 
     /// Maps Graph node IDs to ECS entity IDs for FFI lookups during migration.
     pub node_id_to_entity: FxHashMap<u32, Entity>,
+
+    // Physics hot-path SoA arrays — flat f32 slices for force functions.
+    // Duplicates transform.x/y and velocity.vx/vy to avoid struct-of-struct
+    // indirection in the inner physics loop (forces take &[f32] / &mut [f32]).
+    pub px: Vec<f32>,
+    pub py: Vec<f32>,
+    pub pvx: Vec<f32>,
+    pub pvy: Vec<f32>,
+    pub pfx: Vec<Option<f32>>,
+    pub pfy: Vec<Option<f32>>,
 }
 
 impl Default for World {
@@ -47,6 +58,12 @@ impl World {
             ai: Vec::new(),
             spatial_grid: SpatialGrid::new(50.0),
             node_id_to_entity: FxHashMap::default(),
+            px: Vec::new(),
+            py: Vec::new(),
+            pvx: Vec::new(),
+            pvy: Vec::new(),
+            pfx: Vec::new(),
+            pfy: Vec::new(),
         }
     }
 
@@ -62,6 +79,12 @@ impl World {
             ai: Vec::with_capacity(cap),
             spatial_grid: SpatialGrid::new(50.0),
             node_id_to_entity: FxHashMap::default(),
+            px: Vec::with_capacity(cap),
+            py: Vec::with_capacity(cap),
+            pvx: Vec::with_capacity(cap),
+            pvy: Vec::with_capacity(cap),
+            pfx: Vec::with_capacity(cap),
+            pfy: Vec::with_capacity(cap),
         }
     }
 
@@ -79,6 +102,13 @@ impl World {
         self.hierarchy.push(HierarchyComponent::default());
         self.render.push(RenderComponent::default());
         self.ai.push(AIComponent::default());
+
+        self.px.push(transform.x);
+        self.py.push(transform.y);
+        self.pvx.push(0.0);
+        self.pvy.push(0.0);
+        self.pfx.push(None);
+        self.pfy.push(None);
 
         entity
     }
@@ -101,6 +131,12 @@ impl World {
             self.hierarchy[index] = self.hierarchy[last];
             self.render[index] = self.render[last];
             self.ai[index] = self.ai[last];
+            self.px[index] = self.px[last];
+            self.py[index] = self.py[last];
+            self.pvx[index] = self.pvx[last];
+            self.pvy[index] = self.pvy[last];
+            self.pfx[index] = self.pfx[last];
+            self.pfy[index] = self.pfy[last];
 
             self.entity_to_index.insert(moved_entity, index);
         }
@@ -111,6 +147,12 @@ impl World {
         self.hierarchy.pop();
         self.render.pop();
         self.ai.pop();
+        self.px.pop();
+        self.py.pop();
+        self.pvx.pop();
+        self.pvy.pop();
+        self.pfx.pop();
+        self.pfy.pop();
 
         self.entity_to_index.remove(&entity);
     }
@@ -140,6 +182,12 @@ mod tests {
         assert_eq!(world.render.len(), n);
         assert_eq!(world.ai.len(), n);
         assert_eq!(world.entity_to_index.len(), n);
+        assert_eq!(world.px.len(), n);
+        assert_eq!(world.py.len(), n);
+        assert_eq!(world.pvx.len(), n);
+        assert_eq!(world.pvy.len(), n);
+        assert_eq!(world.pfx.len(), n);
+        assert_eq!(world.pfy.len(), n);
     }
 
     #[test]
@@ -186,6 +234,12 @@ mod tests {
         assert!(world.render.capacity() >= 1024);
         assert!(world.ai.capacity() >= 1024);
         assert!(world.entities.capacity() >= 1024);
+        assert!(world.px.capacity() >= 1024);
+        assert!(world.py.capacity() >= 1024);
+        assert!(world.pvx.capacity() >= 1024);
+        assert!(world.pvy.capacity() >= 1024);
+        assert!(world.pfx.capacity() >= 1024);
+        assert!(world.pfy.capacity() >= 1024);
         assert_world_invariants(&world);
     }
 
