@@ -173,7 +173,6 @@ final class NoteChatState {
                 }
                 self.flushTokens()
                 self.isStreaming = false
-                self.log.info("Note chat complete for page \(self.pageId)")
             } catch {
                 self.flushTokens()
                 self.isStreaming = false
@@ -250,14 +249,12 @@ final class NoteChatState {
         onAccept?()
         hasResponse = false
         responseText = ""
-        log.info("Note chat accepted for page \(self.pageId)")
     }
 
     func discardResponse() {
         onDiscard?()
         hasResponse = false
         responseText = ""
-        log.info("Note chat discarded for page \(self.pageId)")
     }
 
     func clear() {

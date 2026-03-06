@@ -12,6 +12,7 @@ import SwiftData
 final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
+    private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 
     // MARK: - Model Container
     let modelContainer: ModelContainer
@@ -174,11 +175,15 @@ final class AppBootstrap {
         // Give VaultSyncService access to EventBus for change notifications
         vaultSync.setEventBus(eventBus)
 
-        // Check Ollama availability in background
-        Task { await llm.checkOllama() }
+        // Check Ollama availability in background.
+        // Skip under tests to avoid pointless localhost network churn in the test host.
+        if !Self.isRunningTests {
+            Task(priority: .utility) { await llm.checkOllama() }
+        }
 
-        // One-time migration: move note bodies from inline SQLite to file storage (background).
-        Task { @MainActor in migrateBodiesToFileStorage() }
+        // One-time migration: move note bodies from inline SQLite to file storage.
+        // Do the fetch/write/save cycle off the main actor to avoid launch hitching.
+        Task(priority: .utility) { await migrateBodiesToFileStorage() }
 
         // Eagerly load graph store so command palette search works before the graph window opens.
         // Runs synchronously on MainActor — no Task wrapper — so queryEngine is configured
@@ -311,31 +316,34 @@ final class AppBootstrap {
 
     // MARK: - Body File Storage Migration
 
-    private func migrateBodiesToFileStorage() {
+    private func migrateBodiesToFileStorage() async {
         let migrationKey = "v2_body_migration_complete"
         guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        do {
+            let migrated = try await BodyMigrationActor(modelContainer: modelContainer).migrateInlineBodiesToFiles()
+            UserDefaults.standard.set(true, forKey: migrationKey)
+            if migrated > 0 {
+                Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
+            }
+        } catch {
+            Log.app.error("Body migration: failed — will retry on next launch: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
 
-        let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = try? context.fetch(descriptor) else { return }
-
+@ModelActor
+private actor BodyMigrationActor {
+    func migrateInlineBodiesToFiles() throws -> Int {
+        let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
         var migrated = 0
         for page in pages where !page.body.isEmpty {
             NoteFileStorage.writeBody(pageId: page.id, content: page.body)
             page.body = ""
             migrated += 1
         }
-
         if migrated > 0 {
-            do {
-                try context.save()
-                UserDefaults.standard.set(true, forKey: migrationKey)
-                Log.app.info("Body file storage migration: moved \(migrated) bodies to disk")
-            } catch {
-                Log.app.error("Body migration: failed to save after migrating \(migrated) pages — will retry on next launch: \(error.localizedDescription, privacy: .public)")
-            }
-        } else {
-            UserDefaults.standard.set(true, forKey: migrationKey)
+            try modelContext.save()
         }
+        return migrated
     }
 }

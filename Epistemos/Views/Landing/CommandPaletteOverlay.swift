@@ -998,8 +998,10 @@ struct CommandPaletteOverlay: View {
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
             let seenPageIds = titlePageIds.union(graphPageIds)
-            let bodyItems = computeBodyResults(for: newText, excluding: seenPageIds)
-            let blockItems = computeBlockResults(for: newText, excluding: seenPageIds)
+            let bodyHits = await vaultSync.searchFullAsync(query: newText, limit: 30)
+            let blockHits = await vaultSync.searchBlocksAsync(query: newText, limit: 10)
+            let bodyItems = computeBodyResults(from: bodyHits, excluding: seenPageIds)
+            let blockItems = computeBlockResults(from: blockHits, excluding: seenPageIds)
             withAnimation(Motion.quick) {
                 cachedSearchResults = titleItems + graphItems + bodyItems + blockItems
             }
@@ -1206,13 +1208,12 @@ struct CommandPaletteOverlay: View {
             }
     }
 
-    private func computeBodyResults(for query: String, excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
-        guard !query.isEmpty else { return [] }
+    private func computeBodyResults(from hits: [SearchResult], excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
+        guard !hits.isEmpty else { return [] }
         var items: [LandingCommandItem] = []
         let index = pageIndex
 
-        let bodyHits = vaultSync.searchFull(query: query, limit: 30)
-        for hit in bodyHits where !seenPageIds.contains(hit.pageId) {
+        for hit in hits where !seenPageIds.contains(hit.pageId) {
             let pageId = hit.pageId
             let rawSnippet = hit.snippet
                 .replacingOccurrences(of: "<b>", with: "")
@@ -1267,18 +1268,12 @@ struct CommandPaletteOverlay: View {
         return items
     }
 
-    private func computeBlockResults(for query: String, excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
-        guard query.count >= 2,
-              let svc = vaultSync.searchService else { return [] }
-
-        let hits: [BlockSearchResult]
-        do { hits = try svc.searchBlocks(query: query, limit: 10) }
-        catch { return [] }
-
+    private func computeBlockResults(from hits: [BlockSearchResult], excluding seenPageIds: Set<String>) -> [LandingCommandItem] {
+        guard !hits.isEmpty else { return [] }
         let index = pageIndex
         var items: [LandingCommandItem] = []
 
-        for hit in hits {
+        for hit in hits where !seenPageIds.contains(hit.pageId) {
             let pageId = hit.pageId
             let rawSnippet = hit.snippet
                 .replacingOccurrences(of: "<b>", with: "")

@@ -25,16 +25,23 @@ actor SearchIndexService {
     private let log = Logger(subsystem: "com.epistemos", category: "SearchIndex")
     private let dbQueue: DatabaseQueue
 
-    init() throws {
-        guard let appSupportBase = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first else {
-            throw SearchIndexError.noAppSupportDirectory
+    init(databaseURL: URL? = nil) throws {
+        let dbPath: String
+        if let databaseURL {
+            let parent = databaseURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+            dbPath = databaseURL.path
+        } else {
+            guard let appSupportBase = FileManager.default.urls(
+                for: .applicationSupportDirectory, in: .userDomainMask
+            ).first else {
+                throw SearchIndexError.noAppSupportDirectory
+            }
+            let appSupport = appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
+            try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+            dbPath = appSupport.appendingPathComponent("search.sqlite").path
         }
-        let appSupport = appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
-        try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
 
-        let dbPath = appSupport.appendingPathComponent("search.sqlite").path
         dbQueue = try DatabaseQueue(path: dbPath)
 
         try Self.setupSchema(dbQueue)
@@ -166,6 +173,10 @@ actor SearchIndexService {
         }
     }
 
+    func searchAsync(query: String, limit: Int = 50) throws -> [SearchResult] {
+        try search(query: query, limit: limit)
+    }
+
     // MARK: - Block Search
 
     nonisolated func searchBlocks(query: String, limit: Int = 50) throws -> [BlockSearchResult] {
@@ -197,6 +208,10 @@ actor SearchIndexService {
                 )
             }
         }
+    }
+
+    func searchBlocksAsync(query: String, limit: Int = 50) throws -> [BlockSearchResult] {
+        try searchBlocks(query: query, limit: limit)
     }
 
     // MARK: - Block Upsert / Delete
@@ -238,6 +253,35 @@ actor SearchIndexService {
                 """,
                 arguments: [id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate]
             )
+        }
+    }
+
+    nonisolated func upsertPages(
+        _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
+    ) throws {
+        guard !pages.isEmpty else { return }
+
+        try dbQueue.write { db in
+            for page in pages {
+                try db.execute(
+                    sql: """
+                        INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT(id) DO UPDATE SET
+                            title = excluded.title,
+                            body = excluded.body,
+                            tags = excluded.tags,
+                            updatedAt = excluded.updatedAt
+                    """,
+                    arguments: [
+                        page.id,
+                        page.title,
+                        page.body,
+                        page.tags,
+                        page.updatedAt.timeIntervalSinceReferenceDate,
+                    ]
+                )
+            }
         }
     }
 
@@ -290,7 +334,8 @@ actor SearchIndexService {
         }
 
         // Upsert pages newer in SwiftData or missing from GRDB
-        var upsertCount = 0
+        var pagesToUpsert: [(id: String, title: String, body: String, tags: String, updatedAt: Date)] = []
+        pagesToUpsert.reserveCapacity(swiftDataPages.count)
         for sd in swiftDataPages {
             let sdTimestamp = sd.updatedAt.timeIntervalSinceReferenceDate
             let needsUpsert: Bool
@@ -302,16 +347,20 @@ actor SearchIndexService {
 
             if needsUpsert {
                 if let full = await fullPageProvider(sd.id) {
-                    try upsert(
-                        id: sd.id, title: full.title, body: full.body,
-                        tags: full.tags, updatedAt: full.updatedAt
-                    )
-                    upsertCount += 1
+                    pagesToUpsert.append((
+                        id: sd.id,
+                        title: full.title,
+                        body: full.body,
+                        tags: full.tags,
+                        updatedAt: full.updatedAt
+                    ))
                 }
             }
         }
 
-        log.info("Diff sync complete: \(upsertCount) upserted, \(toDelete.count) deleted")
+        try upsertPages(pagesToUpsert)
+
+        log.info("Diff sync complete: \(pagesToUpsert.count) upserted, \(toDelete.count) deleted")
     }
 
     // MARK: - Diff Sync Helpers (synchronous)

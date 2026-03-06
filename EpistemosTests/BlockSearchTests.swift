@@ -4,6 +4,17 @@ import Testing
 
 @Suite("BlockSearch")
 struct BlockSearchTests {
+    private func makeDatabaseURL() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("block-search-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("search.sqlite")
+    }
+
+    private func makeService() throws -> (service: SearchIndexService, databaseURL: URL) {
+        let databaseURL = makeDatabaseURL()
+        return (try SearchIndexService(databaseURL: databaseURL), databaseURL)
+    }
+
     private func uniqueId(_ prefix: String = "block-test") -> String {
         "\(prefix)-\(UUID().uuidString)"
     }
@@ -42,7 +53,8 @@ struct BlockSearchTests {
 
     @Test("block upsert and search returns matching block")
     func upsertAndSearch() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let blockId = uniqueId()
         let pageId = uniqueId("page")
         let token = uniqueToken()
@@ -59,7 +71,8 @@ struct BlockSearchTests {
 
     @Test("block delete removes from search index")
     func deleteRemovesBlock() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let blockId = uniqueId()
         let pageId = uniqueId("page")
         let token = uniqueToken("del")
@@ -78,7 +91,8 @@ struct BlockSearchTests {
 
     @Test("block search respects limit")
     func searchRespectsLimit() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let token = uniqueToken("lim")
         let blockIds = (0..<3).map { _ in uniqueId("lim-block") }
         let pageId = uniqueId("page")
@@ -97,7 +111,8 @@ struct BlockSearchTests {
 
     @Test("block update changes indexed content")
     func updateChangesContent() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let blockId = uniqueId()
         let pageId = uniqueId("page")
         let oldToken = uniqueToken("old")

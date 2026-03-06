@@ -4,6 +4,17 @@ import Testing
 
 @Suite("SearchIndexService Integration")
 struct SearchIndexServiceIntegrationTests {
+    private func makeDatabaseURL() -> URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("search-index-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("search.sqlite")
+    }
+
+    private func makeService() throws -> (service: SearchIndexService, databaseURL: URL) {
+        let databaseURL = makeDatabaseURL()
+        return (try SearchIndexService(databaseURL: databaseURL), databaseURL)
+    }
+
     private func uniqueId(_ prefix: String = "search-test") -> String {
         "\(prefix)-\(UUID().uuidString)"
     }
@@ -42,7 +53,8 @@ struct SearchIndexServiceIntegrationTests {
 
     @Test("upsert + search returns inserted page")
     func upsertAndSearchRoundTrip() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let pageId = uniqueId()
         let token = uniqueToken()
         defer { cleanup(service, ids: [pageId]) }
@@ -63,7 +75,8 @@ struct SearchIndexServiceIntegrationTests {
 
     @Test("delete removes page from FTS results")
     func deleteRemovesPage() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let pageId = uniqueId()
         let token = uniqueToken("delete")
         defer { cleanup(service, ids: [pageId]) }
@@ -87,7 +100,8 @@ struct SearchIndexServiceIntegrationTests {
 
     @Test("upsert conflict updates indexed content")
     func upsertConflictUpdatesContent() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let pageId = uniqueId()
         let oldToken = uniqueToken("old")
         let newToken = uniqueToken("new")
@@ -121,14 +135,16 @@ struct SearchIndexServiceIntegrationTests {
 
     @Test("search returns empty for blank query")
     func blankQueryReturnsEmpty() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         #expect(try withRetry { try service.search(query: "   ") }.isEmpty)
         #expect(try withRetry { try service.search(query: "\n\t") }.isEmpty)
     }
 
     @Test("search respects result limit")
     func searchRespectsLimit() throws {
-        let service = try SearchIndexService()
+        let setup = try makeService()
+        let service = setup.service
         let token = uniqueToken("limit")
         let ids = (0..<3).map { _ in uniqueId("limit-id") }
         defer { cleanup(service, ids: ids) }
@@ -148,5 +164,71 @@ struct SearchIndexServiceIntegrationTests {
         let results = try withRetry { try service.search(query: token, limit: 2) }
         #expect(results.count <= 2)
         #expect(results.allSatisfy { ids.contains($0.pageId) })
+    }
+
+    @Test("diffSync updates changed pages and deletes stale entries")
+    func diffSyncUpdatesAndDeletes() async throws {
+        let setup = try makeService()
+        let service = setup.service
+        let updatedId = uniqueId("diff-updated")
+        let newId = uniqueId("diff-new")
+        let staleId = uniqueId("diff-stale")
+        let oldToken = uniqueToken("old")
+        let newToken = uniqueToken("new")
+        defer { cleanup(service, ids: [updatedId, newId, staleId]) }
+
+        try withRetry {
+            try service.upsert(
+                id: updatedId,
+                title: "Old \(oldToken)",
+                body: "Old body \(oldToken)",
+                tags: "",
+                updatedAt: Date(timeIntervalSince1970: 1)
+            )
+        }
+        try withRetry {
+            try service.upsert(
+                id: staleId,
+                title: "Stale \(oldToken)",
+                body: "Stale body \(oldToken)",
+                tags: "",
+                updatedAt: Date(timeIntervalSince1970: 1)
+            )
+        }
+
+        try await service.diffSync(
+            swiftDataPages: [
+                (id: updatedId, updatedAt: Date(timeIntervalSince1970: 2)),
+                (id: newId, updatedAt: Date(timeIntervalSince1970: 2)),
+            ],
+            fullPageProvider: { id in
+                switch id {
+                case updatedId:
+                    return (
+                        title: "Updated \(newToken)",
+                        body: "Updated body \(newToken)",
+                        tags: "fresh",
+                        updatedAt: Date(timeIntervalSince1970: 2)
+                    )
+                case newId:
+                    return (
+                        title: "Inserted \(newToken)",
+                        body: "Inserted body \(newToken)",
+                        tags: "fresh",
+                        updatedAt: Date(timeIntervalSince1970: 2)
+                    )
+                default:
+                    return nil
+                }
+            }
+        )
+
+        let newResults = try withRetry { try service.search(query: newToken, limit: 10) }
+        let oldResults = try withRetry { try service.search(query: oldToken, limit: 10) }
+
+        #expect(newResults.contains { $0.pageId == updatedId })
+        #expect(newResults.contains { $0.pageId == newId })
+        #expect(!oldResults.contains { $0.pageId == staleId })
+        #expect(!oldResults.contains { $0.pageId == updatedId })
     }
 }

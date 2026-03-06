@@ -17,7 +17,7 @@ struct DialogueOverlayView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            HStack(spacing: 14) {
+            HStack(spacing: 18) {
                 VStack(alignment: .leading, spacing: 12) {
                     header
                     transcript
@@ -26,9 +26,9 @@ struct DialogueOverlayView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 portraitPanel
-                    .frame(width: min(92, proxy.size.width * 0.22))
+                    .frame(width: min(124, proxy.size.width * 0.24))
             }
-            .padding(14)
+            .padding(18)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(dialogueBackground)
             .overlay(dialogueBorder)
@@ -55,12 +55,12 @@ struct DialogueOverlayView: View {
                 .foregroundStyle(palette.secondaryText)
                 .textCase(.uppercase)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(palette.headerFill)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(palette.headerFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -80,7 +80,8 @@ struct DialogueOverlayView: View {
                 .padding(.vertical, 2)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.horizontal, 2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
             .onChange(of: chatState.messages.count) {
                 if let last = chatState.messages.last {
                     proxy.scrollTo(last.id, anchor: .bottom)
@@ -125,8 +126,8 @@ struct DialogueOverlayView: View {
                     .fill(palette.actionFill)
             )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(palette.inputFill)

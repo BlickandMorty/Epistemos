@@ -16,10 +16,39 @@ nonisolated struct GraphNodeRecord: Identifiable, Sendable {
     let metadata: GraphNodeMetadata
     var weight: Double
     let createdAt: Date
+    let updatedAt: Date
     var position: SIMD2<Float> = .zero
     var velocity: SIMD2<Float> = .zero
     var isVisible: Bool = true
     var isPinned: Bool = false
+
+    init(
+        id: String,
+        type: GraphNodeType,
+        label: String,
+        sourceId: String?,
+        metadata: GraphNodeMetadata,
+        weight: Double,
+        createdAt: Date,
+        updatedAt: Date? = nil,
+        position: SIMD2<Float> = .zero,
+        velocity: SIMD2<Float> = .zero,
+        isVisible: Bool = true,
+        isPinned: Bool = false
+    ) {
+        self.id = id
+        self.type = type
+        self.label = label
+        self.sourceId = sourceId
+        self.metadata = metadata
+        self.weight = weight
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt ?? createdAt
+        self.position = position
+        self.velocity = velocity
+        self.isVisible = isVisible
+        self.isPinned = isPinned
+    }
 }
 
 // MARK: - GraphEdgeRecord
@@ -246,6 +275,7 @@ final class GraphStore {
                 metadata: sdNode.meta,
                 weight: sdNode.weight,
                 createdAt: sdNode.createdAt,
+                updatedAt: sdNode.updatedAt,
                 position: position,
                 velocity: .zero
             )
@@ -281,6 +311,7 @@ final class GraphStore {
                 metadata: sdNode.meta,
                 weight: sdNode.weight,
                 createdAt: sdNode.createdAt,
+                updatedAt: sdNode.updatedAt,
                 position: position,
                 velocity: .zero
             )

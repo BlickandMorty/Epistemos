@@ -64,8 +64,8 @@ final class QueryRuntime {
             }
         case .updated(let ascending):
             return nodes.sorted {
-                let a = graphStore.nodes[$0.id]?.createdAt ?? .distantPast
-                let b = graphStore.nodes[$1.id]?.createdAt ?? .distantPast
+                let a = graphStore.nodes[$0.id]?.updatedAt ?? .distantPast
+                let b = graphStore.nodes[$1.id]?.updatedAt ?? .distantPast
                 return ascending ? a < b : a > b
             }
         }

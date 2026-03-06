@@ -24,8 +24,11 @@ private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 
 @MainActor @Observable
 final class VaultSyncService {
+    typealias ExportPageOperation = @Sendable (String, URL) async throws -> String?
+
     private var indexActor: VaultIndexActor?
     private let modelContainer: ModelContainer
+    var exportPageOverride: ExportPageOperation?
 
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
@@ -57,6 +60,21 @@ final class VaultSyncService {
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
+    }
+
+    func setVaultURLForTesting(_ vaultURL: URL?) {
+        self.vaultURL = vaultURL
+    }
+
+    func setExportPageOverrideForTesting(_ exportPageOverride: ExportPageOperation?) {
+        self.exportPageOverride = exportPageOverride
+    }
+
+    private func exportPage(pageId: String, to vaultURL: URL) async throws -> String? {
+        if let exportPageOverride {
+            return try await exportPageOverride(pageId, vaultURL)
+        }
+        return try await indexActor?.exportPage(pageId: pageId, to: vaultURL)
     }
 
     // MARK: - Lifecycle
@@ -393,6 +411,24 @@ final class VaultSyncService {
         }
     }
 
+    func searchFullAsync(query: String, limit: Int = 20) async -> [SearchResult] {
+        guard let svc = searchService else { return [] }
+        do {
+            return try await svc.searchAsync(query: query, limit: limit)
+        } catch {
+            return []
+        }
+    }
+
+    func searchBlocksAsync(query: String, limit: Int = 20) async -> [BlockSearchResult] {
+        guard let svc = searchService else { return [] }
+        do {
+            return try await svc.searchBlocksAsync(query: query, limit: limit)
+        } catch {
+            return []
+        }
+    }
+
     /// Manually trigger a full FTS5 index rebuild.
     /// Called from Settings > Vault > "Rebuild Index" button.
     func rebuildIndex() {
@@ -534,10 +570,9 @@ final class VaultSyncService {
             Log.vault.error("Failed to save before page export (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
         }
 
-        let actor = indexActor
         Task {
             do {
-                let exportedPath = try await actor?.exportPage(pageId: pageId, to: vaultURL)
+                let exportedPath = try await self.exportPage(pageId: pageId, to: vaultURL)
 
                 await MainActor.run {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
@@ -568,17 +603,18 @@ final class VaultSyncService {
     }
 
     /// Save all dirty pages to their vault .md files.
-    func saveAllDirtyPages() {
-        guard let vaultURL else { return }
+    @discardableResult
+    func saveAllDirtyPages() -> Task<Void, Never>? {
+        guard let vaultURL else { return nil }
 
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>()
-        guard let allPages = try? context.fetch(descriptor) else { return }
+        guard let allPages = try? context.fetch(descriptor) else { return nil }
 
         let dirtyPages = allPages.filter(\.isDirtyVault)
         guard !dirtyPages.isEmpty else {
             log.info("No dirty pages to save")
-            return
+            return nil
         }
 
         let dirtyIds = dirtyPages.map(\.id)
@@ -593,19 +629,22 @@ final class VaultSyncService {
         } catch {
             Log.vault.error("Failed to save before dirty pages export: \(error.localizedDescription, privacy: .public)")
         }
+        let task = Task { [weak self] in
+            guard let self else { return }
+            var successfulIds: [String] = []
+            successfulIds.reserveCapacity(dirtyIds.count)
 
-        let actor = indexActor
-        Task {
             for pageId in dirtyIds {
                 do {
-                    _ = try await actor?.exportPage(pageId: pageId, to: vaultURL)
+                    _ = try await self.exportPage(pageId: pageId, to: vaultURL)
+                    successfulIds.append(pageId)
                 } catch {
                     log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             }
 
             await MainActor.run {
-                for pageId in dirtyIds {
+                for pageId in successfulIds {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
                     if let page = try? context.fetch(desc).first {
                         page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
@@ -621,8 +660,9 @@ final class VaultSyncService {
                 }
             }
 
-            log.info("Saved \(dirtyIds.count) dirty pages to vault")
+            log.info("Saved \(successfulIds.count) of \(dirtyIds.count) dirty pages to vault")
         }
+        return task
     }
 
     /// Auto-save interval in seconds. 0 = disabled.
@@ -878,7 +918,7 @@ final class VaultSyncService {
         let pageId = page.id
         Task { [weak self] in
             do {
-                _ = try await self?.indexActor?.exportPage(pageId: pageId, to: vaultURL)
+                _ = try await self?.exportPage(pageId: pageId, to: vaultURL)
             } catch {
                 log.error(
                     "Failed to export new page to disk: \(error.localizedDescription, privacy: .public)"

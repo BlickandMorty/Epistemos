@@ -954,7 +954,7 @@ final class GraphState {
         let node = GraphNodeRecord(
             id: id, type: type, label: label, sourceId: nil,
             metadata: GraphNodeMetadata(), weight: 1.0,
-            createdAt: createdAt, position: pos
+            createdAt: createdAt, updatedAt: createdAt, position: pos
         )
         store.addNode(node)
         let edge = GraphEdgeRecord(
@@ -1053,6 +1053,7 @@ final class GraphState {
                 metadata: sdNode.meta,
                 weight: sdNode.weight,
                 createdAt: sdNode.createdAt,
+                updatedAt: sdNode.updatedAt,
                 position: position,
                 velocity: .zero
             )
@@ -1102,6 +1103,7 @@ final class GraphState {
                 metadata: sdNode.meta,
                 weight: sdNode.weight,
                 createdAt: sdNode.createdAt,
+                updatedAt: sdNode.updatedAt,
                 position: position,
                 velocity: .zero
             )

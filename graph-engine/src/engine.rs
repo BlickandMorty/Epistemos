@@ -54,6 +54,15 @@ fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
     zoom.clamp(1.0, 10.0)
 }
 
+fn should_update_field_lines(
+    quality_level: u8,
+    hovered_id: Option<u32>,
+    field_line_count: usize,
+    dragging: bool,
+) -> bool {
+    quality_level == 0 && !dragging && (hovered_id.is_some() || field_line_count > 0)
+}
+
 /// Drag state for d3-style fx/fy constraint.
 struct DragState {
     node_id: u32,
@@ -568,7 +577,12 @@ impl Engine {
 
         // Update magnetic field lines only when hovering (skip in lite mode entirely).
         // Field lines only in Cinematic mode (quality_level == 0).
-        if self.quality_level == 0 && (self.hovered_id.is_some() || self.renderer.field_line_count > 0) {
+        if should_update_field_lines(
+            self.quality_level,
+            self.hovered_id,
+            self.renderer.field_line_count,
+            self.drag.is_some(),
+        ) {
             let time = self.renderer.start_time.elapsed().as_secs_f32();
             self.renderer.update_field_lines(self.hovered_id, &self.world, time);
         }
@@ -608,6 +622,8 @@ impl Engine {
             }
 
             self.selected_id = Some(node_id);
+            self.hovered_id = None;
+            self.renderer.update_field_lines(None, &self.world, 0.0);
 
             // Start drag — D3 canonical pattern:
             //   1. Anchor to node's OWN position (no jolt from cursor offset)
@@ -663,6 +679,10 @@ impl Engine {
     /// Mouse/trackpad moved (drag, pan, or hover).
     pub fn mouse_moved(&mut self, screen_x: f32, screen_y: f32) {
         self.idle_frame_count = 0;
+        let (wx, wy) = self.screen_to_world(screen_x, screen_y);
+        if self.renderer.dialogue.active {
+            self.renderer.dialogue.look_target_world = [wx, wy];
+        }
         if self.drag.is_some() {
             let drag = self.drag.as_ref().unwrap();
             let sim_index = drag.sim_index;
@@ -675,7 +695,6 @@ impl Engine {
             let is_real_drag = dx * dx + dy * dy > 25.0;
 
             // Dragging a node — update fixed position + inject fluid wake.
-            let (wx, wy) = self.screen_to_world(screen_x, screen_y);
             let dvx = wx - prev_world[0];
             let dvy = wy - prev_world[1];
 
@@ -696,7 +715,6 @@ impl Engine {
             self.renderer.target_offset = self.renderer.camera_offset;
         } else {
             // Hover detection.
-            let (wx, wy) = self.screen_to_world(screen_x, screen_y);
             self.hovered_id = self.spatial.query_point(wx, wy);
         }
     }
@@ -1389,6 +1407,10 @@ impl Engine {
             if let Some(idx) = self.world.index_of_node_id(id) {
                 self.renderer.dialogue.active = true;
                 self.renderer.dialogue.node_index = Some(idx);
+                self.renderer.dialogue.look_target_world = [
+                    self.world.transform[idx].x,
+                    self.world.transform[idx].y,
+                ];
                 self.idle_frame_count = 0;
             }
         }
@@ -1399,6 +1421,7 @@ impl Engine {
         self.renderer.dialogue.active = false;
         self.renderer.dialogue.node_index = None;
         self.renderer.dialogue.is_streaming = false;
+        self.renderer.dialogue.look_target_world = [0.0; 2];
         self.idle_frame_count = 0;
     }
 
@@ -2241,5 +2264,13 @@ mod tests {
         assert_eq!(sim.lock().haptic_event, 1);
         sim.lock().haptic_event = 2;
         assert_eq!(sim.lock().haptic_event, 2);
+    }
+
+    #[test]
+    fn field_lines_disable_while_dragging() {
+        assert!(!should_update_field_lines(0, Some(7), 3, true));
+        assert!(!should_update_field_lines(1, Some(7), 3, false));
+        assert!(should_update_field_lines(0, Some(7), 0, false));
+        assert!(should_update_field_lines(0, None, 3, false));
     }
 }

@@ -37,6 +37,7 @@ actor BackgroundGraphActor {
                 metadata: sdNode.meta,
                 weight: sdNode.weight,
                 createdAt: sdNode.createdAt,
+                updatedAt: sdNode.updatedAt,
                 position: position,
                 velocity: .zero
             )

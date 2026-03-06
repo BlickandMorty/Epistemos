@@ -40,6 +40,7 @@ pub(crate) struct DialogueState {
     pub active: bool,
     pub node_index: Option<usize>,
     pub is_streaming: bool,
+    pub look_target_world: [f32; 2],
     /// Box rect in screen coords (x, y, w, h) for SwiftUI overlay.
     pub box_screen_rect: [f32; 4],
     /// Selected node center in screen coords.
@@ -52,6 +53,7 @@ impl Default for DialogueState {
             active: false,
             node_index: None,
             is_streaming: false,
+            look_target_world: [0.0; 2],
             box_screen_rect: [0.0; 4],
             node_screen_pos: [0.0; 2],
         }
@@ -90,10 +92,11 @@ struct DialogueBoxGeometry {
     node_screen_pos: [f32; 2],
 }
 
-const DIALOGUE_BOX_SCREEN_WIDTH: f32 = 460.0;
-const DIALOGUE_BOX_SCREEN_HEIGHT: f32 = 220.0;
-const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 18.0;
-const DIALOGUE_GAP_SCREEN: f32 = 14.0;
+const DIALOGUE_BOX_SCREEN_WIDTH: f32 = 640.0;
+const DIALOGUE_BOX_SCREEN_HEIGHT: f32 = 320.0;
+const DIALOGUE_TAIL_SCREEN_HEIGHT: f32 = 22.0;
+const DIALOGUE_GAP_SCREEN: f32 = 22.0;
+const DIALOGUE_VIEWPORT_MARGIN_SCREEN: f32 = 18.0;
 
 /// Uniform data sent to all shaders (camera transform + animation).
 #[repr(C)]
@@ -166,7 +169,7 @@ fn clamp_dialogue_box_left(
     box_width_world: f32,
 ) -> f32 {
     let view_half_w = viewport_width * 0.5 / zoom;
-    let margin_world = 18.0 / zoom;
+    let margin_world = DIALOGUE_VIEWPORT_MARGIN_SCREEN / zoom;
     let min_left = camera_offset_x - view_half_w + margin_world;
     let max_left = camera_offset_x + view_half_w - margin_world - box_width_world;
     if min_left <= max_left {
@@ -174,6 +177,66 @@ fn clamp_dialogue_box_left(
     } else {
         preferred_left
     }
+}
+
+fn clamp_dialogue_box_top(
+    preferred_top: f32,
+    camera_offset_y: f32,
+    zoom: f32,
+    viewport_height: f32,
+    box_height_world: f32,
+    max_top_before_overlap: f32,
+) -> f32 {
+    let view_half_h = viewport_height * 0.5 / zoom;
+    let margin_world = DIALOGUE_VIEWPORT_MARGIN_SCREEN / zoom;
+    let min_top = camera_offset_y - view_half_h + margin_world;
+    let max_top = (camera_offset_y + view_half_h - margin_world - box_height_world)
+        .min(max_top_before_overlap);
+    if min_top <= max_top {
+        preferred_top.clamp(min_top, max_top)
+    } else {
+        preferred_top.min(max_top_before_overlap)
+    }
+}
+
+fn dialogue_box_vertical_layout(node_y: f32, node_radius: f32, zoom: f32) -> (f32, f32) {
+    let tail_h_world = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
+    let base_gap_world = DIALOGUE_GAP_SCREEN / zoom;
+    let face_clearance_world = (node_radius * 0.35).max(20.0 / zoom);
+    let tail_tip_y = node_y - node_radius - base_gap_world - face_clearance_world;
+    let box_bottom_y = tail_tip_y - tail_h_world;
+    (box_bottom_y, tail_tip_y)
+}
+
+fn face_blink_openness(time: f32, node_seed: f32, streaming: bool) -> f32 {
+    let speed = if streaming { 0.42 } else { 0.28 };
+    let phase = (time * speed + node_seed).fract();
+    let blink = if (0.82..=0.96).contains(&phase) {
+        let distance = ((phase - 0.89) / 0.07).abs().min(1.0);
+        1.0 - distance
+    } else {
+        0.0
+    };
+    (1.0 - blink * 0.78).clamp(0.22, 1.0)
+}
+
+fn face_pupil_offset(node_center: [f32; 2], look_target: [f32; 2], max_offset: f32) -> [f32; 2] {
+    let dx = look_target[0] - node_center[0];
+    let dy = look_target[1] - node_center[1];
+    let dist = (dx * dx + dy * dy).sqrt();
+    if dist <= f32::EPSILON || max_offset <= f32::EPSILON {
+        return [0.0, 0.0];
+    }
+
+    let scale = dist.min(max_offset) / dist;
+    let mut offset = [dx * scale, dy * scale];
+    let offset_len = (offset[0] * offset[0] + offset[1] * offset[1]).sqrt();
+    if offset_len > max_offset {
+        let correction = max_offset / offset_len;
+        offset[0] *= correction;
+        offset[1] *= correction;
+    }
+    offset
 }
 
 pub(crate) fn lod_profile_for_zoom(_zoom: f32, quality_level: u8) -> LodProfile {
@@ -674,6 +737,7 @@ pub struct Renderer {
     // Counts (buffer layout: [glow_count glows] [node_count nodes] [highlight_count rings])
     glow_count: usize,
     node_count: usize,
+    face_feature_count: usize,
     edge_instance_count: usize,
     pub use_aggregated_edges: bool,
     aggregated_edge_count: usize,
@@ -753,6 +817,17 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    #[inline]
+    fn push_face_node(&mut self, position: [f32; 2], radius: f32, color: [f32; 4]) {
+        self.classic_node_scratch.push(NodeInstance {
+            position,
+            radius,
+            z: 0.99,
+            color,
+        });
+        self.classic_velocity_scratch.push([0.0, 0.0]);
+    }
+
     #[inline]
     fn node_color(&self, node_type: &crate::types::NodeType) -> [f32; 4] {
         if self.light_mode { node_type.color_light() } else { node_type.color() }
@@ -842,6 +917,7 @@ impl Renderer {
             last_frame_time: std::time::Instant::now(),
             glow_count: 0,
             node_count: 0,
+            face_feature_count: 0,
             edge_instance_count: 0,
             use_aggregated_edges: false,
             aggregated_edge_count: 0,
@@ -1265,56 +1341,102 @@ impl Renderer {
             self.glow_count = 0;
         }
 
-        // Face geometry: Kirby-style eyes + mouth on dialogue-active node.
+        // Face geometry for the active dialogue node.
         if self.dialogue.active {
             if let Some(node_idx) = self.dialogue.node_index {
                 if node_idx < world.transform.len() {
                     let nx = world.transform[node_idx].x;
                     let ny = world.transform[node_idx].y;
                     let r = world.graph_node[node_idx].radius;
-                    let eye_r = r * 0.12;
-                    let eye_spacing = r * 0.28;
-                    let eye_y = ny - r * 0.15;
-                    let mouth_y = ny + r * 0.25;
-
                     let time = self.start_time.elapsed().as_secs_f32();
-                    let blink_cycle = (time * 0.33).fract();
-                    let eyes_visible = blink_cycle < 0.92 || blink_cycle > 0.96;
+                    let node_seed = world.graph_node[node_idx].node_id as f32 * 0.173;
+                    let bob_y = (time * (if self.dialogue.is_streaming { 2.8 } else { 1.45 }) + node_seed)
+                        .sin()
+                        * r
+                        * 0.018;
+                    let eye_white_r = r * 0.17;
+                    let eye_lid_r = eye_white_r * 0.28;
+                    let pupil_r = eye_white_r * 0.42;
+                    let eye_spacing = r * 0.31;
+                    let eye_y = ny - r * 0.14 + bob_y;
+                    let cheek_y = ny + r * 0.05 + bob_y * 0.35;
+                    let mouth_y = ny + r * 0.28 + bob_y * 0.45;
+                    let blink_open = face_blink_openness(time, node_seed, self.dialogue.is_streaming);
+                    let pupil_offset =
+                        face_pupil_offset([nx, ny], self.dialogue.look_target_world, eye_white_r * 0.34);
 
-                    if eyes_visible {
-                        self.classic_node_scratch.push(NodeInstance {
-                            position: [nx - eye_spacing, eye_y],
-                            radius: eye_r,
-                            z: 0.99,
-                            color: [1.0, 1.0, 1.0, 1.0],
-                        });
-                        self.classic_velocity_scratch.push([0.0, 0.0]);
+                    self.push_face_node(
+                        [nx - eye_spacing * 0.92, cheek_y],
+                        r * 0.075,
+                        [1.0, 0.72, 0.80, 0.10],
+                    );
+                    self.push_face_node(
+                        [nx + eye_spacing * 0.92, cheek_y],
+                        r * 0.075,
+                        [1.0, 0.72, 0.80, 0.10],
+                    );
 
-                        self.classic_node_scratch.push(NodeInstance {
-                            position: [nx + eye_spacing, eye_y],
-                            radius: eye_r,
-                            z: 0.99,
-                            color: [1.0, 1.0, 1.0, 1.0],
-                        });
-                        self.classic_velocity_scratch.push([0.0, 0.0]);
+                    if blink_open > 0.4 {
+                        let eye_color = [0.98, 0.99, 1.0, 0.96];
+                        let pupil_color = [0.13, 0.18, 0.28, 0.94];
+                        let catchlight_color = [1.0, 1.0, 1.0, 0.72];
+                        let left_eye = [nx - eye_spacing, eye_y];
+                        let right_eye = [nx + eye_spacing, eye_y];
+                        let left_pupil = [left_eye[0] + pupil_offset[0], left_eye[1] + pupil_offset[1]];
+                        let right_pupil = [right_eye[0] + pupil_offset[0], right_eye[1] + pupil_offset[1]];
+
+                        self.push_face_node(left_eye, eye_white_r * blink_open, eye_color);
+                        self.push_face_node(right_eye, eye_white_r * blink_open, eye_color);
+                        self.push_face_node(left_pupil, pupil_r * blink_open, pupil_color);
+                        self.push_face_node(right_pupil, pupil_r * blink_open, pupil_color);
+                        self.push_face_node(
+                            [left_pupil[0] - pupil_r * 0.28, left_pupil[1] - pupil_r * 0.24],
+                            pupil_r * 0.22,
+                            catchlight_color,
+                        );
+                        self.push_face_node(
+                            [right_pupil[0] - pupil_r * 0.28, right_pupil[1] - pupil_r * 0.24],
+                            pupil_r * 0.22,
+                            catchlight_color,
+                        );
+                    } else {
+                        let lid_color = [0.16, 0.20, 0.28, 0.82];
+                        self.push_face_node([nx - eye_spacing, eye_y], eye_lid_r, lid_color);
+                        self.push_face_node([nx + eye_spacing, eye_y], eye_lid_r, lid_color);
                     }
 
-                    let mouth_r = if self.dialogue.is_streaming {
-                        eye_r * (0.6 + 0.4 * (time * 8.0).sin().abs())
+                    if self.dialogue.is_streaming {
+                        let mouth_outer_r =
+                            eye_white_r * (0.66 + 0.24 * (time * 10.0 + node_seed).sin().abs());
+                        self.push_face_node([nx, mouth_y], mouth_outer_r, [0.16, 0.20, 0.30, 0.90]);
+                        self.push_face_node(
+                            [nx, mouth_y + mouth_outer_r * 0.08],
+                            mouth_outer_r * 0.56,
+                            [0.96, 0.58, 0.68, 0.32],
+                        );
                     } else {
-                        eye_r * 0.5
-                    };
-                    self.classic_node_scratch.push(NodeInstance {
-                        position: [nx, mouth_y],
-                        radius: mouth_r,
-                        z: 0.99,
-                        color: [1.0, 1.0, 1.0, 0.9],
-                    });
-                    self.classic_velocity_scratch.push([0.0, 0.0]);
+                        let smile_color = [0.15, 0.18, 0.27, 0.86];
+                        let smile_r = eye_white_r * 0.24;
+                        self.push_face_node([nx, mouth_y], smile_r, smile_color);
+                        self.push_face_node(
+                            [nx - eye_spacing * 0.38, mouth_y - r * 0.028],
+                            smile_r * 0.82,
+                            smile_color,
+                        );
+                        self.push_face_node(
+                            [nx + eye_spacing * 0.38, mouth_y - r * 0.028],
+                            smile_r * 0.82,
+                            smile_color,
+                        );
+                    }
                 }
             }
         }
 
+        self.face_feature_count = self
+            .classic_node_scratch
+            .len()
+            .saturating_sub(self.glow_count + self.node_count);
         let total_node_instances = self.classic_node_scratch.len();
 
         if total_node_instances == 0 {
@@ -1322,6 +1444,7 @@ impl Renderer {
             self.edge_instance_buf = None;
             self.glow_count = 0;
             self.node_count = 0;
+            self.face_feature_count = 0;
             self.highlight_count = 0;
             self.edge_instance_count = 0;
             return;
@@ -1583,7 +1706,7 @@ impl Renderer {
     pub fn set_highlights(&mut self, selected: Option<u32>, hovered: Option<u32>, world: &World) {
         let Some(buf) = &self.node_instance_buf else { return };
         let ptr = buf.contents() as *mut NodeInstance;
-        let mut idx = self.glow_count + self.node_count;
+        let mut idx = self.glow_count + self.node_count + self.face_feature_count;
         let capacity = self.node_instance_capacity;
 
         if idx < capacity
@@ -1620,14 +1743,14 @@ impl Renderer {
             idx += 1;
         }
 
-        self.highlight_count = idx - self.glow_count - self.node_count;
+        self.highlight_count = idx - self.glow_count - self.node_count - self.face_feature_count;
     }
 
     /// Rebuild the per-instance highlight flag buffer.
     /// Called every frame — cheap (N bytes) and ensures highlight changes are always visible,
     /// even when physics is settled and update_positions isn't running.
     pub fn rebuild_highlight_flags(&mut self, world: &World) {
-        let total = self.glow_count + self.node_count + self.highlight_count;
+        let total = self.glow_count + self.node_count + self.face_feature_count + self.highlight_count;
         if total == 0 { return; }
 
         // Encode dim factor: 0 = normal (1.0), non-zero = dim (value/255).
@@ -1666,9 +1789,16 @@ impl Renderer {
                 let lit = self.highlight.highlighted_ids.contains(&graph_node.node_id);
                 self.highlight_flag_scratch.push(if lit { 1 } else { NODE_DIM });
             }
+            self.highlight_flag_scratch.resize(
+                self.glow_count + self.node_count + self.face_feature_count,
+                0,
+            );
         } else {
             // No highlight — all normal
-            self.highlight_flag_scratch.resize(self.glow_count + self.node_count, 0);
+            self.highlight_flag_scratch.resize(
+                self.glow_count + self.node_count + self.face_feature_count,
+                0,
+            );
         }
 
         // Highlight rings — never dimmed
@@ -1883,9 +2013,6 @@ impl Renderer {
         // Convert screen-space dimensions to world-space.
         let box_w_world = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
         let box_h_world = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
-        let tail_h_world = DIALOGUE_TAIL_SCREEN_HEIGHT / zoom;
-        let gap_world = DIALOGUE_GAP_SCREEN / zoom;
-
         let preferred_left = node_x - box_w_world * 0.5;
         let box_left = clamp_dialogue_box_left(
             preferred_left,
@@ -1896,10 +2023,20 @@ impl Renderer {
         );
         let tail_half_w = 12.0 / zoom;
         let tail_base_center_x = node_x.clamp(box_left + tail_half_w, box_left + box_w_world - tail_half_w);
-        let box_bottom_y = node_y - node_radius - gap_world - tail_h_world;
-        let box_top_y = box_bottom_y - box_h_world;
         let vw = self.last_viewport_width;
         let vh = self.last_viewport_height;
+        let (preferred_box_bottom_y, tail_tip_y) = dialogue_box_vertical_layout(node_y, node_radius, zoom);
+        let preferred_box_top_y = preferred_box_bottom_y - box_h_world;
+        let max_box_top_y = tail_tip_y - DIALOGUE_TAIL_SCREEN_HEIGHT / zoom - box_h_world;
+        let box_top_y = clamp_dialogue_box_top(
+            preferred_box_top_y,
+            self.camera_offset[1],
+            zoom,
+            vh,
+            box_h_world,
+            max_box_top_y,
+        );
+        let box_bottom_y = box_top_y + box_h_world;
 
         let screen_box_x = (box_left - self.camera_offset[0]) * zoom + vw * 0.5;
         let screen_box_y = (box_top_y - self.camera_offset[1]) * zoom + vh * 0.5;
@@ -1915,7 +2052,7 @@ impl Renderer {
             bottom: box_bottom_y,
             tail_base_center_x,
             tail_tip_x: node_x,
-            tail_tip_y: node_y - node_radius - gap_world,
+            tail_tip_y,
             screen_rect: [screen_box_x, screen_box_y, screen_box_w, screen_box_h],
             node_screen_pos: [node_screen_x, node_screen_y],
         })
@@ -2214,7 +2351,8 @@ impl Renderer {
             }
 
             // Draw nodes: glow instances + regular nodes + highlight rings.
-            let total_instances = self.glow_count + self.node_count + self.highlight_count;
+            let total_instances =
+                self.glow_count + self.node_count + self.face_feature_count + self.highlight_count;
             if total_instances > 0
                 && let Some(inst_buf) = &self.node_instance_buf
             {
@@ -2366,6 +2504,7 @@ mod tests {
         assert!(!state.active);
         assert!(state.node_index.is_none());
         assert!(!state.is_streaming);
+        assert_eq!(state.look_target_world, [0.0; 2]);
         assert_eq!(state.box_screen_rect, [0.0; 4]);
         assert_eq!(state.node_screen_pos, [0.0; 2]);
     }
@@ -2391,12 +2530,53 @@ mod tests {
     }
 
     #[test]
+    fn dialogue_box_dimensions_are_roomy_enough_for_overlay_ui() {
+        assert!(DIALOGUE_BOX_SCREEN_WIDTH >= 600.0);
+        assert!(DIALOGUE_BOX_SCREEN_HEIGHT >= 280.0);
+    }
+
+    #[test]
+    fn dialogue_box_sits_above_large_node_face() {
+        let node_y = 240.0;
+        let node_radius = 64.0;
+        let (box_bottom_y, tail_tip_y) = dialogue_box_vertical_layout(node_y, node_radius, 1.0);
+        assert!(tail_tip_y < node_y - node_radius - 20.0);
+        assert!(box_bottom_y < tail_tip_y);
+    }
+
+    #[test]
+    fn face_blink_never_pops_fully_invisible() {
+        for sample in 0..240 {
+            let openness = face_blink_openness(sample as f32 * 0.05, 0.37, false);
+            assert!((0.22..=1.0).contains(&openness));
+        }
+    }
+
+    #[test]
+    fn face_pupil_offset_stays_clamped() {
+        let offset = face_pupil_offset([0.0, 0.0], [99.0, -50.0], 6.0);
+        let distance = (offset[0] * offset[0] + offset[1] * offset[1]).sqrt();
+        assert!(distance <= 6.0 + f32::EPSILON);
+        assert_eq!(face_pupil_offset([4.0, 4.0], [4.0, 4.0], 6.0), [0.0, 0.0]);
+    }
+
+    #[test]
     fn clamp_dialogue_box_left_keeps_box_inside_viewport() {
         let zoom = 1.0;
         let box_width_world = DIALOGUE_BOX_SCREEN_WIDTH / zoom;
         let left = clamp_dialogue_box_left(400.0, 0.0, zoom, 800.0, box_width_world);
-        let margin = 18.0 / zoom;
+        let margin = DIALOGUE_VIEWPORT_MARGIN_SCREEN / zoom;
         let max_left = 400.0 - margin - box_width_world;
         assert!((left - max_left).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn clamp_dialogue_box_top_keeps_box_inside_viewport_when_room_exists() {
+        let zoom = 1.0;
+        let box_height_world = DIALOGUE_BOX_SCREEN_HEIGHT / zoom;
+        let top = clamp_dialogue_box_top(-360.0, 0.0, zoom, 900.0, box_height_world, -40.0);
+        let min_top = -450.0 + DIALOGUE_VIEWPORT_MARGIN_SCREEN / zoom;
+        let max_top = -40.0;
+        assert!((min_top..=max_top).contains(&top));
     }
 }
