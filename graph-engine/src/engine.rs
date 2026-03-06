@@ -529,8 +529,9 @@ impl Engine {
         let camera_moving = self.renderer.is_animating;
         let camera_refresh_due = self.camera_rebuild_pending && !camera_moving;
         let instance_buffers_changed = positions_changed || viewport_changed || camera_refresh_due;
+        let dialogue_animating = self.renderer.dialogue.active && self.renderer.dialogue.is_streaming;
         let needs_frame =
-            sim_active || camera_moving || viewport_changed || camera_refresh_due || self.highlight_dirty;
+            sim_active || camera_moving || viewport_changed || camera_refresh_due || self.highlight_dirty || dialogue_animating;
 
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
@@ -1378,6 +1379,47 @@ impl Engine {
                 self.world.graph_node[world_index].confidence = clamped;
             }
         }
+    }
+
+    // ── Dialogue ──────────────────────────────────────────────────────
+
+    /// Activate dialogue face on the node matching `node_uuid`.
+    pub fn dialogue_open(&mut self, node_uuid: &str) {
+        if let Some(&id) = self.graph.uuid_to_id.get(node_uuid) {
+            if let Some(idx) = self.world.index_of_node_id(id) {
+                self.renderer.dialogue.active = true;
+                self.renderer.dialogue.node_index = Some(idx);
+                self.idle_frame_count = 0;
+            }
+        }
+    }
+
+    /// Deactivate dialogue face.
+    pub fn dialogue_close(&mut self) {
+        self.renderer.dialogue.active = false;
+        self.renderer.dialogue.node_index = None;
+        self.renderer.dialogue.is_streaming = false;
+        self.idle_frame_count = 0;
+    }
+
+    /// Set streaming state (mouth animation).
+    pub fn dialogue_set_streaming(&mut self, streaming: bool) {
+        self.renderer.dialogue.is_streaming = streaming;
+        if streaming {
+            self.idle_frame_count = 0;
+        }
+    }
+
+    pub fn dialogue_screen_rect(&self) -> [f32; 4] {
+        self.renderer.dialogue.box_screen_rect
+    }
+
+    pub fn dialogue_node_screen_pos(&self) -> [f32; 2] {
+        self.renderer.dialogue.node_screen_pos
+    }
+
+    pub fn dialogue_is_active(&self) -> bool {
+        self.renderer.dialogue.active
     }
 }
 

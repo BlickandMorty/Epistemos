@@ -1103,3 +1103,65 @@ pub extern "C" fn graph_engine_free_string(s: *mut c_char) {
         }
     }
 }
+
+// ── Dialogue ────────────────────────────────────────────────────────────────
+
+/// Open dialogue on a node (activates face geometry + dialogue box).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_dialogue_open(engine: *mut Engine, node_uuid: *const c_char) {
+    ffi_engine!(engine);
+    let uuid = ffi_cstr!(node_uuid);
+    engine.dialogue_open(uuid);
+}
+
+/// Close dialogue (deactivates face + box).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_dialogue_close(engine: *mut Engine) {
+    ffi_engine!(engine);
+    engine.dialogue_close();
+}
+
+/// Set streaming state (animates mouth when true).
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_dialogue_set_streaming(engine: *mut Engine, streaming: u8) {
+    ffi_engine!(engine);
+    engine.dialogue_set_streaming(streaming != 0);
+}
+
+/// Get dialogue box screen rect (x, y, w, h) for SwiftUI overlay positioning.
+/// Writes 4 floats into `out`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_dialogue_screen_rect(engine: *mut Engine, out: *mut f32) {
+    ffi_engine!(engine);
+    if out.is_null() { return; }
+    let rect = engine.dialogue_screen_rect();
+    // SAFETY: `out` points to caller-owned array of at least 4 floats.
+    unsafe {
+        *out.add(0) = rect[0];
+        *out.add(1) = rect[1];
+        *out.add(2) = rect[2];
+        *out.add(3) = rect[3];
+    }
+}
+
+/// Get dialogue node screen position (x, y).
+/// Writes 2 floats into `out`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_dialogue_node_screen_pos(engine: *mut Engine, out: *mut f32) {
+    ffi_engine!(engine);
+    if out.is_null() { return; }
+    let pos = engine.dialogue_node_screen_pos();
+    // SAFETY: `out` points to caller-owned array of at least 2 floats.
+    unsafe {
+        *out.add(0) = pos[0];
+        *out.add(1) = pos[1];
+    }
+}
+
+/// Check if dialogue is currently active.
+/// Returns 1 if active, 0 if not.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_dialogue_is_active(engine: *mut Engine) -> u8 {
+    ffi_engine_or!(engine, 0);
+    u8::from(engine.dialogue_is_active())
+}

@@ -417,6 +417,26 @@ const char* graph_engine_btk_get_markdown(Engine* engine, const char* page_id);
 /// Free a string returned by graph_engine_btk_get_markdown.
 void graph_engine_free_string(char* s);
 
+// ── Dialogue ────────────────────────────────────────────────────────────────
+
+/// Open dialogue on a node (activates face geometry + dialogue box).
+void graph_engine_dialogue_open(Engine* engine, const char* node_uuid);
+
+/// Close dialogue (deactivates face + box).
+void graph_engine_dialogue_close(Engine* engine);
+
+/// Set streaming state (animates mouth when true).
+void graph_engine_dialogue_set_streaming(Engine* engine, uint8_t streaming);
+
+/// Get dialogue box screen rect (x, y, w, h). Writes 4 floats into `out`.
+void graph_engine_dialogue_screen_rect(Engine* engine, float* out);
+
+/// Get dialogue node screen position (x, y). Writes 2 floats into `out`.
+void graph_engine_dialogue_node_screen_pos(Engine* engine, float* out);
+
+/// Check if dialogue is currently active. Returns 1 if active, 0 if not.
+uint8_t graph_engine_dialogue_is_active(Engine* engine);
+
 #ifdef __cplusplus
 }
 #endif
