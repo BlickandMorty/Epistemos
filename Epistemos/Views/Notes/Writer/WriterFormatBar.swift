@@ -236,7 +236,6 @@ struct WriterFormatBar: View {
             marginsPicker
             pageSizePicker
             spreadToggle
-            rulerToggle
             zoomControl
         }
     }
@@ -299,14 +298,6 @@ struct WriterFormatBar: View {
             }
         }
         .pickerStyle(.menu)
-    }
-
-    private var rulerToggle: some View {
-        Toggle(isOn: $formatState.showRuler) {
-            Label("Ruler", systemImage: "ruler")
-        }
-        .toggleStyle(.button)
-        .help("Show ruler")
     }
 
     private var zoomControl: some View {
