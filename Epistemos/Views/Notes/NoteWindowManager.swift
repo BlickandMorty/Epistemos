@@ -439,7 +439,6 @@ private struct NotePageContent: View {
     @State private var showInfoPopover = false
     @State private var showPreview = false
     @State private var showWriterMode = false
-    @State private var showDocumentMode = false
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showTableOfContents = false
@@ -481,12 +480,6 @@ private struct NotePageContent: View {
                 if let page = pages.first {
                     if showWriterMode {
                         WriterModeView(
-                            page: page, isDark: ui.theme.isDark, theme: ui.theme,
-                            isLocked: page.isLocked
-                        )
-                        .frame(minWidth: 400, minHeight: 300)
-                    } else if showDocumentMode {
-                        DocumentModeView(
                             page: page, isDark: ui.theme.isDark, theme: ui.theme,
                             isLocked: page.isLocked
                         )
@@ -548,7 +541,7 @@ private struct NotePageContent: View {
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
         }
         .overlay(alignment: .top) {
-            if !showWriterMode && !showDocumentMode && !showPreview {
+            if !showWriterMode && !showPreview {
                 VStack(spacing: 0) {
                     // Glass title strip — bridges the gap under the tab bar
                     Text(pages.first?.title ?? "Untitled")
@@ -570,7 +563,7 @@ private struct NotePageContent: View {
             }
         }
         .overlay(alignment: .leading) {
-            if showTableOfContents, !showWriterMode && !showDocumentMode && !showPreview,
+            if showTableOfContents, !showWriterMode && !showPreview,
                let page = pages.first {
                 NoteTableOfContents(
                     markdown: page.loadBody(),
@@ -583,7 +576,7 @@ private struct NotePageContent: View {
             }
         }
         .overlay(alignment: .trailing) {
-            if !showWriterMode && !showDocumentMode && !showPreview,
+            if !showWriterMode && !showPreview,
                let nav = navState, nav.hasBreadcrumb {
                 NoteBreadcrumbBar(navState: nav)
                     .padding(.trailing, 6)
@@ -620,9 +613,6 @@ private struct NotePageContent: View {
                 .hidden()
             Button("") { toggleWriterMode() }
                 .keyboardShortcut("r", modifiers: .command)
-                .hidden()
-            Button("") { toggleDocumentMode() }
-                .keyboardShortcut("d", modifiers: [.command, .shift])
                 .hidden()
             Button("") { withAnimation { showTableOfContents.toggle() } }
                 .keyboardShortcut("t", modifiers: .command)
@@ -810,7 +800,7 @@ private struct NotePageContent: View {
             moreMenu
 
             // Ask bar
-            if !showWriterMode && !showDocumentMode && !showPreview {
+            if !showWriterMode && !showPreview {
                 toolbarChatField
             }
 
@@ -1055,7 +1045,7 @@ private struct NotePageContent: View {
 
     private func toggleWriterMode() {
         guard !isTransitioning else { return }
-        guard !showPreview && !showDocumentMode else { return }
+        guard !showPreview else { return }
         flushCurrentEditor()
         performGreetingTransition {
             invalidateEditorCache()
@@ -1063,19 +1053,9 @@ private struct NotePageContent: View {
         }
     }
 
-    private func toggleDocumentMode() {
-        guard !isTransitioning else { return }
-        guard !showPreview && !showWriterMode else { return }
-        flushCurrentEditor()
-        performGreetingTransition {
-            invalidateEditorCache()
-            showDocumentMode.toggle()
-        }
-    }
-
     private func togglePreviewMode() {
         guard !isTransitioning else { return }
-        guard !showWriterMode && !showDocumentMode else { return }
+        guard !showWriterMode else { return }
         flushCurrentEditor()
         performGreetingTransition {
             invalidateEditorCache()
@@ -1330,14 +1310,6 @@ private struct NotePageContent: View {
                 Label(
                     showWriterMode ? "Editor (\u{2318}R)" : "Writer Mode (\u{2318}R)",
                     systemImage: showWriterMode ? "pencil" : "text.page")
-            }
-
-            Button {
-                toggleDocumentMode()
-            } label: {
-                Label(
-                    showDocumentMode ? "Editor (\u{21E7}\u{2318}D)" : "Document Mode (\u{21E7}\u{2318}D)",
-                    systemImage: showDocumentMode ? "pencil" : "doc.richtext")
             }
 
             Button {

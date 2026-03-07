@@ -10,10 +10,6 @@
 		NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = NLANLYS00000000000001F1 /* NLAnalysisService.swift */; };
 		DATADET00000000000002F2 /* DataDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATADET00000000000001F1 /* DataDetectionService.swift */; };
 		PDFPRV000000000000002F2 /* WriterPDFPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = PDFPRV000000000000001F1 /* WriterPDFPreview.swift */; };
-		DOCMODE0000000000002F01 /* DocumentEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMODE0000000000001F01 /* DocumentEditorView.swift */; };
-		DOCMODE0000000000002F02 /* DocumentFormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMODE0000000000001F02 /* DocumentFormatBar.swift */; };
-		DOCMODE0000000000002F03 /* DocumentFormatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMODE0000000000001F03 /* DocumentFormatState.swift */; };
-		DOCMODE0000000000002F04 /* DocumentModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMODE0000000000001F04 /* DocumentModeView.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -270,10 +266,6 @@
 		NLANLYS00000000000001F1 /* NLAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NLAnalysisService.swift; sourceTree = "<group>"; };
 		DATADET00000000000001F1 /* DataDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDetectionService.swift; sourceTree = "<group>"; };
 		PDFPRV000000000000001F1 /* WriterPDFPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterPDFPreview.swift; sourceTree = "<group>"; };
-		DOCMODE0000000000001F01 /* DocumentEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditorView.swift; sourceTree = "<group>"; };
-		DOCMODE0000000000001F02 /* DocumentFormatBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentFormatBar.swift; sourceTree = "<group>"; };
-		DOCMODE0000000000001F03 /* DocumentFormatState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentFormatState.swift; sourceTree = "<group>"; };
-		DOCMODE0000000000001F04 /* DocumentModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModeView.swift; sourceTree = "<group>"; };
 		006D4AFC106E6BBA941CDBD4 /* ResearchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchIntents.swift; sourceTree = "<group>"; };
 		01E39AEBA6CCBE938F617A0F /* SignalGeneratorComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignalGeneratorComprehensiveTests.swift; sourceTree = "<group>"; };
 		048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteOverlay.swift; sourceTree = "<group>"; };
@@ -719,7 +711,6 @@
 				344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */,
 				CC1D4E5F60718293AB0C1D2E /* VersionTimeline.swift */,
 				ACAD000300000000WRITER03 /* Writer */,
-				DOCMODE0000000000GRP001 /* Document */,
 				A1B2C3D4E5F60001NCSREF01 /* NoteChatSidebar.swift */,
 			);
 			path = Notes;
@@ -856,17 +847,6 @@
 				PDFPRV000000000000001F1 /* WriterPDFPreview.swift */,
 			);
 			path = Writer;
-			sourceTree = "<group>";
-		};
-		DOCMODE0000000000GRP001 /* Document */ = {
-			isa = PBXGroup;
-			children = (
-				DOCMODE0000000000001F01 /* DocumentEditorView.swift */,
-				DOCMODE0000000000001F02 /* DocumentFormatBar.swift */,
-				DOCMODE0000000000001F03 /* DocumentFormatState.swift */,
-				DOCMODE0000000000001F04 /* DocumentModeView.swift */,
-			);
-			path = Document;
 			sourceTree = "<group>";
 		};
 		AFF833FE60983F969426753C /* Graph */ = {
@@ -1226,10 +1206,6 @@
 				NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */,
 				DATADET00000000000002F2 /* DataDetectionService.swift in Sources */,
 				PDFPRV000000000000002F2 /* WriterPDFPreview.swift in Sources */,
-				DOCMODE0000000000002F01 /* DocumentEditorView.swift in Sources */,
-				DOCMODE0000000000002F02 /* DocumentFormatBar.swift in Sources */,
-				DOCMODE0000000000002F03 /* DocumentFormatState.swift in Sources */,
-				DOCMODE0000000000002F04 /* DocumentModeView.swift in Sources */,
 				0F330C5227384BC39A376243 /* TransclusionOverlayManager.swift in Sources */,
 				040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */,
 				040E15E508A34F7E890D6BA1 /* EditableTransclusionView.swift in Sources */,
