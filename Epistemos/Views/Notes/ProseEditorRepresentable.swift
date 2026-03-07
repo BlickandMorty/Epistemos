@@ -145,10 +145,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.wantsLayer = true
         scrollView.contentView.wantsLayer = true
         scrollView.contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
-        // Let AppKit manage toolbar/titlebar underlap for the scroll view.
-        // This is what allows native Liquid Glass to blur real scrolling content
-        // instead of a static background color behind the toolbar.
-        scrollView.automaticallyAdjustsContentInsets = true
+        // Content sits below the toolbar (no fullSizeContentView), so disable
+        // auto inset adjustment — no toolbar overlap to compensate for.
+        scrollView.automaticallyAdjustsContentInsets = false
+        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
         // Wire delegate and coordinator
         tv.delegate = context.coordinator
