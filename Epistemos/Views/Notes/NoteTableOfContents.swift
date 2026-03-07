@@ -94,48 +94,68 @@ enum TOCParser {
 }
 
 // MARK: - NoteTableOfContents View
+// Left sidebar, DeepSeek-style: clean, minimal, hover-highlighted rows.
 
 struct NoteTableOfContents: View {
     let markdown: String
     let isDark: Bool
-    let onNavigate: (Int) -> Void  // charOffset to scroll to
+    let onNavigate: (Int) -> Void
 
     @State private var items: [TOCItem] = []
     @State private var parseTask: Task<Void, Never>?
+    @State private var hoveredItemId: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack {
-                Label("Contents", systemImage: "list.bullet.indent")
-                    .font(.system(size: 11, weight: .semibold))
+            HStack(spacing: 6) {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                Text("Contents")
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
+                Text("\(items.filter { $0.kind == .heading }.count)")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.quaternary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-
-            Divider()
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
             if items.isEmpty {
-                Text("No headings found")
-                    .font(.caption)
-                    .foregroundStyle(.quaternary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
+                VStack(spacing: 8) {
+                    Image(systemName: "text.alignleft")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.quaternary)
+                    Text("No headings")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.quaternary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 2) {
+                    LazyVStack(alignment: .leading, spacing: 1) {
                         ForEach(items) { item in
                             tocRow(item)
                         }
                     }
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
                 }
+                .scrollIndicators(.hidden)
             }
         }
-        .frame(width: 220)
-        .background(isDark ? Color(white: 0.14) : Color(white: 0.96))
+        .frame(width: 230)
+        .background {
+            if isDark {
+                Color(white: 0.11)
+            } else {
+                Color(white: 0.975)
+            }
+        }
         .onChange(of: markdown) { _, newBody in
             debounceParseBody(newBody)
         }
@@ -146,51 +166,77 @@ struct NoteTableOfContents: View {
 
     @ViewBuilder
     private func tocRow(_ item: TOCItem) -> some View {
+        let isHovered = hoveredItemId == item.id
+
         Button {
             onNavigate(item.charOffset)
         } label: {
             HStack(spacing: 6) {
-                if item.kind == .citation {
+                // Level indicator bar for headings
+                if item.kind == .heading {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(levelColor(item.level).opacity(isHovered ? 0.8 : 0.35))
+                        .frame(width: 2, height: fontSize(for: item.level) + 4)
+                } else if item.kind == .citation {
                     Image(systemName: "text.quote")
                         .font(.system(size: 8))
-                        .foregroundStyle(.purple.opacity(0.7))
+                        .foregroundStyle(.purple.opacity(0.6))
                 } else if item.kind == .source {
                     Image(systemName: "link")
                         .font(.system(size: 8))
-                        .foregroundStyle(.green.opacity(0.7))
+                        .foregroundStyle(.green.opacity(0.6))
                 }
 
                 Text(item.title)
-                    .font(.system(size: item.kind == .heading ? fontSize(for: item.level) : 10))
-                    .fontWeight(item.level <= 2 ? .medium : .regular)
-                    .foregroundStyle(item.kind == .heading ? .primary : .secondary)
+                    .font(.system(size: fontSize(for: item.level)))
+                    .fontWeight(item.level == 1 ? .semibold : item.level == 2 ? .medium : .regular)
+                    .foregroundStyle(isHovered ? .primary : (item.kind == .heading ? .secondary : .tertiary))
                     .lineLimit(2)
                     .truncationMode(.tail)
             }
             .padding(.leading, indentation(for: item))
-            .padding(.trailing, 12)
-            .padding(.vertical, 4)
+            .padding(.trailing, 10)
+            .padding(.vertical, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHovered
+                          ? (isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
+                          : Color.clear)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredItemId = hovering ? item.id : nil
+        }
     }
 
     private func fontSize(for level: Int) -> CGFloat {
         switch level {
-        case 1: return 12
+        case 1: return 12.5
         case 2: return 11.5
         case 3: return 11
-        default: return 10.5
+        case 4, 5: return 10.5
+        default: return 10
+        }
+    }
+
+    private func levelColor(_ level: Int) -> Color {
+        switch level {
+        case 1: return .blue
+        case 2: return .cyan
+        case 3: return .teal
+        default: return .gray
         }
     }
 
     private func indentation(for item: TOCItem) -> CGFloat {
         switch item.kind {
         case .heading:
-            return 12 + CGFloat(item.level - 1) * 12
+            return 8 + CGFloat(item.level - 1) * 10
         case .citation, .source:
-            return 24
+            return 18
         }
     }
 

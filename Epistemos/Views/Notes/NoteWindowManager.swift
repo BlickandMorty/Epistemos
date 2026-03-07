@@ -477,6 +477,20 @@ private struct NotePageContent: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
+
+            // Table of Contents — left sidebar (DeepSeek-style)
+            if showTableOfContents, let page = pages.first {
+                NoteTableOfContents(
+                    markdown: page.loadBody(),
+                    isDark: ui.theme.isDark,
+                    onNavigate: { charOffset in
+                        scrollEditorTo(charOffset: charOffset)
+                    }
+                )
+                .transition(.move(edge: .leading).combined(with: .opacity))
+                Divider()
+            }
+
             ZStack {
                 if let page = pages.first {
                     if showWriterMode {
@@ -542,18 +556,7 @@ private struct NotePageContent: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
 
-            // Table of Contents sidebar
-            if showTableOfContents, let page = pages.first {
-                Divider()
-                NoteTableOfContents(
-                    markdown: page.loadBody(),
-                    isDark: ui.theme.isDark,
-                    onNavigate: { charOffset in
-                        scrollEditorTo(charOffset: charOffset)
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
+            // (Table of Contents moved to left sidebar)
         }
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
