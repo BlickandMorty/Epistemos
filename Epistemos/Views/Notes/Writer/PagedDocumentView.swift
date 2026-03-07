@@ -236,15 +236,18 @@ struct PagedDocumentView: NSViewRepresentable {
         tile.textContainerInset = NSSize(width: marginPoints, height: marginPoints)
         tile.textContainer?.lineFragmentPadding = 0
 
-        // Disable smart text features
+        // Disable smart text features that interfere with academic formatting
         tile.isAutomaticQuoteSubstitutionEnabled = false
         tile.isAutomaticDashSubstitutionEnabled = false
         tile.isAutomaticTextCompletionEnabled = false
-        tile.isContinuousSpellCheckingEnabled = false
-        tile.isGrammarCheckingEnabled = false
         tile.isAutomaticSpellingCorrectionEnabled = false
         tile.isAutomaticTextReplacementEnabled = false
         tile.isAutomaticLinkDetectionEnabled = false
+        // Keep spell/grammar checking enabled — useful for document writing
+        tile.isContinuousSpellCheckingEnabled = true
+        tile.isGrammarCheckingEnabled = true
+        // Writing Tools — Apple Intelligence rewrite/proofread/summarize
+        tile.writingToolsBehavior = .default
 
         // Shadow via layer — theme-aware for visual polish, rasterized for scroll performance
         tile.wantsLayer = true

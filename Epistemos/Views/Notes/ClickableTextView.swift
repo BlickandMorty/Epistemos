@@ -1,5 +1,6 @@
 import AppKit
 import UniformTypeIdentifiers
+import Vision
 
 // MARK: - ClickableTextView
 // Bare NSTextView subclass with wikilink click handling.
@@ -314,6 +315,51 @@ final class ClickableTextView: NSTextView {
         return super.performDragOperation(sender)
     }
 
+    // MARK: - Vision OCR (Extract Text from Image)
+
+    @objc func extractTextFromImage(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url, let self else { return }
+            self.performOCR(on: url)
+        }
+    }
+
+    func performOCR(on url: URL) {
+        guard let cgImage = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+
+        let request = VNRecognizeTextRequest { [weak self] request, error in
+            guard let self, error == nil,
+                  let observations = request.results as? [VNRecognizedTextObservation] else { return }
+
+            let extractedText = observations
+                .compactMap { $0.topCandidates(1).first?.string }
+                .joined(separator: "\n")
+
+            guard !extractedText.isEmpty else { return }
+
+            DispatchQueue.main.async {
+                let text = "\n\n> **Extracted Text:**\n> \(extractedText.replacingOccurrences(of: "\n", with: "\n> "))\n"
+                let insertLoc = self.selectedRange().location
+                let insertRange = NSRange(location: insertLoc, length: 0)
+                if self.shouldChangeText(in: insertRange, replacementString: text) {
+                    self.textStorage?.replaceCharacters(in: insertRange, with: text)
+                    self.didChangeText()
+                }
+            }
+        }
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            try? handler.perform([request])
+        }
+    }
+
     // MARK: - Wikilink Hover Glow
 
     /// Character range currently highlighted by mouse hover. nil = no hover.
@@ -446,6 +492,11 @@ final class ClickableTextView: NSTextView {
         imageItem.image = NSImage(systemSymbolName: "photo", accessibilityDescription: "Image")
         imageItem.target = self
         insertMenu.addItem(imageItem)
+
+        let ocrItem = NSMenuItem(title: "Extract Text from Image\u{2026}", action: #selector(extractTextFromImage(_:)), keyEquivalent: "")
+        ocrItem.image = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "OCR")
+        ocrItem.target = self
+        insertMenu.addItem(ocrItem)
 
         let insertSubmenuItem = NSMenuItem(title: "Insert", action: nil, keyEquivalent: "")
         insertSubmenuItem.submenu = insertMenu
