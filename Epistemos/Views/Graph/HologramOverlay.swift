@@ -569,10 +569,16 @@ final class HologramOverlay {
     private func repositionInspector() {
         guard let inspectorHostView,
               let contentView = window?.contentView ?? miniPanel?.contentView else { return }
+
+        // In mini mode the companion miniInspectorPanel handles the inspector.
+        if isMinimized {
+            inspectorHostView.isHidden = true
+            return
+        }
+
         let bounds = contentView.bounds
 
         if let pt = graphState.selectedNodeScreenPoint {
-            // Position inspector to the right of the node, or left if too close to right edge.
             let inspectorWidth: CGFloat = 380
             let inspectorHeight: CGFloat = min(500, bounds.height - 40)
             let gap: CGFloat = 24
@@ -580,14 +586,12 @@ final class HologramOverlay {
             let nodeRight = pt.x + gap
             let fitsRight = nodeRight + inspectorWidth < bounds.width - 20
             let x = fitsRight ? nodeRight : pt.x - inspectorWidth - gap
-            // Center vertically on the node, clamped to bounds.
             let y = max(20, min(bounds.height - inspectorHeight - 20, pt.y - inspectorHeight * 0.4))
 
             let targetFrame = CGRect(x: x, y: y, width: inspectorWidth, height: inspectorHeight)
             inspectorHostView.frame = targetFrame
             inspectorHostView.isHidden = false
         } else {
-            // No node selected — fall back to static right-side position.
             inspectorHostView.frame = CGRect(x: bounds.width - 420, y: 60, width: 380, height: 500)
         }
     }

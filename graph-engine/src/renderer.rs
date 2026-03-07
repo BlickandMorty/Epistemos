@@ -713,9 +713,8 @@ fragment float4 node_fragment(
     lit_color *= (1.0 - outline * 0.6);
 
     // ── Pixel art face overlay ──
-    // face_type 1-8 = node types, rendered as blocky pixel faces.
-    // Uses the quantized grid_pos for crisp pixel alignment.
-    if (in.face_type >= 1.0 && in.face_type <= 8.0 && dist < 0.75) {
+    // face_type 1-8 = node types. Only visible on highlighted nodes (selected + neighbors).
+    if (in.face_type >= 1.0 && in.face_type <= 8.0 && dist < 0.75 && in.highlight_dim > 1.0) {
         int ft = int(in.face_type + 0.5);
         // Depth tier: 0=background leaf, 1=lower-mid, 2=upper-mid, 3=foreground hub
         int tier = (in.depth < -0.25) ? 0 : (in.depth < 0.0) ? 1 : (in.depth < 0.3) ? 2 : 3;
