@@ -29,5 +29,6 @@ extension View {
             .environment(bootstrap.queryEngine)
             .environment(bootstrap.physicsCoordinator)
             .environment(bootstrap.dialogueChatState)
+            .environment(bootstrap.mlxModelManager)
     }
 }

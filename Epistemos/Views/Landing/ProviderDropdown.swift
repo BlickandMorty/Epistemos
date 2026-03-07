@@ -58,7 +58,7 @@ struct ProviderDropdown: View {
     // MARK: - Helpers
 
     private var availableProviders: [LLMProviderType] {
-        var providers: [LLMProviderType] = [.anthropic, .openai, .google, .kimi]
+        var providers: [LLMProviderType] = [.anthropic, .openai, .google, .kimi, .mlx]
         if inference.ollamaAvailable {
             providers.append(.ollama)
         }

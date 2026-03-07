@@ -47,6 +47,10 @@ final class AppBootstrap {
     // MARK: - Active Query Task
     var queryTask: Task<Void, Never>?
 
+    // MARK: - MLX
+    let mlxModelManager: MLXModelManager
+    let mlxClient: MLXClient
+
     // MARK: - Services
     let llmService: LLMService
     let triageService: TriageService
@@ -98,7 +102,12 @@ final class AppBootstrap {
         let inference = InferenceState()
         self.inferenceState = inference
 
-        // LLMService wraps the 5-provider interface
+        // MLX on-device inference
+        let mlxManager = MLXModelManager()
+        self.mlxModelManager = mlxManager
+        self.mlxClient = MLXClient(engine: mlxManager.engine, inference: inference)
+
+        // LLMService wraps the provider interface
         let llm = LLMService(inference: inference)
         self.llmService = llm
 

@@ -530,7 +530,7 @@ struct TriageServiceIntegrationTests {
         case .openai: inference.openaiKey = apiKey
         case .google: inference.googleKey = apiKey
         case .kimi: inference.kimiKey = apiKey
-        case .ollama, .appleIntelligence: break
+        case .mlx, .ollama, .appleIntelligence: break
         }
 
         if !otherProviderKey.isEmpty {
