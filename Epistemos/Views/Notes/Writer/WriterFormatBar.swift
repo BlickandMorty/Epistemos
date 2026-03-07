@@ -67,11 +67,11 @@ struct WriterFormatBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(ui.theme.glassBg)
+        .background(.ultraThinMaterial)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(ui.theme.glassBorder)
-                .frame(height: 1)
+                .fill(.separator)
+                .frame(height: 0.5)
         }
     }
 

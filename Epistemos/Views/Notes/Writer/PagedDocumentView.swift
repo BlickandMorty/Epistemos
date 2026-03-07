@@ -199,13 +199,8 @@ struct PagedDocumentView: NSViewRepresentable {
             storage.reapplyFormatting()
         }
 
-        // Zoom
-        scrollView.allowsMagnification = true
-        scrollView.minMagnification = 0.5
-        scrollView.maxMagnification = 2.0
-        if abs(scrollView.magnification - formatState.zoomLevel) > 0.01 {
-            scrollView.magnification = formatState.zoomLevel
-        }
+        // Zoom — native canvas scaling (crisp text at any level)
+        canvas.applyZoom(formatState.zoomLevel)
 
         // Reconcile pages + layout tiles
         Self.reconcilePages(coord: coord)
@@ -365,7 +360,8 @@ struct PagedDocumentView: NSViewRepresentable {
         let minContentWidth = isSpread
             ? spreadWidth + padding * 2
             : pageWidth + padding * 2
-        let canvasWidth = max(scrollView.contentSize.width, minContentWidth)
+        let scale = coord.canvas?.currentScale ?? 1.0
+        let canvasWidth = max(scrollView.contentSize.width / scale, minContentWidth)
 
         // Collect all views (title + body) for unified spread layout
         var allViews: [NSView] = []
@@ -453,9 +449,11 @@ struct PagedDocumentView: NSViewRepresentable {
             }
         }
 
-        // Canvas size
+        // Canvas size — scale the frame so the scroll view sees the zoomed extent
         let canvasHeight = yOffset - gap + padding
-        canvas.frame = NSRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
+        canvas.frame = NSRect(x: 0, y: 0,
+                              width: canvasWidth * scale,
+                              height: canvasHeight * scale)
     }
 
     // MARK: - dismantleNSView
@@ -561,6 +559,18 @@ final class PageCanvasView: NSView {
     /// The actual theme — used to draw the correct canvas background per theme.
     var theme: EpistemosTheme = .light {
         didSet { needsDisplay = true }
+    }
+
+    /// Current zoom scale applied via scaleUnitSquare (native rendering, not bitmap).
+    private(set) var currentScale: CGFloat = 1.0
+
+    func applyZoom(_ newScale: CGFloat) {
+        guard abs(newScale - currentScale) > 0.001 else { return }
+        let factor = newScale / currentScale
+        scaleUnitSquare(to: NSSize(width: factor, height: factor))
+        currentScale = newScale
+        needsDisplay = true
+        for sub in subviews { sub.needsDisplay = true }
     }
 
     init(isDark: Bool) {

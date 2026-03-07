@@ -25,22 +25,35 @@ struct WriterModeView: View {
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
-        VStack(spacing: 0) {
-            WriterFormatBar(
-                formatState: formatState,
-                isDark: isDark,
-                onExport: handleExport
-            )
-            .disabled(isLocked)
-            .transition(.move(edge: .top).combined(with: .opacity))
+        PagedDocumentView(
+            text: $bodyText,
+            formatState: formatState,
+            isDark: isDark,
+            theme: theme,
+            isEditable: !isLocked
+        )
+        .overlay(alignment: .top) {
+            VStack(spacing: 0) {
+                WriterFormatBar(
+                    formatState: formatState,
+                    isDark: isDark,
+                    onExport: handleExport
+                )
+                .disabled(isLocked)
 
-            PagedDocumentView(
-                text: $bodyText,
-                formatState: formatState,
-                isDark: isDark,
-                theme: theme,
-                isEditable: !isLocked
-            )
+                // Soft fade below the format bar
+                LinearGradient(
+                    colors: [
+                        (isDark ? Color.black : theme.background)
+                            .opacity(0.5),
+                        Color.clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 16)
+                .allowsHitTesting(false)
+            }
         }
         .animation(.spring(duration: 0.3), value: isDark)
         .onAppear {
