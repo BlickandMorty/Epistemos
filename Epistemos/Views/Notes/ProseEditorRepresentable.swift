@@ -1190,22 +1190,16 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             let isDark = parent.isDark
             let accent = MarkdownTextStorage.accentColor(isDark: isDark)
 
-            // Liquid glass palette
+            // Stroke-only palette (no fills — fills cover text since sublayers draw on top)
             let outerBorderColor = (isDark
-                ? accent.withAlphaComponent(0.22)
-                : accent.withAlphaComponent(0.18)).cgColor
+                ? accent.withAlphaComponent(0.25)
+                : accent.withAlphaComponent(0.20)).cgColor
             let innerLineColor = (isDark
-                ? accent.withAlphaComponent(0.10)
-                : accent.withAlphaComponent(0.08)).cgColor
-            let headerLineColor = (isDark
-                ? accent.withAlphaComponent(0.35)
-                : accent.withAlphaComponent(0.28)).cgColor
-            let glassFillColor = (isDark
-                ? accent.withAlphaComponent(0.04)
-                : accent.withAlphaComponent(0.03)).cgColor
-            let glowColor = (isDark
                 ? accent.withAlphaComponent(0.12)
-                : accent.withAlphaComponent(0.06)).cgColor
+                : accent.withAlphaComponent(0.10)).cgColor
+            let headerLineColor = (isDark
+                ? accent.withAlphaComponent(0.40)
+                : accent.withAlphaComponent(0.30)).cgColor
 
             // Collect table regions
             struct TableRegion {
@@ -1215,10 +1209,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 var right: CGFloat
                 var columnXs: [CGFloat]
                 var rowYs: [CGFloat]          // top Y of each row
-                var rowHeights: [CGFloat]     // height of each row
                 var headerBottomY: CGFloat?   // Y where header separator sits
-                var headerRowIndex: Int?      // index of header row (row before separator)
-                var separatorRowIndices: Set<Int> = []
             }
 
             var tables: [TableRegion] = []
@@ -1258,7 +1249,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                             right: pipeXs.last ?? lineFragRect.maxX,
                             columnXs: pipeXs,
                             rowYs: [lineFragRect.minY],
-                            rowHeights: [lineFragRect.height],
                             headerBottomY: nil
                         )
                     } else {
@@ -1266,7 +1256,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                         if let first = pipeXs.first { current!.left = min(current!.left, first) }
                         if let last = pipeXs.last { current!.right = max(current!.right, last) }
                         current!.rowYs.append(lineFragRect.minY)
-                        current!.rowHeights.append(lineFragRect.height)
                         // Stabilize column positions using first row as reference
                         if pipeXs.count == current!.columnXs.count {
                             for i in current!.columnXs.indices {
@@ -1275,12 +1264,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                         }
                     }
 
-                    let rowIdx = (current?.rowYs.count ?? 1) - 1
                     if isSep {
                         current?.headerBottomY = lineFragRect.maxY
-                        current?.separatorRowIndices.insert(rowIdx)
-                        // The row before the separator is the header
-                        if rowIdx > 0 { current?.headerRowIndex = rowIdx - 1 }
                     }
                 } else {
                     if let t = current {
@@ -1311,64 +1296,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                     height: table.bottom - table.top + 2
                 )
 
-                // Glass fill layer — subtle translucent background
-                let outerRoundedPath = CGPath(roundedRect: outerRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-                let fillLayer = CAShapeLayer()
-                fillLayer.path = outerRoundedPath
-                fillLayer.fillColor = glassFillColor
-                fillLayer.strokeColor = nil
-                borderLayer.addSublayer(fillLayer)
-
-                // Per-row fills (header tint + alternating data rows), clipped to table bounds
-                let rowFillContainer = CALayer()
-                rowFillContainer.frame = tv.bounds
-                let maskLayer = CAShapeLayer()
-                maskLayer.path = outerRoundedPath
-                rowFillContainer.mask = maskLayer
-
-                let headerFillColor = (isDark
-                    ? accent.withAlphaComponent(0.08)
-                    : accent.withAlphaComponent(0.05)).cgColor
-                let oddRowFillColor = (isDark
-                    ? accent.withAlphaComponent(0.05)
-                    : accent.withAlphaComponent(0.03)).cgColor
-
-                var dataRowCount = 0
-                for (i, rowY) in table.rowYs.enumerated() {
-                    let rowH = i < table.rowHeights.count ? table.rowHeights[i] : 18
-                    // Skip separator rows
-                    if table.separatorRowIndices.contains(i) { continue }
-
-                    let rowRect = CGRect(x: outerRect.minX, y: rowY, width: outerRect.width, height: rowH)
-                    let rowLayer = CALayer()
-                    rowLayer.frame = rowRect
-
-                    if i == table.headerRowIndex {
-                        rowLayer.backgroundColor = headerFillColor
-                    } else if dataRowCount % 2 == 1 {
-                        rowLayer.backgroundColor = oddRowFillColor
-                    }
-                    dataRowCount += 1
-
-                    if rowLayer.backgroundColor != nil {
-                        rowFillContainer.addSublayer(rowLayer)
-                    }
-                }
-                borderLayer.addSublayer(rowFillContainer)
-
-                // Glow layer — soft accent shadow behind the table
-                let glowLayer = CAShapeLayer()
-                glowLayer.path = fillLayer.path
-                glowLayer.fillColor = nil
-                glowLayer.strokeColor = glowColor
-                glowLayer.lineWidth = 3
-                glowLayer.shadowColor = accent.cgColor
-                glowLayer.shadowOpacity = isDark ? 0.3 : 0.15
-                glowLayer.shadowOffset = .zero
-                glowLayer.shadowRadius = 8
-                borderLayer.addSublayer(glowLayer)
-
-                // Outer rounded border
+                // Outer rounded border (stroke only — no fills, they cover text)
                 let outerBorder = CAShapeLayer()
                 outerBorder.path = CGPath(roundedRect: outerRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
                 outerBorder.fillColor = nil
