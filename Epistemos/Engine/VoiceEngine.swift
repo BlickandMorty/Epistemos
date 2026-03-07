@@ -22,7 +22,7 @@ final class VoiceEngine {
 
     // MARK: - State
 
-    enum EngineState: Equatable {
+    enum EngineState: Equatable, Sendable {
         case stopped
         case starting
         case ready

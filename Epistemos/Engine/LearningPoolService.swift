@@ -21,11 +21,11 @@ final class LearningPoolService {
 
     func start() {
         listenerTask?.cancel()
+        let bus = messageBus
         listenerTask = Task { [weak self] in
-            guard let self else { return }
-            let stream = await self.messageBus.subscribeAll()
+            let stream = await bus.subscribeAll()
             for await message in stream {
-                guard !Task.isCancelled else { break }
+                guard !Task.isCancelled, let self else { break }
                 if case .searchRequest(let from, let query) = message {
                     await self.handleSearchRequest(from: from, query: query)
                 }

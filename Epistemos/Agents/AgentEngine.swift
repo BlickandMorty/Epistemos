@@ -24,17 +24,17 @@ final class AgentEngine {
     func register(_ agent: any AgentProtocol) {
         agents[agent.id] = agent
         statuses[agent.id] = .idle
+        if isRunning, agentTasks[agent.id] == nil {
+            startAgentListener(for: agent.id, agent: agent)
+        }
     }
 
     func start() {
         guard !isRunning else { return }
         isRunning = true
 
-        for (id, agent) in agents {
-            let stream = agentTasks[id] == nil
-            if stream {
-                startAgentListener(for: id, agent: agent)
-            }
+        for (id, agent) in agents where agentTasks[id] == nil {
+            startAgentListener(for: id, agent: agent)
         }
 
         Log.engine.info("AgentEngine: started with \(self.agents.count) agents")
@@ -73,12 +73,11 @@ final class AgentEngine {
     // MARK: - Agent Listeners
 
     private func startAgentListener(for id: AgentID, agent: any AgentProtocol) {
+        let bus = messageBus
         let task = Task { [weak self] in
-            guard let self else { return }
-            let stream = await self.messageBus.subscribe(for: id)
-
+            let stream = await bus.subscribe(for: id)
             for await message in stream {
-                guard !Task.isCancelled else { break }
+                guard !Task.isCancelled, let self else { break }
                 await self.handleMessage(message, for: agent)
             }
         }

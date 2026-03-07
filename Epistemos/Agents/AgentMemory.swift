@@ -170,11 +170,10 @@ final class EpisodicMemory {
 
     /// Retrieve recent episodes for an agent (last N compacted summaries as context).
     func recentEpisodes(for agentId: AgentID, count: Int = 5) -> [EpisodeEntry] {
-        episodes
+        Array(episodes
             .filter { $0.agentId == agentId.rawValue }
             .suffix(count)
-            .reversed()
-            .map { $0 }
+            .reversed())
     }
 
     /// Format episodes as context for injection into agent prompts.

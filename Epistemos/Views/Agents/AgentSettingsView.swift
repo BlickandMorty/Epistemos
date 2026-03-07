@@ -69,20 +69,15 @@ struct AgentSettingsView: View {
     private func trustRow(_ level: TrustLevel) -> some View {
         HStack(spacing: Spacing.sm) {
             ForEach([TrustLevel.sandbox, .standard, .elevated], id: \.self) { trust in
-                Button {
-                    // Trust level changes require Pro for elevated
-                } label: {
-                    Text(trustLabel(trust))
-                        .font(.epCaption)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xs)
-                        .background {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(level == trust ? theme.accent.opacity(0.2) : theme.background.opacity(0.5))
-                        }
-                        .foregroundStyle(level == trust ? theme.accent : theme.textSecondary)
-                }
-                .buttonStyle(.plain)
+                Text(trustLabel(trust))
+                    .font(.epCaption)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(level == trust ? theme.accent.opacity(0.2) : theme.background.opacity(0.5))
+                    }
+                    .foregroundStyle(level == trust ? theme.accent : theme.textSecondary)
             }
         }
     }
@@ -103,9 +98,8 @@ struct AgentSettingsView: View {
                 .font(.epBody)
                 .foregroundStyle(theme.foreground)
 
-            let voiceEnabled = voiceEngine.voiceConfigs[agentId]?.enabled ?? false
             Toggle("Enable voice for \(agentId.displayName)", isOn: Binding(
-                get: { voiceEnabled },
+                get: { voiceEngine.voiceConfigs[agentId]?.enabled ?? false },
                 set: { voiceEngine.setVoiceEnabled($0, for: agentId) }
             ))
             .font(.epCaption)
@@ -131,22 +125,20 @@ struct AgentSettingsView: View {
                 .font(.epBody)
                 .foregroundStyle(theme.foreground)
 
-            let config = notifications.configs[agentId] ?? AgentNotificationService.NotificationConfig()
-
             Toggle("macOS Notifications", isOn: Binding(
-                get: { config.macOSEnabled },
+                get: { notifications.configs[agentId]?.macOSEnabled ?? true },
                 set: { notifications.setMacOSEnabled($0, for: agentId) }
             ))
             .font(.epCaption)
 
             Toggle("In-App Badges", isOn: Binding(
-                get: { config.inAppEnabled },
+                get: { notifications.configs[agentId]?.inAppEnabled ?? true },
                 set: { notifications.setInAppEnabled($0, for: agentId) }
             ))
             .font(.epCaption)
 
             Toggle("Voice Announcements", isOn: Binding(
-                get: { config.voiceEnabled },
+                get: { notifications.configs[agentId]?.voiceEnabled ?? false },
                 set: { notifications.setVoiceEnabled($0, for: agentId) }
             ))
             .font(.epCaption)
