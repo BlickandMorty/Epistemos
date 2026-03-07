@@ -17,6 +17,9 @@
 		A1AGT00100000000000004 /* TriageAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000004 /* TriageAgent.swift */; };
 		A1AGT00100000000000005 /* AgentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000005 /* AgentPanelView.swift */; };
 		A1AGT00100000000000006 /* AgentSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000006 /* AgentSystemTests.swift */; };
+		A1AGT00100000000000007 /* LibrarianAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000007 /* LibrarianAgent.swift */; };
+		A1AGT00100000000000008 /* WriterAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000008 /* WriterAgent.swift */; };
+		A1AGT00100000000000009 /* BuilderAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000009 /* BuilderAgent.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -350,6 +353,9 @@
 		A1AGT00200000000000004 /* TriageAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageAgent.swift; sourceTree = "<group>"; };
 		A1AGT00200000000000005 /* AgentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelView.swift; sourceTree = "<group>"; };
 		A1AGT00200000000000006 /* AgentSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSystemTests.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000007 /* LibrarianAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarianAgent.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000008 /* WriterAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterAgent.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000009 /* BuilderAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuilderAgent.swift; sourceTree = "<group>"; };
 		5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTypes.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		53D12B79B2E861637C19926D /* VaultManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManifest.swift; sourceTree = "<group>"; };
@@ -681,6 +687,9 @@
 				A1AGT00200000000000001 /* AgentTypes.swift */,
 				A1AGT00200000000000002 /* MessageBus.swift */,
 				A1AGT00200000000000003 /* AgentEngine.swift */,
+				A1AGT00200000000000007 /* LibrarianAgent.swift */,
+				A1AGT00200000000000008 /* WriterAgent.swift */,
+				A1AGT00200000000000009 /* BuilderAgent.swift */,
 				A1AGT00200000000000004 /* TriageAgent.swift */,
 			);
 			path = Agents;
@@ -1309,6 +1318,9 @@
 				A1AGT00100000000000003 /* AgentEngine.swift in Sources */,
 				A1AGT00100000000000004 /* TriageAgent.swift in Sources */,
 				A1AGT00100000000000005 /* AgentPanelView.swift in Sources */,
+				A1AGT00100000000000007 /* LibrarianAgent.swift in Sources */,
+				A1AGT00100000000000008 /* WriterAgent.swift in Sources */,
+				A1AGT00100000000000009 /* BuilderAgent.swift in Sources */,
 				31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */,
 				D0BE2F268FDB1F22A6735F95 /* LearningIntents.swift in Sources */,
 				1A35A483C814CA0D71DE5796 /* LibraryView.swift in Sources */,

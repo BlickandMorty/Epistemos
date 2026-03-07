@@ -358,3 +358,219 @@ struct TriageClassificationEnumTests {
         }
     }
 }
+
+// MARK: - LibrarianAgent Tests
+
+@Suite("LibrarianAgent")
+struct LibrarianAgentTests {
+
+    private func makeAgent() -> LibrarianAgent {
+        LibrarianAgent(messageBus: MessageBus())
+    }
+
+    @Test("Has correct ID")
+    func agentId() {
+        let agent = makeAgent()
+        #expect(agent.id == .librarian)
+    }
+
+    @Test("Starts idle")
+    func startsIdle() {
+        let agent = makeAgent()
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Default trust level is standard")
+    func defaultTrust() {
+        let agent = makeAgent()
+        #expect(agent.trustLevel == .standard)
+    }
+
+    @Test("Handles task and returns to idle")
+    func handleTask() async {
+        let agent = makeAgent()
+        let task = AgentTask(from: .triage, to: .librarian, instruction: "find notes about Swift")
+        await agent.handleTask(task)
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Handles mention and returns response")
+    func handleMention() async {
+        let agent = makeAgent()
+        let response = await agent.handleMention(from: .writer, context: "", request: "find citations")
+        #expect(response.contains("Librarian"))
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Cancel resets to idle")
+    func cancelResets() {
+        let agent = makeAgent()
+        agent.cancel()
+        #expect(agent.status == .idle)
+    }
+}
+
+// MARK: - WriterAgent Tests
+
+@Suite("WriterAgent")
+struct WriterAgentTests {
+
+    private func makeAgent() -> WriterAgent {
+        WriterAgent(messageBus: MessageBus())
+    }
+
+    @Test("Has correct ID")
+    func agentId() {
+        let agent = makeAgent()
+        #expect(agent.id == .writer)
+    }
+
+    @Test("Starts idle")
+    func startsIdle() {
+        let agent = makeAgent()
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Default trust level is standard")
+    func defaultTrust() {
+        let agent = makeAgent()
+        #expect(agent.trustLevel == .standard)
+    }
+
+    @Test("Handles task and returns to idle")
+    func handleTask() async {
+        let agent = makeAgent()
+        let task = AgentTask(from: .triage, to: .writer, instruction: "rewrite this paragraph")
+        await agent.handleTask(task)
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Handles mention and returns response")
+    func handleMention() async {
+        let agent = makeAgent()
+        let response = await agent.handleMention(from: .librarian, context: "", request: "improve prose")
+        #expect(response.contains("Writer"))
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Cancel resets to idle")
+    func cancelResets() {
+        let agent = makeAgent()
+        agent.cancel()
+        #expect(agent.status == .idle)
+    }
+}
+
+// MARK: - BuilderAgent Tests
+
+@Suite("BuilderAgent")
+struct BuilderAgentTests {
+
+    private func makeAgent() -> BuilderAgent {
+        BuilderAgent(messageBus: MessageBus())
+    }
+
+    @Test("Has correct ID")
+    func agentId() {
+        let agent = makeAgent()
+        #expect(agent.id == .builder)
+    }
+
+    @Test("Starts idle")
+    func startsIdle() {
+        let agent = makeAgent()
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Default trust level is sandbox")
+    func defaultTrust() {
+        let agent = makeAgent()
+        #expect(agent.trustLevel == .sandbox)
+    }
+
+    @Test("Handles task and returns to idle")
+    func handleTask() async {
+        let agent = makeAgent()
+        let task = AgentTask(from: .triage, to: .builder, instruction: "write a parser")
+        await agent.handleTask(task)
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Handles mention and returns response")
+    func handleMention() async {
+        let agent = makeAgent()
+        let response = await agent.handleMention(from: .triage, context: "", request: "build an API")
+        #expect(response.contains("Builder"))
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Cancel resets to idle")
+    func cancelResets() {
+        let agent = makeAgent()
+        agent.cancel()
+        #expect(agent.status == .idle)
+    }
+
+    @Test("Trust level can be elevated")
+    func trustElevation() {
+        let agent = makeAgent()
+        #expect(agent.trustLevel == .sandbox)
+        agent.trustLevel = .elevated
+        #expect(agent.trustLevel == .elevated)
+    }
+}
+
+// MARK: - AgentEngine Integration Tests
+
+@Suite("AgentEngine Integration")
+struct AgentEngineIntegrationTests {
+
+    @Test("Engine registers and retrieves agents")
+    func registerRetrieve() {
+        let engine = AgentEngine()
+        let librarian = LibrarianAgent(messageBus: engine.messageBus)
+        engine.register(librarian)
+
+        #expect(engine.agent(for: .librarian) != nil)
+        #expect(engine.agent(for: .builder) == nil)
+    }
+
+    @Test("Engine tracks statuses for all registered agents")
+    func statusTracking() {
+        let engine = AgentEngine()
+        engine.register(LibrarianAgent(messageBus: engine.messageBus))
+        engine.register(WriterAgent(messageBus: engine.messageBus))
+        engine.register(BuilderAgent(messageBus: engine.messageBus))
+
+        #expect(engine.status(for: .librarian) == .idle)
+        #expect(engine.status(for: .writer) == .idle)
+        #expect(engine.status(for: .builder) == .idle)
+    }
+
+    @Test("Engine starts and stops")
+    func startStop() {
+        let engine = AgentEngine()
+        engine.register(LibrarianAgent(messageBus: engine.messageBus))
+
+        #expect(!engine.isRunning)
+        engine.start()
+        #expect(engine.isRunning)
+        engine.stop()
+        #expect(!engine.isRunning)
+    }
+
+    @Test("Active agents list is empty when all idle")
+    func activeAgentsEmpty() {
+        let engine = AgentEngine()
+        engine.register(LibrarianAgent(messageBus: engine.messageBus))
+        engine.register(WriterAgent(messageBus: engine.messageBus))
+
+        #expect(engine.activeAgents.isEmpty)
+    }
+
+    @Test("Unregistered agent returns idle status")
+    func unregisteredStatus() {
+        let engine = AgentEngine()
+        #expect(engine.status(for: .triage) == .idle)
+    }
+}

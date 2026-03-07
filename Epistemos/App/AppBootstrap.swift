@@ -114,9 +114,11 @@ final class AppBootstrap {
         let engine = AgentEngine()
         self.agentEngine = engine
 
-        // Register Triage agent (always-on classifier)
-        let triageAgent = TriageAgent(messageBus: engine.messageBus, mlxClient: mlxClient)
-        engine.register(triageAgent)
+        // Register all agents
+        engine.register(TriageAgent(messageBus: engine.messageBus, mlxClient: mlxClient))
+        engine.register(LibrarianAgent(messageBus: engine.messageBus))
+        engine.register(WriterAgent(messageBus: engine.messageBus))
+        engine.register(BuilderAgent(messageBus: engine.messageBus))
 
         // LLMService wraps the provider interface
         let llm = LLMService(inference: inference)
