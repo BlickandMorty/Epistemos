@@ -60,7 +60,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     private static let minHorizontalInset: CGFloat = 60
     /// Vertical breathing room inside the text container.
     /// Vertical breathing room inside the text container.
-    static let verticalInset: CGFloat = 8
+    static let verticalInset: CGFloat = 56
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 

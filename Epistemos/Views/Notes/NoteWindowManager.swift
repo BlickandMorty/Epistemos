@@ -391,14 +391,9 @@ private struct NoteTabShell: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if navState.hasBreadcrumb {
-                NoteBreadcrumbBar(navState: navState)
-            }
-            NotePageContent(pageId: navState.currentPageId)
-                .id(navState.currentPageId)
-                .environment(navState)
-        }
+        NotePageContent(pageId: navState.currentPageId)
+            .id(navState.currentPageId)
+            .environment(navState)
         .onChange(of: navState.currentPageId) { _, newPageId in
             // Sync window title to the currently displayed page.
             let targetId = newPageId
@@ -447,6 +442,7 @@ private struct NotePageContent: View {
     @State private var showIdeasPopover = false
     @State private var showTableOfContents = false
     @State private var showChatSidebar = false
+    @State private var hasMultipleTabs = false
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
@@ -475,8 +471,6 @@ private struct NotePageContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Custom glass toolbar — sits in the titlebar safe area
-            noteGlassToolbar
             HStack(spacing: 0) {
             ZStack {
                 if let page = pages.first {
@@ -523,6 +517,7 @@ private struct NotePageContent: View {
             }
             .onAppear {
                 noteChatState.loadPersistedMessages(modelContext)
+                refreshTabCount()
             }
             .onDisappear {
                 noteChatState.clear()
@@ -556,6 +551,27 @@ private struct NotePageContent: View {
         }
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
+        }
+        .overlay(alignment: .top) {
+            LinearGradient(
+                colors: [ui.theme.background, ui.theme.background.opacity(0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: hasMultipleTabs ? 80 : 52)
+            .allowsHitTesting(false)
+            .animation(.smooth(duration: 0.25), value: hasMultipleTabs)
+        }
+        .overlay(alignment: .topTrailing) {
+            if let nav = navState, nav.hasBreadcrumb {
+                NoteBreadcrumbBar(navState: nav)
+                    .padding(.top, 8)
+                    .padding(.trailing, 12)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            bottomToolbarPill
+                .padding(.bottom, 12)
         }
         .preferredColorScheme(ui.theme.colorScheme)
         .ignoresSafeArea(edges: .top)
@@ -664,6 +680,9 @@ private struct NotePageContent: View {
             navState?.syncTitle(pageId: pageId, title: newTitle)
         }
         .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
+        ) { _ in refreshTabCount() }
+        .onReceive(
             NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)
         ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
@@ -711,58 +730,38 @@ private struct NotePageContent: View {
         }
     }
 
-    // MARK: - Custom Glass Toolbar
+    // MARK: - Bottom Floating Toolbar
 
-    /// Frosted glass toolbar bar — replaces NSToolbar entirely.
-    /// Uses .ultraThinMaterial for real blur over the theme background.
-    private var noteGlassToolbar: some View {
-        HStack(spacing: 0) {
-            // Left: back/forward nav
-            HStack(spacing: 4) {
-                if let nav = navState, nav.canGoBack {
-                    Button { nav.back() } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    .help("Back (⌘[)")
-                }
-                if let nav = navState, nav.canGoForward {
-                    Button { nav.forward() } label: {
-                        Image(systemName: "chevron.right")
-                    }
-                    .help("Forward (⌘])")
-                }
-            }
-            .frame(minWidth: 40, alignment: .leading)
-
-            Spacer()
-
-            // Center: page title
+    /// Liquid glass pill toolbar floating at the bottom of the editor.
+    /// Uses .glassEffect for macOS 26 depth-aware frosted glass.
+    private var bottomToolbarPill: some View {
+        HStack(spacing: 12) {
             Text(pages.first?.title ?? "Untitled")
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
                 .foregroundStyle(.secondary)
 
-            Spacer()
-
-            // Right: essential controls + ask bar
-            HStack(spacing: 8) {
-                moreMenu
-
-                if !showWriterMode && !showPreview {
-                    toolbarChatField
-                }
+            if !showWriterMode && !showPreview {
+                toolbarChatField
             }
+
+            moreMenu
         }
         .buttonStyle(.borderless)
-        .padding(.leading, 76)
-        .padding(.trailing, 12)
+        .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .glassEffect(.regular, in: Capsule())
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
     }
 
     // MARK: - Selection Capture for Ideas Panel
     // The popover steals keyboard focus from the editor, which clears the selection.
     // We snapshot the selection BEFORE the popover opens so Integrate can use it.
+
+    private func refreshTabCount() {
+        let count = NSApp.keyWindow?.tabbedWindows?.count ?? 1
+        hasMultipleTabs = count > 1
+    }
 
     private func snapshotEditorSelection() {
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else {
@@ -1219,6 +1218,32 @@ private struct NotePageContent: View {
                         page.isFavorite ? "Unfavorite" : "Favorite",
                         systemImage: page.isFavorite ? "star.fill" : "star")
                 }
+            }
+
+            Divider()
+
+            Button {
+                togglePreviewMode()
+            } label: {
+                Label(
+                    showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)",
+                    systemImage: showPreview ? "pencil" : "eye")
+            }
+
+            Button {
+                toggleWriterMode()
+            } label: {
+                Label(
+                    showWriterMode ? "Editor (\u{2318}R)" : "Writer Mode (\u{2318}R)",
+                    systemImage: showWriterMode ? "pencil" : "text.page")
+            }
+
+            Button {
+                withAnimation { showChatSidebar.toggle() }
+            } label: {
+                Label(
+                    showChatSidebar ? "Hide Chat" : "Chat History",
+                    systemImage: showChatSidebar ? "bubble.left.fill" : "bubble.left")
             }
 
             Divider()
@@ -2174,88 +2199,35 @@ private struct NoteBreadcrumbBar: View {
     @Environment(UIState.self) private var ui
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Back / Forward buttons
-            Button {
-                navState.back()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(
-                        ui.theme.mutedForeground.opacity(navState.canGoBack ? 0.6 : 0.25)
-                    )
-                    .frame(width: 20, height: 20)
-            }
-            .buttonStyle(.plain)
-            .disabled(!navState.canGoBack)
-            .help("Back (⌘[)")
-
-            Button {
-                navState.forward()
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(
-                        ui.theme.mutedForeground.opacity(navState.canGoForward ? 0.6 : 0.25)
-                    )
-                    .frame(width: 20, height: 20)
-            }
-            .buttonStyle(.plain)
-            .disabled(!navState.canGoForward)
-            .padding(.leading, -4)
-            .padding(.trailing, 2)
-            .help("Forward (⌘])")
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
-                    ForEach(Array(navState.stack.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 8, weight: .semibold))
-                                .foregroundStyle(ui.theme.textTertiary.opacity(0.4))
-                        }
-
-                        Button {
-                            navState.navigateTo(pageId: item.id)
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "doc.text")
-                                    .font(.system(size: 9))
-                                Text(item.title)
-                                    .font(
-                                        .system(
-                                            size: 11,
-                                            weight: item.id == navState.currentPageId
-                                                ? .semibold : .regular)
-                                    )
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(
-                                item.id == navState.currentPageId
-                                    ? ui.theme.accent
-                                    : ui.theme.mutedForeground.opacity(0.7)
-                            )
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(
-                                item.id == navState.currentPageId
-                                    ? ui.theme.accent.opacity(0.08)
-                                    : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 4)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
+        VStack(spacing: 0) {
+            ForEach(Array(navState.stack.enumerated()), id: \.element.id) { index, item in
+                if index > 0 {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.secondary.opacity(0.35))
+                        .padding(.vertical, 2)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+
+                Button {
+                    navState.navigateTo(pageId: item.id)
+                } label: {
+                    Text(item.title)
+                        .font(.system(size: 10, weight: item.id == navState.currentPageId ? .semibold : .regular))
+                        .lineLimit(1)
+                        .foregroundStyle(
+                            item.id == navState.currentPageId
+                                ? ui.theme.accent
+                                : .secondary
+                        )
+                }
+                .buttonStyle(.plain)
             }
         }
-        .frame(height: 24)
-        .background(ui.theme.background.opacity(0.95))
-        .overlay(alignment: .bottom) {
-            ui.theme.glassBorder.frame(height: 0.5)
-        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: 140)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
     }
 }
 
