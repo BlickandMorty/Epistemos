@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - ClickableTextView
 // Bare NSTextView subclass with wikilink click handling.
@@ -113,17 +114,12 @@ final class ClickableTextView: NSTextView {
 
     override var isOpaque: Bool { false }
 
-    // MARK: - Find & Replace Key Handling
-    // SwiftUI's responder chain doesn't route Cmd+F to embedded NSTextViews.
-    // We catch it here and trigger NSTextFinder's built-in find bar.
+    // MARK: - Key Handling
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         // Cmd+Z — Undo
-        // Handle directly because SwiftUI's NSHostingView can intercept
-        // the responder chain's undo: action, preventing it from reaching
-        // this NSTextView. Same pattern as Cmd+F below.
         if flags == .command, event.charactersIgnoringModifiers == "z" {
             if undoManager?.canUndo == true {
                 undoManager?.undo()
@@ -181,7 +177,127 @@ final class ClickableTextView: NSTextView {
             // Don't return true — let Esc propagate for other uses too
         }
 
+        // Cmd+= / Cmd++ — Zoom In
+        if flags == .command, let chars = event.charactersIgnoringModifiers,
+           chars == "=" || chars == "+" {
+            zoomIn()
+            return true
+        }
+
+        // Cmd+- — Zoom Out
+        if flags == .command, event.charactersIgnoringModifiers == "-" {
+            zoomOut()
+            return true
+        }
+
+        // Cmd+0 — Reset Zoom
+        if flags == .command, event.charactersIgnoringModifiers == "0" {
+            resetZoom()
+            return true
+        }
+
         return super.performKeyEquivalent(with: event)
+    }
+
+    // MARK: - Zoom
+
+    private static let minZoom: CGFloat = 0.5
+    private static let maxZoom: CGFloat = 2.0
+    private static let zoomStep: CGFloat = 0.1
+
+    override func magnify(with event: NSEvent) {
+        guard let sv = enclosingScrollView else { return }
+        let newMag = max(Self.minZoom, min(Self.maxZoom, sv.magnification + event.magnification))
+        sv.magnification = newMag
+    }
+
+    private func zoomIn() {
+        guard let sv = enclosingScrollView else { return }
+        sv.magnification = min(Self.maxZoom, sv.magnification + Self.zoomStep)
+    }
+
+    private func zoomOut() {
+        guard let sv = enclosingScrollView else { return }
+        sv.magnification = max(Self.minZoom, sv.magnification - Self.zoomStep)
+    }
+
+    private func resetZoom() {
+        enclosingScrollView?.magnification = 1.0
+    }
+
+    // MARK: - Insert Image
+
+    @objc func insertImage(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url, let self else { return }
+            self.insertImageAttachment(from: url)
+        }
+    }
+
+    func insertImageAttachment(from url: URL) {
+        guard let image = NSImage(contentsOf: url) else { return }
+
+        let attachment = NSTextAttachment()
+        // Scale to fit readable width — max 600px, maintain aspect ratio
+        let maxWidth: CGFloat = 600
+        let imageSize = image.size
+        let displaySize: NSSize
+        if imageSize.width > maxWidth {
+            let scale = maxWidth / imageSize.width
+            displaySize = NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        } else {
+            displaySize = imageSize
+        }
+        image.size = displaySize
+        let cell = NSTextAttachmentCell(imageCell: image)
+        attachment.attachmentCell = cell
+
+        let attrStr = NSMutableAttributedString(attachment: attachment)
+        attrStr.addAttribute(NSAttributedString.Key("EpistemosImagePath"),
+                             value: url.lastPathComponent,
+                             range: NSRange(location: 0, length: attrStr.length))
+
+        let insertLoc = selectedRange().location
+        let insertRange = NSRange(location: insertLoc, length: 0)
+        if shouldChangeText(in: insertRange, replacementString: attrStr.string) {
+            textStorage?.insert(attrStr, at: insertLoc)
+            didChangeText()
+        }
+    }
+
+    // MARK: - Insert Table
+
+    @objc func insertMarkdownTable(_ sender: Any?) {
+        let table = "\n| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| cell     | cell     | cell     |\n"
+        let insertLoc = selectedRange().location
+        let insertRange = NSRange(location: insertLoc, length: 0)
+        if shouldChangeText(in: insertRange, replacementString: table) {
+            textStorage?.replaceCharacters(in: insertRange, with: table)
+            didChangeText()
+            // Place cursor in first data cell
+            if let offset = table.range(of: "| cell") {
+                let charOffset = table.distance(from: table.startIndex, to: offset.lowerBound) + 2
+                setSelectedRange(NSRange(location: insertLoc + charOffset, length: 4))
+            }
+        }
+    }
+
+    // MARK: - Drag & Drop Images
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        let pasteboard = sender.draggingPasteboard
+        if let fileURLs = pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingContentsConformToTypes: [UTType.image.identifier]]
+        ) as? [URL], let url = fileURLs.first {
+            insertImageAttachment(from: url)
+            return true
+        }
+        return super.performDragOperation(sender)
     }
 
     // MARK: - Wikilink Hover Glow
@@ -273,12 +389,12 @@ final class ClickableTextView: NSTextView {
         super.mouseDown(with: event)
     }
 
-    // MARK: - Context Menu (Right-Click → Ideas / Brain Dumps)
+    // MARK: - Context Menu
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
 
-        // Reveal in Graph — opens graph overlay focused on this note's node
+        // Reveal in Graph
         if let pid = pageId {
             menu.addItem(NSMenuItem.separator())
 
@@ -293,7 +409,7 @@ final class ClickableTextView: NSTextView {
             menu.addItem(graphItem)
         }
 
-        // Set Property — opens BlockPropertySheet for current line
+        // Set Property
         let propItem = NSMenuItem(
             title: "Set Property\u{2026}",
             action: #selector(openBlockPropertySheet),
@@ -302,6 +418,25 @@ final class ClickableTextView: NSTextView {
         propItem.image = NSImage(systemSymbolName: "tag", accessibilityDescription: "Property")
         propItem.target = self
         menu.addItem(propItem)
+
+        // Insert submenu
+        menu.addItem(NSMenuItem.separator())
+
+        let insertMenu = NSMenu(title: "Insert")
+        let tableItem = NSMenuItem(title: "Table", action: #selector(insertMarkdownTable(_:)), keyEquivalent: "")
+        tableItem.image = NSImage(systemSymbolName: "tablecells", accessibilityDescription: "Table")
+        tableItem.target = self
+        insertMenu.addItem(tableItem)
+
+        let imageItem = NSMenuItem(title: "Image\u{2026}", action: #selector(insertImage(_:)), keyEquivalent: "")
+        imageItem.image = NSImage(systemSymbolName: "photo", accessibilityDescription: "Image")
+        imageItem.target = self
+        insertMenu.addItem(imageItem)
+
+        let insertSubmenuItem = NSMenuItem(title: "Insert", action: nil, keyEquivalent: "")
+        insertSubmenuItem.submenu = insertMenu
+        insertSubmenuItem.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "Insert")
+        menu.addItem(insertSubmenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -323,7 +458,7 @@ final class ClickableTextView: NSTextView {
         dumpItem.target = self
         menu.addItem(dumpItem)
 
-        // MARK: AI Assistant submenu
+        // AI Assistant submenu
         menu.addItem(NSMenuItem.separator())
 
         let aiMenu = NSMenu(title: "AI Assistant")

@@ -444,33 +444,23 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             }
 
         } else if t.hasPrefix("|") && t.hasSuffix("|") {
-            // Table row — liquid glass: accent-tinted translucent backgrounds.
-            // Pipes glow with muted accent. Header is bold with underline separator.
+            // Table row — liquid glass styling. Grid overlay (CAShapeLayer) draws
+            // the rounded border, glow, and divider lines. Text styling here handles:
+            // - Monospace font for column alignment
+            // - Header bold weight
+            // - Muted pipe characters (grid lines replace them visually)
+            // - Alternating row tint for depth
             let lineStr = (backing.string as NSString).substring(with: range)
             let isSepRow = lineStr.trimmingCharacters(in: .whitespaces)
                 .dropFirst().dropLast()
                 .split(separator: "|", omittingEmptySubsequences: false)
                 .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
 
-            // Liquid glass palette — accent-tinted translucency
-            let glassTint: NSColor = isDark
-                ? accentColor.withAlphaComponent(0.06)
-                : accentColor.withAlphaComponent(0.04)
-            let glassOdd: NSColor = isDark
-                ? accentColor.withAlphaComponent(0.10)
-                : accentColor.withAlphaComponent(0.07)
-            let headerGlass: NSColor = isDark
-                ? accentColor.withAlphaComponent(0.14)
-                : accentColor.withAlphaComponent(0.10)
-            let pipeColor: NSColor = isDark
-                ? accentColor.withAlphaComponent(0.25)
-                : accentColor.withAlphaComponent(0.20)
-
             if isSepRow {
-                // Separator row — nearly invisible thin divider
+                // Separator row — near-invisible, the grid overlay draws the header line
                 backing.addAttributes([
                     .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .regular),
-                    .foregroundColor: isDark ? accentColor.withAlphaComponent(0.18) : accentColor.withAlphaComponent(0.15),
+                    .foregroundColor: isDark ? accentColor.withAlphaComponent(0.12) : accentColor.withAlphaComponent(0.10),
                     .paragraphStyle: Self.tableStyle
                 ], range: range)
             } else {
@@ -478,35 +468,42 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 let isHeader = Self.isTableHeader(at: range, in: str)
 
                 if isHeader {
+                    // Header row — bold, slightly brighter, subtle glass tint
+                    let headerBg: NSColor = isDark
+                        ? accentColor.withAlphaComponent(0.08)
+                        : accentColor.withAlphaComponent(0.05)
                     backing.addAttributes([
-                        .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .bold),
-                        .foregroundColor: isDark ? NSColor.white : NSColor(white: 0.05, alpha: 1),
-                        .backgroundColor: headerGlass,
-                        .underlineStyle: NSUnderlineStyle.single.rawValue,
-                        .underlineColor: accentColor.withAlphaComponent(0.20),
+                        .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .semibold),
+                        .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.95) : NSColor(white: 0.05, alpha: 1),
+                        .backgroundColor: headerBg,
                         .paragraphStyle: Self.tableStyle
                     ], range: range)
                 } else {
+                    // Data row — alternating subtle tint for readability
                     let rowIdx = Self.tableDataRowIndex(at: range, in: str)
-                    let bg = rowIdx % 2 == 0 ? glassTint : glassOdd
+                    let evenBg: NSColor = isDark
+                        ? accentColor.withAlphaComponent(0.03)
+                        : accentColor.withAlphaComponent(0.02)
+                    let oddBg: NSColor = isDark
+                        ? accentColor.withAlphaComponent(0.06)
+                        : accentColor.withAlphaComponent(0.04)
                     backing.addAttributes([
                         .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .regular),
                         .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.88) : NSColor(white: 0.12, alpha: 1),
-                        .backgroundColor: bg,
+                        .backgroundColor: rowIdx % 2 == 0 ? evenBg : oddBg,
                         .paragraphStyle: Self.tableStyle
                     ], range: range)
                 }
 
-                // Hide pipes — CAShapeLayer grid lines replace them visually.
-                // Set pipe foreground color very low alpha so grid lines show through.
-                let pipeHideColor = isDark
-                    ? NSColor.white.withAlphaComponent(0.04)
-                    : NSColor.black.withAlphaComponent(0.03)
-                for (offset, ch) in lineStr.utf16.enumerated() where ch == 0x7C /* | */ {
+                // Muted pipes — the grid overlay provides the visual column borders
+                let pipeMuted: NSColor = isDark
+                    ? accentColor.withAlphaComponent(0.15)
+                    : accentColor.withAlphaComponent(0.12)
+                for (offset, ch) in lineStr.utf16.enumerated() where ch == 0x7C {
                     let pipeRange = NSRange(location: range.location + offset, length: 1)
                     if pipeRange.location + pipeRange.length <= backing.length {
                         backing.addAttributes([
-                            .foregroundColor: pipeHideColor
+                            .foregroundColor: pipeMuted
                         ], range: pipeRange)
                     }
                 }

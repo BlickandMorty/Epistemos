@@ -5,7 +5,7 @@ import Testing
 struct NoteEditorLayoutTests {
     @Test("top spacing stays tight below the toolbar")
     func topSpacingStaysTightBelowToolbar() {
-        #expect(ProseEditorRepresentable.verticalInset == 56)
+        #expect(ProseEditorRepresentable.verticalInset == 80)
         #expect(MarkdownTextStorage.leadingH1SpacingBefore == 24)
         #expect(MarkdownTextStorage.sectionH1SpacingBefore == 18)
     }

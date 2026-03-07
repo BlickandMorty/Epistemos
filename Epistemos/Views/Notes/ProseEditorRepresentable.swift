@@ -60,7 +60,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     private static let minHorizontalInset: CGFloat = 60
     /// Vertical breathing room inside the text container.
     /// Vertical breathing room inside the text container.
-    static let verticalInset: CGFloat = 56
+    static let verticalInset: CGFloat = 80
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -145,6 +145,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.wantsLayer = true
         scrollView.contentView.wantsLayer = true
         scrollView.contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
+        // Zoom — ⌘+/⌘-/⌘0 and pinch handled by ClickableTextView
+        scrollView.allowsMagnification = true
+        scrollView.minMagnification = 0.5
+        scrollView.maxMagnification = 2.0
         // No system toolbar — custom glass bar is a SwiftUI view above the scroll view.
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
@@ -1167,8 +1171,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
         }
 
-        /// Redraws table grid lines for all visible table regions.
-        /// Queries the layout manager for line fragment rects and pipe positions.
+        /// Redraws liquid-glass table grid for all visible table regions.
+        /// Rounded outer border with accent glow, translucent fill, clean inner dividers.
         func updateTableBorders() {
             guard let tv = textView,
                   let lm = tv.layoutManager,
@@ -1179,6 +1183,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             let str = storage.string as NSString
             guard str.length > 0 else {
                 borderLayer.path = nil
+                borderLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
                 return
             }
 
@@ -1188,149 +1193,188 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             let charRange = lm.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
 
             let isDark = parent.isDark
-            let accentColor = MarkdownTextStorage.accentColor(isDark: isDark)
-            let borderColor = (isDark
-                ? accentColor.withAlphaComponent(0.18)
-                : accentColor.withAlphaComponent(0.14)).cgColor
-            let headerBorderColor = (isDark
-                ? accentColor.withAlphaComponent(0.30)
-                : accentColor.withAlphaComponent(0.25)).cgColor
+            let accent = MarkdownTextStorage.accentColor(isDark: isDark)
 
-            let path = CGMutablePath()
-            var headerBottomLines: [(CGPoint, CGPoint)] = []
-            var inTable = false
-            var tableTop: CGFloat = 0
-            var tableLeft: CGFloat = CGFloat.greatestFiniteMagnitude
-            var tableRight: CGFloat = 0
-            var columnXs: [CGFloat] = []
-            var lastRowBottom: CGFloat = 0
+            // Liquid glass palette
+            let outerBorderColor = (isDark
+                ? accent.withAlphaComponent(0.22)
+                : accent.withAlphaComponent(0.18)).cgColor
+            let innerLineColor = (isDark
+                ? accent.withAlphaComponent(0.10)
+                : accent.withAlphaComponent(0.08)).cgColor
+            let headerLineColor = (isDark
+                ? accent.withAlphaComponent(0.35)
+                : accent.withAlphaComponent(0.28)).cgColor
+            let glassFillColor = (isDark
+                ? accent.withAlphaComponent(0.04)
+                : accent.withAlphaComponent(0.03)).cgColor
+            let glowColor = (isDark
+                ? accent.withAlphaComponent(0.12)
+                : accent.withAlphaComponent(0.06)).cgColor
 
-            // Walk visible lines
+            // Collect table regions
+            struct TableRegion {
+                var top: CGFloat
+                var bottom: CGFloat
+                var left: CGFloat
+                var right: CGFloat
+                var columnXs: [CGFloat]
+                var rowYs: [CGFloat]          // top Y of each row
+                var headerBottomY: CGFloat?   // Y where header separator sits
+            }
+
+            var tables: [TableRegion] = []
+            var current: TableRegion?
+
             var lineStart = charRange.location
             while lineStart < NSMaxRange(charRange) {
                 let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
                 let line = str.substring(with: lineRange).trimmingCharacters(in: .newlines)
-
                 let isTableLine = line.hasPrefix("|") && line.hasSuffix("|") && line.count >= 3
 
                 if isTableLine {
-                    // Get line fragment rect (withoutAdditionalLayout avoids O(document) relayout)
                     let glyphIdx = lm.glyphIndexForCharacter(at: lineRange.location)
                     let lineFragRect = lm.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil,
                                                            withoutAdditionalLayout: true)
 
-                    if !inTable {
-                        inTable = true
-                        tableTop = lineFragRect.minY
-                        columnXs = []
-                        tableLeft = CGFloat.greatestFiniteMagnitude
-                        tableRight = 0
-                    }
-
-                    lastRowBottom = lineFragRect.maxY
-
-                    // Find pipe x-positions for this line
-                    var currentPipeXs: [CGFloat] = []
-                    for (offset, ch) in line.utf16.enumerated() where ch == 0x7C /* | */ {
+                    // Find pipe x-positions
+                    var pipeXs: [CGFloat] = []
+                    for (offset, ch) in line.utf16.enumerated() where ch == 0x7C {
                         let charIdx = lineRange.location + offset
                         if charIdx < str.length {
                             let gi = lm.glyphIndexForCharacter(at: charIdx)
                             let loc = lm.location(forGlyphAt: gi)
-                            let x = lineFragRect.minX + loc.x
-                            currentPipeXs.append(x)
+                            pipeXs.append(lineFragRect.minX + loc.x)
                         }
                     }
 
-                    if let first = currentPipeXs.first { tableLeft = min(tableLeft, first) }
-                    if let last = currentPipeXs.last { tableRight = max(tableRight, last) }
-
-                    // Merge column positions (union of all rows)
-                    if columnXs.isEmpty {
-                        columnXs = currentPipeXs
-                    } else if currentPipeXs.count == columnXs.count {
-                        // Average to smooth alignment variations
-                        for i in columnXs.indices {
-                            columnXs[i] = (columnXs[i] + currentPipeXs[i]) / 2
-                        }
-                    }
-
-                    // Horizontal line at top of row
-                    path.move(to: CGPoint(x: tableLeft, y: lineFragRect.minY))
-                    path.addLine(to: CGPoint(x: tableRight, y: lineFragRect.minY))
-
-                    // Detect if this is a header row (next line is separator)
                     let isSep = line.dropFirst().dropLast()
                         .split(separator: "|", omittingEmptySubsequences: false)
                         .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+
+                    if current == nil {
+                        current = TableRegion(
+                            top: lineFragRect.minY,
+                            bottom: lineFragRect.maxY,
+                            left: pipeXs.first ?? lineFragRect.minX,
+                            right: pipeXs.last ?? lineFragRect.maxX,
+                            columnXs: pipeXs,
+                            rowYs: [lineFragRect.minY],
+                            headerBottomY: nil
+                        )
+                    } else {
+                        current!.bottom = lineFragRect.maxY
+                        if let first = pipeXs.first { current!.left = min(current!.left, first) }
+                        if let last = pipeXs.last { current!.right = max(current!.right, last) }
+                        current!.rowYs.append(lineFragRect.minY)
+                        // Stabilize column positions using first row as reference
+                        if pipeXs.count == current!.columnXs.count {
+                            for i in current!.columnXs.indices {
+                                current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
+                            }
+                        }
+                    }
+
                     if isSep {
-                        // Thick header bottom border
-                        headerBottomLines.append(
-                            (CGPoint(x: tableLeft, y: lineFragRect.maxY),
-                             CGPoint(x: tableRight, y: lineFragRect.maxY)))
+                        current?.headerBottomY = lineFragRect.maxY
                     }
                 } else {
-                    // End of table — close it
-                    if inTable {
-                        // Bottom border of last row
-                        path.move(to: CGPoint(x: tableLeft, y: lastRowBottom))
-                        path.addLine(to: CGPoint(x: tableRight, y: lastRowBottom))
-
-                        // Vertical lines at each column
-                        for x in columnXs {
-                            path.move(to: CGPoint(x: x, y: tableTop))
-                            path.addLine(to: CGPoint(x: x, y: lastRowBottom))
-                        }
-
-                        inTable = false
+                    if let t = current {
+                        tables.append(t)
+                        current = nil
                     }
                 }
 
                 lineStart = NSMaxRange(lineRange)
             }
+            if let t = current { tables.append(t) }
 
-            // Close table if it extends past visible range
-            if inTable {
-                path.move(to: CGPoint(x: tableLeft, y: lastRowBottom))
-                path.addLine(to: CGPoint(x: tableRight, y: lastRowBottom))
-                for x in columnXs {
-                    path.move(to: CGPoint(x: x, y: tableTop))
-                    path.addLine(to: CGPoint(x: x, y: lastRowBottom))
-                }
-            }
+            // Clear old sublayers
+            borderLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
 
-            // Apply the path
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            borderLayer.path = path
-            borderLayer.strokeColor = borderColor
+            borderLayer.path = nil
             borderLayer.frame = tv.bounds
 
-            // Draw header borders thicker with a second sublayer
-            if let existingHeader = borderLayer.sublayers?.first as? CAShapeLayer {
-                if headerBottomLines.isEmpty {
-                    existingHeader.path = nil
-                } else {
-                    let headerPath = CGMutablePath()
-                    for (start, end) in headerBottomLines {
-                        headerPath.move(to: start)
-                        headerPath.addLine(to: end)
+            let cornerRadius: CGFloat = 6
+
+            for table in tables {
+                let outerRect = CGRect(
+                    x: table.left - 2,
+                    y: table.top - 1,
+                    width: table.right - table.left + 4,
+                    height: table.bottom - table.top + 2
+                )
+
+                // Glass fill layer — subtle translucent background
+                let fillLayer = CAShapeLayer()
+                fillLayer.path = CGPath(roundedRect: outerRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+                fillLayer.fillColor = glassFillColor
+                fillLayer.strokeColor = nil
+                borderLayer.addSublayer(fillLayer)
+
+                // Glow layer — soft accent shadow behind the table
+                let glowLayer = CAShapeLayer()
+                glowLayer.path = fillLayer.path
+                glowLayer.fillColor = nil
+                glowLayer.strokeColor = glowColor
+                glowLayer.lineWidth = 3
+                glowLayer.shadowColor = accent.cgColor
+                glowLayer.shadowOpacity = isDark ? 0.3 : 0.15
+                glowLayer.shadowOffset = .zero
+                glowLayer.shadowRadius = 8
+                borderLayer.addSublayer(glowLayer)
+
+                // Outer rounded border
+                let outerBorder = CAShapeLayer()
+                outerBorder.path = CGPath(roundedRect: outerRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+                outerBorder.fillColor = nil
+                outerBorder.strokeColor = outerBorderColor
+                outerBorder.lineWidth = 1.0
+                borderLayer.addSublayer(outerBorder)
+
+                // Inner grid lines — vertical column dividers
+                let innerPath = CGMutablePath()
+
+                // Skip first and last column x (those are the outer border)
+                if table.columnXs.count > 2 {
+                    for x in table.columnXs[1..<(table.columnXs.count - 1)] {
+                        innerPath.move(to: CGPoint(x: x, y: table.top + cornerRadius))
+                        innerPath.addLine(to: CGPoint(x: x, y: table.bottom - cornerRadius))
                     }
-                    existingHeader.path = headerPath
                 }
-            } else if !headerBottomLines.isEmpty {
-                let headerLayer = CAShapeLayer()
-                headerLayer.fillColor = nil
-                headerLayer.lineWidth = 1.5
-                headerLayer.strokeColor = headerBorderColor
-                let headerPath = CGMutablePath()
-                for (start, end) in headerBottomLines {
-                    headerPath.move(to: start)
-                    headerPath.addLine(to: end)
+
+                // Horizontal row dividers (skip first row top — that's the outer border)
+                for y in table.rowYs.dropFirst() {
+                    // Skip the separator row itself (drawn as header line)
+                    if let hby = table.headerBottomY, abs(y - hby) < 4 { continue }
+                    innerPath.move(to: CGPoint(x: table.left + cornerRadius, y: y))
+                    innerPath.addLine(to: CGPoint(x: table.right - cornerRadius, y: y))
                 }
-                headerLayer.path = headerPath
-                headerLayer.frame = tv.bounds
-                borderLayer.addSublayer(headerLayer)
+
+                let innerLayer = CAShapeLayer()
+                innerLayer.path = innerPath
+                innerLayer.fillColor = nil
+                innerLayer.strokeColor = innerLineColor
+                innerLayer.lineWidth = 0.5
+                borderLayer.addSublayer(innerLayer)
+
+                // Header separator — thicker accent line below header row
+                if let headerY = table.headerBottomY {
+                    let headerPath = CGMutablePath()
+                    headerPath.move(to: CGPoint(x: table.left + 2, y: headerY))
+                    headerPath.addLine(to: CGPoint(x: table.right - 2, y: headerY))
+
+                    let headerLayer = CAShapeLayer()
+                    headerLayer.path = headerPath
+                    headerLayer.fillColor = nil
+                    headerLayer.strokeColor = headerLineColor
+                    headerLayer.lineWidth = 1.5
+                    borderLayer.addSublayer(headerLayer)
+                }
             }
+
             CATransaction.commit()
         }
 

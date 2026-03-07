@@ -578,10 +578,8 @@ private struct NotePageContent: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if !showWriterMode {
-                bottomToolbarPill
-                    .padding(.bottom, 12)
-            }
+            bottomToolbarPill
+                .padding(.bottom, 12)
         }
         .preferredColorScheme(ui.theme.colorScheme)
         .ignoresSafeArea(edges: .top)
