@@ -221,6 +221,7 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
+        window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
         window.toolbarStyle = .unified
 
         if let theme = AppBootstrap.shared?.uiState.theme {
@@ -478,6 +479,10 @@ private struct NotePageContent: View {
     var body: some View {
         HStack(spacing: 0) {
             ZStack {
+                // Theme background fills entire window including behind toolbar.
+                // The toolbar's ultraThinMaterial blur composites over this.
+                ui.theme.background.ignoresSafeArea()
+
                 if let page = pages.first {
                     if showWriterMode {
                         WriterModeView(
@@ -508,7 +513,6 @@ private struct NotePageContent: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(transitionOpacity > 0)
             }
-            .background(ui.theme.background)
             .environment(noteChatState)
             .overlay(alignment: .top) {
                 if noteChatState.hasResponse && noteChatState.useResponsePanel {
