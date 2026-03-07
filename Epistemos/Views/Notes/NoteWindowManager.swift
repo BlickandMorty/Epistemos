@@ -205,11 +205,12 @@ final class NoteWindowManager {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = pageTitle
+        window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.center()
@@ -220,20 +221,20 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
-        // Toolbar MUST be set BEFORE contentView so SwiftUI finds it during first layout
-        window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
         window.toolbarStyle = .unified
 
         if let theme = AppBootstrap.shared?.uiState.theme {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         }
 
+        // NSHostingController bridges SwiftUI .toolbar items + .toolbarBackgroundVisibility
+        // to the real NSWindow toolbar via sceneBridgingOptions. NSHostingView alone can't do this.
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
-        let hostingView = NSHostingView(rootView: editorView)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView = hostingView
+        let hostingController = NSHostingController(rootView: editorView)
+        hostingController.sceneBridgingOptions = [.all]
+        window.contentViewController = hostingController
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(

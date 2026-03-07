@@ -145,10 +145,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.wantsLayer = true
         scrollView.contentView.wantsLayer = true
         scrollView.contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
-        // Content sits below the toolbar (no fullSizeContentView), so disable
-        // auto inset adjustment — no toolbar overlap to compensate for.
-        scrollView.automaticallyAdjustsContentInsets = false
-        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        // Let AppKit manage toolbar/titlebar underlap for the scroll view.
+        scrollView.automaticallyAdjustsContentInsets = true
 
         // Wire delegate and coordinator
         tv.delegate = context.coordinator
