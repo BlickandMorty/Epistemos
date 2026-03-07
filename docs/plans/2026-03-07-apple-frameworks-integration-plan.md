@@ -125,7 +125,7 @@ Deferred to a future session.
 
 ---
 
-## Phase 11: Document Mode (NEW — TextKit 2 rich text WYSIWYG)
+## Phase 11: Document Mode (DONE — TextKit 2 rich text WYSIWYG)
 
 **The third editing mode.** Alongside Markdown/Prose (TextKit 1) and Writer (TextKit 1 paginated),
 Document mode is a single-continuous-scroll rich text editor using TextKit 2. This is where
@@ -224,7 +224,7 @@ DocumentEditorView (NSViewRepresentable)
 | 10b | Continuity Camera | DONE (built-in NSTextView) | — |
 | 10c | ShortcutsProvider | DONE (pre-existing, 10 shortcuts) | — |
 | 10d | swift-collections | DEFERRED (no SPM, needs dependency setup) | LOWER |
-| **11** | **Document Mode (TextKit 2 WYSIWYG)** | **TODO** | **HIGH** |
+| **11** | **Document Mode (TextKit 2 WYSIWYG)** | **DONE** | **HIGH** |
 
 ## What Stays Unchanged
 - TextKit 1 prose editor (MarkdownTextStorage, ClickableTextView, ProseEditorRepresentable)
