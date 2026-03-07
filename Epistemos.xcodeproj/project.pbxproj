@@ -157,7 +157,6 @@
 		A8EC8E4DE5379DDDB91F2DD5 /* SearchPerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA2B6DA618AC656F9587C8C /* SearchPerformanceTests.swift */; };
 		A9F0B3B745CE00F2A7D57E63 /* IncrementalFFIUpdateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90A09466F35F354234C1FBAB /* IncrementalFFIUpdateTests.swift */; };
 		AA0339D7CBA3B74956732646 /* SOARReward.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C78E0A76E5ADE9584A68629 /* SOARReward.swift */; };
-		AA2B3C4D5E6F70829B1C2D3E /* TimeSliderOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1B2C3D4E5F60718A0B1C2D /* TimeSliderOverlay.swift */; };
 		AB1C2D3E4F5A6B7C8D9E0F1A2 /* GraphOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2D3E4F5A6B7C8D9E0F1A2B3 /* GraphOverlayPanel.swift */; };
 		ACAD000200000000EXPRT02 /* WriterExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000EXPRT01 /* WriterExportService.swift */; };
 		ACAD000200000000FMTBR02 /* WriterFormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000FMTBR01 /* WriterFormatBar.swift */; };
@@ -406,7 +405,6 @@
 		A739577A53F4456DA50CB51C /* GraphFloatingControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphFloatingControls.swift; sourceTree = "<group>"; };
 		A8A4402EB228D73EF547EC7D /* FolderEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderEntity.swift; sourceTree = "<group>"; };
 		A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalGeneratorTests.swift; sourceTree = "<group>"; };
-		AA1B2C3D4E5F60718A0B1C2D /* TimeSliderOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeSliderOverlay.swift; sourceTree = "<group>"; };
 		AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSpotlight.framework; path = System/Library/Frameworks/CoreSpotlight.framework; sourceTree = SDKROOT; };
 		ABAD73CE4C22790C3A4E670B /* BackgroundGraphActor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundGraphActor.swift; sourceTree = "<group>"; };
 		ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageStoragePool.swift; sourceTree = "<group>"; };
@@ -857,7 +855,6 @@
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* NodeInspectorState.swift */,
 				E824B75719B4435E8E500E86 /* GraphForceSettings.swift */,
 				DAD3CAC3378F8B6999B406ED /* QueryResultsView.swift */,
-				AA1B2C3D4E5F60718A0B1C2D /* TimeSliderOverlay.swift */,
 				BB1C3D4E5F6071829A0B2C3D /* RelationshipBrowser.swift */,
 			);
 			path = Graph;
@@ -1358,7 +1355,6 @@
 				7A3F8E12C4D5B69A01E2F843 /* GraphEngine.swift in Sources */,
 				7CC0355FF81467BE7F991C84 /* SemanticClusterService.swift in Sources */,
 				C9AB929DE2D428411DC0A4CD /* EpistemosSchema.swift in Sources */,
-				AA2B3C4D5E6F70829B1C2D3E /* TimeSliderOverlay.swift in Sources */,
 				BB2C4D5E6F7182930B1C3D4E /* RelationshipBrowser.swift in Sources */,
 				CC2D5E6F7182930A1B2C3D4F /* VersionTimeline.swift in Sources */,
 				CC3E6F80829304C6DE2F3041 /* ConfidenceOverlay.swift in Sources */,

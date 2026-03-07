@@ -3,25 +3,6 @@ import NaturalLanguage
 import Observation
 import SwiftData
 
-enum DialoguePresentationTheme: UInt8, CaseIterable, Codable {
-    case tactics = 0
-    case nocturne = 1
-
-    var displayName: String {
-        switch self {
-        case .tactics: "Tactics"
-        case .nocturne: "Nocturne"
-        }
-    }
-
-    var chromeLabel: String {
-        switch self {
-        case .tactics: "Parchment"
-        case .nocturne: "Moonlit"
-        }
-    }
-}
-
 enum DialogueArchetype: String, Codable, Sendable, Equatable {
     case archivist
     case examiner

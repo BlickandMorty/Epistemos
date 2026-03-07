@@ -70,8 +70,8 @@ struct GraphForceSettings: View {
                     .opacity(isStatic ? 0.4 : 1.0)
                     .allowsHitTesting(!isStatic)
 
-                Divider().opacity(0.3)
-                qualitySection
+
+
             }
             .padding(16)
         }
@@ -415,19 +415,6 @@ struct GraphForceSettings: View {
                 }
             }
 
-            Divider().opacity(0.2)
-
-            // ── Optics ──
-            VStack(alignment: .leading, spacing: 8) {
-                sectionHeader("Optics", icon: "eye")
-
-                labToggle(
-                    label: "Edge Stress Tint",
-                    isOn: gs.enableTensionColoring,
-                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
-                )
-                settingNote("Classic theme only.")
-            }
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
@@ -444,31 +431,6 @@ struct GraphForceSettings: View {
             .font(.system(size: 11))
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-        }
-    }
-
-    // MARK: - Rendering Quality
-
-    private var qualitySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Rendering", icon: "gpu")
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Quality")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-
-                Text("Cinematic")
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.primary.opacity(0.12), in: Capsule())
-
-                Text("Full renderer only. Balanced and Performance were removed.")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 

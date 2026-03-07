@@ -180,7 +180,6 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         var enableFluid: Bool?
         var enableTorsion: Bool?
         var enableElastic: Bool?
-        var enableTension: Bool?
         var fluidViscosity: Float?
         var edgeElasticity: Float?
         var torsionRigidity: Float?
@@ -195,7 +194,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         switch self {
         case .observatory:
             return LabOverrides(enableFluid: true, enableTorsion: true, enableElastic: true,
-                              enableTension: true, windX: 0, windY: 0, enableOrbital: false)
+                              windX: 0, windY: 0, enableOrbital: false)
         case .deepSea:
             return LabOverrides(enableFluid: true, enableElastic: true,
                               fluidViscosity: 0.9, edgeElasticity: 0.7, windX: 0, windY: 0)
@@ -208,13 +207,13 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
             return LabOverrides(enableTorsion: true, enableElastic: false,
                               torsionRigidity: 1.0, windX: 0, windY: 0)
         case .rubberBand:
-            return LabOverrides(enableTension: true, windX: 0, windY: 0)
+            return LabOverrides(windX: 0, windY: 0)
         case .zenGarden:
             return LabOverrides(enableFluid: false, enableTorsion: false, enableElastic: false,
                               windX: 0, windY: 0, enableOrbital: false)
         case .chaos:
             return LabOverrides(enableFluid: true, enableTorsion: true, enableElastic: true,
-                              enableTension: true, fluidViscosity: 0.1, edgeElasticity: 0.9,
+                              fluidViscosity: 0.1, edgeElasticity: 0.9,
                               torsionRigidity: 0.8, windX: 20, windY: -15,
                               enableOrbital: true, orbitalSpeed: 0.8)
         default:
@@ -377,15 +376,6 @@ final class GraphState {
         }
     }
     var visualThemeVersion: Int = 0
-    var dialoguePresentationTheme: DialoguePresentationTheme = {
-        let raw = UserDefaults.standard.integer(forKey: "graphDialogueOverlayTheme")
-        guard (0...255).contains(raw) else { return .tactics }
-        return DialoguePresentationTheme(rawValue: UInt8(raw)) ?? .tactics
-    }() {
-        didSet {
-            UserDefaults.standard.set(Int(dialoguePresentationTheme.rawValue), forKey: "graphDialogueOverlayTheme")
-        }
-    }
 
     // MARK: - Force Parameters
     // Core 4 params (basic panel) + 5 extended params (advanced panel).
@@ -430,7 +420,6 @@ final class GraphState {
     var enableFluidDynamics: Bool = false
     var enableTorsionalSprings: Bool = false
     var enableElasticEdges: Bool = true
-    var enableTensionColoring: Bool = true
     var fluidViscosity: Float = 0.5
     var edgeElasticity: Float = 0.5
     var torsionRigidity: Float = 0.5
@@ -467,7 +456,6 @@ final class GraphState {
         d.set(enableFluidDynamics, forKey: "epistemos.physics.enableFluid")
         d.set(enableTorsionalSprings, forKey: "epistemos.physics.enableTorsion")
         d.set(enableElasticEdges, forKey: "epistemos.physics.enableElastic")
-        d.set(enableTensionColoring, forKey: "epistemos.physics.enableTension")
         d.set(fluidViscosity, forKey: "epistemos.physics.fluidViscosity")
         d.set(edgeElasticity, forKey: "epistemos.physics.edgeElasticity")
         d.set(torsionRigidity, forKey: "epistemos.physics.torsionRigidity")
@@ -511,7 +499,6 @@ final class GraphState {
             enableFluidDynamics = d.bool(forKey: "epistemos.physics.enableFluid")
             enableTorsionalSprings = d.bool(forKey: "epistemos.physics.enableTorsion")
             enableElasticEdges = d.bool(forKey: "epistemos.physics.enableElastic")
-            enableTensionColoring = d.bool(forKey: "epistemos.physics.enableTension")
             fluidViscosity = d.float(forKey: "epistemos.physics.fluidViscosity")
             edgeElasticity = d.float(forKey: "epistemos.physics.edgeElasticity")
             torsionRigidity = d.float(forKey: "epistemos.physics.torsionRigidity")
@@ -530,52 +517,11 @@ final class GraphState {
     var semanticStrength: Float = 0.0
     var semanticForceConfigVersion: Int = 0
 
-    // ── Time-Travel ──
-    /// Computed date range of all graph nodes. Set during commit.
-    var timeRangeStart: Date = .distantPast
-    var timeRangeEnd: Date = .now
-    /// Whether the time slider is currently visible.
-    var showTimeSlider = false
-    /// Current time filter cutoff. Nodes created after this are hidden.
-    var timeCutoff: Date = .distantFuture
-
     var clusterConfigVersion: Int = 0
     func pushClusterChange() { clusterConfigVersion += 1; savePhysicsSettings() }
     func pushSemanticChange() {
         semanticForceConfigVersion += 1
         savePhysicsSettings()
-    }
-
-    /// Compute the date range of all nodes in the store (for time slider bounds).
-    func computeTimeRange() {
-        var earliest: Date = .distantFuture
-        var latest: Date = .distantPast
-        for (_, node) in store.nodes {
-            if node.createdAt < earliest { earliest = node.createdAt }
-            if node.createdAt > latest { latest = node.createdAt }
-        }
-        if earliest > latest {
-            earliest = .distantPast
-            latest = .now
-        }
-        timeRangeStart = earliest
-        timeRangeEnd = latest
-        timeCutoff = latest
-    }
-
-    /// Apply time filter to the Rust engine. Nodes created after cutoff are hidden.
-    func applyTimeFilter(_ cutoff: Date) {
-        timeCutoff = cutoff
-        guard let engine = engineHandle else { return }
-        graph_engine_set_time_filter(engine, 0.0, cutoff.timeIntervalSince1970)
-    }
-
-    /// Clear the time filter (show all nodes).
-    func clearTimeFilter() {
-        timeCutoff = .distantFuture
-        showTimeSlider = false
-        guard let engine = engineHandle else { return }
-        graph_engine_set_time_filter(engine, 0.0, 1e18)
     }
 
     private func resetPresetSensitiveSettings() {
@@ -585,7 +531,6 @@ final class GraphState {
         enableFluidDynamics = false
         enableTorsionalSprings = false
         enableElasticEdges = true
-        enableTensionColoring = true
         fluidViscosity = 0.5
         edgeElasticity = 0.5
         torsionRigidity = 0.5
@@ -613,7 +558,6 @@ final class GraphState {
         if let v = lab.enableFluid    { enableFluidDynamics = v }
         if let v = lab.enableTorsion  { enableTorsionalSprings = v }
         if let v = lab.enableElastic  { enableElasticEdges = v }
-        if let v = lab.enableTension  { enableTensionColoring = v }
         if let v = lab.fluidViscosity { fluidViscosity = v }
         if let v = lab.edgeElasticity { edgeElasticity = v }
         if let v = lab.torsionRigidity { torsionRigidity = v }

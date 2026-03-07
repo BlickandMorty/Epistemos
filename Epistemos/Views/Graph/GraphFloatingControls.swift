@@ -11,78 +11,52 @@ struct GraphFloatingControls: View {
     @State private var showForceSettings = false
 
     var body: some View {
-        VStack(spacing: 8) {
-            if graphState.showTimeSlider {
-                TimeSliderOverlay()
-                    .environment(graphState)
-            }
+        HStack(spacing: 12) {
+            typeFilterPills
 
-            HStack(spacing: 12) {
-                typeFilterPills
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
 
-                Divider()
-                    .frame(height: 20)
-                    .opacity(0.3)
+            modeToggle
 
-                modeToggle
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
 
-                Divider()
-                    .frame(height: 20)
-                    .opacity(0.3)
+            semanticClusterToggle
 
-                semanticClusterToggle
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
 
-                Divider()
-                    .frame(height: 20)
-                    .opacity(0.3)
+            physicsToggle
 
-                themeToggle
+            forceSettingsButton
 
-                Divider()
-                    .frame(height: 20)
-                    .opacity(0.3)
+            minimizeButton
 
-                renderingBadge
+            resetViewButton
 
-                Divider()
-                    .frame(height: 20)
-                    .opacity(0.3)
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
 
-                physicsToggle
+            rebuildGraphButton
 
-                forceSettingsButton
+            Divider()
+                .frame(height: 20)
+                .opacity(0.3)
 
-                timeSliderButton
-
-                minimizeButton
-
-                resetViewButton
-
-                Divider()
-                    .frame(height: 20)
-                    .opacity(0.3)
-
-                rebuildGraphButton
-
-                Divider()
-                    .frame(height: 20)
-                    .opacity(0.3)
-
-                closeButton
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .glassEffect(.regular.interactive(), in: Capsule())
-            .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
-            .popover(isPresented: $showForceSettings, arrowEdge: .top) {
-                GraphForceSettings()
-                    .environment(graphState)
-            }
+            closeButton
         }
-        .onAppear {
-            if graphState.visualTheme != .dialogue {
-                graphState.visualTheme = .dialogue
-            }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .glassEffect(.regular.interactive(), in: Capsule())
+        .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
+        .popover(isPresented: $showForceSettings, arrowEdge: .top) {
+            GraphForceSettings()
+                .environment(graphState)
         }
     }
 
@@ -175,50 +149,6 @@ struct GraphFloatingControls: View {
     }
 
 
-    // MARK: - Theme Toggle
-
-    private var themeToggle: some View {
-        HStack(spacing: 2) {
-            themeButton(theme: .tactics, icon: "shield.lefthalf.filled")
-            themeButton(theme: .nocturne, icon: "moon.stars.fill")
-        }
-    }
-
-    private func themeButton(theme: DialoguePresentationTheme, icon: String) -> some View {
-        let isSelected = graphState.dialoguePresentationTheme == theme
-        return Button {
-            graphState.visualTheme = .dialogue
-            graphState.dialoguePresentationTheme = theme
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                Text(theme.displayName)
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-            .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
-    }
-
-    // MARK: - Rendering Badge
-
-    private var renderingBadge: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 10, weight: .medium))
-            Text("Cine")
-                .font(.system(size: 11, weight: .medium))
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.primary.opacity(0.15), in: Capsule())
-        .foregroundStyle(Color.primary.opacity(0.9))
-    }
-
     // MARK: - Physics Toggle
 
     private var physicsToggle: some View {
@@ -248,30 +178,6 @@ struct GraphFloatingControls: View {
     }
 
     // MARK: - Force Settings
-
-    // MARK: - Time Slider
-
-    private var timeSliderButton: some View {
-        Button {
-            withAnimation(.smooth(duration: 0.2)) {
-                if graphState.showTimeSlider {
-                    graphState.clearTimeFilter()
-                } else {
-                    graphState.computeTimeRange()
-                    graphState.showTimeSlider = true
-                }
-            }
-        } label: {
-            Image(systemName: graphState.showTimeSlider ? "clock.fill" : "clock")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.primary.opacity(graphState.showTimeSlider ? 1.0 : 0.6))
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help("Time Travel")
-        .accessibilityLabel("Time travel slider")
-    }
 
     private var forceSettingsButton: some View {
         Button {

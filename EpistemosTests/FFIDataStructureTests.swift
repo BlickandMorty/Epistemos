@@ -477,58 +477,7 @@ struct FFIDataStructureTests {
         #expect(k > 0)
         #expect(threshold >= 0 && threshold <= 1)
     }
-    
-    // MARK: - Time Filter Tests
-    
-    @Test("Time filter boundary values")
-    func timeFilterBoundaryValues() {
-        let minTimestamps: [Float] = [
-            0.0,                    // Beginning of time
-            1609459200.0,           // 2021-01-01
-            1700000000.0,           // Recent
-        ]
-        
-        let maxTimestamps: [Float] = [
-            4102444800.0,           // 2100-01-01
-            Float.greatestFiniteMagnitude, // Infinity
-        ]
-        
-        for min in minTimestamps {
-            for max in maxTimestamps {
-                #expect(min >= 0) // Unix timestamps are positive
-                #expect(max > min) // Max must be greater than min
-            }
-        }
-    }
-    
-    @Test("Time filter zero values (disabled)")
-    func timeFilterDisabled() {
-        let minTs: Float = 0.0
-        let maxTs: Float = 1e18 // Very large
-        
-        #expect(minTs == 0)
-        #expect(maxTs > 0)
-    }
-    
-    @Test("Time filter node timestamp")
-    func timeFilterNodeTimestamp() {
-        let createdAt = Date().timeIntervalSince1970
-        let updatedAt = createdAt + 3600 // 1 hour later
-        
-        #expect(createdAt > 0)
-        #expect(updatedAt >= createdAt)
-    }
-    
-    @Test("Time filter typical range")
-    func timeFilterTypicalRange() {
-        // Last 30 days
-        let now = Date().timeIntervalSince1970
-        let thirtyDaysAgo = now - (30 * 24 * 60 * 60)
-        
-        #expect(thirtyDaysAgo > 0)
-        #expect(now > thirtyDaysAgo)
-    }
-    
+
     // MARK: - Confidence Score Tests
     
     @Test("Confidence score valid range")

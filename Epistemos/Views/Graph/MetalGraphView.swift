@@ -419,9 +419,6 @@ final class MetalGraphNSView: NSView {
             }
         }
 
-        // Pre-compute time range for time-travel slider.
-        graphState.computeTimeRange()
-
         // Compute embeddings and push to Rust for semantic force + search.
         graphState.embeddingService.computeAndPush(store: graphState.store)
     }
@@ -535,7 +532,7 @@ final class MetalGraphNSView: NSView {
             graphState.enableFluidDynamics ? 1 : 0,
             graphState.enableTorsionalSprings ? 1 : 0,
             graphState.enableElasticEdges ? 1 : 0,
-            graphState.enableTensionColoring ? 1 : 0,
+            0, // tension coloring removed
             graphState.fluidViscosity,
             graphState.edgeElasticity,
             graphState.torsionRigidity,

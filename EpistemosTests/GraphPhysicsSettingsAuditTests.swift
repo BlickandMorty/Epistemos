@@ -68,7 +68,6 @@ struct GraphPhysicsSettingsAuditTests {
         state.enableFluidDynamics = true
         state.enableTorsionalSprings = true
         state.enableElasticEdges = false
-        state.enableTensionColoring = false
         state.fluidViscosity = 0.9
         state.edgeElasticity = 0.9
         state.torsionRigidity = 0.9
@@ -86,7 +85,6 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!state.enableFluidDynamics)
         #expect(!state.enableTorsionalSprings)
         #expect(state.enableElasticEdges)
-        #expect(state.enableTensionColoring)
         #expect(abs(state.fluidViscosity - 0.5) < 0.0001)
         #expect(abs(state.edgeElasticity - 0.5) < 0.0001)
         #expect(abs(state.torsionRigidity - 0.5) < 0.0001)
@@ -166,12 +164,6 @@ struct DialogueGameStateAuditTests {
         #expect(profile.care.health > initialHealth)
         #expect(profile.care.attention > initialAttention)
         #expect(profile.care.interactionCount == 1)
-    }
-
-    @Test("dialogue themes stay distinct")
-    func dialogueThemesDistinct() {
-        #expect(DialoguePresentationTheme.tactics.displayName != DialoguePresentationTheme.nocturne.displayName)
-        #expect(DialoguePresentationTheme.tactics.chromeLabel != DialoguePresentationTheme.nocturne.chromeLabel)
     }
 
     @Test("explicit node insight drives depth tier and vitality")
