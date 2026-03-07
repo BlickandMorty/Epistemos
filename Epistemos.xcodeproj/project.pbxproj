@@ -20,6 +20,8 @@
 		A1AGT00100000000000007 /* LibrarianAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000007 /* LibrarianAgent.swift */; };
 		A1AGT00100000000000008 /* WriterAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000008 /* WriterAgent.swift */; };
 		A1AGT00100000000000009 /* BuilderAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000009 /* BuilderAgent.swift */; };
+		A1LP000100000000000001 /* LearningPoolState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LP000200000000000001 /* LearningPoolState.swift */; };
+		A1LP000100000000000002 /* LearningPoolService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LP000200000000000002 /* LearningPoolService.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -356,6 +358,8 @@
 		A1AGT00200000000000007 /* LibrarianAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarianAgent.swift; sourceTree = "<group>"; };
 		A1AGT00200000000000008 /* WriterAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterAgent.swift; sourceTree = "<group>"; };
 		A1AGT00200000000000009 /* BuilderAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuilderAgent.swift; sourceTree = "<group>"; };
+		A1LP000200000000000001 /* LearningPoolState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningPoolState.swift; sourceTree = "<group>"; };
+		A1LP000200000000000002 /* LearningPoolService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningPoolService.swift; sourceTree = "<group>"; };
 		5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTypes.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		53D12B79B2E861637C19926D /* VaultManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManifest.swift; sourceTree = "<group>"; };
@@ -719,6 +723,7 @@
 				9947A75806BAE2F306FAFB6C /* EventBus.swift */,
 				50604F1EB2DF6F05D43CD51C /* InferenceState.swift */,
 				A1MLX00200000000000004 /* MLXModelManager.swift */,
+				A1LP000200000000000001 /* LearningPoolState.swift */,
 				B04D63187FD2C7EC9B1445BB /* NotesUIState.swift */,
 				1B5B216A72D52446F8223EE4 /* PipelineState.swift */,
 				4877EAD0B940B5E1B02C2AAE /* ResearchState.swift */,
@@ -1055,6 +1060,7 @@
 				A1MLX00200000000000001 /* MLXEngine.swift */,
 				A1MLX00200000000000002 /* MLXModelRegistry.swift */,
 				A1MLX00200000000000003 /* MLXClient.swift */,
+				A1LP000200000000000002 /* LearningPoolService.swift */,
 				818ABA625E1915138186C72C /* PipelineService.swift */,
 				E3260DBD123A55AE26999EC3 /* PromptComposer.swift */,
 				E3260DBE123A55AF26999EC4 /* PromptComposer+Consolidated.swift */,
@@ -1321,6 +1327,8 @@
 				A1AGT00100000000000007 /* LibrarianAgent.swift in Sources */,
 				A1AGT00100000000000008 /* WriterAgent.swift in Sources */,
 				A1AGT00100000000000009 /* BuilderAgent.swift in Sources */,
+				A1LP000100000000000001 /* LearningPoolState.swift in Sources */,
+				A1LP000100000000000002 /* LearningPoolService.swift in Sources */,
 				31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */,
 				D0BE2F268FDB1F22A6735F95 /* LearningIntents.swift in Sources */,
 				1A35A483C814CA0D71DE5796 /* LibraryView.swift in Sources */,

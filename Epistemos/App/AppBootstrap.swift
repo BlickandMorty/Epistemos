@@ -54,6 +54,10 @@ final class AppBootstrap {
     // MARK: - Agents
     let agentEngine: AgentEngine
 
+    // MARK: - Learning Pool
+    let learningPoolState: LearningPoolState
+    let learningPoolService: LearningPoolService
+
     // MARK: - Services
     let llmService: LLMService
     let triageService: TriageService
@@ -119,6 +123,11 @@ final class AppBootstrap {
         engine.register(LibrarianAgent(messageBus: engine.messageBus))
         engine.register(WriterAgent(messageBus: engine.messageBus))
         engine.register(BuilderAgent(messageBus: engine.messageBus))
+
+        // Learning Pool — research engine that agents can query
+        let poolState = LearningPoolState()
+        self.learningPoolState = poolState
+        self.learningPoolService = LearningPoolService(state: poolState, messageBus: engine.messageBus)
 
         // LLMService wraps the provider interface
         let llm = LLMService(inference: inference)

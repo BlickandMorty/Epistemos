@@ -31,5 +31,6 @@ extension View {
             .environment(bootstrap.dialogueChatState)
             .environment(bootstrap.mlxModelManager)
             .environment(bootstrap.agentEngine)
+            .environment(bootstrap.learningPoolState)
     }
 }

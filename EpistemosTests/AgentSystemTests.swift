@@ -520,6 +520,90 @@ struct BuilderAgentTests {
     }
 }
 
+// MARK: - LearningPoolState Tests
+
+@Suite("LearningPoolState")
+struct LearningPoolStateTests {
+
+    @Test("Default search mode is balanced")
+    func defaultMode() {
+        let state = LearningPoolState()
+        #expect(state.searchMode == .balanced)
+    }
+
+    @Test("Search modes have correct iteration limits")
+    func iterationLimits() {
+        #expect(LearningPoolState.SearchMode.speed.maxIterations == 2)
+        #expect(LearningPoolState.SearchMode.balanced.maxIterations == 6)
+        #expect(LearningPoolState.SearchMode.quality.maxIterations == 25)
+    }
+
+    @Test("All search modes have display names")
+    func displayNames() {
+        for mode in LearningPoolState.SearchMode.allCases {
+            #expect(!mode.displayName.isEmpty)
+        }
+    }
+
+    @Test("Default source config enables all sources")
+    func defaultSources() {
+        let config = LearningPoolState.SourceConfig()
+        #expect(config.web)
+        #expect(config.academic)
+        #expect(config.notes)
+    }
+
+    @Test("Adding results caps at 50")
+    func resultCap() {
+        let state = LearningPoolState()
+        for i in 0..<60 {
+            state.addResult(LearningPoolState.PoolSearchResult(
+                id: "\(i)", query: "q\(i)", answer: "a", sources: [], timestamp: Date()
+            ))
+        }
+        #expect(state.recentSearches.count == 50)
+    }
+
+    @Test("Most recent result is first")
+    func recentFirst() {
+        let state = LearningPoolState()
+        state.addResult(LearningPoolState.PoolSearchResult(
+            id: "1", query: "first", answer: "", sources: [], timestamp: Date()
+        ))
+        state.addResult(LearningPoolState.PoolSearchResult(
+            id: "2", query: "second", answer: "", sources: [], timestamp: Date()
+        ))
+        #expect(state.recentSearches.first?.query == "second")
+    }
+
+    @Test("Clear history empties results")
+    func clearHistory() {
+        let state = LearningPoolState()
+        state.addResult(LearningPoolState.PoolSearchResult(
+            id: "1", query: "test", answer: "", sources: [], timestamp: Date()
+        ))
+        state.clearHistory()
+        #expect(state.recentSearches.isEmpty)
+    }
+
+    @Test("Error can be set and cleared")
+    func errorHandling() {
+        let state = LearningPoolState()
+        #expect(state.error == nil)
+        state.setError("test error")
+        #expect(state.error == "test error")
+        state.setError(nil)
+        #expect(state.error == nil)
+    }
+
+    @Test("Not searching by default")
+    func notSearching() {
+        let state = LearningPoolState()
+        #expect(!state.isSearching)
+        #expect(state.currentQuery.isEmpty)
+    }
+}
+
 // MARK: - AgentEngine Integration Tests
 
 @Suite("AgentEngine Integration")
