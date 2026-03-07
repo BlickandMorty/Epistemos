@@ -180,32 +180,24 @@ extension GraphEdgeType {
         case .supports:    return "Supports"
         case .contradicts: return "Contradicts"
         case .expands:     return "Expands"
-        case .questions:       return "Questions"
-        case .agentWorkedOn:   return "Worked On"
-        case .agentAttachedTo: return "Attached To"
-        case .bridgedTo:       return "Bridged To"
-        case .derivedFrom:     return "Derived From"
+        case .questions:   return "Questions"
         }
     }
 
     var icon: String {
         switch self {
-        case .reference:       return "arrow.right"
-        case .contains:        return "folder"
-        case .tagged:          return "number"
-        case .mentions:        return "at"
-        case .cites:           return "quote.opening"
-        case .authored:        return "person"
-        case .related:         return "link"
-        case .quotes:          return "text.quote"
-        case .supports:        return "checkmark.circle"
-        case .contradicts:     return "xmark.circle"
-        case .expands:         return "arrow.up.left.and.arrow.down.right"
-        case .questions:       return "questionmark.circle"
-        case .agentWorkedOn:   return "wrench"
-        case .agentAttachedTo: return "pin"
-        case .bridgedTo:       return "circle.grid.cross"
-        case .derivedFrom:     return "arrow.turn.up.left"
+        case .reference:   return "arrow.right"
+        case .contains:    return "folder"
+        case .tagged:      return "number"
+        case .mentions:    return "at"
+        case .cites:       return "quote.opening"
+        case .authored:    return "person"
+        case .related:     return "link"
+        case .quotes:      return "text.quote"
+        case .supports:    return "checkmark.circle"
+        case .contradicts: return "xmark.circle"
+        case .expands:     return "arrow.up.left.and.arrow.down.right"
+        case .questions:   return "questionmark.circle"
         }
     }
 

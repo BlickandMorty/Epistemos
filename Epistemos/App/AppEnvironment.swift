@@ -29,11 +29,5 @@ extension View {
             .environment(bootstrap.queryEngine)
             .environment(bootstrap.physicsCoordinator)
             .environment(bootstrap.dialogueChatState)
-            .environment(bootstrap.mlxModelManager)
-            .environment(bootstrap.agentEngine)
-            .environment(bootstrap.learningPoolState)
-            .environment(bootstrap.voiceEngine)
-            .environment(bootstrap.agentMemoryService)
-            .environment(bootstrap.agentNotificationService)
     }
 }

@@ -10,7 +10,6 @@ struct RootView: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(VoiceEngine.self) private var voiceEngine
 
     /// Set by EpistemosApp when AppBootstrap detected a database error.
     var databaseError: Error?
@@ -62,22 +61,6 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            // Read Mode toggle — reads new AI responses aloud
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    voiceEngine.readModeEnabled.toggle()
-                    if voiceEngine.readModeEnabled && !voiceEngine.isReady {
-                        Task { await voiceEngine.start() }
-                    }
-                } label: {
-                    Label(
-                        "Read Mode",
-                        systemImage: voiceEngine.readModeEnabled ? "speaker.wave.3.fill" : "speaker.wave.3"
-                    )
-                }
-                .accessibilityLabel(voiceEngine.readModeEnabled ? "Read Mode On" : "Read Mode Off")
-                .help(voiceEngine.readModeEnabled ? "Read Mode: On" : "Read Mode: Off")
-            }
             // Chat sidebar toggle — always visible on Home panel
             ToolbarItem(placement: .primaryAction) {
                 if ui.activePanel == .home {
@@ -122,18 +105,6 @@ struct RootView: View {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(350))
                     showToolbarGlass = true
-                }
-            }
-        }
-        // Read Mode: auto-speak new assistant messages
-        .onChange(of: chat.messages.count) { oldCount, newCount in
-            guard voiceEngine.readModeEnabled, newCount > oldCount else { return }
-            if let last = chat.messages.last, last.role == .assistant, !chat.isStreaming {
-                Task {
-                    let text = last.content
-                        .replacingOccurrences(of: "\\[[A-Z][A-Z ]+\\]", with: "", options: .regularExpression)
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    await voiceEngine.speakText(text)
                 }
             }
         }

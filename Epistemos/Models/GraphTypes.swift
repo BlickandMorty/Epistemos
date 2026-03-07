@@ -13,12 +13,6 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     case quote
     case tag
     case block
-    // Agent system node types (Phase 7)
-    case agent
-    case codeFile
-    case codeFolder
-    case draft
-    case searchResult
 
     /// Node types visible in the graph UI (excludes block — blocks are internal structure).
     static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block }
@@ -48,50 +42,35 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .folder: return "Folder"
         case .quote:  return "Quote"
         case .tag:    return "Tag"
-        case .block:        return "Block"
-        case .agent:        return "Agent"
-        case .codeFile:     return "Code File"
-        case .codeFolder:   return "Code Folder"
-        case .draft:        return "Draft"
-        case .searchResult: return "Search Result"
+        case .block:  return "Block"
         }
     }
 
     /// SF Symbol name for node rendering.
     var icon: String {
         switch self {
-        case .note:         return "doc.text"
-        case .chat:         return "bubble.left"
-        case .idea:         return "lightbulb"
-        case .source:       return "link"
-        case .folder:       return "folder"
-        case .quote:        return "text.quote"
-        case .tag:          return "number"
-        case .block:        return "text.line.first.and.arrowtriangle.forward"
-        case .agent:        return "person.crop.circle"
-        case .codeFile:     return "doc.badge.gearshape"
-        case .codeFolder:   return "folder.badge.gearshape"
-        case .draft:        return "pencil.and.outline"
-        case .searchResult: return "magnifyingglass"
+        case .note:   return "doc.text"
+        case .chat:   return "bubble.left"
+        case .idea:   return "lightbulb"
+        case .source: return "link"
+        case .folder: return "folder"
+        case .quote:  return "text.quote"
+        case .tag:    return "number"
+        case .block:  return "text.line.first.and.arrowtriangle.forward"
         }
     }
 
-    /// Index matching Rust NodeType enum for FFI.
+    /// Index matching Rust NodeType enum (0–7) for FFI.
     var rustIndex: UInt8 {
         switch self {
-        case .note:         return 0
-        case .chat:         return 1
-        case .idea:         return 2
-        case .source:       return 3
-        case .folder:       return 4
-        case .quote:        return 5
-        case .tag:          return 6
-        case .block:        return 7
-        case .agent:        return 8
-        case .codeFile:     return 9
-        case .codeFolder:   return 10
-        case .draft:        return 11
-        case .searchResult: return 12
+        case .note:   return 0
+        case .chat:   return 1
+        case .idea:   return 2
+        case .source: return 3
+        case .folder: return 4
+        case .quote:  return 5
+        case .tag:    return 6
+        case .block:  return 7
         }
     }
 
@@ -118,11 +97,6 @@ nonisolated enum GraphEdgeType: String, Codable, Sendable {
     case contradicts   // Note A contradicts claims in Note B
     case expands       // Note A expands on ideas in Note B
     case questions     // Note A raises questions about Note B
-    // Agent system edge types (Phase 7)
-    case agentWorkedOn   // Agent -> Node it modified/created
-    case agentAttachedTo // Agent -> Node it's currently working on
-    case bridgedTo       // Main graph node -> Agent territory node
-    case derivedFrom     // Agent-created node -> source that inspired it
 
     /// Migration from legacy 23-type system.
     init(legacy rawValue: String) {
@@ -163,11 +137,7 @@ nonisolated enum GraphEdgeType: String, Codable, Sendable {
         case .supports:    return 8
         case .contradicts: return 9
         case .expands:     return 10
-        case .questions:       return 11
-        case .agentWorkedOn:   return 12
-        case .agentAttachedTo: return 13
-        case .bridgedTo:       return 14
-        case .derivedFrom:     return 15
+        case .questions:   return 11
         }
     }
 }

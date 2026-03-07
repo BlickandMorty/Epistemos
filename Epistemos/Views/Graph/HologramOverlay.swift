@@ -512,7 +512,6 @@ final class HologramOverlay {
                         modelContext: modelContainer.mainContext
                     )
                     .environment(graphState)
-                    .environment(AppBootstrap.shared?.voiceEngine ?? VoiceEngine())
                 )
             )
             inspectorView.autoresizingMask = [.width, .height]
@@ -942,7 +941,6 @@ final class HologramOverlay {
                         modelContext: modelContainer.mainContext
                     )
                     .environment(graphState)
-                    .environment(AppBootstrap.shared?.voiceEngine ?? VoiceEngine())
                 )
             )
             // Use frame-based positioning (updated by inspectorPositionTask).

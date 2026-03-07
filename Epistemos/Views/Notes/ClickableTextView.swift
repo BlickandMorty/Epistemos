@@ -1,5 +1,4 @@
 import AppKit
-import UniformTypeIdentifiers
 
 // MARK: - ClickableTextView
 // Bare NSTextView subclass with wikilink click handling.
@@ -182,125 +181,7 @@ final class ClickableTextView: NSTextView {
             // Don't return true — let Esc propagate for other uses too
         }
 
-        // Cmd+= / Cmd++ — Zoom In
-        if flags == .command, let chars = event.charactersIgnoringModifiers,
-           chars == "=" || chars == "+" {
-            zoomIn()
-            return true
-        }
-
-        // Cmd+- — Zoom Out
-        if flags == .command, event.charactersIgnoringModifiers == "-" {
-            zoomOut()
-            return true
-        }
-
-        // Cmd+0 — Reset Zoom
-        if flags == .command, event.charactersIgnoringModifiers == "0" {
-            resetZoom()
-            return true
-        }
-
         return super.performKeyEquivalent(with: event)
-    }
-
-    // MARK: - Zoom
-
-    /// Current zoom level (persisted per-window via scroll view magnification).
-    private static let minZoom: CGFloat = 0.5
-    private static let maxZoom: CGFloat = 2.0
-    private static let zoomStep: CGFloat = 0.1
-
-    override func magnify(with event: NSEvent) {
-        guard let sv = enclosingScrollView else { return }
-        let newMag = max(Self.minZoom, min(Self.maxZoom, sv.magnification + event.magnification))
-        sv.magnification = newMag
-    }
-
-    private func zoomIn() {
-        guard let sv = enclosingScrollView else { return }
-        sv.magnification = min(Self.maxZoom, sv.magnification + Self.zoomStep)
-    }
-
-    private func zoomOut() {
-        guard let sv = enclosingScrollView else { return }
-        sv.magnification = max(Self.minZoom, sv.magnification - Self.zoomStep)
-    }
-
-    private func resetZoom() {
-        enclosingScrollView?.magnification = 1.0
-    }
-
-    // MARK: - Insert Image
-
-    @objc func insertImage(_ sender: Any?) {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.begin { [weak self] response in
-            guard response == .OK, let url = panel.url, let self else { return }
-            self.insertImageAttachment(from: url)
-        }
-    }
-
-    func insertImageAttachment(from url: URL) {
-        guard let image = NSImage(contentsOf: url) else { return }
-
-        let attachment = NSTextAttachment()
-        // Scale to fit readable width — max 600px wide, maintain aspect ratio
-        let maxWidth: CGFloat = 600
-        let imageSize = image.size
-        if imageSize.width > maxWidth {
-            let scale = maxWidth / imageSize.width
-            image.size = NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        }
-        let cell = NSTextAttachmentCell(imageCell: image)
-        attachment.attachmentCell = cell
-
-        let attrStr = NSMutableAttributedString(attachment: attachment)
-        // Store original path as custom attribute for markdown round-trip
-        attrStr.addAttribute(NSAttributedString.Key("EpistemosImagePath"),
-                             value: url.lastPathComponent,
-                             range: NSRange(location: 0, length: attrStr.length))
-
-        let insertLoc = selectedRange().location
-        let insertRange = NSRange(location: insertLoc, length: 0)
-        if shouldChangeText(in: insertRange, replacementString: attrStr.string) {
-            textStorage?.insert(attrStr, at: insertLoc)
-            didChangeText()
-        }
-    }
-
-    // MARK: - Insert Table
-
-    @objc func insertMarkdownTable(_ sender: Any?) {
-        let table = "\n| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| cell     | cell     | cell     |\n"
-        let insertLoc = selectedRange().location
-        let insertRange = NSRange(location: insertLoc, length: 0)
-        if shouldChangeText(in: insertRange, replacementString: table) {
-            textStorage?.replaceCharacters(in: insertRange, with: table)
-            didChangeText()
-            // Place cursor in first data cell
-            let firstCellOffset = table.range(of: "| cell")
-            if let offset = firstCellOffset {
-                let charOffset = table.distance(from: table.startIndex, to: offset.lowerBound) + 2 // after "| "
-                setSelectedRange(NSRange(location: insertLoc + charOffset, length: 4)) // select "cell"
-            }
-        }
-    }
-
-    // MARK: - Drag & Drop Images
-
-    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        let pasteboard = sender.draggingPasteboard
-        if let fileURLs = pasteboard.readObjects(forClasses: [NSURL.self],
-                                                  options: [.urlReadingContentsConformToTypes: [UTType.image.identifier]]) as? [URL],
-           let url = fileURLs.first {
-            insertImageAttachment(from: url)
-            return true
-        }
-        return super.performDragOperation(sender)
     }
 
     // MARK: - Wikilink Hover Glow
@@ -463,10 +344,6 @@ final class ClickableTextView: NSTextView {
             aiMenu.addItem(NSMenuItem.separator())
             aiMenu.addItem(makeAIItem("Restructure Note", icon: "arrow.triangle.branch", op: "restructure"))
         }
-
-        // Read Aloud — always available, reads selection or full note
-        aiMenu.addItem(NSMenuItem.separator())
-        aiMenu.addItem(makeAIItem("Read Aloud", icon: "speaker.wave.2", op: "readAloud"))
 
         let aiSubmenuItem = NSMenuItem(title: "AI Assistant", action: nil, keyEquivalent: "")
         aiSubmenuItem.submenu = aiMenu

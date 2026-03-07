@@ -228,21 +228,9 @@ private struct InferenceDetailView: View {
                         Text(inference.ollamaAvailable ? "Connected" : "Not available")
                             .font(.system(size: 11))
                     }
-                case .mlx:
-                    Picker("Model", selection: Binding(
-                        get: { inference.mlxModelId },
-                        set: { inference.setMLXModel($0) }
-                    )) {
-                        ForEach(MLXModelRegistry.models) { m in
-                            Text("\(m.displayName) (\(String(format: "%.1f", m.sizeGB))GB)").tag(m.id)
-                        }
-                    }
-                    if let spec = MLXModelRegistry.find(id: inference.mlxModelId) {
-                        Text("HuggingFace: \(spec.hfId)")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(theme.textTertiary)
-                    }
                 case .appleIntelligence:
+                    // Apple Intelligence is the always-on triage layer, not a standalone provider.
+                    // If somehow selected (stale UserDefaults), show status + redirect.
                     Text("Apple Intelligence runs automatically alongside your cloud provider. Select a cloud provider above.")
                         .font(.system(size: 11))
                         .foregroundStyle(theme.textSecondary)

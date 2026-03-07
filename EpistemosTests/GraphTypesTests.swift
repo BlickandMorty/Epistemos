@@ -6,16 +6,17 @@ struct GraphTypesTests {
 
     // MARK: - GraphNodeType
 
-    @Test("all cases count is 13")
+    @Test("all cases count is 8")
     func caseCount() {
-        #expect(GraphNodeType.allCases.count == 13)
+        #expect(GraphNodeType.allCases.count == 8)
     }
 
     @Test("rustIndex is unique and sequential")
     func rustIndexUnique() {
         let indices = GraphNodeType.allCases.map { $0.rustIndex }
         #expect(Set(indices).count == GraphNodeType.allCases.count)
-        #expect(indices.sorted() == Array(UInt8(0)...12))
+        // Should be 0..7
+        #expect(indices.sorted() == [0, 1, 2, 3, 4, 5, 6, 7])
     }
 
     @Test("rustIndex matches expected values")

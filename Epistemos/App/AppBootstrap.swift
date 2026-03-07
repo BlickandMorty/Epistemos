@@ -47,26 +47,6 @@ final class AppBootstrap {
     // MARK: - Active Query Task
     var queryTask: Task<Void, Never>?
 
-    // MARK: - MLX
-    let mlxModelManager: MLXModelManager
-    let mlxClient: MLXClient
-
-    // MARK: - Agents
-    let agentEngine: AgentEngine
-
-    // MARK: - Learning Pool
-    let learningPoolState: LearningPoolState
-    let learningPoolService: LearningPoolService
-
-    // MARK: - Voice
-    let voiceEngine: VoiceEngine
-
-    // MARK: - Memory
-    let agentMemoryService: AgentMemoryService
-
-    // MARK: - Notifications
-    let agentNotificationService: AgentNotificationService
-
     // MARK: - Services
     let llmService: LLMService
     let triageService: TriageService
@@ -118,36 +98,7 @@ final class AppBootstrap {
         let inference = InferenceState()
         self.inferenceState = inference
 
-        // MLX on-device inference
-        let mlxManager = MLXModelManager()
-        self.mlxModelManager = mlxManager
-        self.mlxClient = MLXClient(engine: mlxManager.engine, inference: inference)
-
-        // Agent Engine — multi-agent lifecycle + message bus
-        let engine = AgentEngine()
-        self.agentEngine = engine
-
-        // Register all agents
-        engine.register(TriageAgent(messageBus: engine.messageBus, mlxClient: mlxClient))
-        engine.register(LibrarianAgent(messageBus: engine.messageBus))
-        engine.register(WriterAgent(messageBus: engine.messageBus))
-        engine.register(BuilderAgent(messageBus: engine.messageBus))
-
-        // Learning Pool — research engine that agents can query
-        let poolState = LearningPoolState()
-        self.learningPoolState = poolState
-        self.learningPoolService = LearningPoolService(state: poolState, messageBus: engine.messageBus)
-
-        // Voice Engine — TTS scaffold (Chatterbox daemon integration in Phase 8)
-        self.voiceEngine = VoiceEngine()
-
-        // Agent Memory — three-tier memory system (working, episodic, semantic)
-        self.agentMemoryService = AgentMemoryService()
-
-        // Agent Notifications — macOS + in-app badges + voice announcements
-        self.agentNotificationService = AgentNotificationService()
-
-        // LLMService wraps the provider interface
+        // LLMService wraps the 5-provider interface
         let llm = LLMService(inference: inference)
         self.llmService = llm
 

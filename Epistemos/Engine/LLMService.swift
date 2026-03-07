@@ -54,8 +54,6 @@ final class LLMService: LLMClientProtocol {
             return try await ollamaGenerate(prompt: prompt, systemPrompt: systemPrompt, maxTokens: maxTokens)
         case .appleIntelligence:
             return try await AppleIntelligenceService.shared.generate(prompt: prompt, systemPrompt: systemPrompt)
-        case .mlx:
-            throw LLMError.apiError(statusCode: 0, body: "MLX provider uses MLXClient directly — route through AppBootstrap")
         }
     }
 
@@ -88,8 +86,6 @@ final class LLMService: LLMClientProtocol {
                 }
                 continuation.onTermination = { _ in task.cancel() }
             }
-        case .mlx:
-            return AsyncThrowingStream { $0.finish(throwing: LLMError.apiError(statusCode: 0, body: "MLX provider uses MLXClient directly")) }
         }
     }
 
@@ -127,8 +123,6 @@ final class LLMService: LLMClientProtocol {
                 }
                 continuation.onTermination = { _ in task.cancel() }
             }
-        case .mlx:
-            return AsyncThrowingStream { $0.finish(throwing: LLMError.apiError(statusCode: 0, body: "MLX provider uses MLXClient directly")) }
         }
     }
 
@@ -551,7 +545,6 @@ extension LLMService {
         case .openai: inference.openaiModel
         case .google: inference.googleModel
         case .kimi: inference.kimiModel
-        case .mlx: inference.mlxModelId
         case .ollama: inference.ollamaModel
         case .appleIntelligence: ""
         }
@@ -578,7 +571,7 @@ extension LLMService {
         }
         // 2. Try the currently selected provider
         let current = configSnapshot()
-        if !current.apiKey.isEmpty || current.provider == .mlx || current.provider == .ollama || current.provider == .appleIntelligence {
+        if !current.apiKey.isEmpty || current.provider == .ollama || current.provider == .appleIntelligence {
             return current
         }
         // 3. Try any provider that has a key (priority: OpenAI > Google > Kimi)
@@ -717,9 +710,6 @@ extension LLMService {
 
         case .appleIntelligence:
             return try await AppleIntelligenceService.shared.generate(prompt: prompt, systemPrompt: systemPrompt)
-
-        case .mlx:
-            throw LLMError.apiError(statusCode: 0, body: "MLX static generate not supported — use MLXClient")
         }
     }
 

@@ -7,26 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1MLX00100000000000001 /* MLXEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000001 /* MLXEngine.swift */; };
-		A1MLX00100000000000002 /* MLXModelRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000002 /* MLXModelRegistry.swift */; };
-		A1MLX00100000000000003 /* MLXClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000003 /* MLXClient.swift */; };
-		A1MLX00100000000000004 /* MLXModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000004 /* MLXModelManager.swift */; };
-		A1AGT00100000000000001 /* AgentTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000001 /* AgentTypes.swift */; };
-		A1AGT00100000000000002 /* MessageBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000002 /* MessageBus.swift */; };
-		A1AGT00100000000000003 /* AgentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000003 /* AgentEngine.swift */; };
-		A1AGT00100000000000004 /* TriageAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000004 /* TriageAgent.swift */; };
-		A1AGT00100000000000005 /* AgentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000005 /* AgentPanelView.swift */; };
-		A1AGT00100000000000006 /* AgentSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000006 /* AgentSystemTests.swift */; };
-		A1AGT00100000000000007 /* LibrarianAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000007 /* LibrarianAgent.swift */; };
-		A1AGT00100000000000008 /* WriterAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000008 /* WriterAgent.swift */; };
-		A1AGT00100000000000009 /* BuilderAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000009 /* BuilderAgent.swift */; };
-		A1AGT00100000000000010 /* AgentNPCState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000010 /* AgentNPCState.swift */; };
-		A1MEM00100000000000001 /* AgentMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MEM00200000000000001 /* AgentMemory.swift */; };
-		A1P10001000000000000001 /* AgentNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1P10002000000000000001 /* AgentNotificationService.swift */; };
-		A1P10001000000000000002 /* AgentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1P10002000000000000002 /* AgentSettingsView.swift */; };
-		A1LP000100000000000001 /* LearningPoolState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LP000200000000000001 /* LearningPoolState.swift */; };
-		A1LP000100000000000002 /* LearningPoolService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LP000200000000000002 /* LearningPoolService.swift */; };
-		A1VC000100000000000001 /* VoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1VC000200000000000001 /* VoiceEngine.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -264,7 +244,6 @@
 		F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 		FC9BDD9CB6B68E2D12ABCB7C /* InferenceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50604F1EB2DF6F05D43CD51C /* InferenceState.swift */; };
 		FCF8DDD54465CC896D4A9DC8 /* GraphStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54E8BB45E03F11C281D01C9 /* GraphStoreTests.swift */; };
-		A1MLX00100000000000005 /* MLXTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000005 /* MLXTests.swift */; };
 		OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */; };
 		WIRE00000000000000000003 /* DataIntegrityEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D7EBA13712C88AE73C8D858 /* DataIntegrityEdgeCaseTests.swift */; };
 		WIRE00000000000000000004 /* MemoryStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174D03C81BEE6EB5556066 /* MemoryStressTests.swift */; };
@@ -352,24 +331,6 @@
 		4E423F3667C6824606063F3D /* SystemSearchIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSearchIntent.swift; sourceTree = "<group>"; };
 		4FA7B5A24349310264B8DAEB /* BackgroundGraphLoadingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundGraphLoadingTests.swift; sourceTree = "<group>"; };
 		50604F1EB2DF6F05D43CD51C /* InferenceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceState.swift; sourceTree = "<group>"; };
-		A1MLX00200000000000004 /* MLXModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXModelManager.swift; sourceTree = "<group>"; };
-		A1MLX00200000000000005 /* MLXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXTests.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000001 /* AgentTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTypes.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000002 /* MessageBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBus.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000003 /* AgentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEngine.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000004 /* TriageAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageAgent.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000005 /* AgentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelView.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000006 /* AgentSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSystemTests.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000007 /* LibrarianAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarianAgent.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000008 /* WriterAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterAgent.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000009 /* BuilderAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuilderAgent.swift; sourceTree = "<group>"; };
-		A1AGT00200000000000010 /* AgentNPCState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentNPCState.swift; sourceTree = "<group>"; };
-		A1MEM00200000000000001 /* AgentMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMemory.swift; sourceTree = "<group>"; };
-		A1P10002000000000000001 /* AgentNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentNotificationService.swift; sourceTree = "<group>"; };
-		A1P10002000000000000002 /* AgentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSettingsView.swift; sourceTree = "<group>"; };
-		A1LP000200000000000001 /* LearningPoolState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningPoolState.swift; sourceTree = "<group>"; };
-		A1LP000200000000000002 /* LearningPoolService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningPoolService.swift; sourceTree = "<group>"; };
-		A1VC000200000000000001 /* VoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceEngine.swift; sourceTree = "<group>"; };
 		5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTypes.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		53D12B79B2E861637C19926D /* VaultManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManifest.swift; sourceTree = "<group>"; };
@@ -438,9 +399,6 @@
 		A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsModifiers.swift; sourceTree = "<group>"; };
 		A1C0N500000000ASSET001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A242417BA0CA869146F4EC18 /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
-		A1MLX00200000000000001 /* MLXEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXEngine.swift; sourceTree = "<group>"; };
-		A1MLX00200000000000002 /* MLXModelRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXModelRegistry.swift; sourceTree = "<group>"; };
-		A1MLX00200000000000003 /* MLXClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXClient.swift; sourceTree = "<group>"; };
 		A35250427F5F701B31DF7B9B /* TriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageService.swift; sourceTree = "<group>"; };
 		A50B1590CC5E5BFACB7A3C31 /* SOARState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARState.swift; sourceTree = "<group>"; };
 		A68E1FA92B55587632545579 /* StructuredQueryParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuredQueryParser.swift; sourceTree = "<group>"; };
@@ -680,7 +638,6 @@
 			isa = PBXGroup;
 			children = (
 				A1C0N500000000ASSET001 /* Assets.xcassets */,
-				A1AGT00300000000000001 /* Agents */,
 				E84F81714131A6C713425FD5 /* App */,
 				F5DB1B3EF520523DDC7B03C1 /* Engine */,
 				039065FD6B7F3B62CF954B17 /* Intents */,
@@ -693,31 +650,6 @@
 				1ED2197355F84C8475951C46 /* Graph */,
 			);
 			path = Epistemos;
-			sourceTree = "<group>";
-		};
-		A1AGT00300000000000001 /* Agents */ = {
-			isa = PBXGroup;
-			children = (
-				A1AGT00200000000000001 /* AgentTypes.swift */,
-				A1AGT00200000000000002 /* MessageBus.swift */,
-				A1AGT00200000000000003 /* AgentEngine.swift */,
-				A1AGT00200000000000007 /* LibrarianAgent.swift */,
-				A1AGT00200000000000008 /* WriterAgent.swift */,
-				A1AGT00200000000000009 /* BuilderAgent.swift */,
-				A1AGT00200000000000010 /* AgentNPCState.swift */,
-				A1AGT00200000000000004 /* TriageAgent.swift */,
-				A1MEM00200000000000001 /* AgentMemory.swift */,
-			);
-			path = Agents;
-			sourceTree = "<group>";
-		};
-		A1AGT00300000000000002 /* Agents */ = {
-			isa = PBXGroup;
-			children = (
-				A1AGT00200000000000005 /* AgentPanelView.swift */,
-				A1P10002000000000000002 /* AgentSettingsView.swift */,
-			);
-			path = Agents;
 			sourceTree = "<group>";
 		};
 		3E0E8A3893A6D8C23B24C522 /* Resources */ = {
@@ -735,8 +667,6 @@
 				5A9F50EB674AE1617F813FC3 /* DailyBriefState.swift */,
 				9947A75806BAE2F306FAFB6C /* EventBus.swift */,
 				50604F1EB2DF6F05D43CD51C /* InferenceState.swift */,
-				A1MLX00200000000000004 /* MLXModelManager.swift */,
-				A1LP000200000000000001 /* LearningPoolState.swift */,
 				B04D63187FD2C7EC9B1445BB /* NotesUIState.swift */,
 				1B5B216A72D52446F8223EE4 /* PipelineState.swift */,
 				4877EAD0B940B5E1B02C2AAE /* ResearchState.swift */,
@@ -829,7 +759,6 @@
 		788AD73887C09636A5194E2D /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				A1AGT00300000000000002 /* Agents */,
 				6B31B8C368EB9E3C060757EC /* Chat */,
 				873EB1E67106B1DBCAB7E1E7 /* Landing */,
 				690AD75CC70B388842D30B68 /* Library */,
@@ -1027,8 +956,6 @@
 				B0793E801105A00644A5B437 /* VersionPruningTests.swift */,
 				90A09466F35F354234C1FBAB /* IncrementalFFIUpdateTests.swift */,
 				80F132458375D73807906E8E /* NoteInsightServiceTests.swift */,
-				A1MLX00200000000000005 /* MLXTests.swift */,
-				A1AGT00200000000000006 /* AgentSystemTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -1070,10 +997,6 @@
 				BD9F8FAF8C937C445D7C2152 /* Keychain.swift */,
 				C55A4C135600B56A92857DEC /* LLMService.swift */,
 				BD39ADCBE426B353E3FA283B /* Log.swift */,
-				A1MLX00200000000000001 /* MLXEngine.swift */,
-				A1MLX00200000000000002 /* MLXModelRegistry.swift */,
-				A1MLX00200000000000003 /* MLXClient.swift */,
-				A1LP000200000000000002 /* LearningPoolService.swift */,
 				818ABA625E1915138186C72C /* PipelineService.swift */,
 				E3260DBD123A55AE26999EC3 /* PromptComposer.swift */,
 				E3260DBE123A55AF26999EC4 /* PromptComposer+Consolidated.swift */,
@@ -1093,8 +1016,6 @@
 				A35250427F5F701B31DF7B9B /* TriageService.swift */,
 				1563EAA97DA2887E2D907E00 /* SOAR */,
 				5498CEA96DFB293CE6C97192 /* NoteInsightService.swift */,
-				A1VC000200000000000001 /* VoiceEngine.swift */,
-				A1P10002000000000000001 /* AgentNotificationService.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -1134,10 +1055,6 @@
 			name = Epistemos;
 			packageProductDependencies = (
 				FA1346421A48DF0E99CA1280 /* GRDB */,
-				C3D4E5F6A7B8C9D0E1F2A3B0 /* MLXLMCommon */,
-				D4E5F6A7B8C9D0E1F2A3B4C0 /* MLXLLM */,
-				E5F6A7B8C9D0E1F2A3B4C5D0 /* MLXVLM */,
-				F6A7B8C9D0E1F2A3B4C5D6E0 /* Tokenizers */,
 			);
 			productName = Epistemos;
 			productReference = C76D402546734270F3EE1008 /* Epistemos.app */;
@@ -1169,8 +1086,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
-				A1B2C3D4E5F6A7B89D0E1F20 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
-				B2C3D4E5F6A7B8C9D0E1F2A0 /* XCRemoteSwiftPackageReference "swift-transformers" */,
 			);
 			productRefGroup = 21C2583A1AFD8B5552357491 /* Products */;
 			projectDirPath = "";
@@ -1234,8 +1149,6 @@
 				3D887E06783CB902C43B69F6 /* FilterEngineTests.swift in Sources */,
 				E1AA6C3399E169EF56475AAB /* GraphModelTests.swift in Sources */,
 				FCF8DDD54465CC896D4A9DC8 /* GraphStoreTests.swift in Sources */,
-				A1MLX00100000000000005 /* MLXTests.swift in Sources */,
-				A1AGT00100000000000006 /* AgentSystemTests.swift in Sources */,
 				1051BC9AC955528B6A395402 /* StructuralGraphBuilderTests.swift in Sources */,
 				9AFCFFF225DCC9BF0427D1E3 /* TriageServiceTests.swift in Sources */,
 				B101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift in Sources */,
@@ -1327,28 +1240,9 @@
 				07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */,
 				4DD31A1E409EFB92392BC50F /* GlassModifiers.swift in Sources */,
 				FC9BDD9CB6B68E2D12ABCB7C /* InferenceState.swift in Sources */,
-				A1MLX00100000000000004 /* MLXModelManager.swift in Sources */,
 				B6CD5A5B77290070D8B396A8 /* JournalIntents.swift in Sources */,
 				DF71D454567820AD17BB5E5B /* Keychain.swift in Sources */,
 				16EC9F937CE7604D371DCE0B /* LLMService.swift in Sources */,
-				A1MLX00100000000000001 /* MLXEngine.swift in Sources */,
-				A1MLX00100000000000002 /* MLXModelRegistry.swift in Sources */,
-				A1MLX00100000000000003 /* MLXClient.swift in Sources */,
-				A1AGT00100000000000001 /* AgentTypes.swift in Sources */,
-				A1AGT00100000000000002 /* MessageBus.swift in Sources */,
-				A1AGT00100000000000003 /* AgentEngine.swift in Sources */,
-				A1AGT00100000000000004 /* TriageAgent.swift in Sources */,
-				A1AGT00100000000000005 /* AgentPanelView.swift in Sources */,
-				A1AGT00100000000000007 /* LibrarianAgent.swift in Sources */,
-				A1AGT00100000000000008 /* WriterAgent.swift in Sources */,
-				A1AGT00100000000000009 /* BuilderAgent.swift in Sources */,
-				A1AGT00100000000000010 /* AgentNPCState.swift in Sources */,
-				A1MEM00100000000000001 /* AgentMemory.swift in Sources */,
-				A1P10001000000000000001 /* AgentNotificationService.swift in Sources */,
-				A1P10001000000000000002 /* AgentSettingsView.swift in Sources */,
-				A1LP000100000000000001 /* LearningPoolState.swift in Sources */,
-				A1LP000100000000000002 /* LearningPoolService.swift in Sources */,
-				A1VC000100000000000001 /* VoiceEngine.swift in Sources */,
 				31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */,
 				D0BE2F268FDB1F22A6735F95 /* LearningIntents.swift in Sources */,
 				1A35A483C814CA0D71DE5796 /* LibraryView.swift in Sources */,
@@ -1707,22 +1601,6 @@
 				version = 7.10.0;
 			};
 		};
-		A1B2C3D4E5F6A7B89D0E1F20 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ml-explore/mlx-swift-lm";
-			requirement = {
-				kind = branch;
-				branch = main;
-			};
-		};
-		B2C3D4E5F6A7B8C9D0E1F2A0 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/huggingface/swift-transformers";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.9;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1730,26 +1608,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C9BB6A5D4499ABE92F8EC064 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;
-		};
-		C3D4E5F6A7B8C9D0E1F2A3B0 /* MLXLMCommon */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A1B2C3D4E5F6A7B89D0E1F20 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
-			productName = MLXLMCommon;
-		};
-		D4E5F6A7B8C9D0E1F2A3B4C0 /* MLXLLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A1B2C3D4E5F6A7B89D0E1F20 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
-			productName = MLXLLM;
-		};
-		E5F6A7B8C9D0E1F2A3B4C5D0 /* MLXVLM */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A1B2C3D4E5F6A7B89D0E1F20 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
-			productName = MLXVLM;
-		};
-		F6A7B8C9D0E1F2A3B4C5D6E0 /* Tokenizers */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B2C3D4E5F6A7B8C9D0E1F2A0 /* XCRemoteSwiftPackageReference "swift-transformers" */;
-			productName = Tokenizers;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

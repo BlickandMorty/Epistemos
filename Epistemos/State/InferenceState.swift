@@ -39,7 +39,7 @@ final class InferenceState {
         case .openai: openaiKey
         case .google: googleKey
         case .kimi: kimiKey
-        case .mlx, .ollama, .appleIntelligence: ""
+        case .ollama, .appleIntelligence: ""
         }
     }
 
@@ -51,7 +51,6 @@ final class InferenceState {
     var ollamaModel: String = "llama3.2"
     var ollamaAvailable: Bool = false
     var ollamaModels: [String] = []
-    var mlxModelId: String = "qwen3.5-4b-q4"
     var appleIntelligenceAvailable: Bool = false
     var appleIntelligenceUnavailableReason: String?
 
@@ -76,7 +75,6 @@ final class InferenceState {
         if let model = defaults.string(forKey: "epistemos.kimiModel") { self.kimiModel = model }
         if let url = defaults.string(forKey: "epistemos.ollamaBaseUrl"), !url.isEmpty { self.ollamaBaseUrl = url }
         if let model = defaults.string(forKey: "epistemos.ollamaModel") { self.ollamaModel = model }
-        if let mlx = defaults.string(forKey: "epistemos.mlxModelId"), !mlx.isEmpty { self.mlxModelId = mlx }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
 
         // Legacy keychain migration disabled — the migration itself reads from the
@@ -147,7 +145,7 @@ final class InferenceState {
         case .openai: "epistemos.apiKey.openai"
         case .google: "epistemos.apiKey.google"
         case .kimi: "epistemos.apiKey.kimi"
-        case .mlx, .ollama, .appleIntelligence: "epistemos.apiKey.none"
+        case .ollama, .appleIntelligence: "epistemos.apiKey.none"
         }
     }
 
@@ -157,7 +155,7 @@ final class InferenceState {
         case .openai: openaiKey = key
         case .google: googleKey = key
         case .kimi: kimiKey = key
-        case .mlx, .ollama, .appleIntelligence: return
+        case .ollama, .appleIntelligence: return
         }
         let kcKey = keychainKey(for: apiProvider)
         if key.isEmpty {
@@ -173,7 +171,6 @@ final class InferenceState {
         case .openai: "sk-..."
         case .google: "AIza..."
         case .kimi: "sk-..."
-        case .mlx: "No key needed"
         case .ollama: "No key needed"
         case .appleIntelligence: "No key needed"
         }
@@ -182,7 +179,7 @@ final class InferenceState {
     var needsApiKey: Bool {
         switch apiProvider {
         case .anthropic, .openai, .google, .kimi: true
-        case .mlx, .ollama, .appleIntelligence: false
+        case .ollama, .appleIntelligence: false
         }
     }
 
@@ -197,14 +194,6 @@ final class InferenceState {
                 supportsDeepResearch: true,
                 supportsExternalAPIs: true,
                 contextNote: nil
-            )
-        case .mlx:
-            ProviderCapabilities(
-                supportsLargeContext: false,
-                supportsStreaming: true,
-                supportsDeepResearch: false,
-                supportsExternalAPIs: false,
-                contextNote: "On-device MLX model. Context window varies by model size."
             )
         case .ollama:
             ProviderCapabilities(
@@ -226,7 +215,6 @@ final class InferenceState {
         case .openai: openaiModel
         case .google: googleModel
         case .kimi: kimiModel
-        case .mlx: mlxModelId
         case .ollama: ollamaModel
         case .appleIntelligence: ""
         }
@@ -239,7 +227,6 @@ final class InferenceState {
         case .openai: setOpenAIModel(model)
         case .google: setGoogleModel(model)
         case .kimi: setKimiModel(model)
-        case .mlx: setMLXModel(model)
         case .ollama: setOllamaModel(model)
         case .appleIntelligence: break
         }
@@ -253,7 +240,6 @@ final class InferenceState {
         case .openai: Self.openaiModels
         case .google: Self.googleModels
         case .kimi: Self.kimiModels
-        case .mlx: MLXModelRegistry.models.map { ($0.displayName, $0.id) }
         case .ollama: ollamaModels.map { ($0, $0) }
         case .appleIntelligence: []
         }
@@ -345,11 +331,6 @@ final class InferenceState {
         }
         ollamaBaseUrl = trimmed
         UserDefaults.standard.set(trimmed, forKey: "epistemos.ollamaBaseUrl")
-    }
-
-    func setMLXModel(_ model: String) {
-        mlxModelId = model
-        UserDefaults.standard.set(model, forKey: "epistemos.mlxModelId")
     }
 
     func setOllamaModel(_ model: String) {

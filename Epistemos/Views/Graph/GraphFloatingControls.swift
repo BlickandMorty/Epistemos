@@ -320,12 +320,7 @@ extension GraphNodeType {
         case .folder: return Color(red: 0.64, green: 0.52, blue: 0.37)  // brown
         case .quote:  return Color(red: 0.69, green: 0.32, blue: 0.87)  // purple
         case .tag:    return Color(red: 0.46, green: 0.46, blue: 0.50)  // gray
-        case .block:        return Color(red: 0.55, green: 0.78, blue: 0.90)  // sky blue
-        case .agent:        return Color(red: 0.95, green: 0.95, blue: 0.95)  // white
-        case .codeFile:     return Color(red: 0.95, green: 0.60, blue: 0.10)  // orange
-        case .codeFolder:   return Color(red: 0.95, green: 0.60, blue: 0.10)  // orange
-        case .draft:        return Color(red: 0.20, green: 0.78, blue: 0.35)  // green
-        case .searchResult: return Color(red: 0.39, green: 0.50, blue: 0.90)  // blue
+        case .block:  return Color(red: 0.55, green: 0.78, blue: 0.90)  // sky blue
         }
     }
 }

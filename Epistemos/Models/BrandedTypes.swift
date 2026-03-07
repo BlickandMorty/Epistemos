@@ -59,7 +59,6 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
     case kimi
     case ollama
     case appleIntelligence
-    case mlx
 
     /// Display name shown in badges and UI.
     nonisolated var displayName: String {
@@ -70,7 +69,6 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         case .kimi: "Kimi"
         case .ollama: "Ollama"
         case .appleIntelligence: "Apple AI"
-        case .mlx: "MLX"
         }
     }
 
@@ -83,7 +81,6 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         case .kimi: "moon.stars"
         case .ollama: "server.rack"
         case .appleIntelligence: "apple.intelligence"
-        case .mlx: "cpu"
         }
     }
 
@@ -96,7 +93,6 @@ enum LLMProviderType: String, Codable, Sendable, CaseIterable {
         case .kimi: Color(red: 0.45, green: 0.35, blue: 0.85)  // Moonlight purple
         case .ollama: Color(red: 0.30, green: 0.75, blue: 0.55)  // Teal green
         case .appleIntelligence: Color.purple
-        case .mlx: Color(red: 0.95, green: 0.60, blue: 0.10)     // MLX gold
         }
     }
 }
