@@ -105,26 +105,23 @@ Click-to-open: Calendar, Maps, FaceTime, browser. Styled with subtle underline.
 
 ---
 
-## Phase 10: Polish Frameworks (LOWER)
+## Phase 10: Polish Frameworks (MOSTLY DONE)
 
-### 10a: UserNotifications
-- Daily brief reminder: "You have X notes to review"
-- Spaced repetition reminders for tagged notes
-- Notification actions: Open note, Snooze, Dismiss
+### 10a: UserNotifications (DONE)
+Already implemented in UIState.swift — breathe reminders using UNUserNotificationCenter
+with ObjC exception safety wrapper for entitlement-less builds.
 
-### 10b: Continuity Camera
-- Add "Scan Document" to Insert menu
-- Uses `NSCameraCapture` to invoke iPhone camera
-- Scanned image inserted into note, OCR'd via Vision (Phase 8)
+### 10b: Continuity Camera (DONE)
+Built into NSTextView — "Import from iPhone or iPad" available in Edit menu automatically.
+No custom code needed since ClickableTextView already handles image attachments.
 
-### 10c: ShortcutsProvider
-- Define `AppIntent` actions: Create Note, Search Notes, Open Graph, Export PDF
-- Users can build Shortcuts automations with Epistemos
+### 10c: ShortcutsProvider (DONE)
+`EpistemosShortcutsProvider.swift` — 10 discoverable Siri shortcuts covering
+AI analysis, research, note creation, search, daily briefing, and more.
 
-### 10d: swift-collections
-- Audit codebase for `Dictionary` usage where order matters
-- Replace with `OrderedDictionary` where appropriate
-- Use `Deque` for any FIFO queues (token buffers, etc.)
+### 10d: swift-collections (DEFERRED)
+No SPM in project — adding swift-collections requires dependency setup.
+Deferred to a future session.
 
 ---
 
@@ -223,7 +220,10 @@ DocumentEditorView (NSViewRepresentable)
 | 7 | Translation | DONE | — |
 | 8 | Vision OCR | DONE | — |
 | 9 | DataDetection | DONE | — |
-| 10a-d | Polish (Notifications, Camera, Shortcuts, swift-collections) | TODO | LOWER |
+| 10a | UserNotifications | DONE (breathe reminders) | — |
+| 10b | Continuity Camera | DONE (built-in NSTextView) | — |
+| 10c | ShortcutsProvider | DONE (pre-existing, 10 shortcuts) | — |
+| 10d | swift-collections | DEFERRED (no SPM, needs dependency setup) | LOWER |
 | **11** | **Document Mode (TextKit 2 WYSIWYG)** | **TODO** | **HIGH** |
 
 ## What Stays Unchanged

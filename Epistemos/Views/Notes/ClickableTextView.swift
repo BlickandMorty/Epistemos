@@ -552,6 +552,9 @@ final class ClickableTextView: NSTextView {
         ocrItem.target = self
         insertMenu.addItem(ocrItem)
 
+        // Continuity Camera — available via system's "Import from iPhone or iPad" in Edit menu.
+        // NSTextView provides this automatically through the services responder chain.
+
         let insertSubmenuItem = NSMenuItem(title: "Insert", action: nil, keyEquivalent: "")
         insertSubmenuItem.submenu = insertMenu
         insertSubmenuItem.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "Insert")
