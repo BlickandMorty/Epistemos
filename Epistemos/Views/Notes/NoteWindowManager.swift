@@ -478,8 +478,6 @@ private struct NotePageContent: View {
     var body: some View {
         HStack(spacing: 0) {
             ZStack {
-                ui.theme.background.ignoresSafeArea(edges: [.horizontal, .bottom])
-
                 if let page = pages.first {
                     if showWriterMode {
                         WriterModeView(
@@ -510,6 +508,7 @@ private struct NotePageContent: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(transitionOpacity > 0)
             }
+            .background(ui.theme.background)
             .environment(noteChatState)
             .overlay(alignment: .top) {
                 if noteChatState.hasResponse && noteChatState.useResponsePanel {
@@ -556,7 +555,7 @@ private struct NotePageContent: View {
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
         .preferredColorScheme(ui.theme.colorScheme)
-        .toolbarBackgroundVisibility(.automatic, for: .windowToolbar)
+        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
         .toolbar {
             // — New Note (far left) —
             ToolbarItem(placement: .navigation) {
