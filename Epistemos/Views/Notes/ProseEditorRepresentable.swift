@@ -145,7 +145,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.wantsLayer = true
         scrollView.contentView.wantsLayer = true
         scrollView.contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
-        // No fullSizeContentView → scroll view doesn't overlap toolbar.
+        // No system toolbar — custom glass bar is a SwiftUI view above the scroll view.
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 

@@ -205,11 +205,12 @@ final class NoteWindowManager {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = pageTitle
+        window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.center()
@@ -220,10 +221,8 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
-        // System-managed toolbar — macOS renders Liquid Glass automatically.
-        // No titlebarAppearsTransparent, no fullSizeContentView, no SwiftUI hacks.
-        window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
-        window.toolbarStyle = .unified
+        // No NSToolbar — custom SwiftUI glass bar instead.
+        // titlebarAppearsTransparent + fullSizeContentView = content fills entire window.
 
         if let theme = AppBootstrap.shared?.uiState.theme {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
@@ -475,7 +474,10 @@ private struct NotePageContent: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        VStack(spacing: 0) {
+            // Custom glass toolbar — sits in the titlebar safe area
+            noteGlassToolbar
+            HStack(spacing: 0) {
             ZStack {
                 if let page = pages.first {
                     if showWriterMode {
@@ -554,66 +556,9 @@ private struct NotePageContent: View {
         }
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
-        .preferredColorScheme(ui.theme.colorScheme)
-        .toolbar {
-            // — New Note (far left) —
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    Task {
-                        if let pageId = await vaultSync.createPage(title: "Untitled") {
-                            NoteWindowManager.shared.open(pageId: pageId)
-                        }
-                    }
-                } label: {
-                    Label("New Note", systemImage: "square.and.pencil")
-                }
-                .accessibilityLabel("New Note")
-                .help("New Note (⌘N)")
-            }
-
-            // — Minimal toolbar: Writer + Preview + Chat + More —
-            ToolbarItemGroup(placement: .principal) {
-                // Writer toggle
-                if !showPreview {
-                    Button {
-                        toggleWriterMode()
-                    } label: {
-                        Label(
-                            "Writer",
-                            systemImage: showWriterMode ? "doc.richtext.fill" : "doc.richtext")
-                    }
-                    .help("Writer Mode (\u{2318}R)")
-                }
-
-                // Preview toggle
-                if !showWriterMode {
-                    Button {
-                        togglePreviewMode()
-                    } label: {
-                        Label("Preview", systemImage: showPreview ? "eye.fill" : "eye")
-                    }
-                    .help("Preview (\u{2318}E)")
-                }
-
-                // Compact chat input
-                if !showWriterMode && !showPreview {
-                    toolbarChatField
-
-                    Button {
-                        withAnimation(.smooth(duration: 0.2)) { showChatSidebar.toggle() }
-                    } label: {
-                        Label(
-                            "Chat History",
-                            systemImage: showChatSidebar
-                                ? "bubble.left.and.text.bubble.right.fill"
-                                : "bubble.left.and.text.bubble.right")
-                    }
-                    .help("Chat History")
-                }
-
-                moreMenu
-            }
         }
+        .preferredColorScheme(ui.theme.colorScheme)
+        .ignoresSafeArea(edges: .top)
         .background {
             // Hidden keyboard shortcut buttons
             Button("") {
@@ -764,6 +709,69 @@ private struct NotePageContent: View {
                 capturedSelectionText = nil
             }
         }
+    }
+
+    // MARK: - Custom Glass Toolbar
+
+    /// Frosted glass toolbar bar — replaces NSToolbar entirely.
+    /// Uses .ultraThinMaterial for real blur over the theme background.
+    private var noteGlassToolbar: some View {
+        HStack(spacing: 12) {
+            // New Note
+            Button {
+                Task {
+                    if let pageId = await vaultSync.createPage(title: "Untitled") {
+                        NoteWindowManager.shared.open(pageId: pageId)
+                    }
+                }
+            } label: {
+                Label("New Note", systemImage: "square.and.pencil")
+            }
+            .help("New Note (⌘N)")
+
+            Spacer()
+
+            // Writer toggle
+            if !showPreview {
+                Button { toggleWriterMode() } label: {
+                    Label(
+                        "Writer",
+                        systemImage: showWriterMode ? "doc.richtext.fill" : "doc.richtext")
+                }
+                .help("Writer Mode (⌘R)")
+            }
+
+            // Preview toggle
+            if !showWriterMode {
+                Button { togglePreviewMode() } label: {
+                    Label("Preview", systemImage: showPreview ? "eye.fill" : "eye")
+                }
+                .help("Preview (⌘E)")
+            }
+
+            // Chat input + history
+            if !showWriterMode && !showPreview {
+                toolbarChatField
+
+                Button {
+                    withAnimation(.smooth(duration: 0.2)) { showChatSidebar.toggle() }
+                } label: {
+                    Label(
+                        "Chat History",
+                        systemImage: showChatSidebar
+                            ? "bubble.left.and.text.bubble.right.fill"
+                            : "bubble.left.and.text.bubble.right")
+                }
+                .help("Chat History")
+            }
+
+            moreMenu
+        }
+        .buttonStyle(.borderless)
+        .labelStyle(.iconOnly)
+        .padding(.horizontal, 76)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Selection Capture for Ideas Panel
