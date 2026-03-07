@@ -1008,10 +1008,29 @@ private struct MessageToolbar: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(ChatState.self) private var chat
     @Environment(PipelineState.self) private var pipeline
+    @Environment(VoiceEngine.self) private var voiceEngine
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         HStack(spacing: 4) {
+            // Speak — read this message aloud via TTS
+            Button {
+                Task {
+                    if voiceEngine.isSpeaking {
+                        voiceEngine.stopSpeaking()
+                    } else {
+                        let text = stripBracketTags(message.content)
+                        await voiceEngine.speakText(text)
+                    }
+                }
+            } label: {
+                Image(systemName: voiceEngine.isSpeaking ? "speaker.slash" : "speaker.wave.2")
+                    .foregroundStyle(voiceEngine.isSpeaking ? theme.accent : .secondary)
+            }
+            .buttonStyle(NativeToolbarButtonStyle())
+            .help(voiceEngine.isSpeaking ? "Stop Speaking" : "Read Aloud")
+            .accessibilityLabel(voiceEngine.isSpeaking ? "Stop Speaking" : "Read Aloud")
+
             // Copy — includes full DualMessage analysis if available
             Button {
                 let fullContent = buildFullExport(message: message)

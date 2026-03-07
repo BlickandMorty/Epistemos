@@ -432,6 +432,7 @@ private struct NotePageContent: View {
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
     @Environment(LLMService.self) private var llmService
+    @Environment(VoiceEngine.self) private var voiceEngine
     @Environment(\.modelContext) private var modelContext
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
@@ -521,6 +522,10 @@ private struct NotePageContent: View {
             .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
                 if wasStreaming && !isNowStreaming, let page = pages.first {
                     noteChatState.persistMessages(modelContext, noteTitle: page.title)
+                    // Auto-speak the response when Read Mode is on
+                    if voiceEngine.readModeEnabled, let lastAssistant = noteChatState.messages.last, lastAssistant.role == .assistant {
+                        Task { await voiceEngine.speakText(lastAssistant.content) }
+                    }
                 }
             }
 
@@ -719,6 +724,11 @@ private struct NotePageContent: View {
                 info["pageId"] == pageId
             else { return }
             let selected = info["selectedText"]
+            if op == "readAloud" {
+                let textToRead = selected ?? noteChatState.noteBodyProvider?() ?? ""
+                Task { await voiceEngine.speakText(textToRead) }
+                return
+            }
             handleAIContextMenuOperation(op, selectedText: selected)
         }
         .onReceive(

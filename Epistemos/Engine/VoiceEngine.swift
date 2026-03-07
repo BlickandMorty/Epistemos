@@ -61,6 +61,7 @@ final class VoiceEngine {
 
     // MARK: - TTS
 
+    /// Speak text as a specific agent voice (requires agent voice enabled).
     func speak(_ text: String, as agent: AgentID) async {
         guard state == .ready else { return }
         guard voiceConfigs[agent]?.enabled == true else { return }
@@ -71,6 +72,32 @@ final class VoiceEngine {
         Log.engine.debug("VoiceEngine: would speak as \(agent.rawValue): \(text.prefix(60))")
 
         state = .ready
+    }
+
+    /// Speak arbitrary text using the default system voice. No agent config required.
+    /// Used by Read Mode, speak buttons on messages/notes, and accessibility.
+    func speakText(_ text: String) async {
+        guard state == .ready else { return }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        state = .speaking(agentId: "system")
+
+        // Phase 8 scaffold — will use NSSpeechSynthesizer as fallback, Chatterbox as primary.
+        Log.engine.debug("VoiceEngine: would speak: \(text.prefix(80))")
+
+        state = .ready
+    }
+
+    /// Stop any currently playing speech.
+    func stopSpeaking() {
+        guard case .speaking = state else { return }
+        state = .ready
+        Log.engine.debug("VoiceEngine: stopped speaking")
+    }
+
+    var isSpeaking: Bool {
+        if case .speaking = state { return true }
+        return false
     }
 
     // MARK: - Voice Config

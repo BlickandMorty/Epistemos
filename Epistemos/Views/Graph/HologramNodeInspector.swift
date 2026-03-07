@@ -9,6 +9,7 @@ import NaturalLanguage
 
 struct HologramNodeInspector: View {
     @Environment(GraphState.self) private var graphState
+    @Environment(VoiceEngine.self) private var voiceEngine
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext
 
@@ -481,6 +482,28 @@ struct HologramNodeInspector: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                         .transaction { $0.animation = nil }
+
+                    // Speak summary button
+                    HStack {
+                        Spacer()
+                        Button {
+                            Task {
+                                if voiceEngine.isSpeaking {
+                                    voiceEngine.stopSpeaking()
+                                } else {
+                                    await voiceEngine.speakText(inspectorState.summaryText)
+                                }
+                            }
+                        } label: {
+                            Label(
+                                voiceEngine.isSpeaking ? "Stop" : "Read Aloud",
+                                systemImage: voiceEngine.isSpeaking ? "speaker.slash" : "speaker.wave.2"
+                            )
+                            .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                    }
                 }
 
                 if inspectorState.isSummarizing && !inspectorState.summaryText.isEmpty {
@@ -489,6 +512,12 @@ struct HologramNodeInspector: View {
                 }
             }
             .padding(16)
+        }
+        // Auto-speak summary when it finishes loading and Read Mode is on
+        .onChange(of: inspectorState.isSummarizing) { wasSummarizing, isSummarizing in
+            if wasSummarizing && !isSummarizing && voiceEngine.readModeEnabled && !inspectorState.summaryText.isEmpty {
+                Task { await voiceEngine.speakText(inspectorState.summaryText) }
+            }
         }
     }
 

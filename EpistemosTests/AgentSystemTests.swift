@@ -801,6 +801,45 @@ struct VoiceEngineTests {
         await engine.speak("Test speech", as: .librarian)
         #expect(engine.state == .ready)
     }
+
+    @Test("speakText works without agent config")
+    @MainActor func speakTextNoAgent() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        await engine.speakText("Hello world")
+        #expect(engine.state == .ready)
+    }
+
+    @Test("speakText ignores empty text")
+    @MainActor func speakTextEmpty() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        await engine.speakText("   ")
+        #expect(engine.state == .ready)
+    }
+
+    @Test("stopSpeaking returns to ready")
+    @MainActor func stopSpeaking() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        // Scaffold mode completes instantly, but test the method exists
+        engine.stopSpeaking()
+        #expect(engine.state == .ready)
+    }
+
+    @Test("isSpeaking reflects state")
+    @MainActor func isSpeakingState() {
+        let engine = VoiceEngine()
+        #expect(!engine.isSpeaking)
+    }
+
+    @Test("Read mode toggle")
+    @MainActor func readModeToggle() {
+        let engine = VoiceEngine()
+        #expect(!engine.readModeEnabled)
+        engine.readModeEnabled = true
+        #expect(engine.readModeEnabled)
+    }
 }
 
 // MARK: - Working Memory Tests
