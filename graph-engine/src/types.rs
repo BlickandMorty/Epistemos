@@ -103,19 +103,19 @@ pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
 /// RGBA color for an edge type (light mode — strong contrast on light background).
 pub fn edge_type_color_light(edge_type: u8) -> [f32; 4] {
     match edge_type {
-        0  => [0.30, 0.30, 0.35, 0.55],  // reference — dark gray
-        1  => [0.30, 0.22, 0.12, 0.55],  // contains — brown
-        2  => [0.28, 0.28, 0.32, 0.50],  // tagged — gray
-        3  => [0.12, 0.38, 0.65, 0.60],  // mentions — blue
-        4  => [0.06, 0.45, 0.16, 0.65],  // cites — green
-        5  => [0.65, 0.35, 0.00, 0.60],  // authored — orange
-        6  => [0.40, 0.12, 0.58, 0.60],  // related — purple
-        7  => [0.60, 0.48, 0.00, 0.60],  // quotes — gold
-        8  => [0.08, 0.50, 0.18, 0.65],  // supports — green
-        9  => [0.65, 0.10, 0.10, 0.65],  // contradicts — red
-        10 => [0.08, 0.48, 0.48, 0.60],  // expands — teal
-        11 => [0.60, 0.42, 0.02, 0.60],  // questions — amber
-        _  => [0.30, 0.30, 0.35, 0.50],  // default — gray
+        0  => [0.18, 0.18, 0.22, 0.80],  // reference — dark gray
+        1  => [0.22, 0.14, 0.06, 0.80],  // contains — brown
+        2  => [0.18, 0.18, 0.22, 0.75],  // tagged — gray
+        3  => [0.06, 0.25, 0.55, 0.85],  // mentions — blue
+        4  => [0.02, 0.35, 0.10, 0.85],  // cites — green
+        5  => [0.50, 0.25, 0.00, 0.85],  // authored — orange
+        6  => [0.30, 0.06, 0.48, 0.85],  // related — purple
+        7  => [0.45, 0.35, 0.00, 0.85],  // quotes — gold
+        8  => [0.02, 0.38, 0.10, 0.85],  // supports — green
+        9  => [0.55, 0.05, 0.05, 0.85],  // contradicts — red
+        10 => [0.02, 0.35, 0.35, 0.85],  // expands — teal
+        11 => [0.48, 0.30, 0.00, 0.85],  // questions — amber
+        _  => [0.18, 0.18, 0.22, 0.75],  // default — gray
     }
 }
 

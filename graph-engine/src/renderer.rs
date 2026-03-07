@@ -902,14 +902,24 @@ fragment float4 node_fragment(
         }
     }
 
-    // Balanced: no depth-of-field fade (all nodes same opacity).
-    // Cinematic: far nodes fade slightly for depth effect.
+    // Depth-of-field: far nodes fade slightly. Dimmed nodes (selection active) blur.
     float depth_fade = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.65 : 1.0;
     float edge_softness = (in.is_lite < 0.5 && in.depth < -0.1) ? 0.75 : 0.85;
+    // Selection blur: soften the SDF edge for dimmed nodes (out-of-focus effect).
+    bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
+    if (is_dimmed) {
+        edge_softness = 0.45; // much softer boundary
+        depth_fade *= 0.85;   // additional fade
+    }
     float dof_alpha = 1.0 - smoothstep(edge_softness, 1.0, dist);
     float final_alpha = mix(dof_alpha, alpha, pixel_strength);
 
+    // Blur: flatten lighting detail on dimmed nodes.
     float3 result_color = lit_color;
+    if (is_dimmed) {
+        float lum = dot(lit_color, float3(0.299, 0.587, 0.114));
+        result_color = mix(lit_color, float3(lum) * 1.1, 0.35);
+    }
 
     // ── Pulse wave glow ──
     // Expanding ring from pulse_origin. Cinematic only (skip in balanced/perf).
