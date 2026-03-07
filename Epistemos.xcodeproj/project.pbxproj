@@ -22,6 +22,8 @@
 		A1AGT00100000000000009 /* BuilderAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000009 /* BuilderAgent.swift */; };
 		A1AGT00100000000000010 /* AgentNPCState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000010 /* AgentNPCState.swift */; };
 		A1MEM00100000000000001 /* AgentMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MEM00200000000000001 /* AgentMemory.swift */; };
+		A1P10001000000000000001 /* AgentNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1P10002000000000000001 /* AgentNotificationService.swift */; };
+		A1P10001000000000000002 /* AgentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1P10002000000000000002 /* AgentSettingsView.swift */; };
 		A1LP000100000000000001 /* LearningPoolState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LP000200000000000001 /* LearningPoolState.swift */; };
 		A1LP000100000000000002 /* LearningPoolService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LP000200000000000002 /* LearningPoolService.swift */; };
 		A1VC000100000000000001 /* VoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1VC000200000000000001 /* VoiceEngine.swift */; };
@@ -363,6 +365,8 @@
 		A1AGT00200000000000009 /* BuilderAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuilderAgent.swift; sourceTree = "<group>"; };
 		A1AGT00200000000000010 /* AgentNPCState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentNPCState.swift; sourceTree = "<group>"; };
 		A1MEM00200000000000001 /* AgentMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMemory.swift; sourceTree = "<group>"; };
+		A1P10002000000000000001 /* AgentNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentNotificationService.swift; sourceTree = "<group>"; };
+		A1P10002000000000000002 /* AgentSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSettingsView.swift; sourceTree = "<group>"; };
 		A1LP000200000000000001 /* LearningPoolState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningPoolState.swift; sourceTree = "<group>"; };
 		A1LP000200000000000002 /* LearningPoolService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningPoolService.swift; sourceTree = "<group>"; };
 		A1VC000200000000000001 /* VoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceEngine.swift; sourceTree = "<group>"; };
@@ -711,6 +715,7 @@
 			isa = PBXGroup;
 			children = (
 				A1AGT00200000000000005 /* AgentPanelView.swift */,
+				A1P10002000000000000002 /* AgentSettingsView.swift */,
 			);
 			path = Agents;
 			sourceTree = "<group>";
@@ -1089,6 +1094,7 @@
 				1563EAA97DA2887E2D907E00 /* SOAR */,
 				5498CEA96DFB293CE6C97192 /* NoteInsightService.swift */,
 				A1VC000200000000000001 /* VoiceEngine.swift */,
+				A1P10002000000000000001 /* AgentNotificationService.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -1338,6 +1344,8 @@
 				A1AGT00100000000000009 /* BuilderAgent.swift in Sources */,
 				A1AGT00100000000000010 /* AgentNPCState.swift in Sources */,
 				A1MEM00100000000000001 /* AgentMemory.swift in Sources */,
+				A1P10001000000000000001 /* AgentNotificationService.swift in Sources */,
+				A1P10001000000000000002 /* AgentSettingsView.swift in Sources */,
 				A1LP000100000000000001 /* LearningPoolState.swift in Sources */,
 				A1LP000100000000000002 /* LearningPoolService.swift in Sources */,
 				A1VC000100000000000001 /* VoiceEngine.swift in Sources */,

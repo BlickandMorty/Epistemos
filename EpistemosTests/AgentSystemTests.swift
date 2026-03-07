@@ -993,3 +993,90 @@ struct AgentMemoryServiceTests {
         #expect(service.semanticMemory.isIndexReady)
     }
 }
+
+// MARK: - Agent Notification Service Tests
+
+@Suite("AgentNotificationService")
+struct AgentNotificationServiceTests {
+
+    @Test("Configs initialized for all agents")
+    @MainActor func configsInitialized() {
+        let service = AgentNotificationService()
+        for agent in AgentID.allCases {
+            let config = service.configs[agent]
+            #expect(config != nil)
+            #expect(config?.macOSEnabled == true)
+            #expect(config?.inAppEnabled == true)
+            #expect(config?.voiceEnabled == false)
+        }
+    }
+
+    @Test("Badges start at zero")
+    @MainActor func badgesZero() {
+        let service = AgentNotificationService()
+        for agent in AgentID.allCases {
+            #expect(service.badges[agent] == 0)
+        }
+        #expect(service.totalBadgeCount() == 0)
+    }
+
+    @Test("In-app badge increments on notify")
+    @MainActor func badgeIncrements() async {
+        let service = AgentNotificationService()
+        // Disable macOS notifications (no authorization in tests)
+        service.setMacOSEnabled(false, for: .librarian)
+        await service.notify(agent: .librarian, category: .taskComplete, title: "Done", body: "Task finished")
+        #expect(service.badges[.librarian] == 1)
+        #expect(service.totalBadgeCount() == 1)
+    }
+
+    @Test("Clear badge resets to zero")
+    @MainActor func clearBadge() async {
+        let service = AgentNotificationService()
+        service.setMacOSEnabled(false, for: .writer)
+        await service.notify(agent: .writer, category: .proactiveInsight, title: "Found", body: "Connection")
+        service.clearBadge(for: .writer)
+        #expect(service.badges[.writer] == 0)
+    }
+
+    @Test("Clear all badges")
+    @MainActor func clearAllBadges() async {
+        let service = AgentNotificationService()
+        for agent in AgentID.allCases {
+            service.setMacOSEnabled(false, for: agent)
+        }
+        await service.notify(agent: .librarian, category: .taskComplete, title: "T", body: "B")
+        await service.notify(agent: .writer, category: .taskComplete, title: "T", body: "B")
+        service.clearAllBadges()
+        #expect(service.totalBadgeCount() == 0)
+    }
+
+    @Test("Disabled category skips notification")
+    @MainActor func disabledCategory() async {
+        let service = AgentNotificationService()
+        service.setMacOSEnabled(false, for: .builder)
+        service.setCategoryEnabled(.error, enabled: false, for: .builder)
+        await service.notify(agent: .builder, category: .error, title: "Err", body: "Failed")
+        #expect(service.badges[.builder] == 0)
+    }
+
+    @Test("Config toggles persist")
+    @MainActor func configToggles() {
+        let service = AgentNotificationService()
+        service.setMacOSEnabled(false, for: .triage)
+        service.setInAppEnabled(false, for: .triage)
+        service.setVoiceEnabled(true, for: .triage)
+        #expect(service.configs[.triage]?.macOSEnabled == false)
+        #expect(service.configs[.triage]?.inAppEnabled == false)
+        #expect(service.configs[.triage]?.voiceEnabled == true)
+    }
+
+    @Test("Disabled in-app skips badge")
+    @MainActor func disabledInApp() async {
+        let service = AgentNotificationService()
+        service.setMacOSEnabled(false, for: .librarian)
+        service.setInAppEnabled(false, for: .librarian)
+        await service.notify(agent: .librarian, category: .taskComplete, title: "T", body: "B")
+        #expect(service.badges[.librarian] == 0)
+    }
+}

@@ -64,6 +64,9 @@ final class AppBootstrap {
     // MARK: - Memory
     let agentMemoryService: AgentMemoryService
 
+    // MARK: - Notifications
+    let agentNotificationService: AgentNotificationService
+
     // MARK: - Services
     let llmService: LLMService
     let triageService: TriageService
@@ -140,6 +143,9 @@ final class AppBootstrap {
 
         // Agent Memory — three-tier memory system (working, episodic, semantic)
         self.agentMemoryService = AgentMemoryService()
+
+        // Agent Notifications — macOS + in-app badges + voice announcements
+        self.agentNotificationService = AgentNotificationService()
 
         // LLMService wraps the provider interface
         let llm = LLMService(inference: inference)
