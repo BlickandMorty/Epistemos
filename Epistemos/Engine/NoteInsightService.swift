@@ -17,6 +17,7 @@ final class NoteInsightService {
     nonisolated(unsafe) private var reindexTask: Task<Void, Never>?
     private var reindexGeneration: Int = 0
     nonisolated(unsafe) private var reanalyzeTasks: [String: Task<Void, Never>] = [:]
+    nonisolated(unsafe) private var relatednessTask: Task<Void, Never>?
 
     private let modelContainer: ModelContainer
 
@@ -26,6 +27,7 @@ final class NoteInsightService {
 
     deinit {
         reindexTask?.cancel()
+        relatednessTask?.cancel()
         for task in reanalyzeTasks.values { task.cancel() }
     }
 
@@ -158,12 +160,29 @@ final class NoteInsightService {
             try? context.save()
             guard !Task.isCancelled else { return }
 
-            // Full Phase 2 recompute — catches both existing peers and newly-related notes.
-            // Phase 2 is pure set math (no NLTagger), so running it for all notes is fast.
+            log.info("Re-analyzed note \(targetId.prefix(8))")
+
+            // Schedule coalesced Phase 2 — multiple page saves within 300ms share one recompute
+            await MainActor.run {
+                AppBootstrap.shared?.noteInsightService.scheduleRelatedness()
+            }
+        }
+    }
+
+    /// Coalesces Phase 2 relatedness recomputes. Multiple per-page Phase 1 completions
+    /// within 300ms share a single O(n²) recompute instead of running redundant ones.
+    private func scheduleRelatedness() {
+        relatednessTask?.cancel()
+        let container = modelContainer
+        relatednessTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+
+            let context = ModelContext(container)
+            context.autosaveEnabled = false
             try? NoteInsightService.computeRelatedness(context: context)
             try? context.save()
-
-            log.info("Re-analyzed note \(targetId.prefix(8)) + full relatedness recompute")
+            log.info("Coalesced relatedness recompute complete")
         }
     }
 
@@ -181,7 +200,7 @@ final class NoteInsightService {
     private nonisolated static let gapThreshold = 0.15
     private nonisolated static let maxRelated = 5
 
-    nonisolated private static func computeRelatedness(context: ModelContext, onlyForPageId: String? = nil) throws {
+    nonisolated static func computeRelatedness(context: ModelContext, onlyForPageId: String? = nil) throws {
         let allInsights = try context.fetch(FetchDescriptor<SDNoteInsight>())
         guard allInsights.count >= 2 else { return }
 
@@ -273,10 +292,12 @@ final class NoteInsightService {
 
             // Gap detection: cut at first gap > gapThreshold
             var cutoff = candidates.count
-            for i in 1..<candidates.count {
-                if candidates[i - 1].score - candidates[i].score > gapThreshold {
-                    cutoff = i
-                    break
+            if candidates.count >= 2 {
+                for i in 1..<candidates.count {
+                    if candidates[i - 1].score - candidates[i].score > gapThreshold {
+                        cutoff = i
+                        break
+                    }
                 }
             }
             candidates = Array(candidates.prefix(min(maxRelated, cutoff)))
