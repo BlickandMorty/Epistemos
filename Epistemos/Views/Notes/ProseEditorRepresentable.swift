@@ -1216,7 +1216,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 var right: CGFloat
                 var columnXs: [CGFloat]
                 var rowYs: [CGFloat]          // top Y of each row
+                var rowHeights: [CGFloat]     // height of each row
                 var headerBottomY: CGFloat?   // Y where header separator sits
+                var headerRowIndex: Int?      // index of header row (row before separator)
+                var separatorRowIndices: Set<Int> = []
             }
 
             var tables: [TableRegion] = []
@@ -1256,6 +1259,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                             right: pipeXs.last ?? lineFragRect.maxX,
                             columnXs: pipeXs,
                             rowYs: [lineFragRect.minY],
+                            rowHeights: [lineFragRect.height],
                             headerBottomY: nil
                         )
                     } else {
@@ -1263,6 +1267,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                         if let first = pipeXs.first { current!.left = min(current!.left, first) }
                         if let last = pipeXs.last { current!.right = max(current!.right, last) }
                         current!.rowYs.append(lineFragRect.minY)
+                        current!.rowHeights.append(lineFragRect.height)
                         // Stabilize column positions using first row as reference
                         if pipeXs.count == current!.columnXs.count {
                             for i in current!.columnXs.indices {
@@ -1271,8 +1276,12 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                         }
                     }
 
+                    let rowIdx = (current?.rowYs.count ?? 1) - 1
                     if isSep {
                         current?.headerBottomY = lineFragRect.maxY
+                        current?.separatorRowIndices.insert(rowIdx)
+                        // The row before the separator is the header
+                        if rowIdx > 0 { current?.headerRowIndex = rowIdx - 1 }
                     }
                 } else {
                     if let t = current {
@@ -1304,11 +1313,49 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 )
 
                 // Glass fill layer — subtle translucent background
+                let outerRoundedPath = CGPath(roundedRect: outerRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
                 let fillLayer = CAShapeLayer()
-                fillLayer.path = CGPath(roundedRect: outerRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+                fillLayer.path = outerRoundedPath
                 fillLayer.fillColor = glassFillColor
                 fillLayer.strokeColor = nil
                 borderLayer.addSublayer(fillLayer)
+
+                // Per-row fills (header tint + alternating data rows), clipped to table bounds
+                let rowFillContainer = CALayer()
+                rowFillContainer.frame = tv.bounds
+                let maskLayer = CAShapeLayer()
+                maskLayer.path = outerRoundedPath
+                rowFillContainer.mask = maskLayer
+
+                let headerFillColor = (isDark
+                    ? accent.withAlphaComponent(0.08)
+                    : accent.withAlphaComponent(0.05)).cgColor
+                let oddRowFillColor = (isDark
+                    ? accent.withAlphaComponent(0.05)
+                    : accent.withAlphaComponent(0.03)).cgColor
+
+                var dataRowCount = 0
+                for (i, rowY) in table.rowYs.enumerated() {
+                    let rowH = i < table.rowHeights.count ? table.rowHeights[i] : 18
+                    // Skip separator rows
+                    if table.separatorRowIndices.contains(i) { continue }
+
+                    let rowRect = CGRect(x: outerRect.minX, y: rowY, width: outerRect.width, height: rowH)
+                    let rowLayer = CALayer()
+                    rowLayer.frame = rowRect
+
+                    if i == table.headerRowIndex {
+                        rowLayer.backgroundColor = headerFillColor
+                    } else if dataRowCount % 2 == 1 {
+                        rowLayer.backgroundColor = oddRowFillColor
+                    }
+                    dataRowCount += 1
+
+                    if rowLayer.backgroundColor != nil {
+                        rowFillContainer.addSublayer(rowLayer)
+                    }
+                }
+                borderLayer.addSublayer(rowFillContainer)
 
                 // Glow layer — soft accent shadow behind the table
                 let glowLayer = CAShapeLayer()

@@ -468,29 +468,18 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 let isHeader = Self.isTableHeader(at: range, in: str)
 
                 if isHeader {
-                    // Header row — bold, slightly brighter, subtle glass tint
-                    let headerBg: NSColor = isDark
-                        ? accentColor.withAlphaComponent(0.08)
-                        : accentColor.withAlphaComponent(0.05)
+                    // Header row — bold, slightly brighter. No .backgroundColor —
+                    // the grid overlay draws clipped fills to avoid full-width bleed.
                     backing.addAttributes([
                         .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .semibold),
                         .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.95) : NSColor(white: 0.05, alpha: 1),
-                        .backgroundColor: headerBg,
                         .paragraphStyle: Self.tableStyle
                     ], range: range)
                 } else {
-                    // Data row — alternating subtle tint for readability
-                    let rowIdx = Self.tableDataRowIndex(at: range, in: str)
-                    let evenBg: NSColor = isDark
-                        ? accentColor.withAlphaComponent(0.03)
-                        : accentColor.withAlphaComponent(0.02)
-                    let oddBg: NSColor = isDark
-                        ? accentColor.withAlphaComponent(0.06)
-                        : accentColor.withAlphaComponent(0.04)
+                    // Data row — no .backgroundColor (grid overlay handles alternating fills).
                     backing.addAttributes([
                         .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .regular),
                         .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.88) : NSColor(white: 0.12, alpha: 1),
-                        .backgroundColor: rowIdx % 2 == 0 ? evenBg : oddBg,
                         .paragraphStyle: Self.tableStyle
                     ], range: range)
                 }
