@@ -441,7 +441,6 @@ private struct NotePageContent: View {
     @State private var showWriterMode = false
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
-    @State private var showTableOfContents = false
     @State private var showChatSidebar = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
@@ -538,7 +537,6 @@ private struct NotePageContent: View {
 
         }
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
-        .animation(.smooth(duration: 0.2), value: showTableOfContents)
         }
         .overlay(alignment: .top) {
             if !showWriterMode && !showPreview {
@@ -563,7 +561,7 @@ private struct NotePageContent: View {
             }
         }
         .overlay(alignment: .leading) {
-            if showTableOfContents, !showWriterMode && !showPreview,
+            if !showWriterMode && !showPreview,
                let page = pages.first {
                 NoteTableOfContents(
                     markdown: page.loadBody(),
@@ -613,9 +611,6 @@ private struct NotePageContent: View {
                 .hidden()
             Button("") { toggleWriterMode() }
                 .keyboardShortcut("r", modifiers: .command)
-                .hidden()
-            Button("") { withAnimation { showTableOfContents.toggle() } }
-                .keyboardShortcut("t", modifiers: .command)
                 .hidden()
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)
@@ -788,13 +783,6 @@ private struct NotePageContent: View {
                     .font(.system(size: 12, weight: .medium))
             }
             .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
-
-            // Table of Contents
-            Button { withAnimation { showTableOfContents.toggle() } } label: {
-                Image(systemName: showTableOfContents ? "list.bullet.indent" : "list.bullet")
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .help("Table of Contents (⌘T)")
 
             // More menu
             moreMenu
@@ -1339,16 +1327,6 @@ private struct NotePageContent: View {
             } label: {
                 Label("Ideas", systemImage: "lightbulb")
             }
-
-            Button {
-                withAnimation { showTableOfContents.toggle() }
-            } label: {
-                Label(
-                    "Table of Contents (\u{2318}T)",
-                    systemImage: showTableOfContents ? "list.bullet.indent" : "list.bullet")
-            }
-
-            Divider()
 
             Button {
                 scanForCitations()

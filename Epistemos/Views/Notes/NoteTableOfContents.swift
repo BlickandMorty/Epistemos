@@ -179,6 +179,11 @@ struct NoteTableOfContents: View {
         .animation(.smooth(duration: 0.2), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
+            if hovering {
+                NSCursor.arrow.push()
+            } else {
+                NSCursor.pop()
+            }
         }
         .onChange(of: markdown) { _, newBody in
             debounceParseBody(newBody)
