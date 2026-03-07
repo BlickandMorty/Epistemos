@@ -94,67 +94,91 @@ enum TOCParser {
 }
 
 // MARK: - NoteTableOfContents View
-// Left sidebar, DeepSeek-style: clean, minimal, hover-highlighted rows.
+// Hover-reveal floating panel on the left edge (mirrors wikilink breadcrumb pattern).
+// Collapsed: vertical dots. Hover: glass card with heading list.
 
 struct NoteTableOfContents: View {
     let markdown: String
     let isDark: Bool
     let onNavigate: (Int) -> Void
 
+    @Environment(UIState.self) private var ui
     @State private var items: [TOCItem] = []
     @State private var parseTask: Task<Void, Never>?
-    @State private var hoveredItemId: UUID?
+    @State private var isHovering = false
+
+    private var headings: [TOCItem] {
+        items.filter { $0.kind == .heading }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack(spacing: 6) {
-                Image(systemName: "list.bullet")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.tertiary)
-                Text("Contents")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(items.filter { $0.kind == .heading }.count)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.quaternary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
+        ZStack(alignment: .leading) {
+            if isHovering {
+                // Expanded: heading list
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(headings) { item in
+                        Button {
+                            onNavigate(item.charOffset)
+                        } label: {
+                            HStack(spacing: 6) {
+                                RoundedRectangle(cornerRadius: 1)
+                                    .fill(levelColor(item.level).opacity(0.5))
+                                    .frame(width: 2, height: 12)
 
-            if items.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "text.alignleft")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.quaternary)
-                    Text("No headings")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.quaternary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 1) {
-                        ForEach(items) { item in
-                            tocRow(item)
+                                Text(item.title)
+                                    .font(.system(size: fontSize(for: item.level),
+                                                  weight: item.level <= 2 ? .medium : .regular))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .foregroundStyle(.primary.opacity(0.85))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .padding(.leading, CGFloat(item.level - 1) * 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
+
+                    if headings.isEmpty {
+                        Text("No headings")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.quaternary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                    }
                 }
-                .scrollIndicators(.hidden)
+                .padding(8)
+                .frame(width: 220)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: .black.opacity(0.15), radius: 10, y: 3)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .leading)))
+            } else {
+                // Collapsed: dot stack
+                VStack(spacing: 6) {
+                    ForEach(headings.prefix(8)) { item in
+                        Circle()
+                            .fill(ui.theme.accent.opacity(item.level == 1 ? 0.8 : 0.3))
+                            .frame(
+                                width: item.level == 1 ? 5 : 3.5,
+                                height: item.level == 1 ? 5 : 3.5
+                            )
+                    }
+                    if headings.count > 8 {
+                        Circle()
+                            .fill(ui.theme.accent.opacity(0.2))
+                            .frame(width: 3, height: 3)
+                    }
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 4)
+                .shadow(color: ui.theme.accent.opacity(0.4), radius: 6)
+                .transition(.opacity)
             }
         }
-        .frame(width: 230)
-        .background {
-            if isDark {
-                Color(white: 0.11)
-            } else {
-                Color(white: 0.975)
-            }
+        .animation(.smooth(duration: 0.2), value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
         }
         .onChange(of: markdown) { _, newBody in
             debounceParseBody(newBody)
@@ -164,61 +188,12 @@ struct NoteTableOfContents: View {
         }
     }
 
-    @ViewBuilder
-    private func tocRow(_ item: TOCItem) -> some View {
-        let isHovered = hoveredItemId == item.id
-
-        Button {
-            onNavigate(item.charOffset)
-        } label: {
-            HStack(spacing: 6) {
-                // Level indicator bar for headings
-                if item.kind == .heading {
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(levelColor(item.level).opacity(isHovered ? 0.8 : 0.35))
-                        .frame(width: 2, height: fontSize(for: item.level) + 4)
-                } else if item.kind == .citation {
-                    Image(systemName: "text.quote")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.purple.opacity(0.6))
-                } else if item.kind == .source {
-                    Image(systemName: "link")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.green.opacity(0.6))
-                }
-
-                Text(item.title)
-                    .font(.system(size: fontSize(for: item.level)))
-                    .fontWeight(item.level == 1 ? .semibold : item.level == 2 ? .medium : .regular)
-                    .foregroundStyle(isHovered ? .primary : (item.kind == .heading ? .secondary : .tertiary))
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-            }
-            .padding(.leading, indentation(for: item))
-            .padding(.trailing, 10)
-            .padding(.vertical, 5)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isHovered
-                          ? (isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04))
-                          : Color.clear)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            hoveredItemId = hovering ? item.id : nil
-        }
-    }
-
     private func fontSize(for level: Int) -> CGFloat {
         switch level {
-        case 1: return 12.5
+        case 1: return 12
         case 2: return 11.5
         case 3: return 11
-        case 4, 5: return 10.5
-        default: return 10
+        default: return 10.5
         }
     }
 
@@ -228,15 +203,6 @@ struct NoteTableOfContents: View {
         case 2: return .cyan
         case 3: return .teal
         default: return .gray
-        }
-    }
-
-    private func indentation(for item: TOCItem) -> CGFloat {
-        switch item.kind {
-        case .heading:
-            return 8 + CGFloat(item.level - 1) * 10
-        case .citation, .source:
-            return 18
         }
     }
 
