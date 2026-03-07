@@ -113,7 +113,6 @@ final class NoteWindowManager {
     private var windows: [String: NSWindow] = [:]
     private var observers: [String: any NSObjectProtocol] = [:]
     private let tabDelegate = NoteTabDelegate()
-    private var openWindowHandler: ((String) -> Void)?
     nonisolated static let log = Logger(subsystem: "com.epistemos", category: "NoteWindow")
 
     /// Per-tab navigation states — tracks in-place wikilink navigation.
@@ -130,10 +129,6 @@ final class NoteWindowManager {
 
     func unregisterNavState(forTab tabPageId: String) {
         navigationStates.removeValue(forKey: tabPageId)
-    }
-
-    func configureOpenHandler(_ handler: @escaping (String) -> Void) {
-        openWindowHandler = handler
     }
 
     /// The page currently displayed in the tab (may differ from root if user navigated via wikilinks).
@@ -201,42 +196,47 @@ final class NoteWindowManager {
             return
         }
 
-        guard let openWindowHandler else {
-            Self.log.error("SwiftUI note window opener not configured")
+        guard let bootstrap = AppBootstrap.shared else {
+            Self.log.error("AppBootstrap not available — cannot open note window")
             return
         }
-        openWindowHandler(page.id)
-        Self.log.info("Requested SwiftUI note window for: \(page.title, privacy: .public)")
-    }
 
-    func attachSceneWindow(_ window: NSWindow, pageId: String, title: String) {
-        guard !pageId.isEmpty else { return }
+        let pageTitle = page.title.isEmpty ? "Untitled" : page.title
+        let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
+            .withAppEnvironment(bootstrap)
+            .modelContainer(bootstrap.modelContainer)
+            .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
 
-        window.title = title.isEmpty ? "Untitled" : title
+        let hostingView = NSHostingView(rootView: editorView)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = pageTitle
+        window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
+        window.contentView = hostingView
+        window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
-        window.setFrameAutosaveName("note-\(pageId)")
+        window.setFrameAutosaveName("note-\(page.id)")
         window.collectionBehavior.remove(.fullScreenPrimary)
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
-        // Toolbar is managed by SwiftUI (.toolbar { } + .toolbarBackgroundVisibility)
-        // — do NOT set window.toolbar or window.toolbarStyle here.
+        window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
+        window.toolbarStyle = .unified
 
         if let theme = AppBootstrap.shared?.uiState.theme {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         }
 
-        // Join existing note window as a tab (matches old NSWindow behavior)
-        if let existingWindow = windows.values.first(where: { $0 !== window && $0.isVisible }) {
-            existingWindow.addTabbedWindow(window, ordered: .above)
-        }
-
-        windows[pageId] = window
-
-        guard observers[pageId] == nil else { return }
+        let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: window,
@@ -247,7 +247,15 @@ final class NoteWindowManager {
                 self?.handleWindowClose(window, pageId: pageId)
             }
         }
-        observers[pageId] = observer
+        observers[page.id] = observer
+
+        if let existingWindow = windows.values.first {
+            existingWindow.addTabbedWindow(window, ordered: .above)
+        }
+        window.makeKeyAndOrderFront(nil)
+        windows[page.id] = window
+
+        Self.log.info("Opened note tab for: \(page.title, privacy: .public)")
     }
 
     /// Reverse lookup: find the pageId for a given window.
@@ -306,7 +314,6 @@ final class NoteWindowManager {
         // Sync window chrome to current theme
         let theme = bootstrap.uiState.theme
         window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        window.backgroundColor = NSColor(theme.background)
 
         // Zoom instead of fullscreen
         window.collectionBehavior.remove(.fullScreenPrimary)
@@ -343,11 +350,9 @@ final class NoteWindowManager {
     /// Sync appearance of all note windows to the current theme.
     func syncTheme(isDark: Bool) {
         let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        let background = AppBootstrap.shared.map { NSColor($0.uiState.theme.background) }
 
         for w in windows.values {
             w.appearance = appearance
-            if let bg = background { w.backgroundColor = bg }
         }
     }
 }
@@ -372,70 +377,6 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
         else { return }
         AppBootstrap.shared?.notesUI.openPage(
             NoteWindowManager.shared.currentPageId(forTab: pageId))
-    }
-}
-
-struct NoteWindowOpenInstaller: View {
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Color.clear
-            .frame(width: 0, height: 0)
-            .allowsHitTesting(false)
-            .onAppear {
-                NoteWindowManager.shared.configureOpenHandler { pageId in
-                    openWindow(id: "note", value: pageId)
-                }
-            }
-    }
-}
-
-struct NoteWindowSceneRoot: View {
-    let pageId: String
-
-    @Query private var pages: [SDPage]
-
-    init(pageId: String) {
-        self.pageId = pageId
-        _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
-    }
-
-    private var pageTitle: String {
-        guard let page = pages.first else { return "Untitled" }
-        return page.title.isEmpty ? "Untitled" : page.title
-    }
-
-    var body: some View {
-        Group {
-            if pageId.isEmpty {
-                ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
-            } else {
-                NoteTabShell(pageId: pageId, pageTitle: pageTitle)
-            }
-        }
-        .overlay {
-            NoteWindowBridge(pageId: pageId, windowTitle: pageTitle)
-                .frame(width: 0, height: 0)
-        }
-    }
-}
-
-private struct NoteWindowBridge: NSViewRepresentable {
-    let pageId: String
-    let windowTitle: String
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        Task { @MainActor in
-            guard let window = nsView.window else { return }
-            NoteWindowManager.shared.attachSceneWindow(
-                window, pageId: pageId, title: windowTitle)
-        }
     }
 }
 
