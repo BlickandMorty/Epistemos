@@ -137,9 +137,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Create NSScrollView wrapper
         let scrollView = NSScrollView()
         scrollView.documentView = tv
-        scrollView.hasVerticalScroller = true
+        scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
         scrollView.backgroundColor = .clear
         scrollView.wantsLayer = true

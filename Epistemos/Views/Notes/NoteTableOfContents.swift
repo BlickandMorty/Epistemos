@@ -94,8 +94,8 @@ enum TOCParser {
 }
 
 // MARK: - NoteTableOfContents View
-// Hover-reveal floating panel on the left edge (mirrors wikilink breadcrumb pattern).
-// Collapsed: vertical dots. Hover: glass card with heading list.
+// Hover-reveal floating panel on the left edge (DeepSeek-style).
+// Collapsed: segmented horizontal dashes. Hover: glass card with heading list.
 
 struct NoteTableOfContents: View {
     let markdown: String
@@ -106,6 +106,7 @@ struct NoteTableOfContents: View {
     @State private var items: [TOCItem] = []
     @State private var parseTask: Task<Void, Never>?
     @State private var isHovering = false
+    @State private var hoveredItemId: UUID?
 
     private var headings: [TOCItem] {
         items.filter { $0.kind == .heading }
@@ -114,69 +115,12 @@ struct NoteTableOfContents: View {
     var body: some View {
         ZStack(alignment: .leading) {
             if isHovering {
-                // Expanded: heading list
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(headings) { item in
-                        Button {
-                            onNavigate(item.charOffset)
-                        } label: {
-                            HStack(spacing: 6) {
-                                RoundedRectangle(cornerRadius: 1)
-                                    .fill(levelColor(item.level).opacity(0.5))
-                                    .frame(width: 2, height: 12)
-
-                                Text(item.title)
-                                    .font(.system(size: fontSize(for: item.level),
-                                                  weight: item.level <= 2 ? .medium : .regular))
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .foregroundStyle(.primary.opacity(0.85))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .padding(.leading, CGFloat(item.level - 1) * 8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    if headings.isEmpty {
-                        Text("No headings")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.quaternary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                    }
-                }
-                .padding(8)
-                .frame(width: 220)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: .black.opacity(0.15), radius: 10, y: 3)
-                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .leading)))
+                expandedPanel
             } else {
-                // Collapsed: dot stack
-                VStack(spacing: 6) {
-                    ForEach(headings.prefix(8)) { item in
-                        Circle()
-                            .fill(ui.theme.accent.opacity(item.level == 1 ? 0.8 : 0.3))
-                            .frame(
-                                width: item.level == 1 ? 5 : 3.5,
-                                height: item.level == 1 ? 5 : 3.5
-                            )
-                    }
-                    if headings.count > 8 {
-                        Circle()
-                            .fill(ui.theme.accent.opacity(0.2))
-                            .frame(width: 3, height: 3)
-                    }
-                }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 4)
-                .shadow(color: ui.theme.accent.opacity(0.4), radius: 6)
-                .transition(.opacity)
+                collapsedDashes
             }
         }
-        .animation(.smooth(duration: 0.2), value: isHovering)
+        .animation(.spring(duration: 0.25, bounce: 0.15), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering {
@@ -193,21 +137,80 @@ struct NoteTableOfContents: View {
         }
     }
 
-    private func fontSize(for level: Int) -> CGFloat {
-        switch level {
-        case 1: return 12
-        case 2: return 11.5
-        case 3: return 11
-        default: return 10.5
+    // MARK: - Expanded Panel
+
+    private var expandedPanel: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(headings) { item in
+                let isItemHovered = hoveredItemId == item.id
+
+                Button {
+                    onNavigate(item.charOffset)
+                } label: {
+                    HStack(spacing: 0) {
+                        Text(item.title)
+                            .font(.system(size: 12, weight: item.level <= 2 ? .medium : .regular))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .foregroundStyle(isItemHovered ? .white : .primary.opacity(0.8))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .padding(.leading, CGFloat(item.level - 1) * 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background {
+                        if isItemHovered {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(ui.theme.accent.opacity(0.7))
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .onHover { h in hoveredItemId = h ? item.id : nil }
+            }
+
+            if headings.isEmpty {
+                Text("No headings")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.quaternary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+            }
         }
+        .padding(6)
+        .frame(width: 240)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+        .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .leading)))
     }
 
-    private func levelColor(_ level: Int) -> Color {
+    // MARK: - Collapsed Dashes
+
+    private var collapsedDashes: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(Array(headings.prefix(10).enumerated()), id: \.element.id) { _, item in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(ui.theme.accent.opacity(item.level == 1 ? 0.9 : 0.5))
+                    .frame(width: dashWidth(for: item.level), height: 2)
+            }
+            if headings.count > 10 {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(ui.theme.accent.opacity(0.3))
+                    .frame(width: 6, height: 2)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 3)
+        .transition(.opacity)
+    }
+
+    private func dashWidth(for level: Int) -> CGFloat {
         switch level {
-        case 1: return .blue
-        case 2: return .cyan
-        case 3: return .teal
-        default: return .gray
+        case 1: return 16
+        case 2: return 12
+        case 3: return 9
+        default: return 6
         }
     }
 
