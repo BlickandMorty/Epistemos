@@ -553,20 +553,29 @@ private struct NotePageContent: View {
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
         }
         .overlay(alignment: .top) {
-            LinearGradient(
-                colors: [ui.theme.background, ui.theme.background.opacity(0)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: hasMultipleTabs ? 80 : 52)
-            .allowsHitTesting(false)
-            .animation(.smooth(duration: 0.25), value: hasMultipleTabs)
+            VStack(spacing: 0) {
+                // Glass title strip — bridges the gap under the tab bar
+                Text(pages.first?.title ?? "Untitled")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial)
+                // Soft fade below the strip
+                LinearGradient(
+                    colors: [ui.theme.background.opacity(0.6), ui.theme.background.opacity(0)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 20)
+                .allowsHitTesting(false)
+            }
         }
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .trailing) {
             if let nav = navState, nav.hasBreadcrumb {
                 NoteBreadcrumbBar(navState: nav)
-                    .padding(.top, 8)
-                    .padding(.trailing, 12)
+                    .padding(.trailing, 6)
             }
         }
         .overlay(alignment: .bottom) {
@@ -735,17 +744,47 @@ private struct NotePageContent: View {
     /// Liquid glass pill toolbar floating at the bottom of the editor.
     /// Uses .glassEffect for macOS 26 depth-aware frosted glass.
     private var bottomToolbarPill: some View {
-        HStack(spacing: 12) {
-            Text(pages.first?.title ?? "Untitled")
-                .font(.system(size: 12, weight: .medium))
-                .lineLimit(1)
-                .foregroundStyle(.secondary)
+        HStack(spacing: 10) {
+            // Format menu
+            Menu {
+                Button("Bold  \u{2318}B") { insertMarkdown("**", "**") }
+                Button("Italic  \u{2318}I") { insertMarkdown("*", "*") }
+                Menu("Heading") {
+                    Button("H1") { insertLinePrefix("# ") }
+                    Button("H2") { insertLinePrefix("## ") }
+                    Button("H3") { insertLinePrefix("### ") }
+                }
+                Divider()
+                Button("Strikethrough") { insertMarkdown("~~", "~~") }
+                Button("Code") { insertMarkdown("`", "`") }
+                Button("Link") { insertMarkdown("[", "](url)") }
+            } label: {
+                Image(systemName: "textformat")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .help("Format")
 
+            // Preview toggle
+            Button { togglePreviewMode() } label: {
+                Image(systemName: showPreview ? "pencil" : "eye")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
+
+            // Table of Contents
+            Button { withAnimation { showTableOfContents.toggle() } } label: {
+                Image(systemName: showTableOfContents ? "list.bullet.indent" : "list.bullet")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .help("Table of Contents (⌘T)")
+
+            // More menu
+            moreMenu
+
+            // Ask bar
             if !showWriterMode && !showPreview {
                 toolbarChatField
             }
-
-            moreMenu
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 16)
@@ -2197,37 +2236,56 @@ private struct IdeaRow: View {
 private struct NoteBreadcrumbBar: View {
     let navState: NoteNavigationState
     @Environment(UIState.self) private var ui
+    @State private var isHovering = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(navState.stack.enumerated()), id: \.element.id) { index, item in
-                if index > 0 {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 7, weight: .bold))
-                        .foregroundStyle(.secondary.opacity(0.35))
-                        .padding(.vertical, 2)
+        ZStack(alignment: .trailing) {
+            if isHovering {
+                // Expanded: page list
+                VStack(alignment: .trailing, spacing: 2) {
+                    ForEach(Array(navState.stack.enumerated()), id: \.element.id) { _, item in
+                        Button {
+                            navState.navigateTo(pageId: item.id)
+                        } label: {
+                            Text(item.title)
+                                .font(.system(size: 11, weight: item.id == navState.currentPageId ? .semibold : .regular))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .foregroundStyle(
+                                    item.id == navState.currentPageId
+                                        ? ui.theme.accent
+                                        : .primary.opacity(0.7)
+                                )
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                .background(
+                                    item.id == navState.currentPageId
+                                        ? ui.theme.accent.opacity(0.1)
+                                        : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 6)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-
-                Button {
-                    navState.navigateTo(pageId: item.id)
-                } label: {
-                    Text(item.title)
-                        .font(.system(size: 10, weight: item.id == navState.currentPageId ? .semibold : .regular))
-                        .lineLimit(1)
-                        .foregroundStyle(
-                            item.id == navState.currentPageId
-                                ? ui.theme.accent
-                                : .secondary
-                        )
-                }
-                .buttonStyle(.plain)
+                .padding(8)
+                .frame(width: 180)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: .black.opacity(0.15), radius: 10, y: 3)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .trailing)))
+            } else {
+                // Collapsed: thin line indicator
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(ui.theme.accent.opacity(0.4))
+                    .frame(width: 3, height: CGFloat(navState.stack.count) * 18)
+                    .transition(.opacity)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: 140)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.1), radius: 6, y: 2)
+        .animation(.smooth(duration: 0.2), value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+        }
     }
 }
 

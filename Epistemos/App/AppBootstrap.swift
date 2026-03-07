@@ -51,6 +51,9 @@ final class AppBootstrap {
     let mlxModelManager: MLXModelManager
     let mlxClient: MLXClient
 
+    // MARK: - Agents
+    let agentEngine: AgentEngine
+
     // MARK: - Services
     let llmService: LLMService
     let triageService: TriageService
@@ -106,6 +109,14 @@ final class AppBootstrap {
         let mlxManager = MLXModelManager()
         self.mlxModelManager = mlxManager
         self.mlxClient = MLXClient(engine: mlxManager.engine, inference: inference)
+
+        // Agent Engine — multi-agent lifecycle + message bus
+        let engine = AgentEngine()
+        self.agentEngine = engine
+
+        // Register Triage agent (always-on classifier)
+        let triageAgent = TriageAgent(messageBus: engine.messageBus, mlxClient: mlxClient)
+        engine.register(triageAgent)
 
         // LLMService wraps the provider interface
         let llm = LLMService(inference: inference)

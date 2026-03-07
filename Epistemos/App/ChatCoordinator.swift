@@ -52,6 +52,19 @@ final class ChatCoordinator {
     func handleQuery(_ query: String, pipeline: PipelineService, chatState: ChatState) {
         bootstrap.queryTask?.cancel()
 
+        // Agent triage: classify the query to show routing info in chat.
+        // Full agent dispatch happens in later phases — for now just classify and annotate.
+        if !query.hasPrefix("[") {
+            let engine = bootstrap.agentEngine
+            if let triage = engine.agent(for: .triage) as? TriageAgent {
+                Task {
+                    let route = await triage.classify(query)
+                    chatState.lastTriageRoute = route
+                    Log.engine.debug("Triage: \(query.prefix(40)) → \(route.rawValue)")
+                }
+            }
+        }
+
         // Early guard: if the provider needs an API key, we have none,
         // AND Apple Intelligence is unavailable, block the query.
         // When Apple Intelligence IS available, let triage route it on-device.

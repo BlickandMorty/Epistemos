@@ -48,6 +48,10 @@ final class ChatState {
         didSet { UserDefaults.standard.set(isResearchMode, forKey: "epistemos.researchMode") }
     }
 
+    // MARK: - Agent Triage
+    /// Last triage classification result — displayed as routing pill in chat UI.
+    var lastTriageRoute: TriageClassification?
+
     // MARK: - Vault Context (Ambient)
     /// Page IDs of notes whose full bodies have been loaded into context via @-mentions.
     var loadedNoteIds: Set<String> = []

@@ -30,5 +30,6 @@ extension View {
             .environment(bootstrap.physicsCoordinator)
             .environment(bootstrap.dialogueChatState)
             .environment(bootstrap.mlxModelManager)
+            .environment(bootstrap.agentEngine)
     }
 }

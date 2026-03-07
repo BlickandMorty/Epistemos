@@ -11,6 +11,12 @@
 		A1MLX00100000000000002 /* MLXModelRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000002 /* MLXModelRegistry.swift */; };
 		A1MLX00100000000000003 /* MLXClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000003 /* MLXClient.swift */; };
 		A1MLX00100000000000004 /* MLXModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MLX00200000000000004 /* MLXModelManager.swift */; };
+		A1AGT00100000000000001 /* AgentTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000001 /* AgentTypes.swift */; };
+		A1AGT00100000000000002 /* MessageBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000002 /* MessageBus.swift */; };
+		A1AGT00100000000000003 /* AgentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000003 /* AgentEngine.swift */; };
+		A1AGT00100000000000004 /* TriageAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000004 /* TriageAgent.swift */; };
+		A1AGT00100000000000005 /* AgentPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000005 /* AgentPanelView.swift */; };
+		A1AGT00100000000000006 /* AgentSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1AGT00200000000000006 /* AgentSystemTests.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -338,6 +344,12 @@
 		50604F1EB2DF6F05D43CD51C /* InferenceState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InferenceState.swift; sourceTree = "<group>"; };
 		A1MLX00200000000000004 /* MLXModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXModelManager.swift; sourceTree = "<group>"; };
 		A1MLX00200000000000005 /* MLXTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXTests.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000001 /* AgentTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTypes.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000002 /* MessageBus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBus.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000003 /* AgentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentEngine.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000004 /* TriageAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageAgent.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000005 /* AgentPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelView.swift; sourceTree = "<group>"; };
+		A1AGT00200000000000006 /* AgentSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSystemTests.swift; sourceTree = "<group>"; };
 		5095E7B5E7ABB56F714A9902 /* SOARTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARTypes.swift; sourceTree = "<group>"; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
 		53D12B79B2E861637C19926D /* VaultManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultManifest.swift; sourceTree = "<group>"; };
@@ -648,6 +660,7 @@
 			isa = PBXGroup;
 			children = (
 				A1C0N500000000ASSET001 /* Assets.xcassets */,
+				A1AGT00300000000000001 /* Agents */,
 				E84F81714131A6C713425FD5 /* App */,
 				F5DB1B3EF520523DDC7B03C1 /* Engine */,
 				039065FD6B7F3B62CF954B17 /* Intents */,
@@ -660,6 +673,25 @@
 				1ED2197355F84C8475951C46 /* Graph */,
 			);
 			path = Epistemos;
+			sourceTree = "<group>";
+		};
+		A1AGT00300000000000001 /* Agents */ = {
+			isa = PBXGroup;
+			children = (
+				A1AGT00200000000000001 /* AgentTypes.swift */,
+				A1AGT00200000000000002 /* MessageBus.swift */,
+				A1AGT00200000000000003 /* AgentEngine.swift */,
+				A1AGT00200000000000004 /* TriageAgent.swift */,
+			);
+			path = Agents;
+			sourceTree = "<group>";
+		};
+		A1AGT00300000000000002 /* Agents */ = {
+			isa = PBXGroup;
+			children = (
+				A1AGT00200000000000005 /* AgentPanelView.swift */,
+			);
+			path = Agents;
 			sourceTree = "<group>";
 		};
 		3E0E8A3893A6D8C23B24C522 /* Resources */ = {
@@ -770,6 +802,7 @@
 		788AD73887C09636A5194E2D /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				A1AGT00300000000000002 /* Agents */,
 				6B31B8C368EB9E3C060757EC /* Chat */,
 				873EB1E67106B1DBCAB7E1E7 /* Landing */,
 				690AD75CC70B388842D30B68 /* Library */,
@@ -968,6 +1001,7 @@
 				90A09466F35F354234C1FBAB /* IncrementalFFIUpdateTests.swift */,
 				80F132458375D73807906E8E /* NoteInsightServiceTests.swift */,
 				A1MLX00200000000000005 /* MLXTests.swift */,
+				A1AGT00200000000000006 /* AgentSystemTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -1171,6 +1205,7 @@
 				E1AA6C3399E169EF56475AAB /* GraphModelTests.swift in Sources */,
 				FCF8DDD54465CC896D4A9DC8 /* GraphStoreTests.swift in Sources */,
 				A1MLX00100000000000005 /* MLXTests.swift in Sources */,
+				A1AGT00100000000000006 /* AgentSystemTests.swift in Sources */,
 				1051BC9AC955528B6A395402 /* StructuralGraphBuilderTests.swift in Sources */,
 				9AFCFFF225DCC9BF0427D1E3 /* TriageServiceTests.swift in Sources */,
 				B101A3F40D1E4A21B2C30006 /* VaultIndexActorTests.swift in Sources */,
@@ -1269,6 +1304,11 @@
 				A1MLX00100000000000001 /* MLXEngine.swift in Sources */,
 				A1MLX00100000000000002 /* MLXModelRegistry.swift in Sources */,
 				A1MLX00100000000000003 /* MLXClient.swift in Sources */,
+				A1AGT00100000000000001 /* AgentTypes.swift in Sources */,
+				A1AGT00100000000000002 /* MessageBus.swift in Sources */,
+				A1AGT00100000000000003 /* AgentEngine.swift in Sources */,
+				A1AGT00100000000000004 /* TriageAgent.swift in Sources */,
+				A1AGT00100000000000005 /* AgentPanelView.swift in Sources */,
 				31F15CAF3DB254DCD55D9F9C /* LandingView.swift in Sources */,
 				D0BE2F268FDB1F22A6735F95 /* LearningIntents.swift in Sources */,
 				1A35A483C814CA0D71DE5796 /* LibraryView.swift in Sources */,
