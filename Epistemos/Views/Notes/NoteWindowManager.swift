@@ -218,7 +218,7 @@ final class NoteWindowManager {
             defer: false
         )
         window.title = page.title.isEmpty ? "Untitled" : page.title
-        window.titlebarAppearsTransparent = true
+        window.titlebarAppearsTransparent = false
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
 

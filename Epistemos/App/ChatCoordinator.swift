@@ -559,11 +559,15 @@ final class ChatCoordinator {
         guard !candidates.isEmpty else { return nil }
 
         for candidate in candidates {
-            let title = candidate
+            let lower = candidate.lowercased()
             let descriptor = FetchDescriptor<SDPage>(
-                predicate: #Predicate { $0.title == title }
+                predicate: #Predicate { $0.title.localizedStandardContains(lower) }
             )
-            if let page = try? context.fetch(descriptor).first {
+            // localizedStandardContains is case/diacritic-insensitive but may over-match;
+            // filter to exact case-insensitive equality.
+            if let page = try? context.fetch(descriptor).first(where: {
+                $0.title.lowercased() == lower
+            }) {
                 return page.id
             }
         }

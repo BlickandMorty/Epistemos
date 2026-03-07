@@ -60,8 +60,6 @@ final class NoteChatState {
     var useResponsePanel = false
     /// Per-note chat history.
     var messages: [AssistantMessage] = []
-    /// Whether the chat bar is expanded (vs collapsed bubble).
-    var isBarExpanded = false
 
     // MARK: - Chat Mode (persisted to UserDefaults)
 
@@ -215,6 +213,7 @@ final class NoteChatState {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
         responseText = ""
         error = nil
@@ -256,6 +255,10 @@ final class NoteChatState {
                 }
                 self.flushTokens()
                 self.isStreaming = false
+                let final = self.responseText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !final.isEmpty {
+                    self.messages.append(AssistantMessage(role: .assistant, content: final))
+                }
                 self.log.info("Note chat complete for page \(self.pageId)")
             } catch {
                 self.flushTokens()
@@ -291,11 +294,6 @@ final class NoteChatState {
         hasResponse = false
         useResponsePanel = false
         responseText = ""
-    }
-
-    func collapseBar() {
-        guard !isStreaming, !hasResponse else { return }
-        isBarExpanded = false
     }
 
     func clear() {

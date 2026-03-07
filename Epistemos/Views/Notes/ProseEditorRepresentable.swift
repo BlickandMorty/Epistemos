@@ -225,11 +225,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 )
                 // Reposition transclusion overlays on scroll
                 coord.transclusionManager?.refresh()
-                // Collapse chat bar on downward scroll (>40pt delta)
-                if scrollY > coord.lastChatCollapseScrollY + 40 {
-                    coord.noteChatState?.collapseBar()
-                }
-                coord.lastChatCollapseScrollY = scrollY
             }
         }
 
@@ -513,8 +508,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         weak var noteChatState: NoteChatState?
         /// Suppresses textDidChange binding sync during programmatic token appends.
         var isFlushingTokens = false
-        /// Tracks scroll position for collapsing the chat bar on downward scroll.
-        var lastChatCollapseScrollY: CGFloat = 0
         /// Debounce task for syncing NSTextStorage → SwiftUI @Binding.
         /// Text lives in NSTextStorage — binding only needed for debouncedSave and page swap.
         private var bindingSyncTask: Task<Void, Never>?

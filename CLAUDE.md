@@ -28,7 +28,7 @@ User → SwiftUI Views → @Observable State → Services (Engine/) → Rust FFI
 | Graph | `Graph/GraphState.swift` | `Graph/GraphStore.swift`, `Graph/GraphBuilder.swift` |
 | Graph Engine (Rust) | `graph-engine/src/lib.rs` | `src/renderer.rs`, `src/physics.rs`, `src/types.rs` |
 | Note Editor | `Views/Notes/ProseEditorRepresentable.swift` | `Views/Notes/ProseEditorView.swift`, `Views/Notes/MarkdownTextStorage.swift` |
-| Note Chat | `State/NoteChatState.swift` | `Views/Notes/NoteChatOrb.swift`, `Views/Notes/NoteWindowManager.swift` |
+| Note Chat | `State/NoteChatState.swift` | `Views/Notes/NoteChatSidebar.swift`, `Views/Notes/NoteWindowManager.swift` |
 | Note Windows | `Views/Notes/NoteWindowManager.swift` | `Views/Notes/NotesSidebar.swift` |
 | Graph Overlay | `Views/Graph/HologramController.swift` | `Views/Graph/HologramOverlay.swift`, `Views/Graph/MetalGraphView.swift` |
 | Environment | `App/AppEnvironment.swift` | `App/AppBootstrap.swift`, `App/EpistemosApp.swift` |
