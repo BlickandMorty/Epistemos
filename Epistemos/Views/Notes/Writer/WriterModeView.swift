@@ -1,3 +1,4 @@
+import PDFKit
 import SwiftData
 import SwiftUI
 
@@ -21,22 +22,35 @@ struct WriterModeView: View {
     @State private var bodyText: String = ""
     @State private var saveTask: Task<Void, Never>?
     @State private var hasLoaded = false
+    @State private var showPDFPreview = false
+    @State private var previewDocument: PDFDocument?
+    @State private var previewTask: Task<Void, Never>?
 
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
-        PagedDocumentView(
-            text: $bodyText,
-            formatState: formatState,
-            isDark: isDark,
-            theme: theme,
-            isEditable: !isLocked
-        )
+        HStack(spacing: 0) {
+            PagedDocumentView(
+                text: $bodyText,
+                formatState: formatState,
+                isDark: isDark,
+                theme: theme,
+                isEditable: !isLocked
+            )
+
+            if showPDFPreview {
+                Divider()
+                WriterPDFPreview(pdfDocument: previewDocument)
+                    .frame(minWidth: 300, idealWidth: 400)
+                    .transition(.move(edge: .trailing))
+            }
+        }
         .overlay(alignment: .top) {
             VStack(spacing: 0) {
                 WriterFormatBar(
                     formatState: formatState,
                     isDark: isDark,
+                    showPDFPreview: $showPDFPreview,
                     onExport: handleExport
                 )
                 .disabled(isLocked)
@@ -56,6 +70,7 @@ struct WriterModeView: View {
             }
         }
         .animation(.spring(duration: 0.3), value: isDark)
+        .animation(.spring(duration: 0.3), value: showPDFPreview)
         .onAppear {
             bodyText = page.loadBody()
             formatState.load(from: page.frontMatter)
@@ -80,6 +95,13 @@ struct WriterModeView: View {
         .onDisappear {
             flushIfNeeded()
             saveFormatState()
+            previewTask?.cancel()
+        }
+        .onChange(of: showPDFPreview) { _, isShown in
+            if isShown { refreshPDFPreview() }
+        }
+        .onChange(of: bodyText) { _, _ in
+            if showPDFPreview { refreshPDFPreview() }
         }
     }
 
@@ -129,5 +151,18 @@ struct WriterModeView: View {
             body: bodyText,
             formatState: formatState
         )
+    }
+
+    // MARK: - PDF Preview
+
+    private func refreshPDFPreview() {
+        previewTask?.cancel()
+        previewTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            previewDocument = WriterExportService.generatePDFDocument(
+                body: bodyText, formatState: formatState
+            )
+        }
     }
 }

@@ -3,6 +3,7 @@ import AppKit
 import CoreSpotlight
 import SwiftData
 import SwiftUI
+import Translation
 import os
 
 // MARK: - Note Window Manager
@@ -447,6 +448,8 @@ private struct NotePageContent: View {
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
+    @State private var showTranslation = false
+    @State private var translationText = ""
     /// Pre-selected idea tab when opened from right-click context menu.
     @State private var contextMenuIdeaTab: IdeasPanel.IdeaTab?
     /// Editor selection captured BEFORE the popover steals focus.
@@ -732,6 +735,17 @@ private struct NotePageContent: View {
             }
             showBlockPropertySheet = true
         }
+        .onReceive(
+            NotificationCenter.default.publisher(for: ClickableTextView.translateNotification)
+        ) { notif in
+            guard let info = notif.userInfo as? [String: String],
+                info["pageId"] == pageId,
+                let text = info["selectedText"], !text.isEmpty
+            else { return }
+            translationText = text
+            showTranslation = true
+        }
+        .translationPresentation(isPresented: $showTranslation, text: translationText)
         .onChange(of: showIdeasPopover) { _, isShown in
             if !isShown {
                 contextMenuIdeaTab = nil

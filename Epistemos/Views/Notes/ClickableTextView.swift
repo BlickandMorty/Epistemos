@@ -1,6 +1,7 @@
 import AppKit
 import UniformTypeIdentifiers
 import Vision
+import Translation
 
 // MARK: - ClickableTextView
 // Bare NSTextView subclass with wikilink click handling.
@@ -31,6 +32,7 @@ final class ClickableTextView: NSTextView {
     static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
     /// Block property edit from context menu. userInfo: ["lineText": String, "lineRange": NSRange, "pageId": String?]
     static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
+    static let translateNotification = Notification.Name("EpistemosTranslateText")
 
     // MARK: - Wikilink Click Handling
 
@@ -445,6 +447,11 @@ final class ClickableTextView: NSTextView {
                 onBlockRefClick?(blockId)
                 return
             }
+            // Data detection: click to open in system app
+            if let item = attrs[DataDetectionService.detectedDataKey] as? DataDetectionService.DetectedItem {
+                DataDetectionService.open(item)
+                return
+            }
         }
         super.mouseDown(with: event)
     }
@@ -537,6 +544,8 @@ final class ClickableTextView: NSTextView {
             aiMenu.addItem(NSMenuItem.separator())
             aiMenu.addItem(makeAIItem("Convert to List", icon: "list.bullet", op: "toList"))
             aiMenu.addItem(makeAIItem("Convert to Table", icon: "tablecells", op: "toTable"))
+            aiMenu.addItem(NSMenuItem.separator())
+            aiMenu.addItem(makeAIItem("Translate", icon: "character.book.closed", op: "translate"))
         } else {
             aiMenu.addItem(makeAIItem("Continue Writing", icon: "text.append", op: "continue"))
             aiMenu.addItem(makeAIItem("Generate Outline", icon: "list.number", op: "outline"))
@@ -587,6 +596,10 @@ final class ClickableTextView: NSTextView {
         let sel = selectedRange()
         if sel.length > 0, let str = string as NSString? {
             userInfo["selectedText"] = str.substring(with: sel)
+        }
+        if op == "translate" {
+            NotificationCenter.default.post(name: Self.translateNotification, object: nil, userInfo: userInfo)
+            return
         }
         NotificationCenter.default.post(name: Self.aiOperationNotification, object: nil, userInfo: userInfo)
     }

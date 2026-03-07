@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = NLANLYS00000000000001F1 /* NLAnalysisService.swift */; };
+		DATADET00000000000002F2 /* DataDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATADET00000000000001F1 /* DataDetectionService.swift */; };
+		PDFPRV000000000000002F2 /* WriterPDFPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = PDFPRV000000000000001F1 /* WriterPDFPreview.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -260,6 +263,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		NLANLYS00000000000001F1 /* NLAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NLAnalysisService.swift; sourceTree = "<group>"; };
+		DATADET00000000000001F1 /* DataDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDetectionService.swift; sourceTree = "<group>"; };
+		PDFPRV000000000000001F1 /* WriterPDFPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterPDFPreview.swift; sourceTree = "<group>"; };
 		006D4AFC106E6BBA941CDBD4 /* ResearchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchIntents.swift; sourceTree = "<group>"; };
 		01E39AEBA6CCBE938F617A0F /* SignalGeneratorComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignalGeneratorComprehensiveTests.swift; sourceTree = "<group>"; };
 		048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteOverlay.swift; sourceTree = "<group>"; };
@@ -838,6 +844,7 @@
 				ACAD000100000000FMTST01 /* WriterFormatState.swift */,
 				ACAD000100000000WMODE01 /* WriterModeView.swift */,
 				ACAD000100000000TXSTR01 /* WriterTextStorage.swift */,
+				PDFPRV000000000000001F1 /* WriterPDFPreview.swift */,
 			);
 			path = Writer;
 			sourceTree = "<group>";
@@ -1016,6 +1023,8 @@
 				A35250427F5F701B31DF7B9B /* TriageService.swift */,
 				1563EAA97DA2887E2D907E00 /* SOAR */,
 				5498CEA96DFB293CE6C97192 /* NoteInsightService.swift */,
+				NLANLYS00000000000001F1 /* NLAnalysisService.swift */,
+				DATADET00000000000001F1 /* DataDetectionService.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -1194,6 +1203,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */,
+				NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */,
+				DATADET00000000000002F2 /* DataDetectionService.swift in Sources */,
+				PDFPRV000000000000002F2 /* WriterPDFPreview.swift in Sources */,
 				0F330C5227384BC39A376243 /* TransclusionOverlayManager.swift in Sources */,
 				040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */,
 				040E15E508A34F7E890D6BA1 /* EditableTransclusionView.swift in Sources */,

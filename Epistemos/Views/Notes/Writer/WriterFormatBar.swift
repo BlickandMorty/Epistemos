@@ -38,6 +38,7 @@ struct WriterFormatBar: View {
 
     @Bindable var formatState: WriterFormatState
     let isDark: Bool
+    @Binding var showPDFPreview: Bool
     let onExport: (ExportFormat) -> Void
 
     @Environment(UIState.self) private var ui
@@ -95,6 +96,7 @@ struct WriterFormatBar: View {
             Divider().frame(height: 20)
             headersGroup
             Spacer()
+            pdfPreviewToggle
             exportMenu
         }
     }
@@ -343,6 +345,16 @@ struct WriterFormatBar: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 120)
         }
+    }
+
+    // MARK: - PDF Preview Toggle
+
+    private var pdfPreviewToggle: some View {
+        Toggle(isOn: $showPDFPreview) {
+            Label("Preview", systemImage: showPDFPreview ? "doc.richtext.fill" : "doc.richtext")
+        }
+        .toggleStyle(.button)
+        .help("PDF Preview")
     }
 
     // MARK: - Export Menu

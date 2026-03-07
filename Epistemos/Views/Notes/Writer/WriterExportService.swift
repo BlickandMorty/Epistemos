@@ -1,4 +1,5 @@
 import AppKit
+import PDFKit
 import UniformTypeIdentifiers
 
 // MARK: - XML Escaping
@@ -71,6 +72,174 @@ enum WriterExportService {
 
     // MARK: - PDF Export
 
+    /// Generates a PDFDocument from the given body and format state.
+    /// Used by both the file export path and the preview.
+    static func generatePDFDocument(
+        body: String,
+        formatState: WriterFormatState
+    ) -> PDFDocument? {
+        // Create a temporary TextKit stack for clean PDF rendering
+        let storage = NSTextStorage(string: body.markdownStripped)
+        let layoutManager = NSLayoutManager()
+        layoutManager.allowsNonContiguousLayout = false
+        storage.addLayoutManager(layoutManager)
+
+        let pageSize = formatState.pageSize.size
+        let textAreaSize = formatState.textAreaSize
+        let marginPoints = formatState.margins.points
+
+        // Apply formatting
+        let font = NSFont(name: formatState.fontFamily, size: formatState.fontSize)
+            ?? NSFont.systemFont(ofSize: formatState.fontSize)
+        let paraStyle = NSMutableParagraphStyle()
+        let baselineSpacing = font.pointSize * (formatState.lineSpacing.multiplier - 1.0)
+        paraStyle.lineSpacing = baselineSpacing
+        paraStyle.alignment = formatState.alignment
+        if formatState.firstLineIndent > 0 {
+            paraStyle.firstLineHeadIndent = formatState.firstLineIndent
+        }
+        // Paragraph spacing for double-newline breaks
+        paraStyle.paragraphSpacing = font.pointSize * 0.5
+
+        let fullRange = NSRange(location: 0, length: storage.length)
+        storage.addAttributes([
+            .font: font,
+            .foregroundColor: NSColor.black,
+            .paragraphStyle: paraStyle,
+        ], range: fullRange)
+
+        // Create text containers until all text is laid out
+        var containers: [NSTextContainer] = []
+        var allLaidOut = false
+        while !allLaidOut {
+            let container = NSTextContainer(size: textAreaSize)
+            container.widthTracksTextView = false
+            container.heightTracksTextView = false
+            container.lineFragmentPadding = 0
+            layoutManager.addTextContainer(container)
+            containers.append(container)
+            layoutManager.ensureLayout(for: container)
+
+            let glyphRange = layoutManager.glyphRange(for: container)
+            let charRange = layoutManager.characterRange(
+                forGlyphRange: glyphRange, actualGlyphRange: nil)
+            if charRange.location + charRange.length >= storage.length
+                || glyphRange.length == 0
+            {
+                allLaidOut = true
+            }
+        }
+
+        // Render to PDF
+        var mediaBox = CGRect(origin: .zero, size: pageSize)
+        let pdfData = NSMutableData()
+
+        guard let consumer = CGDataConsumer(data: pdfData as CFMutableData),
+              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
+        else { return nil }
+
+        for (index, container) in containers.enumerated() {
+            let glyphRange = layoutManager.glyphRange(for: container)
+            guard glyphRange.length > 0 || index == 0 else { continue }
+
+            context.beginPDFPage(nil)
+
+            // Flip coordinates: CoreGraphics origin is bottom-left,
+            // NSLayoutManager drawing expects top-left.
+            context.translateBy(x: 0, y: pageSize.height)
+            context.scaleBy(x: 1, y: -1)
+
+            let graphicsContext = NSGraphicsContext(cgContext: context, flipped: true)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = graphicsContext
+
+            // White page background
+            NSColor.white.setFill()
+            NSRect(origin: .zero, size: pageSize).fill()
+
+            // Draw text at margin offset
+            let origin = NSPoint(x: marginPoints, y: marginPoints)
+            layoutManager.drawBackground(forGlyphRange: glyphRange, at: origin)
+            layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: origin)
+
+            // Page number
+            if formatState.showPageNumbers {
+                let pageNum = index + 1
+                let numStr: String
+                if !formatState.runningHead.isEmpty {
+                    numStr = "\(formatState.runningHead) \(pageNum)"
+                } else {
+                    numStr = "\(pageNum)"
+                }
+                let numFont = NSFont(name: formatState.fontFamily, size: formatState.fontSize - 2)
+                    ?? NSFont.systemFont(ofSize: formatState.fontSize - 2)
+                let numAttrs: [NSAttributedString.Key: Any] = [
+                    .font: numFont,
+                    .foregroundColor: NSColor.black,
+                ]
+                let attrStr = NSAttributedString(string: numStr, attributes: numAttrs)
+                let size = attrStr.size()
+
+                // Position based on format state
+                let pos = formatState.pageNumberPosition
+                let y: CGFloat
+                let x: CGFloat
+
+                switch pos {
+                case .topLeft, .topCenter, .topRight:
+                    y = (marginPoints - size.height) / 2
+                case .bottomLeft, .bottomCenter, .bottomRight:
+                    y = pageSize.height - marginPoints + (marginPoints - size.height) / 2
+                }
+
+                switch pos {
+                case .topLeft, .bottomLeft:
+                    x = marginPoints
+                case .topCenter, .bottomCenter:
+                    x = (pageSize.width - size.width) / 2
+                case .topRight, .bottomRight:
+                    x = pageSize.width - marginPoints - size.width
+                }
+
+                attrStr.draw(at: NSPoint(x: x, y: y))
+            }
+
+            // Header text
+            if !formatState.headerText.isEmpty {
+                let headerAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont(name: formatState.fontFamily, size: formatState.fontSize - 2)
+                        ?? NSFont.systemFont(ofSize: formatState.fontSize - 2),
+                    .foregroundColor: NSColor.black,
+                ]
+                let attrStr = NSAttributedString(string: formatState.headerText, attributes: headerAttrs)
+                let size = attrStr.size()
+                let x = (pageSize.width - size.width) / 2
+                let y = (marginPoints - size.height) / 2
+                attrStr.draw(at: NSPoint(x: x, y: y))
+            }
+
+            // Footer text
+            if !formatState.footerText.isEmpty {
+                let footerAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont(name: formatState.fontFamily, size: formatState.fontSize - 2)
+                        ?? NSFont.systemFont(ofSize: formatState.fontSize - 2),
+                    .foregroundColor: NSColor.black,
+                ]
+                let attrStr = NSAttributedString(string: formatState.footerText, attributes: footerAttrs)
+                let size = attrStr.size()
+                let x = (pageSize.width - size.width) / 2
+                let y = pageSize.height - marginPoints + (marginPoints - size.height) / 2
+                attrStr.draw(at: NSPoint(x: x, y: y))
+            }
+
+            NSGraphicsContext.restoreGraphicsState()
+            context.endPDFPage()
+        }
+
+        context.closePDF()
+        return PDFDocument(data: pdfData as Data)
+    }
+
     private static func exportPDF(
         title: String,
         body: String,
@@ -81,167 +250,9 @@ enum WriterExportService {
         panel.nameFieldStringValue = "\(title).pdf"
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
-
-            // Create a temporary TextKit stack for clean PDF rendering
-            let storage = NSTextStorage(string: body.markdownStripped)
-            let layoutManager = NSLayoutManager()
-            layoutManager.allowsNonContiguousLayout = false
-            storage.addLayoutManager(layoutManager)
-
-            let pageSize = formatState.pageSize.size
-            let textAreaSize = formatState.textAreaSize
-            let marginPoints = formatState.margins.points
-
-            // Apply formatting
-            let font = NSFont(name: formatState.fontFamily, size: formatState.fontSize)
-                ?? NSFont.systemFont(ofSize: formatState.fontSize)
-            let paraStyle = NSMutableParagraphStyle()
-            let baselineSpacing = font.pointSize * (formatState.lineSpacing.multiplier - 1.0)
-            paraStyle.lineSpacing = baselineSpacing
-            paraStyle.alignment = formatState.alignment
-            if formatState.firstLineIndent > 0 {
-                paraStyle.firstLineHeadIndent = formatState.firstLineIndent
-            }
-            // Paragraph spacing for double-newline breaks
-            paraStyle.paragraphSpacing = font.pointSize * 0.5
-
-            let fullRange = NSRange(location: 0, length: storage.length)
-            storage.addAttributes([
-                .font: font,
-                .foregroundColor: NSColor.black,
-                .paragraphStyle: paraStyle,
-            ], range: fullRange)
-
-            // Create text containers until all text is laid out
-            var containers: [NSTextContainer] = []
-            var allLaidOut = false
-            while !allLaidOut {
-                let container = NSTextContainer(size: textAreaSize)
-                container.widthTracksTextView = false
-                container.heightTracksTextView = false
-                container.lineFragmentPadding = 0
-                layoutManager.addTextContainer(container)
-                containers.append(container)
-                layoutManager.ensureLayout(for: container)
-
-                let glyphRange = layoutManager.glyphRange(for: container)
-                let charRange = layoutManager.characterRange(
-                    forGlyphRange: glyphRange, actualGlyphRange: nil)
-                if charRange.location + charRange.length >= storage.length
-                    || glyphRange.length == 0
-                {
-                    allLaidOut = true
-                }
-            }
-
-            // Render to PDF
-            var mediaBox = CGRect(origin: .zero, size: pageSize)
-            let pdfData = NSMutableData()
-
-            guard let consumer = CGDataConsumer(data: pdfData as CFMutableData),
-                  let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
+            guard let pdfDocument = generatePDFDocument(body: body, formatState: formatState)
             else { return }
-
-            for (index, container) in containers.enumerated() {
-                let glyphRange = layoutManager.glyphRange(for: container)
-                guard glyphRange.length > 0 || index == 0 else { continue }
-
-                context.beginPDFPage(nil)
-
-                // Flip coordinates: CoreGraphics origin is bottom-left,
-                // NSLayoutManager drawing expects top-left.
-                context.translateBy(x: 0, y: pageSize.height)
-                context.scaleBy(x: 1, y: -1)
-
-                let graphicsContext = NSGraphicsContext(cgContext: context, flipped: true)
-                NSGraphicsContext.saveGraphicsState()
-                NSGraphicsContext.current = graphicsContext
-
-                // White page background
-                NSColor.white.setFill()
-                NSRect(origin: .zero, size: pageSize).fill()
-
-                // Draw text at margin offset
-                let origin = NSPoint(x: marginPoints, y: marginPoints)
-                layoutManager.drawBackground(forGlyphRange: glyphRange, at: origin)
-                layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: origin)
-
-                // Page number
-                if formatState.showPageNumbers {
-                    let pageNum = index + 1
-                    let numStr: String
-                    if !formatState.runningHead.isEmpty {
-                        numStr = "\(formatState.runningHead) \(pageNum)"
-                    } else {
-                        numStr = "\(pageNum)"
-                    }
-                    let numFont = NSFont(name: formatState.fontFamily, size: formatState.fontSize - 2)
-                        ?? NSFont.systemFont(ofSize: formatState.fontSize - 2)
-                    let numAttrs: [NSAttributedString.Key: Any] = [
-                        .font: numFont,
-                        .foregroundColor: NSColor.black,
-                    ]
-                    let attrStr = NSAttributedString(string: numStr, attributes: numAttrs)
-                    let size = attrStr.size()
-
-                    // Position based on format state
-                    let pos = formatState.pageNumberPosition
-                    let y: CGFloat
-                    let x: CGFloat
-
-                    switch pos {
-                    case .topLeft, .topCenter, .topRight:
-                        y = (marginPoints - size.height) / 2
-                    case .bottomLeft, .bottomCenter, .bottomRight:
-                        y = pageSize.height - marginPoints + (marginPoints - size.height) / 2
-                    }
-
-                    switch pos {
-                    case .topLeft, .bottomLeft:
-                        x = marginPoints
-                    case .topCenter, .bottomCenter:
-                        x = (pageSize.width - size.width) / 2
-                    case .topRight, .bottomRight:
-                        x = pageSize.width - marginPoints - size.width
-                    }
-
-                    attrStr.draw(at: NSPoint(x: x, y: y))
-                }
-
-                // Header text
-                if !formatState.headerText.isEmpty {
-                    let headerAttrs: [NSAttributedString.Key: Any] = [
-                        .font: NSFont(name: formatState.fontFamily, size: formatState.fontSize - 2)
-                            ?? NSFont.systemFont(ofSize: formatState.fontSize - 2),
-                        .foregroundColor: NSColor.black,
-                    ]
-                    let attrStr = NSAttributedString(string: formatState.headerText, attributes: headerAttrs)
-                    let size = attrStr.size()
-                    let x = (pageSize.width - size.width) / 2
-                    let y = (marginPoints - size.height) / 2
-                    attrStr.draw(at: NSPoint(x: x, y: y))
-                }
-
-                // Footer text
-                if !formatState.footerText.isEmpty {
-                    let footerAttrs: [NSAttributedString.Key: Any] = [
-                        .font: NSFont(name: formatState.fontFamily, size: formatState.fontSize - 2)
-                            ?? NSFont.systemFont(ofSize: formatState.fontSize - 2),
-                        .foregroundColor: NSColor.black,
-                    ]
-                    let attrStr = NSAttributedString(string: formatState.footerText, attributes: footerAttrs)
-                    let size = attrStr.size()
-                    let x = (pageSize.width - size.width) / 2
-                    let y = pageSize.height - marginPoints + (marginPoints - size.height) / 2
-                    attrStr.draw(at: NSPoint(x: x, y: y))
-                }
-
-                NSGraphicsContext.restoreGraphicsState()
-                context.endPDFPage()
-            }
-
-            context.closePDF()
-            pdfData.write(to: url, atomically: true)
+            pdfDocument.write(to: url)
         }
     }
 
