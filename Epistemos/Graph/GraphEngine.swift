@@ -229,7 +229,7 @@ final class GraphEngine {
     /// Update laboratory physics toggles and tuning knobs.
     func setLabParams(
         enableFluid: Bool, enableTorsion: Bool,
-        enableElastic: Bool, enableTension: Bool,
+        enableElastic: Bool,
         fluidViscosity: Float, edgeElasticity: Float,
         torsionRigidity: Float, boidsCohesion: Float,
         windX: Float, windY: Float,
@@ -241,7 +241,7 @@ final class GraphEngine {
             enableFluid ? 1 : 0,
             enableTorsion ? 1 : 0,
             enableElastic ? 1 : 0,
-            enableTension ? 1 : 0,
+            0, // tension coloring removed — FFI slot kept for Rust ABI compatibility
             fluidViscosity, edgeElasticity,
             torsionRigidity, boidsCohesion,
             windX, windY,

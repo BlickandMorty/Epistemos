@@ -276,6 +276,8 @@ final class GraphState {
     var scanProgress: Double = 0  // 0.0-1.0
     var scanStatus: String = ""
     var selectedNodeId: String?
+    /// When true, the inspector should switch to editor mode on the next selection update.
+    var requestEditorMode = false
     /// Screen-space position of the selected node (in points, origin top-left).
     /// Updated each render frame by MetalGraphNSView so the inspector can track the node.
     var selectedNodeScreenPoint: CGPoint?
@@ -338,29 +340,8 @@ final class GraphState {
 
     // MARK: - Quality Level
 
-    private static let qualityDefaultsKey = "epistemos.graph.qualityLevel"
-    private static let cinematicQualityLevel: UInt8 = 0
-
-    /// Graph rendering quality is fixed to cinematic.
-    var qualityLevel: UInt8 = {
-        UserDefaults.standard.set(Int(GraphState.cinematicQualityLevel), forKey: GraphState.qualityDefaultsKey)
-        return GraphState.cinematicQualityLevel
-    }() {
-        didSet {
-            if qualityLevel != Self.cinematicQualityLevel {
-                qualityLevel = Self.cinematicQualityLevel
-                return
-            }
-            UserDefaults.standard.set(Int(Self.cinematicQualityLevel), forKey: Self.qualityDefaultsKey)
-            liteModeVersion += 1
-        }
-    }
-
-    /// Backwards-compatible getter for code that checks liteMode.
-    var liteMode: Bool { false }
-
-    /// Incremented when quality changes so MetalGraphView can detect and push to Rust.
-    var liteModeVersion: Int = 0
+    /// Graph rendering quality is fixed to cinematic (0).
+    let qualityLevel: UInt8 = 0
 
     // MARK: - Visual Theme
 

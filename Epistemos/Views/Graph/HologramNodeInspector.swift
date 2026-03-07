@@ -13,7 +13,12 @@ struct HologramNodeInspector: View {
     let modelContext: ModelContext
 
     enum Section: CaseIterable { case profile, summary, relationships, chat }
+    enum EditorDisplay: String { case raw, formatted }
     @State private var expandedSection: Section = .profile
+    @State private var editorText = ""
+    @State private var editorSaveTask: Task<Void, Never>?
+    @State private var isEditorExpanded = false
+    @State private var editorDisplay: EditorDisplay = .raw
 
     var body: some View {
         // Read selectedNodeId in body to establish @Observable tracking in NSHostingView.
@@ -29,22 +34,213 @@ struct HologramNodeInspector: View {
             if let newId, let node = graphState.store.nodes[newId] {
                 inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
                 expandedSection = .profile
+                isEditorExpanded = false
+                if graphState.requestEditorMode {
+                    graphState.requestEditorMode = false
+                    inspectorState.inspectorMode = .editor
+                }
             } else {
                 inspectorState.clearSelection()
+                isEditorExpanded = false
             }
         }
     }
 
     // MARK: - Content
 
+    private var inspectorWidth: CGFloat {
+        inspectorState.inspectorMode == .editor ? 620 : 380
+    }
+
     private func inspectorContent(_ node: GraphNodeRecord) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             headerSection(node)
+
+            if node.type == .note, node.sourceId != nil {
+                modePicker
+            }
+
             Divider()
-            accordionBody(node)
+
+            if inspectorState.inspectorMode == .editor, node.type == .note, let pageId = node.sourceId {
+                noteEditorBody(pageId: pageId)
+            } else {
+                accordionBody(node)
+            }
         }
-        .frame(width: 380)
+        .frame(width: inspectorWidth)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: inspectorWidth)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var modePicker: some View {
+        Picker("", selection: Bindable(inspectorState).inspectorMode) {
+            Text("Profile").tag(NodeInspectorState.InspectorMode.profile)
+            Text("Editor").tag(NodeInspectorState.InspectorMode.editor)
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .onChange(of: inspectorState.inspectorMode) { _, newMode in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                isEditorExpanded = (newMode == .editor)
+            }
+        }
+    }
+
+    private func noteEditorBody(pageId: String) -> some View {
+        VStack(spacing: 0) {
+            // Toolbar
+            HStack(spacing: 8) {
+                Picker("", selection: $editorDisplay) {
+                    Text("Edit").tag(EditorDisplay.raw)
+                    Text("Preview").tag(EditorDisplay.formatted)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 140)
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider().opacity(0.3)
+
+            // Editor content
+            if editorDisplay == .raw {
+                TextEditor(text: $editorText)
+                    .font(.system(size: 14))
+                    .lineSpacing(4)
+                    .scrollContentBackground(.hidden)
+                    .padding(16)
+            } else {
+                ScrollView {
+                    formattedMarkdownView(editorText)
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(maxHeight: .infinity)
+        .frame(minHeight: inspectorState.inspectorMode == .editor ? 500 : 300)
+        .onAppear {
+            editorText = NoteFileStorage.readBody(pageId: pageId)
+        }
+        .onChange(of: pageId) { _, newId in
+            editorSaveTask?.cancel()
+            editorText = NoteFileStorage.readBody(pageId: newId)
+        }
+        .onChange(of: editorText) {
+            editorSaveTask?.cancel()
+            let pid = pageId
+            let text = editorText
+            editorSaveTask = Task {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                NoteFileStorage.writeBody(pageId: pid, content: text)
+            }
+        }
+        .onDisappear {
+            editorSaveTask?.cancel()
+            if !editorText.isEmpty {
+                NoteFileStorage.writeBody(pageId: pageId, content: editorText)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func formattedMarkdownView(_ text: String) -> some View {
+        let lines = text.components(separatedBy: "\n")
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                formattedLine(line)
+            }
+        }
+        .textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private func formattedLine(_ line: String) -> some View {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("#### ") {
+            Text(inlineMarkdown(String(trimmed.dropFirst(5))))
+                .font(.system(size: 14, weight: .semibold))
+                .padding(.top, 4)
+        } else if trimmed.hasPrefix("### ") {
+            Text(inlineMarkdown(String(trimmed.dropFirst(4))))
+                .font(.system(size: 15, weight: .semibold))
+                .padding(.top, 6)
+        } else if trimmed.hasPrefix("## ") {
+            Text(inlineMarkdown(String(trimmed.dropFirst(3))))
+                .font(.system(size: 17, weight: .bold))
+                .padding(.top, 8)
+        } else if trimmed.hasPrefix("# ") {
+            Text(inlineMarkdown(String(trimmed.dropFirst(2))))
+                .font(.system(size: 20, weight: .bold))
+                .padding(.top, 10)
+        } else if trimmed.hasPrefix("- [ ] ") {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "square")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                Text(inlineMarkdown(String(trimmed.dropFirst(6))))
+                    .font(.system(size: 13))
+            }
+        } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "checkmark.square.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Text(inlineMarkdown(String(trimmed.dropFirst(6))))
+                    .font(.system(size: 13))
+                    .strikethrough(true, color: .secondary)
+            }
+        } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("•")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                Text(inlineMarkdown(String(trimmed.dropFirst(2))))
+                    .font(.system(size: 13))
+            }
+        } else if let match = trimmed.wholeMatch(of: /^(\d+)\.\s+(.+)$/) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(match.1).")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, alignment: .trailing)
+                Text(inlineMarkdown(String(match.2)))
+                    .font(.system(size: 13))
+            }
+        } else if trimmed.hasPrefix("> ") {
+            Text(inlineMarkdown(String(trimmed.dropFirst(2))))
+                .font(.system(size: 13).italic())
+                .foregroundStyle(.secondary)
+                .padding(.leading, 12)
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(.tertiary)
+                        .frame(width: 3)
+                }
+        } else if trimmed.hasPrefix("```") {
+            Text(trimmed)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(.secondary)
+        } else if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+            Divider().padding(.vertical, 4)
+        } else if trimmed.isEmpty {
+            Spacer().frame(height: 4)
+        } else {
+            Text(inlineMarkdown(trimmed))
+                .font(.system(size: 13))
+        }
+    }
+
+    private func inlineMarkdown(_ text: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: text,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(text)
     }
 
     @ViewBuilder
@@ -247,8 +443,8 @@ struct HologramNodeInspector: View {
             }
 
             Text(node.label)
-                .font(.headline)
-                .lineLimit(2)
+                .font(.system(size: 22, weight: .bold))
+                .lineLimit(3)
 
             HStack(spacing: 12) {
                 let linkCount = graphState.store.adjacency[node.id]?.count ?? 0

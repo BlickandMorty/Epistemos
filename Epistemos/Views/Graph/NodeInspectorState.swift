@@ -11,10 +11,13 @@ import SwiftData
 @MainActor @Observable
 final class NodeInspectorState {
 
+    enum InspectorMode: Hashable { case profile, editor }
+
     // MARK: - Selection
 
     var selectedNodeId: String?
     var selectedNode: GraphNodeRecord?
+    var inspectorMode: InspectorMode = .profile
 
     // MARK: - Summary
 
@@ -58,6 +61,7 @@ final class NodeInspectorState {
         chatMessages = []
         chatInput = ""
         isChatStreaming = false
+        inspectorMode = .profile
 
         // Now set selection (triggers panel animation).
         selectedNodeId = node.id
@@ -98,6 +102,7 @@ final class NodeInspectorState {
         chatMessages = []
         chatInput = ""
         isChatStreaming = false
+        inspectorMode = .profile
     }
 
     func clearCache() {

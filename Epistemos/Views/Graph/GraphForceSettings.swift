@@ -254,10 +254,6 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Clustering", icon: "circle.grid.3x3")
 
-            if graphState.qualityLevel >= 2 {
-                settingNote("Performance quality disables cluster and semantic forces.")
-            }
-
             forceSlider(
                 label: "Cluster Bubbles",
                 value: gs.clusterStrength,

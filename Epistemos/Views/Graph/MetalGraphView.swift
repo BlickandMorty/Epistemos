@@ -94,7 +94,6 @@ final class MetalGraphNSView: NSView {
     nonisolated(unsafe) var uiState: UIState?
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
-    var lastLiteModeVersion = -1
     var lastVisualThemeVersion: Int = -1
     var lastSemanticForceConfigVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
@@ -108,8 +107,6 @@ final class MetalGraphNSView: NSView {
     private var mouseDownLocation: CGPoint?
     private var isDraggingNode = false
     private var isPanning = false
-    /// Floating inline note editor panel (force touch to open).
-    private var inlineEditorPanel: GraphOverlayPanel?
     /// Mini mode window drag tracking.
     private var isDraggingWindow = false
     private var windowDragOrigin: NSPoint?
@@ -373,9 +370,8 @@ final class MetalGraphNSView: NSView {
         pushSemanticForce()
         pushLabParams()
 
-        // Push quality level to Rust and sync version tracker.
+        // Push quality level to Rust (fixed at cinematic).
         graph_engine_set_quality_level(engine, graphState.qualityLevel)
-        lastLiteModeVersion = graphState.liteModeVersion
 
         // Push visual theme to Rust.
         graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
@@ -680,12 +676,6 @@ final class MetalGraphNSView: NSView {
             pushExtendedForceParams()
         }
 
-        // Sync quality level when changed.
-        if let graphState, engine != nil, lastLiteModeVersion != graphState.liteModeVersion {
-            lastLiteModeVersion = graphState.liteModeVersion
-            graph_engine_set_quality_level(engine, graphState.qualityLevel)
-        }
-
         // Sync visual theme when changed.
         if let graphState, engine != nil, lastVisualThemeVersion != graphState.visualThemeVersion {
             lastVisualThemeVersion = graphState.visualThemeVersion
@@ -957,14 +947,6 @@ final class MetalGraphNSView: NSView {
     // MARK: - Context Menu (Right-Click)
 
     /// Data carrier for node creation menu items.
-    private final class NodeCreationInfo: NSObject {
-        let type: GraphNodeType
-        let worldPos: SIMD2<Float>
-        let connectedTo: String?  // existing node UUID, nil for orphan
-        init(type: GraphNodeType, worldPos: SIMD2<Float>, connectedTo: String?) {
-            self.type = type; self.worldPos = worldPos; self.connectedTo = connectedTo
-        }
-    }
 
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let engine, isCommitted else { return nil }
@@ -985,27 +967,8 @@ final class MetalGraphNSView: NSView {
             let uuid = String(cString: uuidPtr)
             return buildNodeContextMenu(uuid: uuid, clickWorldPos: clickPos)
         } else {
-            return buildEmptySpaceContextMenu(clickWorldPos: clickPos)
+            return nil
         }
-    }
-
-    // MARK: Empty Space Menu
-
-    private func buildEmptySpaceContextMenu(clickWorldPos: SIMD2<Float>) -> NSMenu {
-        let menu = NSMenu()
-        let types: [(GraphNodeType, String, String)] = [
-            (.note, "Create Note", "doc.text"),
-            (.idea, "Create Idea", "lightbulb"),
-            (.tag,  "Create Tag",  "number"),
-        ]
-        for (type, title, icon) in types {
-            let item = NSMenuItem(title: title, action: #selector(contextCreateNode(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = NodeCreationInfo(type: type, worldPos: clickWorldPos, connectedTo: nil)
-            item.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
-            menu.addItem(item)
-        }
-        return menu
     }
 
     // MARK: Node Menu
@@ -1021,6 +984,15 @@ final class MetalGraphNSView: NSView {
             openItem.representedObject = node.sourceId
             openItem.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: "Open Note")
             menu.addItem(openItem)
+        }
+
+        // "Edit Note" — inline editor for note-type nodes.
+        if node.type == .note, node.sourceId != nil {
+            let editItem = NSMenuItem(title: "Edit Note", action: #selector(contextEditNote(_:)), keyEquivalent: "")
+            editItem.target = self
+            editItem.representedObject = uuid
+            editItem.image = NSImage(systemSymbolName: "pencil.line", accessibilityDescription: "Edit Note")
+            menu.addItem(editItem)
         }
 
         // "Focus" — zoom into this node's neighborhood.
@@ -1046,43 +1018,10 @@ final class MetalGraphNSView: NSView {
         graphState?.selectNode(uuid)
     }
 
-    @objc private func contextCreateNode(_ sender: NSMenuItem) {
-        guard let info = sender.representedObject as? NodeCreationInfo,
-              let graphState,
-              let context = graphState.modelContext else { return }
-
-        promptForNodeName(type: info.type) { [weak self] name in
-            guard let self, let name, !name.isEmpty else { return }
-
-            if let connectedTo = info.connectedTo {
-                let edgeType: GraphEdgeType = info.type == .tag ? .tagged : .reference
-                graphState.createConnectedNode(
-                    type: info.type, label: name,
-                    connectedTo: connectedTo, edgeType: edgeType,
-                    atWorldPosition: info.worldPos, context: context
-                )
-            } else {
-                graphState.createNode(
-                    type: info.type, label: name,
-                    atWorldPosition: info.worldPos, context: context
-                )
-            }
-        }
-    }
-
-    // MARK: Prompts
-
-    private func promptForNodeName(type: GraphNodeType, completion: @escaping (String?) -> Void) {
-        let alert = NSAlert()
-        alert.messageText = "Create \(type.displayName)"
-        alert.informativeText = "Enter a name:"
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
-        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        textField.placeholderString = "\(type.displayName) name"
-        alert.accessoryView = textField
-        alert.window.initialFirstResponder = textField
-        completion(alert.runModal() == .alertFirstButtonReturn ? textField.stringValue : nil)
+    @objc private func contextEditNote(_ sender: NSMenuItem) {
+        guard let uuid = sender.representedObject as? String else { return }
+        graphState?.requestEditorMode = true
+        graphState?.selectNode(uuid)
     }
 
     private func promptForEdgeType(completion: @escaping (GraphEdgeType?) -> Void) {
@@ -1161,11 +1100,7 @@ final class MetalGraphNSView: NSView {
     override func keyDown(with event: NSEvent) {
         guard let engine else { super.keyDown(with: event); return }
 
-        // Escape dismisses inline editor or cancels connection mode.
-        if event.keyCode == 53, inlineEditorPanel != nil {
-            dismissInlineEditor()
-            return
-        }
+        // Escape cancels connection mode.
         if event.keyCode == 53, let graphState, graphState.isConnecting {
             graphState.cancelConnecting()
             graph_engine_clear_highlight(engine)
@@ -1371,118 +1306,9 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
-    // MARK: - Force Touch Inline Editor
-
-    override func pressureChange(with event: NSEvent) {
-        guard event.stage == 2, inlineEditorPanel == nil else { return }
-        guard let engine,
-              let uuidPtr = graph_engine_hovered_node_uuid(engine) else { return }
-        let uuid = String(cString: uuidPtr)
-        guard let node = graphState?.store.nodes[uuid],
-              let pageId = node.sourceId else { return }
-        showInlineEditor(pageId: pageId, label: node.label, nodeUUID: uuid)
-    }
-
-    private func showInlineEditor(pageId: String, label: String, nodeUUID: String) {
-        guard let engine else { return }
-
-        // Get node screen position from Rust.
-        var pos: [Float] = [0, 0]
-        let hasPos = nodeUUID.withCString { ptr in
-            graph_engine_node_screen_pos(engine, ptr, &pos)
-        }
-
-        let scale = metalLayer?.contentsScale ?? 2.0
-        let editorWidth: CGFloat = 420
-        let editorHeight: CGFloat = 500
-
-        // Convert node position to screen coordinates.
-        var screenOrigin: NSPoint
-        if hasPos != 0 {
-            let viewX = CGFloat(pos[0]) / scale
-            let viewY = bounds.height - CGFloat(pos[1]) / scale
-            let windowPoint = convert(NSPoint(x: viewX, y: viewY), to: nil)
-            let sp = window?.convertPoint(toScreen: windowPoint) ?? .zero
-            screenOrigin = NSPoint(x: sp.x + 30, y: sp.y - editorHeight / 2)
-        } else {
-            let center = window?.frame.origin ?? .zero
-            screenOrigin = NSPoint(x: center.x + 100, y: center.y + 100)
-        }
-
-        // Clamp to screen bounds.
-        if let screen = NSScreen.main?.visibleFrame {
-            screenOrigin.x = max(screen.minX + 8, min(screen.maxX - editorWidth - 8, screenOrigin.x))
-            screenOrigin.y = max(screen.minY + 8, min(screen.maxY - editorHeight - 8, screenOrigin.y))
-        }
-
-        let panel = GraphOverlayPanel(contentRect: NSRect(
-            x: screenOrigin.x, y: screenOrigin.y, width: editorWidth, height: editorHeight
-        ))
-        panel.styleMask = [.nonactivatingPanel, .borderless]
-
-        let content = NSView(frame: NSRect(origin: .zero, size: NSSize(width: editorWidth, height: editorHeight)))
-        content.wantsLayer = true
-        content.layer?.cornerRadius = 16
-        content.layer?.masksToBounds = true
-
-        let blur = NSVisualEffectView(frame: content.bounds)
-        blur.material = .hudWindow
-        blur.blendingMode = .behindWindow
-        blur.state = .active
-        blur.autoresizingMask = [.width, .height]
-        content.addSubview(blur)
-
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let tint = NSView(frame: content.bounds)
-        tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.2 : 0.05).cgColor
-        tint.autoresizingMask = [.width, .height]
-        content.addSubview(tint)
-
-        panel.contentView = content
-
-        let editorView = NSHostingView(
-            rootView: GraphInlineEditorView(
-                pageId: pageId,
-                label: label,
-                onDismiss: { [weak self] in self?.dismissInlineEditor() }
-            )
-        )
-        editorView.autoresizingMask = [.width, .height]
-        editorView.frame = content.bounds
-        content.addSubview(editorView)
-
-        if let parentWindow = window {
-            parentWindow.addChildWindow(panel, ordered: .above)
-        }
-        panel.alphaValue = 0
-        panel.orderFront(nil)
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.2
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().alphaValue = 1.0
-        }
-        inlineEditorPanel = panel
-    }
-
-    func dismissInlineEditor() {
-        guard let panel = inlineEditorPanel else { return }
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.15
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            panel.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            if let parent = panel.parent { parent.removeChildWindow(panel) }
-            panel.orderOut(nil)
-            self?.inlineEditorPanel = nil
-        })
-    }
-
     // MARK: - Cleanup
 
     deinit {
-        inlineEditorPanel?.orderOut(nil)
-        inlineEditorPanel = nil
         // Mark invalidated FIRST so any in-flight DispatchQueue.main.async from
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.
@@ -1500,63 +1326,6 @@ final class MetalGraphNSView: NSView {
         graphState?.engineHandle = nil
         if let engine {
             graph_engine_destroy(engine)
-        }
-    }
-}
-
-// MARK: - Graph Inline Editor
-
-struct GraphInlineEditorView: View {
-    let pageId: String
-    let label: String
-    let onDismiss: () -> Void
-
-    @State private var bodyText = ""
-    @State private var saveTask: Task<Void, Never>?
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "doc.text")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                Text(label)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                Spacer()
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-
-            Divider().opacity(0.3)
-
-            TextEditor(text: $bodyText)
-                .font(.system(size: 13, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .padding(12)
-        }
-        .onAppear {
-            bodyText = NoteFileStorage.readBody(pageId: pageId)
-        }
-        .onChange(of: bodyText) {
-            saveTask?.cancel()
-            saveTask = Task {
-                try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled else { return }
-                NoteFileStorage.writeBody(pageId: pageId, content: bodyText)
-            }
-        }
-        .onDisappear {
-            saveTask?.cancel()
-            if !bodyText.isEmpty {
-                NoteFileStorage.writeBody(pageId: pageId, content: bodyText)
-            }
         }
     }
 }

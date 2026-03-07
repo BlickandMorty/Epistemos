@@ -48,7 +48,7 @@ struct DiffSheetView: View {
             Divider()
             diffContent
         }
-        .frame(minWidth: 600, idealWidth: 900, minHeight: 400, idealHeight: 650)
+        .frame(minWidth: 700, idealWidth: 1000, minHeight: 500, idealHeight: 750)
         .background(theme.background)
         .onAppear(perform: loadVersions)
         .alert("Restore Version", isPresented: $showRestoreAlert) {
@@ -478,16 +478,16 @@ struct DiffSheetView: View {
 
 private enum DiffColors {
     static func addedBg(_ theme: EpistemosTheme) -> Color {
-        theme.isDark ? Color(hex: 0x1A3A2A).opacity(0.6) : Color(hex: 0xE6FFEC)
+        theme.isDark ? Color(hex: 0x1A3A2A) : Color(hex: 0xDCFFE4)
     }
     static func removedBg(_ theme: EpistemosTheme) -> Color {
-        theme.isDark ? Color(hex: 0x3A1A1A).opacity(0.6) : Color(hex: 0xFFEBE9)
+        theme.isDark ? Color(hex: 0x3A1A1A) : Color(hex: 0xFFE0E0)
     }
     static func addedWordBg(_ theme: EpistemosTheme) -> Color {
-        theme.isDark ? Color(hex: 0x2A5A3A).opacity(0.8) : Color(hex: 0xABF2BC)
+        theme.isDark ? Color(hex: 0x2A5A3A) : Color(hex: 0x8EE8A0)
     }
     static func removedWordBg(_ theme: EpistemosTheme) -> Color {
-        theme.isDark ? Color(hex: 0x5A2A2A).opacity(0.8) : Color(hex: 0xFFD7D5)
+        theme.isDark ? Color(hex: 0x5A2A2A) : Color(hex: 0xFFB8B8)
     }
     static func addedText(_ theme: EpistemosTheme) -> Color {
         theme.isDark ? Color(hex: 0x56D364) : Color(hex: 0x1A7F37)
@@ -496,7 +496,7 @@ private enum DiffColors {
         theme.isDark ? Color(hex: 0xF85149) : Color(hex: 0xCF222E)
     }
     static func modifiedBg(_ theme: EpistemosTheme) -> Color {
-        theme.isDark ? Color(hex: 0x3A3020).opacity(0.5) : Color(hex: 0xFFF8E1)
+        theme.isDark ? Color(hex: 0x3A3020).opacity(0.7) : Color(hex: 0xFFF0C0)
     }
 }
 
@@ -580,6 +580,11 @@ private struct UnifiedDiffLine: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            // Colored gutter stripe
+            Rectangle()
+                .fill(gutterColor)
+                .frame(width: 4)
+
             Text("\(lineNumber)")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(theme.textSecondary.opacity(0.5))
@@ -587,7 +592,7 @@ private struct UnifiedDiffLine: View {
                 .padding(.trailing, 8)
 
             Text(prefix)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundStyle(prefixColor)
                 .frame(width: 16)
 
@@ -595,7 +600,7 @@ private struct UnifiedDiffLine: View {
                 .font(.system(size: 12, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 8)
+        .padding(.trailing, 8)
         .padding(.vertical, 3)
         .background(bgColor)
     }
@@ -612,6 +617,15 @@ private struct UnifiedDiffLine: View {
     private var prefixColor: Color {
         switch line {
         case .unchanged: theme.textSecondary
+        case .added: DiffColors.addedText(theme)
+        case .removed: DiffColors.removedText(theme)
+        case .modified: theme.amber
+        }
+    }
+
+    private var gutterColor: Color {
+        switch line {
+        case .unchanged: .clear
         case .added: DiffColors.addedText(theme)
         case .removed: DiffColors.removedText(theme)
         case .modified: theme.amber
