@@ -221,6 +221,12 @@ final class NoteWindowManager {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
+
+        // Unified toolbar for Liquid Glass chrome (matches UtilityWindowManager)
+        let toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
+
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
@@ -230,7 +236,6 @@ final class NoteWindowManager {
         // Sync window chrome to current theme
         let theme = bootstrap.uiState.theme
         window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        window.backgroundColor = NSColor(theme.background)
 
         // Zoom instead of fullscreen — green button fills screen without entering a Space.
         window.collectionBehavior.remove(.fullScreenPrimary)
@@ -447,6 +452,7 @@ private struct NotePageContent: View {
     @Environment(ResearchState.self) private var researchState
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
+    @Environment(LLMService.self) private var llmService
     @Environment(\.modelContext) private var modelContext
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
@@ -456,6 +462,7 @@ private struct NotePageContent: View {
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showTableOfContents = false
+    @State private var showChatSidebar = false
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
@@ -513,14 +520,31 @@ private struct NotePageContent: View {
                     .allowsHitTesting(transitionOpacity > 0)
                 }
                 .environment(noteChatState)
-                .overlay(alignment: .bottom) {
-                    if !showWriterMode && !showPreview {
-                        NoteChatBar()
-                            .environment(noteChatState)
+                .overlay(alignment: .top) {
+                    if noteChatState.hasResponse && noteChatState.useResponsePanel {
+                        toolbarResponseDropdown
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: noteChatState.hasResponse)
                     }
+                }
+                .onAppear {
+                    noteChatState.loadPersistedMessages(modelContext)
                 }
                 .onDisappear {
                     noteChatState.clear()
+                }
+                .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
+                    if wasStreaming && !isNowStreaming, let page = pages.first {
+                        noteChatState.persistMessages(modelContext, noteTitle: page.title)
+                    }
+                }
+
+                // Chat History sidebar
+                if showChatSidebar {
+                    Divider()
+                    NoteChatSidebar()
+                        .environment(noteChatState)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
 
                 // Table of Contents sidebar
@@ -536,9 +560,9 @@ private struct NotePageContent: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
+            .animation(.smooth(duration: 0.2), value: showChatSidebar)
             .animation(.smooth(duration: 0.2), value: showTableOfContents)
         .background(ui.theme.background)
-        .toolbarBackground(.hidden, for: .windowToolbar)
         .toolbar {
             // — New Note (far left) —
             ToolbarItem(placement: .navigation) {
@@ -555,91 +579,35 @@ private struct NotePageContent: View {
                 .help("New Note (⌘N)")
             }
 
-            // — All actions, centered in toolbar —
+            // — Minimal toolbar: Writer + Preview + Chat + More —
             ToolbarItemGroup(placement: .principal) {
-                // Writer toggle — hidden when Preview is active
+                // Writer toggle
                 if !showPreview {
                     Button { toggleWriterMode() } label: {
                         Label("Writer", systemImage: showWriterMode ? "doc.richtext.fill" : "doc.richtext")
                     }
-                    .accessibilityLabel(showWriterMode ? "Exit Writer Mode" : "Enter Writer Mode")
-                    .help("Writer Mode (⌘R)")
+                    .help("Writer Mode (\u{2318}R)")
                 }
 
-                if !showWriterMode && !showPreview {
-                    formatMenu
-                }
-
-                // Preview toggle — hidden when Writer is active
+                // Preview toggle
                 if !showWriterMode {
                     Button { togglePreviewMode() } label: {
                         Label("Preview", systemImage: showPreview ? "eye.fill" : "eye")
                     }
-                    .accessibilityLabel(showPreview ? "Exit Preview" : "Show Preview")
-                    .help("Preview (⌘E)")
+                    .help("Preview (\u{2318}E)")
                 }
 
-                if let page = pages.first {
-                    Button {
-                        page.isPinned.toggle()
-                        do { try modelContext.save() } catch { Log.notes.error("Save failed (pin toggle): \(error.localizedDescription, privacy: .private)") }
-                    } label: {
-                        Label("Pin", systemImage: page.isPinned ? "pin.fill" : "pin")
-                    }
-                    .accessibilityLabel(page.isPinned ? "Unpin Note" : "Pin Note")
-                    .help(page.isPinned ? "Unpin (⌘⇧P)" : "Pin (⌘⇧P)")
+                // Compact chat input
+                if !showWriterMode && !showPreview {
+                    toolbarChatField
 
                     Button {
-                        page.isLocked.toggle()
-                        do { try modelContext.save() } catch { Log.notes.error("Save failed (lock toggle): \(error.localizedDescription, privacy: .private)") }
+                        withAnimation(.smooth(duration: 0.2)) { showChatSidebar.toggle() }
                     } label: {
-                        Label("Lock", systemImage: page.isLocked ? "lock.fill" : "lock.open")
+                        Label("Chat History", systemImage: showChatSidebar ? "bubble.left.and.text.bubble.right.fill" : "bubble.left.and.text.bubble.right")
                     }
-                    .accessibilityLabel(page.isLocked ? "Unlock Note" : "Lock Note")
-                    .help(page.isLocked ? "Unlock (⌘⇧L)" : "Lock (⌘⇧L)")
+                    .help("Chat History")
                 }
-
-                Button { vaultSync.savePage(pageId: pageId) } label: {
-                    Label("Save", systemImage: "square.and.arrow.down")
-                }
-                .accessibilityLabel("Save Note")
-                .help("Save (⌘S)")
-
-                Button { showInfoPopover.toggle() } label: {
-                    Label("Info", systemImage: "info.circle")
-                }
-                .accessibilityLabel("Note Information")
-                .help("Note Info")
-                .popover(isPresented: $showInfoPopover) {
-                    if let page = pages.first {
-                        noteInfoPanel(page: page)
-                    }
-                }
-
-                Button { captureSelectionAndOpenIdeas() } label: {
-                    Label("Ideas", systemImage: "lightbulb")
-                }
-                .accessibilityLabel("Ideas and Brain Dumps")
-                .help("Ideas & Brain Dumps")
-                .popover(isPresented: $showIdeasPopover) {
-                    if let page = pages.first {
-                        IdeasPanel(
-                            page: page,
-                            initialTab: contextMenuIdeaTab,
-                            autoShowForm: contextMenuIdeaTab != nil,
-                            capturedSelection: capturedSelection,
-                            capturedSelectionText: capturedSelectionText
-                        )
-                    }
-                }
-
-                Button {
-                    withAnimation { showTableOfContents.toggle() }
-                } label: {
-                    Label("Contents", systemImage: showTableOfContents ? "list.bullet.indent" : "list.bullet")
-                }
-                .accessibilityLabel(showTableOfContents ? "Hide Table of Contents" : "Show Table of Contents")
-                .help("Table of Contents (⌘T)")
 
                 moreMenu
             }
@@ -701,6 +669,22 @@ private struct NotePageContent: View {
             Button("") { navState?.forward() }
                 .keyboardShortcut("]", modifiers: .command)
                 .hidden()
+        }
+        .popover(isPresented: $showInfoPopover) {
+            if let page = pages.first {
+                noteInfoPanel(page: page)
+            }
+        }
+        .popover(isPresented: $showIdeasPopover) {
+            if let page = pages.first {
+                IdeasPanel(
+                    page: page,
+                    initialTab: contextMenuIdeaTab,
+                    autoShowForm: contextMenuIdeaTab != nil,
+                    capturedSelection: capturedSelection,
+                    capturedSelectionText: capturedSelectionText
+                )
+            }
         }
         .sheet(isPresented: $showDiffSheet) {
             if let page = pages.first {
@@ -998,64 +982,223 @@ private struct NotePageContent: View {
         }
     }
 
-    // MARK: - Format Menu
+    // MARK: - Toolbar Response Dropdown
 
-    private var formatMenu: some View {
-        Menu {
-            Button("Bold  ⌘B") { insertMarkdown("**", "**") }
-            Button("Italic  ⌘I") { insertMarkdown("*", "*") }
-            Menu("Heading") {
-                Button("Heading 1") { insertLinePrefix("# ") }
-                Button("Heading 2") { insertLinePrefix("## ") }
-                Button("Heading 3") { insertLinePrefix("### ") }
-                Button("Heading 4") { insertLinePrefix("#### ") }
+    private var toolbarResponseDropdown: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ui.theme.accent)
+                Text("Response")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(ui.theme.foreground)
+                Spacer()
+                if noteChatState.isStreaming {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(noteChatState.responseText, forType: .string)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(ui.theme.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Copy")
+                }
             }
-            Divider()
-            Button("Strikethrough") { insertMarkdown("~~", "~~") }
-            Button("Code") { insertMarkdown("`", "`") }
-            Button("Link") { insertMarkdown("[", "](url)") }
-        } label: {
-            Label("Format", systemImage: "textformat")
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+
+            Divider().opacity(0.3)
+
+            ScrollView {
+                if noteChatState.responseText.isEmpty && noteChatState.isStreaming {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text("Thinking\u{2026}")
+                            .font(.system(size: 12))
+                            .foregroundStyle(ui.theme.mutedForeground)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                } else {
+                    MarkdownTextView(
+                        content: noteChatState.responseText + (noteChatState.isStreaming ? " \u{258D}" : ""),
+                        theme: ui.theme
+                    )
+                    .font(.system(size: 13))
+                    .textSelection(.enabled)
+                    .padding(14)
+                }
+            }
+            .frame(maxHeight: 300)
+
+            if !noteChatState.isStreaming {
+                Divider().opacity(0.3)
+                HStack(spacing: 8) {
+                    Button {
+                        noteChatState.acceptResponse()
+                    } label: {
+                        Label("Insert into note", systemImage: "text.insert")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(ui.theme.accent.opacity(0.12), in: Capsule())
+                    .foregroundStyle(ui.theme.accent)
+
+                    Button {
+                        noteChatState.discardResponse()
+                    } label: {
+                        Label("Dismiss", systemImage: "xmark")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(ui.theme.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+            }
         }
-        .help("Format (⌘B Bold, ⌘I Italic)")
+        .frame(maxWidth: 460)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .padding(.top, 8)
+        .padding(.horizontal, 40)
+    }
+
+    // MARK: - Toolbar Chat Field
+
+    private var toolbarChatField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(noteChatState.isStreaming ? ui.theme.accent : ui.theme.textTertiary)
+
+            @Bindable var chat = noteChatState
+            TextField("Ask\u{2026}", text: $chat.inputText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .frame(width: 140)
+                .onSubmit {
+                    noteChatState.submitQuery(
+                        noteChatState.inputText,
+                        triageService: triageService,
+                        llmService: llmService
+                    )
+                }
+
+            if noteChatState.isStreaming {
+                Button { noteChatState.stopStreaming() } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(ui.theme.error)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(ui.theme.foreground.opacity(0.04), in: Capsule())
+        .overlay(Capsule().stroke(ui.theme.foreground.opacity(0.08), lineWidth: 0.5))
     }
 
     // MARK: - More Menu
 
     private var moreMenu: some View {
         Menu {
+            // Format
+            Menu {
+                Button("Bold  \u{2318}B") { insertMarkdown("**", "**") }
+                Button("Italic  \u{2318}I") { insertMarkdown("*", "*") }
+                Menu("Heading") {
+                    Button("Heading 1") { insertLinePrefix("# ") }
+                    Button("Heading 2") { insertLinePrefix("## ") }
+                    Button("Heading 3") { insertLinePrefix("### ") }
+                    Button("Heading 4") { insertLinePrefix("#### ") }
+                }
+                Divider()
+                Button("Strikethrough") { insertMarkdown("~~", "~~") }
+                Button("Code") { insertMarkdown("`", "`") }
+                Button("Link") { insertMarkdown("[", "](url)") }
+            } label: {
+                Label("Format", systemImage: "textformat")
+            }
+
+            Divider()
+
+            // Note actions
             if let page = pages.first {
+                Button {
+                    page.isPinned.toggle()
+                    do { try modelContext.save() } catch { Log.notes.error("Save failed (pin toggle): \(error.localizedDescription, privacy: .private)") }
+                } label: {
+                    Label(page.isPinned ? "Unpin" : "Pin", systemImage: page.isPinned ? "pin.fill" : "pin")
+                }
+                Button {
+                    page.isLocked.toggle()
+                    do { try modelContext.save() } catch { Log.notes.error("Save failed (lock toggle): \(error.localizedDescription, privacy: .private)") }
+                } label: {
+                    Label(page.isLocked ? "Unlock" : "Lock", systemImage: page.isLocked ? "lock.fill" : "lock.open")
+                }
                 Button {
                     page.isFavorite.toggle()
                     do { try modelContext.save() } catch { Log.notes.error("Save failed (favorite toggle): \(error.localizedDescription, privacy: .private)") }
                 } label: {
-                    Label(page.isFavorite ? "Unfavorite" : "Favorite",
-                          systemImage: page.isFavorite ? "star.fill" : "star")
+                    Label(page.isFavorite ? "Unfavorite" : "Favorite", systemImage: page.isFavorite ? "star.fill" : "star")
                 }
             }
+
             Divider()
+
+            Button { vaultSync.savePage(pageId: pageId) } label: {
+                Label("Save (\u{2318}S)", systemImage: "square.and.arrow.down")
+            }
+
+            Button { showInfoPopover.toggle() } label: {
+                Label("Info", systemImage: "info.circle")
+            }
+
+            Button { captureSelectionAndOpenIdeas() } label: {
+                Label("Ideas", systemImage: "lightbulb")
+            }
+
             Button {
-                scanForCitations()
+                withAnimation { showTableOfContents.toggle() }
             } label: {
-                Label(isScanningCitations ? "Scanning…" : "Scan Sources",
-                      systemImage: "text.magnifyingglass")
+                Label("Table of Contents (\u{2318}T)", systemImage: showTableOfContents ? "list.bullet.indent" : "list.bullet")
+            }
+
+            Divider()
+
+            Button { scanForCitations() } label: {
+                Label(isScanningCitations ? "Scanning\u{2026}" : "Scan Sources", systemImage: "text.magnifyingglass")
             }
             .disabled(isScanningCitations || pages.first == nil)
-            Divider()
+
             Button {
                 if let page = pages.first { shareNote(page) }
             } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
+
             Button { showDiffSheet = true } label: {
-                Label("Diff (⌘D)", systemImage: "chevron.left.forwardslash.chevron.right")
+                Label("Diff (\u{2318}D)", systemImage: "chevron.left.forwardslash.chevron.right")
             }
+
             Divider()
+
             Button { UtilityWindowManager.shared.show(.notes) } label: {
                 Label("Notes Sidebar", systemImage: "sidebar.leading")
-            }
-            Button { MiniChatWindowController.shared.toggle() } label: {
-                Label("Chat", systemImage: "bubble.left.and.bubble.right")
             }
         } label: {
             Label("More", systemImage: "ellipsis.circle")

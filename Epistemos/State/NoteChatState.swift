@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftData
 import os
 
 // MARK: - Note Chat Mode
@@ -52,8 +53,15 @@ final class NoteChatState {
     var isStreaming = false
     var responseText = ""
     var error: String?
-    /// True when AI response text exists in storage (between submit and accept/discard).
+    /// True when AI response text exists (between submit and accept/discard).
     var hasResponse = false
+    /// True when response displays in the slide-up panel (free-text queries).
+    /// False when response is inline in storage (context menu operations).
+    var useResponsePanel = false
+    /// Per-note chat history.
+    var messages: [AssistantMessage] = []
+    /// Whether the chat bar is expanded (vs collapsed bubble).
+    var isBarExpanded = false
 
     // MARK: - Chat Mode (persisted to UserDefaults)
 
@@ -76,6 +84,8 @@ final class NoteChatState {
     var onDiscard: (() -> Void)?
     /// Read the current note body from storage.
     var noteBodyProvider: (() -> String)?
+    /// Insert text at the current cursor position (panel mode accept).
+    var onInsertAtCursor: ((_ text: String) -> Void)?
 
     // MARK: - Token Buffering (60ms)
 
@@ -118,7 +128,7 @@ final class NoteChatState {
         let delta = pendingTokens
         pendingTokens = ""
         responseText += delta
-        onTokenFlush?(delta)
+        if !useResponsePanel { onTokenFlush?(delta) }
         HapticHelper.streamingTick()
     }
 
@@ -128,16 +138,17 @@ final class NoteChatState {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        messages.append(AssistantMessage(role: .user, content: trimmed))
         inputText = ""
         responseText = ""
         error = nil
         isStreaming = true
         hasResponse = true
+        useResponsePanel = true
         responseText.reserveCapacity(16_384)
 
-        onStreamStart?(trimmed)
-
         let noteBody = noteBodyProvider?() ?? ""
+        let noteSnippet = String(noteBody.prefix(4000))
         let systemPrompt = """
         You are a helpful note assistant embedded in the user's note editor. \
         Answer concisely and helpfully based on the note content below.
@@ -147,21 +158,27 @@ final class NoteChatState {
         --- END NOTE ---
         """
 
+        // Include note content in the user prompt so it survives
+        // trimForAppleIntelligence (which replaces the system prompt).
+        let fullPrompt = noteSnippet.isEmpty
+            ? trimmed
+            : "Note content:\n\(noteSnippet)\n\nQuestion: \(trimmed)"
+
         let stream: AsyncThrowingStream<String, Error>
         switch chatMode {
         case .auto:
             stream = triageService.stream(
-                prompt: trimmed, systemPrompt: systemPrompt,
+                prompt: fullPrompt, systemPrompt: systemPrompt,
                 operation: .ask(query: trimmed),
                 contentLength: noteBody.count, query: trimmed
             )
             log.info("Note chat: auto mode (triage routing)")
         case .cloudOnly:
-            stream = llmService.stream(prompt: trimmed, systemPrompt: systemPrompt)
+            stream = llmService.stream(prompt: fullPrompt, systemPrompt: systemPrompt)
             log.info("Note chat: cloud-only mode")
         case .provider:
             let provider = overrideProvider ?? .anthropic
-            stream = llmService.stream(prompt: trimmed, systemPrompt: systemPrompt, provider: provider)
+            stream = llmService.stream(prompt: fullPrompt, systemPrompt: systemPrompt, provider: provider)
             log.info("Note chat: manual provider (\(provider.displayName))")
         }
 
@@ -173,6 +190,10 @@ final class NoteChatState {
                 }
                 self.flushTokens()
                 self.isStreaming = false
+                let final = self.responseText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !final.isEmpty {
+                    self.messages.append(AssistantMessage(role: .assistant, content: final))
+                }
             } catch {
                 self.flushTokens()
                 self.isStreaming = false
@@ -199,11 +220,13 @@ final class NoteChatState {
         error = nil
         isStreaming = true
         hasResponse = true
+        useResponsePanel = false
         responseText.reserveCapacity(16_384)
 
         onStreamStart?(trimmed)
 
         let noteBody = noteBodyProvider?() ?? ""
+        let noteSnippet = String(noteBody.prefix(4000))
         let fullSystemPrompt = """
         \(systemPrompt)
 
@@ -212,8 +235,13 @@ final class NoteChatState {
         --- END NOTE ---
         """
 
+        // Include note content in user prompt for Apple Intelligence compatibility
+        let fullPrompt = noteSnippet.isEmpty
+            ? trimmed
+            : "Note content:\n\(noteSnippet)\n\nQuestion: \(trimmed)"
+
         let stream = triageService.stream(
-            prompt: trimmed,
+            prompt: fullPrompt,
             systemPrompt: fullSystemPrompt,
             operation: operation,
             contentLength: noteBody.count,
@@ -246,15 +274,28 @@ final class NoteChatState {
     }
 
     func acceptResponse() {
-        onAccept?()
+        if useResponsePanel {
+            onInsertAtCursor?(responseText)
+        } else {
+            onAccept?()
+        }
         hasResponse = false
+        useResponsePanel = false
         responseText = ""
     }
 
     func discardResponse() {
-        onDiscard?()
+        if !useResponsePanel {
+            onDiscard?()
+        }
         hasResponse = false
+        useResponsePanel = false
         responseText = ""
+    }
+
+    func collapseBar() {
+        guard !isStreaming, !hasResponse else { return }
+        isBarExpanded = false
     }
 
     func clear() {
@@ -263,5 +304,66 @@ final class NoteChatState {
         responseText = ""
         error = nil
         hasResponse = false
+    }
+
+    // MARK: - Persistence
+
+    /// ID of the persisted SDChat for this note (set after first save or load).
+    private var persistedChatId: String?
+
+    /// Load persisted messages from SwiftData on appear.
+    func loadPersistedMessages(_ context: ModelContext) {
+        let pid = pageId
+        var descriptor = FetchDescriptor<SDChat>(
+            predicate: #Predicate { $0.linkedPageId == pid && $0.chatType == "notes" },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        guard let sdChat = (try? context.fetch(descriptor))?.first else { return }
+        persistedChatId = sdChat.id
+        let sorted = sdChat.sortedMessages
+        messages = sorted.map {
+            AssistantMessage(
+                id: $0.id,
+                role: $0.role == "user" ? .user : .assistant,
+                content: $0.content,
+                createdAt: $0.createdAt
+            )
+        }
+    }
+
+    /// Persist current messages to SwiftData after streaming completes.
+    func persistMessages(_ context: ModelContext, noteTitle: String) {
+        guard !messages.isEmpty else { return }
+
+        let sdChat: SDChat
+        if let existingId = persistedChatId,
+           let existing = try? context.fetch(
+               FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == existingId })
+           ).first {
+            sdChat = existing
+            sdChat.title = noteTitle.isEmpty ? "Untitled" : noteTitle
+            sdChat.updatedAt = .now
+            // Remove old messages and replace
+            for msg in sdChat.messages ?? [] {
+                context.delete(msg)
+            }
+        } else {
+            sdChat = SDChat(title: noteTitle.isEmpty ? "Untitled" : noteTitle, chatType: "notes")
+            sdChat.linkedPageId = pageId
+            context.insert(sdChat)
+            persistedChatId = sdChat.id
+        }
+
+        for msg in messages {
+            let sdMsg = SDMessage(role: msg.role == .user ? "user" : "assistant", content: msg.content)
+            sdMsg.id = msg.id
+            sdMsg.createdAt = msg.createdAt
+            sdMsg.chat = sdChat
+            context.insert(sdMsg)
+        }
+
+        do { try context.save() }
+        catch { log.error("Failed to persist note chat: \(error.localizedDescription)") }
     }
 }

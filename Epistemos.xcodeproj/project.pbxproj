@@ -18,6 +18,7 @@
 		056F0543057D1A792D82BCB7 /* CommandPaletteWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84BDAD491E8FB25B8E1E3D1A /* CommandPaletteWindowController.swift */; };
 		05DF67064FF54B3C374F4211 /* SDPageVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B436566D022F335FA30747 /* SDPageVersion.swift */; };
 		064F4D5F2022D67933C31016 /* NoteChatOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F2032BBE7FBAFA8C95081F /* NoteChatOrb.swift */; };
+		A1B2C3D4E5F60001NCSBLD01 /* NoteChatSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60001NCSREF01 /* NoteChatSidebar.swift */; };
 		06A041D39717015489F37EB2 /* PipelineErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BEDA5DD8AB3751AE6CFAEB4 /* PipelineErrorTests.swift */; };
 		06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */; };
 		07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A4402EB228D73EF547EC7D /* FolderEntity.swift */; };
@@ -277,6 +278,7 @@
 		0FF7D72EB1BE7CCEA442B57C /* SystemAppearanceObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAppearanceObserver.swift; sourceTree = "<group>"; };
 		1002A7E01B0EC4FFB8A969A7 /* LearningIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearningIntents.swift; sourceTree = "<group>"; };
 		11F2032BBE7FBAFA8C95081F /* NoteChatOrb.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoteChatOrb.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60001NCSREF01 /* NoteChatSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteChatSidebar.swift; sourceTree = "<group>"; };
 		12DE96DC3ED4E824BEB4BC4F /* GradeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradeTests.swift; sourceTree = "<group>"; };
 		187C929673C004822A43950A /* NoteChatParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NoteChatParser.swift; sourceTree = "<group>"; };
 		18B8C5B61E5FF01840CA3A60 /* FilterEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FilterEngine.swift; sourceTree = "<group>"; };
@@ -706,6 +708,7 @@
 				CC1D4E5F60718293AB0C1D2E /* VersionTimeline.swift */,
 				ACAD000300000000WRITER03 /* Writer */,
 				11F2032BBE7FBAFA8C95081F /* NoteChatOrb.swift */,
+				A1B2C3D4E5F60001NCSREF01 /* NoteChatSidebar.swift */,
 			);
 			path = Notes;
 			sourceTree = "<group>";
@@ -1369,6 +1372,7 @@
 				C886A789A972BC02BB03188B /* PhysicsCoordinator.swift in Sources */,
 				6E467612B90C638773ABD3E0 /* NoteChatParser.swift in Sources */,
 				064F4D5F2022D67933C31016 /* NoteChatOrb.swift in Sources */,
+				A1B2C3D4E5F60001NCSBLD01 /* NoteChatSidebar.swift in Sources */,
 				733979844FBEEC29CDF209A7 /* SDNoteInsight.swift in Sources */,
 				720A6BE44672A02E5A4A7611 /* NoteInsightService.swift in Sources */,
 			);

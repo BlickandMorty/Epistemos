@@ -60,7 +60,8 @@ final class CommandPaletteWindowController {
         let panelSize = panel.frame.size
         let screenFrame = screen.visibleFrame
         let x = screenFrame.midX - panelSize.width / 2
-        let y = screenFrame.midY - panelSize.height / 2 + screenFrame.height * 0.15
+        // Anchor near top of screen (Dynamic Island position).
+        let y = screenFrame.maxY - panelSize.height + 20
         panel.setFrameOrigin(NSPoint(x: x, y: y))
 
         isShowing = true
@@ -140,22 +141,21 @@ final class CommandPaletteWindowController {
         guard panel == nil else { return }
 
         let p = KeyablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 120),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 120),
             styleMask: [.borderless, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        // Above .floating (level 3) — beats ChatGPT/Raycast/Alfred overlays.
-        // .statusBar is level 25, safely above all standard floating panels.
-        p.level = .statusBar
+        // .floating keeps it above all normal windows (like MiniChat).
+        p.level = .floating
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         p.isReleasedWhenClosed = false
         p.backgroundColor = .clear
         p.isOpaque = false
         p.hasShadow = false
         p.isMovableByWindowBackground = true
-        p.minSize = NSSize(width: 600, height: 80)
-        p.maxSize = NSSize(width: 740, height: 780)
+        p.minSize = NSSize(width: 400, height: 80)
+        p.maxSize = NSSize(width: 540, height: 700)
 
         guard let bootstrap = AppBootstrap.shared else { return }
 
@@ -169,9 +169,9 @@ final class CommandPaletteWindowController {
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
                 if let window = note.object as? NSWindow, window == p {
                     Task { @MainActor in
-                        // Don't dismiss during the show sequence (activate can cause a brief resign)
                         guard !CommandPaletteWindowController.shared.isShowing else { return }
-                        CommandPaletteWindowController.shared.hide()
+                        // Don't auto-dismiss — user closes with Option+Space or Escape.
+                        // This keeps the panel visible like MiniChat.
                     }
                 }
             }

@@ -19,6 +19,8 @@ final class SDChat {
     var title: String = "New Chat"
     var chatType: String = "chat"       // "chat", "notes", "research"
     var hasDeepResearch: Bool? = false
+    /// Page ID of the note this chat is linked to (note chats + cross-system association).
+    var linkedPageId: String?
 
     // MARK: - Timestamps
     var createdAt: Date = Date.now

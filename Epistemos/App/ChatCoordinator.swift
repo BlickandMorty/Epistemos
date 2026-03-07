@@ -478,6 +478,13 @@ final class ChatCoordinator {
         assistantMsg.chat = chat
         context.insert(assistantMsg)
 
+        // Cross-system note association: scan for [[wikilinks]] in the query
+        if chat.linkedPageId == nil {
+            if let linkedId = detectLinkedPageId(in: query, context: context) {
+                chat.linkedPageId = linkedId
+            }
+        }
+
         do {
             try context.save()
             Log.db.info("Persisted chat \(chatId, privacy: .public): user + assistant messages")
@@ -528,5 +535,38 @@ final class ChatCoordinator {
         case 0.30..<0.50: .d
         default: .f
         }
+    }
+
+    // MARK: - Cross-System Note Association
+
+    /// Scan text for [[wikilinks]] or "Note: <title>" references and match against existing pages.
+    /// Returns the pageId of the first matched note, or nil.
+    private func detectLinkedPageId(in text: String, context: ModelContext) -> String? {
+        var candidates: [String] = []
+
+        // Extract [[wikilink]] targets
+        let wikiPattern = /\[\[([^\]]+)\]\]/
+        for match in text.matches(of: wikiPattern) {
+            candidates.append(String(match.1).trimmingCharacters(in: .whitespaces))
+        }
+
+        // Extract "Note: <title>" prefix (from command palette context injection)
+        let notePattern = /Note: (.+?)(?:\n|$)/
+        if let match = text.firstMatch(of: notePattern) {
+            candidates.append(String(match.1).trimmingCharacters(in: .whitespaces))
+        }
+
+        guard !candidates.isEmpty else { return nil }
+
+        for candidate in candidates {
+            let title = candidate
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate { $0.title == title }
+            )
+            if let page = try? context.fetch(descriptor).first {
+                return page.id
+            }
+        }
+        return nil
     }
 }

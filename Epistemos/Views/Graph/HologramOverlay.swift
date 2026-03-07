@@ -556,6 +556,7 @@ final class HologramOverlay {
                 await withCheckedContinuation { continuation in
                     withObservationTracking {
                         _ = s.graphState.selectedNodeScreenPoint
+                        _ = s.inspectorState.inspectorMode
                     } onChange: {
                         continuation.resume()
                     }
@@ -573,26 +574,33 @@ final class HologramOverlay {
         // In mini mode the companion miniInspectorPanel handles the inspector.
         if isMinimized {
             inspectorHostView.isHidden = true
+            resizeMiniInspectorForMode()
             return
         }
 
         let bounds = contentView.bounds
+        let isEditor = inspectorState.inspectorMode == .editor
+
+        let topInset: CGFloat = 80  // keep clear of title bar / toolbar
+        let bottomInset: CGFloat = 20
 
         if let pt = graphState.selectedNodeScreenPoint {
-            let inspectorWidth: CGFloat = 380
-            let inspectorHeight: CGFloat = min(500, bounds.height - 40)
+            let inspectorWidth: CGFloat = isEditor ? 620 : 380
+            let inspectorHeight: CGFloat = min(isEditor ? 600 : 500, bounds.height - topInset - bottomInset)
             let gap: CGFloat = 24
 
             let nodeRight = pt.x + gap
             let fitsRight = nodeRight + inspectorWidth < bounds.width - 20
             let x = fitsRight ? nodeRight : pt.x - inspectorWidth - gap
-            let y = max(20, min(bounds.height - inspectorHeight - 20, pt.y - inspectorHeight * 0.4))
+            let y = max(bottomInset, min(bounds.height - inspectorHeight - topInset, pt.y - inspectorHeight * 0.4))
 
             let targetFrame = CGRect(x: x, y: y, width: inspectorWidth, height: inspectorHeight)
             inspectorHostView.frame = targetFrame
             inspectorHostView.isHidden = false
         } else {
-            inspectorHostView.frame = CGRect(x: bounds.width - 420, y: 60, width: 380, height: 500)
+            let inspectorWidth: CGFloat = isEditor ? 620 : 380
+            let inspectorHeight: CGFloat = isEditor ? 600 : 500
+            inspectorHostView.frame = CGRect(x: bounds.width - inspectorWidth - 40, y: bottomInset, width: inspectorWidth, height: inspectorHeight)
         }
     }
 
@@ -630,6 +638,31 @@ final class HologramOverlay {
             ctx.duration = 0.25
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1.0
+        }
+    }
+
+    /// Resize the mini inspector panel when switching between profile/editor modes.
+    private func resizeMiniInspectorForMode() {
+        guard let panel = miniInspectorPanel, let miniPanel else { return }
+        let isEditor = inspectorState.inspectorMode == .editor
+        let newWidth: CGFloat = isEditor ? 620 : 380
+        let newHeight: CGFloat = isEditor ? 620 : 620
+
+        let graphFrame = miniPanel.frame
+        let x = graphFrame.minX - newWidth - 12
+        let y = graphFrame.maxY - newHeight
+
+        let screen = NSScreen.main?.visibleFrame ?? NSRect.zero
+        let clampedX = max(screen.minX + 8, x)
+        let clampedY = max(screen.minY + 8, y)
+
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.25
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            panel.animator().setFrame(
+                NSRect(x: clampedX, y: clampedY, width: newWidth, height: newHeight),
+                display: true
+            )
         }
     }
 
@@ -912,6 +945,7 @@ final class HologramOverlay {
             )
             // Use frame-based positioning (updated by inspectorPositionTask).
             inspectorView.frame = CGRect(x: screen.frame.width - 420, y: 60, width: 380, height: 500)
+            inspectorView.autoresizesSubviews = true
             contentView.addSubview(inspectorView)
             self.inspectorHostView = inspectorView
             startInspectorPositionTracking()

@@ -225,6 +225,11 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 )
                 // Reposition transclusion overlays on scroll
                 coord.transclusionManager?.refresh()
+                // Collapse chat bar on downward scroll (>40pt delta)
+                if scrollY > coord.lastChatCollapseScrollY + 40 {
+                    coord.noteChatState?.collapseBar()
+                }
+                coord.lastChatCollapseScrollY = scrollY
             }
         }
 
@@ -438,6 +443,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 guard let coord, let storage = coord.storage else { return "" }
                 return storage.mutableString as String
             }
+            noteChat.onInsertAtCursor = { [weak coord] text in
+                coord?.insertTextAtCursor(text)
+            }
         }
 
         // Recalculate centering only when width actually changed
@@ -505,6 +513,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         weak var noteChatState: NoteChatState?
         /// Suppresses textDidChange binding sync during programmatic token appends.
         var isFlushingTokens = false
+        /// Tracks scroll position for collapsing the chat bar on downward scroll.
+        var lastChatCollapseScrollY: CGFloat = 0
         /// Debounce task for syncing NSTextStorage → SwiftUI @Binding.
         /// Text lives in NSTextStorage — binding only needed for debouncedSave and page swap.
         private var bindingSyncTask: Task<Void, Never>?
@@ -1125,6 +1135,21 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 storage.replaceCharacters(in: deleteRange, with: "")
                 isFlushingTokens = false
             }
+            flushBindingSync()
+        }
+
+        /// Insert text at the current cursor position (panel mode accept).
+        func insertTextAtCursor(_ text: String) {
+            guard let storage, let tv = textView else { return }
+            let loc = tv.selectedRange().location
+            let insertion = "\n\n" + text + "\n"
+            isFlushingTokens = true
+            if tv.shouldChangeText(in: NSRange(location: loc, length: 0), replacementString: insertion) {
+                storage.replaceCharacters(in: NSRange(location: loc, length: 0), with: insertion)
+                tv.didChangeText()
+                tv.setSelectedRange(NSRange(location: loc + (insertion as NSString).length, length: 0))
+            }
+            isFlushingTokens = false
             flushBindingSync()
         }
 

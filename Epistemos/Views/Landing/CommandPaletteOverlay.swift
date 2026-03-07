@@ -42,8 +42,7 @@ struct CommandPaletteOverlay: View {
     @State private var ftsDebounceTask: Task<Void, Never>?
     @State private var appeared = false
     @FocusState private var isSearchFocused: Bool
-    @State private var retractNow = false
-    @State private var isTypewriterVisible = true
+    @State private var isExpanded = false
 
     // MARK: - Chat State
 
@@ -58,6 +57,7 @@ struct CommandPaletteOverlay: View {
     @State private var paletteOverrideProvider: LLMProviderType? = {
         LLMProviderType(rawValue: UserDefaults.standard.string(forKey: "paletteProvider") ?? "")
     }()
+    @State private var focusedPageId: String?
     @FocusState private var isChatFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
@@ -81,6 +81,15 @@ struct CommandPaletteOverlay: View {
                             resultsSection
                         }
                         .transition(.opacity.combined(with: .blurReplace))
+                    } else if isExpanded {
+                        VStack(spacing: 0) {
+                            Rectangle()
+                                .fill(theme.border.opacity(0.3))
+                                .frame(height: 0.5)
+
+                            expandedCommandsSection
+                        }
+                        .transition(.opacity.combined(with: .blurReplace))
                     }
                 } else {
                     VStack(spacing: 0) {
@@ -100,9 +109,10 @@ struct CommandPaletteOverlay: View {
                     .transition(.opacity.combined(with: .blurReplace))
                 }
             }
-            .animation(Motion.smooth, value: mode)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: mode)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
         }
-        .frame(width: 640)
+        .frame(width: 440)
         .frame(maxHeight: mode == .chat ? .infinity : nil)
         .fixedSize(horizontal: false, vertical: mode == .search)
         .background {
@@ -140,11 +150,11 @@ struct CommandPaletteOverlay: View {
         .shadow(color: .black.opacity(0.03), radius: 1, y: 0.5)
         .shadow(color: .black.opacity(theme.isDark ? 0.2 : 0.06), radius: 8, y: 3)
         .shadow(color: .black.opacity(theme.isDark ? 0.35 : 0.10), radius: 30, y: 10)
-        .scaleEffect(appeared ? 1.0 : 0.96)
+        .offset(y: appeared ? 0 : -15)
         .opacity(appeared ? 1.0 : 0.0)
         .preferredColorScheme(theme.isDark ? .dark : .light)
-        .animation(Motion.smooth, value: showResults)
-        .animation(Motion.smooth, value: appeared)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showResults)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: appeared)
         .onAppear {
             appeared = true
             // Immediate focus claim — then retry after layout settles.
@@ -166,8 +176,7 @@ struct CommandPaletteOverlay: View {
         .onReceive(NotificationCenter.default.publisher(for: .commandPaletteDidHide)) { _ in
             isSearchFocused = false
             isChatFocused = false
-            retractNow = false
-            isTypewriterVisible = true
+            isExpanded = false
         }
     }
 
@@ -214,29 +223,12 @@ struct CommandPaletteOverlay: View {
                     HStack(spacing: 10) {
                         sparklesIcon
 
-                        ZStack(alignment: .leading) {
-                            if isTypewriterVisible {
-                                LiquidGreeting(
-                                    compact: true,
-                                    retractNow: $retractNow,
-                                    onRetractComplete: {
-                                        guard !searchText.isEmpty else { return }
-                                        withAnimation(Motion.quick) {
-                                            isTypewriterVisible = false
-                                        }
-                                    }
-                                )
-                                .transition(.opacity)
-                            }
-
-                            TextField("Search or ask anything\u{2026}", text: $searchText)
-                                .font(.system(size: 16, weight: .regular, design: .rounded))
-                                .foregroundStyle(theme.foreground)
-                                .textFieldStyle(.plain)
-                                .focused($isSearchFocused)
-                                .onSubmit { executeSelected() }
-                                .opacity(isTypewriterVisible ? 0 : 1)
-                        }
+                        TextField("Search or ask anything\u{2026}", text: $searchText)
+                            .font(.system(size: 15, weight: .regular, design: .rounded))
+                            .foregroundStyle(theme.foreground)
+                            .textFieldStyle(.plain)
+                            .focused($isSearchFocused)
+                            .onSubmit { executeSelected() }
 
                         if !searchText.isEmpty {
                             Button {
@@ -252,27 +244,26 @@ struct CommandPaletteOverlay: View {
                             }
                             .buttonStyle(.plain)
                             .transition(.scale(scale: 0.5).combined(with: .opacity))
-                            .animation(Motion.quick, value: searchText.isEmpty)
+                        } else {
+                            Button {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    isExpanded.toggle()
+                                }
+                            } label: {
+                                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(theme.textTertiary)
+                                    .frame(width: 22, height: 22)
+                                    .background(theme.muted.opacity(0.5), in: Circle())
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .frame(height: 30)
-                    .onChange(of: searchText) { oldValue, newValue in
-                        if oldValue.isEmpty && !newValue.isEmpty && isTypewriterVisible {
-                            retractNow = true
-                        }
-                        if newValue.isEmpty {
-                            retractNow = false
-                            if !isTypewriterVisible {
-                                withAnimation(Motion.smooth) {
-                                    isTypewriterVisible = true
-                                }
-                            }
-                        }
-                    }
 
-                    if isTypewriterVisible && searchText.isEmpty {
-                        HStack(spacing: 8) {
-                            paletteChip(label: "New Note", icon: "doc.badge.plus") {
+                    if searchText.isEmpty {
+                        HStack(spacing: 6) {
+                            paletteChip(label: "Note", icon: "doc.badge.plus") {
                                 CommandPaletteWindowController.shared.hide()
                                 Task { @MainActor in
                                     if let pageId = await vaultSync.createPage(title: "Untitled") {
@@ -280,28 +271,12 @@ struct CommandPaletteOverlay: View {
                                     }
                                 }
                             }
-                            paletteChip(label: "Quick Idea", icon: "lightbulb") {
+                            paletteChip(label: "Graph", icon: "circle.grid.3x3") {
                                 CommandPaletteWindowController.shared.hide()
-                                Task { @MainActor in
-                                    if let pageId = await vaultSync.createPage(title: "Quick Idea") {
-                                        NoteWindowManager.shared.open(pageId: pageId)
-                                    }
-                                }
+                                HologramController.shared.show()
                             }
-                            paletteChip(label: "Vault Briefing", icon: "book.pages") {
-                                CommandPaletteWindowController.shared.hide()
-                                chat.startNewChat()
-                                ui.setActivePanel(.home)
-                                AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
-                                NSApp.activate()
-                                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                                    main.makeKeyAndOrderFront(nil)
-                                }
-                            }
-                            paletteChip(label: "Daily Brief", icon: "newspaper.fill") {
-                                CommandPaletteWindowController.shared.hide()
-                                let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
-                                dailyBrief.requestDailyBrief(prompt: prompt)
+                            paletteChip(label: "Theme", icon: "circle.lefthalf.filled") {
+                                ui.cycleTheme()
                             }
                         }
                         .padding(.top, 8)
@@ -341,7 +316,6 @@ struct CommandPaletteOverlay: View {
                     }
                     .padding(.top, 6)
                 }
-                .animation(Motion.smooth, value: isTypewriterVisible)
             }
         }
         .padding(.horizontal, 16)
@@ -375,6 +349,41 @@ struct CommandPaletteOverlay: View {
         .onChange(of: searchText) { _, newText in
             handleSearchChange(newText)
         }
+    }
+
+    // MARK: - Expanded Commands
+
+    private var expandedCommandsSection: some View {
+        let commands = makeCommands()
+        let grouped = Dictionary(grouping: commands) { $0.category }
+
+        return ScrollView {
+            VStack(spacing: 0) {
+                ForEach(Self.categoryOrder, id: \.self) { category in
+                    if let items = grouped[category], !items.isEmpty {
+                        HStack(spacing: 6) {
+                            Text(category.uppercased())
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(theme.textTertiary.opacity(0.45))
+                                .tracking(1.2)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.top, category == Self.categoryOrder.first ? 2 : 12)
+                        .padding(.bottom, 4)
+
+                        ForEach(items) { cmd in
+                            SpotlightRow(command: cmd, isSelected: false, theme: theme) {
+                                cmd.action()
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+        }
+        .frame(maxHeight: 320)
     }
 
     // MARK: - Search Results View
@@ -567,7 +576,7 @@ struct CommandPaletteOverlay: View {
                 }
                 .padding(12)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 350, maxHeight: .infinity)
             .onChange(of: activeThread?.messages.count) { _, _ in
                 withAnimation(Motion.quick) {
                     proxy.scrollTo("bottom", anchor: .bottom)
@@ -589,13 +598,29 @@ struct CommandPaletteOverlay: View {
             // Note context indicator
             if let page = activePage() {
                 HStack(spacing: 4) {
-                    Image(systemName: "doc.text")
+                    Image(systemName: focusedPageId != nil ? "pin.fill" : "doc.text")
                         .font(.system(size: 8))
-                    Text("Referencing: \(page.title.isEmpty ? "Untitled" : page.title)")
+                    Text("\(focusedPageId != nil ? "Focused" : "Referencing"): \(page.title.isEmpty ? "Untitled" : page.title)")
                         .font(.system(size: 10))
+
+                    Spacer()
+
+                    Button {
+                        withAnimation(Motion.quick) {
+                            if focusedPageId != nil {
+                                focusedPageId = nil
+                            } else {
+                                focusedPageId = page.id
+                            }
+                        }
+                    } label: {
+                        Image(systemName: focusedPageId != nil ? "pin.slash" : "pin")
+                            .font(.system(size: 9, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .help(focusedPageId != nil ? "Unfocus note" : "Focus on this note")
                 }
-                .foregroundStyle(theme.accent.opacity(0.7))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(focusedPageId != nil ? theme.accent : theme.accent.opacity(0.7))
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
                 .padding(.bottom, 2)
@@ -727,6 +752,16 @@ struct CommandPaletteOverlay: View {
                     """
                 }
 
+                // Include note context in the user prompt so it survives
+                // trimForAppleIntelligence (which replaces the system prompt).
+                var noteContext = ""
+                if let page {
+                    let body = page.loadBody()
+                    if !body.isEmpty {
+                        noteContext = "Note: \(page.title)\n\(String(body.prefix(2000)))\n\n"
+                    }
+                }
+
                 // Build conversation-aware prompt with thread history
                 let conversationPrompt: String
                 if activeMessages.count > 1 {
@@ -734,9 +769,9 @@ struct CommandPaletteOverlay: View {
                     let historyText = history.map { msg in
                         msg.role == .user ? "User: \(msg.content)" : "Assistant: \(msg.content)"
                     }.joined(separator: "\n\n")
-                    conversationPrompt = "\(historyText)\n\nUser: \(trimmed)"
+                    conversationPrompt = "\(noteContext)\(historyText)\n\nUser: \(trimmed)"
                 } else {
-                    conversationPrompt = trimmed
+                    conversationPrompt = "\(noteContext)\(trimmed)"
                 }
 
                 let contentLength = conversationPrompt.count + contextParts.joined().count
@@ -833,8 +868,8 @@ struct CommandPaletteOverlay: View {
     // MARK: - Note Context
 
     private func activePage() -> SDPage? {
-        guard let pageId = notesUI.activePageId else { return nil }
-        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let targetId = focusedPageId ?? notesUI.activePageId else { return nil }
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
         return try? modelContext.fetch(descriptor).first
     }
 
@@ -1389,6 +1424,7 @@ struct CommandPaletteOverlay: View {
         searchText = ""
         selectedIndex = 0
         hasManuallyNavigated = false
+        isExpanded = false
         cachedSearchResults = []
         graphState.searchHighlight("")
         graphState.setSearchActive(false)
