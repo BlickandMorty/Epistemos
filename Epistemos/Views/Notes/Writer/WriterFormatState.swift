@@ -34,7 +34,7 @@ final class WriterFormatState {
 
     // MARK: - Preset
 
-    var activePreset: AcademicStyle = .mla {
+    var activePreset: AcademicStyle = .general {
         didSet {
             guard !isApplyingPreset else { return }
             if activePreset != .custom {
@@ -44,7 +44,7 @@ final class WriterFormatState {
     }
 
     /// The last non-custom preset that was active. Used for labelling "Custom (based on X)".
-    var basePreset: AcademicStyle = .mla
+    var basePreset: AcademicStyle = .general
 
     // MARK: - Typography
 
@@ -145,7 +145,7 @@ final class WriterFormatState {
     init() {
         // Apply MLA defaults (the initial values above already match MLA,
         // but calling applyPreset ensures consistency).
-        applyPreset(.mla)
+        applyPreset(.general)
     }
 
     // MARK: - Preset Application

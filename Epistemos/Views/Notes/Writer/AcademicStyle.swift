@@ -5,6 +5,7 @@ import AppKit
 /// The four academic formatting presets available in Writer Mode.
 /// `.custom` carries no preset — the user defines every property manually.
 enum AcademicStyle: String, Codable, CaseIterable, Sendable {
+    case general
     case mla
     case apa
     case chicago
@@ -12,6 +13,7 @@ enum AcademicStyle: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
+        case .general:  "General"
         case .mla:      "MLA"
         case .apa:      "APA"
         case .chicago:  "Chicago"
@@ -173,6 +175,20 @@ extension AcademicStyle {
     /// Returns the canonical preset values for this style, or `nil` for `.custom`.
     var presetValues: AcademicPresetValues? {
         switch self {
+        case .general:
+            AcademicPresetValues(
+                fontName: NSFont(name: "New York", size: 13) != nil ? "New York" : "Palatino",
+                fontSize: 13,
+                lineSpacing: .onePointFive,
+                alignment: .left,
+                margins: .normal,
+                firstLineIndent: 0,
+                hasTitlePage: false,
+                hasPageNumbers: true,
+                pageNumberPosition: .bottomCenter,
+                runningHeadStyle: .none
+            )
+
         case .mla:
             AcademicPresetValues(
                 fontName: "Times New Roman",

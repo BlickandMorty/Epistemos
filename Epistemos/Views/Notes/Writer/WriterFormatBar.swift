@@ -46,8 +46,8 @@ struct WriterFormatBar: View {
     // MARK: Static Font Lists
 
     private static let preferredFonts: [String] = [
-        "Times New Roman", "Arial", "Calibri", "Garamond",
-        "Courier New", "Georgia", "Palatino", "Cambria"
+        "New York", "Times New Roman", "Palatino", "Georgia",
+        "Garamond", "Arial", "Calibri", "Courier New", "Cambria"
     ].filter { NSFont(name: $0, size: 12) != nil }
 
     private static let systemFonts: [String] = NSFontManager.shared
@@ -103,6 +103,7 @@ struct WriterFormatBar: View {
 
     private var presetPicker: some View {
         Picker("Preset", selection: $formatState.activePreset) {
+            Text("General").tag(AcademicStyle.general)
             Text("MLA").tag(AcademicStyle.mla)
             Text("APA").tag(AcademicStyle.apa)
             Text("Chicago").tag(AcademicStyle.chicago)

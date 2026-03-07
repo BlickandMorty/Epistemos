@@ -845,7 +845,7 @@ final class TitlePageView: NSView {
                 drawCenteredLine(state.titlePageDate, attrs: baseAttrs, at: bottomY, width: textWidth, margin: margin)
             }
 
-        case .mla, .custom:
+        case .general, .mla, .custom:
             // MLA: Everything centered vertically
             let lineHeight = font.pointSize * 2.4
             let lines = [
