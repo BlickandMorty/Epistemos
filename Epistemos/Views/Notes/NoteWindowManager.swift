@@ -556,7 +556,7 @@ private struct NotePageContent: View {
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
         .preferredColorScheme(ui.theme.colorScheme)
-        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
+        .toolbarBackgroundVisibility(.automatic, for: .windowToolbar)
         .toolbar {
             // — New Note (far left) —
             ToolbarItem(placement: .navigation) {

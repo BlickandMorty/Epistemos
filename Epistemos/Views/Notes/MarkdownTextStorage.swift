@@ -43,7 +43,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private var smallSize: CGFloat { max(baseFontSize - 1, 9) }
 
     /// Leading document title spacing.
-    static let leadingH1SpacingBefore: CGFloat = 0
+    static let leadingH1SpacingBefore: CGFloat = 30
     /// Mid-document H1 spacing.
     static let sectionH1SpacingBefore: CGFloat = 18
 
