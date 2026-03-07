@@ -38,25 +38,11 @@ WriterModeView (SwiftUI)
 
 ---
 
-## Phase 2: PDFKit Preview + Export (HIGH — replaces CGContext PDF generation)
+## Phase 2: PDFKit Preview + Export (DONE)
 
-**What dies:** WriterExportService.exportPDF() CGContext manual rendering.
-
-**What replaces it:** PDFKit for live preview pane and export.
-
-### Tasks
-1. Add PDF preview toggle in writer mode — renders current document as PDFDocument
-2. Use `PDFView` in an NSViewRepresentable for live preview
-3. Thumbnail sidebar via `PDFThumbnailView`
-4. Export: generate `PDFDocument` from TextKit 1 layout, save via `PDFDocument.write(to:)`
-5. Annotation support: let users highlight/comment in preview mode
-6. Keep DOCX/plaintext/markdown export paths (they work fine)
-
-### Verification
-- PDF preview shows document with correct formatting
-- Thumbnails update as user edits
-- Exported PDF matches preview
-- Annotations persist
+Refactored `WriterExportService` — `generatePDFDocument()` returns reusable `PDFDocument`.
+Export uses `PDFDocument.write(to:)`. Added `WriterPDFPreview` (PDFView wrapper) with toggle
+in format bar for split-view live preview. 500ms debounced refresh on text changes.
 
 ---
 
@@ -87,32 +73,19 @@ with index/deindex/reindexAll. No work needed.
 
 ---
 
-## Phase 6: QuickLook (MEDIUM — Space bar preview for attachments)
+## Phase 6: QuickLook (DONE)
 
-### Tasks
-1. Implement `QLPreviewPanelDataSource` and `QLPreviewPanelDelegate` on note window
-2. When cursor is on an image attachment or file reference, Space bar shows QuickLook preview
-3. Support: images, PDFs, code files, any file the user has linked
-
-### Verification
-- Space on image attachment shows full-size preview
-- Space on file link shows QuickLook panel
-- Panel dismisses on Space or Esc
+Implemented `QLPreviewPanelDataSource`/`QLPreviewPanelDelegate` on ClickableTextView.
+Space bar on image attachment opens QuickLook panel. Full file path stored in
+`EpistemosImagePath` attribute for reliable lookup.
 
 ---
 
-## Phase 7: Translation Framework (MEDIUM — one-line translate)
+## Phase 7: Translation Framework (DONE)
 
-### Tasks
-1. Add "Translate" to ClickableTextView context menu (under AI Assistant submenu)
-2. Use `TranslationSession` to translate selected text
-3. Show translation in a popover or inline replacement
-4. Auto-detect source language via NaturalLanguage (Phase 3)
-
-### Verification
-- Select text, right-click, Translate works
-- Translation appears in popover
-- Multiple languages supported
+Added "Translate" to AI Assistant context menu. Posts notification to parent SwiftUI
+view which shows `.translationPresentation` — Apple's native translation UI with
+language auto-detection.
 
 ---
 
@@ -124,18 +97,11 @@ Inserts extracted text as blockquote below cursor.
 
 ---
 
-## Phase 9: DataDetection (MEDIUM — smart data linking)
+## Phase 9: DataDetection (DONE)
 
-### Tasks
-1. Use `NSDataDetector` on note text to find dates, addresses, phone numbers, URLs
-2. Style detected data with subtle underline (like wikilinks)
-3. Click handlers: dates open Calendar, addresses open Maps, phones open FaceTime
-4. Run detection on save (debounced), not per-keystroke
-
-### Verification
-- Dates, addresses, phone numbers highlighted in notes
-- Clicking opens correct system app
-- No performance impact (debounced)
+`DataDetectionService.swift` — `NSDataDetector` for dates, addresses, phones, URLs.
+Click-to-open: Calendar, Maps, FaceTime, browser. Styled with subtle underline.
+`DetectedItem` stored as attribute value for click lookup.
 
 ---
 
@@ -249,14 +215,14 @@ DocumentEditorView (NSViewRepresentable)
 | Phase | Framework | Status | Priority |
 |-------|-----------|--------|----------|
 | 1 | Writer Mode Polish (TextKit 1) | DONE | — |
-| 2 | PDFKit Preview + Export | TODO | HIGH |
+| 2 | PDFKit Preview + Export | DONE | — |
 | 3 | NaturalLanguage | DONE (wire to graph remaining) | — |
 | 4 | WritingTools | DONE | — |
 | 5 | CoreSpotlight | DONE (pre-existing) | — |
-| 6 | QuickLook | TODO | MEDIUM |
-| 7 | Translation | TODO | MEDIUM |
+| 6 | QuickLook | DONE | — |
+| 7 | Translation | DONE | — |
 | 8 | Vision OCR | DONE | — |
-| 9 | DataDetection | TODO | MEDIUM |
+| 9 | DataDetection | DONE | — |
 | 10a-d | Polish (Notifications, Camera, Shortcuts, swift-collections) | TODO | LOWER |
 | **11** | **Document Mode (TextKit 2 WYSIWYG)** | **TODO** | **HIGH** |
 
