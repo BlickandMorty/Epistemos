@@ -12,7 +12,7 @@ import os
 
 /// A single item in the wikilink navigation breadcrumb trail.
 struct BreadcrumbItem: Identifiable {
-    let id: String   // pageId
+    let id: String  // pageId
     var title: String
 }
 
@@ -113,6 +113,7 @@ final class NoteWindowManager {
     private var windows: [String: NSWindow] = [:]
     private var observers: [String: any NSObjectProtocol] = [:]
     private let tabDelegate = NoteTabDelegate()
+    private var openWindowHandler: ((String) -> Void)?
     nonisolated static let log = Logger(subsystem: "com.epistemos", category: "NoteWindow")
 
     /// Per-tab navigation states — tracks in-place wikilink navigation.
@@ -129,6 +130,10 @@ final class NoteWindowManager {
 
     func unregisterNavState(forTab tabPageId: String) {
         navigationStates.removeValue(forKey: tabPageId)
+    }
+
+    func configureOpenHandler(_ handler: @escaping (String) -> Void) {
+        openWindowHandler = handler
     }
 
     /// The page currently displayed in the tab (may differ from root if user navigated via wikilinks).
@@ -173,7 +178,8 @@ final class NoteWindowManager {
 
         let attributes = CSSearchableItemAttributeSet(contentType: .text)
         attributes.title = title
-        attributes.contentDescription = tags.isEmpty
+        attributes.contentDescription =
+            tags.isEmpty
             ? "Note in Epistemos"
             : "Tags: \(tags.joined(separator: ", "))"
         activity.contentAttributeSet = attributes
@@ -195,58 +201,42 @@ final class NoteWindowManager {
             return
         }
 
-        guard let bootstrap = AppBootstrap.shared else {
-            Self.log.error("AppBootstrap not available — cannot open note window")
+        guard let openWindowHandler else {
+            Self.log.error("SwiftUI note window opener not configured")
             return
         }
+        openWindowHandler(page.id)
+        Self.log.info("Requested SwiftUI note window for: \(page.title, privacy: .public)")
+    }
 
-        // Create hosting view with full environment injection.
-        // Uses withAppEnvironment() to stay in sync with AppEnvironment.swift.
-        let pageTitle = page.title.isEmpty ? "Untitled" : page.title
-        let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
-            .withAppEnvironment(bootstrap)
-            .modelContainer(bootstrap.modelContainer)
-            .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
+    func attachSceneWindow(_ window: NSWindow, pageId: String, title: String) {
+        guard !pageId.isEmpty else { return }
 
-        let hostingView = NSHostingView(rootView: editorView)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = page.title.isEmpty ? "Untitled" : page.title
-        window.titlebarAppearsTransparent = false
+        window.title = title.isEmpty ? "Untitled" : title
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
-
-        // Unified toolbar for Liquid Glass chrome (matches UtilityWindowManager)
-        let toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
-        window.toolbar = toolbar
-        window.toolbarStyle = .unified
-
-        window.contentView = hostingView
-        window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
-        window.setFrameAutosaveName("note-\(page.id)")
-
-        // Sync window chrome to current theme
-        let theme = bootstrap.uiState.theme
-        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-
-        // Zoom instead of fullscreen — green button fills screen without entering a Space.
+        window.setFrameAutosaveName("note-\(pageId)")
         window.collectionBehavior.remove(.fullScreenPrimary)
-
-        // Native macOS Finder-style tab bar
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
+        // Toolbar is managed by SwiftUI (.toolbar { } + .toolbarBackgroundVisibility)
+        // — do NOT set window.toolbar or window.toolbarStyle here.
 
-        // Track window close — store observer token for removal
-        let pageId = page.id
+        if let theme = AppBootstrap.shared?.uiState.theme {
+            window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        }
+
+        // Join existing note window as a tab (matches old NSWindow behavior)
+        if let existingWindow = windows.values.first(where: { $0 !== window && $0.isVisible }) {
+            existingWindow.addTabbedWindow(window, ordered: .above)
+        }
+
+        windows[pageId] = window
+
+        guard observers[pageId] == nil else { return }
         let observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: window,
@@ -257,16 +247,7 @@ final class NoteWindowManager {
                 self?.handleWindowClose(window, pageId: pageId)
             }
         }
-        observers[page.id] = observer
-
-        // Add as a tab to existing note window group (Finder-style)
-        if let existingWindow = windows.values.first {
-            existingWindow.addTabbedWindow(window, ordered: .above)
-        }
-        window.makeKeyAndOrderFront(nil)
-        windows[page.id] = window
-
-        Self.log.info("Opened note tab for: \(page.title, privacy: .public)")
+        observers[pageId] = observer
     }
 
     /// Reverse lookup: find the pageId for a given window.
@@ -389,7 +370,72 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
         guard let window = notification.object as? NSWindow,
             let pageId = NoteWindowManager.shared.pageId(for: window)
         else { return }
-        AppBootstrap.shared?.notesUI.openPage(pageId)
+        AppBootstrap.shared?.notesUI.openPage(
+            NoteWindowManager.shared.currentPageId(forTab: pageId))
+    }
+}
+
+struct NoteWindowOpenInstaller: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
+            .onAppear {
+                NoteWindowManager.shared.configureOpenHandler { pageId in
+                    openWindow(id: "note", value: pageId)
+                }
+            }
+    }
+}
+
+struct NoteWindowSceneRoot: View {
+    let pageId: String
+
+    @Query private var pages: [SDPage]
+
+    init(pageId: String) {
+        self.pageId = pageId
+        _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
+    }
+
+    private var pageTitle: String {
+        guard let page = pages.first else { return "Untitled" }
+        return page.title.isEmpty ? "Untitled" : page.title
+    }
+
+    var body: some View {
+        Group {
+            if pageId.isEmpty {
+                ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
+            } else {
+                NoteTabShell(pageId: pageId, pageTitle: pageTitle)
+            }
+        }
+        .overlay {
+            NoteWindowBridge(pageId: pageId, windowTitle: pageTitle)
+                .frame(width: 0, height: 0)
+        }
+    }
+}
+
+private struct NoteWindowBridge: NSViewRepresentable {
+    let pageId: String
+    let windowTitle: String
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        Task { @MainActor in
+            guard let window = nsView.window else { return }
+            NoteWindowManager.shared.attachSceneWindow(
+                window, pageId: pageId, title: windowTitle)
+        }
     }
 }
 
@@ -402,9 +448,10 @@ private struct NoteTabShell: View {
     @State private var navState: NoteNavigationState
 
     init(pageId: String, pageTitle: String) {
-        _navState = State(initialValue: NoteNavigationState(
-            rootPageId: pageId, rootTitle: pageTitle
-        ))
+        _navState = State(
+            initialValue: NoteNavigationState(
+                rootPageId: pageId, rootTitle: pageTitle
+            ))
     }
 
     var body: some View {
@@ -423,7 +470,8 @@ private struct NoteTabShell: View {
                 let desc = FetchDescriptor<SDPage>(
                     predicate: #Predicate<SDPage> { $0.id == targetId }
                 )
-                if let page = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(desc).first {
+                if let page = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(desc).first
+                {
                     window.title = page.title.isEmpty ? "Untitled" : page.title
                 }
             }
@@ -491,78 +539,85 @@ private struct NotePageContent: View {
 
     var body: some View {
         HStack(spacing: 0) {
-                ZStack {
-                    if let page = pages.first {
-                        if showWriterMode {
-                            WriterModeView(page: page, isDark: ui.theme.isDark, theme: ui.theme, isLocked: page.isLocked)
-                                .frame(minWidth: 400, minHeight: 300)
-                        } else if showPreview {
-                            NotePreviewView(body: page.loadBody(), isDark: ui.theme.isDark)
-                                .frame(minWidth: 400, minHeight: 300)
-                        } else {
-                            ProseEditorView(page: page, isEditable: !page.isLocked)
-                                .frame(minWidth: 400, minHeight: 300)
-                        }
+            ZStack {
+                ui.theme.background.ignoresSafeArea(edges: [.horizontal, .bottom])
+
+                if let page = pages.first {
+                    if showWriterMode {
+                        WriterModeView(
+                            page: page, isDark: ui.theme.isDark, theme: ui.theme,
+                            isLocked: page.isLocked
+                        )
+                        .frame(minWidth: 400, minHeight: 300)
+                    } else if showPreview {
+                        NotePreviewView(body: page.loadBody(), isDark: ui.theme.isDark)
+                            .frame(minWidth: 400, minHeight: 300)
                     } else {
-                        ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
+                        ProseEditorView(page: page, isEditable: !page.isLocked)
                             .frame(minWidth: 400, minHeight: 300)
                     }
-
-                    // Greeting overlay — always in the view tree (no insertion delay).
-                    // Opacity is flipped instantly to 1 before the mode swap, then
-                    // animated back to 0 after the new view has settled.
-                    TransitionGreetingView(
-                        message: transitionGreeting,
-                        theme: ui.theme
-                    )
-                    .opacity(transitionOpacity)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(transitionOpacity > 0)
-                }
-                .environment(noteChatState)
-                .overlay(alignment: .top) {
-                    if noteChatState.hasResponse && noteChatState.useResponsePanel {
-                        toolbarResponseDropdown
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: noteChatState.hasResponse)
-                    }
-                }
-                .onAppear {
-                    noteChatState.loadPersistedMessages(modelContext)
-                }
-                .onDisappear {
-                    noteChatState.clear()
-                }
-                .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
-                    if wasStreaming && !isNowStreaming, let page = pages.first {
-                        noteChatState.persistMessages(modelContext, noteTitle: page.title)
-                    }
+                } else {
+                    ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
+                        .frame(minWidth: 400, minHeight: 300)
                 }
 
-                // Chat History sidebar
-                if showChatSidebar {
-                    Divider()
-                    NoteChatSidebar()
-                        .environment(noteChatState)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
-
-                // Table of Contents sidebar
-                if showTableOfContents, let page = pages.first {
-                    Divider()
-                    NoteTableOfContents(
-                        markdown: page.loadBody(),
-                        isDark: ui.theme.isDark,
-                        onNavigate: { charOffset in
-                            scrollEditorTo(charOffset: charOffset)
-                        }
-                    )
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                // Greeting overlay — always in the view tree (no insertion delay).
+                // Opacity is flipped instantly to 1 before the mode swap, then
+                // animated back to 0 after the new view has settled.
+                TransitionGreetingView(
+                    message: transitionGreeting,
+                    theme: ui.theme
+                )
+                .opacity(transitionOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(transitionOpacity > 0)
+            }
+            .environment(noteChatState)
+            .overlay(alignment: .top) {
+                if noteChatState.hasResponse && noteChatState.useResponsePanel {
+                    toolbarResponseDropdown
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.85),
+                            value: noteChatState.hasResponse)
                 }
             }
-            .animation(.smooth(duration: 0.2), value: showChatSidebar)
-            .animation(.smooth(duration: 0.2), value: showTableOfContents)
-        .background(ui.theme.background)
+            .onAppear {
+                noteChatState.loadPersistedMessages(modelContext)
+            }
+            .onDisappear {
+                noteChatState.clear()
+            }
+            .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
+                if wasStreaming && !isNowStreaming, let page = pages.first {
+                    noteChatState.persistMessages(modelContext, noteTitle: page.title)
+                }
+            }
+
+            // Chat History sidebar
+            if showChatSidebar {
+                Divider()
+                NoteChatSidebar()
+                    .environment(noteChatState)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+
+            // Table of Contents sidebar
+            if showTableOfContents, let page = pages.first {
+                Divider()
+                NoteTableOfContents(
+                    markdown: page.loadBody(),
+                    isDark: ui.theme.isDark,
+                    onNavigate: { charOffset in
+                        scrollEditorTo(charOffset: charOffset)
+                    }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .animation(.smooth(duration: 0.2), value: showChatSidebar)
+        .animation(.smooth(duration: 0.2), value: showTableOfContents)
+        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
         .toolbar {
             // — New Note (far left) —
             ToolbarItem(placement: .navigation) {
@@ -583,15 +638,21 @@ private struct NotePageContent: View {
             ToolbarItemGroup(placement: .principal) {
                 // Writer toggle
                 if !showPreview {
-                    Button { toggleWriterMode() } label: {
-                        Label("Writer", systemImage: showWriterMode ? "doc.richtext.fill" : "doc.richtext")
+                    Button {
+                        toggleWriterMode()
+                    } label: {
+                        Label(
+                            "Writer",
+                            systemImage: showWriterMode ? "doc.richtext.fill" : "doc.richtext")
                     }
                     .help("Writer Mode (\u{2318}R)")
                 }
 
                 // Preview toggle
                 if !showWriterMode {
-                    Button { togglePreviewMode() } label: {
+                    Button {
+                        togglePreviewMode()
+                    } label: {
                         Label("Preview", systemImage: showPreview ? "eye.fill" : "eye")
                     }
                     .help("Preview (\u{2318}E)")
@@ -604,7 +665,11 @@ private struct NotePageContent: View {
                     Button {
                         withAnimation(.smooth(duration: 0.2)) { showChatSidebar.toggle() }
                     } label: {
-                        Label("Chat History", systemImage: showChatSidebar ? "bubble.left.and.text.bubble.right.fill" : "bubble.left.and.text.bubble.right")
+                        Label(
+                            "Chat History",
+                            systemImage: showChatSidebar
+                                ? "bubble.left.and.text.bubble.right.fill"
+                                : "bubble.left.and.text.bubble.right")
                     }
                     .help("Chat History")
                 }
@@ -650,7 +715,11 @@ private struct NotePageContent: View {
             Button("") {
                 if let page = pages.first {
                     page.isPinned.toggle()
-                    do { try modelContext.save() } catch { Log.notes.error("Save failed (pin shortcut): \(error.localizedDescription, privacy: .private)") }
+                    do { try modelContext.save() } catch {
+                        Log.notes.error(
+                            "Save failed (pin shortcut): \(error.localizedDescription, privacy: .private)"
+                        )
+                    }
                 }
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
@@ -658,7 +727,11 @@ private struct NotePageContent: View {
             Button("") {
                 if let page = pages.first {
                     page.isLocked.toggle()
-                    do { try modelContext.save() } catch { Log.notes.error("Save failed (lock shortcut): \(error.localizedDescription, privacy: .private)") }
+                    do { try modelContext.save() } catch {
+                        Log.notes.error(
+                            "Save failed (lock shortcut): \(error.localizedDescription, privacy: .private)"
+                        )
+                    }
                 }
             }
             .keyboardShortcut("l", modifiers: [.command, .shift])
@@ -688,12 +761,15 @@ private struct NotePageContent: View {
         }
         .sheet(isPresented: $showDiffSheet) {
             if let page = pages.first {
-                DiffSheetView(pageId: page.id, currentTitle: page.title, currentBody: page.loadBody())
+                DiffSheetView(
+                    pageId: page.id, currentTitle: page.title, currentBody: page.loadBody())
             }
         }
         .sheet(isPresented: $showBlockPropertySheet) {
             BlockPropertySheet(
-                existing: BlockPropertyParser.parse(blockPropertyLineText).map { ($0.key, $0.value) },
+                existing: BlockPropertyParser.parse(blockPropertyLineText).map {
+                    ($0.key, $0.value)
+                },
                 onSave: { properties in
                     applyBlockProperties(properties, lineRange: blockPropertyLineRange)
                     showBlockPropertySheet = false
@@ -705,29 +781,39 @@ private struct NotePageContent: View {
             guard let newTitle, !newTitle.isEmpty else { return }
             navState?.syncTitle(pageId: pageId, title: newTitle)
         }
-        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)) { notif in
+        .onReceive(
+            NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)
+        ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
             snapshotEditorSelection()
             contextMenuIdeaTab = .ideas
             showIdeasPopover = true
         }
-        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.createBrainDumpNotification)) { notif in
+        .onReceive(
+            NotificationCenter.default.publisher(for: ClickableTextView.createBrainDumpNotification)
+        ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
             snapshotEditorSelection()
             contextMenuIdeaTab = .brainDumps
             showIdeasPopover = true
         }
-        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.aiOperationNotification)) { notif in
+        .onReceive(
+            NotificationCenter.default.publisher(for: ClickableTextView.aiOperationNotification)
+        ) { notif in
             guard let info = notif.userInfo as? [String: String],
-                  let op = info["operation"],
-                  info["pageId"] == pageId else { return }
+                let op = info["operation"],
+                info["pageId"] == pageId
+            else { return }
             let selected = info["selectedText"]
             handleAIContextMenuOperation(op, selectedText: selected)
         }
-        .onReceive(NotificationCenter.default.publisher(for: ClickableTextView.blockPropertyNotification)) { notif in
+        .onReceive(
+            NotificationCenter.default.publisher(for: ClickableTextView.blockPropertyNotification)
+        ) { notif in
             guard let info = notif.userInfo as? [String: Any],
-                  info["pageId"] as? String == pageId,
-                  let lineText = info["lineText"] as? String else { return }
+                info["pageId"] as? String == pageId,
+                let lineText = info["lineText"] as? String
+            else { return }
             blockPropertyLineText = lineText
             if let rangeValue = info["lineRange"] as? NSValue {
                 blockPropertyLineRange = rangeValue.rangeValue
@@ -773,12 +859,13 @@ private struct NotePageContent: View {
     private func applyBlockProperties(_ properties: [(String, PropertyValue)], lineRange: NSRange) {
         // Build the @key=value suffix string
         let suffix = properties.map { key, value in
-            let valStr: String = switch value {
-            case .string(let s): s
-            case .float(let f): String(f)
-            case .int(let i): String(i)
-            case .bool(let b): b ? "true" : "false"
-            }
+            let valStr: String =
+                switch value {
+                case .string(let s): s
+                case .float(let f): String(f)
+                case .int(let i): String(i)
+                case .bool(let b): b ? "true" : "false"
+                }
             return "@\(key)=\(valStr)"
         }.joined(separator: " ")
 
@@ -798,7 +885,7 @@ private struct NotePageContent: View {
             userInfo: [
                 "pageId": pageId,
                 "range": NSValue(range: lineRange),
-                "replacement": newLine
+                "replacement": newLine,
             ]
         )
     }
@@ -807,49 +894,71 @@ private struct NotePageContent: View {
         let mapping: (operation: NotesOperation, systemPrompt: String, userPrompt: String) = {
             switch op {
             case "rewrite":
-                return (.rewrite,
+                return (
+                    .rewrite,
                     "You are a writing assistant. Rewrite the selected text to improve clarity and flow. Output ONLY the rewritten text.",
-                    "Rewrite this:\n\n\(selectedText ?? "")")
+                    "Rewrite this:\n\n\(selectedText ?? "")"
+                )
             case "summarize":
-                return (.summarize,
+                return (
+                    .summarize,
                     "You are a summarization assistant. Summarize the selected text concisely. Output ONLY the summary.",
-                    "Summarize this:\n\n\(selectedText ?? "")")
+                    "Summarize this:\n\n\(selectedText ?? "")"
+                )
             case "expand":
-                return (.expand,
+                return (
+                    .expand,
                     "You are a writing assistant. Expand the selected text with more detail and depth. Maintain the same tone.",
-                    "Expand on this:\n\n\(selectedText ?? "")")
+                    "Expand on this:\n\n\(selectedText ?? "")"
+                )
             case "simplify":
-                return (.rewrite,
+                return (
+                    .rewrite,
                     "You are a writing assistant. Simplify the text to be easier to understand. Use shorter sentences. Output ONLY the simplified text.",
-                    "Simplify this:\n\n\(selectedText ?? "")")
+                    "Simplify this:\n\n\(selectedText ?? "")"
+                )
             case "toList":
-                return (.outline,
+                return (
+                    .outline,
                     "You are a formatting assistant. Convert the text into a clean markdown bullet list. Output ONLY the list.",
-                    "Convert to a bullet list:\n\n\(selectedText ?? "")")
+                    "Convert to a bullet list:\n\n\(selectedText ?? "")"
+                )
             case "toTable":
-                return (.outline,
+                return (
+                    .outline,
                     "You are a formatting assistant. Convert the text into a markdown table. Output ONLY the table.",
-                    "Convert to a markdown table:\n\n\(selectedText ?? "")")
+                    "Convert to a markdown table:\n\n\(selectedText ?? "")"
+                )
             case "continue":
-                return (.continueWriting,
+                return (
+                    .continueWriting,
                     "You are a writing assistant. Continue writing from where the note left off. Match the tone and style. Output ONLY the continuation.",
-                    "Continue writing from where this note ends.")
+                    "Continue writing from where this note ends."
+                )
             case "outline":
-                return (.outline,
+                return (
+                    .outline,
                     "You are a structural analysis assistant. Generate a structured outline using markdown headers and bullet points. Output ONLY the outline.",
-                    "Generate a structured outline for this note.")
+                    "Generate a structured outline for this note."
+                )
             case "structure":
-                return (.analyze,
+                return (
+                    .analyze,
                     "You are a note organization assistant. Suggest a better structure for this note. Output a reorganized version.",
-                    "Suggest a better structure for this note.")
+                    "Suggest a better structure for this note."
+                )
             case "restructure":
-                return (.analyze,
+                return (
+                    .analyze,
                     "You are a note restructuring assistant. Completely reorganize the entire note for better clarity, flow, and logical progression. Preserve ALL content. Use proper markdown formatting. Output the COMPLETE restructured note.",
-                    "Restructure this entire note for better organization and flow.")
+                    "Restructure this entire note for better organization and flow."
+                )
             default:
-                return (.ask(query: selectedText ?? "Help me with this note."),
+                return (
+                    .ask(query: selectedText ?? "Help me with this note."),
                     "You are a helpful note assistant. Answer concisely based on the note content.",
-                    selectedText ?? "Help me with this note.")
+                    selectedText ?? "Help me with this note."
+                )
             }
         }()
 
@@ -867,7 +976,8 @@ private struct NotePageContent: View {
         // Find the active NSTextView and scroll to the character offset.
         guard let window = NSApp.keyWindow else { return }
         // Walk the responder chain to find the text view, or search subviews.
-        let textView: NSTextView? = window.firstResponder as? NSTextView
+        let textView: NSTextView? =
+            window.firstResponder as? NSTextView
             ?? window.contentView?.findFirstTextView()
         guard let tv = textView else { return }
 
@@ -1027,7 +1137,8 @@ private struct NotePageContent: View {
                     .padding(14)
                 } else {
                     MarkdownTextView(
-                        content: noteChatState.responseText + (noteChatState.isStreaming ? " \u{258D}" : ""),
+                        content: noteChatState.responseText
+                            + (noteChatState.isStreaming ? " \u{258D}" : ""),
                         theme: ui.theme
                     )
                     .font(.system(size: 13))
@@ -1082,7 +1193,8 @@ private struct NotePageContent: View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(noteChatState.isStreaming ? ui.theme.accent : ui.theme.textTertiary)
+                .foregroundStyle(
+                    noteChatState.isStreaming ? ui.theme.accent : ui.theme.textTertiary)
 
             @Bindable var chat = noteChatState
             TextField("Ask\u{2026}", text: $chat.inputText)
@@ -1098,7 +1210,9 @@ private struct NotePageContent: View {
                 }
 
             if noteChatState.isStreaming {
-                Button { noteChatState.stopStreaming() } label: {
+                Button {
+                    noteChatState.stopStreaming()
+                } label: {
                     Image(systemName: "stop.fill")
                         .font(.system(size: 9))
                         .foregroundStyle(ui.theme.error)
@@ -1140,48 +1254,78 @@ private struct NotePageContent: View {
             if let page = pages.first {
                 Button {
                     page.isPinned.toggle()
-                    do { try modelContext.save() } catch { Log.notes.error("Save failed (pin toggle): \(error.localizedDescription, privacy: .private)") }
+                    do { try modelContext.save() } catch {
+                        Log.notes.error(
+                            "Save failed (pin toggle): \(error.localizedDescription, privacy: .private)"
+                        )
+                    }
                 } label: {
-                    Label(page.isPinned ? "Unpin" : "Pin", systemImage: page.isPinned ? "pin.fill" : "pin")
+                    Label(
+                        page.isPinned ? "Unpin" : "Pin",
+                        systemImage: page.isPinned ? "pin.fill" : "pin")
                 }
                 Button {
                     page.isLocked.toggle()
-                    do { try modelContext.save() } catch { Log.notes.error("Save failed (lock toggle): \(error.localizedDescription, privacy: .private)") }
+                    do { try modelContext.save() } catch {
+                        Log.notes.error(
+                            "Save failed (lock toggle): \(error.localizedDescription, privacy: .private)"
+                        )
+                    }
                 } label: {
-                    Label(page.isLocked ? "Unlock" : "Lock", systemImage: page.isLocked ? "lock.fill" : "lock.open")
+                    Label(
+                        page.isLocked ? "Unlock" : "Lock",
+                        systemImage: page.isLocked ? "lock.fill" : "lock.open")
                 }
                 Button {
                     page.isFavorite.toggle()
-                    do { try modelContext.save() } catch { Log.notes.error("Save failed (favorite toggle): \(error.localizedDescription, privacy: .private)") }
+                    do { try modelContext.save() } catch {
+                        Log.notes.error(
+                            "Save failed (favorite toggle): \(error.localizedDescription, privacy: .private)"
+                        )
+                    }
                 } label: {
-                    Label(page.isFavorite ? "Unfavorite" : "Favorite", systemImage: page.isFavorite ? "star.fill" : "star")
+                    Label(
+                        page.isFavorite ? "Unfavorite" : "Favorite",
+                        systemImage: page.isFavorite ? "star.fill" : "star")
                 }
             }
 
             Divider()
 
-            Button { vaultSync.savePage(pageId: pageId) } label: {
+            Button {
+                vaultSync.savePage(pageId: pageId)
+            } label: {
                 Label("Save (\u{2318}S)", systemImage: "square.and.arrow.down")
             }
 
-            Button { showInfoPopover.toggle() } label: {
+            Button {
+                showInfoPopover.toggle()
+            } label: {
                 Label("Info", systemImage: "info.circle")
             }
 
-            Button { captureSelectionAndOpenIdeas() } label: {
+            Button {
+                captureSelectionAndOpenIdeas()
+            } label: {
                 Label("Ideas", systemImage: "lightbulb")
             }
 
             Button {
                 withAnimation { showTableOfContents.toggle() }
             } label: {
-                Label("Table of Contents (\u{2318}T)", systemImage: showTableOfContents ? "list.bullet.indent" : "list.bullet")
+                Label(
+                    "Table of Contents (\u{2318}T)",
+                    systemImage: showTableOfContents ? "list.bullet.indent" : "list.bullet")
             }
 
             Divider()
 
-            Button { scanForCitations() } label: {
-                Label(isScanningCitations ? "Scanning\u{2026}" : "Scan Sources", systemImage: "text.magnifyingglass")
+            Button {
+                scanForCitations()
+            } label: {
+                Label(
+                    isScanningCitations ? "Scanning\u{2026}" : "Scan Sources",
+                    systemImage: "text.magnifyingglass")
             }
             .disabled(isScanningCitations || pages.first == nil)
 
@@ -1191,13 +1335,17 @@ private struct NotePageContent: View {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
 
-            Button { showDiffSheet = true } label: {
+            Button {
+                showDiffSheet = true
+            } label: {
                 Label("Diff (\u{2318}D)", systemImage: "chevron.left.forwardslash.chevron.right")
             }
 
             Divider()
 
-            Button { UtilityWindowManager.shared.show(.notes) } label: {
+            Button {
+                UtilityWindowManager.shared.show(.notes)
+            } label: {
                 Label("Notes Sidebar", systemImage: "sidebar.leading")
             }
         } label: {
@@ -1260,12 +1408,16 @@ private struct NotePageContent: View {
         let text = "# \(page.title)\n\n\(page.loadBody())" as NSString
         // Use NSApp.keyWindow directly (not from toolbar menu context where it can be nil).
         // Fall back to the note tab group windows.
-        let window = NSApp.keyWindow
-            ?? NSApp.windows.first(where: { $0.tabbingIdentifier == "epistemos-note-tabs" && $0.isVisible })
+        let window =
+            NSApp.keyWindow
+            ?? NSApp.windows.first(where: {
+                $0.tabbingIdentifier == "epistemos-note-tabs" && $0.isVisible
+            })
         guard let contentView = window?.contentView else { return }
         let picker = NSSharingServicePicker(items: [text])
-        let buttonRect = NSRect(x: contentView.bounds.midX, y: contentView.bounds.maxY - 40,
-                                width: 1, height: 1)
+        let buttonRect = NSRect(
+            x: contentView.bounds.midX, y: contentView.bounds.maxY - 40,
+            width: 1, height: 1)
         picker.show(relativeTo: buttonRect, of: contentView, preferredEdge: .minY)
     }
 
@@ -1278,8 +1430,9 @@ private struct NotePageContent: View {
         isScanningCitations = true
 
         let fullText = "# \(page.title)\n\n\(page.loadBody())"
-        let papers = CitationExtractor.extract(from: fullText, source: "note-scan",
-                                                originNoteTitle: page.title)
+        let papers = CitationExtractor.extract(
+            from: fullText, source: "note-scan",
+            originNoteTitle: page.title)
 
         if papers.isEmpty {
             eventBus.emitToast("No sources found in this note", type: .info)
@@ -1287,7 +1440,9 @@ private struct NotePageContent: View {
             for paper in papers {
                 researchState.addSavedPaper(paper)
             }
-            eventBus.emitToast("Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library", type: .success)
+            eventBus.emitToast(
+                "Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library",
+                type: .success)
         }
 
         isScanningCitations = false
@@ -1341,7 +1496,10 @@ private struct IdeasPanel: View {
     private func writeIdeas(_ ideas: [NoteIdea]) {
         page.ideas = ideas
         page.updatedAt = .now
-        do { try modelContext.save() } catch { Log.notes.error("Save failed (write ideas): \(error.localizedDescription, privacy: .private)") }
+        do { try modelContext.save() } catch {
+            Log.notes.error(
+                "Save failed (write ideas): \(error.localizedDescription, privacy: .private)")
+        }
     }
 
     var body: some View {
@@ -1403,12 +1561,14 @@ private struct IdeasPanel: View {
                         Text(activeTab == .ideas ? "No ideas yet" : "No brain dumps yet")
                             .font(.system(size: 12))
                             .foregroundStyle(theme.mutedForeground.opacity(0.5))
-                        Text(activeTab == .ideas
-                             ? "Place your cursor on a line, then add an idea"
-                             : "Dump raw thoughts — format & insert with AI")
-                            .font(.system(size: 10))
-                            .foregroundStyle(theme.mutedForeground.opacity(0.3))
-                            .multilineTextAlignment(.center)
+                        Text(
+                            activeTab == .ideas
+                                ? "Place your cursor on a line, then add an idea"
+                                : "Dump raw thoughts — format & insert with AI"
+                        )
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.mutedForeground.opacity(0.3))
+                        .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 30)
@@ -1454,8 +1614,11 @@ private struct IdeasPanel: View {
                 HStack(spacing: 4) {
                     Image(systemName: showNewForm ? "xmark" : "plus")
                         .font(.system(size: 10, weight: .semibold))
-                    Text(showNewForm ? "Cancel" : (activeTab == .ideas ? "New Idea" : "New Brain Dump"))
-                        .font(.system(size: 11, weight: .medium))
+                    Text(
+                        showNewForm
+                            ? "Cancel" : (activeTab == .ideas ? "New Idea" : "New Brain Dump")
+                    )
+                    .font(.system(size: 11, weight: .medium))
                 }
                 .foregroundStyle(showNewForm ? theme.mutedForeground : theme.accent)
                 .frame(maxWidth: .infinity)
@@ -1523,8 +1686,10 @@ private struct IdeasPanel: View {
                 Spacer()
                 Button("Save") { saveNewItem() }
                     .font(.system(size: 11, weight: .medium))
-                    .disabled(newTitle.trimmingCharacters(in: .whitespaces).isEmpty
-                              && newBody.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(
+                        newTitle.trimmingCharacters(in: .whitespaces).isEmpty
+                            && newBody.trimmingCharacters(in: .whitespaces).isEmpty
+                    )
                     .keyboardShortcut(.return, modifiers: .command)
             }
         }
@@ -1561,7 +1726,8 @@ private struct IdeasPanel: View {
     private static func findEditorTextView() -> NSTextView? {
         // First try the direct responder chain
         if let tv = NSApp.keyWindow?.firstResponder as? NSTextView,
-           tv.isEditable {
+            tv.isEditable
+        {
             return tv
         }
         // Search all windows in the note tab group
@@ -1593,7 +1759,8 @@ private struct IdeasPanel: View {
 
         let idea = NoteIdea(
             type: activeTab == .ideas ? .idea : .brainDump,
-            title: trimmedTitle.isEmpty ? (activeTab == .ideas ? "Untitled Idea" : "Brain Dump") : trimmedTitle,
+            title: trimmedTitle.isEmpty
+                ? (activeTab == .ideas ? "Untitled Idea" : "Brain Dump") : trimmedTitle,
             body: trimmedBody,
             lineAnchor: anchor?.line,
             lineContext: anchor?.context
@@ -1711,7 +1878,10 @@ private struct IdeasPanel: View {
                 options: .byLines
             ) { _, _, enclosingRange, stop in
                 if lineIdx == start { rStart = enclosingRange.location }
-                if lineIdx == end { rEnd = NSMaxRange(enclosingRange); stop.pointee = true }
+                if lineIdx == end {
+                    rEnd = NSMaxRange(enclosingRange)
+                    stop.pointee = true
+                }
                 lineIdx += 1
             }
             replaceRange = NSRange(location: rStart, length: rEnd - rStart)
@@ -1730,44 +1900,47 @@ private struct IdeasPanel: View {
         let afterStart = NSMaxRange(replaceRange)
         let afterLen = min(500, nsBody.length - afterStart)
 
-        let textBefore = beforeLen > 0
+        let textBefore =
+            beforeLen > 0
             ? nsBody.substring(with: NSRange(location: beforeStart, length: beforeLen))
             : ""
-        let textAfter = afterLen > 0
+        let textAfter =
+            afterLen > 0
             ? nsBody.substring(with: NSRange(location: afterStart, length: afterLen))
             : ""
 
         Task {
             do {
                 let prompt = """
-                You are rewriting a section of a note titled "\(noteTitle)".
+                    You are rewriting a section of a note titled "\(noteTitle)".
 
-                CONTEXT BEFORE the target section:
-                \(textBefore.isEmpty ? "(start of note)" : textBefore)
+                    CONTEXT BEFORE the target section:
+                    \(textBefore.isEmpty ? "(start of note)" : textBefore)
 
-                TARGET SECTION TO REWRITE (this is what you must replace):
-                ---
-                \(targetText)
-                ---
+                    TARGET SECTION TO REWRITE (this is what you must replace):
+                    ---
+                    \(targetText)
+                    ---
 
-                CONTEXT AFTER the target section:
-                \(textAfter.isEmpty ? "(end of note)" : textAfter)
+                    CONTEXT AFTER the target section:
+                    \(textAfter.isEmpty ? "(end of note)" : textAfter)
 
-                NEW CONTENT TO INTEGRATE (brain dump / idea from the user):
-                Title: \(item.title)
-                Content: \(ideaText)
+                    NEW CONTENT TO INTEGRATE (brain dump / idea from the user):
+                    Title: \(item.title)
+                    Content: \(ideaText)
 
-                INSTRUCTIONS:
-                1. Combine the TARGET SECTION and the NEW CONTENT into ONE rewritten block.
-                2. The new content's ideas must be DEEPLY WOVEN into the existing text — not appended, not listed separately, not tacked on at the end.
-                3. The result must flow naturally from the CONTEXT BEFORE and into the CONTEXT AFTER.
-                4. Preserve the author's voice, markdown formatting, and academic tone.
-                5. Return ONLY the rewritten target section. No explanation, no preamble, no "Here is the rewritten section:" prefix.
-                """
+                    INSTRUCTIONS:
+                    1. Combine the TARGET SECTION and the NEW CONTENT into ONE rewritten block.
+                    2. The new content's ideas must be DEEPLY WOVEN into the existing text — not appended, not listed separately, not tacked on at the end.
+                    3. The result must flow naturally from the CONTEXT BEFORE and into the CONTEXT AFTER.
+                    4. Preserve the author's voice, markdown formatting, and academic tone.
+                    5. Return ONLY the rewritten target section. No explanation, no preamble, no "Here is the rewritten section:" prefix.
+                    """
 
                 let result = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt,
-                    systemPrompt: "You are a writing assistant that rewrites text sections. You deeply merge new ideas into existing prose. You never append or list ideas separately — you weave them into the fabric of the existing text. Return only the rewritten text, nothing else."
+                    systemPrompt:
+                        "You are a writing assistant that rewrites text sections. You deeply merge new ideas into existing prose. You never append or list ideas separately — you weave them into the fabric of the existing text. Return only the rewritten text, nothing else."
                 )
 
                 let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1799,7 +1972,8 @@ private struct IdeasPanel: View {
                 eventBus.emitToast("Integrated into note", type: .success)
             } catch {
                 busyItemId = nil
-                eventBus.emitToast("Apple Intelligence: \(error.localizedDescription)", type: .error)
+                eventBus.emitToast(
+                    "Apple Intelligence: \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -1812,17 +1986,18 @@ private struct IdeasPanel: View {
         Task {
             do {
                 let prompt = """
-                Take this raw brain dump and format it into a clear, coherent paragraph or set of points. \
-                Keep the original meaning and ideas intact. Don't add new ideas — just clean up the language, \
-                fix grammar, organize the thoughts, and make it readable. Return ONLY the formatted text.
+                    Take this raw brain dump and format it into a clear, coherent paragraph or set of points. \
+                    Keep the original meaning and ideas intact. Don't add new ideas — just clean up the language, \
+                    fix grammar, organize the thoughts, and make it readable. Return ONLY the formatted text.
 
-                Brain dump:
-                \(item.body)
-                """
+                    Brain dump:
+                    \(item.body)
+                    """
 
                 let result = try await AppleIntelligenceService.shared.generate(
                     prompt: prompt,
-                    systemPrompt: "You clean up raw brain dumps into coherent, readable text. Preserve the author's voice and ideas."
+                    systemPrompt:
+                        "You clean up raw brain dumps into coherent, readable text. Preserve the author's voice and ideas."
                 )
 
                 let cleaned = result.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1839,7 +2014,8 @@ private struct IdeasPanel: View {
                 busyItemId = nil
             } catch {
                 busyItemId = nil
-                eventBus.emitToast("Apple Intelligence: \(error.localizedDescription)", type: .error)
+                eventBus.emitToast(
+                    "Apple Intelligence: \(error.localizedDescription)", type: .error)
             }
         }
     }
@@ -1903,7 +2079,9 @@ private struct IdeaRow: View {
                         .scaleEffect(0.5)
                         .frame(width: 16, height: 16)
                 } else {
-                    Button { onDelete() } label: {
+                    Button {
+                        onDelete()
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 8))
                             .foregroundStyle(theme.textTertiary)
@@ -1918,7 +2096,9 @@ private struct IdeaRow: View {
 
             // Line anchor badge — click to navigate
             if let line = item.lineAnchor {
-                Button { onGoToLine() } label: {
+                Button {
+                    onGoToLine()
+                } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "mappin")
                             .font(.system(size: 7))
@@ -1945,7 +2125,9 @@ private struct IdeaRow: View {
             if isExpanded && !isBusy {
                 HStack(spacing: 8) {
                     // Insert at anchor
-                    Button { onInsert() } label: {
+                    Button {
+                        onInsert()
+                    } label: {
                         HStack(spacing: 3) {
                             Image(systemName: "text.insert")
                                 .font(.system(size: 9))
@@ -1963,7 +2145,9 @@ private struct IdeaRow: View {
                     .help("Insert text at anchor line")
 
                     // Integrate with AI
-                    Button { onIntegrate() } label: {
+                    Button {
+                        onIntegrate()
+                    } label: {
                         HStack(spacing: 3) {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 9))
@@ -1982,7 +2166,9 @@ private struct IdeaRow: View {
 
                     // Format brain dump (brain dumps only, no formatted body yet)
                     if item.type == .brainDump && item.formattedBody == nil && !item.body.isEmpty {
-                        Button { onFormat() } label: {
+                        Button {
+                            onFormat()
+                        } label: {
                             HStack(spacing: 3) {
                                 Image(systemName: "wand.and.stars")
                                     .font(.system(size: 9))
@@ -2059,20 +2245,28 @@ private struct NoteBreadcrumbBar: View {
     var body: some View {
         HStack(spacing: 0) {
             // Back / Forward buttons
-            Button { navState.back() } label: {
+            Button {
+                navState.back()
+            } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(ui.theme.mutedForeground.opacity(navState.canGoBack ? 0.6 : 0.25))
+                    .foregroundStyle(
+                        ui.theme.mutedForeground.opacity(navState.canGoBack ? 0.6 : 0.25)
+                    )
                     .frame(width: 20, height: 20)
             }
             .buttonStyle(.plain)
             .disabled(!navState.canGoBack)
             .help("Back (⌘[)")
 
-            Button { navState.forward() } label: {
+            Button {
+                navState.forward()
+            } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(ui.theme.mutedForeground.opacity(navState.canGoForward ? 0.6 : 0.25))
+                    .foregroundStyle(
+                        ui.theme.mutedForeground.opacity(navState.canGoForward ? 0.6 : 0.25)
+                    )
                     .frame(width: 20, height: 20)
             }
             .buttonStyle(.plain)
@@ -2097,12 +2291,19 @@ private struct NoteBreadcrumbBar: View {
                                 Image(systemName: "doc.text")
                                     .font(.system(size: 9))
                                 Text(item.title)
-                                    .font(.system(size: 11, weight: item.id == navState.currentPageId ? .semibold : .regular))
+                                    .font(
+                                        .system(
+                                            size: 11,
+                                            weight: item.id == navState.currentPageId
+                                                ? .semibold : .regular)
+                                    )
                                     .lineLimit(1)
                             }
-                            .foregroundStyle(item.id == navState.currentPageId
-                                             ? ui.theme.accent
-                                             : ui.theme.mutedForeground.opacity(0.7))
+                            .foregroundStyle(
+                                item.id == navState.currentPageId
+                                    ? ui.theme.accent
+                                    : ui.theme.mutedForeground.opacity(0.7)
+                            )
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(
@@ -2284,9 +2485,9 @@ private struct TransitionGreetingView: View {
 
 // MARK: - NSView Helper
 
-private extension NSView {
+extension NSView {
     /// Recursively find the first NSTextView in the subview hierarchy.
-    func findFirstTextView() -> NSTextView? {
+    fileprivate func findFirstTextView() -> NSTextView? {
         for subview in subviews {
             if let tv = subview as? NSTextView { return tv }
             if let found = subview.findFirstTextView() { return found }

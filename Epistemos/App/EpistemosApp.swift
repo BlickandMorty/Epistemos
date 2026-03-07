@@ -17,6 +17,9 @@ struct EpistemosApp: App {
                 onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
             )
                 .withAppEnvironment(bootstrap)
+                .overlay {
+                    NoteWindowOpenInstaller()
+                }
                 .onAppear {
                     StatusBar.shared.setup()
                     HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
@@ -51,6 +54,14 @@ struct EpistemosApp: App {
                 ui: bootstrap.uiState, chat: bootstrap.chatState, notesUI: bootstrap.notesUI,
                 vaultSync: bootstrap.vaultSync)
         }
+
+        WindowGroup("Note", id: "note", for: String.self) { $pageId in
+            NoteWindowSceneRoot(pageId: pageId ?? "")
+                .withAppEnvironment(bootstrap)
+                .modelContainer(bootstrap.modelContainer)
+                .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
+        }
+        .defaultSize(width: 760, height: 600)
 
         // Knowledge Graph uses a full-screen hologram overlay (HologramController),
         // not a SwiftUI Window scene. Toggle with Cmd+Shift+G.

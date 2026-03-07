@@ -59,8 +59,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     /// Minimum horizontal padding even at narrow widths.
     private static let minHorizontalInset: CGFloat = 60
     /// Vertical breathing room inside the text container.
-    /// Pushes content down so the title has room to breathe.
-    private static let verticalInset: CGFloat = 54
+    /// Clears the unified toolbar (~28pt) with a small gap below.
+    private static let verticalInset: CGFloat = 28
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 

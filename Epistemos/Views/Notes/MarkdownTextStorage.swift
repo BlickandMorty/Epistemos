@@ -908,7 +908,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
     private nonisolated(unsafe) static let h1Style: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
-        ps.paragraphSpacingBefore = 30   // Balanced with textContainerInset (54pt top)
+        ps.paragraphSpacingBefore = 30   // Balanced with textContainerInset
         ps.paragraphSpacing = 4          // Tight gap below title to body text
         ps.lineSpacing = 0
         return ps.copy() as! NSParagraphStyle
