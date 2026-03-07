@@ -1153,7 +1153,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             let border = CAShapeLayer()
             border.fillColor = nil
             border.lineWidth = 0.5
-            border.zPosition = 10
+            border.zPosition = -1
             layer.addSublayer(border)
             tableBorderLayer = border
 
