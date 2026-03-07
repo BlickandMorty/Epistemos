@@ -2250,64 +2250,68 @@ private struct NoteBreadcrumbBar: View {
     let navState: NoteNavigationState
     @Environment(UIState.self) private var ui
     @State private var isHovering = false
+    @State private var hoveredItemId: String?
 
     var body: some View {
         ZStack(alignment: .trailing) {
             if isHovering {
                 // Expanded: page list
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: 1) {
                     ForEach(Array(navState.stack.enumerated()), id: \.element.id) { _, item in
+                        let isCurrent = item.id == navState.currentPageId
+                        let isItemHovered = hoveredItemId == item.id
+
                         Button {
                             navState.navigateTo(pageId: item.id)
                         } label: {
                             Text(item.title)
-                                .font(.system(size: 11, weight: item.id == navState.currentPageId ? .semibold : .regular))
+                                .font(.system(size: 12, weight: isCurrent ? .medium : .regular))
                                 .lineLimit(1)
-                                .truncationMode(.middle)
-                                .foregroundStyle(
-                                    item.id == navState.currentPageId
-                                        ? ui.theme.accent
-                                        : .primary.opacity(0.7)
-                                )
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
+                                .truncationMode(.tail)
+                                .foregroundStyle(isItemHovered ? .white : .primary.opacity(0.8))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
                                 .frame(maxWidth: .infinity, alignment: .trailing)
-                                .background(
-                                    item.id == navState.currentPageId
-                                        ? ui.theme.accent.opacity(0.1)
-                                        : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: 6)
-                                )
+                                .background {
+                                    if isItemHovered {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(ui.theme.accent.opacity(0.7))
+                                    }
+                                }
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .onHover { h in hoveredItemId = h ? item.id : nil }
                     }
                 }
-                .padding(8)
-                .frame(width: 180)
+                .padding(6)
+                .frame(width: 220)
                 .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: .black.opacity(0.15), radius: 10, y: 3)
-                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .trailing)))
+                .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+                .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .trailing)))
             } else {
-                // Collapsed: dot stack with glow
-                VStack(spacing: 8) {
+                // Collapsed: segmented horizontal dashes
+                VStack(alignment: .trailing, spacing: 5) {
                     ForEach(Array(navState.stack.enumerated()), id: \.element.id) { _, item in
-                        Circle()
-                            .fill(ui.theme.accent.opacity(item.id == navState.currentPageId ? 0.9 : 0.35))
-                            .frame(
-                                width: item.id == navState.currentPageId ? 6 : 4,
-                                height: item.id == navState.currentPageId ? 6 : 4
-                            )
+                        let isCurrent = item.id == navState.currentPageId
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(ui.theme.accent.opacity(isCurrent ? 0.9 : 0.5))
+                            .frame(width: isCurrent ? 16 : 10, height: 2)
                     }
                 }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 4)
-                .shadow(color: ui.theme.accent.opacity(0.5), radius: 6)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 3)
                 .transition(.opacity)
             }
         }
-        .animation(.smooth(duration: 0.2), value: isHovering)
+        .animation(.spring(duration: 0.25, bounce: 0.15), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
+            if hovering {
+                NSCursor.arrow.push()
+            } else {
+                NSCursor.pop()
+            }
         }
     }
 }
