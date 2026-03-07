@@ -199,30 +199,44 @@ final class ClickableTextView: NSTextView {
         return super.performKeyEquivalent(with: event)
     }
 
-    // MARK: - Zoom
+    // MARK: - Zoom (native text scaling — crisp at any level)
 
     private static let minZoom: CGFloat = 0.5
     private static let maxZoom: CGFloat = 2.0
     private static let zoomStep: CGFloat = 0.1
 
+    /// Current scale factor applied via scaleUnitSquare.
+    private var currentScale: CGFloat = 1.0
+
     override func magnify(with event: NSEvent) {
-        guard let sv = enclosingScrollView else { return }
-        let newMag = max(Self.minZoom, min(Self.maxZoom, sv.magnification + event.magnification))
-        sv.magnification = newMag
+        let newScale = max(Self.minZoom, min(Self.maxZoom, currentScale + event.magnification))
+        applyScale(newScale)
     }
 
     private func zoomIn() {
-        guard let sv = enclosingScrollView else { return }
-        sv.magnification = min(Self.maxZoom, sv.magnification + Self.zoomStep)
+        applyScale(min(Self.maxZoom, currentScale + Self.zoomStep))
     }
 
     private func zoomOut() {
-        guard let sv = enclosingScrollView else { return }
-        sv.magnification = max(Self.minZoom, sv.magnification - Self.zoomStep)
+        applyScale(max(Self.minZoom, currentScale - Self.zoomStep))
     }
 
     private func resetZoom() {
-        enclosingScrollView?.magnification = 1.0
+        applyScale(1.0)
+    }
+
+    private func applyScale(_ newScale: CGFloat) {
+        let factor = newScale / currentScale
+        scaleUnitSquare(to: NSSize(width: factor, height: factor))
+        currentScale = newScale
+        // Resize text container to match new coordinate space
+        if let tc = textContainer, let sv = enclosingScrollView {
+            let visibleWidth = sv.contentView.bounds.width / currentScale
+            tc.containerSize = NSSize(width: max(visibleWidth - textContainerInset.width * 2, 0),
+                                      height: CGFloat.greatestFiniteMagnitude)
+        }
+        needsDisplay = true
+        layoutManager?.ensureLayout(for: textContainer!)
     }
 
     // MARK: - Insert Image
