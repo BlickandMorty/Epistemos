@@ -508,7 +508,9 @@ private struct NotePageContent: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(transitionOpacity > 0)
             }
-            .background(ui.theme.background)
+            .background {
+                ui.theme.background.ignoresSafeArea(edges: [.horizontal, .bottom])
+            }
             .environment(noteChatState)
             .overlay(alignment: .top) {
                 if noteChatState.hasResponse && noteChatState.useResponsePanel {
