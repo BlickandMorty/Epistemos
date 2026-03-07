@@ -127,12 +127,11 @@ final class UtilityWindowManager {
             // Full NSWindow — appears in Window menu, dock, Mission Control
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-                styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+                styleMask: [.titled, .closable, .resizable, .miniaturizable],
                 backing: .buffered,
                 defer: false
             )
             window.title = kind.title
-            window.titlebarAppearsTransparent = true
             window.isMovableByWindowBackground = true
             window.isReleasedWhenClosed = false
             window.minSize = NSSize(width: 500, height: 400)
@@ -163,12 +162,11 @@ final class UtilityWindowManager {
             // Floating NSPanel for utilities (existing behavior)
             let panel = NSPanel(
                 contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-                styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+                styleMask: [.titled, .closable, .resizable],
                 backing: .buffered,
                 defer: false
             )
             panel.title = kind.title
-            panel.titlebarAppearsTransparent = true
             panel.isMovableByWindowBackground = true
             panel.level = .normal
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -236,7 +234,5 @@ private struct ThemedUtilityRoot: View {
         .background(ui.theme.background)
         .preferredColorScheme(ui.theme.colorScheme)
         .navigationTitle("")
-        // Show native Liquid Glass toolbar blur on all utility windows
-        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
     }
 }
