@@ -59,8 +59,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     /// Minimum horizontal padding even at narrow widths.
     private static let minHorizontalInset: CGFloat = 60
     /// Vertical breathing room inside the text container.
-    /// Clears the unified toolbar (~28pt) with a small gap below.
-    private static let verticalInset: CGFloat = 28
+    /// Vertical breathing room inside the text container.
+    static let verticalInset: CGFloat = 0
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -145,11 +145,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.wantsLayer = true
         scrollView.contentView.wantsLayer = true
         scrollView.contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
-        // Prevent the system from adding top insets for toolbar/title bar.
-        // Without this, macOS pushes content down to avoid the toolbar area,
-        // creating a visible gap at the top of the editor.
-        scrollView.automaticallyAdjustsContentInsets = false
-        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        // Let AppKit manage toolbar/titlebar underlap for the scroll view.
+        // This is what allows native Liquid Glass to blur real scrolling content
+        // instead of a static background color behind the toolbar.
+        scrollView.automaticallyAdjustsContentInsets = true
 
         // Wire delegate and coordinator
         tv.delegate = context.coordinator

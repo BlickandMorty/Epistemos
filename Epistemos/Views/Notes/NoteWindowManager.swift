@@ -202,13 +202,6 @@ final class NoteWindowManager {
         }
 
         let pageTitle = page.title.isEmpty ? "Untitled" : page.title
-        let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
-            .withAppEnvironment(bootstrap)
-            .modelContainer(bootstrap.modelContainer)
-            .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
-
-        let hostingView = NSHostingView(rootView: editorView)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
@@ -220,7 +213,6 @@ final class NoteWindowManager {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
-        window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
@@ -229,12 +221,20 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
+        // Toolbar MUST be set BEFORE contentView so SwiftUI finds it during first layout
         window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
         window.toolbarStyle = .unified
 
         if let theme = AppBootstrap.shared?.uiState.theme {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         }
+
+        let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
+            .withAppEnvironment(bootstrap)
+            .modelContainer(bootstrap.modelContainer)
+        let hostingView = NSHostingView(rootView: editorView)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        window.contentView = hostingView
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -290,8 +290,6 @@ final class NoteWindowManager {
         let view = ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)
             .environment(bootstrap.uiState)
             .modelContainer(bootstrap.modelContainer)
-            .preferredColorScheme(bootstrap.uiState.theme.colorScheme)
-
         let hostingView = NSHostingView(rootView: view)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -350,7 +348,6 @@ final class NoteWindowManager {
     /// Sync appearance of all note windows to the current theme.
     func syncTheme(isDark: Bool) {
         let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-
         for w in windows.values {
             w.appearance = appearance
         }
@@ -558,6 +555,7 @@ private struct NotePageContent: View {
         }
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
+        .preferredColorScheme(ui.theme.colorScheme)
         .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
         .toolbar {
             // — New Note (far left) —

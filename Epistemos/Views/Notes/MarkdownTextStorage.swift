@@ -42,6 +42,11 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private var codeSize: CGFloat { max(baseFontSize - 2, 9) }
     private var smallSize: CGFloat { max(baseFontSize - 1, 9) }
 
+    /// Leading document title spacing.
+    static let leadingH1SpacingBefore: CGFloat = 0
+    /// Mid-document H1 spacing.
+    static let sectionH1SpacingBefore: CGFloat = 18
+
     // MARK: - NSTextStorage Overrides
 
     override var string: String { backing.string }
@@ -305,7 +310,9 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             backing.addAttributes([
                 .font: NSFont.systemFont(ofSize: baseFontSize + 31, weight: .bold),
                 .foregroundColor: isDark ? NSColor.white : NSColor(white: 0.05, alpha: 1),
-                .paragraphStyle: Self.h1Style
+                .paragraphStyle: leadingDocumentContentIsEmpty(before: range.location)
+                    ? Self.leadingH1Style
+                    : Self.h1Style
             ], range: range)
             // Ulysses-style: override # prefix with tiny font + muted color
             dimH1Prefix(in: line, lineStart: range.location)
@@ -867,6 +874,12 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ], range: dimRange)
     }
 
+    private func leadingDocumentContentIsEmpty(before location: Int) -> Bool {
+        guard location > 0 else { return true }
+        let prefix = (backing.string as NSString).substring(to: location)
+        return prefix.allSatisfy(\.isWhitespace)
+    }
+
     // MARK: - Theme Colors (Static Helpers)
 
     static func accentColor(isDark: Bool) -> NSColor {
@@ -908,8 +921,16 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
     private nonisolated(unsafe) static let h1Style: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
-        ps.paragraphSpacingBefore = 30   // Balanced with textContainerInset
+        ps.paragraphSpacingBefore = sectionH1SpacingBefore
         ps.paragraphSpacing = 4          // Tight gap below title to body text
+        ps.lineSpacing = 0
+        return ps.copy() as! NSParagraphStyle
+    }()
+
+    private nonisolated(unsafe) static let leadingH1Style: NSParagraphStyle = {
+        let ps = NSMutableParagraphStyle()
+        ps.paragraphSpacingBefore = leadingH1SpacingBefore
+        ps.paragraphSpacing = 4
         ps.lineSpacing = 0
         return ps.copy() as! NSParagraphStyle
     }()
