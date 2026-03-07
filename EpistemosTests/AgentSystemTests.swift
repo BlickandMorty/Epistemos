@@ -604,6 +604,60 @@ struct LearningPoolStateTests {
     }
 }
 
+// MARK: - AgentNPCState Tests
+
+@Suite("AgentNPCState")
+struct AgentNPCStateTests {
+
+    @Test("Glow colors are unique per agent")
+    func uniqueGlowColors() {
+        let colors = AgentID.allCases.map { AgentNPCState(agentId: $0).glowColor }
+        for i in 0..<colors.count {
+            for j in (i + 1)..<colors.count {
+                #expect(colors[i] != colors[j])
+            }
+        }
+    }
+
+    @Test("Starts idle with zero position")
+    func startsIdle() {
+        let npc = AgentNPCState(agentId: .librarian)
+        #expect(npc.animState == .idle)
+        #expect(npc.position == .zero)
+        #expect(npc.targetNodeId == nil)
+        #expect(npc.trailPoints.isEmpty)
+    }
+
+    @Test("Attach sets target and increases glow")
+    func attachBehavior() {
+        let npc = AgentNPCState(agentId: .writer)
+        let baseGlow = npc.glowIntensity
+        npc.attachTo(nodeId: "node-1", at: .init(1, 2, 3))
+        #expect(npc.targetNodeId == "node-1")
+        #expect(npc.glowIntensity > baseGlow)
+        #expect(npc.animState == .attached(angle: 0))
+    }
+
+    @Test("Working increases glow further")
+    func workingGlow() {
+        let npc = AgentNPCState(agentId: .builder)
+        npc.startWorking()
+        #expect(npc.glowIntensity == 0.8)
+    }
+
+    @Test("Return to idle clears state")
+    func returnToIdle() {
+        let npc = AgentNPCState(agentId: .triage)
+        npc.attachTo(nodeId: "x", at: .init(1, 0, 0))
+        npc.startWorking()
+        npc.returnToIdle()
+        #expect(npc.animState == .idle)
+        #expect(npc.targetNodeId == nil)
+        #expect(npc.glowIntensity == 0.3)
+        #expect(npc.trailPoints.isEmpty)
+    }
+}
+
 // MARK: - AgentEngine Integration Tests
 
 @Suite("AgentEngine Integration")

@@ -1196,6 +1196,7 @@ final class MetalGraphNSView: NSView {
         case .note, .chat: 2
         case .idea, .source, .quote: 3
         case .tag, .block: 4
+        case .agent, .codeFile, .codeFolder, .draft, .searchResult: 3
         }
     }
 

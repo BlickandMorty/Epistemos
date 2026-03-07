@@ -157,6 +157,7 @@ struct DialogueNodeInsight: Sendable, Equatable {
         case .note, .chat: 2
         case .idea, .source, .quote: 3
         case .tag, .block: 4
+        case .agent, .codeFile, .codeFolder, .draft, .searchResult: 3
         }
         let prominence = min(1.0, Double(contentWords) / 1800.0 + Double(linkedNodeCount) * 0.04)
         return DialogueNodeInsight(
