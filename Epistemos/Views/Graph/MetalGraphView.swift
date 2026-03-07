@@ -108,6 +108,8 @@ final class MetalGraphNSView: NSView {
     private var mouseDownLocation: CGPoint?
     private var isDraggingNode = false
     private var isPanning = false
+    /// Floating inline note editor panel (force touch to open).
+    private var inlineEditorPanel: GraphOverlayPanel?
     /// Mini mode window drag tracking.
     private var isDraggingWindow = false
     private var windowDragOrigin: NSPoint?
@@ -1028,29 +1030,6 @@ final class MetalGraphNSView: NSView {
         focusItem.image = NSImage(systemSymbolName: "scope", accessibilityDescription: "Focus")
         menu.addItem(focusItem)
 
-        // "Highlight Neighbors"
-        let highlightItem = NSMenuItem(title: "Highlight Neighbors", action: #selector(contextHighlightNeighbors(_:)), keyEquivalent: "")
-        highlightItem.target = self
-        highlightItem.representedObject = uuid
-        highlightItem.image = NSImage(systemSymbolName: "circle.hexagongrid", accessibilityDescription: "Neighbors")
-        menu.addItem(highlightItem)
-
-        menu.addItem(.separator())
-
-        // "Create Connected Note"
-        let connectedItem = NSMenuItem(title: "Create Connected Note", action: #selector(contextCreateNode(_:)), keyEquivalent: "")
-        connectedItem.target = self
-        connectedItem.representedObject = NodeCreationInfo(type: .note, worldPos: clickWorldPos, connectedTo: uuid)
-        connectedItem.image = NSImage(systemSymbolName: "doc.badge.plus", accessibilityDescription: nil)
-        menu.addItem(connectedItem)
-
-        // "Connect to…"
-        let connectItem = NSMenuItem(title: "Connect to\u{2026}", action: #selector(contextBeginConnect(_:)), keyEquivalent: "")
-        connectItem.target = self
-        connectItem.representedObject = uuid
-        connectItem.image = NSImage(systemSymbolName: "arrow.triangle.branch", accessibilityDescription: nil)
-        menu.addItem(connectItem)
-
         return menu
     }
 
@@ -1065,14 +1044,6 @@ final class MetalGraphNSView: NSView {
         guard let uuid = sender.representedObject as? String else { return }
         isolateNode(uuid)
         graphState?.selectNode(uuid)
-    }
-
-    @objc private func contextHighlightNeighbors(_ sender: NSMenuItem) {
-        guard let uuid = sender.representedObject as? String, let engine else { return }
-        uuid.withCString { ptr in
-            graph_engine_highlight_neighbors(engine, ptr)
-        }
-        needsRender = true
     }
 
     @objc private func contextCreateNode(_ sender: NSMenuItem) {
@@ -1097,17 +1068,6 @@ final class MetalGraphNSView: NSView {
                 )
             }
         }
-    }
-
-    @objc private func contextBeginConnect(_ sender: NSMenuItem) {
-        guard let uuid = sender.representedObject as? String else { return }
-        graphState?.beginConnecting(from: uuid)
-        // Visual feedback: highlight source node.
-        if let engine {
-            uuid.withCString { graph_engine_highlight_neighbors(engine, $0) }
-        }
-        NSCursor.crosshair.set()
-        needsRender = true
     }
 
     // MARK: Prompts
@@ -1201,7 +1161,11 @@ final class MetalGraphNSView: NSView {
     override func keyDown(with event: NSEvent) {
         guard let engine else { super.keyDown(with: event); return }
 
-        // Escape cancels connection mode.
+        // Escape dismisses inline editor or cancels connection mode.
+        if event.keyCode == 53, inlineEditorPanel != nil {
+            dismissInlineEditor()
+            return
+        }
         if event.keyCode == 53, let graphState, graphState.isConnecting {
             graphState.cancelConnecting()
             graph_engine_clear_highlight(engine)
@@ -1407,9 +1371,118 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
+    // MARK: - Force Touch Inline Editor
+
+    override func pressureChange(with event: NSEvent) {
+        guard event.stage == 2, inlineEditorPanel == nil else { return }
+        guard let engine,
+              let uuidPtr = graph_engine_hovered_node_uuid(engine) else { return }
+        let uuid = String(cString: uuidPtr)
+        guard let node = graphState?.store.nodes[uuid],
+              let pageId = node.sourceId else { return }
+        showInlineEditor(pageId: pageId, label: node.label, nodeUUID: uuid)
+    }
+
+    private func showInlineEditor(pageId: String, label: String, nodeUUID: String) {
+        guard let engine else { return }
+
+        // Get node screen position from Rust.
+        var pos: [Float] = [0, 0]
+        let hasPos = nodeUUID.withCString { ptr in
+            graph_engine_node_screen_pos(engine, ptr, &pos)
+        }
+
+        let scale = metalLayer?.contentsScale ?? 2.0
+        let editorWidth: CGFloat = 420
+        let editorHeight: CGFloat = 500
+
+        // Convert node position to screen coordinates.
+        var screenOrigin: NSPoint
+        if hasPos != 0 {
+            let viewX = CGFloat(pos[0]) / scale
+            let viewY = bounds.height - CGFloat(pos[1]) / scale
+            let windowPoint = convert(NSPoint(x: viewX, y: viewY), to: nil)
+            let sp = window?.convertPoint(toScreen: windowPoint) ?? .zero
+            screenOrigin = NSPoint(x: sp.x + 30, y: sp.y - editorHeight / 2)
+        } else {
+            let center = window?.frame.origin ?? .zero
+            screenOrigin = NSPoint(x: center.x + 100, y: center.y + 100)
+        }
+
+        // Clamp to screen bounds.
+        if let screen = NSScreen.main?.visibleFrame {
+            screenOrigin.x = max(screen.minX + 8, min(screen.maxX - editorWidth - 8, screenOrigin.x))
+            screenOrigin.y = max(screen.minY + 8, min(screen.maxY - editorHeight - 8, screenOrigin.y))
+        }
+
+        let panel = GraphOverlayPanel(contentRect: NSRect(
+            x: screenOrigin.x, y: screenOrigin.y, width: editorWidth, height: editorHeight
+        ))
+        panel.styleMask = [.nonactivatingPanel, .borderless]
+
+        let content = NSView(frame: NSRect(origin: .zero, size: NSSize(width: editorWidth, height: editorHeight)))
+        content.wantsLayer = true
+        content.layer?.cornerRadius = 16
+        content.layer?.masksToBounds = true
+
+        let blur = NSVisualEffectView(frame: content.bounds)
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.autoresizingMask = [.width, .height]
+        content.addSubview(blur)
+
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let tint = NSView(frame: content.bounds)
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.2 : 0.05).cgColor
+        tint.autoresizingMask = [.width, .height]
+        content.addSubview(tint)
+
+        panel.contentView = content
+
+        let editorView = NSHostingView(
+            rootView: GraphInlineEditorView(
+                pageId: pageId,
+                label: label,
+                onDismiss: { [weak self] in self?.dismissInlineEditor() }
+            )
+        )
+        editorView.autoresizingMask = [.width, .height]
+        editorView.frame = content.bounds
+        content.addSubview(editorView)
+
+        if let parentWindow = window {
+            parentWindow.addChildWindow(panel, ordered: .above)
+        }
+        panel.alphaValue = 0
+        panel.orderFront(nil)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.2
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1.0
+        }
+        inlineEditorPanel = panel
+    }
+
+    func dismissInlineEditor() {
+        guard let panel = inlineEditorPanel else { return }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.15
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            if let parent = panel.parent { parent.removeChildWindow(panel) }
+            panel.orderOut(nil)
+            self?.inlineEditorPanel = nil
+        })
+    }
+
     // MARK: - Cleanup
 
     deinit {
+        inlineEditorPanel?.orderOut(nil)
+        inlineEditorPanel = nil
         // Mark invalidated FIRST so any in-flight DispatchQueue.main.async from
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.
@@ -1427,6 +1500,63 @@ final class MetalGraphNSView: NSView {
         graphState?.engineHandle = nil
         if let engine {
             graph_engine_destroy(engine)
+        }
+    }
+}
+
+// MARK: - Graph Inline Editor
+
+struct GraphInlineEditorView: View {
+    let pageId: String
+    let label: String
+    let onDismiss: () -> Void
+
+    @State private var bodyText = ""
+    @State private var saveTask: Task<Void, Never>?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Divider().opacity(0.3)
+
+            TextEditor(text: $bodyText)
+                .font(.system(size: 13, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .padding(12)
+        }
+        .onAppear {
+            bodyText = NoteFileStorage.readBody(pageId: pageId)
+        }
+        .onChange(of: bodyText) {
+            saveTask?.cancel()
+            saveTask = Task {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                NoteFileStorage.writeBody(pageId: pageId, content: bodyText)
+            }
+        }
+        .onDisappear {
+            saveTask?.cancel()
+            if !bodyText.isEmpty {
+                NoteFileStorage.writeBody(pageId: pageId, content: bodyText)
+            }
         }
     }
 }
