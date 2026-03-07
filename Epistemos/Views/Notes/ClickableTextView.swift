@@ -1,4 +1,5 @@
 import AppKit
+import Quartz
 import UniformTypeIdentifiers
 import Vision
 import Translation
@@ -202,6 +203,52 @@ final class ClickableTextView: NSTextView {
         return super.performKeyEquivalent(with: event)
     }
 
+    // MARK: - QuickLook Preview (Space on image attachment)
+
+    /// URL of the currently previewed file for QLPreviewPanel.
+    nonisolated(unsafe) var quickLookURL: URL?
+
+    override func keyDown(with event: NSEvent) {
+        // Space bar on an image attachment → QuickLook preview
+        if event.charactersIgnoringModifiers == " ",
+           event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+           let url = imageURLAtCursor() {
+            quickLookURL = url
+            if QLPreviewPanel.sharedPreviewPanelExists(),
+               QLPreviewPanel.shared().isVisible {
+                QLPreviewPanel.shared().reloadData()
+            } else {
+                QLPreviewPanel.shared().makeKeyAndOrderFront(nil)
+            }
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    private func imageURLAtCursor() -> URL? {
+        let loc = selectedRange().location
+        guard loc < (textStorage?.length ?? 0),
+              let attrs = textStorage?.attributes(at: loc, effectiveRange: nil),
+              let path = attrs[NSAttributedString.Key("EpistemosImagePath")] as? String
+        else { return nil }
+        let url = URL(fileURLWithPath: path)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    nonisolated override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+        true
+    }
+
+    nonisolated override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = self
+        panel.delegate = self
+    }
+
+    nonisolated override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = nil
+        panel.delegate = nil
+    }
+
     // MARK: - Zoom (native text scaling — crisp at any level)
 
     private static let minZoom: CGFloat = 0.5
@@ -275,7 +322,7 @@ final class ClickableTextView: NSTextView {
 
         let attrStr = NSMutableAttributedString(attachment: attachment)
         attrStr.addAttribute(NSAttributedString.Key("EpistemosImagePath"),
-                             value: url.lastPathComponent,
+                             value: url.path,
                              range: NSRange(location: 0, length: attrStr.length))
 
         let insertLoc = selectedRange().location
@@ -618,5 +665,18 @@ final class ClickableTextView: NSTextView {
         NotificationCenter.default.post(
             name: Self.blockPropertyNotification, object: nil, userInfo: userInfo
         )
+    }
+}
+
+// MARK: - QLPreviewPanel DataSource & Delegate
+
+extension ClickableTextView: @preconcurrency QLPreviewPanelDataSource, @preconcurrency QLPreviewPanelDelegate {
+
+    nonisolated func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+        quickLookURL != nil ? 1 : 0
+    }
+
+    nonisolated func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
+        quickLookURL as? NSURL
     }
 }
