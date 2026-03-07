@@ -802,3 +802,194 @@ struct VoiceEngineTests {
         #expect(engine.state == .ready)
     }
 }
+
+// MARK: - Working Memory Tests
+
+@Suite("WorkingMemory")
+struct WorkingMemoryTests {
+
+    @Test("Initial state is empty")
+    @MainActor func initialState() {
+        let wm = WorkingMemory(agentId: .triage)
+        #expect(wm.entries.isEmpty)
+        #expect(wm.currentTokens == 0)
+        #expect(wm.compactionCount == 0)
+        #expect(wm.utilization == 0)
+    }
+
+    @Test("Append adds entries")
+    @MainActor func appendEntries() {
+        let wm = WorkingMemory(agentId: .librarian)
+        wm.append("Hello world", role: .user)
+        #expect(wm.entries.count == 1)
+        #expect(wm.entries[0].role == .user)
+        #expect(wm.currentTokens > 0)
+    }
+
+    @Test("Utilization calculation")
+    @MainActor func utilization() {
+        let wm = WorkingMemory(agentId: .writer, maxTokens: 100)
+        wm.append(String(repeating: "x", count: 280), role: .user)
+        // 280 chars / 4 = 70 tokens → 70% utilization
+        #expect(wm.utilization >= 0.69)
+        #expect(wm.utilization <= 0.71)
+    }
+
+    @Test("Compaction triggers at 70% threshold")
+    @MainActor func compactionTriggers() {
+        let wm = WorkingMemory(agentId: .builder, maxTokens: 40)
+        // Each entry ~7 tokens (28 chars / 4). At 40 max, threshold is 28 tokens (~4 entries).
+        for _ in 0..<6 {
+            wm.append(String(repeating: "abcdefg ", count: 4), role: .user)
+        }
+        #expect(wm.compactionCount > 0)
+        // After compaction, should have fewer entries than we added
+        #expect(wm.entries.count < 6)
+    }
+
+    @Test("Todo context is nil when empty")
+    @MainActor func todoContextEmpty() {
+        let wm = WorkingMemory(agentId: .triage)
+        #expect(wm.todoContext == nil)
+    }
+
+    @Test("Todo context formats correctly")
+    @MainActor func todoContextFormatted() {
+        let wm = WorkingMemory(agentId: .triage)
+        wm.currentTodos = ["Find related notes", "Summarize findings"]
+        let context = wm.todoContext
+        #expect(context != nil)
+        #expect(context!.contains("1. Find related notes"))
+        #expect(context!.contains("2. Summarize findings"))
+    }
+
+    @Test("Clear resets everything")
+    @MainActor func clearResets() {
+        let wm = WorkingMemory(agentId: .librarian)
+        wm.append("test", role: .user)
+        wm.currentTodos = ["task"]
+        wm.clear()
+        #expect(wm.entries.isEmpty)
+        #expect(wm.currentTokens == 0)
+        #expect(wm.currentTodos.isEmpty)
+    }
+}
+
+// MARK: - Episodic Memory Tests
+
+@Suite("EpisodicMemory")
+struct EpisodicMemoryTests {
+
+    @Test("Initial state is empty")
+    @MainActor func initialState() {
+        let em = EpisodicMemory()
+        #expect(em.episodes.isEmpty)
+    }
+
+    @Test("Record episode adds entry")
+    @MainActor func recordEpisode() {
+        let em = EpisodicMemory()
+        em.recordEpisode(agentId: .librarian, sessionId: "s1", summary: "Organized notes")
+        #expect(em.episodes.count == 1)
+        #expect(em.episodes[0].agentId == AgentID.librarian.rawValue)
+    }
+
+    @Test("Recent episodes filters by agent")
+    @MainActor func recentEpisodesFiltered() {
+        let em = EpisodicMemory()
+        em.recordEpisode(agentId: .librarian, sessionId: "s1", summary: "Lib work")
+        em.recordEpisode(agentId: .writer, sessionId: "s2", summary: "Write work")
+        em.recordEpisode(agentId: .librarian, sessionId: "s3", summary: "More lib work")
+
+        let libEpisodes = em.recentEpisodes(for: .librarian)
+        #expect(libEpisodes.count == 2)
+        #expect(libEpisodes.allSatisfy { $0.agentId == AgentID.librarian.rawValue })
+    }
+
+    @Test("Context summary returns nil when empty")
+    @MainActor func contextSummaryEmpty() {
+        let em = EpisodicMemory()
+        #expect(em.contextSummary(for: .triage) == nil)
+    }
+
+    @Test("Context summary formats correctly")
+    @MainActor func contextSummaryFormatted() {
+        let em = EpisodicMemory()
+        em.recordEpisode(agentId: .writer, sessionId: "s1", summary: "Drafted essay", keyDecisions: ["Used narrative style"])
+        let summary = em.contextSummary(for: .writer)
+        #expect(summary != nil)
+        #expect(summary!.contains("Drafted essay"))
+        #expect(summary!.contains("narrative style"))
+    }
+}
+
+// MARK: - Semantic Memory Tests
+
+@Suite("SemanticMemory")
+struct SemanticMemoryTests {
+
+    @Test("Initial state is not ready")
+    @MainActor func initialState() {
+        let sm = SemanticMemory()
+        #expect(!sm.isIndexReady)
+        #expect(sm.entryCount == 0)
+    }
+
+    @Test("Initialize marks as ready")
+    @MainActor func initialize() async {
+        let sm = SemanticMemory()
+        await sm.initialize()
+        #expect(sm.isIndexReady)
+    }
+
+    @Test("Index increments count")
+    @MainActor func indexIncrements() async {
+        let sm = SemanticMemory()
+        await sm.index(content: "test", sourceId: nil, sourceType: "note")
+        #expect(sm.entryCount == 1)
+        await sm.index(content: "test2", sourceId: "n1", sourceType: "note")
+        #expect(sm.entryCount == 2)
+    }
+
+    @Test("Search returns empty in scaffold mode")
+    @MainActor func searchEmpty() async {
+        let sm = SemanticMemory()
+        await sm.initialize()
+        let results = await sm.search(query: "test")
+        #expect(results.isEmpty)
+    }
+}
+
+// MARK: - Agent Memory Service Tests
+
+@Suite("AgentMemoryService")
+struct AgentMemoryServiceTests {
+
+    @Test("Working memory exists for all agents")
+    @MainActor func workingMemoryForAll() {
+        let service = AgentMemoryService()
+        for agent in AgentID.allCases {
+            let wm = service.workingMemory(for: agent)
+            #expect(wm.agentId == agent)
+        }
+    }
+
+    @Test("Retrieve returns combined context")
+    @MainActor func retrieveCombined() async {
+        let service = AgentMemoryService()
+        let wm = service.workingMemory(for: .librarian)
+        wm.currentTodos = ["Find notes on AI"]
+        service.episodicMemory.recordEpisode(agentId: .librarian, sessionId: "s1", summary: "Previous research")
+
+        let context = await service.retrieve(query: "AI research", for: .librarian)
+        #expect(context.contains("Find notes on AI"))
+        #expect(context.contains("Previous research"))
+    }
+
+    @Test("Start initializes semantic memory")
+    @MainActor func startInitializes() async {
+        let service = AgentMemoryService()
+        await service.start()
+        #expect(service.semanticMemory.isIndexReady)
+    }
+}

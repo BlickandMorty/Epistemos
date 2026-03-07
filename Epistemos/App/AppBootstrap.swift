@@ -61,6 +61,9 @@ final class AppBootstrap {
     // MARK: - Voice
     let voiceEngine: VoiceEngine
 
+    // MARK: - Memory
+    let agentMemoryService: AgentMemoryService
+
     // MARK: - Services
     let llmService: LLMService
     let triageService: TriageService
@@ -134,6 +137,9 @@ final class AppBootstrap {
 
         // Voice Engine — TTS scaffold (Chatterbox daemon integration in Phase 8)
         self.voiceEngine = VoiceEngine()
+
+        // Agent Memory — three-tier memory system (working, episodic, semantic)
+        self.agentMemoryService = AgentMemoryService()
 
         // LLMService wraps the provider interface
         let llm = LLMService(inference: inference)

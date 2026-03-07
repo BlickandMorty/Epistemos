@@ -33,5 +33,6 @@ extension View {
             .environment(bootstrap.agentEngine)
             .environment(bootstrap.learningPoolState)
             .environment(bootstrap.voiceEngine)
+            .environment(bootstrap.agentMemoryService)
     }
 }
