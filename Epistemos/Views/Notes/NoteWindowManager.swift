@@ -228,14 +228,19 @@ final class NoteWindowManager {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         }
 
-        // NSHostingController bridges SwiftUI .toolbar items + .toolbarBackgroundVisibility
-        // to the real NSWindow toolbar via sceneBridgingOptions. NSHostingView alone can't do this.
+        // NSHostingController bridges SwiftUI .toolbar items to the NSWindow toolbar
+        // via sceneBridgingOptions. Toolbar DECORATION (.toolbarBackground) must be
+        // done via AppKit — SwiftUI modifiers only work in Window/WindowGroup scenes.
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
         let hostingController = NSHostingController(rootView: editorView)
         hostingController.sceneBridgingOptions = [.all]
         window.contentViewController = hostingController
+
+        // Inject glass blur into the titlebar via AppKit.
+        // SwiftUI .toolbarBackground() is ignored on programmatic NSWindows.
+        installTitlebarBlur(in: window)
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -267,6 +272,32 @@ final class NoteWindowManager {
     /// Forward lookup: find the NSWindow for a given pageId.
     func window(for pageId: String) -> NSWindow? {
         windows[pageId]
+    }
+
+    /// Injects an NSVisualEffectView into the window's titlebar container.
+    /// This is the AppKit-level glass effect — SwiftUI .toolbarBackground() only
+    /// works in SwiftUI Window scenes, not programmatic NSWindows.
+    private func installTitlebarBlur(in window: NSWindow) {
+        guard let titlebarContainer = window.standardWindowButton(.closeButton)?
+            .superview?.superview else { return }
+
+        // Remove any previously installed blur (e.g., on theme change)
+        titlebarContainer.subviews
+            .filter { $0 is NSVisualEffectView }
+            .forEach { $0.removeFromSuperview() }
+
+        let blur = NSVisualEffectView()
+        blur.material = .headerView
+        blur.blendingMode = .withinWindow
+        blur.state = .active
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        titlebarContainer.addSubview(blur, positioned: .below, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            blur.leadingAnchor.constraint(equalTo: titlebarContainer.leadingAnchor),
+            blur.trailingAnchor.constraint(equalTo: titlebarContainer.trailingAnchor),
+            blur.topAnchor.constraint(equalTo: titlebarContainer.topAnchor),
+            blur.bottomAnchor.constraint(equalTo: titlebarContainer.bottomAnchor),
+        ])
     }
 
     private func handleWindowClose(_ window: NSWindow, pageId: String) {
@@ -559,8 +590,6 @@ private struct NotePageContent: View {
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
         .preferredColorScheme(ui.theme.colorScheme)
-        .toolbarBackground(.ultraThinMaterial, for: .windowToolbar)
-        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
         .toolbar {
             // — New Note (far left) —
             ToolbarItem(placement: .navigation) {
