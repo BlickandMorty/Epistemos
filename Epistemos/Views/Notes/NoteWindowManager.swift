@@ -716,60 +716,46 @@ private struct NotePageContent: View {
     /// Frosted glass toolbar bar — replaces NSToolbar entirely.
     /// Uses .ultraThinMaterial for real blur over the theme background.
     private var noteGlassToolbar: some View {
-        HStack(spacing: 12) {
-            // New Note
-            Button {
-                Task {
-                    if let pageId = await vaultSync.createPage(title: "Untitled") {
-                        NoteWindowManager.shared.open(pageId: pageId)
+        HStack(spacing: 0) {
+            // Left: back/forward nav
+            HStack(spacing: 4) {
+                if let nav = navState, nav.canGoBack {
+                    Button { nav.back() } label: {
+                        Image(systemName: "chevron.left")
                     }
+                    .help("Back (⌘[)")
                 }
-            } label: {
-                Label("New Note", systemImage: "square.and.pencil")
+                if let nav = navState, nav.canGoForward {
+                    Button { nav.forward() } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .help("Forward (⌘])")
+                }
             }
-            .help("New Note (⌘N)")
+            .frame(minWidth: 40, alignment: .leading)
 
             Spacer()
 
-            // Writer toggle
-            if !showPreview {
-                Button { toggleWriterMode() } label: {
-                    Label(
-                        "Writer",
-                        systemImage: showWriterMode ? "doc.richtext.fill" : "doc.richtext")
+            // Center: page title
+            Text(pages.first?.title ?? "Untitled")
+                .font(.system(size: 13, weight: .medium))
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            // Right: essential controls + ask bar
+            HStack(spacing: 8) {
+                moreMenu
+
+                if !showWriterMode && !showPreview {
+                    toolbarChatField
                 }
-                .help("Writer Mode (⌘R)")
             }
-
-            // Preview toggle
-            if !showWriterMode {
-                Button { togglePreviewMode() } label: {
-                    Label("Preview", systemImage: showPreview ? "eye.fill" : "eye")
-                }
-                .help("Preview (⌘E)")
-            }
-
-            // Chat input + history
-            if !showWriterMode && !showPreview {
-                toolbarChatField
-
-                Button {
-                    withAnimation(.smooth(duration: 0.2)) { showChatSidebar.toggle() }
-                } label: {
-                    Label(
-                        "Chat History",
-                        systemImage: showChatSidebar
-                            ? "bubble.left.and.text.bubble.right.fill"
-                            : "bubble.left.and.text.bubble.right")
-                }
-                .help("Chat History")
-            }
-
-            moreMenu
         }
         .buttonStyle(.borderless)
-        .labelStyle(.iconOnly)
-        .padding(.horizontal, 76)
+        .padding(.leading, 76)
+        .padding(.trailing, 12)
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
     }
