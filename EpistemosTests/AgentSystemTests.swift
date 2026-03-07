@@ -712,3 +712,93 @@ struct AgentEngineIntegrationTests {
         #expect(engine.status(for: .triage) == .idle)
     }
 }
+
+// MARK: - VoiceEngine Tests
+
+@Suite("VoiceEngine")
+struct VoiceEngineTests {
+
+    @Test("Initial state is stopped")
+    @MainActor func initialState() {
+        let engine = VoiceEngine()
+        #expect(engine.state == .stopped)
+        #expect(!engine.isReady)
+        #expect(!engine.readModeEnabled)
+    }
+
+    @Test("Start transitions to ready")
+    @MainActor func startTransition() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        #expect(engine.state == .ready)
+        #expect(engine.isReady)
+    }
+
+    @Test("Stop transitions to stopped")
+    @MainActor func stopTransition() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        engine.stop()
+        #expect(engine.state == .stopped)
+        #expect(!engine.isReady)
+    }
+
+    @Test("Start when already started is no-op")
+    @MainActor func doubleStart() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        await engine.start()
+        #expect(engine.state == .ready)
+    }
+
+    @Test("Voice configs initialized for all agents")
+    @MainActor func voiceConfigsInitialized() {
+        let engine = VoiceEngine()
+        for agent in AgentID.allCases {
+            let config = engine.voiceConfigs[agent]
+            #expect(config != nil)
+            #expect(config?.enabled == false)
+            #expect(config?.referenceAudioPath == nil)
+        }
+    }
+
+    @Test("Set voice enabled")
+    @MainActor func setVoiceEnabled() {
+        let engine = VoiceEngine()
+        engine.setVoiceEnabled(true, for: .librarian)
+        #expect(engine.voiceConfigs[.librarian]?.enabled == true)
+        #expect(engine.voiceConfigs[.writer]?.enabled == false)
+    }
+
+    @Test("Set reference audio path")
+    @MainActor func setReferenceAudio() {
+        let engine = VoiceEngine()
+        engine.setReferenceAudio("/path/to/voice.wav", for: .writer)
+        #expect(engine.voiceConfigs[.writer]?.referenceAudioPath == "/path/to/voice.wav")
+    }
+
+    @Test("Speak requires ready state")
+    @MainActor func speakRequiresReady() async {
+        let engine = VoiceEngine()
+        engine.setVoiceEnabled(true, for: .triage)
+        await engine.speak("Hello", as: .triage)
+        #expect(engine.state == .stopped)
+    }
+
+    @Test("Speak requires voice enabled")
+    @MainActor func speakRequiresEnabled() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        await engine.speak("Hello", as: .triage)
+        #expect(engine.state == .ready)
+    }
+
+    @Test("Speak completes and returns to ready")
+    @MainActor func speakCompletesReady() async {
+        let engine = VoiceEngine()
+        await engine.start()
+        engine.setVoiceEnabled(true, for: .librarian)
+        await engine.speak("Test speech", as: .librarian)
+        #expect(engine.state == .ready)
+    }
+}

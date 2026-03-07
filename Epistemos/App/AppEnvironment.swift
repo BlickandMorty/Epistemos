@@ -32,5 +32,6 @@ extension View {
             .environment(bootstrap.mlxModelManager)
             .environment(bootstrap.agentEngine)
             .environment(bootstrap.learningPoolState)
+            .environment(bootstrap.voiceEngine)
     }
 }

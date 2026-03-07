@@ -58,6 +58,9 @@ final class AppBootstrap {
     let learningPoolState: LearningPoolState
     let learningPoolService: LearningPoolService
 
+    // MARK: - Voice
+    let voiceEngine: VoiceEngine
+
     // MARK: - Services
     let llmService: LLMService
     let triageService: TriageService
@@ -128,6 +131,9 @@ final class AppBootstrap {
         let poolState = LearningPoolState()
         self.learningPoolState = poolState
         self.learningPoolService = LearningPoolService(state: poolState, messageBus: engine.messageBus)
+
+        // Voice Engine — TTS scaffold (Chatterbox daemon integration in Phase 8)
+        self.voiceEngine = VoiceEngine()
 
         // LLMService wraps the provider interface
         let llm = LLMService(inference: inference)
