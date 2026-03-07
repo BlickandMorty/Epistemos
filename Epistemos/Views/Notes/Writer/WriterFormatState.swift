@@ -100,6 +100,12 @@ final class WriterFormatState {
     /// Two-up "book spread" layout — pages shown in pairs side by side.
     var isSpreadView: Bool = false
 
+    /// Zoom level for the document view (0.5 – 2.0, default 1.0).
+    var zoomLevel: CGFloat = 1.0
+
+    /// Show horizontal ruler above pages.
+    var showRuler: Bool = false
+
     // MARK: - Headers / Footers
 
     var showPageNumbers: Bool = true {
@@ -357,6 +363,13 @@ final class WriterFormatState {
         if let v = frontMatter[Self.keyPrefix + "isSpreadView"] {
             isSpreadView = v == "true"
         }
+        if let v = frontMatter[Self.keyPrefix + "zoomLevel"],
+           let f = Double(v) {
+            zoomLevel = max(0.5, min(2.0, CGFloat(f)))
+        }
+        if let v = frontMatter[Self.keyPrefix + "showRuler"] {
+            showRuler = v == "true"
+        }
 
         // Headers / Footers
         if let v = frontMatter[Self.keyPrefix + "showPageNumbers"] {
@@ -422,6 +435,8 @@ final class WriterFormatState {
         frontMatter[Self.keyPrefix + "margins"] = margins.rawValue
         frontMatter[Self.keyPrefix + "pageSize"] = pageSize.rawValue
         frontMatter[Self.keyPrefix + "isSpreadView"] = String(isSpreadView)
+        frontMatter[Self.keyPrefix + "zoomLevel"] = String(Double(zoomLevel))
+        frontMatter[Self.keyPrefix + "showRuler"] = String(showRuler)
 
         // Headers / Footers
         frontMatter[Self.keyPrefix + "showPageNumbers"] = String(showPageNumbers)

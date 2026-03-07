@@ -199,6 +199,33 @@ struct PagedDocumentView: NSViewRepresentable {
             storage.reapplyFormatting()
         }
 
+        // Zoom
+        scrollView.allowsMagnification = true
+        scrollView.minMagnification = 0.5
+        scrollView.maxMagnification = 2.0
+        if abs(scrollView.magnification - formatState.zoomLevel) > 0.01 {
+            scrollView.magnification = formatState.zoomLevel
+        }
+
+        // Ruler
+        if formatState.showRuler {
+            if scrollView.horizontalRulerView == nil {
+                let ruler = WriterRulerView(scrollView: scrollView, orientation: .horizontalRuler)
+                ruler.clientView = canvas
+                scrollView.horizontalRulerView = ruler
+            }
+            if let ruler = scrollView.horizontalRulerView as? WriterRulerView {
+                ruler.marginPoints = formatState.margins.points
+                ruler.pageWidth = formatState.pageSize.size.width
+                ruler.indentPoints = formatState.firstLineIndent
+            }
+            scrollView.hasHorizontalRuler = true
+            scrollView.rulersVisible = true
+        } else {
+            scrollView.rulersVisible = false
+            scrollView.hasHorizontalRuler = false
+        }
+
         // Reconcile pages + layout tiles
         Self.reconcilePages(coord: coord)
         Self.layoutPageTiles(coord: coord, in: scrollView)
@@ -854,5 +881,98 @@ final class TitlePageView: NSView {
         let size = attrStr.size()
         let x = margin + (width - size.width) / 2
         attrStr.draw(at: NSPoint(x: x, y: y))
+    }
+}
+
+// MARK: - WriterRulerView
+
+/// Custom horizontal ruler showing page margins and indent markers.
+final class WriterRulerView: NSRulerView {
+
+    var marginPoints: CGFloat = 72 { didSet { needsDisplay = true } }
+    var pageWidth: CGFloat = 612 { didSet { needsDisplay = true } }
+    var indentPoints: CGFloat = 36 { didSet { needsDisplay = true } }
+
+    override func drawHashMarksAndLabels(in rect: NSRect) {
+        guard let scrollView = self.scrollView else { return }
+
+        let clipBounds = scrollView.contentView.bounds
+        let rulerHeight = bounds.height
+
+        // Draw background
+        NSColor.controlBackgroundColor.setFill()
+        rect.fill()
+        NSColor.separatorColor.setStroke()
+        NSBezierPath.strokeLine(from: NSPoint(x: rect.minX, y: rect.maxY - 0.5),
+                                to: NSPoint(x: rect.maxX, y: rect.maxY - 0.5))
+
+        // Find the page center in the clip view
+        let canvasWidth = scrollView.documentView?.bounds.width ?? clipBounds.width
+        let pageCenterX = canvasWidth / 2
+
+        // Convert page coordinates to ruler coordinates
+        let pageLeft = pageCenterX - pageWidth / 2 - clipBounds.origin.x
+        let leftMargin = pageLeft + marginPoints
+        let rightMargin = pageLeft + pageWidth - marginPoints
+
+        let tickColor = NSColor.secondaryLabelColor
+
+        // Draw inch marks across the text area
+        let textWidth = pageWidth - marginPoints * 2
+        let inches = Int(textWidth / 72)
+        for i in 0...inches {
+            let x = leftMargin + CGFloat(i) * 72
+            guard x >= rect.minX - 10, x <= rect.maxX + 10 else { continue }
+
+            // Major tick
+            tickColor.setStroke()
+            NSBezierPath.strokeLine(from: NSPoint(x: x, y: rulerHeight - 8),
+                                    to: NSPoint(x: x, y: rulerHeight))
+
+            // Label
+            let label = "\(i)" as NSString
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 8),
+                .foregroundColor: tickColor,
+            ]
+            let size = label.size(withAttributes: attrs)
+            label.draw(at: NSPoint(x: x - size.width / 2, y: rulerHeight - 18), withAttributes: attrs)
+
+            // Half-inch tick
+            if i < inches {
+                let halfX = x + 36
+                NSBezierPath.strokeLine(from: NSPoint(x: halfX, y: rulerHeight - 5),
+                                        to: NSPoint(x: halfX, y: rulerHeight))
+            }
+        }
+
+        // Draw margin markers (small triangles)
+        let markerColor = NSColor.controlAccentColor
+        markerColor.setFill()
+
+        // Left margin marker
+        drawTriangle(at: leftMargin, y: 2, size: 6)
+
+        // First line indent marker
+        let indentX = leftMargin + indentPoints
+        drawTriangle(at: indentX, y: 2, size: 5, inverted: true)
+
+        // Right margin marker
+        drawTriangle(at: rightMargin, y: 2, size: 6)
+    }
+
+    private func drawTriangle(at x: CGFloat, y: CGFloat, size: CGFloat, inverted: Bool = false) {
+        let path = NSBezierPath()
+        if inverted {
+            path.move(to: NSPoint(x: x, y: y + size))
+            path.line(to: NSPoint(x: x - size / 2, y: y))
+            path.line(to: NSPoint(x: x + size / 2, y: y))
+        } else {
+            path.move(to: NSPoint(x: x, y: y))
+            path.line(to: NSPoint(x: x - size / 2, y: y + size))
+            path.line(to: NSPoint(x: x + size / 2, y: y + size))
+        }
+        path.close()
+        path.fill()
     }
 }

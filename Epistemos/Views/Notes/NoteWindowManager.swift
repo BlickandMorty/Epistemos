@@ -443,6 +443,7 @@ private struct NotePageContent: View {
     @State private var showTableOfContents = false
     @State private var showChatSidebar = false
     @State private var hasMultipleTabs = false
+    @State private var wordCount: Int = 0
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
@@ -506,18 +507,13 @@ private struct NotePageContent: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ui.theme.background)
             .environment(noteChatState)
-            .overlay(alignment: .top) {
-                if noteChatState.hasResponse && noteChatState.useResponsePanel {
-                    toolbarResponseDropdown
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(
-                            .spring(response: 0.35, dampingFraction: 0.85),
-                            value: noteChatState.hasResponse)
-                }
-            }
             .onAppear {
                 noteChatState.loadPersistedMessages(modelContext)
                 refreshTabCount()
+                if let page = pages.first {
+                    wordCount = NSSpellChecker.shared.countWords(
+                        in: page.loadBody(), language: nil)
+                }
             }
             .onDisappear {
                 noteChatState.clear()
@@ -553,34 +549,39 @@ private struct NotePageContent: View {
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
         }
         .overlay(alignment: .top) {
-            VStack(spacing: 0) {
-                // Glass title strip — bridges the gap under the tab bar
-                Text(pages.first?.title ?? "Untitled")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial)
-                // Soft fade below the strip
-                LinearGradient(
-                    colors: [ui.theme.background.opacity(0.6), ui.theme.background.opacity(0)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 20)
-                .allowsHitTesting(false)
+            if !showWriterMode && !showPreview {
+                VStack(spacing: 0) {
+                    // Glass title strip — bridges the gap under the tab bar
+                    Text(pages.first?.title ?? "Untitled")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial)
+                    // Soft fade below the strip
+                    LinearGradient(
+                        colors: [ui.theme.background.opacity(0.6), ui.theme.background.opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 20)
+                    .allowsHitTesting(false)
+                }
             }
         }
         .overlay(alignment: .trailing) {
-            if let nav = navState, nav.hasBreadcrumb {
+            if !showWriterMode && !showPreview,
+               let nav = navState, nav.hasBreadcrumb {
                 NoteBreadcrumbBar(navState: nav)
                     .padding(.trailing, 6)
             }
         }
         .overlay(alignment: .bottom) {
-            bottomToolbarPill
-                .padding(.bottom, 12)
+            if !showWriterMode {
+                bottomToolbarPill
+                    .padding(.bottom, 12)
+            }
         }
         .preferredColorScheme(ui.theme.colorScheme)
         .ignoresSafeArea(edges: .top)
@@ -692,6 +693,9 @@ private struct NotePageContent: View {
             NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
         ) { _ in refreshTabCount() }
         .onReceive(
+            Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+        ) { _ in refreshWordCount() }
+        .onReceive(
             NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)
         ) { notif in
             guard (notif.userInfo as? [String: String])?["pageId"] == pageId else { return }
@@ -785,6 +789,12 @@ private struct NotePageContent: View {
             if !showWriterMode && !showPreview {
                 toolbarChatField
             }
+
+            // Word count
+            Text("\(wordCount) words")
+                .font(.system(size: 10, weight: .regular, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.tertiary)
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 16)
@@ -800,6 +810,12 @@ private struct NotePageContent: View {
     private func refreshTabCount() {
         let count = NSApp.keyWindow?.tabbedWindows?.count ?? 1
         hasMultipleTabs = count > 1
+    }
+
+    private func refreshWordCount() {
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        let count = NSSpellChecker.shared.countWords(in: tv.string, language: nil)
+        if count != wordCount { wordCount = count }
     }
 
     private func snapshotEditorSelection() {
@@ -1149,11 +1165,7 @@ private struct NotePageContent: View {
                 .padding(.vertical, 8)
             }
         }
-        .frame(maxWidth: 460)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
-        .padding(.top, 8)
-        .padding(.horizontal, 40)
+        .frame(width: 400)
     }
 
     // MARK: - Toolbar Chat Field
@@ -1193,6 +1205,15 @@ private struct NotePageContent: View {
         .padding(.vertical, 5)
         .background(ui.theme.foreground.opacity(0.04), in: Capsule())
         .overlay(Capsule().stroke(ui.theme.foreground.opacity(0.08), lineWidth: 0.5))
+        .popover(
+            isPresented: Binding(
+                get: { noteChatState.hasResponse && noteChatState.useResponsePanel },
+                set: { if !$0 { noteChatState.discardResponse() } }
+            ),
+            arrowEdge: .bottom
+        ) {
+            toolbarResponseDropdown
+        }
     }
 
     // MARK: - More Menu
@@ -2275,11 +2296,21 @@ private struct NoteBreadcrumbBar: View {
                 .shadow(color: .black.opacity(0.15), radius: 10, y: 3)
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .trailing)))
             } else {
-                // Collapsed: thin line indicator
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(ui.theme.accent.opacity(0.4))
-                    .frame(width: 3, height: CGFloat(navState.stack.count) * 18)
-                    .transition(.opacity)
+                // Collapsed: dot stack with glow
+                VStack(spacing: 8) {
+                    ForEach(Array(navState.stack.enumerated()), id: \.element.id) { _, item in
+                        Circle()
+                            .fill(ui.theme.accent.opacity(item.id == navState.currentPageId ? 0.9 : 0.35))
+                            .frame(
+                                width: item.id == navState.currentPageId ? 6 : 4,
+                                height: item.id == navState.currentPageId ? 6 : 4
+                            )
+                    }
+                }
+                .padding(.vertical, 6)
+                .padding(.horizontal, 4)
+                .shadow(color: ui.theme.accent.opacity(0.5), radius: 6)
+                .transition(.opacity)
             }
         }
         .animation(.smooth(duration: 0.2), value: isHovering)

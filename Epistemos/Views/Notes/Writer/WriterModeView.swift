@@ -114,8 +114,6 @@ struct WriterModeView: View {
             format: format,
             title: page.title,
             body: bodyText,
-            storage: nil,
-            pageTiles: [],
             formatState: formatState
         )
     }

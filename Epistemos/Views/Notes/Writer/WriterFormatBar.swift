@@ -236,6 +236,8 @@ struct WriterFormatBar: View {
             marginsPicker
             pageSizePicker
             spreadToggle
+            rulerToggle
+            zoomControl
         }
     }
 
@@ -297,6 +299,37 @@ struct WriterFormatBar: View {
             }
         }
         .pickerStyle(.menu)
+    }
+
+    private var rulerToggle: some View {
+        Toggle(isOn: $formatState.showRuler) {
+            Label("Ruler", systemImage: "ruler")
+        }
+        .toggleStyle(.button)
+        .help("Show ruler")
+    }
+
+    private var zoomControl: some View {
+        HStack(spacing: 2) {
+            Button {
+                formatState.zoomLevel = max(0.5, formatState.zoomLevel - 0.25)
+            } label: {
+                Image(systemName: "minus.magnifyingglass")
+            }
+            .buttonStyle(.borderless)
+
+            Text("\(Int(formatState.zoomLevel * 100))%")
+                .font(.system(size: 10, design: .monospaced))
+                .frame(width: 36)
+
+            Button {
+                formatState.zoomLevel = min(2.0, formatState.zoomLevel + 0.25)
+            } label: {
+                Image(systemName: "plus.magnifyingglass")
+            }
+            .buttonStyle(.borderless)
+        }
+        .help("Zoom level")
     }
 
     // MARK: - Headers Group
