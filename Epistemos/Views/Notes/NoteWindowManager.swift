@@ -205,12 +205,11 @@ final class NoteWindowManager {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = pageTitle
-        window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.center()
@@ -221,6 +220,8 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
+        // System-managed toolbar — macOS renders Liquid Glass automatically.
+        // No titlebarAppearsTransparent, no fullSizeContentView, no SwiftUI hacks.
         window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
         window.toolbarStyle = .unified
 
@@ -228,19 +229,12 @@ final class NoteWindowManager {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         }
 
-        // NSHostingController bridges SwiftUI .toolbar items to the NSWindow toolbar
-        // via sceneBridgingOptions. Toolbar DECORATION (.toolbarBackground) must be
-        // done via AppKit — SwiftUI modifiers only work in Window/WindowGroup scenes.
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
-        let hostingController = NSHostingController(rootView: editorView)
-        hostingController.sceneBridgingOptions = [.all]
-        window.contentViewController = hostingController
-
-        // Inject glass blur into the titlebar via AppKit.
-        // SwiftUI .toolbarBackground() is ignored on programmatic NSWindows.
-        installTitlebarBlur(in: window)
+        let hostingView = NSHostingView(rootView: editorView)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        window.contentView = hostingView
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -274,32 +268,6 @@ final class NoteWindowManager {
         windows[pageId]
     }
 
-    /// Injects an NSVisualEffectView into the window's titlebar container.
-    /// This is the AppKit-level glass effect — SwiftUI .toolbarBackground() only
-    /// works in SwiftUI Window scenes, not programmatic NSWindows.
-    private func installTitlebarBlur(in window: NSWindow) {
-        guard let titlebarContainer = window.standardWindowButton(.closeButton)?
-            .superview?.superview else { return }
-
-        // Remove any previously installed blur (e.g., on theme change)
-        titlebarContainer.subviews
-            .filter { $0 is NSVisualEffectView }
-            .forEach { $0.removeFromSuperview() }
-
-        let blur = NSVisualEffectView()
-        blur.material = .headerView
-        blur.blendingMode = .withinWindow
-        blur.state = .active
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        titlebarContainer.addSubview(blur, positioned: .below, relativeTo: nil)
-        NSLayoutConstraint.activate([
-            blur.leadingAnchor.constraint(equalTo: titlebarContainer.leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: titlebarContainer.trailingAnchor),
-            blur.topAnchor.constraint(equalTo: titlebarContainer.topAnchor),
-            blur.bottomAnchor.constraint(equalTo: titlebarContainer.bottomAnchor),
-        ])
-    }
-
     private func handleWindowClose(_ window: NSWindow, pageId: String) {
         if let observer = observers.removeValue(forKey: pageId) {
             NotificationCenter.default.removeObserver(observer)
@@ -327,13 +295,12 @@ final class NoteWindowManager {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         let windowTitle = title.isEmpty ? "Untitled" : title
         window.title = "\(windowTitle) — \(dateStr)"
-        window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.contentView = hostingView
@@ -510,10 +477,6 @@ private struct NotePageContent: View {
     var body: some View {
         HStack(spacing: 0) {
             ZStack {
-                // Theme background fills entire window including behind toolbar.
-                // The toolbar's ultraThinMaterial blur composites over this.
-                ui.theme.background.ignoresSafeArea()
-
                 if let page = pages.first {
                     if showWriterMode {
                         WriterModeView(
@@ -544,6 +507,8 @@ private struct NotePageContent: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(transitionOpacity > 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ui.theme.background)
             .environment(noteChatState)
             .overlay(alignment: .top) {
                 if noteChatState.hasResponse && noteChatState.useResponsePanel {
