@@ -508,9 +508,7 @@ private struct NotePageContent: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(transitionOpacity > 0)
             }
-            .background {
-                ui.theme.background.ignoresSafeArea(edges: [.horizontal, .bottom])
-            }
+            .background(ui.theme.background)
             .environment(noteChatState)
             .overlay(alignment: .top) {
                 if noteChatState.hasResponse && noteChatState.useResponsePanel {
@@ -557,6 +555,7 @@ private struct NotePageContent: View {
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
         .animation(.smooth(duration: 0.2), value: showTableOfContents)
         .preferredColorScheme(ui.theme.colorScheme)
+        .toolbarBackground(.ultraThinMaterial, for: .windowToolbar)
         .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
         .toolbar {
             // — New Note (far left) —
