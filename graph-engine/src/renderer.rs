@@ -23,6 +23,8 @@ struct NodeInstance {
     radius: f32,        // offset 8
     z: f32,             // offset 12 — depth for perspective/parallax
     color: [f32; 4],    // offset 16
+    face_type: f32,     // offset 32 — 0=none, 1=note..8=block, -1=face feature
+    _pad: [f32; 3],     // offset 36 — alignment padding to 48 bytes (Metal float4 → 16-byte struct stride)
 }
 
 /// Per-instance data for straight-line edge rendering.
@@ -485,10 +487,6 @@ const DIM_ALPHA: f32 = 0.04;
 /// Dimmed edge alpha when highlight is active.
 const EDGE_DIM_ALPHA: f32 = 0.02;
 
-/// Hot orange color for maximally stressed edges.
-const TENSION_COLOR: [f32; 4] = [1.0, 0.3, 0.1, 0.8];
-/// Stretch percentage at which edge reaches max tension color (50% = k_yield).
-const TENSION_K_YIELD: f32 = 0.5;
 
 // ── Glow constants (shared between upload_graph and update_positions) ─────
 const HUB_GLOW_Z_OFFSET: f32 = -0.12;
@@ -540,14 +538,17 @@ constant float GLOW_INSTANCE_ALPHA_CUTOFF = 0.15;
 struct NodeInstance {
     float2 position;
     float  radius;
-    float  z;       // depth: positive = closer, negative = farther
+    float  z;
     float4 color;
+    float  face_type;   // 0=none, 1=note..8=block, -1=face feature
+    float  _pad[3];     // alignment padding to 48 bytes (float4 → 16-byte struct stride)
 };
 
 struct NodeVertexOut {
     float4 position [[position]];
     float4 color;
     float2 uv;
+    float  face_type;
     float  depth;
     float  highlight_dim;  // 1.0 = normal, <1.0 = dimmed
     float  desaturate;     // 0.0 = full color, 1.0 = grayscale
@@ -611,10 +612,14 @@ vertex NodeVertexOut node_vertex(
     float2 ndc = screen / (uniforms.viewport_size * 0.5) * float2(1, -1);
     float ndc_z = 0.5 - depth * 0.1;
 
-    // Highlight flags: 0 = normal, 1 = highlighted (boosted), 2 = grayscale, 3+ = dimmed.
+    // Highlight flags: 0=normal, 1=highlighted, 2=dim-dark, 3=dim-light, 4+=value/255.
     uchar flag = highlight_flags[instance_id];
-    float highlight_dim = flag == 0 ? 1.0 : (flag == 1 ? 1.50 : (flag == 2 ? 0.70 : (float(flag) / 255.0)));
-    float desaturate = flag == 2 ? 1.0 : 0.0;
+    float highlight_dim = flag == 0 ? 1.0
+                        : (flag == 1 ? 1.50
+                        : (flag == 2 ? 0.30   // dark mode: strong dim
+                        : (flag == 3 ? 0.80   // light mode: gentle fade
+                        : (float(flag) / 255.0))));
+    float desaturate = (flag == 2 || flag == 3) ? 1.0 : 0.0;
 
     NodeVertexOut out;
     out.position = float4(ndc, ndc_z, 1.0);
@@ -625,6 +630,7 @@ vertex NodeVertexOut node_vertex(
     out.desaturate = desaturate;
     out.is_lite = uniforms.lite_mode;
     out.world_pos = base_pos;
+    out.face_type = inst.face_type;
     return out;
 }
 
@@ -705,6 +711,88 @@ fragment float4 node_fragment(
     // Anime outline: dark ring near SDF boundary.
     float outline = smoothstep(0.73, 0.75, dist) * (1.0 - smoothstep(0.85, 0.87, dist));
     lit_color *= (1.0 - outline * 0.6);
+
+    // ── Pixel art face overlay ──
+    // face_type 1-8 = node types, rendered as blocky pixel faces.
+    // Uses the quantized grid_pos for crisp pixel alignment.
+    if (in.face_type >= 1.0 && in.face_type <= 8.0 && dist < 0.75) {
+        int ft = int(in.face_type + 0.5);
+        // Grid coords centered at (0,0), range roughly [-grid, grid]
+        float2 gp = grid_pos; // from earlier quantization
+
+        // Eye positions: y=-2 row, x=-2 and x=+2
+        bool left_eye = false;
+        bool right_eye = false;
+        bool mouth = false;
+        bool brow_l = false;
+        bool brow_r = false;
+        bool nose = false;
+        bool extra = false; // glasses, sparkles, etc.
+
+        // Common eye region
+        bool at_left_eye  = (gp.x >= -3.0 && gp.x <= -1.0 && gp.y >= -3.0 && gp.y <= -1.0);
+        bool at_right_eye = (gp.x >= 1.0  && gp.x <= 3.0  && gp.y >= -3.0 && gp.y <= -1.0);
+
+        if (ft == 1) {
+            // Note (teal): happy face — dot eyes, curved smile
+            left_eye  = (gp.x == -2.0 && gp.y == -2.0);
+            right_eye = (gp.x == 2.0  && gp.y == -2.0);
+            mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
+                    (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0));
+        } else if (ft == 2) {
+            // Chat (orange): talking face — round eyes, open O mouth
+            left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
+            right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
+            mouth = (gp.x >= -1.0 && gp.x <= 1.0 && gp.y >= 1.0 && gp.y <= 3.0) &&
+                    !(gp.x == 0.0 && gp.y == 2.0);
+        } else if (ft == 3) {
+            // Idea (yellow): excited — star eyes, wide smile
+            left_eye  = (gp.x == -2.0 && (gp.y == -3.0 || gp.y == -1.0)) ||
+                        (gp.y == -2.0 && (gp.x == -3.0 || gp.x == -1.0)) ||
+                        (gp.x == -2.0 && gp.y == -2.0);
+            right_eye = (gp.x == 2.0 && (gp.y == -3.0 || gp.y == -1.0)) ||
+                        (gp.y == -2.0 && (gp.x == 1.0 || gp.x == 3.0)) ||
+                        (gp.x == 2.0 && gp.y == -2.0);
+            mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                    (gp.y == 1.0 && (gp.x == -4.0 || gp.x == 4.0));
+        } else if (ft == 4) {
+            // Source (green): studious — square glasses, flat mouth
+            left_eye  = at_left_eye;
+            right_eye = at_right_eye;
+            extra = (gp.y == -2.0 && gp.x == 0.0); // nose bridge
+            mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
+        } else if (ft == 5) {
+            // Folder (brown): sleepy — line eyes, flat mouth
+            left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
+            right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
+            mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0);
+        } else if (ft == 6) {
+            // Quote (purple): winking — one closed eye, smirk
+            left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0); // closed
+            right_eye = (gp.x == 2.0  && gp.y == -2.0); // dot
+            mouth = (gp.y == 2.0 && gp.x >= 0.0 && gp.x <= 3.0) ||
+                    (gp.y == 1.0 && gp.x == -1.0);
+        } else if (ft == 7) {
+            // Tag (gray): minimal — tiny dots, dash
+            left_eye  = (gp.x == -2.0 && gp.y == -1.0);
+            right_eye = (gp.x == 2.0  && gp.y == -1.0);
+            mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
+        } else if (ft == 8) {
+            // Block (blue): content — ^_^ face
+            left_eye  = (gp.y == -2.0 && gp.x == -2.0) ||
+                        (gp.y == -3.0 && (gp.x == -3.0 || gp.x == -1.0));
+            right_eye = (gp.y == -2.0 && gp.x == 2.0) ||
+                        (gp.y == -3.0 && (gp.x == 1.0 || gp.x == 3.0));
+            mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0);
+        }
+
+        bool is_face = left_eye || right_eye || mouth || brow_l || brow_r || nose || extra;
+        if (is_face) {
+            // Dark face features — blend onto the lit surface
+            float face_dark = 0.15;
+            lit_color = mix(lit_color, lit_color * face_dark, 0.85);
+        }
+    }
 
     // Balanced: no depth-of-field fade (all nodes same opacity).
     // Cinematic: far nodes fade slightly for depth effect.
@@ -1011,7 +1099,6 @@ pub struct Renderer {
     pub link_distance: f32,
     // Laboratory visual toggles + knobs.
     pub enable_elastic_edges: bool,
-    pub enable_tension_coloring: bool,
     /// 0.0 = stiff/straight, 1.0 = maximum rubber-band curvature.
     pub edge_elasticity: f32,
     // Pulse wave state (set on mouse_down, decays over time).
@@ -1051,6 +1138,8 @@ impl Renderer {
             radius,
             z: 0.99,
             color,
+            face_type: -1.0, // face feature circle, not a node
+            _pad: [0.0; 3],
         });
         self.classic_velocity_scratch.push([0.0, 0.0]);
     }
@@ -1180,7 +1269,6 @@ impl Renderer {
             prev_camera_offset: [0.0, 0.0],
             link_distance: 243.0,
             enable_elastic_edges: true,
-            enable_tension_coloring: true,
             edge_elasticity: 0.5,
             pulse_origin: [0.0, 0.0],
             pulse_start: 0.0,
@@ -1418,11 +1506,15 @@ impl Renderer {
             z_for_link_count(world.hierarchy[node_index].link_count)
         };
         color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
+        // face_type: 1-8 maps to NodeType enum + 1 (Note=1, Chat=2, ..., Block=8)
+        let face_type = (world.hierarchy[node_index].node_type as f32) + 1.0;
         NodeInstance {
             position: [world.transform[node_index].x, world.transform[node_index].y],
             radius: self.classic_node_radius(world, node_index),
             z,
             color,
+            face_type,
+            _pad: [0.0; 3],
         }
     }
 
@@ -1447,20 +1539,6 @@ impl Renderer {
                 let lum = base_edge[0] * 0.299 + base_edge[1] * 0.587 + base_edge[2] * 0.114;
                 [lum, lum, lum, base_edge[3] * 0.18]
             }
-        } else if self.enable_tension_coloring {
-            let dx = p1[0] - p0[0];
-            let dy = p1[1] - p0[1];
-            let dist = (dx * dx + dy * dy).sqrt();
-            let ideal = self.link_distance / edge.weight.max(0.01);
-            let stress = (((dist - ideal) / ideal).max(0.0) / TENSION_K_YIELD).min(1.0);
-            let mut color = [
-                base_edge[0] + stress * (TENSION_COLOR[0] - base_edge[0]),
-                base_edge[1] + stress * (TENSION_COLOR[1] - base_edge[1]),
-                base_edge[2] + stress * (TENSION_COLOR[2] - base_edge[2]),
-                base_edge[3] + stress * (TENSION_COLOR[3] - base_edge[3]),
-            ];
-            color[3] *= BASE_NODE_ALPHA;
-            color
         } else {
             let mut color = base_edge;
             color[3] *= BASE_NODE_ALPHA;
@@ -1546,6 +1624,8 @@ impl Renderer {
                     radius: proxy_radius,
                     z: z_for_link_count(cluster.max_link_count),
                     color,
+                    face_type: 0.0,
+                    _pad: [0.0; 3],
                 });
                 self.classic_velocity_scratch.push([
                     cluster.sum_vx * inv_count,
@@ -1572,6 +1652,8 @@ impl Renderer {
                             radius: radius * HUB_GLOW_RADIUS_FACTOR,
                             z: z + HUB_GLOW_Z_OFFSET,
                             color: [color[0], color[1], color[2], HUB_GLOW_ALPHA],
+                            face_type: 0.0,
+                            _pad: [0.0; 3],
                         });
                         self.classic_velocity_scratch.push([0.0, 0.0]);
                     }
@@ -1585,6 +1667,8 @@ impl Renderer {
                             radius: glow_radius,
                             z: z + CONF_GLOW_Z_OFFSET,
                             color: [color[0], color[1], color[2], glow_alpha],
+                            face_type: 0.0,
+                            _pad: [0.0; 3],
                         });
                         self.classic_velocity_scratch.push([0.0, 0.0]);
                     }
@@ -1604,6 +1688,8 @@ impl Renderer {
                         radius: 1.5,
                         z: -0.50,
                         color: [0.7, 0.85, 1.0, 0.08],
+                        face_type: 0.0,
+                        _pad: [0.0; 3],
                     });
                     self.classic_velocity_scratch.push([0.0, 0.0]);
                 }
@@ -2007,6 +2093,8 @@ impl Renderer {
                     radius: r + 6.0,
                     z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [color[0], color[1], color[2], 0.6],
+                    face_type: 0.0,
+                    _pad: [0.0; 3],
                 };
             }
             idx += 1;
@@ -2025,6 +2113,8 @@ impl Renderer {
                     radius: r + 2.0,
                     z: z_for_link_count(world.hierarchy[gi].link_count),
                     color: [1.0, 1.0, 1.0, 0.2],
+                    face_type: 0.0,
+                    _pad: [0.0; 3],
                 };
             }
             idx += 1;
@@ -2040,9 +2130,12 @@ impl Renderer {
         let total = self.glow_count + self.node_count + self.face_feature_count + self.highlight_count;
         if total == 0 { return; }
 
-        // Flag encoding: 0 = normal, 1 = highlighted (boosted), 2 = grayscale, 3+ = dim (value/255).
-        const NODE_GRAY: u8 = 2;   // grayscale (visible but desaturated)
-        const GLOW_DIM: u8 = 4;    // glow dim factor ≈ 0.016
+        // Flag encoding: 0=normal, 1=highlighted, 2=dim-dark, 3=dim-light, 4+=value/255.
+        const NODE_DIM_DARK: u8 = 2;   // dark mode: strong dim + desaturate
+        const NODE_DIM_LIGHT: u8 = 3;  // light mode: gentle fade + desaturate
+        const GLOW_DIM: u8 = 5;        // glow dim factor ≈ 0.020
+
+        let node_dim = if self.light_mode { NODE_DIM_LIGHT } else { NODE_DIM_DARK };
 
         // Reuse pre-allocated scratch buffer (avoids heap allocation every frame).
         self.highlight_flag_scratch.clear();
@@ -2050,9 +2143,6 @@ impl Renderer {
 
         if self.highlight.active {
             // Glow flags — must mirror update_positions exactly: cap at self.glow_count.
-            // Without this cap, visibility/link_count changes would misalign the flag buffer
-            // with the instance buffer, causing the wrong node to get highlighted.
-            // Flag encoding: 0 = normal, 1 = highlighted (boosted), GLOW_DIM/NODE_DIM = dimmed.
             let mut glow_flags = 0usize;
             for &node_index in &self.rendered_node_indices {
                 let graph_node = &world.graph_node[node_index];
@@ -2069,11 +2159,11 @@ impl Renderer {
             // Pad or truncate to exactly glow_count (safety net).
             self.highlight_flag_scratch.resize(self.glow_count, 0);
 
-            // Regular node flags: 1 = highlighted (bright), NODE_GRAY = grayscale
+            // Regular node flags: 1 = highlighted (bright), node_dim = dimmed
             for &node_index in &self.rendered_node_indices {
                 let graph_node = &world.graph_node[node_index];
                 let lit = self.highlight.highlighted_ids.contains(&graph_node.node_id);
-                self.highlight_flag_scratch.push(if lit { 1 } else { NODE_GRAY });
+                self.highlight_flag_scratch.push(if lit { 1 } else { node_dim });
             }
             self.highlight_flag_scratch.resize(
                 self.glow_count + self.node_count + self.face_feature_count,
@@ -2681,13 +2771,6 @@ mod tests {
         assert!(z_for_link_count(7) < z_for_link_count(10));
     }
 
-    #[test]
-    fn tension_color_constants_valid() {
-        for c in &TENSION_COLOR {
-            assert!(*c >= 0.0 && *c <= 1.0, "Tension color component out of range: {}", c);
-        }
-        assert!(TENSION_K_YIELD > 0.0 && TENSION_K_YIELD <= 1.0);
-    }
 
     #[test]
     fn uniforms_size_matches_metal() {
@@ -2698,8 +2781,9 @@ mod tests {
 
     #[test]
     fn node_instance_size() {
-        // position(8) + radius(4) + z(4) + color(16) = 32 bytes.
-        assert_eq!(std::mem::size_of::<NodeInstance>(), 32);
+        // position(8) + radius(4) + z(4) + color(16) + face_type(4) + _pad(12) = 48 bytes.
+        // Must be a multiple of 16 to match Metal's float4 alignment stride.
+        assert_eq!(std::mem::size_of::<NodeInstance>(), 48);
     }
 
     #[test]

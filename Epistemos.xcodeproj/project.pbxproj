@@ -218,7 +218,6 @@
 		CFB3D2F9A2074EBB839B4AA3 /* HologramController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 879EC1715BBE486CB9D267DC /* HologramController.swift */; };
 		D0BE2F268FDB1F22A6735F95 /* LearningIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1002A7E01B0EC4FFB8A969A7 /* LearningIntents.swift */; };
 		D1A1C2B3E4F5A6B7C8D90001 /* DialogueChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A1C2B3E4F5A6B7C8D90002 /* DialogueChatState.swift */; };
-		D1A1C2B3E4F5A6B7C8D90003 /* DialogueOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A1C2B3E4F5A6B7C8D90004 /* DialogueOverlayView.swift */; };
 		D2FB41E55F2DEE0892E84085 /* LineDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = B980FE6E8ADB38B410D728FC /* LineDiff.swift */; };
 		D5BB2F79FFF66EF142F8DC66 /* SignalGeneratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8D8978C4C24D0C1AEECFBDF /* SignalGeneratorTests.swift */; };
 		D5D6F96C8C9DB4954F8EAD14 /* SOARService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBD4F31B576487CA28F2D7F4 /* SOARService.swift */; };
@@ -466,7 +465,6 @@
 		CE88207A13BC56DEE34718BF /* SemanticClusterService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SemanticClusterService.swift; sourceTree = "<group>"; };
 		CEB5E38C97E34992A850B56C /* AppBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBootstrap.swift; sourceTree = "<group>"; };
 		D1A1C2B3E4F5A6B7C8D90002 /* DialogueChatState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogueChatState.swift; sourceTree = "<group>"; };
-		D1A1C2B3E4F5A6B7C8D90004 /* DialogueOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogueOverlayView.swift; sourceTree = "<group>"; };
 		D5B7FEDB6B8DBDF1868450FA /* ResearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchView.swift; sourceTree = "<group>"; };
 		D6B6BD24531348A996B54023 /* GraphBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphBuilder.swift; sourceTree = "<group>"; };
 		D6FE918724D095CA26CDE027 /* SOAREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOAREngine.swift; sourceTree = "<group>"; };
@@ -861,7 +859,6 @@
 				DAD3CAC3378F8B6999B406ED /* QueryResultsView.swift */,
 				AA1B2C3D4E5F60718A0B1C2D /* TimeSliderOverlay.swift */,
 				BB1C3D4E5F6071829A0B2C3D /* RelationshipBrowser.swift */,
-				D1A1C2B3E4F5A6B7C8D90004 /* DialogueOverlayView.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -1373,7 +1370,6 @@
 				68FFAE298011042579FF85DF /* BackgroundGraphActor.swift in Sources */,
 				00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */,
 				D1A1C2B3E4F5A6B7C8D90001 /* DialogueChatState.swift in Sources */,
-				D1A1C2B3E4F5A6B7C8D90003 /* DialogueOverlayView.swift in Sources */,
 				C886A789A972BC02BB03188B /* PhysicsCoordinator.swift in Sources */,
 				6E467612B90C638773ABD3E0 /* NoteChatParser.swift in Sources */,
 				064F4D5F2022D67933C31016 /* NoteChatOrb.swift in Sources */,

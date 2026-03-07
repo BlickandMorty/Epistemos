@@ -613,6 +613,21 @@ impl Engine {
         (wx, wy)
     }
 
+    /// Get a node's screen pixel position by UUID. Returns `None` if not found.
+    pub fn node_screen_pos(&self, uuid: &str) -> Option<[f32; 2]> {
+        let &id = self.graph.uuid_to_id.get(uuid)?;
+        let index = self.world.index_of_node_id(id)?;
+        if index >= self.world.len() { return None; }
+        let wx = self.world.transform[index].x;
+        let wy = self.world.transform[index].y;
+        let w = self.viewport_width as f32;
+        let h = self.viewport_height as f32;
+        let zoom = self.renderer.camera_zoom;
+        let sx = (wx - self.renderer.camera_offset[0]) * zoom + w * 0.5;
+        let sy = (wy - self.renderer.camera_offset[1]) * zoom + h * 0.5;
+        Some([sx, sy])
+    }
+
     // ── Input Handling ───────────────────────────────────────────────
 
     /// Mouse/trackpad button pressed.
@@ -736,9 +751,9 @@ impl Engine {
             sim.params.alpha_target = 0.0; // Resume normal cooldown
             drop(sim);
 
-            // Click (not a real drag) → isolate node and focus on its connections.
+            // Click (not a drag) → highlight node + neighbors (no camera zoom).
             if !drag.moved {
-                self.isolate_node(drag.node_id);
+                self.highlight_neighbors_by_id(drag.node_id);
             }
         }
         self.pan_active = false;
@@ -913,7 +928,7 @@ impl Engine {
         }
         // Renderer-side params
         self.renderer.enable_elastic_edges = enable_elastic;
-        self.renderer.enable_tension_coloring = enable_tension;
+        let _ = enable_tension; // tension coloring removed
         self.renderer.edge_elasticity = edge_elasticity.clamp(0.0, 1.0);
         self.renderer.wind_x = wind_x;
         self.renderer.wind_y = wind_y;

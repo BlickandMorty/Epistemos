@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import NaturalLanguage
 
 // MARK: - HologramNodeInspector
 // Right-side floating panel: node details, AI summary, chat.
@@ -11,8 +12,8 @@ struct HologramNodeInspector: View {
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext
 
-    enum Section: CaseIterable { case summary, relationships, chat }
-    @State private var expandedSection: Section = .summary
+    enum Section: CaseIterable { case profile, summary, relationships, chat }
+    @State private var expandedSection: Section = .profile
 
     var body: some View {
         // Read selectedNodeId in body to establish @Observable tracking in NSHostingView.
@@ -27,7 +28,7 @@ struct HologramNodeInspector: View {
         .onChange(of: currentId) { _, newId in
             if let newId, let node = graphState.store.nodes[newId] {
                 inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
-                expandedSection = .summary
+                expandedSection = .profile
             } else {
                 inspectorState.clearSelection()
             }
@@ -48,6 +49,12 @@ struct HologramNodeInspector: View {
 
     @ViewBuilder
     private func accordionBody(_ node: GraphNodeRecord) -> some View {
+        sectionHeader(.profile, icon: "person.crop.circle", title: "Profile", preview: profilePreview)
+        if expandedSection == .profile {
+            profileBody
+            Divider()
+        }
+
         sectionHeader(.summary, icon: "sparkles", title: "Summary", preview: summaryPreview)
         if expandedSection == .summary {
             summaryBody
@@ -123,6 +130,98 @@ struct HologramNodeInspector: View {
     private var chatPreview: String {
         let count = inspectorState.chatMessages.count
         return count > 0 ? "\(count)" : ""
+    }
+
+    private var profilePreview: String {
+        guard let p = inspectorState.profile else { return "" }
+        return "\(p.archetype.title) · \(p.care.mood.displayName)"
+    }
+
+    // MARK: - Profile Body
+
+    private var profileBody: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if let p = inspectorState.profile {
+                    // Archetype + Mood row
+                    HStack(spacing: 8) {
+                        Image(systemName: p.portrait.symbol)
+                            .font(.title3)
+                            .foregroundStyle(p.care.mood == .thriving ? .green : p.care.mood == .fragile ? .red : .secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(p.archetype.title)
+                                .font(.callout.bold())
+                            Text(p.care.mood.displayName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(p.insight.tier.displayName)
+                            .font(.caption.monospaced())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.quaternary, in: Capsule())
+                    }
+
+                    // Stats meters
+                    VStack(spacing: 6) {
+                        statMeter(label: "Health", value: p.care.health, color: .green)
+                        statMeter(label: "Focus", value: p.care.attention, color: .blue)
+                        statMeter(label: "Mass", value: p.insight.prominence, color: .orange)
+                    }
+
+                    // Content info
+                    HStack(spacing: 12) {
+                        Label(p.insight.contentLabel, systemImage: "doc.text")
+                        Label(p.insight.hierarchyLabel, systemImage: "arrow.up.arrow.down")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+
+                    // Keywords
+                    if !p.focusKeywords.isEmpty {
+                        FlowLayout(spacing: 4) {
+                            ForEach(p.focusKeywords, id: \.self) { kw in
+                                Text(kw)
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(.quaternary, in: Capsule())
+                            }
+                        }
+                    }
+                } else {
+                    Text("No profile available.")
+                        .font(.callout)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                }
+            }
+            .padding(16)
+        }
+    }
+
+    private func statMeter(label: String, value: Double, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(width: 40, alignment: .trailing)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(.quaternary)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color.opacity(0.7))
+                        .frame(width: geo.size.width * max(0, min(1, value)))
+                }
+            }
+            .frame(height: 6)
+            Text("\(Int(value * 100))%")
+                .font(.caption2.monospaced())
+                .foregroundStyle(.tertiary)
+                .frame(width: 32, alignment: .trailing)
+        }
     }
 
     // MARK: - Header

@@ -43,14 +43,6 @@ struct MetalGraphView: NSViewRepresentable {
 final class MetalGraphNSView: NSView {
     private typealias DialogueDepthColor = (r: Float, g: Float, b: Float, a: Float)
 
-    private struct DialogueContextSnapshot {
-        let node: GraphNodeRecord?
-        let noteBody: String
-        let linkedLabels: [String]
-        let insight: DialogueNodeInsight
-        let neighborContext: [(label: String, relationship: String, body: String)]
-    }
-
     private static let dialogueDepthPalette: [DialogueDepthColor] = [
         (0.98, 0.96, 0.90, 1.0),
         (0.95, 0.82, 0.34, 1.0),
@@ -100,9 +92,6 @@ final class MetalGraphNSView: NSView {
     nonisolated(unsafe) var physicsCoordinator: PhysicsCoordinator?
     nonisolated(unsafe) var dialogueChatState: DialogueChatState?
     nonisolated(unsafe) var uiState: UIState?
-    private var dialogueHostingView: NSHostingView<AnyView>?
-    /// Reused buffer for reading dialogue screen rect from Rust (zero per-frame allocation).
-    private var dialogueRectBuf: [Float] = [0, 0, 0, 0]
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastLiteModeVersion = -1
@@ -807,19 +796,24 @@ final class MetalGraphNSView: NSView {
 
         let result = graph_engine_render(engine, w, h)
 
-        // Update dialogue overlay position from Rust screen rect.
-        if graph_engine_dialogue_is_active(engine) != 0 {
-            graph_engine_dialogue_screen_rect(engine, &dialogueRectBuf)
-            let scale = metalLayer?.contentsScale ?? 2.0
-            let pointRect = CGRect(
-                x: CGFloat(dialogueRectBuf[0]) / scale,
-                y: bounds.height - CGFloat(dialogueRectBuf[1] + dialogueRectBuf[3]) / scale,
-                width: CGFloat(dialogueRectBuf[2]) / scale,
-                height: CGFloat(dialogueRectBuf[3]) / scale
-            )
-            updateDialogueOverlay(rect: pointRect)
+        // Update selected node screen position for inspector tracking.
+        if let nodeId = graphState?.selectedNodeId {
+            var posBuf: [Float] = [0, 0]
+            let found = nodeId.withCString { ptr in
+                graph_engine_node_screen_pos(engine, ptr, &posBuf)
+            }
+            if found != 0 {
+                let scale = metalLayer?.contentsScale ?? 2.0
+                let pt = CGPoint(
+                    x: CGFloat(posBuf[0]) / scale,
+                    y: bounds.height - CGFloat(posBuf[1]) / scale
+                )
+                graphState?.selectedNodeScreenPoint = pt
+            } else {
+                graphState?.selectedNodeScreenPoint = nil
+            }
         } else {
-            hideDialogueOverlay()
+            graphState?.selectedNodeScreenPoint = nil
         }
 
         needsRender = result != 0
@@ -830,12 +824,6 @@ final class MetalGraphNSView: NSView {
     override var acceptsFirstResponder: Bool { true }
 
     override func mouseDown(with event: NSEvent) {
-        // Let the dialogue overlay handle its own clicks.
-        if let hosting = dialogueHostingView {
-            let loc = convert(event.locationInWindow, from: nil)
-            if hosting.frame.contains(loc) { return }
-        }
-
         // Claim first responder on click so subsequent gestures (magnify, scroll) route here.
         if window?.firstResponder !== self {
             window?.makeFirstResponder(self)
@@ -928,37 +916,11 @@ final class MetalGraphNSView: NSView {
         graph_engine_mouse_up(engine)
 
         // Sync selection state: node click → select, background click → deselect.
+        // Rust mouse_up already highlights neighbors on click and clears on background.
         let uuidPtr = graph_engine_selected_node_uuid(engine)
         if let uuidPtr {
             let uuid = String(cString: uuidPtr)
             graphState?.selectNode(uuid)
-
-            // Dialogue theme: open dialogue on selected node.
-            if graphState?.visualTheme == .dialogue, let dialogueChatState {
-                uuid.withCString { cstr in
-                    graph_engine_dialogue_open(engine, cstr)
-                }
-                let dialogueContext = graphState.map { buildDialogueContextSnapshot(for: uuid, graphState: $0) }
-                let nodeRecord = dialogueContext?.node
-                let label = nodeRecord?.label ?? "Unknown"
-                let isNewNode = dialogueChatState.activeNodeId != uuid
-                dialogueChatState.open(
-                    nodeId: uuid,
-                    label: label,
-                    nodeType: nodeRecord?.type ?? .note,
-                    noteBody: dialogueContext?.noteBody ?? "",
-                    linkedNodeLabels: dialogueContext?.linkedLabels ?? [],
-                    insight: dialogueContext?.insight
-                )
-                if isNewNode {
-                    dialogueChatState.onStreamingChanged = { [weak self] streaming in
-                        guard let engine = self?.engine else { return }
-                        graph_engine_dialogue_set_streaming(engine, streaming ? 1 : 0)
-                        self?.needsRender = true
-                    }
-                }
-                needsRender = true
-            }
 
             // Notify in-note graph mode about the tap (if callback is set).
             if let onNodeTap, let sourceId = graphState?.store.nodes[uuid]?.sourceId {
@@ -966,19 +928,6 @@ final class MetalGraphNSView: NSView {
             }
         } else {
             graphState?.selectNode(nil)
-
-            // Dialogue theme: close dialogue on background click (not inside overlay).
-            if graphState?.visualTheme == .dialogue {
-                let clickInOverlay = dialogueHostingView.map { hosting in
-                    hosting.frame.contains(convert(event.locationInWindow, from: nil))
-                } ?? false
-                if !clickInOverlay {
-                    graph_engine_dialogue_close(engine)
-                    dialogueChatState?.close()
-                    hideDialogueOverlay()
-                    needsRender = true
-                }
-            }
 
             // Background tap: if mouse barely moved, treat as click-outside dismiss.
             // Disabled in mini mode — mini graph stays open.
@@ -1345,185 +1294,6 @@ final class MetalGraphNSView: NSView {
         }
     }
 
-    private func buildDialogueContextSnapshot(for nodeId: String, graphState: GraphState) -> DialogueContextSnapshot {
-        let node = graphState.store.nodes[nodeId]
-        let noteBody: String
-        if node?.type == .note, let sourceId = node?.sourceId {
-            noteBody = NoteFileStorage.readBody(pageId: sourceId)
-        } else {
-            noteBody = ""
-        }
-        let neighbors = graphState.store.neighbors(of: nodeId)
-        let linkedLabels = neighbors.map(\.label)
-        let insight = dialogueInsight(
-            for: node,
-            noteBody: noteBody,
-            linkedNodeLabels: linkedLabels,
-            graphState: graphState
-        )
-
-        // Gather parent + neighbor context (up to 6 neighbors, 2000 chars each)
-        let edges = graphState.store.edges(for: nodeId)
-        var neighborContext: [(label: String, relationship: String, body: String)] = []
-
-        // Parents first (folders containing this node)
-        for edge in edges where edge.type == .contains && edge.targetNodeId == nodeId {
-            guard let parent = graphState.store.nodes[edge.sourceNodeId] else { continue }
-            let siblingLabels = graphState.store.neighbors(of: parent.id)
-                .filter { $0.id != nodeId }
-                .prefix(10)
-                .map(\.label)
-            let parentBody = "Contains: \(siblingLabels.joined(separator: ", "))"
-            neighborContext.append((label: parent.label, relationship: "parent", body: parentBody))
-        }
-
-        // Direct neighbors (notes/ideas/sources — fetch their content)
-        for neighbor in neighbors.prefix(6) where neighborContext.count < 7 {
-            if neighborContext.contains(where: { $0.label == neighbor.label }) { continue }
-            let relationship = edges.first { e in
-                (e.sourceNodeId == nodeId && e.targetNodeId == neighbor.id) ||
-                (e.targetNodeId == nodeId && e.sourceNodeId == neighbor.id)
-            }?.type.rawValue ?? "linked"
-            let body: String
-            if neighbor.type == .note, let sid = neighbor.sourceId {
-                body = String(NoteFileStorage.readBody(pageId: sid).prefix(2000))
-            } else {
-                body = ""
-            }
-            neighborContext.append((label: neighbor.label, relationship: relationship, body: body))
-        }
-
-        return DialogueContextSnapshot(node: node, noteBody: noteBody, linkedLabels: linkedLabels, insight: insight, neighborContext: neighborContext)
-    }
-
-    private func dialogueInsight(
-        for node: GraphNodeRecord?,
-        noteBody: String,
-        linkedNodeLabels: [String],
-        graphState: GraphState
-    ) -> DialogueNodeInsight {
-        guard let node else {
-            return DialogueNodeInsight.fallback(nodeType: .note, noteBody: noteBody, linkedNodeCount: linkedNodeLabels.count)
-        }
-
-        if node.type == .folder,
-           let sourceId = node.sourceId,
-           let context = graphState.modelContext,
-           let folder = fetchFolder(id: sourceId, context: context) {
-            let stats = folderAggregateStats(folder)
-            let depth = folderDepth(folder)
-            let contentWords = max(stats.words, Int(node.weight * 90.0))
-            let childCount = stats.pageCount + stats.childFolders
-            let prominence = min(
-                1.0,
-                Double(contentWords) / 3200.0 +
-                Double(childCount) * 0.025 +
-                min(0.20, node.weight / 24.0) +
-                (depth == 0 ? 0.16 : 0.0)
-            )
-            return DialogueNodeInsight(
-                structureDepth: depth,
-                contentWords: contentWords,
-                childCount: childCount,
-                tier: DialogueNodeInsight.tier(for: depth),
-                prominence: prominence
-            )
-        }
-
-        if node.type == .note,
-           let sourceId = node.sourceId,
-           let context = graphState.modelContext,
-           let page = fetchPage(id: sourceId, context: context) {
-            let depth = pageDepth(page)
-            let bodyWords = noteBody.split { !$0.isLetter && !$0.isNumber }.count
-            let childCount = linkedNodeLabels.count + (page.childPages?.count ?? 0)
-            let contentWords = max(page.wordCount, bodyWords)
-            let prominence = min(
-                1.0,
-                Double(contentWords) / 2200.0 +
-                Double(childCount) * 0.024 +
-                min(0.18, node.weight / 16.0)
-            )
-            return DialogueNodeInsight(
-                structureDepth: depth,
-                contentWords: contentWords,
-                childCount: childCount,
-                tier: DialogueNodeInsight.tier(for: depth),
-                prominence: prominence
-            )
-        }
-
-        let fallback = DialogueNodeInsight.fallback(
-            nodeType: node.type,
-            noteBody: noteBody,
-            linkedNodeCount: linkedNodeLabels.count
-        )
-        let depth = graphDepthLevels(store: graphState.store)[node.id] ?? fallback.structureDepth
-        return DialogueNodeInsight(
-            structureDepth: depth,
-            contentWords: fallback.contentWords,
-            childCount: max(fallback.childCount, linkedNodeLabels.count),
-            tier: DialogueNodeInsight.tier(for: depth),
-            prominence: min(1.0, fallback.prominence + min(0.12, node.weight / 20.0))
-        )
-    }
-
-    private func fetchPage(id: String, context: ModelContext) -> SDPage? {
-        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
-        return try? context.fetch(descriptor).first
-    }
-
-    private func fetchFolder(id: String, context: ModelContext) -> SDFolder? {
-        let descriptor = FetchDescriptor<SDFolder>(predicate: #Predicate { $0.id == id })
-        return try? context.fetch(descriptor).first
-    }
-
-    private func folderDepth(_ folder: SDFolder) -> Int {
-        var depth = 0
-        var current = folder.parent
-        var visited = Set<String>([folder.id])
-        while let parent = current, visited.insert(parent.id).inserted {
-            depth += 1
-            current = parent.parent
-        }
-        return depth
-    }
-
-    private func pageDepth(_ page: SDPage) -> Int {
-        var depth = page.folder.map { folderDepth($0) + 1 } ?? 1
-        var current = page.parentPage
-        var visited = Set<String>([page.id])
-        while let parent = current, visited.insert(parent.id).inserted {
-            depth += 1
-            current = parent.parentPage
-        }
-        return depth
-    }
-
-    private func folderAggregateStats(_ folder: SDFolder) -> (pageCount: Int, childFolders: Int, words: Int) {
-        var visited = Set<String>()
-
-        func walk(_ current: SDFolder) -> (pageCount: Int, childFolders: Int, words: Int) {
-            guard visited.insert(current.id).inserted else { return (0, 0, 0) }
-            let pages = (current.pages ?? []).filter { !$0.isArchived }
-            var totals = (
-                pageCount: pages.count,
-                childFolders: 0,
-                words: pages.reduce(0) { $0 + max(0, $1.wordCount) }
-            )
-            for child in current.children ?? [] {
-                totals.childFolders += 1
-                let childTotals = walk(child)
-                totals.pageCount += childTotals.pageCount
-                totals.childFolders += childTotals.childFolders
-                totals.words += childTotals.words
-            }
-            return totals
-        }
-
-        return walk(folder)
-    }
-
     private func graphBaseDepth(for type: GraphNodeType) -> Int {
         switch type {
         case .folder: 0
@@ -1640,83 +1410,9 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
-    // MARK: - Dialogue Overlay
-
-    private func updateDialogueOverlay(rect: CGRect) {
-        guard let dialogueChatState,
-              dialogueChatState.activeNodeId != nil,
-              let graphState else {
-            hideDialogueOverlay()
-            return
-        }
-
-        if dialogueHostingView == nil {
-            let overlay = DialogueOverlayView(
-                chatState: dialogueChatState,
-                onSubmit: { [weak self] query in
-                    self?.submitDialogueQuery(query)
-                },
-                onDismiss: { [weak self] in
-                    self?.dismissDialogue()
-                }
-            )
-            guard let uiState = self.uiState ?? AppBootstrap.shared?.uiState else { return }
-            let root = AnyView(
-                overlay
-                    .environment(graphState)
-                    .environment(uiState)
-            )
-            let hosting = NSHostingView(rootView: root)
-            hosting.frame = rect
-            addSubview(hosting)
-            dialogueHostingView = hosting
-            return
-        }
-
-        // Only update frame; @Observable on DialogueChatState drives content updates.
-        dialogueHostingView?.frame = rect
-    }
-
-    private func hideDialogueOverlay() {
-        dialogueHostingView?.removeFromSuperview()
-        dialogueHostingView = nil
-    }
-
-    private func dismissDialogue() {
-        guard let engine else { return }
-        graph_engine_dialogue_close(engine)
-        dialogueChatState?.close()
-        hideDialogueOverlay()
-        needsRender = true
-    }
-
-    private func submitDialogueQuery(_ queryOverride: String? = nil) {
-        guard let dialogueChatState,
-              let nodeId = dialogueChatState.activeNodeId,
-              let graphState else { return }
-        if let queryOverride {
-            dialogueChatState.inputText = queryOverride
-        }
-        let dialogueContext = buildDialogueContextSnapshot(for: nodeId, graphState: graphState)
-        let nodeType = dialogueContext.node?.type ?? .note
-
-        guard let triageService = AppBootstrap.shared?.triageService else { return }
-
-        dialogueChatState.submitQuery(
-            noteBody: dialogueContext.noteBody,
-            linkedNodeLabels: dialogueContext.linkedLabels,
-            neighborContext: dialogueContext.neighborContext,
-            nodeType: nodeType,
-            insight: dialogueContext.insight,
-            triageService: triageService
-        )
-    }
-
     // MARK: - Cleanup
 
     deinit {
-        dialogueHostingView?.removeFromSuperview()
-        dialogueHostingView = nil
         // Mark invalidated FIRST so any in-flight DispatchQueue.main.async from
         // the CVDisplayLink callback will skip renderFrame() and avoid
         // accessing the destroyed engine pointer.

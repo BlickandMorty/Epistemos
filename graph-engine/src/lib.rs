@@ -517,6 +517,28 @@ pub extern "C" fn graph_engine_screen_to_world(
     }
 }
 
+/// Get a node's screen pixel position by UUID.
+/// Writes 2 floats (x, y) into `out`. Returns 1 if found, 0 if not.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_node_screen_pos(
+    engine: *mut Engine,
+    uuid: *const std::ffi::c_char,
+    out: *mut f32,
+) -> u8 {
+    ffi_engine_or!(engine, 0);
+    if uuid.is_null() || out.is_null() { return 0; }
+    // SAFETY: `uuid` is a valid C string from Swift.
+    let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
+    let Ok(uuid_str) = uuid_str.to_str() else { return 0 };
+    let Some(pos) = engine.node_screen_pos(uuid_str) else { return 0 };
+    // SAFETY: `out` points to caller-owned array of at least 2 floats.
+    unsafe {
+        *out.add(0) = pos[0];
+        *out.add(1) = pos[1];
+    }
+    1
+}
+
 // ── Visibility (Lightweight Filtering) ──────────────────────────────────────
 
 /// Toggle a node's visibility by UUID. Call `graph_engine_refresh_visibility`

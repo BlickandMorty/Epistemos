@@ -191,6 +191,10 @@ void graph_engine_set_center_mode(Engine* engine, uint8_t mode);
 /// Convert screen pixel coordinates to world coordinates.
 void graph_engine_screen_to_world(Engine *engine, float screen_x, float screen_y, float *out_world_x, float *out_world_y);
 
+/// Get a node's screen pixel position by UUID.
+/// Writes 2 floats (x, y) into `out`. Returns 1 if found, 0 if not.
+uint8_t graph_engine_node_screen_pos(Engine *engine, const char *uuid, float *out);
+
 // ── Visibility (Lightweight Filtering) ──────────────────────────────────────
 
 /// Toggle a node's visibility by UUID.

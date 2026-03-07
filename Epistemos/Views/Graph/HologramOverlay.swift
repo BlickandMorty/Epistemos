@@ -45,6 +45,7 @@ final class HologramOverlay {
     private var miniInspectorPanel: GraphOverlayPanel?
     private(set) var isMinimized = false
     private var selectionObserverTask: Task<Void, Never>?
+    private var inspectorPositionTask: Task<Void, Never>?
     private var minimizeObserver: Any?
     private var restoreObserver: Any?
     private var closeObserver: Any?
@@ -545,6 +546,52 @@ final class HologramOverlay {
         ])
     }
 
+    // MARK: - Inspector Position Tracking
+
+    private func startInspectorPositionTracking() {
+        inspectorPositionTask?.cancel()
+        inspectorPositionTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let s = self else { return }
+                await withCheckedContinuation { continuation in
+                    withObservationTracking {
+                        _ = s.graphState.selectedNodeScreenPoint
+                    } onChange: {
+                        continuation.resume()
+                    }
+                }
+                guard !Task.isCancelled, let s = self else { return }
+                s.repositionInspector()
+            }
+        }
+    }
+
+    private func repositionInspector() {
+        guard let inspectorHostView,
+              let contentView = window?.contentView ?? miniPanel?.contentView else { return }
+        let bounds = contentView.bounds
+
+        if let pt = graphState.selectedNodeScreenPoint {
+            // Position inspector to the right of the node, or left if too close to right edge.
+            let inspectorWidth: CGFloat = 380
+            let inspectorHeight: CGFloat = min(500, bounds.height - 40)
+            let gap: CGFloat = 24
+
+            let nodeRight = pt.x + gap
+            let fitsRight = nodeRight + inspectorWidth < bounds.width - 20
+            let x = fitsRight ? nodeRight : pt.x - inspectorWidth - gap
+            // Center vertically on the node, clamped to bounds.
+            let y = max(20, min(bounds.height - inspectorHeight - 20, pt.y - inspectorHeight * 0.4))
+
+            let targetFrame = CGRect(x: x, y: y, width: inspectorWidth, height: inspectorHeight)
+            inspectorHostView.frame = targetFrame
+            inspectorHostView.isHidden = false
+        } else {
+            // No node selected — fall back to static right-side position.
+            inspectorHostView.frame = CGRect(x: bounds.width - 420, y: 60, width: 380, height: 500)
+        }
+    }
+
     // MARK: - Lazy Inspector (Node Selection)
 
     private func observeNodeSelection() {
@@ -737,6 +784,8 @@ final class HologramOverlay {
         // Cancel node selection observer.
         selectionObserverTask?.cancel()
         selectionObserverTask = nil
+        inspectorPositionTask?.cancel()
+        inspectorPositionTask = nil
         // Invalidate appearance KVO observer.
         appearanceObserver?.invalidate()
         appearanceObserver = nil
@@ -846,7 +895,7 @@ final class HologramOverlay {
             sidebarView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 60),
         ])
 
-        // Node inspector panel (SwiftUI hosted on the right).
+        // Node inspector panel (SwiftUI hosted, follows selected node).
         if let modelContainer {
             let inspectorView = NSHostingView(
                 rootView: AnyView(
@@ -857,18 +906,11 @@ final class HologramOverlay {
                     .environment(graphState)
                 )
             )
-            inspectorView.translatesAutoresizingMaskIntoConstraints = false
+            // Use frame-based positioning (updated by inspectorPositionTask).
+            inspectorView.frame = CGRect(x: screen.frame.width - 420, y: 60, width: 380, height: 500)
             contentView.addSubview(inspectorView)
-
-            // Offset from the right edge — account for the Dock if it's on the right.
-            let dockInset = screen.frame.maxX - screen.visibleFrame.maxX
-            let rightMargin = max(dockInset + 16, 32)
-            NSLayoutConstraint.activate([
-                inspectorView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -rightMargin),
-                inspectorView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 60),
-            ])
-
             self.inspectorHostView = inspectorView
+            startInspectorPositionTracking()
         }
 
         window.contentView = contentView

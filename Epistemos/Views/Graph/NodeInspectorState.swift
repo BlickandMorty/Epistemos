@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 import SwiftData
 
 // MARK: - NodeInspectorState
@@ -20,6 +21,10 @@ final class NodeInspectorState {
     var summaryText: String = ""
     var displayedSummary: String = ""
     var isSummarizing: Bool = false
+
+    // MARK: - Profile (stats from dialogue system)
+
+    var profile: DialogueNodeProfile?
 
     // MARK: - Chat
 
@@ -61,6 +66,22 @@ final class NodeInspectorState {
         displayedSummary = ""
         revealTask?.cancel()
 
+        // Derive node profile (stats: mood, tier, health, archetype, keywords).
+        let linkedLabels = store.neighbors(of: node.id).map(\.label)
+        let noteBody: String
+        if node.type == .note, let sourceId = node.sourceId {
+            noteBody = NoteFileStorage.readBody(pageId: sourceId)
+        } else {
+            noteBody = ""
+        }
+        profile = DialogueNodeProfile.derive(
+            nodeId: node.id,
+            label: node.label,
+            nodeType: node.type,
+            noteBody: noteBody,
+            linkedNodeLabels: linkedLabels
+        )
+
         summarizeNode(node, store: store, modelContext: modelContext)
     }
 
@@ -70,6 +91,7 @@ final class NodeInspectorState {
         revealTask?.cancel()
         selectedNodeId = nil
         selectedNode = nil
+        profile = nil
         summaryText = ""
         displayedSummary = ""
         isSummarizing = false

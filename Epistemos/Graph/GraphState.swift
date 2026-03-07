@@ -277,6 +277,9 @@ final class GraphState {
     var scanProgress: Double = 0  // 0.0-1.0
     var scanStatus: String = ""
     var selectedNodeId: String?
+    /// Screen-space position of the selected node (in points, origin top-left).
+    /// Updated each render frame by MetalGraphNSView so the inspector can track the node.
+    var selectedNodeScreenPoint: CGPoint?
     private var isBuildingStructural = false
 
     /// Set to true when notes change — the graph refreshes structural data on next appear.
