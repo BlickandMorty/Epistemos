@@ -8,43 +8,33 @@ Replace hand-rolled implementations with Apple-native frameworks. Ship-quality, 
 
 ---
 
-## Phase 1: Writer Mode Polish (HIGH — keep TextKit 1, it's the right tool)
+## Phase 1: Writer Mode Polish (DONE — TextKit 1, correct architecture)
 
-**Why not TextKit 2:** TextKit 2 dropped multi-container text flow. Each NSTextLayoutManager manages ONE container. For paginated document editing (text flowing across pages), TextKit 1's multi-container layout is still the correct architecture. Even Apple Pages uses this approach.
+**TextKit 1 stays for Writer.** TextKit 2 dropped multi-container text flow — each
+`NSTextLayoutManager` manages ONE `NSTextContainer`. For paginated document editing
+(text flowing across pages), TextKit 1's `NSLayoutManager` with multiple containers is
+the correct architecture. Even Apple Pages uses this approach.
 
-**What changes:** Default font, theme polish, zoom (already fixed), dead code cleanup.
-
-### Architecture
+### Architecture (current, keeping)
 ```
 WriterModeView (SwiftUI)
-  -> WriterDocumentView (NSViewRepresentable)
+  -> PagedDocumentView (NSViewRepresentable)
        -> NSScrollView
-            -> NSTextView (TextKit 2 backed)
-                 -> NSTextContentStorage (owns the text)
-                 -> NSTextLayoutManager (handles pagination + viewport rendering)
-                 -> NSTextContainer (one per page, or single with page breaks)
+            -> PageCanvasView (NSView, isFlipped, themed background)
+                 -> PageTileView[0] (NSTextView, 612x792pt, page surface + shadow)
+                 -> PageTileView[1]
+                 -> ...
+            NSLayoutManager (TextKit 1) flows text across all PageTileView containers
 ```
 
-### Tasks
-1. Create `WriterDocumentView.swift` — NSViewRepresentable using TextKit 2
-2. Configure NSTextView with `NSTextLayoutManager` (not legacy NSLayoutManager)
-3. Use `NSTextLayoutManager.textViewportLayoutController` for viewport-based rendering
-4. Implement page breaks via `NSTextLayoutFragment` inspection
-5. Page chrome (numbers, headers, footers) drawn in a custom `NSTextLayoutFragmentProvider` or overlay
-6. Wire WriterFormatState (font, spacing, margins, alignment) to text attributes
-7. Theme colors on page backgrounds (keep existing 6-theme palette)
-8. Zoom via `scaleUnitSquare(to:)` on the text view (native, crisp)
-9. Keep WriterFormatBar + WriterExportService (they don't touch TextKit internals)
-10. Default font: New York 13pt, line spacing: 1.5x
-11. Delete: PagedDocumentView.swift, PageTileView, PageCanvasView, WriterTextStorage, WriterRulerView (already deleted)
-
-### Verification
-- Writer mode opens, displays text, edits work
-- Page breaks appear at correct positions
-- Zoom is crisp at all levels
-- All 6 themes render correctly
-- Export still works (PDF/DOCX)
-- Format bar controls (font, size, spacing, alignment, margins) all apply
+### Completed
+- Default font: New York 13pt, General preset (1.5x spacing, no indent)
+- Native zoom via `scaleUnitSquare(to:)` (crisp, not bitmap)
+- WritingTools enabled on PageTileView
+- Ruler removed
+- Format bar uses `.ultraThinMaterial`
+- Bottom toolbar visible in writer mode
+- Spell/grammar checking enabled
 
 ---
 
@@ -58,7 +48,7 @@ WriterModeView (SwiftUI)
 1. Add PDF preview toggle in writer mode — renders current document as PDFDocument
 2. Use `PDFView` in an NSViewRepresentable for live preview
 3. Thumbnail sidebar via `PDFThumbnailView`
-4. Export: generate `PDFDocument` from TextKit 2 layout, save via `PDFDocument.write(to:)`
+4. Export: generate `PDFDocument` from TextKit 1 layout, save via `PDFDocument.write(to:)`
 5. Annotation support: let users highlight/comment in preview mode
 6. Keep DOCX/plaintext/markdown export paths (they work fine)
 
@@ -70,57 +60,30 @@ WriterModeView (SwiftUI)
 
 ---
 
-## Phase 3: NaturalLanguage Framework (HIGH — augments Rust entity extraction)
+## Phase 3: NaturalLanguage Framework (DONE)
 
-**What it adds:** On-device NER, sentiment analysis, language detection. Complements Rust parser.
+`NLAnalysisService.swift` created in Engine/. Provides:
+- Entity extraction: `NLTagger` with `.nameType` (person/place/org)
+- Sentiment analysis: `NLTagger` with `.sentimentScore` (-1.0 to +1.0)
+- Language detection: `NLLanguageRecognizer` (BCP-47 codes)
+- Word count: `NLTokenizer` (more accurate than NSSpellChecker for non-English)
 
-### Tasks
-1. Create `NLAnalysisService.swift` in Engine/
-2. Entity extraction: `NLTagger` with `.nameType` scheme — extracts person names, place names, organization names from note text
-3. Sentiment analysis: `NLTagger` with `.sentimentScore` — per-paragraph sentiment for the graph's emotional mapping
-4. Language detection: `NLLanguageRecognizer` — auto-detect note language, feed to Translation framework later
-5. Wire NL entities into GraphBuilder alongside Rust-extracted entities (deduplicate)
-6. Use NL tokenization for better word count (replace `NSSpellChecker.countWords`)
-
-### Verification
-- Entity extraction finds names/places/orgs in sample notes
-- Entities appear as graph nodes
-- No duplicate entities between NL and Rust extraction
-- Word count matches or improves current behavior
+### Remaining
+- Wire NL entities into GraphBuilder alongside Rust-extracted entities (deduplicate)
 
 ---
 
-## Phase 4: WritingTools Integration (HIGH — free Apple Intelligence features)
+## Phase 4: WritingTools Integration (DONE)
 
-**What it adds:** Rewrite, proofread, summarize in any NSTextView — for free.
-
-### Tasks
-1. Audit ClickableTextView and writer NSTextView — ensure `isWritingToolsActive` is not disabled
-2. Verify `writingToolsCoordinator` delegate works (may need adoption)
-3. Test: select text, right-click, Writing Tools submenu should appear
-4. Ensure AI zone protection doesn't interfere with Writing Tools edits
-5. If needed, implement `NSTextViewDelegate.textView(_:writingToolsDidFinishEditing:)` to sync changes
-
-### Verification
-- Writing Tools menu appears on text selection in both prose editor and writer mode
-- Rewrite/Proofread/Summarize work without corrupting text
-- Undo works after Writing Tools edits
+Enabled on PageTileView in writer mode via `writingToolsBehavior = .default`.
+Prose editor (ClickableTextView) inherits default NSTextView behavior — already active.
 
 ---
 
-## Phase 5: CoreSpotlight (MEDIUM — deep system search integration)
+## Phase 5: CoreSpotlight (DONE — already existed)
 
-### Tasks
-1. Create `SpotlightIndexer.swift` in Sync/
-2. Index each SDPage as a `CSSearchableItem` with title, body excerpt, tags, graph connections
-3. Update index on note save (piggyback on VaultSyncService)
-4. Delete items from index on note deletion
-5. Handle `CSSearchableItemActionType` in app delegate to open notes from Spotlight
-
-### Verification
-- Notes appear in system Spotlight search
-- Clicking Spotlight result opens correct note
-- Deleted notes removed from Spotlight
+`SpotlightIndexer.swift` already implemented in Sync/. Full CoreSpotlight integration
+with index/deindex/reindexAll. No work needed.
 
 ---
 
@@ -153,18 +116,11 @@ WriterModeView (SwiftUI)
 
 ---
 
-## Phase 8: Vision OCR (MEDIUM — extract text from images)
+## Phase 8: Vision OCR (DONE)
 
-### Tasks
-1. When user inserts an image, offer "Extract Text" option
-2. Use `VNRecognizeTextRequest` to OCR the image
-3. Insert extracted text below the image or in a popover
-4. Support: screenshots, photos, scanned documents
-
-### Verification
-- Drop image, right-click, "Extract Text" works
-- Extracted text is accurate
-- Works with screenshots and photos
+Added to ClickableTextView context menu Insert submenu ("Extract Text from Image...").
+Uses `VNRecognizeTextRequest` with `.accurate` recognition level and language correction.
+Inserts extracted text as blockquote below cursor.
 
 ---
 
@@ -206,26 +162,116 @@ WriterModeView (SwiftUI)
 
 ---
 
+## Phase 11: Document Mode (NEW — TextKit 2 rich text WYSIWYG)
+
+**The third editing mode.** Alongside Markdown/Prose (TextKit 1) and Writer (TextKit 1 paginated),
+Document mode is a single-continuous-scroll rich text editor using TextKit 2. This is where
+TextKit 2 shines — single container, modern layout, rich inline elements.
+
+**Purpose:** Import/export Word (.docx) files, edit rich text with tables, lists, inline images,
+and formatting — all native, no web engine needed.
+
+### Architecture
+```
+NoteTabView
+  -> mode toggle: Markdown | Writer | Document
+       -> Markdown: ProseEditorRepresentable (TextKit 1, MarkdownTextStorage)
+       -> Writer:   PagedDocumentView (TextKit 1, multi-container pagination)
+       -> Document: DocumentEditorView (TextKit 2, single container, WYSIWYG)
+```
+
+```
+DocumentEditorView (NSViewRepresentable)
+  -> NSScrollView
+       -> NSTextView (TextKit 2 backed)
+            -> NSTextContentStorage (owns attributed string)
+            -> NSTextLayoutManager (single container, viewport rendering)
+            -> NSTextContainer (full width, infinite height)
+```
+
+### Key capabilities (all native AppKit, zero web)
+- **DOCX import:** `NSAttributedString(url:, documentAttributes:)` with `.officeOpenXML`
+- **DOCX export:** `NSAttributedString.data(from:, documentAttributes: [.documentType: .officeOpenXML])`
+- **Tables:** `NSTextTable` + `NSTextTableBlock` for native text tables
+- **Lists:** `NSTextList` for ordered/unordered/checklist
+- **Inline images:** `NSTextAttachment` with custom cells
+- **Headers:** Paragraph styles with preset heading sizes
+- **Links:** `NSAttributedString.Key.link`
+- **Find & Replace:** `NSTextFinder` integration
+
+### What makes this different from Writer mode
+| Feature | Writer (TextKit 1) | Document (TextKit 2) |
+|---------|-------------------|---------------------|
+| Layout | Paginated (multi-container) | Continuous scroll (single container) |
+| Purpose | Academic papers (MLA/APA/Chicago) | General rich text editing |
+| Format | Markdown backing store | NSAttributedString backing store |
+| Page breaks | Visual page tiles | None (continuous) |
+| Export | PDF primary | DOCX primary |
+| Tables | Not supported | NSTextTable native |
+| Lists | Markdown lists | NSTextList native |
+| Title page | Academic title page | No |
+| Headers/footers | Running head, page numbers | No |
+
+### Tasks
+1. Create `DocumentEditorView.swift` — NSViewRepresentable with TextKit 2
+2. Configure `NSTextContentStorage` + `NSTextLayoutManager` + single `NSTextContainer`
+3. Build `DocumentFormatBar.swift` — toolbar with:
+   - Font family/size picker
+   - Bold/italic/underline/strikethrough toggles
+   - Heading level picker (H1-H6, Body)
+   - Alignment (left/center/right/justified)
+   - List controls (bullet, numbered, checklist)
+   - Table insert/edit
+   - Image insert
+   - Link insert
+4. DOCX import: File → Open, reads `.docx` via `NSAttributedString`
+5. DOCX export: File → Export → Word, writes `.docx` via `NSAttributedString`
+6. Table editing: insert/delete rows/columns, resize, cell selection
+7. List editing: tab to indent, shift-tab to outdent, auto-continue on Enter
+8. Image handling: drag-drop or Insert menu, `NSTextAttachment` with resizable cells
+9. Add Document mode to NoteTabView mode toggle
+10. Persistence: save `NSAttributedString` as RTFD bundle or serialized attributed string
+
+### Verification
+- Document mode opens with TextKit 2 single-container layout
+- DOCX import renders tables, lists, images, formatting correctly
+- DOCX export round-trips without loss
+- Table editing (add/remove rows/columns) works
+- List indentation works
+- Image drag-drop works
+- Mode switching preserves content (Markdown ↔ Document converts)
+- All 6 themes render correctly
+
+---
+
 ## Execution Order
 
-| Phase | Framework | Priority | Est. Complexity |
-|-------|-----------|----------|-----------------|
-| 1 | TextKit 2 Writer | HIGH | Large — replaces entire writer subsystem |
-| 2 | PDFKit | HIGH | Medium — builds on Phase 1 output |
-| 3 | NaturalLanguage | HIGH | Small — additive, no existing code replaced |
-| 4 | WritingTools | HIGH | Tiny — mostly just "don't disable it" |
-| 5 | CoreSpotlight | MEDIUM | Small — indexing pipeline |
-| 6 | QuickLook | MEDIUM | Small — delegate implementation |
-| 7 | Translation | MEDIUM | Small — context menu + API call |
-| 8 | Vision OCR | MEDIUM | Small — one request type |
-| 9 | DataDetection | MEDIUM | Medium — detection + click handlers |
-| 10a-d | Polish | LOWER | Small each |
+| Phase | Framework | Status | Priority |
+|-------|-----------|--------|----------|
+| 1 | Writer Mode Polish (TextKit 1) | DONE | — |
+| 2 | PDFKit Preview + Export | TODO | HIGH |
+| 3 | NaturalLanguage | DONE (wire to graph remaining) | — |
+| 4 | WritingTools | DONE | — |
+| 5 | CoreSpotlight | DONE (pre-existing) | — |
+| 6 | QuickLook | TODO | MEDIUM |
+| 7 | Translation | TODO | MEDIUM |
+| 8 | Vision OCR | DONE | — |
+| 9 | DataDetection | TODO | MEDIUM |
+| 10a-d | Polish (Notifications, Camera, Shortcuts, swift-collections) | TODO | LOWER |
+| **11** | **Document Mode (TextKit 2 WYSIWYG)** | **TODO** | **HIGH** |
 
 ## What Stays Unchanged
 - TextKit 1 prose editor (MarkdownTextStorage, ClickableTextView, ProseEditorRepresentable)
+- TextKit 1 writer mode (PagedDocumentView, multi-container pagination)
 - Rust graph engine + markdown parser
 - SwiftData models
 - Graph visualization (Metal + Rust)
 - AI pipeline (TriageService, PipelineService, LLMService)
 - VaultSyncService (file I/O)
-- All existing views except writer mode internals
+
+## TextKit Strategy Summary
+| Mode | TextKit | Why |
+|------|---------|-----|
+| Markdown/Prose | TextKit 1 | MarkdownTextStorage live highlighting, proven stable |
+| Writer (paginated) | TextKit 1 | Multi-container flow — TextKit 2 can't do this |
+| Document (WYSIWYG) | TextKit 2 | Single container, modern layout, NSTextTable/NSTextList, DOCX native |
