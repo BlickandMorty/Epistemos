@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import os
 import SwiftData
 
 // MARK: - HologramController
@@ -96,6 +97,9 @@ final class HologramController {
 
     /// Reveals a specific note in the graph overlay (page mode, focused on the node).
     func revealPage(_ pageId: String) {
+        let interval = Log.graphPerf.beginInterval("revealPage")
+        defer { Log.graphPerf.endInterval("revealPage", interval) }
+
         ensureOverlay()
         guard let graphState, let modelContainer,
               let node = graphState.store.node(bySourceId: pageId, type: .note) else {
@@ -105,7 +109,17 @@ final class HologramController {
         graphState.mode = .page(nodeId: node.id)
         graphState.buildPageSubgraph(for: pageId, context: modelContainer.mainContext)
         graphState.focusOnNode(node.id, depth: 2)
-        graphState.requestRecommit()
+
+        // Only request full recommit if the engine hasn't committed yet.
+        // Otherwise the page subgraph was built incrementally (pendingNodeAdds/EdgeAdds)
+        // and the filter change (focusOn) is applied by the render loop's filter sync.
+        // This avoids an O(N) clear+rebuild for what is a local graph operation.
+        if graphState.engineHandle == nil {
+            graphState.requestRecommit()
+        } else {
+            graphState.requestFilterSync()
+        }
+
         let noteWindow = NoteWindowManager.shared.window(for: pageId)
         overlay?.show(noteWindow: noteWindow)
         NSApp.activate(ignoringOtherApps: true)
@@ -127,18 +141,31 @@ final class HologramController {
 
     private func ensureOverlay() {
         guard overlay == nil, let graphState else { return }
+        let interval = Log.graphPerf.beginInterval("ensureOverlay")
 
         // Load graph data on first access if not already loaded.
         if !graphState.isLoaded, let modelContainer {
+            let loadInterval = Log.graphPerf.beginInterval("loadGraph")
             graphState.loadGraph(context: modelContainer.mainContext)
+            Log.graphPerf.endInterval("loadGraph", loadInterval)
         }
 
-        // Refresh structural data if notes changed since last graph build.
-        if graphState.needsRefresh, let modelContainer {
-            graphState.refreshStructuralData(context: modelContainer.mainContext)
-        }
+        // Capture refresh need before creating overlay — deferred to avoid blocking first show.
+        let needsRefresh = graphState.needsRefresh
 
         overlay = HologramOverlay(graphState: graphState, queryEngine: queryEngine ?? QueryEngine(), modelContainer: modelContainer, physicsCoordinator: physicsCoordinator, dialogueChatState: dialogueChatState)
+        Log.graphPerf.endInterval("ensureOverlay", interval)
+
+        // Run structural refresh AFTER overlay exists so the graph shows immediately.
+        // Uses async path to run GraphBuilder on a background thread.
+        if needsRefresh, let modelContainer {
+            Task {
+                let refreshInterval = Log.graphPerf.beginInterval("refreshStructuralData")
+                await graphState.refreshStructuralDataAsync(container: modelContainer)
+                graphState.requestRecommit()
+                Log.graphPerf.endInterval("refreshStructuralData", refreshInterval)
+            }
+        }
     }
 
     // MARK: - Screen Changes

@@ -1,5 +1,6 @@
 import SwiftUI
 import MetalKit
+import os
 import Synchronization
 import SwiftData
 
@@ -98,6 +99,13 @@ final class MetalGraphNSView: NSView {
     var lastSemanticForceConfigVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
     var searchQuery: String = ""
+
+    // MARK: - Depth-Color Cache
+    // Caches the dialogue depth palette computation to avoid O(N) BFS + N FFI calls
+    // on every commitGraphData(). Only recomputed when store topology or theme changes.
+    private var cachedColorTopologyVersion: Int = -1
+    private var cachedColorTheme: GraphVisualTheme = .dialogue
+    private var cachedDepthColors: [String: DialogueDepthColor] = [:]
 
     /// Callback for background tap (click without drag). Used for click-outside dismiss.
     var onBackgroundTap: (() -> Void)?
@@ -232,6 +240,8 @@ final class MetalGraphNSView: NSView {
     /// Uses batch FFI to send all nodes/edges in a single call each instead of
     /// N individual calls (critical for 10K+ node performance).
     func commitGraphData() {
+        let interval = Log.graphPerf.beginInterval("commitGraphData")
+        defer { Log.graphPerf.endInterval("commitGraphData", interval) }
         guard let engine, let graphState else { return }
         let store = graphState.store
         let filter = graphState.filter
@@ -396,29 +406,36 @@ final class MetalGraphNSView: NSView {
         isCommitted = true
         needsRender = true
 
-        // Push node timestamps and confidence to Rust (batch via individual calls —
-        // these are lightweight per-node metadata, not the expensive graph data).
-        for (_, node) in store.nodes {
-            guard filter.isNodeVisible(node) else { continue }
-            let createdAt = node.createdAt.timeIntervalSince1970
-            let confidence: Float = switch node.metadata.evidenceGrade?.uppercased() {
-            case "A": 1.0
-            case "B": 0.8
-            case "C": 0.6
-            case "D": 0.4
-            case "F": 0.2
-            default: 0.0
-            }
-            node.id.withCString { uuidPtr in
-                graph_engine_set_node_time(engine, uuidPtr, createdAt, createdAt)
-                if confidence > 0.0 {
-                    graph_engine_set_node_confidence(engine, uuidPtr, confidence)
+        // Defer per-node metadata push and embedding computation to next main run loop tick.
+        // This unblocks the first render frame immediately after commit, so the graph
+        // appears on screen sooner. The metadata is non-visual (timestamps, confidence,
+        // embeddings) so a single-frame delay is imperceptible.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let engine = self.engine, let graphState = self.graphState else { return }
+            let store = graphState.store
+            let filter = graphState.filter
+
+            for (_, node) in store.nodes {
+                guard filter.isNodeVisible(node) else { continue }
+                let createdAt = node.createdAt.timeIntervalSince1970
+                let confidence: Float = switch node.metadata.evidenceGrade?.uppercased() {
+                case "A": 1.0
+                case "B": 0.8
+                case "C": 0.6
+                case "D": 0.4
+                case "F": 0.2
+                default: 0.0
+                }
+                node.id.withCString { uuidPtr in
+                    graph_engine_set_node_time(engine, uuidPtr, createdAt, createdAt)
+                    if confidence > 0.0 {
+                        graph_engine_set_node_confidence(engine, uuidPtr, confidence)
+                    }
                 }
             }
-        }
 
-        // Compute embeddings and push to Rust for semantic force + search.
-        graphState.embeddingService.computeAndPush(store: graphState.store)
+            graphState.embeddingService.computeAndPush(store: store)
+        }
     }
 
     // MARK: - Incremental FFI Adds
@@ -1333,24 +1350,39 @@ final class MetalGraphNSView: NSView {
 
     private func applyDialogueDepthPalette(for nodeIds: [String]? = nil) {
         guard let engine, let graphState else { return }
-        let depths = graphDepthLevels(store: graphState.store)
-        let maxDepth = depths.values.max() ?? 0
-        let targetIds = nodeIds ?? Array(graphState.store.nodes.keys)
+        let store = graphState.store
         let shouldColorize = graphState.visualTheme == .dialogue
+        let currentTopology = store.topologyVersion
 
-        for nodeId in targetIds {
-            guard let node = graphState.store.nodes[nodeId],
-                  graphState.filter.isNodeVisible(node) else { continue }
-            let color: DialogueDepthColor
-            if shouldColorize {
-                color = dialogueDepthColor(
-                    for: node,
-                    depth: depths[nodeId] ?? graphBaseDepth(for: node.type),
-                    maxDepth: maxDepth
-                )
-            } else {
-                color = (0.0, 0.0, 0.0, 0.0)
+        // Recompute depth-color map only when topology or theme has changed.
+        let themeChanged = cachedColorTheme != graphState.visualTheme
+        if cachedColorTopologyVersion != currentTopology || themeChanged || cachedDepthColors.isEmpty {
+            cachedColorTheme = graphState.visualTheme
+            let interval = Log.graphPerf.beginInterval("recomputeDepthColors")
+            let depths = graphDepthLevels(store: store)
+            let maxDepth = depths.values.max() ?? 0
+            cachedDepthColors.removeAll(keepingCapacity: true)
+            for (nodeId, node) in store.nodes {
+                if shouldColorize {
+                    cachedDepthColors[nodeId] = dialogueDepthColor(
+                        for: node,
+                        depth: depths[nodeId] ?? graphBaseDepth(for: node.type),
+                        maxDepth: maxDepth
+                    )
+                } else {
+                    cachedDepthColors[nodeId] = (0.0, 0.0, 0.0, 0.0)
+                }
             }
+            cachedColorTopologyVersion = currentTopology
+            Log.graphPerf.endInterval("recomputeDepthColors", interval)
+        }
+
+        // Push colors to Rust — either targeted subset or all visible nodes.
+        let targetIds = nodeIds ?? Array(store.nodes.keys)
+        for nodeId in targetIds {
+            guard let node = store.nodes[nodeId],
+                  graphState.filter.isNodeVisible(node) else { continue }
+            let color = cachedDepthColors[nodeId] ?? (0.0, 0.0, 0.0, 0.0)
             node.id.withCString { uuidPtr in
                 graph_engine_set_node_color_override(engine, uuidPtr, color.r, color.g, color.b, color.a)
             }

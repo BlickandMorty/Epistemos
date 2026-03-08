@@ -168,6 +168,13 @@ final class GraphStore {
         var isEmpty: Bool { store._nodeIdx.isEmpty }
     }
 
+    // MARK: - Topology Version
+
+    /// Monotonically increasing version counter for structural changes.
+    /// Incremented on load, addNode, removeNode, addEdge, removeEdge.
+    /// Used by MetalGraphNSView to skip recomputing depth-color overrides when topology is unchanged.
+    private(set) var topologyVersion: Int = 0
+
     // MARK: - Computed Properties
 
     var nodeCount: Int { nodes.count }
@@ -185,6 +192,7 @@ final class GraphStore {
         _neighbors.removeAll()
         _edgesOf.removeAll()
         _trigramIdx.removeAll()
+        topologyVersion += 1
     }
 
     // MARK: - Compact Index Helpers
@@ -517,6 +525,7 @@ final class GraphStore {
         nodes[node.id] = node
         let nodeIdx = assignNodeIndex(node.id)
         addToTrigramIndex(nodeIdx: nodeIdx, label: node.label)
+        topologyVersion += 1
         notifyChange()
     }
 
@@ -540,6 +549,7 @@ final class GraphStore {
         // Edge reverse index: always add (multiple edges between same pair are valid)
         _edgesOf[srcIdx].append(edgeIdx)
         _edgesOf[tgtIdx].append(edgeIdx)
+        topologyVersion += 1
         notifyChange()
     }
 
@@ -576,6 +586,7 @@ final class GraphStore {
         _nodeIds[nodeIdx] = ""  // Tombstone
         _neighbors[nodeIdx] = []
         _edgesOf[nodeIdx] = []
+        topologyVersion += 1
         notifyChange()
     }
 
@@ -610,6 +621,7 @@ final class GraphStore {
         edges.removeValue(forKey: edgeId)
         _edgeIdx.removeValue(forKey: edgeId)
         _edgeIds[edgeIdx] = ""  // Tombstone
+        topologyVersion += 1
         notifyChange()
     }
 

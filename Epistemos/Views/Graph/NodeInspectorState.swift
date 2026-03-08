@@ -44,6 +44,7 @@ final class NodeInspectorState {
 
     private var summaryTask: Task<Void, Never>?
     private var chatTask: Task<Void, Never>?
+    private var profileTask: Task<Void, Never>?
     private var summaryCache: [String: String] = [:]
     private var revealTask: Task<Void, Never>?
 
@@ -55,36 +56,52 @@ final class NodeInspectorState {
             return
         }
 
-        // Set loading state BEFORE setting selectedNode —
-        // this ensures the spinner is ready when the panel animates in.
+        // Set loading state and selection IMMEDIATELY — no blocking work here.
+        // This ensures the panel animates in instantly; heavy work runs in background.
         isSummarizing = true
         chatMessages = []
         chatInput = ""
         isChatStreaming = false
         inspectorMode = .profile
-
-        // Now set selection (triggers panel animation).
         selectedNodeId = node.id
         selectedNode = node
         summaryText = ""
         displayedSummary = ""
+        profile = nil
         revealTask?.cancel()
+        profileTask?.cancel()
 
-        // Derive node profile (stats: mood, tier, health, archetype, keywords).
+        // Derive profile asynchronously: disk read + NLP derivation are deferred
+        // so that selectNode() returns instantly and the panel animates in immediately.
+        // The profile appears a moment later when the Task completes.
         let linkedLabels = store.neighbors(of: node.id).map(\.label)
-        let noteBody: String
-        if node.type == .note, let sourceId = node.sourceId {
-            noteBody = NoteFileStorage.readBody(pageId: sourceId)
-        } else {
-            noteBody = ""
+        let nodeId = node.id
+        let label = node.label
+        let nodeType = node.type
+        let sourceId = node.sourceId
+
+        profileTask = Task {
+            guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
+
+            // File I/O off main actor (NoteFileStorage.readBody is nonisolated static).
+            let noteBody: String
+            if nodeType == .note, let sourceId {
+                noteBody = await Task.detached {
+                    NoteFileStorage.readBody(pageId: sourceId)
+                }.value
+            } else {
+                noteBody = ""
+            }
+            guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
+
+            // derive() is main-actor isolated (NLP analysis), but file I/O is already done.
+            let derived = DialogueNodeProfile.derive(
+                nodeId: nodeId, label: label, nodeType: nodeType,
+                noteBody: noteBody, linkedNodeLabels: linkedLabels
+            )
+            guard !Task.isCancelled, self.selectedNodeId == nodeId else { return }
+            self.profile = derived
         }
-        profile = DialogueNodeProfile.derive(
-            nodeId: node.id,
-            label: node.label,
-            nodeType: node.type,
-            noteBody: noteBody,
-            linkedNodeLabels: linkedLabels
-        )
 
         summarizeNode(node, store: store, modelContext: modelContext)
     }
@@ -93,6 +110,7 @@ final class NodeInspectorState {
         summaryTask?.cancel()
         chatTask?.cancel()
         revealTask?.cancel()
+        profileTask?.cancel()
         selectedNodeId = nil
         selectedNode = nil
         profile = nil
@@ -128,7 +146,7 @@ final class NodeInspectorState {
         summaryTask = Task {
             defer { isSummarizing = false }
 
-            let content = fetchContent(for: node, store: store, modelContext: modelContext)
+            let content = await fetchContent(for: node, store: store, modelContext: modelContext)
 
             guard !content.isEmpty else {
                 summaryText = "No content available for this node."
@@ -230,57 +248,80 @@ final class NodeInspectorState {
 
     // MARK: - Content Fetching
 
-    private func fetchContent(for node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) -> String {
+    private func fetchContent(for node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {
         switch node.type {
         case .folder:
-            return fetchFolderContent(node, store: store, modelContext: modelContext)
+            return await fetchFolderContent(node, store: store, modelContext: modelContext)
         case .quote:
             return node.metadata.quoteText ?? node.label
         case .tag:
-            return fetchTagContext(node, store: store, modelContext: modelContext)
+            return await fetchTagContent(node, store: store, modelContext: modelContext)
         default:
-            return fetchPageContent(node, modelContext: modelContext)
+            return await fetchPageContent(node, modelContext: modelContext)
         }
     }
 
-    private func fetchPageContent(_ node: GraphNodeRecord, modelContext: ModelContext) -> String {
+    private func fetchPageContent(_ node: GraphNodeRecord, modelContext: ModelContext) async -> String {
         guard let sourceId = node.sourceId else { return node.label }
+        let label = node.label
 
+        // File I/O off main actor (NoteFileStorage.readBody is nonisolated static).
+        let body = await Task.detached {
+            NoteFileStorage.readBody(pageId: sourceId)
+        }.value
+        if !body.isEmpty { return body }
+
+        // Fallback: SwiftData page summary if body file doesn't exist (rare, stays on main).
         let predicate = #Predicate<SDPage> { $0.id == sourceId }
         var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
         descriptor.fetchLimit = 1
-
-        guard let pages = try? modelContext.fetch(descriptor),
-              let page = pages.first else {
-            return node.label
+        if let page = try? modelContext.fetch(descriptor).first, !page.summary.isEmpty {
+            return page.summary
         }
-
-        let pageBody = page.loadBody()
-        return pageBody.isEmpty ? (page.summary.isEmpty ? node.label : page.summary) : pageBody
+        return label
     }
 
-    private func fetchFolderContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) -> String {
+    private func fetchFolderContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {
         let neighborIds = store.adjacency[node.id] ?? []
-        let children = neighborIds.compactMap { store.nodes[$0] }
+        let children: [(sourceId: String?, label: String)] = neighborIds.compactMap { store.nodes[$0] }
             .filter { $0.type != .folder }
             .prefix(15)
+            .map { (sourceId: $0.sourceId, label: $0.label) }
+
+        // Batch file reads off main actor.
+        let bodies = await Task.detached {
+            children.map { child in
+                guard let sid = child.sourceId else { return "" }
+                return NoteFileStorage.readBody(pageId: sid)
+            }
+        }.value
 
         var parts: [String] = ["Folder: \(node.label)\n"]
-        for child in children {
-            let content = fetchPageContent(child, modelContext: modelContext)
+        for (i, child) in children.enumerated() {
+            let content = bodies[i].isEmpty ? child.label : bodies[i]
             let preview = String(content.prefix(800))
             parts.append("- \(child.label): \(preview)")
         }
         return parts.joined(separator: "\n")
     }
 
-    private func fetchTagContext(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) -> String {
+    private func fetchTagContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {
         let neighborIds = store.adjacency[node.id] ?? []
-        let related = neighborIds.compactMap { store.nodes[$0] }.prefix(12)
+        let related: [(sourceId: String?, label: String)] = neighborIds.compactMap { store.nodes[$0] }
+            .prefix(12)
+            .map { (sourceId: $0.sourceId, label: $0.label) }
+
+        // Batch file reads off main actor.
+        let bodies = await Task.detached {
+            related.map { rel in
+                guard let sid = rel.sourceId else { return "" }
+                return NoteFileStorage.readBody(pageId: sid)
+            }
+        }.value
 
         var parts: [String] = ["Tag: \(node.label)\nRelated nodes:"]
-        for rel in related {
-            let content = fetchPageContent(rel, modelContext: modelContext)
+        for (i, rel) in related.enumerated() {
+            let content = bodies[i].isEmpty ? rel.label : bodies[i]
             let preview = String(content.prefix(400))
             parts.append("- \(rel.label): \(preview)")
         }
@@ -302,7 +343,7 @@ final class NodeInspectorState {
         chatTask = Task {
             defer { isChatStreaming = false }
 
-            let context = buildChatContext(query: query, store: store, modelContext: modelContext)
+            let context = await buildChatContext(query: query, store: store, modelContext: modelContext)
 
             guard let triage = AppBootstrap.shared?.triageService else {
                 appendToLastAssistant("AI service unavailable.")
@@ -341,10 +382,10 @@ final class NodeInspectorState {
         chatMessages[lastIndex].text += text
     }
 
-    private func buildChatContext(query: String, store: GraphStore, modelContext: ModelContext) -> String {
+    private func buildChatContext(query: String, store: GraphStore, modelContext: ModelContext) async -> String {
         guard let node = selectedNode else { return query }
 
-        let nodeContent = fetchContent(for: node, store: store, modelContext: modelContext)
+        let nodeContent = await fetchContent(for: node, store: store, modelContext: modelContext)
         var context = "Selected node: \(node.label) (\(node.type.displayName))\n\n"
         context += "Content:\n\(String(nodeContent.prefix(3000)))\n\n"
         context += "User question: \(query)"

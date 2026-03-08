@@ -1,5 +1,6 @@
 import Foundation
 import NaturalLanguage
+import os
 import SwiftData
 
 // MARK: - GraphVisualTheme
@@ -666,22 +667,42 @@ final class GraphState {
         isBuildingStructural = true
         defer { isBuildingStructural = false }
 
+        let interval = Log.graphPerf.beginInterval("buildStructuralGraph")
         let builder = GraphBuilder()
         let result = builder.build(context: context)
         builder.persist(nodes: result.nodes, edges: result.edges, context: context)
 
-        do {
-            try store.load(context: context)
-        } catch {
-            Log.app.error("GraphState: failed to reload graph after rebuild: \(error.localizedDescription, privacy: .public)")
-        }
+        // Use loadDirect() to populate the store from the already-in-memory arrays.
+        // This skips the redundant SwiftData re-fetch that store.load(context:) would do.
+        store.loadDirect(nodes: result.nodes, edges: result.edges)
         isLoaded = true
+        Log.graphPerf.endInterval("buildStructuralGraph", interval)
     }
 
     /// Lightweight refresh: re-runs the structural graph builder to pick up new/deleted pages.
     func refreshStructuralData(context: ModelContext) {
         needsRefresh = false
         buildStructuralGraph(context: context)
+    }
+
+    /// Async refresh: runs full GraphBuilder build + persist on a background actor,
+    /// then loads the resulting Sendable records into the store on main.
+    func refreshStructuralDataAsync(container: ModelContainer) async {
+        guard !isBuildingStructural else { return }
+        isBuildingStructural = true
+        needsRefresh = false
+
+        let hints = store.positionHints
+        let actor = BackgroundGraphActor(modelContainer: container)
+        do {
+            let records = try await actor.rebuildStructural(positionHints: hints)
+            store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
+            isLoaded = true
+        } catch {
+            Log.app.error("GraphState: background structural refresh failed: \(error.localizedDescription, privacy: .public)")
+        }
+
+        isBuildingStructural = false
     }
 
     // MARK: - Rust Search
@@ -825,6 +846,9 @@ final class GraphState {
     private(set) var ephemeralNodeIds = Set<String>()
     /// IDs of ephemeral wikilink edges (between permanent nodes, not cleaned by removeNode).
     private(set) var ephemeralEdgeIds = Set<String>()
+    /// Lowercased label → note node lookup table, built once per buildPageSubgraph call.
+    /// Replaces O(N) linear scan per wikilink with O(1) dictionary lookup.
+    private var wikilinkLookup: [String: GraphNodeRecord] = [:]
 
     /// Build ephemeral quote and source nodes from the active note's markdown body.
     /// Wikilinks are resolved to existing graph nodes; blockquotes and links become new nodes.
@@ -838,6 +862,12 @@ final class GraphState {
         let body = page.loadBody()
         guard !body.isEmpty else { return }
         guard let cStr = body.cString(using: .utf8) else { return }
+
+        // Build wikilink lookup table once (O(N)) instead of O(N) per wikilink.
+        wikilinkLookup.removeAll(keepingCapacity: true)
+        for node in store.nodes.values where node.type == .note {
+            wikilinkLookup[node.label.lowercased()] = node
+        }
 
         var spansPtr: UnsafeMutablePointer<StyleSpan>?
         var count: UInt32 = 0
@@ -911,21 +941,20 @@ final class GraphState {
             createdAt: createdAt, updatedAt: createdAt, position: pos
         )
         store.addNode(node)
+        requestIncrementalAdd(node: node)
         let edge = GraphEdgeRecord(
             id: "edge-\(id)", sourceNodeId: parentId, targetNodeId: id,
             type: edgeType, weight: 1.0, createdAt: createdAt
         )
         store.addEdge(edge)
+        requestIncrementalAddEdge(edge)
         ephemeralNodeIds.insert(id)
     }
 
     /// Resolve a wikilink target to an existing note node and create an edge.
     private func resolveWikilinkEdge(target: String, from pageNodeId: String, byteOffset: Int, createdAt: Date) {
-        // Find graph node by label (case-insensitive).
-        let match = store.nodes.values.first { node in
-            node.type == .note && node.label.caseInsensitiveCompare(target) == .orderedSame
-        }
-        guard let linkedNode = match else { return }
+        // Use pre-built lookup table if available (built once per buildPageSubgraph call).
+        guard let linkedNode = wikilinkLookup[target.lowercased()] else { return }
 
         // Skip if already connected.
         let existing = store.edges(for: pageNodeId)
@@ -941,6 +970,7 @@ final class GraphState {
             type: .reference, weight: 1.0, createdAt: createdAt
         )
         store.addEdge(edge)
+        requestIncrementalAddEdge(edge)
         ephemeralEdgeIds.insert(edgeId)
     }
 
@@ -967,6 +997,7 @@ final class GraphState {
             store.removeEdge(edgeId)
         }
         ephemeralEdgeIds.removeAll()
+        wikilinkLookup.removeAll()
     }
 
     // MARK: - Node / Edge Creation

@@ -293,8 +293,12 @@ final class VaultSyncService {
         }
 
 
-        migrateToHybridSync()
-        migrateFromExternalStorage()
+        if let actor = indexActor {
+            Task(priority: .utility) {
+                await actor.migrateToHybridSync()
+                await actor.migrateFromExternalStorage()
+            }
+        }
         restartAutoSaveTimer()
         startVersionCaptureTimer()
         startManifestRefreshTimer()
@@ -456,59 +460,6 @@ final class VaultSyncService {
 
     // MARK: - Migration
 
-    /// One-time migration: compute body hashes for existing pages so they start "clean."
-    /// Called once on first launch after the Apple Notes hybrid update.
-    private func migrateToHybridSync() {
-        let migrationKey = "epistemos.hybridSyncMigrated"
-        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
-
-        let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = try? context.fetch(descriptor) else { return }
-
-        var migrated = 0
-        for page in pages where page.lastSyncedBodyHash == nil {
-            page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
-            page.lastSyncedAt = .now
-            page.needsVaultSync = false
-            migrated += 1
-        }
-
-        if migrated > 0 {
-            do {
-                try context.save()
-            } catch {
-                Log.vault.error("Failed to save after hybrid sync migration: \(error.localizedDescription, privacy: .public)")
-            }
-        }
-
-        UserDefaults.standard.set(true, forKey: migrationKey)
-        log.info("Hybrid sync migration: set hashes for \(migrated) existing pages")
-    }
-
-    /// One-time migration: body moved from @Attribute(.externalStorage) to inline SQLite.
-    /// External storage data may be lost during schema migration, so force importVault
-    /// to re-read every .md file by resetting all page timestamps to .distantPast.
-    private func migrateFromExternalStorage() {
-        let migrationKey = "epistemos.inlineBodyMigrated"
-        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
-
-        let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<SDPage>()
-        guard let pages = try? context.fetch(descriptor) else { return }
-
-        for page in pages {
-            page.updatedAt = .distantPast
-        }
-        do {
-            try context.save()
-        } catch {
-            Log.vault.error("Failed to save after external storage migration: \(error.localizedDescription, privacy: .public)")
-        }
-
-        UserDefaults.standard.set(true, forKey: migrationKey)
-        log.info("Inline body migration: reset \(pages.count) page timestamps for re-import")
-    }
 
     // MARK: - Sync from Vault
 

@@ -39,4 +39,10 @@ nonisolated enum Log {
 
     /// Engine services (triage, SOAR, signals)
     static let engine = Logger(subsystem: subsystem, category: "engine")
+
+    /// Graph rendering, physics, and performance instrumentation
+    static let graph = Logger(subsystem: subsystem, category: "graph")
+
+    /// Signpost log for Instruments integration (graph performance)
+    static let graphPerf = OSSignposter(subsystem: subsystem, category: "graph-perf")
 }

@@ -189,12 +189,14 @@ final class AppBootstrap {
         // Do the fetch/write/save cycle off the main actor to avoid launch hitching.
         Task(priority: .utility) { await migrateBodiesToFileStorage() }
 
-        // Eagerly load graph store so command palette search works before the graph window opens.
-        // Runs synchronously on MainActor — no Task wrapper — so queryEngine is configured
-        // before any user interaction can trigger a query.
-        graphState.loadGraph(context: container.mainContext)
+        // Graph loads asynchronously — no launch stall. QueryEngine holds a reference
+        // to GraphStore (a class), so it sees data as soon as the background load populates it.
+        // HologramController.ensureOverlay() has a sync fallback if the graph is opened
+        // before this Task completes.
         graphState.modelContext = container.mainContext
-        // Configure query engine with live dependencies.
+        Task(priority: .utility) { await graphState.loadGraph(container: container) }
+
+        // Configure query engine with live dependencies (used by graph sidebar search).
         // SearchIndexService may not exist yet if no vault is attached —
         // create a default one so queries work even without vault.
         let searchIdx = vaultSync.searchService ?? (try? SearchIndexService())

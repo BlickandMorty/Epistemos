@@ -10,15 +10,19 @@ import SwiftData
 //
 // Uses the 7-type node model and 8-type edge model.
 
-/// Graph builder — runs on @MainActor since @Model types require it in Swift 6.
-/// For background graph loading, use BackgroundGraphActor instead.
-@MainActor
-final class GraphBuilder {
+/// Graph builder — builds the structural knowledge graph from SwiftData entities.
+/// Safe to use from any actor that owns the passed ModelContext
+/// (@MainActor with mainContext, or @ModelActor with its own context).
+final class GraphBuilder: @unchecked Sendable {
 
     // MARK: - Build
 
     /// Scan all structured data and return graph nodes + edges (not yet persisted).
-    func build(context: ModelContext) -> (nodes: [SDGraphNode], edges: [SDGraphEdge]) {
+    /// Safe to call from any actor that owns the provided ModelContext.
+    // SAFETY: @Model access is safe when caller owns the ModelContext
+    // (guaranteed by @ModelActor or @MainActor). @unchecked Sendable on the class
+    // + nonisolated here lets @ModelActor callers invoke without cross-actor hop.
+    nonisolated func build(context: ModelContext) -> (nodes: [SDGraphNode], edges: [SDGraphEdge]) {
         var nodes: [SDGraphNode] = []
         var edges: [SDGraphEdge] = []
 
@@ -259,7 +263,8 @@ final class GraphBuilder {
 
     /// Diff-based persist: compare expected nodes/edges against current SwiftData state
     /// and apply only inserts, updates, and deletes. Manual nodes/edges are never touched.
-    func persist(nodes expectedNodes: [SDGraphNode], edges expectedEdges: [SDGraphEdge], context: ModelContext) {
+    // SAFETY: Same as build() — caller must own the ModelContext.
+    nonisolated func persist(nodes expectedNodes: [SDGraphNode], edges expectedEdges: [SDGraphEdge], context: ModelContext) {
         var inserted = 0
         var updated = 0
         var deleted = 0

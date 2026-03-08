@@ -1130,4 +1130,49 @@ actor VaultIndexActor {
             throw writeError
         }
     }
+
+    // MARK: - One-Time Migrations
+
+    /// Compute body hashes for existing pages so they start "clean."
+    /// One-time migration on first launch after hybrid sync update.
+    func migrateToHybridSync() {
+        let migrationKey = "epistemos.hybridSyncMigrated"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        let descriptor = FetchDescriptor<SDPage>()
+        guard let pages = try? modelContext.fetch(descriptor) else { return }
+
+        var migrated = 0
+        for page in pages where page.lastSyncedBodyHash == nil {
+            page.lastSyncedBodyHash = SDPage.bodyHash(NoteFileStorage.readBody(pageId: page.id, mapped: true))
+            page.lastSyncedAt = .now
+            page.needsVaultSync = false
+            migrated += 1
+        }
+
+        if migrated > 0 {
+            try? modelContext.save()
+        }
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
+        log.info("Hybrid sync migration: set hashes for \(migrated) existing pages")
+    }
+
+    /// Reset all page timestamps so importVault re-reads every .md file.
+    /// One-time migration after body moved from external storage to inline SQLite.
+    func migrateFromExternalStorage() {
+        let migrationKey = "epistemos.inlineBodyMigrated"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+
+        let descriptor = FetchDescriptor<SDPage>()
+        guard let pages = try? modelContext.fetch(descriptor) else { return }
+
+        for page in pages {
+            page.updatedAt = .distantPast
+        }
+        try? modelContext.save()
+
+        UserDefaults.standard.set(true, forKey: migrationKey)
+        log.info("Inline body migration: reset \(pages.count) page timestamps for re-import")
+    }
 }
