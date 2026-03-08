@@ -245,6 +245,8 @@
 		OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */; };
 		WIRE00000000000000000003 /* DataIntegrityEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D7EBA13712C88AE73C8D858 /* DataIntegrityEdgeCaseTests.swift */; };
 		WIRE00000000000000000004 /* MemoryStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174D03C81BEE6EB5556066 /* MemoryStressTests.swift */; };
+		DOCTV000000000000000001 /* DocumentTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCTV000000000000000002 /* DocumentTextView.swift */; };
+		DOCER000000000000000001 /* DocumentEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCER000000000000000002 /* DocumentEditorRepresentable.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -502,6 +504,8 @@
 		OBJCEXC00000000000000001 /* ObjCExceptionCatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObjCExceptionCatcher.h; sourceTree = "<group>"; };
 		OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ObjCExceptionCatcher.m; sourceTree = "<group>"; };
 		OBJCEXC00000000000000003 /* Epistemos-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Epistemos-Bridging-Header.h"; sourceTree = "<group>"; };
+		DOCTV000000000000000002 /* DocumentTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentTextView.swift; sourceTree = "<group>"; };
+		DOCER000000000000000002 /* DocumentEditorRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditorRepresentable.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -676,9 +680,19 @@
 			path = State;
 			sourceTree = "<group>";
 		};
+		DOCGRP000000000000000001 /* Document */ = {
+			isa = PBXGroup;
+			children = (
+				DOCTV000000000000000002 /* DocumentTextView.swift */,
+				DOCER000000000000000002 /* DocumentEditorRepresentable.swift */,
+			);
+			path = Document;
+			sourceTree = "<group>";
+		};
 		59232DB203359E4AB1C72A7B /* Notes */ = {
 			isa = PBXGroup;
 			children = (
+				DOCGRP000000000000000001 /* Document */,
 				BLKPROP0000000000000020 /* BlockPropertySheet.swift */,
 				631B76DC8FFADF44A0EB0F6C /* ClickableTextView.swift */,
 				4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */,
@@ -1355,6 +1369,8 @@
 				A1B2C3D4E5F60001NCSBLD01 /* NoteChatSidebar.swift in Sources */,
 				733979844FBEEC29CDF209A7 /* SDNoteInsight.swift in Sources */,
 				720A6BE44672A02E5A4A7611 /* NoteInsightService.swift in Sources */,
+				DOCTV000000000000000001 /* DocumentTextView.swift in Sources */,
+				DOCER000000000000000001 /* DocumentEditorRepresentable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
