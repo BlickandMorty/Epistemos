@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = NLANLYS00000000000001F1 /* NLAnalysisService.swift */; };
 		DATADET00000000000002F2 /* DataDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATADET00000000000001F1 /* DataDetectionService.swift */; };
-		PDFPRV000000000000002F2 /* WriterPDFPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = PDFPRV000000000000001F1 /* WriterPDFPreview.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -162,13 +161,6 @@
 		A9F0B3B745CE00F2A7D57E63 /* IncrementalFFIUpdateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90A09466F35F354234C1FBAB /* IncrementalFFIUpdateTests.swift */; };
 		AA0339D7CBA3B74956732646 /* SOARReward.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C78E0A76E5ADE9584A68629 /* SOARReward.swift */; };
 		AB1C2D3E4F5A6B7C8D9E0F1A2 /* GraphOverlayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2D3E4F5A6B7C8D9E0F1A2B3 /* GraphOverlayPanel.swift */; };
-		ACAD000200000000EXPRT02 /* WriterExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000EXPRT01 /* WriterExportService.swift */; };
-		ACAD000200000000FMTBR02 /* WriterFormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000FMTBR01 /* WriterFormatBar.swift */; };
-		ACAD000200000000FMTST02 /* WriterFormatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000FMTST01 /* WriterFormatState.swift */; };
-		ACAD000200000000PAGED02 /* PagedDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000PAGED01 /* PagedDocumentView.swift */; };
-		ACAD000200000000STYLE002 /* AcademicStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000STYLE001 /* AcademicStyle.swift */; };
-		ACAD000200000000TXSTR02 /* WriterTextStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000TXSTR01 /* WriterTextStorage.swift */; };
-		ACAD000200000000WMODE02 /* WriterModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAD000100000000WMODE01 /* WriterModeView.swift */; };
 		ACE601878C50BBF8D8CC6F03 /* QueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A9247984AB9177206C1F17D /* QueryParser.swift */; };
 		ACEE861F6BD0857E448EE390 /* PageShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1DBE46501FCAC1C106C8A2 /* PageShell.swift */; };
 		ADED589829A0A8D1BF0F89CD /* GraphTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93DC887905CA679C32253BBE /* GraphTypes.swift */; };
@@ -266,7 +258,6 @@
 /* Begin PBXFileReference section */
 		NLANLYS00000000000001F1 /* NLAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NLAnalysisService.swift; sourceTree = "<group>"; };
 		DATADET00000000000001F1 /* DataDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDetectionService.swift; sourceTree = "<group>"; };
-		PDFPRV000000000000001F1 /* WriterPDFPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterPDFPreview.swift; sourceTree = "<group>"; };
 		006D4AFC106E6BBA941CDBD4 /* ResearchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchIntents.swift; sourceTree = "<group>"; };
 		01E39AEBA6CCBE938F617A0F /* SignalGeneratorComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignalGeneratorComprehensiveTests.swift; sourceTree = "<group>"; };
 		048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteOverlay.swift; sourceTree = "<group>"; };
@@ -416,13 +407,6 @@
 		AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSpotlight.framework; path = System/Library/Frameworks/CoreSpotlight.framework; sourceTree = SDKROOT; };
 		ABAD73CE4C22790C3A4E670B /* BackgroundGraphActor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundGraphActor.swift; sourceTree = "<group>"; };
 		ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageStoragePool.swift; sourceTree = "<group>"; };
-		ACAD000100000000EXPRT01 /* WriterExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterExportService.swift; sourceTree = "<group>"; };
-		ACAD000100000000FMTBR01 /* WriterFormatBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterFormatBar.swift; sourceTree = "<group>"; };
-		ACAD000100000000FMTST01 /* WriterFormatState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterFormatState.swift; sourceTree = "<group>"; };
-		ACAD000100000000PAGED01 /* PagedDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PagedDocumentView.swift; sourceTree = "<group>"; };
-		ACAD000100000000STYLE001 /* AcademicStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcademicStyle.swift; sourceTree = "<group>"; };
-		ACAD000100000000TXSTR01 /* WriterTextStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterTextStorage.swift; sourceTree = "<group>"; };
-		ACAD000100000000WMODE01 /* WriterModeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriterModeView.swift; sourceTree = "<group>"; };
 		AE3FE73411131556F088DEE8 /* QueryTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryTypes.swift; sourceTree = "<group>"; };
 		AEC6EE77D8EDFD4E19FA9DEA /* MiniChatWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniChatWindowController.swift; sourceTree = "<group>"; };
 		AF46DAB33CBAB7EE4D4A9134 /* GraphStoreComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphStoreComprehensiveTests.swift; sourceTree = "<group>"; };
@@ -713,7 +697,6 @@
 				2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */,
 				344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */,
 				CC1D4E5F60718293AB0C1D2E /* VersionTimeline.swift */,
-				ACAD000300000000WRITER03 /* Writer */,
 				A1B2C3D4E5F60001NCSREF01 /* NoteChatSidebar.swift */,
 			);
 			path = Notes;
@@ -835,21 +818,6 @@
 				AEC6EE77D8EDFD4E19FA9DEA /* MiniChatWindowController.swift */,
 			);
 			path = MiniChat;
-			sourceTree = "<group>";
-		};
-		ACAD000300000000WRITER03 /* Writer */ = {
-			isa = PBXGroup;
-			children = (
-				ACAD000100000000STYLE001 /* AcademicStyle.swift */,
-				ACAD000100000000PAGED01 /* PagedDocumentView.swift */,
-				ACAD000100000000EXPRT01 /* WriterExportService.swift */,
-				ACAD000100000000FMTBR01 /* WriterFormatBar.swift */,
-				ACAD000100000000FMTST01 /* WriterFormatState.swift */,
-				ACAD000100000000WMODE01 /* WriterModeView.swift */,
-				ACAD000100000000TXSTR01 /* WriterTextStorage.swift */,
-				PDFPRV000000000000001F1 /* WriterPDFPreview.swift */,
-			);
-			path = Writer;
 			sourceTree = "<group>";
 		};
 		AFF833FE60983F969426753C /* Graph */ = {
@@ -1208,18 +1176,10 @@
 				OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */,
 				NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */,
 				DATADET00000000000002F2 /* DataDetectionService.swift in Sources */,
-				PDFPRV000000000000002F2 /* WriterPDFPreview.swift in Sources */,
 				0F330C5227384BC39A376243 /* TransclusionOverlayManager.swift in Sources */,
 				040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */,
 				040E15E508A34F7E890D6BA1 /* EditableTransclusionView.swift in Sources */,
 				A29025410BEF420590AC1E9A /* BlockRefAutocomplete.swift in Sources */,
-				ACAD000200000000STYLE002 /* AcademicStyle.swift in Sources */,
-				ACAD000200000000FMTST02 /* WriterFormatState.swift in Sources */,
-				ACAD000200000000TXSTR02 /* WriterTextStorage.swift in Sources */,
-				ACAD000200000000PAGED02 /* PagedDocumentView.swift in Sources */,
-				ACAD000200000000FMTBR02 /* WriterFormatBar.swift in Sources */,
-				ACAD000200000000EXPRT02 /* WriterExportService.swift in Sources */,
-				ACAD000200000000WMODE02 /* WriterModeView.swift in Sources */,
 				3E370AE10120951AFFDE2592 /* AnalysisIntents.swift in Sources */,
 				62A6FF51A6ECC1A7E22A40AC /* AnalysisResultEntity.swift in Sources */,
 				709603D34C0C1AB5E3035898 /* AppCoordinator.swift in Sources */,

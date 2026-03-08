@@ -681,29 +681,5 @@ struct MassGeneratedChatNoteState1000Tests {
     }
 }
 
-@Suite("Mass Generated Library - Writer Style 1000")
-struct MassGeneratedLibraryWriterStyle1000Tests {
-    @Test("mass generated writer style case", arguments: Array(0..<1000))
-    func massGeneratedWriterStyle(_ i: Int) {
-        let style = AcademicStyle.allCases[i % AcademicStyle.allCases.count]
-        #expect(!style.displayName.isEmpty)
-
-        if style == .custom {
-            #expect(style.presetValues == nil)
-        } else {
-            #expect(style.presetValues != nil)
-        }
-
-        let spacing = LineSpacing.allCases[i % LineSpacing.allCases.count]
-        #expect(spacing.multiplier >= 1.0)
-
-        let margins = PageMargins.allCases[i % PageMargins.allCases.count]
-        #expect(margins.points > 0)
-
-        let size = PageSize.allCases[i % PageSize.allCases.count].size
-        #expect(size.width > 0)
-        #expect(size.height > 0)
-    }
-}
 // END MASS GENERATED TESTS
 

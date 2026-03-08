@@ -435,7 +435,6 @@ private struct NotePageContent: View {
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
-    @State private var showWriterMode = false
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
@@ -475,13 +474,7 @@ private struct NotePageContent: View {
             HStack(spacing: 0) {
             ZStack {
                 if let page = pages.first {
-                    if showWriterMode {
-                        WriterModeView(
-                            page: page, isDark: ui.theme.isDark, theme: ui.theme,
-                            isLocked: page.isLocked
-                        )
-                        .frame(minWidth: 400, minHeight: 300)
-                    } else if showPreview {
+                    if showPreview {
                         NotePreviewView(body: page.loadBody(), isDark: ui.theme.isDark)
                             .frame(minWidth: 400, minHeight: 300)
                     } else {
@@ -590,14 +583,14 @@ private struct NotePageContent: View {
             }
 
             // Ask field (centered)
-            if !showWriterMode && !showPreview {
+            if !showPreview {
                 ToolbarItem(placement: .principal) {
                     toolbarChatField
                 }
             }
 
             // Backlinks
-            if !showWriterMode && !showPreview {
+            if !showPreview {
                 ToolbarItem {
                     Button { showBacklinksPopover.toggle() } label: {
                         Label("Backlinks", systemImage: "link")
@@ -618,7 +611,7 @@ private struct NotePageContent: View {
             }
 
             // Chat History popover
-            if !showWriterMode && !showPreview {
+            if !showPreview {
                 ToolbarItem {
                     Button {
                         showChatSidebar.toggle()
@@ -660,9 +653,6 @@ private struct NotePageContent: View {
                 .hidden()
             Button("") { togglePreviewMode() }
                 .keyboardShortcut("e", modifiers: .command)
-                .hidden()
-            Button("") { toggleWriterMode() }
-                .keyboardShortcut("r", modifiers: .command)
                 .hidden()
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)
@@ -1053,19 +1043,8 @@ private struct NotePageContent: View {
         "words becoming worlds...",
     ]
 
-    private func toggleWriterMode() {
-        guard !isTransitioning else { return }
-        guard !showPreview else { return }
-        flushCurrentEditor()
-        performGreetingTransition {
-            invalidateEditorCache()
-            showWriterMode.toggle()
-        }
-    }
-
     private func togglePreviewMode() {
         guard !isTransitioning else { return }
-        guard !showWriterMode else { return }
         flushCurrentEditor()
         performGreetingTransition {
             invalidateEditorCache()
@@ -1319,14 +1298,6 @@ private struct NotePageContent: View {
                 Label(
                     showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)",
                     systemImage: showPreview ? "pencil" : "eye")
-            }
-
-            Button {
-                toggleWriterMode()
-            } label: {
-                Label(
-                    showWriterMode ? "Editor (\u{2318}R)" : "Writer Mode (\u{2318}R)",
-                    systemImage: showWriterMode ? "pencil" : "text.page")
             }
 
             Button {
