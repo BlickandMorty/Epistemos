@@ -917,13 +917,11 @@ final class MetalGraphNSView: NSView {
             let uuid = String(cString: uuidPtr)
             graphState?.selectNode(uuid)
 
-            // In freeze mode, zoom in to focus on the selected node.
+            // In freeze mode, animate camera to focus on the selected node.
+            // centerOnNode sets target_offset + target_zoom and triggers the
+            // Rust renderer's smooth camera lerp animation.
             if graphState?.isPhysicsFrozen == true {
                 centerOnNode(uuid)
-                let scale = metalLayer?.contentsScale ?? 2.0
-                let cx = Float(bounds.width * 0.5 * scale)
-                let cy = Float(bounds.height * 0.5 * scale)
-                graph_engine_magnify(engine, cx, cy, 2.0)
             }
 
             // Notify in-note graph mode about the tap (if callback is set).
