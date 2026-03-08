@@ -448,7 +448,7 @@ final class HologramOverlay {
         let tint = NSView(frame: content.bounds)
         tint.wantsLayer = true
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.2 : 0.05).cgColor
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.55 : 0.05).cgColor
         tint.autoresizingMask = [.width, .height]
         content.addSubview(tint)
 
@@ -497,7 +497,7 @@ final class HologramOverlay {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let tint = NSView(frame: content.bounds)
         tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.2 : 0.05).cgColor
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.55 : 0.05).cgColor
         tint.autoresizingMask = [.width, .height]
         content.addSubview(tint)
 
@@ -781,7 +781,7 @@ final class HologramOverlay {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         blurView?.material = .fullScreenUI
         darkenLayer?.layer?.backgroundColor = (isDark
-            ? NSColor.black.withAlphaComponent(0.45)
+            ? NSColor.black.withAlphaComponent(0.85)
             : NSColor.white.withAlphaComponent(0.55)
         ).cgColor
         metalView?.setLightMode(!isDark)
@@ -882,7 +882,7 @@ final class HologramOverlay {
         let darken = NSView(frame: screen.frame)
         darken.wantsLayer = true
         darken.layer?.backgroundColor = (isDark
-            ? NSColor.black.withAlphaComponent(0.45)
+            ? NSColor.black.withAlphaComponent(0.85)
             : NSColor.white.withAlphaComponent(0.55)
         ).cgColor
         darken.autoresizingMask = [.width, .height]
