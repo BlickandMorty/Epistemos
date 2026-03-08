@@ -441,38 +441,6 @@ private struct AppearanceDetailView: View {
                 Text("System")
             }
 
-            Section {
-                Picker("Breathe Reminder", selection: Binding(
-                    get: { ui.breatheReminder },
-                    set: { ui.breatheReminder = $0 }
-                )) {
-                    ForEach(BreatheReminder.allCases) { option in
-                        Text(option.label).tag(option)
-                    }
-                }
-
-                LabeledContent("Cycles per Session") {
-                    Stepper("\(ui.breatheCycles)", value: Binding(
-                        get: { ui.breatheCycles },
-                        set: { ui.breatheCycles = $0 }
-                    ), in: 1...10)
-                }
-
-                Button("Start Breathe Session Now") {
-                    NSApp.keyWindow?.close()
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(0.3))
-                        ui.startBreathe()
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            } header: {
-                Text("Wellness")
-            } footer: {
-                Text("4-7-8 breathing: 4s inhale, 7s hold, 8s exhale. Each cycle is 19 seconds.")
-                    .font(.caption)
-            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -778,8 +746,6 @@ private struct ResetDetailView: View {
         .alert("Reset Everything?", isPresented: $showAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Reset", role: .destructive) {
-                // Close settings window, then perform reset
-                UtilityWindowManager.shared.hide(.settings)
                 AppBootstrap.shared?.resetAllData()
             }
         } message: {

@@ -20,8 +20,8 @@ struct SegmentedNavPicker: View {
                 NotesBrowserView()
                     .frame(width: 320, height: 500)
             }
-            toolbarButton("Library", icon: "books.vertical", isActive: false) {
-                UtilityWindowManager.shared.show(.library)
+            toolbarButton("Library", icon: "books.vertical", isActive: ui.homeTab == .library) {
+                ui.homeTab = .library
             }
         }
     }

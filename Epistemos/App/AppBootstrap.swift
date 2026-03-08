@@ -283,8 +283,6 @@ final class AppBootstrap {
         let defaults = UserDefaults.standard
         let keysToRemove = [
             "epistemos.theme.pair",
-            "epistemos.breathe.reminder",
-            "epistemos.breathe.cycles",
             "epistemos.researchMode",
             "epistemos.apiProvider",
             "epistemos.anthropicModel",

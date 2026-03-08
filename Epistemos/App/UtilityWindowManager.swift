@@ -3,47 +3,16 @@ import SwiftData
 import SwiftUI
 
 // MARK: - Utility Window Manager
-// Manages floating NSPanel windows for utility views (Settings, Notes, Library).
-// Each utility gets its own panel instance, created lazily on first show.
-// Panels float above the main window and persist across tab switches.
+// Manages floating NSPanel windows for utility views (Notes browser).
+// Library and Settings now live in the home window via HomeTab.
 
 enum UtilityPanel: String, CaseIterable {
-    case settings
     case notes
-    case library
 
-    var title: String {
-        switch self {
-        case .settings: "Settings"
-        case .notes: "Notes"
-        case .library: "Library & Research"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .settings: "gear"
-        case .notes: "pencil.line"
-        case .library: "books.vertical"
-        }
-    }
-
-    var defaultSize: NSSize {
-        switch self {
-        case .settings: NSSize(width: 520, height: 480)
-        case .notes: NSSize(width: 320, height: 600)
-        case .library: NSSize(width: 900, height: 660)
-        }
-    }
-
-    /// Library uses full NSWindow (appears in Window menu / dock).
-    /// Notes browser and Settings use floating NSPanel.
-    var usesFullWindow: Bool {
-        switch self {
-        case .library: true
-        case .notes, .settings: false
-        }
-    }
+    var title: String { "Notes" }
+    var icon: String { "pencil.line" }
+    var defaultSize: NSSize { NSSize(width: 320, height: 600) }
+    var usesFullWindow: Bool { false }
 }
 
 @MainActor
@@ -51,7 +20,6 @@ final class UtilityWindowManager {
     static let shared = UtilityWindowManager()
 
     private var panels: [UtilityPanel: NSPanel] = [:]
-    private var windows: [UtilityPanel: NSWindow] = [:]
 
     private init() {}
 
@@ -94,10 +62,6 @@ final class UtilityWindowManager {
     func syncTheme(isDark: Bool) {
         let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         let background = AppBootstrap.shared.map { NSColor($0.uiState.theme.background) }
-        for window in windows.values {
-            window.appearance = appearance
-            if let bg = background { window.backgroundColor = bg }
-        }
         for panel in panels.values {
             panel.appearance = appearance
             if let bg = background { panel.backgroundColor = bg }
@@ -110,97 +74,45 @@ final class UtilityWindowManager {
     }
 
     private func windowFor(_ panel: UtilityPanel) -> NSWindow? {
-        panel.usesFullWindow ? windows[panel] : panels[panel]
+        panels[panel]
     }
 
     // MARK: - Panel Creation
 
     private func getOrCreateWindow(_ kind: UtilityPanel) -> NSWindow {
-        // Return existing if available
-        if kind.usesFullWindow, let existing = windows[kind] {
-            return existing
-        } else if !kind.usesFullWindow, let existing = panels[kind] {
+        if let existing = panels[kind] {
             return existing
         }
 
         let size = kind.defaultSize
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = kind.title
+        panel.isMovableByWindowBackground = true
+        panel.level = .normal
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isReleasedWhenClosed = false
+        panel.minSize = NSSize(width: 400, height: 300)
 
-        if kind.usesFullWindow {
-            // Full NSWindow — appears in Window menu, dock, Mission Control
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-                styleMask: [.titled, .closable, .resizable, .miniaturizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = kind.title
-            window.isMovableByWindowBackground = true
-            window.isReleasedWhenClosed = false
-            window.minSize = NSSize(width: 500, height: 400)
-            window.setFrameAutosaveName("epistemos-\(kind.rawValue)")
+        let toolbar = NSToolbar(identifier: "Utility-\(kind.rawValue)")
+        panel.toolbar = toolbar
+        panel.toolbarStyle = .unifiedCompact
+        panel.titleVisibility = .hidden
 
-            // Zoom instead of fullscreen — green button fills screen without entering a Space.
-            window.collectionBehavior.remove(.fullScreenPrimary)
+        panel.center()
 
-            // Unified toolbar for glass chrome
-            let toolbar = NSToolbar(identifier: "Window-\(kind.rawValue)")
-            window.toolbar = toolbar
-            window.toolbarStyle = .unified
-
-            // Center on first show (autosave will override on subsequent launches)
-            window.center()
-
-            // Attach SwiftUI content
-            if let bootstrap = AppBootstrap.shared {
-                let view = contentView(for: kind, bootstrap: bootstrap)
-                let host = NSHostingView(rootView: view)
-                window.contentView = host
-            }
-
-            windows[kind] = window
-            return window
-
-        } else {
-            // Floating NSPanel for utilities (existing behavior)
-            let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-                styleMask: [.titled, .closable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            panel.title = kind.title
-            panel.isMovableByWindowBackground = true
-            panel.level = .normal
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.isReleasedWhenClosed = false
-            panel.minSize = NSSize(width: 400, height: 300)
-
-            let toolbar = NSToolbar(identifier: "Utility-\(kind.rawValue)")
-            panel.toolbar = toolbar
-            panel.toolbarStyle = .unifiedCompact
-            panel.titleVisibility = .hidden
-
-            // Position offset from center so panels don't stack exactly
-            panel.center()
-            let offset = CGFloat(panels.count) * 30
-            if let frame = panel.screen?.visibleFrame {
-                let origin = NSPoint(
-                    x: frame.midX - size.width / 2 + offset,
-                    y: frame.midY - size.height / 2 - offset
-                )
-                panel.setFrameOrigin(origin)
-            }
-
-            // Attach SwiftUI content
-            if let bootstrap = AppBootstrap.shared {
-                let view = contentView(for: kind, bootstrap: bootstrap)
-                let host = NSHostingView(rootView: view)
-                panel.contentView = host
-            }
-
-            panels[kind] = panel
-            return panel
+        if let bootstrap = AppBootstrap.shared {
+            let view = contentView(for: kind, bootstrap: bootstrap)
+            let host = NSHostingView(rootView: view)
+            panel.contentView = host
         }
+
+        panels[kind] = panel
+        return panel
     }
 
     // MARK: - Content Views
@@ -227,9 +139,7 @@ private struct ThemedUtilityRoot: View {
     var body: some View {
         Group {
             switch kind {
-            case .settings: SettingsView()
             case .notes: NotesBrowserView()
-            case .library: LibraryView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -33,6 +33,7 @@ final class UIState {
     // MARK: - Navigation
 
     var activePanel: NavTab = .home
+    var homeTab: HomeTab = .home
 
     // MARK: - Chat Sidebar
 
@@ -42,26 +43,6 @@ final class UIState {
 
     /// Global command palette overlay — visible from any panel via Cmd+S.
     var isCommandPaletteVisible = false
-
-    // MARK: - Breathe Mode
-
-    var breatheActive = false
-
-    /// How often the breathe reminder pops up (0 = off)
-    var breatheReminder: BreatheReminder = .off {
-        didSet {
-            UserDefaults.standard.set(breatheReminder.rawValue, forKey: "epistemos.breathe.reminder")
-        }
-    }
-
-    /// Number of 4-7-8 cycles per session (1–10)
-    var breatheCycles: Int = 3 {
-        didSet {
-            UserDefaults.standard.set(breatheCycles, forKey: "epistemos.breathe.cycles")
-        }
-    }
-
-    private var breatheReminderTask: Task<Void, Never>?
 
     // MARK: - Window Visibility
     /// True when the main window is minimized to the Dock.
@@ -85,12 +66,6 @@ final class UIState {
            let pair = ThemePair(rawValue: saved) {
             activePair = pair
         }
-        if let savedReminder = UserDefaults.standard.string(forKey: "epistemos.breathe.reminder"),
-           let reminder = BreatheReminder(rawValue: savedReminder) {
-            breatheReminder = reminder
-        }
-        let savedCycles = UserDefaults.standard.integer(forKey: "epistemos.breathe.cycles")
-        if savedCycles > 0 { breatheCycles = min(10, max(1, savedCycles)) }
     }
 
     // MARK: - Theme Methods
@@ -131,65 +106,6 @@ final class UIState {
         withAnimation(Motion.smooth) {
             isCommandPaletteVisible = false
         }
-    }
-
-    // MARK: - Breathe Methods
-
-    func startBreathe() { breatheActive = true }
-    func stopBreathe() { breatheActive = false }
-
-    /// Schedule the next breathe reminder based on the current interval.
-    /// Uses both an in-app Task timer AND a system notification so the
-    /// reminder works even when the app is in the background.
-    /// Whether UNUserNotificationCenter is safe to use. It crashes with an
-    /// NSInternalInconsistencyException in test bundles and debug builds that
-    /// lack the Push Notifications entitlement.
-    private static let canUseNotifications: Bool = {
-        guard Bundle.main.bundleIdentifier?.hasSuffix(".tests") != true else { return false }
-        // UNUserNotificationCenter.current() throws an ObjC NSException when the
-        // app lacks notification entitlements. Swift can't catch NSException, so
-        // we use an ObjC @try/@catch wrapper.
-        do {
-            try ObjCExceptionCatcher.catchException {
-                _ = UNUserNotificationCenter.current()
-            }
-            return true
-        } catch {
-            return false
-        }
-    }()
-
-    func scheduleBreatheReminder() {
-        breatheReminderTask?.cancel()
-
-        if Self.canUseNotifications {
-            UNUserNotificationCenter.current().removePendingNotificationRequests(
-                withIdentifiers: ["epistemos.breathe.reminder"])
-        }
-
-        guard breatheReminder != .off else { return }
-        let minutes = breatheReminder.minutes
-
-        // In-app timer — triggers the overlay when app is in foreground
-        breatheReminderTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(minutes * 60))
-            guard !Task.isCancelled else { return }
-            startBreathe()
-            // Schedule the next one
-            scheduleBreatheReminder()
-        }
-
-        // System notification — visible in Notification Center even when backgrounded.
-        guard Self.canUseNotifications else { return }
-        let content = UNMutableNotificationContent()
-        content.title = "Time to Breathe"
-        content.body = "Take a moment. 4 seconds in, 7 hold, 8 out."
-        content.sound = .default
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: TimeInterval(minutes * 60), repeats: false)
-        let request = UNNotificationRequest(
-            identifier: "epistemos.breathe.reminder", content: content, trigger: trigger)
-        UNUserNotificationCenter.current().add(request) { _ in }
     }
 
     // MARK: - Mini-Chat Methods
