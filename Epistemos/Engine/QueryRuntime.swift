@@ -193,6 +193,12 @@ final class QueryRuntime {
         if let before = filter.createdBefore {
             results = results.filter { $0.createdAt <= before }
         }
+        if let after = filter.updatedAfter {
+            results = results.filter { $0.updatedAt >= after }
+        }
+        if let before = filter.updatedBefore {
+            results = results.filter { $0.updatedAt <= before }
+        }
         results.sort { $0.createdAt > $1.createdAt }
         let nodes = Array(results.prefix(filter.limit)).map { QueryResultNode(from: $0) }
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
@@ -245,13 +251,31 @@ final class QueryRuntime {
     }
 
     private func executeFTS(query: String, scope: SearchScope) -> QueryResult {
-        let results = (try? searchIndex.search(query: query)) ?? []
+        var seen = Set<String>()
         var nodes: [QueryResultNode] = []
-        for result in results {
-            if let graphNode = graphStore.node(bySourceId: result.pageId, type: .note) {
-                nodes.append(QueryResultNode(from: graphNode, score: Float(result.rank), snippet: result.snippet))
+
+        // Page-level FTS (unless scope is blocks-only)
+        if scope != .blocks {
+            let results = (try? searchIndex.search(query: query)) ?? []
+            for result in results {
+                if let graphNode = graphStore.node(bySourceId: result.pageId, type: .note),
+                   seen.insert(graphNode.id).inserted {
+                    nodes.append(QueryResultNode(from: graphNode, score: Float(result.rank), snippet: result.snippet))
+                }
             }
         }
+
+        // Block-level FTS (for .blocks and .all scopes)
+        if scope == .blocks || scope == .all {
+            let blockResults = (try? searchIndex.searchBlocks(query: query)) ?? []
+            for result in blockResults {
+                if let graphNode = graphStore.node(bySourceId: result.pageId, type: .note),
+                   seen.insert(graphNode.id).inserted {
+                    nodes.append(QueryResultNode(from: graphNode, score: Float(result.rank), snippet: result.snippet))
+                }
+            }
+        }
+
         return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
 
@@ -262,14 +286,38 @@ final class QueryRuntime {
     }
 
     private func executeBTKPropertyFilter(key: String, op: CompOp, value: PropertyValue) -> QueryResult {
-        // TODO: Requires BTK integration. Query block properties via FFI.
-        // For now, return empty. Will be wired when BTK is enabled.
-        return .empty
+        guard let engine = graphState.engineHandle else { return .empty }
+
+        let opCode = op.ffiCode
+        let (valType, valStr) = value.ffiEncoded
+
+        let resultPtr = key.withCString { keyPtr in
+            valStr.withCString { valPtr in
+                graph_engine_btk_query_property(engine, keyPtr, opCode, valType, valPtr)
+            }
+        }
+        return pageIdsToQueryResult(resultPtr)
     }
 
     private func executeBTKDepthFilter(op: CompOp, value: Int) -> QueryResult {
-        // TODO: Requires BTK integration. Query block depth via FFI.
-        return .empty
+        guard let engine = graphState.engineHandle else { return .empty }
+
+        let resultPtr = graph_engine_btk_query_depth(engine, op.ffiCode, UInt32(max(0, value)))
+        return pageIdsToQueryResult(resultPtr)
+    }
+
+    /// Convert newline-separated page_ids from FFI into QueryResult by looking up graph nodes.
+    private func pageIdsToQueryResult(_ ptr: UnsafePointer<CChar>?) -> QueryResult {
+        guard let ptr else { return .empty }
+        let str = String(cString: ptr)
+        graph_engine_free_string(UnsafeMutablePointer(mutating: ptr))
+
+        let pageIds = str.split(separator: "\n").map(String.init)
+        let nodes = pageIds.compactMap { pageId -> QueryResultNode? in
+            guard let node = graphStore.node(bySourceId: pageId, type: .note) else { return nil }
+            return QueryResultNode(from: node)
+        }
+        return QueryResult(nodes: nodes, edges: [], aggregation: nil, executionTimeMs: 0)
     }
 
     private func executeLabelFilter(_ text: String) -> QueryResult {

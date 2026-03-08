@@ -10,6 +10,19 @@ enum SearchScope: Sendable {
 
 enum CompOp: Sendable {
     case eq, neq, lt, gt, lte, gte, contains
+
+    /// Maps to Rust FFI op code: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte, 6=contains
+    var ffiCode: UInt8 {
+        switch self {
+        case .eq: 0
+        case .neq: 1
+        case .lt: 2
+        case .gt: 3
+        case .lte: 4
+        case .gte: 5
+        case .contains: 6
+        }
+    }
 }
 
 enum PropertyValue: Sendable, Equatable {
@@ -17,6 +30,16 @@ enum PropertyValue: Sendable, Equatable {
     case float(Float)
     case int(Int)
     case bool(Bool)
+
+    /// Returns (val_type, val_str) for FFI. val_type: 0=string, 1=float, 2=int, 3=bool
+    var ffiEncoded: (UInt8, String) {
+        switch self {
+        case .string(let s): (0, s)
+        case .float(let f): (1, String(f))
+        case .int(let i): (2, String(i))
+        case .bool(let b): (3, b ? "true" : "false")
+        }
+    }
 }
 
 // MARK: - NodeFilter
@@ -26,6 +49,8 @@ struct NodeFilter: Sendable {
     var labelContains: String?
     var createdAfter: Date?
     var createdBefore: Date?
+    var updatedAfter: Date?
+    var updatedBefore: Date?
     var limit: Int = 50
 }
 

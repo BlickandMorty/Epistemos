@@ -94,10 +94,8 @@ enum QueryCompiler {
         switch (field, op) {
         case (.created, .gte), (.created, .gt): filter.createdAfter = value
         case (.created, .lte), (.created, .lt): filter.createdBefore = value
-        case (.updated, _):
-            // NodeFilter lacks updatedAfter/Before — return empty filter (no matches)
-            // rather than silently returning wrong results via createdAfter.
-            filter.limit = 0
+        case (.updated, .gte), (.updated, .gt): filter.updatedAfter = value
+        case (.updated, .lte), (.updated, .lt): filter.updatedBefore = value
         default: break
         }
         return filter
