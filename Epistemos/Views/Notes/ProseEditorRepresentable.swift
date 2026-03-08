@@ -223,6 +223,26 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
         }
 
+        // Scroll-to-offset observer for TOC section navigator.
+        coord.scrollToOffsetObserver = NotificationCenter.default.addObserver(
+            forName: ClickableTextView.scrollToOffsetNotification,
+            object: nil,
+            queue: .main
+        ) { [weak tv, weak coord] notification in
+            guard let offset = notification.userInfo?["charOffset"] as? Int,
+                  let pid = notification.userInfo?["pageId"] as? String,
+                  pid == coord?.lastPageId,
+                  let tv else { return }
+            MainActor.assumeIsolated {
+                let safeOffset = min(offset, (tv.string as NSString).length)
+                let range = NSRange(location: safeOffset, length: 0)
+                tv.scrollRangeToVisible(range)
+                tv.setSelectedRange(range)
+                let lineRange = (tv.string as NSString).lineRange(for: range)
+                tv.showFindIndicator(for: lineRange)
+            }
+        }
+
         // Set lastPageId to nil so updateNSView will perform the initial page swap
         coord.lastPageId = nil
 
@@ -550,6 +570,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Scroll observer for continuous scroll position tracking.
         nonisolated(unsafe) var scrollObserver: (any NSObjectProtocol)?
 
+        // Scroll-to-offset observer for TOC section navigator.
+        nonisolated(unsafe) var scrollToOffsetObserver: (any NSObjectProtocol)?
+
 
         /// Block Transaction Kernel translator — tracks edits as block ops.
         var blockEditTranslator: BlockEditTranslator?
@@ -580,6 +603,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 NotificationCenter.default.removeObserver(observer)
             }
             if let observer = scrollObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            if let observer = scrollToOffsetObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
         }

@@ -40,4 +40,20 @@ struct FocusModeTests {
             #expect(progress > 0.39 && progress < 0.41)
         }
     }
+
+    @Test("TOC parser extracts headings with correct offsets")
+    func tocParserHeadings() {
+        let md = "# Title\n\nSome text\n\n## Section A\n\nMore text\n\n### Subsection\n\n## Section B"
+        let items = TOCParser.parse(md)
+        let headings = items.filter { $0.kind == .heading }
+        #expect(headings.count == 4)
+        #expect(headings[0].title == "Title")
+        #expect(headings[0].level == 1)
+        #expect(headings[1].title == "Section A")
+        #expect(headings[1].level == 2)
+        #expect(headings[2].title == "Subsection")
+        #expect(headings[2].level == 3)
+        #expect(headings[3].title == "Section B")
+        #expect(headings[3].level == 2)
+    }
 }

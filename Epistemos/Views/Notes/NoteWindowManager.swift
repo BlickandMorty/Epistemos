@@ -442,6 +442,7 @@ private struct NotePageContent: View {
     @State private var showBacklinksPopover = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
+    @State private var tocItems: [TOCItem] = []
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
@@ -499,14 +500,28 @@ private struct NotePageContent: View {
                 .allowsHitTesting(transitionOpacity > 0)
             }
             .overlay(alignment: .bottom) {
-                Text("\(wordCount) words")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .glassEffect(.regular, in: Capsule())
-                    .padding(8)
+                HStack(spacing: 8) {
+                    Text("\(wordCount) words")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    if let target = notesUI.sessionWordTarget, target > 0 {
+                        let delta = max(0, wordCount - notesUI.sessionStartWordCount)
+                        let progress = min(1.0, Double(delta) / Double(target))
+                        HStack(spacing: 4) {
+                            ProgressView(value: progress)
+                                .frame(width: 60)
+                                .tint(progress >= 1.0 ? .green : .accentColor)
+                            Text("\(delta)/\(target)")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .glassEffect(.regular, in: Capsule())
+                .padding(8)
             }
             .overlay(alignment: .trailing) {
                 NoteOutlineOverlay(
@@ -525,7 +540,9 @@ private struct NotePageContent: View {
                 noteChatState.loadPersistedMessages(modelContext)
                 refreshTabCount()
                 if let page = pages.first {
-                    wordCount = NLAnalysisService.wordCount(page.loadBody())
+                    let body = page.loadBody()
+                    wordCount = NLAnalysisService.wordCount(body)
+                    tocItems = TOCParser.parse(body).filter { $0.kind == .heading }
                 }
             }
             .onDisappear {
@@ -576,6 +593,24 @@ private struct NotePageContent: View {
                         systemImage: showPreview ? "pencil" : "eye")
                 }
                 .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
+            }
+
+            // Section navigator
+            if !tocItems.isEmpty {
+                ToolbarItem {
+                    Menu {
+                        ForEach(tocItems) { item in
+                            Button {
+                                scrollEditorTo(charOffset: item.charOffset)
+                            } label: {
+                                Text(String(repeating: "  ", count: max(0, item.level - 1)) + item.title)
+                            }
+                        }
+                    } label: {
+                        Label("Sections", systemImage: "list.bullet.indent")
+                    }
+                    .help("Sections")
+                }
             }
 
             // More menu
@@ -832,8 +867,11 @@ private struct NotePageContent: View {
 
     private func refreshWordCount() {
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        let count = NLAnalysisService.wordCount(tv.string)
+        let text = tv.string
+        let count = NLAnalysisService.wordCount(text)
         if count != wordCount { wordCount = count }
+        let headings = TOCParser.parse(text).filter { $0.kind == .heading }
+        if headings.count != tocItems.count { tocItems = headings }
     }
 
     private func snapshotEditorSelection() {
@@ -1359,6 +1397,23 @@ private struct NotePageContent: View {
                 UtilityWindowManager.shared.show(.notes)
             } label: {
                 Label("Notes Sidebar", systemImage: "sidebar.leading")
+            }
+
+            Divider()
+
+            Button {
+                notesUI.sessionStartWordCount = wordCount
+                notesUI.sessionWordTarget = 500
+            } label: {
+                Label("Set Word Target (500)", systemImage: "target")
+            }
+
+            if notesUI.sessionWordTarget != nil {
+                Button {
+                    notesUI.sessionWordTarget = nil
+                } label: {
+                    Label("Clear Word Target", systemImage: "xmark.circle")
+                }
             }
         } label: {
             Label("More", systemImage: "ellipsis.circle")

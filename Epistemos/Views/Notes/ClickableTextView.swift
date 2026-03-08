@@ -34,6 +34,7 @@ final class ClickableTextView: NSTextView {
     /// Block property edit from context menu. userInfo: ["lineText": String, "lineRange": NSRange, "pageId": String?]
     static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
     static let translateNotification = Notification.Name("EpistemosTranslateText")
+    static let scrollToOffsetNotification = Notification.Name("EpistemosScrollToOffset")
 
     // MARK: - Wikilink Click Handling
     // Wikilinks and block refs use native .link attributes with custom URL schemes
