@@ -77,43 +77,44 @@ struct NoteOutlineOverlay: View {
     }
 
     var body: some View {
-        VStack {
-            Spacer()
+        Group {
+            if !headings.isEmpty {
+                VStack {
+                    Spacer()
 
-            // Hover trigger tab + panel
-            HStack(spacing: 0) {
-                // Glass outline panel (expands left from the tab)
-                if isHovering && !headings.isEmpty {
-                    outlinePanel
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
+                    HStack(spacing: 0) {
+                        if isHovering {
+                            outlinePanel
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
 
-                // Visible tab indicator on the right edge
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(theme.isDark
-                          ? Color.white.opacity(0.08)
-                          : Color.black.opacity(0.06))
-                    .frame(width: 6, height: 40)
-                    .overlay {
+                        // Visible tab indicator on the right edge
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .strokeBorder(theme.isDark
-                                          ? Color.white.opacity(0.12)
-                                          : Color.black.opacity(0.08),
-                                          lineWidth: 0.5)
+                            .fill(theme.isDark
+                                  ? Color.white.opacity(0.08)
+                                  : Color.black.opacity(0.06))
+                            .frame(width: 6, height: 40)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .strokeBorder(theme.isDark
+                                                  ? Color.white.opacity(0.12)
+                                                  : Color.black.opacity(0.08),
+                                                  lineWidth: 0.5)
+                            }
+                            .padding(.trailing, 8)
                     }
-                    .padding(.trailing, 8)
-            }
-            .onHover { hovering in
-                withAnimation(.smooth(duration: 0.18)) {
-                    isHovering = hovering
-                }
-            }
+                    .onHover { hovering in
+                        withAnimation(.smooth(duration: 0.18)) {
+                            isHovering = hovering
+                        }
+                    }
 
-            Spacer()
+                    Spacer()
+                }
+                .frame(width: isHovering ? 210 : 6)
+                .animation(.smooth(duration: 0.18), value: isHovering)
+            }
         }
-        .frame(width: isHovering && !headings.isEmpty ? 210 : 6)
-        .animation(.smooth(duration: 0.18), value: isHovering)
-        .allowsHitTesting(true)
         .task { items = TOCParser.parse(markdown) }
         .onChange(of: markdown) { items = TOCParser.parse(markdown) }
     }
