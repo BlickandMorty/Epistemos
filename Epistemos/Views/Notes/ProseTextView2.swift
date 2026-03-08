@@ -188,6 +188,8 @@ final class ProseTextView2: NSTextView {
         var columnXs: [CGFloat]
         var rowYs: [CGFloat]
         var headerBottomY: CGFloat?
+        var firstNSRange: NSRange   // first fragment's NSRange (for boundary check)
+        var lastNSRange: NSRange    // last fragment's NSRange (for boundary check)
     }
 
     /// Get paragraph text and NSRange for a layout fragment.
@@ -308,7 +310,7 @@ final class ProseTextView2: NSTextView {
         var current: TableRegion?
 
         enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
-            guard let (lineText, _) = self.paragraphInfo(
+            guard let (lineText, nsRange) = self.paragraphInfo(
                 for: fragment, contentStorage: contentStorage
             ) else {
                 if let t = current { tables.append(t); current = nil }
@@ -318,6 +320,9 @@ final class ProseTextView2: NSTextView {
 
             if Self.isTableLine(line) {
                 let isSep = Self.isSeparatorLine(line)
+
+                // Track last fragment range for all table lines (data + separator)
+                current?.lastNSRange = nsRange
 
                 if isSep {
                     if current != nil {
@@ -342,7 +347,8 @@ final class ProseTextView2: NSTextView {
                             left: pipeXs.first ?? fragFrame.minX,
                             right: pipeXs.last ?? fragFrame.maxX,
                             columnXs: pipeXs, rowYs: [fragFrame.minY],
-                            headerBottomY: nil
+                            headerBottomY: nil,
+                            firstNSRange: nsRange, lastNSRange: nsRange
                         )
                     } else {
                         current!.bottom = fragFrame.maxY
@@ -364,19 +370,58 @@ final class ProseTextView2: NSTextView {
         }
         if let t = current { tables.append(t) }
 
-        // Draw collected table regions
+        // Draw collected table regions — individual edges, not rectangles.
+        // Suppress top/bottom edges when the dirty rect clips mid-table.
         for table in tables {
-            let outerRect = NSRect(
-                x: table.left - 2, y: table.top - 1,
-                width: table.right - table.left + 4,
-                height: table.bottom - table.top + 2
-            )
+            let left = table.left - 2
+            let right = table.right + 2
+            let top = table.top - 1
+            let bottom = table.bottom + 1
 
+            // Is this the actual table start, or did the dirty rect clip it?
+            let isActualTop: Bool
+            if table.firstNSRange.location > 0 {
+                let prevRange = str.lineRange(
+                    for: NSRange(location: table.firstNSRange.location - 1, length: 0))
+                let prevLine = str.substring(with: prevRange)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                isActualTop = !Self.isTableLine(prevLine)
+            } else {
+                isActualTop = true
+            }
+
+            // Is this the actual table end, or does it continue past the dirty rect?
+            let isActualBottom: Bool
+            let nextStart = NSMaxRange(table.lastNSRange)
+            if nextStart < str.length {
+                let nextRange = str.lineRange(for: NSRange(location: nextStart, length: 0))
+                let nextLine = str.substring(with: nextRange)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                isActualBottom = !Self.isTableLine(nextLine)
+            } else {
+                isActualBottom = true
+            }
+
+            // Outer border — individual edges, suppress clipped boundaries
             borderColor.setStroke()
-            let outerPath = NSBezierPath(rect: outerRect)
+            let outerPath = NSBezierPath()
             outerPath.lineWidth = 0.5
+            // Left + right edges always drawn
+            outerPath.move(to: NSPoint(x: left, y: top))
+            outerPath.line(to: NSPoint(x: left, y: bottom))
+            outerPath.move(to: NSPoint(x: right, y: top))
+            outerPath.line(to: NSPoint(x: right, y: bottom))
+            if isActualTop {
+                outerPath.move(to: NSPoint(x: left, y: top))
+                outerPath.line(to: NSPoint(x: right, y: top))
+            }
+            if isActualBottom {
+                outerPath.move(to: NSPoint(x: left, y: bottom))
+                outerPath.line(to: NSPoint(x: right, y: bottom))
+            }
             outerPath.stroke()
 
+            // Inner grid
             let innerPath = NSBezierPath()
             innerPath.lineWidth = 0.5
             if table.columnXs.count > 2 {
@@ -387,8 +432,8 @@ final class ProseTextView2: NSTextView {
             }
             for y in table.rowYs.dropFirst() {
                 if let hby = table.headerBottomY, abs(y - hby) < 4 { continue }
-                innerPath.move(to: NSPoint(x: table.left - 2, y: y))
-                innerPath.line(to: NSPoint(x: table.right + 2, y: y))
+                innerPath.move(to: NSPoint(x: left, y: y))
+                innerPath.line(to: NSPoint(x: right, y: y))
             }
             innerPath.stroke()
 
@@ -396,8 +441,8 @@ final class ProseTextView2: NSTextView {
                 headerLineColor.setStroke()
                 let headerPath = NSBezierPath()
                 headerPath.lineWidth = 1.0
-                headerPath.move(to: NSPoint(x: table.left - 2, y: headerY))
-                headerPath.line(to: NSPoint(x: table.right + 2, y: headerY))
+                headerPath.move(to: NSPoint(x: left, y: headerY))
+                headerPath.line(to: NSPoint(x: right, y: headerY))
                 headerPath.stroke()
             }
         }
