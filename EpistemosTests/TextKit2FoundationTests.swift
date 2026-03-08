@@ -1018,3 +1018,89 @@ struct TextKit2MarkerCollapsingTests {
         #expect(contentFont!.pointSize >= 14)
     }
 }
+
+// MARK: - Phase 4: Paragraph Type Query Tests
+
+@Suite("TextKit 2 - Paragraph Type Query")
+struct TextKit2ParagraphTypeTests {
+
+    @Test("paragraphType returns heading for heading lines")
+    func headingType() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "# Hello\nBody")
+        #expect(storage.paragraphType(at: 0) == 1)
+        #expect(storage.paragraphType(at: 1) == 0)
+    }
+
+    @Test("paragraphType returns table for table lines")
+    func tableType() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "| A | B |\n|---|---|\n| x | y |")
+        #expect(storage.paragraphType(at: 0) == 7)
+        #expect(storage.paragraphType(at: 1) == 7)
+        #expect(storage.paragraphType(at: 2) == 7)
+    }
+
+    @Test("paragraphType returns nil for out-of-bounds")
+    func outOfBounds() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "Hello")
+        #expect(storage.paragraphType(at: 5) == nil)
+        #expect(storage.paragraphType(at: -1) == nil)
+    }
+
+    @Test("paragraphType returns nil before reparse")
+    func beforeReparse() {
+        let storage = MarkdownContentStorage()
+        #expect(storage.paragraphType(at: 0) == nil)
+    }
+
+    @Test("lineCount returns correct count")
+    func lineCount() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "A\nB\nC")
+        #expect(storage.lineCount == 3)
+    }
+}
+
+// MARK: - Phase 4: Table Detection Helper Tests
+
+@Suite("TextKit 2 - Table Detection Helpers")
+struct TextKit2TableDetectionTests {
+
+    @Test("isTableLine detects valid table lines")
+    func validTableLines() {
+        #expect(ProseTextView2.isTableLine("| A | B |"))
+        #expect(ProseTextView2.isTableLine("|---|---|"))
+        #expect(ProseTextView2.isTableLine("| x |"))
+    }
+
+    @Test("isTableLine rejects non-table lines")
+    func invalidTableLines() {
+        #expect(!ProseTextView2.isTableLine("Hello world"))
+        #expect(!ProseTextView2.isTableLine("| x"))
+        #expect(!ProseTextView2.isTableLine("x |"))
+        #expect(!ProseTextView2.isTableLine(""))
+        #expect(!ProseTextView2.isTableLine("||"))
+    }
+
+    @Test("isSeparatorLine detects separator rows")
+    func separators() {
+        #expect(ProseTextView2.isSeparatorLine("|---|---|"))
+        #expect(ProseTextView2.isSeparatorLine("|:---|---:|"))
+        #expect(ProseTextView2.isSeparatorLine("| --- | --- |"))
+    }
+
+    @Test("isSeparatorLine rejects data rows")
+    func nonSeparators() {
+        #expect(!ProseTextView2.isSeparatorLine("| A | B |"))
+        #expect(!ProseTextView2.isSeparatorLine("| foo | bar |"))
+    }
+
+    @Test("pipeCharIndices finds all pipe offsets")
+    func pipeIndices() {
+        let indices = ProseTextView2.pipeCharIndices(in: "| A | B | C |")
+        #expect(indices.count == 4)
+        #expect(indices[0] == 0)
+    }
+}

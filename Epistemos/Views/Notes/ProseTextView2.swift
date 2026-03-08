@@ -164,6 +164,23 @@ final class ProseTextView2: NSTextView {
         return (scrollView, tv)
     }
 
+    // MARK: - Table Detection Helpers (static, testable)
+
+    static func isTableLine(_ line: String) -> Bool {
+        line.hasPrefix("|") && line.hasSuffix("|") && line.count >= 3
+    }
+
+    static func isSeparatorLine(_ line: String) -> Bool {
+        guard isTableLine(line) else { return false }
+        return line.dropFirst().dropLast()
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+    }
+
+    static func pipeCharIndices(in line: String) -> [Int] {
+        line.utf16.enumerated().compactMap { $0.element == 0x7C ? $0.offset : nil }
+    }
+
     // MARK: - Navigation
 
     func scrollToCharacterOffset(_ offset: Int) {

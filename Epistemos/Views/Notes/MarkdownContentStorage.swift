@@ -35,6 +35,15 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         25, // BlockReferenceBrackets
     ]
 
+    /// Number of classified lines after most recent reparse.
+    var lineCount: Int { cachedTypes.count }
+
+    /// Paragraph type for a given line index. Returns nil if out of bounds.
+    func paragraphType(at lineIndex: Int) -> UInt8? {
+        guard lineIndex >= 0, lineIndex < cachedTypes.count else { return nil }
+        return cachedTypes[lineIndex].paraType
+    }
+
     var theme: EpistemosTheme = .light
 
     // MARK: - Reparse
