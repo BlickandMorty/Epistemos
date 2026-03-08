@@ -220,9 +220,11 @@ final class NoteWindowManager {
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
 
-        // Match system appearance to theme (light/dark)
+        // Match system appearance and background to theme
         if let theme = AppBootstrap.shared?.uiState.theme {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+            window.titlebarAppearsTransparent = true
+            window.backgroundColor = theme.nsBackground
         }
 
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
@@ -339,10 +341,11 @@ final class NoteWindowManager {
     }
 
     /// Sync appearance of all note windows to the current theme.
-    func syncTheme(isDark: Bool) {
-        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+    func syncTheme(theme: EpistemosTheme) {
+        let appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         for w in windows.values {
             w.appearance = appearance
+            w.backgroundColor = theme.nsBackground
         }
     }
 }
@@ -758,6 +761,7 @@ private struct NotePageContent: View {
         .onChange(of: ui.theme) { _, newTheme in
             if let window = NSApp.keyWindow {
                 window.appearance = NSAppearance(named: newTheme.isDark ? .darkAqua : .aqua)
+                window.backgroundColor = newTheme.nsBackground
             }
         }
         .onReceive(

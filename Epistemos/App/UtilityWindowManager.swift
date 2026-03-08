@@ -103,7 +103,9 @@ final class UtilityWindowManager {
             if let bg = background { panel.backgroundColor = bg }
         }
         // Also sync note editor windows and command palette
-        NoteWindowManager.shared.syncTheme(isDark: isDark)
+        if let theme = AppBootstrap.shared?.uiState.theme {
+            NoteWindowManager.shared.syncTheme(theme: theme)
+        }
         CommandPaletteWindowController.shared.syncTheme(isDark: isDark)
     }
 

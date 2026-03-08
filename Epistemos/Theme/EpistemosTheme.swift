@@ -279,6 +279,19 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     var sidebarBackground: Color { glassBg }
+
+    // MARK: - NSColor for Window Chrome
+
+    var nsBackground: NSColor {
+        switch self {
+        case .light:  .white
+        case .sunny:  NSColor(red: 0xE8/255, green: 0xF4/255, blue: 0xFB/255, alpha: 1)
+        case .tan:    NSColor(red: 0xF5/255, green: 0xEF/255, blue: 0xE6/255, alpha: 1)
+        case .sunset: NSColor(red: 0x1E/255, green: 0x12/255, blue: 0x20/255, alpha: 1)
+        case .oled:   .black
+        case .ember:  NSColor(red: 0x1C/255, green: 0x14/255, blue: 0x10/255, alpha: 1)
+        }
+    }
 }
 
 // MARK: - Theme Pair
