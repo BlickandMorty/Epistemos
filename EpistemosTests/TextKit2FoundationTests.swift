@@ -1299,3 +1299,64 @@ struct TextKit2FocusDimmingTests {
         tv.applyFocusDimming()
     }
 }
+
+// MARK: - Phase 4: Edge Case Tests
+
+@Suite("TextKit 2 - Phase 4 Edge Cases")
+struct TextKit2Phase4EdgeCaseTests {
+
+    @Test("Mixed content: heading + table + body + fold")
+    func mixedContent() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Title\n\n| A | B |\n|---|---|\n| x | y |\n\nBody text\n\n## Folded\n\u{2026}")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("Rapid drawBackground calls don't crash")
+    func rapidDraw() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Title\n| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        for _ in 0..<20 {
+            tv.drawBackground(in: tv.bounds)
+        }
+    }
+
+    @Test("Table immediately after code block")
+    func tableAfterCodeBlock() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "```\ncode\n```\n| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("Focus dimming during drawBackground")
+    func focusDimmingDuringDraw() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Title\n\nPara 1\n\nPara 2")
+        )
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: 10, length: 0))
+        tv.applyFocusDimming()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("Very wide table (many columns)")
+    func wideTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A | B | C | D | E | F | G | H |\n|---|---|---|---|---|---|---|---|\n| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+}
