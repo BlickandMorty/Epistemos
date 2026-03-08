@@ -1470,3 +1470,68 @@ struct TextKit2CheckedStrikethroughTests {
         #expect(strike == nil || strike == 0)
     }
 }
+
+// MARK: - Phase 5: Checkbox Toggle Tests
+
+@Suite("TextKit 2 - Checkbox Toggle")
+struct TextKit2CheckboxToggleTests {
+
+    @Test("toggleCheckbox toggles unchecked to checked")
+    func toggleUnchecked() {
+        let text = "- [ ] todo"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [x] todo")
+    }
+
+    @Test("toggleCheckbox toggles checked to unchecked")
+    func toggleChecked() {
+        let text = "- [x] done"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [ ] done")
+    }
+
+    @Test("toggleCheckbox returns nil for non-checkbox position")
+    func nonCheckbox() {
+        let text = "- [ ] todo"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 8) == nil)
+    }
+
+    @Test("toggleCheckbox returns nil for regular list")
+    func regularList() {
+        let text = "- item"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 2) == nil)
+    }
+
+    @Test("toggleCheckbox handles uppercase X")
+    func uppercaseX() {
+        let text = "- [X] done"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [ ] done")
+    }
+
+    @Test("toggleCheckbox works with * prefix")
+    func starPrefix() {
+        let text = "* [ ] star item"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "* [x] star item")
+    }
+
+    @Test("toggleCheckbox works with + prefix")
+    func plusPrefix() {
+        let text = "+ [x] plus item"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "+ [ ] plus item")
+    }
+
+    @Test("toggleCheckbox returns nil for empty string")
+    func emptyString() {
+        #expect(ProseTextView2.toggleCheckbox(in: "", at: 0) == nil)
+    }
+
+    @Test("toggleCheckbox click on bracket still toggles")
+    func clickOnBracket() {
+        let text = "- [ ] todo"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 2) != nil)
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 4) != nil)
+    }
+}

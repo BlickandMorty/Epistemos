@@ -548,6 +548,84 @@ final class ProseTextView2: NSTextView {
         line.utf16.enumerated().compactMap { $0.element == 0x7C ? $0.offset : nil }
     }
 
+    // MARK: - Checkbox Toggle (Phase 5)
+
+    /// Pure function: given a line string and a character offset within that line,
+    /// return the toggled line if offset is within a checkbox marker, else nil.
+    static func toggleCheckbox(in line: String, at offset: Int) -> String? {
+        let ns = line as NSString
+        guard ns.length >= 5 else { return nil }
+
+        // Find checkbox pattern: "- [ ] ", "* [ ] ", "+ [ ] " or checked variants
+        let prefixes = ["- ", "* ", "+ "]
+        var bracketStart: Int?
+        for pfx in prefixes {
+            if line.hasPrefix(pfx) && ns.length >= pfx.count + 3 {
+                let afterPrefix = ns.substring(with: NSRange(location: pfx.count, length: 1))
+                if afterPrefix == "[" {
+                    bracketStart = pfx.count
+                    break
+                }
+            }
+        }
+
+        guard let bStart = bracketStart else { return nil }
+        guard bStart + 2 < ns.length else { return nil }
+        let closing = ns.substring(with: NSRange(location: bStart + 2, length: 1))
+        guard closing == "]" else { return nil }
+
+        let marker = ns.substring(with: NSRange(location: bStart + 1, length: 1))
+        guard marker == " " || marker == "x" || marker == "X" else { return nil }
+
+        // Check offset is within the bracket region [bStart..bStart+2]
+        guard offset >= bStart && offset <= bStart + 2 else { return nil }
+
+        let newMarker = (marker == " ") ? "x" : " "
+        let result = NSMutableString(string: line)
+        result.replaceCharacters(in: NSRange(location: bStart + 1, length: 1), with: newMarker)
+        return result as String
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let clickPoint = convert(event.locationInWindow, from: nil)
+
+        if let tlm = textLayoutManager,
+           let contentStorage = tlm.textContentManager as? NSTextContentStorage {
+            let containerPoint = NSPoint(
+                x: clickPoint.x - textContainerOrigin.x,
+                y: clickPoint.y - textContainerOrigin.y
+            )
+            if let frag = tlm.textLayoutFragment(for: containerPoint),
+               let lineFrag = frag.textLineFragments.first,
+               let elemRange = frag.textElement?.elementRange {
+                let docStart = contentStorage.documentRange.location
+                let paraOffset = contentStorage.offset(from: docStart, to: elemRange.location)
+                let paraLength = contentStorage.offset(from: elemRange.location, to: elemRange.endLocation)
+                let str = string as NSString
+                let paraText = str.substring(with: NSRange(location: paraOffset, length: paraLength))
+                    .trimmingCharacters(in: .newlines)
+
+                let fragFrame = frag.layoutFragmentFrame
+                let localPoint = NSPoint(
+                    x: containerPoint.x - fragFrame.minX,
+                    y: containerPoint.y - fragFrame.minY
+                )
+                let charIdx = lineFrag.characterIndex(for: localPoint)
+
+                if let toggled = Self.toggleCheckbox(in: paraText, at: charIdx) {
+                    let lineRange = NSRange(location: paraOffset, length: paraText.utf16.count)
+                    if shouldChangeText(in: lineRange, replacementString: toggled) {
+                        (textStorage as? NSTextStorage)?.replaceCharacters(in: lineRange, with: toggled)
+                        didChangeText()
+                    }
+                    return
+                }
+            }
+        }
+
+        super.mouseDown(with: event)
+    }
+
     // MARK: - Navigation
 
     func scrollToCharacterOffset(_ offset: Int) {
