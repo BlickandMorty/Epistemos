@@ -764,7 +764,7 @@ private struct NotePageContent: View {
             NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
         ) { _ in refreshTabCount() }
         .onReceive(
-            Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+            NotificationCenter.default.publisher(for: NSText.didChangeNotification)
         ) { _ in refreshWordCount() }
         .onReceive(
             NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)

@@ -786,6 +786,7 @@ final class MetalGraphNSView: NSView {
         let result = graph_engine_render(engine, w, h)
 
         // Update selected node screen position for inspector tracking.
+        // Only write when value actually changes to avoid triggering observation every frame.
         if let nodeId = graphState?.selectedNodeId {
             var posBuf: [Float] = [0, 0]
             let found = nodeId.withCString { ptr in
@@ -797,11 +798,16 @@ final class MetalGraphNSView: NSView {
                     x: CGFloat(posBuf[0]) / scale,
                     y: bounds.height - CGFloat(posBuf[1]) / scale
                 )
-                graphState?.selectedNodeScreenPoint = pt
-            } else {
+                if let existing = graphState?.selectedNodeScreenPoint,
+                   abs(existing.x - pt.x) < 0.5, abs(existing.y - pt.y) < 0.5 {
+                    // Skip — position hasn't moved enough to matter
+                } else {
+                    graphState?.selectedNodeScreenPoint = pt
+                }
+            } else if graphState?.selectedNodeScreenPoint != nil {
                 graphState?.selectedNodeScreenPoint = nil
             }
-        } else {
+        } else if graphState?.selectedNodeScreenPoint != nil {
             graphState?.selectedNodeScreenPoint = nil
         }
 
@@ -1062,13 +1068,20 @@ final class MetalGraphNSView: NSView {
         }
 
         // Update cursor and physics coordinator based on hover state.
+        // Only write graphHoveredNodeId when it actually changes to avoid
+        // re-evaluating every .graphReactive() sidebar row on each mouse move.
         if !isDraggingNode && !isPanning {
             if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
                 NSCursor.pointingHand.set()
-                physicsCoordinator?.graphHoveredNodeId = String(cString: uuidPtr)
+                let hoveredId = String(cString: uuidPtr)
+                if physicsCoordinator?.graphHoveredNodeId != hoveredId {
+                    physicsCoordinator?.graphHoveredNodeId = hoveredId
+                }
             } else {
                 NSCursor.arrow.set()
-                physicsCoordinator?.graphHoveredNodeId = nil
+                if physicsCoordinator?.graphHoveredNodeId != nil {
+                    physicsCoordinator?.graphHoveredNodeId = nil
+                }
             }
         }
         needsRender = true

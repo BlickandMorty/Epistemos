@@ -609,11 +609,11 @@ final class VaultSyncService {
         guard let vaultURL else { return nil }
 
         let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<SDPage>()
-        guard let allPages = try? context.fetch(descriptor) else { return nil }
-
-        let dirtyPages = allPages.filter(\.isDirtyVault)
-        guard !dirtyPages.isEmpty else {
+        let dirtyDescriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.needsVaultSync == true || $0.lastSyncedBodyHash == nil }
+        )
+        guard let dirtyPages = try? context.fetch(dirtyDescriptor),
+              !dirtyPages.isEmpty else {
             log.info("No dirty pages to save")
             return nil
         }
