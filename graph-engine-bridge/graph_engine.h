@@ -195,6 +195,10 @@ void graph_engine_screen_to_world(Engine *engine, float screen_x, float screen_y
 /// Writes 2 floats (x, y) into `out`. Returns 1 if found, 0 if not.
 uint8_t graph_engine_node_screen_pos(Engine *engine, const char *uuid, float *out);
 
+/// Get cumulative drift (total distance traveled) for a node by UUID.
+/// Returns drift value, or -1.0 if node not found.
+float graph_engine_node_drift(Engine *engine, const char *uuid);
+
 // ── Visibility (Lightweight Filtering) ──────────────────────────────────────
 
 /// Toggle a node's visibility by UUID.

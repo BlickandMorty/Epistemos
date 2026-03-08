@@ -304,6 +304,8 @@ pub struct Simulation {
     pub radii: Vec<f32>,
     pub degrees: Vec<u32>,
     pub collision_radii: Vec<f32>,
+    /// Cumulative distance traveled per node (sum of velocity magnitudes per tick).
+    pub drift: Vec<f32>,
 
     // Per-node cluster assignment (from Louvain community detection).
     pub cluster_ids: Vec<u32>,
@@ -393,6 +395,7 @@ impl Simulation {
             radii: Vec::new(),
             degrees: Vec::new(),
             collision_radii: Vec::new(),
+            drift: Vec::new(),
             cluster_ids: Vec::new(),
             edges: Vec::new(),
             edge_weights: Vec::new(),
@@ -435,6 +438,7 @@ impl Simulation {
         self.radii.clear();
         self.degrees.clear();
         self.collision_radii.clear();
+        self.drift.clear();
         self.cluster_ids.clear();
         self.edges.clear();
         self.edge_weights.clear();
@@ -461,6 +465,7 @@ impl Simulation {
             self.radii.push(node.radius);
             self.degrees.push(0); // computed below
             self.collision_radii.push(self.params.collision_radius);
+            self.drift.push(0.0);
         }
 
         // Static layout for large graphs: no physics at all.
@@ -911,6 +916,14 @@ impl Simulation {
                     self.vx[i] *= 0.85;
                     self.vy[i] *= 0.85;
                 }
+            }
+        }
+
+        // Accumulate drift: sum of velocity magnitudes per tick.
+        for i in 0..n {
+            let speed = (self.vx[i] * self.vx[i] + self.vy[i] * self.vy[i]).sqrt();
+            if speed > 0.01 && i < self.drift.len() {
+                self.drift[i] += speed;
             }
         }
 

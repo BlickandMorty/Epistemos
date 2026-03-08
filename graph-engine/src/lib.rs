@@ -539,6 +539,21 @@ pub extern "C" fn graph_engine_node_screen_pos(
     1
 }
 
+/// Get the cumulative drift (total distance traveled) for a node by UUID.
+/// Returns the drift value, or -1.0 if the node isn't found.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_node_drift(
+    engine: *mut Engine,
+    uuid: *const std::ffi::c_char,
+) -> f32 {
+    ffi_engine_or!(engine, -1.0);
+    if uuid.is_null() { return -1.0; }
+    // SAFETY: `uuid` is a valid C string from Swift.
+    let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
+    let Ok(uuid_str) = uuid_str.to_str() else { return -1.0; };
+    engine.node_drift(uuid_str).unwrap_or(-1.0)
+}
+
 // ── Visibility (Lightweight Filtering) ──────────────────────────────────────
 
 /// Toggle a node's visibility by UUID. Call `graph_engine_refresh_visibility`

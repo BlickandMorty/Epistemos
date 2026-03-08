@@ -365,6 +365,11 @@ struct HologramNodeInspector: View {
                         statMeter(label: "Mass", value: p.insight.prominence, color: .orange)
                     }
 
+                    // Node vitals: Age, Drift, Resonance
+                    if let node = inspectorState.selectedNode {
+                        nodeVitals(node)
+                    }
+
                     // Content info
                     HStack(spacing: 12) {
                         Label(p.insight.contentLabel, systemImage: "doc.text")
@@ -417,6 +422,71 @@ struct HologramNodeInspector: View {
                 .foregroundStyle(.tertiary)
                 .frame(width: 32, alignment: .trailing)
         }
+    }
+
+    // MARK: - Node Vitals (Age, Drift, Resonance)
+
+    private func nodeVitals(_ node: GraphNodeRecord) -> some View {
+        let store = graphState.store
+        let edgeIds = store.edgesByNode[node.id] ?? []
+        let edgeRecords = edgeIds.compactMap { store.edges[$0] }
+        let inDegree = edgeRecords.filter { $0.targetNodeId == node.id }.count
+        let outDegree = edgeRecords.filter { $0.sourceNodeId == node.id }.count
+        let total = max(inDegree + outDegree, 1)
+        let resonance = Double(inDegree) / Double(total) // 1.0 = pure sink, 0.0 = pure source
+
+        let drift: Float = {
+            guard let engine = graphState.engineHandle else { return 0 }
+            return node.id.withCString { graph_engine_node_drift(engine, $0) }
+        }()
+
+        return HStack(spacing: 16) {
+            // Age
+            VStack(spacing: 2) {
+                Image(systemName: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(nodeAge(node.createdAt))
+                    .font(.caption2.monospaced())
+            }
+
+            Divider().frame(height: 20)
+
+            // Drift
+            VStack(spacing: 2) {
+                Image(systemName: "wind")
+                    .font(.caption)
+                    .foregroundStyle(.cyan)
+                Text(drift >= 0 ? formatDrift(drift) : "—")
+                    .font(.caption2.monospaced())
+            }
+
+            Divider().frame(height: 20)
+
+            // Resonance
+            VStack(spacing: 2) {
+                Image(systemName: resonance > 0.6 ? "arrow.down.circle" : resonance < 0.4 ? "arrow.up.circle" : "arrow.left.arrow.right.circle")
+                    .font(.caption)
+                    .foregroundStyle(resonance > 0.6 ? .purple : resonance < 0.4 ? .green : .secondary)
+                Text("\(inDegree)↓ \(outDegree)↑")
+                    .font(.caption2.monospaced())
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func nodeAge(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 3600 { return "\(Int(interval / 60))m" }
+        if interval < 86400 { return "\(Int(interval / 3600))h" }
+        if interval < 2_592_000 { return "\(Int(interval / 86400))d" }
+        return "\(Int(interval / 2_592_000))mo"
+    }
+
+    private func formatDrift(_ d: Float) -> String {
+        if d < 100 { return String(format: "%.0f", d) }
+        if d < 10_000 { return String(format: "%.1fk", d / 1000) }
+        return String(format: "%.0fk", d / 1000)
     }
 
     // MARK: - Header

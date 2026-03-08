@@ -693,6 +693,15 @@ impl Engine {
         Some([sx, sy])
     }
 
+    /// Get cumulative drift for a node by UUID.
+    pub fn node_drift(&self, uuid: &str) -> Option<f32> {
+        let &id = self.graph.uuid_to_id.get(uuid)?;
+        let gi = self.world.index_of_node_id(id)?;
+        let sim = self.sim.lock();
+        let si = sim.graph_indices.iter().position(|&g| g == gi)?;
+        sim.drift.get(si).copied()
+    }
+
     // ── Input Handling ───────────────────────────────────────────────
 
     /// Mouse/trackpad button pressed.
