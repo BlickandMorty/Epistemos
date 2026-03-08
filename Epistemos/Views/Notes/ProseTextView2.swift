@@ -203,9 +203,50 @@ final class ProseTextView2: NSTextView {
         return (textParagraph.attributedString.string, NSRange(location: offset, length: length))
     }
 
+    // MARK: - Visible Fragment Enumeration
+
+    /// Enumerate layout fragments intersecting the dirty rect.
+    /// Uses textLayoutFragment(for:) for O(log n) start, early-terminates past the rect.
+    /// Block receives (fragment, viewFrame). Return true to continue, false to stop.
+    private func enumerateVisibleFragments(
+        in dirtyRect: NSRect,
+        using block: (NSTextLayoutFragment, NSRect) -> Bool
+    ) {
+        guard let tlm = textLayoutManager else { return }
+        let origin = textContainerOrigin
+
+        // Convert dirty rect top to text container coordinates
+        let containerTopY = dirtyRect.minY - origin.y
+        let startPoint = CGPoint(x: 0, y: max(containerTopY - 1, 0))
+
+        // O(log n) lookup for the fragment at the top of the dirty rect
+        let startLocation: NSTextLocation
+        if let frag = tlm.textLayoutFragment(for: startPoint),
+           let elemRange = frag.textElement?.elementRange {
+            startLocation = elemRange.location
+        } else {
+            startLocation = tlm.documentRange.location
+        }
+
+        tlm.enumerateTextLayoutFragments(
+            from: startLocation,
+            options: [.ensuresLayout, .ensuresExtraLineFragment]
+        ) { fragment in
+            let fragFrame = fragment.layoutFragmentFrame.offsetBy(dx: origin.x, dy: origin.y)
+
+            // Past dirty rect — stop
+            if fragFrame.minY > dirtyRect.maxY { return false }
+
+            // Above dirty rect — skip (rare with the starting position)
+            if fragFrame.maxY < dirtyRect.minY { return true }
+
+            return block(fragment, fragFrame)
+        }
+    }
+
     private func drawTableFills(in dirtyRect: NSRect) {
-        guard let tlm = textLayoutManager,
-              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+        guard let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage else { return }
         let str = string as NSString
         guard str.length > 0 else { return }
 
@@ -213,69 +254,63 @@ final class ProseTextView2: NSTextView {
         let headerFill = isDark
             ? NSColor.white.withAlphaComponent(0.04)
             : NSColor.black.withAlphaComponent(0.03)
-        let origin = textContainerOrigin
 
-        var inTable = false
-
-        tlm.enumerateTextLayoutFragments(
-            from: tlm.documentRange.location,
-            options: [.ensuresLayout, .ensuresExtraLineFragment]
-        ) { fragment in
-            let fragFrame = fragment.layoutFragmentFrame.offsetBy(dx: origin.x, dy: origin.y)
-
-            guard let (lineText, _) = self.paragraphInfo(for: fragment, contentStorage: contentStorage) else {
-                inTable = false
-                return true
-            }
+        enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
+            guard let (lineText, nsRange) = self.paragraphInfo(
+                for: fragment, contentStorage: contentStorage
+            ) else { return true }
             let line = lineText.trimmingCharacters(in: .newlines)
 
-            if Self.isTableLine(line) {
-                if !Self.isSeparatorLine(line) && !inTable {
-                    // First non-separator data row = header → fill
-                    let pipeIndices = Self.pipeCharIndices(in: line)
-                    if let firstLineFrag = fragment.textLineFragments.first, pipeIndices.count >= 2 {
-                        let firstPipeX = firstLineFrag.locationForCharacter(at: pipeIndices[0]).x
-                        let lastPipeX = firstLineFrag.locationForCharacter(at: pipeIndices.last!).x
+            guard Self.isTableLine(line), !Self.isSeparatorLine(line) else { return true }
 
-                        let fillRect = NSRect(
-                            x: fragFrame.minX + firstPipeX - 1,
-                            y: fragFrame.minY,
-                            width: lastPipeX - firstPipeX + 2,
-                            height: fragFrame.height
-                        )
-                        headerFill.setFill()
-                        fillRect.fill()
-                    }
-                    inTable = true
-                }
+            // Header = first data row of a table (previous line is NOT a table line).
+            let isHeader: Bool
+            if nsRange.location > 0 {
+                let prevRange = str.lineRange(for: NSRange(location: nsRange.location - 1, length: 0))
+                let prevLine = str.substring(with: prevRange)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                isHeader = !Self.isTableLine(prevLine)
             } else {
-                inTable = false
+                isHeader = true
             }
+            guard isHeader else { return true }
+
+            let pipeIndices = Self.pipeCharIndices(in: line)
+            guard let firstLineFrag = fragment.textLineFragments.first,
+                  pipeIndices.count >= 2 else { return true }
+
+            let firstPipeX = firstLineFrag.locationForCharacter(at: pipeIndices[0]).x
+            let lastPipeX = firstLineFrag.locationForCharacter(at: pipeIndices.last!).x
+
+            let fillRect = NSRect(
+                x: fragFrame.minX + firstPipeX - 1,
+                y: fragFrame.minY,
+                width: lastPipeX - firstPipeX + 2,
+                height: fragFrame.height
+            )
+            headerFill.setFill()
+            fillRect.fill()
 
             return true
         }
     }
 
     private func drawTableGridLines(in dirtyRect: NSRect) {
-        guard let tlm = textLayoutManager,
-              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+        guard let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage else { return }
         let str = string as NSString
         guard str.length > 0 else { return }
 
         let borderColor = NSColor.separatorColor
         let headerLineColor = NSColor.tertiaryLabelColor
-        let origin = textContainerOrigin
 
         var tables: [TableRegion] = []
         var current: TableRegion?
 
-        tlm.enumerateTextLayoutFragments(
-            from: tlm.documentRange.location,
-            options: [.ensuresLayout, .ensuresExtraLineFragment]
-        ) { fragment in
-            let fragFrame = fragment.layoutFragmentFrame.offsetBy(dx: origin.x, dy: origin.y)
-
-            guard let (lineText, _) = self.paragraphInfo(for: fragment, contentStorage: contentStorage) else {
+        enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
+            guard let (lineText, _) = self.paragraphInfo(
+                for: fragment, contentStorage: contentStorage
+            ) else {
                 if let t = current { tables.append(t); current = nil }
                 return true
             }
@@ -292,7 +327,6 @@ final class ProseTextView2: NSTextView {
                         current!.bottom = fragFrame.maxY
                     }
                 } else {
-                    // Data row — compute pipe x-positions
                     var pipeXs: [CGFloat] = []
                     if let firstLineFrag = fragment.textLineFragments.first {
                         let pipeIndices = Self.pipeCharIndices(in: line)
@@ -315,7 +349,6 @@ final class ProseTextView2: NSTextView {
                         if let first = pipeXs.first { current!.left = min(current!.left, first) }
                         if let last = pipeXs.last { current!.right = max(current!.right, last) }
                         current!.rowYs.append(fragFrame.minY)
-                        // Weighted average for column alignment across rows
                         if pipeXs.count == current!.columnXs.count {
                             for i in current!.columnXs.indices {
                                 current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
@@ -331,7 +364,7 @@ final class ProseTextView2: NSTextView {
         }
         if let t = current { tables.append(t) }
 
-        // Draw all collected table regions
+        // Draw collected table regions
         for table in tables {
             let outerRect = NSRect(
                 x: table.left - 2, y: table.top - 1,
@@ -339,13 +372,11 @@ final class ProseTextView2: NSTextView {
                 height: table.bottom - table.top + 2
             )
 
-            // Outer border
             borderColor.setStroke()
             let outerPath = NSBezierPath(rect: outerRect)
             outerPath.lineWidth = 0.5
             outerPath.stroke()
 
-            // Inner grid
             let innerPath = NSBezierPath()
             innerPath.lineWidth = 0.5
             if table.columnXs.count > 2 {
@@ -361,7 +392,6 @@ final class ProseTextView2: NSTextView {
             }
             innerPath.stroke()
 
-            // Header underline — stronger
             if let headerY = table.headerBottomY {
                 headerLineColor.setStroke()
                 let headerPath = NSBezierPath()
@@ -413,29 +443,22 @@ final class ProseTextView2: NSTextView {
     }
 
     private func drawFoldIndicators(in dirtyRect: NSRect) {
-        guard let tlm = textLayoutManager,
-              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+        guard let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage else { return }
         let str = string as NSString
         guard str.length > 0 else { return }
 
         let isDark = markdownDelegate.theme.isDark
         let accent = MarkdownContentStorage.accentColor(isDark: isDark)
-        let origin = textContainerOrigin
 
-        tlm.enumerateTextLayoutFragments(
-            from: tlm.documentRange.location,
-            options: [.ensuresLayout, .ensuresExtraLineFragment]
-        ) { fragment in
-            let fragFrame = fragment.layoutFragmentFrame.offsetBy(dx: origin.x, dy: origin.y)
-
-            guard let (_, nsRange) = self.paragraphInfo(for: fragment, contentStorage: contentStorage) else {
-                return true
-            }
+        enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
+            guard let (_, nsRange) = self.paragraphInfo(
+                for: fragment, contentStorage: contentStorage
+            ) else { return true }
 
             let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
             guard self.markdownDelegate.paragraphType(at: lineIdx) == 1 else { return true }
 
-            // Check fold state: next line is "…"
             let isFolded: Bool
             let nextLineStart = NSMaxRange(nsRange)
             if nextLineStart < str.length {
