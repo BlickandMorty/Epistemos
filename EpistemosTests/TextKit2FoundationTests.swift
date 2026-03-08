@@ -1535,3 +1535,64 @@ struct TextKit2CheckboxToggleTests {
         #expect(ProseTextView2.toggleCheckbox(in: text, at: 4) != nil)
     }
 }
+
+// MARK: - Nested Task Strikethrough
+
+@Suite("TextKit 2 - Nested Task Strikethrough")
+struct TextKit2NestedTaskStrikethroughTests {
+
+    @Test("nested checked task gets strikethrough on content only")
+    func nestedCheckedStrikethrough() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "  - [x] nested done")
+        let attrStr = NSMutableAttributedString(string: "  - [x] nested done")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 257)
+        let contentAttrs = attrStr.attributes(at: 8, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == NSUnderlineStyle.single.rawValue)
+    }
+
+    @Test("nested checked task does NOT strikethrough the marker")
+    func nestedMarkerNotStruck() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "  - [x] nested done")
+        let attrStr = NSMutableAttributedString(string: "  - [x] nested done")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 257)
+        // Position 3 is "-", position 6 is "]", position 7 is " " — all part of marker
+        let markerAttrs3 = attrStr.attributes(at: 3, effectiveRange: nil)
+        let strike3 = markerAttrs3[.strikethroughStyle] as? Int
+        #expect(strike3 == nil || strike3 == 0)
+        let markerAttrs6 = attrStr.attributes(at: 6, effectiveRange: nil)
+        let strike6 = markerAttrs6[.strikethroughStyle] as? Int
+        #expect(strike6 == nil || strike6 == 0, "closing bracket ']' at position 6 should NOT be struck through")
+        let markerAttrs7 = attrStr.attributes(at: 7, effectiveRange: nil)
+        let strike7 = markerAttrs7[.strikethroughStyle] as? Int
+        #expect(strike7 == nil || strike7 == 0, "space after '] ' at position 7 should NOT be struck through")
+    }
+
+    @Test("deeply nested checked task still works")
+    func deeplyNested() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "      - [x] deep")
+        let attrStr = NSMutableAttributedString(string: "      - [x] deep")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 769)
+        let contentAttrs = attrStr.attributes(at: 12, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == NSUnderlineStyle.single.rawValue)
+    }
+
+    @Test("flat checked task still works after fix")
+    func flatStillWorks() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [x] flat done")
+        let attrStr = NSMutableAttributedString(string: "- [x] flat done")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 1)
+        let contentAttrs = attrStr.attributes(at: 6, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == NSUnderlineStyle.single.rawValue)
+    }
+}

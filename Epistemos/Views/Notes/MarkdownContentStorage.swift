@@ -242,17 +242,20 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             ], range: range)
 
             if checked {
-                let prefixLen = 6  // "- [x] "
-                if range.length > prefixLen {
-                    let contentRange = NSRange(
-                        location: range.location + prefixLen,
-                        length: range.length - prefixLen
-                    )
-                    let muted = Self.mutedColor(isDark: theme.isDark)
-                    attrStr.addAttributes([
-                        .foregroundColor: muted,
-                        .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                    ], range: contentRange)
+                let text = attrStr.string
+                if let closeBracket = text.range(of: "] ") {
+                    let contentStart = text.distance(from: text.startIndex, to: closeBracket.upperBound)
+                    if range.length > contentStart {
+                        let contentRange = NSRange(
+                            location: range.location + contentStart,
+                            length: range.length - contentStart
+                        )
+                        let muted = Self.mutedColor(isDark: theme.isDark)
+                        attrStr.addAttributes([
+                            .foregroundColor: muted,
+                            .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                        ], range: contentRange)
+                    }
                 }
             }
 
