@@ -156,11 +156,18 @@ final class NoteChatState {
         --- END NOTE ---
         """
 
-        // Include note content in the user prompt so it survives
-        // trimForAppleIntelligence (which replaces the system prompt).
-        let fullPrompt = noteSnippet.isEmpty
-            ? trimmed
-            : "Note content:\n\(noteSnippet)\n\nQuestion: \(trimmed)"
+        // Build prompt with conversation history for follow-ups
+        let history = conversationHistoryPrompt()
+        let fullPrompt: String
+        if history.isEmpty {
+            fullPrompt = noteSnippet.isEmpty
+                ? trimmed
+                : "Note content:\n\(noteSnippet)\n\nQuestion: \(trimmed)"
+        } else {
+            fullPrompt = noteSnippet.isEmpty
+                ? "\(history)\n\nUser: \(trimmed)"
+                : "Note content:\n\(noteSnippet)\n\n\(history)\n\nUser: \(trimmed)"
+        }
 
         let stream: AsyncThrowingStream<String, Error>
         switch chatMode {
@@ -267,6 +274,17 @@ final class NoteChatState {
                 self.log.error("Note chat error: \(error.localizedDescription)")
             }
         }
+    }
+
+    /// Build a conversation history string from prior messages (excluding the just-appended user message).
+    private func conversationHistoryPrompt() -> String {
+        // messages already has the new user message at the end — exclude it
+        let prior = messages.dropLast()
+        guard !prior.isEmpty else { return "" }
+        return prior.map { msg in
+            let role = msg.role == .user ? "User" : "Assistant"
+            return "\(role): \(msg.content)"
+        }.joined(separator: "\n\n")
     }
 
     func stopStreaming() {
