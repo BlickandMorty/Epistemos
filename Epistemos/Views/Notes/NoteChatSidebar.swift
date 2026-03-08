@@ -1,8 +1,7 @@
 import SwiftUI
 
 // MARK: - Note Chat Sidebar
-// Trailing sidebar showing per-note chat history from NoteChatState.messages.
-// Mirrors the ChatSidebarView glass aesthetic but reads from in-memory AssistantMessage array.
+// Popover showing per-note chat history from NoteChatState.messages.
 
 struct NoteChatSidebar: View {
     @Environment(NoteChatState.self) private var noteChat
@@ -12,40 +11,11 @@ struct NoteChatSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-
             if noteChat.messages.isEmpty {
                 emptyState
             } else {
                 messageList
             }
-
-            Spacer(minLength: 0)
-        }
-        .frame(width: 260)
-        .background(theme.background.opacity(0.5))
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack {
-            Image(systemName: "bubble.left.and.text.bubble.right")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(theme.accent)
-            Text("Chat History")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(theme.foreground)
-            Spacer()
-            Text("\(noteChat.messages.count)")
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(theme.textTertiary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(theme.foreground.opacity(0.06), in: Capsule())
         }
     }
 
@@ -53,19 +23,18 @@ struct NoteChatSidebar: View {
 
     private var messageList: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 6) {
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: 8) {
                     ForEach(noteChat.messages) { msg in
                         messageRow(msg)
                             .id(msg.id)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
+                .padding(14)
             }
             .onChange(of: noteChat.messages.count) { _, _ in
                 if let last = noteChat.messages.last {
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    withAnimation(.easeOut(duration: 0.15)) {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
                 }
@@ -74,53 +43,50 @@ struct NoteChatSidebar: View {
     }
 
     private func messageRow(_ msg: AssistantMessage) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: msg.role == .user ? "person.fill" : "sparkles")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(msg.role == .user ? theme.textTertiary : theme.accent)
-                .frame(width: 16, alignment: .center)
-                .padding(.top, 4)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(msg.content)
-                    .font(.system(size: 12))
-                    .foregroundStyle(msg.role == .user ? theme.textSecondary : theme.foreground)
-                    .lineLimit(msg.role == .user ? 2 : 4)
-                    .textSelection(.enabled)
-
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 4) {
+                Text(msg.role == .user ? "You" : "Assistant")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .textCase(.uppercase)
+                Spacer()
                 Text(msg.createdAt.formatted(.relative(presentation: .named)))
                     .font(.system(size: 9))
-                    .foregroundStyle(theme.textTertiary.opacity(0.6))
+                    .foregroundStyle(theme.textTertiary.opacity(0.5))
             }
+            Text(msg.content)
+                .font(.system(size: 12))
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .lineSpacing(2)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(
-            .regular.tint(msg.role == .user ? theme.glassBg.opacity(0.15) : theme.glassBg.opacity(0.25)),
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            msg.role == .user
+                ? theme.foreground.opacity(0.04)
+                : theme.accent.opacity(0.06),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
         )
     }
 
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(theme.textTertiary.opacity(0.5))
+                .font(.system(size: 24, weight: .light))
+                .foregroundStyle(theme.textTertiary.opacity(0.4))
 
             Text("No messages yet")
-                .font(.epBody)
-                .fontWeight(.medium)
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(theme.textSecondary)
 
-            Text("Use the chat field above\nto ask about this note")
-                .font(.epSmall)
+            Text("Use the Ask field to chat")
+                .font(.system(size: 11))
                 .foregroundStyle(theme.textTertiary)
-                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 32)
     }
 }
