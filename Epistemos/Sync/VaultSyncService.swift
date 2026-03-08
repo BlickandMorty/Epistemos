@@ -33,8 +33,10 @@ final class VaultSyncService {
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
 
-    /// Whether the search index is currently being rebuilt.
-    var isIndexing = false
+    /// Whether the vault is being imported/indexed. Starts true if a vault
+    /// bookmark exists so the landing page shows "wait...indexing" on the
+    /// very first frame, before the import Task even begins.
+    var isIndexing: Bool = UserDefaults.standard.data(forKey: "epistemos.vaultBookmark") != nil
 
     /// FTS5 search index (GRDB). Created in startWatching, nil'd in stopWatching.
     private(set) var searchService: SearchIndexService?
@@ -117,6 +119,7 @@ final class VaultSyncService {
         }
         guard let data else {
             log.info("📦 No bookmark data found anywhere — clearing vault data")
+            isIndexing = false
             clearVaultData()
             return
         }
@@ -158,6 +161,7 @@ final class VaultSyncService {
         guard let url else {
             log.warning("📦 Failed to resolve vault bookmark — clearing stale data")
             UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
+            isIndexing = false
             clearVaultData()
             return
         }
@@ -184,6 +188,7 @@ final class VaultSyncService {
         if !gained {
             log.warning("Security scope not granted for vault bookmark — clearing")
             UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
+            isIndexing = false
             clearVaultData()
             return
         }
@@ -194,6 +199,7 @@ final class VaultSyncService {
                 "Vault directory not found at \(url.path, privacy: .private) — clearing bookmark")
             url.stopAccessingSecurityScopedResource()
             UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
+            isIndexing = false
             clearVaultData()
             return
         }
