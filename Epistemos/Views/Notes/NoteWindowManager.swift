@@ -439,7 +439,6 @@ private struct NotePageContent: View {
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
-    @State private var showTOCSidebar = false
     @State private var showBacklinksPopover = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
@@ -515,6 +514,17 @@ private struct NotePageContent: View {
                     .glassEffect(.regular, in: Capsule())
                     .padding(8)
             }
+            .overlay(alignment: .trailing) {
+                if let page = pages.first {
+                    NoteOutlineOverlay(
+                        markdown: page.loadBody(),
+                        theme: ui.theme,
+                        onNavigate: { charOffset in
+                            scrollEditorTo(charOffset: charOffset)
+                        }
+                    )
+                }
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ui.theme.background)
             .environment(noteChatState)
@@ -535,18 +545,6 @@ private struct NotePageContent: View {
                 }
             }
 
-            // Outline sidebar (right)
-            if showTOCSidebar, let page = pages.first {
-                Divider()
-                NoteTableOfContentsSidebar(
-                    markdown: page.loadBody(),
-                    onNavigate: { charOffset in
-                        scrollEditorTo(charOffset: charOffset)
-                    }
-                )
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-
             // Chat History sidebar
             if showChatSidebar {
                 Divider()
@@ -558,7 +556,6 @@ private struct NotePageContent: View {
 
         }
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
-        .animation(.smooth(duration: 0.2), value: showTOCSidebar)
         }
         .toolbar {
             // Back / Forward (only when navigating wikilinks)
@@ -607,16 +604,6 @@ private struct NotePageContent: View {
             if !showWriterMode && !showPreview {
                 ToolbarItem(placement: .principal) {
                     toolbarChatField
-                }
-            }
-
-            // Table of Contents sidebar toggle
-            if !showWriterMode && !showPreview {
-                ToolbarItem {
-                    Button { withAnimation(.smooth(duration: 0.2)) { showTOCSidebar.toggle() } } label: {
-                        Label("Outline", systemImage: "list.bullet")
-                    }
-                    .help("Toggle Outline (⌘⇧O)")
                 }
             }
 
@@ -1215,8 +1202,8 @@ private struct NotePageContent: View {
                 .foregroundStyle(.tertiary)
             TextField("Ask", text: $chat.inputText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
-                .frame(width: 300)
+                .font(.system(size: 11))
+                .frame(width: 240)
                 .onSubmit {
                     noteChatState.submitQuery(
                         noteChatState.inputText,
@@ -1236,8 +1223,8 @@ private struct NotePageContent: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
         .background(.clear, in: RoundedRectangle(cornerRadius: 6))
         .popover(
             isPresented: Binding(

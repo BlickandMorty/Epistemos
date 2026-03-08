@@ -61,78 +61,97 @@ enum TOCParser {
     }
 }
 
-// MARK: - NoteTableOfContentsSidebar
-// Right-side panel showing document outline. Toggles via toolbar button.
+// MARK: - NoteOutlineOverlay
+// Hover-triggered glass panel on the right edge showing document outline.
 
-struct NoteTableOfContentsSidebar: View {
+struct NoteOutlineOverlay: View {
     let markdown: String
+    let theme: EpistemosTheme
     let onNavigate: (Int) -> Void
 
     @State private var items: [TOCItem] = []
+    @State private var isHovering = false
 
     private var headings: [TOCItem] {
         items.filter { $0.kind == .heading }
     }
 
     var body: some View {
+        HStack(spacing: 0) {
+            Spacer()
+
+            ZStack(alignment: .trailing) {
+                // Invisible hover trigger strip along right edge
+                Color.clear
+                    .frame(width: 16)
+                    .contentShape(Rectangle())
+
+                // Glass outline panel
+                if isHovering && !headings.isEmpty {
+                    outlinePanel
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
+        }
+        .onHover { hovering in
+            withAnimation(.smooth(duration: 0.18)) {
+                isHovering = hovering
+            }
+        }
+        .task { items = TOCParser.parse(markdown) }
+        .onChange(of: markdown) { items = TOCParser.parse(markdown) }
+    }
+
+    private var outlinePanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 4) {
                 Image(systemName: "list.bullet")
                     .font(.system(size: 10, weight: .semibold))
                 Text("Outline")
                     .font(.system(size: 11, weight: .semibold))
-                Spacer()
             }
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
 
-            ScrollView(.vertical, showsIndicators: true) {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(headings) { item in
                         Button {
                             onNavigate(item.charOffset)
                         } label: {
                             Text(item.title)
-                                .font(.system(size: tocFontSize(for: item.level), weight: item.level <= 2 ? .medium : .regular))
+                                .font(.system(size: tocFontSize(for: item.level),
+                                              weight: item.level <= 2 ? .medium : .regular))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .foregroundStyle(.primary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 4)
-                                .padding(.leading, CGFloat(item.level - 1) * 12)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 3)
+                                .padding(.leading, CGFloat(item.level - 1) * 10)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                    }
-
-                    if headings.isEmpty {
-                        Text("No headings")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.quaternary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
                     }
                 }
                 .padding(.vertical, 4)
             }
         }
         .frame(width: 200)
-        .task {
-            items = TOCParser.parse(markdown)
-        }
-        .onChange(of: markdown) {
-            items = TOCParser.parse(markdown)
-        }
+        .frame(maxHeight: 400)
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 10))
+        .padding(.trailing, 8)
+        .padding(.vertical, 40)
     }
 
     private func tocFontSize(for level: Int) -> CGFloat {
         switch level {
-        case 1: return 13
-        case 2: return 12
-        case 3: return 11
-        default: return 10.5
+        case 1: 13
+        case 2: 12
+        case 3: 11
+        default: 10.5
         }
     }
 }
