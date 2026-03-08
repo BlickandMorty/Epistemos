@@ -424,6 +424,339 @@ extension ProseEditorRepresentable2 {
             let newText = tv.string
             debouncedBindingSync(newText)
             scheduleDirectSave(newText)
+            scheduleTableAlignment(tv)
+        }
+
+        // MARK: - Command Dispatch (Tab, Enter, etc.)
+
+        func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            let str = textView.string as NSString
+            let cursorLoc = textView.selectedRange().location
+
+            // Table-aware navigation when cursor is on a table line
+            if cursorLoc <= str.length {
+                let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, max(0, str.length - 1)), length: 0))
+                let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                let isTableLine = line.hasPrefix("|") && line.hasSuffix("|") && line.count > 1
+
+                if isTableLine {
+                    if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                        return moveToTableCell(textView: textView, forward: true)
+                    }
+                    if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
+                        return moveToTableCell(textView: textView, forward: false)
+                    }
+                    if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                        return handleTableNewline(textView: textView)
+                    }
+                }
+            }
+
+            // Tab/Shift-Tab: indent/outdent for outlining
+            if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                return indentLines(textView: textView, indent: true)
+            }
+            if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
+                return indentLines(textView: textView, indent: false)
+            }
+            return false
+        }
+
+        // MARK: - Indent / Outdent
+
+        private func indentLines(textView: NSTextView, indent: Bool) -> Bool {
+            let str = textView.string as NSString
+            let sel = textView.selectedRange()
+            let lineRange = str.lineRange(for: sel)
+            let linesStr = str.substring(with: lineRange)
+            let lines = linesStr.components(separatedBy: "\n")
+
+            var result: [String] = []
+            for (i, line) in lines.enumerated() {
+                if i == lines.count - 1 && line.isEmpty {
+                    result.append(line)
+                    continue
+                }
+                if indent {
+                    result.append("  " + line)
+                } else {
+                    if line.hasPrefix("\t") {
+                        result.append(String(line.dropFirst(1)))
+                    } else if line.hasPrefix("  ") {
+                        result.append(String(line.dropFirst(2)))
+                    } else if line.hasPrefix(" ") {
+                        result.append(String(line.dropFirst(1)))
+                    } else {
+                        result.append(line)
+                    }
+                }
+            }
+
+            let newText = result.joined(separator: "\n")
+            if textView.shouldChangeText(in: lineRange, replacementString: newText) {
+                textView.textStorage?.replaceCharacters(in: lineRange, with: newText)
+                textView.didChangeText()
+                let delta = newText.utf16.count - lineRange.length
+                let newSelLoc = max(lineRange.location, sel.location + (indent ? 2 : -2))
+                let newSelLen = max(0, sel.length + delta - (indent ? 2 : min(2, -delta)))
+                let safeLoc = min(newSelLoc, (textView.string as NSString).length)
+                let safeLen = min(newSelLen, (textView.string as NSString).length - safeLoc)
+                textView.setSelectedRange(NSRange(location: safeLoc, length: safeLen))
+            }
+            return true
+        }
+
+        // MARK: - Table Cell Navigation
+
+        private func moveToTableCell(textView: NSTextView, forward: Bool) -> Bool {
+            let str = textView.string as NSString
+            let cursorLoc = textView.selectedRange().location
+            let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, max(0, str.length - 1)), length: 0))
+            let lineStr = str.substring(with: lineRange)
+            let trimmed = lineStr.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("|") && trimmed.hasSuffix("|") else { return false }
+
+            let lineStart = lineRange.location
+            var pipePositions: [Int] = []
+            for (offset, ch) in lineStr.utf16.enumerated() where ch == 0x7C {
+                pipePositions.append(lineStart + offset)
+            }
+            guard pipePositions.count >= 2 else { return false }
+
+            if forward {
+                if let nextPipe = pipePositions.first(where: { $0 > cursorLoc }) {
+                    if nextPipe == pipePositions.last {
+                        // Wrap to next row
+                        let nextRowStart = NSMaxRange(lineRange)
+                        if nextRowStart < str.length {
+                            let nextLineRange = str.lineRange(for: NSRange(location: nextRowStart, length: 0))
+                            let nextLine = str.substring(with: nextLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if nextLine.hasPrefix("|") && nextLine.hasSuffix("|") {
+                                let isSep = nextLine.dropFirst().dropLast()
+                                    .split(separator: "|", omittingEmptySubsequences: false)
+                                    .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+                                if isSep {
+                                    let afterSepStart = NSMaxRange(nextLineRange)
+                                    if afterSepStart < str.length {
+                                        let afterSepRange = str.lineRange(for: NSRange(location: afterSepStart, length: 0))
+                                        let afterSepLine = str.substring(with: afterSepRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                                        if afterSepLine.hasPrefix("|") {
+                                            let pos = afterSepRange.location + 2
+                                            textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                            return true
+                                        }
+                                    }
+                                } else {
+                                    let pos = nextLineRange.location + 2
+                                    textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                    return true
+                                }
+                            }
+                        }
+                        return true
+                    }
+                    let pos = nextPipe + 2
+                    textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                    return true
+                }
+            } else {
+                if let prevPipe = pipePositions.last(where: { $0 < cursorLoc }) {
+                    if prevPipe == pipePositions.first {
+                        // Wrap to previous row
+                        if lineRange.location > 0 {
+                            let prevLineEnd = lineRange.location - 1
+                            let prevLineRange = str.lineRange(for: NSRange(location: prevLineEnd, length: 0))
+                            let prevLine = str.substring(with: prevLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if prevLine.hasPrefix("|") && prevLine.hasSuffix("|") {
+                                let isSep = prevLine.dropFirst().dropLast()
+                                    .split(separator: "|", omittingEmptySubsequences: false)
+                                    .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+                                if isSep && prevLineRange.location > 0 {
+                                    let beforeSepEnd = prevLineRange.location - 1
+                                    let beforeSepRange = str.lineRange(for: NSRange(location: beforeSepEnd, length: 0))
+                                    let beforeSepLine = str.substring(with: beforeSepRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if beforeSepLine.hasPrefix("|") {
+                                        var pipes: [Int] = []
+                                        let bsStr = str.substring(with: beforeSepRange)
+                                        for (offset, ch) in bsStr.utf16.enumerated() where ch == 0x7C {
+                                            pipes.append(beforeSepRange.location + offset)
+                                        }
+                                        if pipes.count >= 2 {
+                                            let pos = pipes[pipes.count - 2] + 2
+                                            textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                            return true
+                                        }
+                                    }
+                                }
+                                if !isSep {
+                                    var pipes: [Int] = []
+                                    let plStr = str.substring(with: prevLineRange)
+                                    for (offset, ch) in plStr.utf16.enumerated() where ch == 0x7C {
+                                        pipes.append(prevLineRange.location + offset)
+                                    }
+                                    if pipes.count >= 2 {
+                                        let pos = pipes[pipes.count - 2] + 2
+                                        textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                                        return true
+                                    }
+                                }
+                            }
+                        }
+                        return true
+                    }
+                    if let twoPipesBack = pipePositions.last(where: { $0 < prevPipe }) {
+                        let pos = twoPipesBack + 2
+                        textView.setSelectedRange(NSRange(location: min(pos, str.length), length: 0))
+                        return true
+                    }
+                }
+            }
+            return true
+        }
+
+        // MARK: - Table New Row
+
+        private func handleTableNewline(textView: NSTextView) -> Bool {
+            let str = textView.string as NSString
+            let cursorLoc = textView.selectedRange().location
+            let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, max(0, str.length - 1)), length: 0))
+            let lineStr = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard lineStr.hasPrefix("|") && lineStr.hasSuffix("|") else { return false }
+
+            let cells = lineStr.dropFirst().dropLast()
+                .split(separator: "|", omittingEmptySubsequences: false)
+            let colCount = cells.count
+            guard colCount > 0 else { return false }
+
+            let emptyCells = [String](repeating: "   ", count: colCount)
+            let newRow = "\n| " + emptyCells.joined(separator: " | ") + " |"
+
+            let lineEnd = lineRange.location + lineRange.length
+            var actualEnd = lineEnd
+            if actualEnd > 0, str.character(at: actualEnd - 1) == 0x0A {
+                actualEnd -= 1
+            }
+
+            let insertRange = NSRange(location: actualEnd, length: 0)
+            if textView.shouldChangeText(in: insertRange, replacementString: newRow) {
+                textView.textStorage?.replaceCharacters(in: insertRange, with: newRow)
+                textView.didChangeText()
+                let newCursorPos = actualEnd + 3
+                textView.setSelectedRange(NSRange(location: min(newCursorPos, (textView.string as NSString).length), length: 0))
+            }
+            return true
+        }
+
+        // MARK: - Table Auto-Alignment (500ms debounce)
+
+        private func scheduleTableAlignment(_ tv: NSTextView) {
+            let str = tv.string as NSString
+            let cursorLoc = tv.selectedRange().location
+            guard cursorLoc > 0, cursorLoc <= str.length else { return }
+            let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, str.length - 1), length: 0))
+            let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard line.hasPrefix("|") && line.hasSuffix("|") else {
+                tableAlignTask?.cancel()
+                tableAlignTask = nil
+                return
+            }
+            tableAlignTask?.cancel()
+            tableAlignTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let self, !Task.isCancelled else { return }
+                self.alignTableAtCursor(tv)
+            }
+        }
+
+        private func alignTableAtCursor(_ tv: NSTextView) {
+            let str = tv.string as NSString
+            let cursorLoc = tv.selectedRange().location
+            guard cursorLoc <= str.length else { return }
+            let cursorLineRange = str.lineRange(for: NSRange(location: min(cursorLoc, str.length - 1), length: 0))
+
+            // Expand upward to find table start
+            var tableStart = cursorLineRange.location
+            while tableStart > 0 {
+                let prevEnd = tableStart - 1
+                let prevLineRange = str.lineRange(for: NSRange(location: prevEnd, length: 0))
+                let prevLine = str.substring(with: prevLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard prevLine.hasPrefix("|") && prevLine.hasSuffix("|") else { break }
+                tableStart = prevLineRange.location
+            }
+
+            // Expand downward to find table end
+            var tableEnd = NSMaxRange(cursorLineRange)
+            while tableEnd < str.length {
+                let nextLineRange = str.lineRange(for: NSRange(location: tableEnd, length: 0))
+                let nextLine = str.substring(with: nextLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard nextLine.hasPrefix("|") && nextLine.hasSuffix("|") else { break }
+                tableEnd = NSMaxRange(nextLineRange)
+            }
+
+            let tableRange = NSRange(location: tableStart, length: tableEnd - tableStart)
+            let tableText = str.substring(with: tableRange)
+            let lines = tableText.components(separatedBy: "\n").filter { !$0.isEmpty }
+            guard lines.count >= 2 else { return }
+
+            var parsed: [[String]] = []
+            var separatorIndices: Set<Int> = []
+            for (i, line) in lines.enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard trimmed.hasPrefix("|") && trimmed.hasSuffix("|") else {
+                    parsed.append([trimmed])
+                    continue
+                }
+                let cells = trimmed.dropFirst().dropLast()
+                    .split(separator: "|", omittingEmptySubsequences: false)
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                parsed.append(cells)
+                let isSep = cells.allSatisfy { $0.allSatisfy { $0 == "-" || $0 == ":" } }
+                if isSep { separatorIndices.insert(i) }
+            }
+
+            let colCount = parsed.map(\.count).max() ?? 0
+            guard colCount > 0 else { return }
+            var maxWidths = [Int](repeating: 3, count: colCount)
+            for (i, cells) in parsed.enumerated() {
+                if separatorIndices.contains(i) { continue }
+                for (j, cell) in cells.enumerated() where j < colCount {
+                    maxWidths[j] = max(maxWidths[j], cell.count)
+                }
+            }
+
+            var aligned: [String] = []
+            for (i, cells) in parsed.enumerated() {
+                var paddedCells: [String] = []
+                for j in 0..<colCount {
+                    let cell = j < cells.count ? cells[j] : ""
+                    let width = maxWidths[j]
+                    if separatorIndices.contains(i) {
+                        let leftColon = cell.hasPrefix(":")
+                        let rightColon = cell.hasSuffix(":")
+                        let dashCount = max(width - (leftColon ? 1 : 0) - (rightColon ? 1 : 0), 1)
+                        let sep = (leftColon ? ":" : "") + String(repeating: "-", count: dashCount) + (rightColon ? ":" : "")
+                        paddedCells.append(sep)
+                    } else {
+                        paddedCells.append(cell.padding(toLength: width, withPad: " ", startingAt: 0))
+                    }
+                }
+                aligned.append("| " + paddedCells.joined(separator: " | ") + " |")
+            }
+
+            let newText = aligned.joined(separator: "\n")
+            let trailing = tableText.hasSuffix("\n") ? "\n" : ""
+            let finalText = newText + trailing
+            guard finalText != tableText else { return }
+
+            let cursorOffsetInTable = cursorLoc - tableStart
+            isFlushingTokens = true
+            if tv.shouldChangeText(in: tableRange, replacementString: finalText) {
+                tv.textStorage?.replaceCharacters(in: tableRange, with: finalText)
+                tv.didChangeText()
+                let newCursor = min(tableStart + cursorOffsetInTable, tableStart + (finalText as NSString).length)
+                tv.setSelectedRange(NSRange(location: min(newCursor, (tv.string as NSString).length), length: 0))
+            }
+            isFlushingTokens = false
         }
 
         // MARK: - Link Click Handling
