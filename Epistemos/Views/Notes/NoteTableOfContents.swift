@@ -101,6 +101,7 @@ struct NoteOutlineOverlay: View {
                                           : Color.black.opacity(0.08),
                                           lineWidth: 0.5)
                     }
+                    .padding(.trailing, 8)
             }
             .onHover { hovering in
                 withAnimation(.smooth(duration: 0.18)) {
