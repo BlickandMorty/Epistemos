@@ -545,17 +545,8 @@ private struct NotePageContent: View {
                 }
             }
 
-            // Chat History sidebar
-            if showChatSidebar {
-                Divider()
-                NoteChatSidebar()
-                    .environment(noteChatState)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-
 
         }
-        .animation(.smooth(duration: 0.2), value: showChatSidebar)
         }
         .toolbar {
             // Back / Forward (only when navigating wikilinks)
@@ -628,17 +619,22 @@ private struct NotePageContent: View {
                 }
             }
 
-            // Chat History sidebar toggle
+            // Chat History popover
             if !showWriterMode && !showPreview {
                 ToolbarItem {
                     Button {
-                        withAnimation(.smooth(duration: 0.2)) { showChatSidebar.toggle() }
+                        showChatSidebar.toggle()
                     } label: {
                         Label(
                             showChatSidebar ? "Hide Chat" : "Chat History",
                             systemImage: showChatSidebar ? "bubble.left.fill" : "bubble.left")
                     }
-                    .help("Toggle Chat History")
+                    .help("Chat History")
+                    .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
+                        NoteChatSidebar()
+                            .environment(noteChatState)
+                            .frame(width: 320, height: 420)
+                    }
                 }
             }
 
@@ -1203,7 +1199,7 @@ private struct NotePageContent: View {
             TextField("Ask", text: $chat.inputText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 11))
-                .frame(width: 160)
+                .frame(width: 200)
                 .onSubmit {
                     noteChatState.submitQuery(
                         noteChatState.inputText,
