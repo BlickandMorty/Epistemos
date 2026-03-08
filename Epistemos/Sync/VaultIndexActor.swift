@@ -758,15 +758,9 @@ actor VaultIndexActor {
         return title
     }
 
-    /// Count words in text content.
+    /// Count words in text content (NL tokenizer — accurate for non-English).
     private func countWords(_ text: String) -> Int {
-        var count = 0
-        text.enumerateSubstrings(
-            in: text.startIndex..., options: [.byWords, .substringNotRequired]
-        ) { _, _, _, _ in
-            count += 1
-        }
-        return count
+        NLAnalysisService.wordCount(text)
     }
 
     /// Sanitize a title for use as a filename (Obsidian-compatible superset).

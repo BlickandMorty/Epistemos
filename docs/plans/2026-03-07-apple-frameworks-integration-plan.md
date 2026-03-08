@@ -46,17 +46,15 @@ in format bar for split-view live preview. 500ms debounced refresh on text chang
 
 ---
 
-## Phase 3: NaturalLanguage Framework (PARTIAL)
+## Phase 3: NaturalLanguage Framework (DONE)
 
-`NLAnalysisService.swift` created in Engine/ with entity extraction, sentiment analysis,
-language detection, and word count APIs. However:
-- **No call sites** — NLAnalysisService is unused. GraphBuilder does not consume NL entities.
-- **Word count** still uses `NSSpellChecker` in NoteWindowManager and a separate counter
-  in VaultIndexActor, not `NLTokenizer`.
-
-### Remaining
-- Wire NLAnalysisService into GraphBuilder for entity extraction (deduplicate with Rust)
-- Replace NSSpellChecker word count with NLTokenizer
+`NLAnalysisService.swift` in Engine/ — entity extraction, sentiment, language detection,
+word count. All APIs wired:
+- **Entity extraction** — GraphBuilder extracts people/places/orgs from page bodies during
+  graph build, creates `.tag` nodes (sourceId `entity-<kind>-<name>`) with `.mentions` edges.
+  Runs in same body-scan loop as block refs (single `loadBody()` per page).
+- **Word count** — NLTokenizer replaces NSSpellChecker in NoteWindowManager (2 sites) and
+  VaultIndexActor (1 site). More accurate for non-English text.
 
 ---
 
@@ -216,7 +214,7 @@ DocumentEditorView (NSViewRepresentable)
 |-------|-----------|--------|----------|
 | 1 | Writer Mode Polish (TextKit 1) | DONE | — |
 | 2 | PDFKit Preview + Export | DONE | — |
-| 3 | NaturalLanguage | PARTIAL (service exists, no call sites) | LOWER |
+| 3 | NaturalLanguage | DONE (entity extraction + word count wired) | — |
 | 4 | WritingTools | DONE | — |
 | 5 | CoreSpotlight | DONE (index + deindex + open wired) | — |
 | 6 | QuickLook | DONE | — |

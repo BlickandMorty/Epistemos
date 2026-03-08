@@ -93,7 +93,8 @@ final class GraphBuilder {
 
         let blockRefPattern = /\(\(([^)]+)\)\)/
 
-        // Pass 1: scan bodies to collect referenced block IDs + source page mapping.
+        // Pass 1: scan bodies for block refs AND NL entity extraction.
+        // Both need page body text — single loadBody() call per page avoids double disk reads.
         struct BlockRef { let noteNodeId: String; let refId: String }
         var blockRefs: [BlockRef] = []
         var referencedBlockIds = Set<String>()
@@ -103,11 +104,27 @@ final class GraphBuilder {
             let body = page.loadBody()
             guard !body.isEmpty else { continue }
 
+            // Block references — ((blockId))
             for match in body.matches(of: blockRefPattern) {
                 let refId = String(match.1).trimmingCharacters(in: .whitespaces)
                 guard !refId.isEmpty else { continue }
                 referencedBlockIds.insert(refId)
                 blockRefs.append(BlockRef(noteNodeId: noteNodeId, refId: refId))
+            }
+
+            // NL entity extraction — people, places, organizations
+            let entities = NLAnalysisService.extractEntities(from: body)
+            for entity in entities {
+                let entityKey = "entity-\(entity.kind.rawValue)-\(entity.text.lowercased())"
+                if existingSourceIds.insert(entityKey).inserted {
+                    let entityNode = SDGraphNode(type: .tag, label: entity.text, sourceId: entityKey)
+                    entityNode.createdAt = page.createdAt
+                    nodes.append(entityNode)
+                    sourceIdToNodeId[entityKey] = entityNode.id
+                }
+                if let entityNodeId = sourceIdToNodeId[entityKey] {
+                    edges.append(SDGraphEdge(source: noteNodeId, target: entityNodeId, type: .mentions))
+                }
             }
         }
 
@@ -441,7 +458,7 @@ final class GraphBuilder {
         // Extraction-created edges (mentions, cites, authored, etc.) are preserved.
         let builderOwnedEdgeTypes: Set<String> = [
             GraphEdgeType.reference.rawValue, GraphEdgeType.contains.rawValue,
-            GraphEdgeType.tagged.rawValue,
+            GraphEdgeType.tagged.rawValue, GraphEdgeType.mentions.rawValue,
         ]
         for (key, existing) in currentEdgeMap where expectedEdgeMap[key] == nil {
             guard builderOwnedEdgeTypes.contains(existing.type) else { continue }

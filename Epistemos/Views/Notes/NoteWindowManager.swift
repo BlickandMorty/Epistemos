@@ -515,15 +515,14 @@ private struct NotePageContent: View {
                     .padding(8)
             }
             .overlay(alignment: .trailing) {
-                if let page = pages.first {
-                    NoteOutlineOverlay(
-                        markdown: page.loadBody(),
-                        theme: ui.theme,
-                        onNavigate: { charOffset in
-                            scrollEditorTo(charOffset: charOffset)
-                        }
-                    )
-                }
+                NoteOutlineOverlay(
+                    markdown: PageStoragePool.shared.bodyText(for: pageId)
+                        ?? pages.first?.loadBody() ?? "",
+                    theme: ui.theme,
+                    onNavigate: { charOffset in
+                        scrollEditorTo(charOffset: charOffset)
+                    }
+                )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ui.theme.background)
@@ -532,8 +531,7 @@ private struct NotePageContent: View {
                 noteChatState.loadPersistedMessages(modelContext)
                 refreshTabCount()
                 if let page = pages.first {
-                    wordCount = NSSpellChecker.shared.countWords(
-                        in: page.loadBody(), language: nil)
+                    wordCount = NLAnalysisService.wordCount(page.loadBody())
                 }
             }
             .onDisappear {
@@ -840,7 +838,7 @@ private struct NotePageContent: View {
 
     private func refreshWordCount() {
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        let count = NSSpellChecker.shared.countWords(in: tv.string, language: nil)
+        let count = NLAnalysisService.wordCount(tv.string)
         if count != wordCount { wordCount = count }
     }
 
