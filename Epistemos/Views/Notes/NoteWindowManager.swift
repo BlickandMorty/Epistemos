@@ -4,6 +4,7 @@ import CoreSpotlight
 import SwiftData
 import SwiftUI
 import Translation
+import UniformTypeIdentifiers
 import os
 
 // MARK: - Note Window Manager
@@ -436,6 +437,8 @@ private struct NotePageContent: View {
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
+    @State private var showDocumentMode = false
+    @State private var documentTextView: DocumentTextView?
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
@@ -476,7 +479,29 @@ private struct NotePageContent: View {
             HStack(spacing: 0) {
             ZStack {
                 if let page = pages.first {
-                    if showPreview {
+                    if showDocumentMode {
+                        VStack(spacing: 0) {
+                            DocumentFormatBar(textView: documentTextView, theme: ui.theme)
+                            DocumentEditorRepresentable(
+                                pageId: page.id,
+                                pageFormat: page.format,
+                                theme: ui.theme,
+                                isEditable: !page.isLocked,
+                                modelContext: modelContext,
+                                noteChatState: noteChatState,
+                                onWikilinkClick: { title in
+                                    navigateToWikilink(title: title)
+                                },
+                                onTocChanged: { items in
+                                    tocItems = items
+                                },
+                                onTextViewCreated: { tv in
+                                    documentTextView = tv
+                                }
+                            )
+                        }
+                        .frame(minWidth: 400, minHeight: 300)
+                    } else if showPreview {
                         NotePreviewView(body: page.loadBody(), isDark: ui.theme.isDark)
                             .frame(minWidth: 400, minHeight: 300)
                     } else {
@@ -542,7 +567,9 @@ private struct NotePageContent: View {
                 if let page = pages.first {
                     let body = page.loadBody()
                     wordCount = NLAnalysisService.wordCount(body)
-                    tocItems = TOCParser.parse(body).filter { $0.kind == .heading }
+                    if !showDocumentMode {
+                        tocItems = TOCParser.parse(body).filter { $0.kind == .heading }
+                    }
                 }
             }
             .onDisappear {
@@ -626,7 +653,7 @@ private struct NotePageContent: View {
             }
 
             // Backlinks
-            if !showPreview {
+            if !showPreview && !showDocumentMode {
                 ToolbarItem {
                     Button { showBacklinksPopover.toggle() } label: {
                         Label("Backlinks", systemImage: "link")
@@ -689,6 +716,9 @@ private struct NotePageContent: View {
                 .hidden()
             Button("") { togglePreviewMode() }
                 .keyboardShortcut("e", modifiers: .command)
+                .hidden()
+            Button("") { toggleDocumentMode() }
+                .keyboardShortcut("r", modifiers: .command)
                 .hidden()
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)
@@ -870,8 +900,12 @@ private struct NotePageContent: View {
         let text = tv.string
         let count = NLAnalysisService.wordCount(text)
         if count != wordCount { wordCount = count }
-        let headings = TOCParser.parse(text).filter { $0.kind == .heading }
-        if headings.count != tocItems.count { tocItems = headings }
+        // In document mode, TOC comes from onTocChanged (rich text font sizes).
+        // Markdown TOC parsing would return empty since doc mode has no # markers.
+        if !showDocumentMode {
+            let headings = TOCParser.parse(text).filter { $0.kind == .heading }
+            if headings.count != tocItems.count { tocItems = headings }
+        }
     }
 
     private func snapshotEditorSelection() {
@@ -1087,10 +1121,57 @@ private struct NotePageContent: View {
 
     private func togglePreviewMode() {
         guard !isTransitioning else { return }
+        guard !showDocumentMode else { return }
         flushCurrentEditor()
         performGreetingTransition {
             invalidateEditorCache()
             showPreview.toggle()
+        }
+    }
+
+    private func toggleDocumentMode() {
+        guard !isTransitioning else { return }
+        guard !showPreview else { return }
+        flushCurrentEditor()
+        performGreetingTransition {
+            invalidateEditorCache()
+            showDocumentMode.toggle()
+            if !showDocumentMode {
+                documentTextView = nil
+            }
+        }
+    }
+
+    private func navigateToWikilink(title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let exactDesc = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.title == trimmed }
+        )
+        let lowered = trimmed.lowercased()
+        let existing: SDPage? = (try? modelContext.fetch(exactDesc))?.first ?? {
+            let allDesc = FetchDescriptor<SDPage>()
+            guard let pages = try? modelContext.fetch(allDesc) else { return nil }
+            return pages.first(where: { $0.title.lowercased() == lowered })
+        }()
+
+        if let existing {
+            if let navState {
+                navState.push(pageId: existing.id, title: existing.title)
+            } else {
+                NoteWindowManager.shared.open(pageId: existing.id)
+            }
+        } else {
+            Task {
+                if let newId = await vaultSync.createPage(title: trimmed) {
+                    if let navState {
+                        navState.push(pageId: newId, title: trimmed)
+                    } else {
+                        NoteWindowManager.shared.open(pageId: newId)
+                    }
+                }
+            }
         }
     }
 
@@ -1343,6 +1424,33 @@ private struct NotePageContent: View {
             }
 
             Button {
+                toggleDocumentMode()
+            } label: {
+                Label(
+                    showDocumentMode ? "Editor (\u{2318}R)" : "Document Mode (\u{2318}R)",
+                    systemImage: showDocumentMode ? "pencil" : "doc.richtext")
+            }
+
+            if showDocumentMode {
+                Divider()
+
+                Button {
+                    importDocument()
+                } label: {
+                    Label("Import Document...", systemImage: "square.and.arrow.down")
+                }
+
+                Menu("Export") {
+                    Button("Word Document (.docx)") {
+                        exportDOCX()
+                    }
+                    Button("PDF") {
+                        exportPDF()
+                    }
+                }
+            }
+
+            Button {
                 withAnimation { showChatSidebar.toggle() }
             } label: {
                 Label(
@@ -1436,6 +1544,68 @@ private struct NotePageContent: View {
         let cursor = tv.selectedRange().location
         let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
         tv.insertText(prefix, replacementRange: NSRange(location: lineRange.location, length: 0))
+    }
+
+    // MARK: - Document Import/Export
+
+    private func importDocument() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.rtf, .rtfd, .plainText]
+        if let docxType = UTType("org.openxmlformats.wordprocessingml.document") {
+            panel.allowedContentTypes.append(docxType)
+        }
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            guard let content = try? DocumentImportExport.importDocument(from: url) else { return }
+            guard let page = pages.first else { return }
+            NoteFileStorage.writeRichText(pageId: page.id, content: content)
+            // Write plain-text mirror so loadBody(), search, and vault sync stay current
+            let plainText = content.string
+            NoteFileStorage.writeBody(pageId: page.id, content: plainText)
+            page.format = "richtext"
+            page.needsVaultSync = true
+            page.updatedAt = .now
+            page.wordCount = plainText.split(separator: " ").count
+            try? modelContext.save()
+            NoteFileStorage.notifyBodyChanged(pageId: page.id)
+            if !showDocumentMode {
+                toggleDocumentMode()
+            } else {
+                showDocumentMode = false
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(100))
+                    showDocumentMode = true
+                }
+            }
+        }
+    }
+
+    private func exportDOCX() {
+        guard let page = pages.first else { return }
+        guard let content = NoteFileStorage.readRichText(pageId: page.id) else { return }
+        guard let data = try? DocumentImportExport.exportDOCX(content) else { return }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType("org.openxmlformats.wordprocessingml.document") ?? .data]
+        panel.nameFieldStringValue = "\(page.title.isEmpty ? "Untitled" : page.title).docx"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            try? data.write(to: url)
+        }
+    }
+
+    private func exportPDF() {
+        guard let page = pages.first else { return }
+        guard let content = NoteFileStorage.readRichText(pageId: page.id) else { return }
+        guard let data = DocumentImportExport.exportPDF(content) else { return }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = "\(page.title.isEmpty ? "Untitled" : page.title).pdf"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            try? data.write(to: url)
+        }
     }
 
     // MARK: - Info Panel

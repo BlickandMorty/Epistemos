@@ -43,6 +43,42 @@ enum TOCParser {
         return items
     }
 
+    /// Extract headings from rich text by scanning font sizes.
+    /// H1: >= 26pt, H2: >= 20pt, H3: >= 17pt.
+    static func parseRichText(_ attributedText: NSAttributedString) -> [TOCItem] {
+        var items: [TOCItem] = []
+        let string = attributedText.string as NSString
+        let fullRange = NSRange(location: 0, length: string.length)
+        guard fullRange.length > 0 else { return items }
+
+        string.enumerateSubstrings(in: fullRange, options: .byParagraphs) {
+            substring, paraRange, _, _ in
+            guard let substring,
+                  !substring.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  paraRange.location < attributedText.length else { return }
+
+            let attrs = attributedText.attributes(at: paraRange.location, effectiveRange: nil)
+            guard let font = attrs[.font] as? NSFont else { return }
+
+            let level: Int?
+            if font.pointSize >= 26 { level = 1 }
+            else if font.pointSize >= 20 { level = 2 }
+            else if font.pointSize >= 17 { level = 3 }
+            else { level = nil }
+
+            if let level {
+                let title = substring.trimmingCharacters(in: .whitespacesAndNewlines)
+                items.append(TOCItem(
+                    level: level,
+                    title: title,
+                    charOffset: paraRange.location,
+                    kind: .heading
+                ))
+            }
+        }
+        return items
+    }
+
     private static func headingLevel(_ line: String) -> Int? {
         var count = 0
         for ch in line {
@@ -91,14 +127,14 @@ struct NoteOutlineOverlay: View {
                         // Visible tab indicator on the right edge
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(theme.isDark
-                                  ? Color.white.opacity(0.08)
-                                  : Color.black.opacity(0.06))
+                                  ? Color.white.opacity(0.2)
+                                  : Color.black.opacity(0.12))
                             .frame(width: 6, height: 40)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                                     .strokeBorder(theme.isDark
-                                                  ? Color.white.opacity(0.12)
-                                                  : Color.black.opacity(0.08),
+                                                  ? Color.white.opacity(0.3)
+                                                  : Color.black.opacity(0.15),
                                                   lineWidth: 0.5)
                             }
                             .padding(.trailing, 8)

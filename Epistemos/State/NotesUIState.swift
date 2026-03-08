@@ -101,5 +101,7 @@ final class NotesUIState {
         expandedFolderIds = []
         isJournalExpanded = false
         isIdeasExpanded = false
+        isFocusMode = false
+        sessionWordTarget = nil
     }
 }
