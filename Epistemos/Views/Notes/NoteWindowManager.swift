@@ -1106,60 +1106,42 @@ private struct NotePageContent: View {
     // MARK: - Toolbar Response Dropdown
 
     private var toolbarResponseDropdown: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ui.theme.accent)
-                Text("Chat")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Spacer()
-                if !noteChatState.isStreaming {
-                    Button {
-                        noteChatState.discardResponse()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(ui.theme.textTertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Close")
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-
-            Divider().opacity(0.3)
-
-            // Conversation thread
+        VStack(spacing: 0) {
+            // Conversation thread — fixed height, no dynamic resizing
             ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(Array(noteChatState.messages.enumerated()), id: \.element.id) { _, msg in
-                            chatBubble(msg)
+                ScrollView(.vertical) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(noteChatState.messages) { msg in
+                            chatMessageRow(msg)
                         }
 
-                        // Current streaming response (not yet in messages)
                         if noteChatState.isStreaming || !noteChatState.responseText.isEmpty {
-                            streamingBubble
+                            streamingRow
                                 .id("streaming")
                         }
                     }
-                    .padding(12)
+                    .padding(14)
                 }
                 .onChange(of: noteChatState.responseText.count) {
-                    proxy.scrollTo("streaming", anchor: .bottom)
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        proxy.scrollTo("streaming", anchor: .bottom)
+                    }
+                }
+                .onChange(of: noteChatState.messages.count) {
+                    if let last = noteChatState.messages.last {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
                 }
             }
-            .frame(minHeight: 200, idealHeight: 300, maxHeight: 500)
 
-            Divider().opacity(0.3)
-
-            // Follow-up input + actions
+            // Input bar
             HStack(spacing: 8) {
                 @Bindable var chat = noteChatState
+
+                Image(systemName: "arrow.up.message")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+
                 TextField("Follow up\u{2026}", text: $chat.inputText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
@@ -1173,74 +1155,91 @@ private struct NotePageContent: View {
                     .disabled(noteChatState.isStreaming)
 
                 if noteChatState.isStreaming {
-                    Button {
-                        noteChatState.stopStreaming()
-                    } label: {
+                    Button { noteChatState.stopStreaming() } label: {
                         Image(systemName: "stop.fill")
                             .font(.system(size: 9))
                             .foregroundStyle(ui.theme.error)
                     }
                     .buttonStyle(.plain)
-                } else if !noteChatState.responseText.isEmpty {
-                    Button {
-                        noteChatState.acceptResponse()
-                    } label: {
-                        Image(systemName: "text.insert")
-                            .font(.system(size: 11))
-                            .foregroundStyle(ui.theme.accent)
+                } else {
+                    HStack(spacing: 6) {
+                        if !noteChatState.responseText.isEmpty {
+                            Button { noteChatState.acceptResponse() } label: {
+                                Image(systemName: "text.insert")
+                                    .font(.system(size: 10))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Insert into note")
+                        }
+                        Button { noteChatState.discardResponse() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Close")
                     }
-                    .buttonStyle(.plain)
-                    .help("Insert last response into note")
+                    .foregroundStyle(ui.theme.textTertiary)
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+            .background(.separator.opacity(0.15), in: Rectangle())
         }
-        .frame(minWidth: 400, idealWidth: 480, maxWidth: 560)
+        .frame(width: 380, height: 340)
     }
 
-    private func chatBubble(_ msg: AssistantMessage) -> some View {
-        HStack {
-            if msg.role == .user { Spacer(minLength: 60) }
+    private func chatMessageRow(_ msg: AssistantMessage) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(msg.role == .user ? "You" : "Assistant")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
             Text(msg.content)
-                .font(.system(size: 12))
-                .foregroundStyle(msg.role == .user ? ui.theme.userBubbleText : .primary)
+                .font(.system(size: 12.5))
+                .foregroundStyle(.primary)
                 .textSelection(.enabled)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    msg.role == .user
-                        ? AnyShapeStyle(ui.theme.userBubbleBg)
-                        : AnyShapeStyle(ui.theme.muted),
-                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                )
-            if msg.role == .assistant { Spacer(minLength: 60) }
+                .lineSpacing(2)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            msg.role == .user
+                ? ui.theme.foreground.opacity(0.04)
+                : ui.theme.accent.opacity(0.06),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
     }
 
-    private var streamingBubble: some View {
-        HStack {
+    private var streamingRow: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Assistant")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+
             if noteChatState.responseText.isEmpty && noteChatState.isStreaming {
                 HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
+                    ProgressView().controlSize(.mini)
                     Text("Thinking\u{2026}")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(ui.theme.muted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
                 Text(noteChatState.responseText + (noteChatState.isStreaming ? " \u{258D}" : ""))
-                    .font(.system(size: 12))
+                    .font(.system(size: 12.5))
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(ui.theme.muted, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .lineSpacing(2)
             }
-            Spacer(minLength: 60)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            ui.theme.accent.opacity(0.06),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
     }
 
     // MARK: - Toolbar Chat Field
