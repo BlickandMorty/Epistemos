@@ -46,6 +46,14 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         return cachedTypes[lineIndex].paraType
     }
 
+    /// Test-only entry point for structural styling.
+    func applyStructuralStyleForTest(
+        to attrStr: NSMutableAttributedString, range: NSRange,
+        paraType: UInt8, metadata: UInt16
+    ) {
+        applyStructuralStyle(to: attrStr, range: range, paraType: paraType, metadata: metadata)
+    }
+
     var theme: EpistemosTheme = .light
 
     // MARK: - Reparse
@@ -204,7 +212,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 .paragraphStyle: quoteParagraph,
             ], range: range)
 
-        case 2, 3, 4: // OrderedList, UnorderedList, TaskList
+        case 2, 3: // OrderedList, UnorderedList
             let depth = (metadata >> 8) & 0xFF
             let indent = CGFloat(depth + 1) * 20
             let listParagraph = NSMutableParagraphStyle()
@@ -217,6 +225,36 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 .foregroundColor: foreground,
                 .paragraphStyle: listParagraph,
             ], range: range)
+
+        case 4: // TaskList
+            let depth = (metadata >> 8) & 0xFF
+            let checked = (metadata & 0xFF) != 0
+            let indent = CGFloat(depth + 1) * 20
+            let listParagraph = NSMutableParagraphStyle()
+            listParagraph.lineSpacing = 4
+            listParagraph.headIndent = indent
+            listParagraph.firstLineHeadIndent = max(indent - 16, 0)
+            listParagraph.paragraphSpacing = 2
+            attrStr.addAttributes([
+                .font: bodyFont,
+                .foregroundColor: foreground,
+                .paragraphStyle: listParagraph,
+            ], range: range)
+
+            if checked {
+                let prefixLen = 6  // "- [x] "
+                if range.length > prefixLen {
+                    let contentRange = NSRange(
+                        location: range.location + prefixLen,
+                        length: range.length - prefixLen
+                    )
+                    let muted = Self.mutedColor(isDark: theme.isDark)
+                    attrStr.addAttributes([
+                        .foregroundColor: muted,
+                        .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                    ], range: contentRange)
+                }
+            }
 
         case 7: // Table
             let tableFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)

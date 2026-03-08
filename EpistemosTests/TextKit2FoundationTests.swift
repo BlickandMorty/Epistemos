@@ -1423,3 +1423,50 @@ struct TextKit2CheckboxInlineTests {
         #expect(isMonospace || isGhostHidden, "Inactive checkbox should either be monospace-styled or ghost-hidden, got: \(font!)")
     }
 }
+
+// MARK: - Phase 5 Task 2: Checked Content Strikethrough
+
+@Suite("TextKit 2 - Checked Content Strikethrough")
+struct TextKit2CheckedStrikethroughTests {
+
+    @Test("checked task list gets strikethrough + muted foreground")
+    func checkedStrikethrough() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [x] done task")
+        let attrStr = NSMutableAttributedString(string: "- [x] done task")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 1)
+        // Content after "- [x] " (6 chars) should have strikethrough
+        if attrStr.length > 6 {
+            let contentAttrs = attrStr.attributes(at: 6, effectiveRange: nil)
+            let strike = contentAttrs[.strikethroughStyle] as? Int
+            #expect(strike == NSUnderlineStyle.single.rawValue)
+        }
+    }
+
+    @Test("unchecked task list has no strikethrough")
+    func uncheckedNoStrikethrough() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [ ] todo")
+        let attrStr = NSMutableAttributedString(string: "- [ ] todo")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 4, metadata: 0)
+        if attrStr.length > 6 {
+            let contentAttrs = attrStr.attributes(at: 6, effectiveRange: nil)
+            let strike = contentAttrs[.strikethroughStyle] as? Int
+            #expect(strike == nil || strike == 0)
+        }
+    }
+
+    @Test("regular list unaffected by task list changes")
+    func regularListUnchanged() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- item")
+        let attrStr = NSMutableAttributedString(string: "- item")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: fullRange, paraType: 3, metadata: 0)
+        let contentAttrs = attrStr.attributes(at: 2, effectiveRange: nil)
+        let strike = contentAttrs[.strikethroughStyle] as? Int
+        #expect(strike == nil || strike == 0)
+    }
+}
