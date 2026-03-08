@@ -13,6 +13,9 @@ final class ProseTextView2: NSTextView {
     private var reparseTask: Task<Void, Never>?
     private var currentActiveLine: Int?
 
+    /// When true, dim all paragraphs except the one containing the insertion point.
+    nonisolated(unsafe) var isFocusMode = false
+
     func applyTheme(_ theme: EpistemosTheme) {
         let foreground = NSColor(theme.foreground)
         backgroundColor = NSColor(theme.background)
@@ -58,6 +61,10 @@ final class ProseTextView2: NSTextView {
 
         invalidateParagraphLayout(line: oldLine)
         invalidateParagraphLayout(line: newLine)
+
+        if isFocusMode {
+            applyFocusDimming()
+        }
     }
 
     private func invalidateParagraphLayout(line: Int?) {
@@ -364,6 +371,45 @@ final class ProseTextView2: NSTextView {
                 headerPath.stroke()
             }
         }
+    }
+
+    // MARK: - Focus Dimming (Phase 4)
+
+    /// Dim non-active paragraphs via rendering attributes.
+    func applyFocusDimming() {
+        guard isFocusMode, let tlm = textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else {
+            clearFocusDimming()
+            return
+        }
+
+        let fullDocRange = tlm.documentRange
+        let str = string as NSString
+        guard str.length > 0 else { return }
+
+        let cursorRange = selectedRange()
+        let activeParagraphNSRange = str.paragraphRange(for: cursorRange)
+
+        let dimColor = NSColor.textColor.withAlphaComponent(0.25)
+
+        // Dim entire document
+        tlm.setRenderingAttributes([.foregroundColor: dimColor], for: fullDocRange)
+
+        // Restore active paragraph
+        if activeParagraphNSRange.length > 0,
+           let startLoc = contentStorage.location(
+               fullDocRange.location, offsetBy: activeParagraphNSRange.location),
+           let endLoc = contentStorage.location(
+               startLoc, offsetBy: activeParagraphNSRange.length),
+           let activeRange = NSTextRange(location: startLoc, end: endLoc) {
+            tlm.setRenderingAttributes([:], for: activeRange)
+        }
+    }
+
+    /// Clear all focus dimming.
+    func clearFocusDimming() {
+        guard let tlm = textLayoutManager else { return }
+        tlm.setRenderingAttributes([:], for: tlm.documentRange)
     }
 
     private func drawFoldIndicators(in dirtyRect: NSRect) {

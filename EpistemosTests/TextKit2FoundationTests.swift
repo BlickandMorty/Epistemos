@@ -1214,3 +1214,88 @@ struct TextKit2FoldIndicatorTests {
         tv.drawBackground(in: tv.bounds)
     }
 }
+
+// MARK: - Phase 4: Focus Dimming Tests
+
+@Suite("TextKit 2 - Focus Dimming")
+struct TextKit2FocusDimmingTests {
+
+    @Test("isFocusMode defaults to false")
+    func focusModeDefault() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        #expect(!tv.isFocusMode)
+    }
+
+    @Test("applyFocusDimming does not crash on empty text")
+    func emptyText() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        tv.reparseAndInvalidate()
+        tv.applyFocusDimming()
+    }
+
+    @Test("applyFocusDimming does not crash on single line")
+    func singleLine() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(NSAttributedString(string: "Hello"))
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.applyFocusDimming()
+    }
+
+    @Test("applyFocusDimming does not crash on multi-paragraph text")
+    func multiParagraph() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Para 1\n\nPara 2\n\nPara 3")
+        )
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: 8, length: 0))
+        tv.applyFocusDimming()
+    }
+
+    @Test("clearFocusDimming does not crash on empty text")
+    func clearEmpty() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.clearFocusDimming()
+    }
+
+    @Test("applyFocusDimming is no-op when focus mode is off")
+    func focusOff() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = false
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Para 1\n\nPara 2")
+        )
+        tv.reparseAndInvalidate()
+        tv.applyFocusDimming()
+    }
+
+    @Test("Focus dimming toggle on and off")
+    func toggle() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Para 1\n\nPara 2")
+        )
+        tv.reparseAndInvalidate()
+        tv.isFocusMode = true
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.applyFocusDimming()
+        tv.isFocusMode = false
+        tv.applyFocusDimming()
+    }
+
+    @Test("Focus dimming with cursor at document end")
+    func cursorAtEnd() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.isFocusMode = true
+        let text = "Para 1\n\nPara 2\n\nPara 3"
+        tv.textStorage?.setAttributedString(NSAttributedString(string: text))
+        tv.reparseAndInvalidate()
+        tv.setSelectedRange(NSRange(location: text.utf16.count, length: 0))
+        tv.applyFocusDimming()
+    }
+}
