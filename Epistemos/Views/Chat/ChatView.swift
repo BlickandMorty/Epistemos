@@ -79,8 +79,6 @@ struct ChatView: View {
         .toolbar {
             // Right: chat controls (title + nav handled by toolbar)
             ToolbarItemGroup(placement: .primaryAction) {
-                ProviderDropdown()
-
                 Button(action: exportChat) {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }

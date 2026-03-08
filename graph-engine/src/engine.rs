@@ -19,7 +19,7 @@ use rustc_hash::FxHashSet;
 use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, viewport_bounds};
 use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
 use crate::types::{Graph, VisualTheme};
@@ -27,8 +27,15 @@ use crate::version::VersionStore;
 use crate::block_kernel::{BlockTree, OpLog};
 use std::collections::HashMap;
 
-/// Physics thread target rate — 60Hz is sufficient for force simulation.
-const PHYSICS_HZ: f64 = 60.0;
+/// Adaptive physics tick rate: fewer ticks when many nodes (diminishing visual returns).
+fn adaptive_physics_hz(node_count: usize) -> f64 {
+    match node_count {
+        0..=500 => 40.0,
+        501..=1500 => 25.0,
+        1501..=3000 => 15.0,
+        _ => 10.0,
+    }
+}
 /// Sleep duration (ms) when simulation is settled (avoids spinning).
 const SETTLED_SLEEP_MS: u64 = 50;
 /// Above this threshold, use cheap spatial clustering instead of Louvain.
@@ -150,6 +157,8 @@ pub struct Engine {
     /// Rebuild per-node highlight flags only when highlight state changes.
     highlight_dirty: bool,
     cluster_cache: ClusterCache,
+    /// Scratch buffer for GPU N-body position collection (avoids per-frame alloc).
+    gpu_positions_scratch: Vec<[f32; 2]>,
 }
 
 impl Engine {
@@ -187,6 +196,7 @@ impl Engine {
             camera_rebuild_pending: false,
             highlight_dirty: true,
             cluster_cache: ClusterCache::new(),
+            gpu_positions_scratch: Vec::new(),
         })
     }
 
@@ -328,7 +338,7 @@ impl Engine {
         }
 
         // Copy positions back to graph nodes for rendering + spatial index.
-        self.sync_positions();
+        self.sync_all_positions();
 
         // Build ECS World from Graph data (positions are current after sync).
         self.world = World::from_graph(&self.graph);
@@ -417,7 +427,7 @@ impl Engine {
     /// Preserves positions/velocities — only the set of active nodes changes.
     pub fn refresh_visibility(&mut self) {
         // Sync current positions from simulation → graph before reloading.
-        self.sync_positions();
+        self.sync_all_positions();
 
         // Reload simulation with only visible nodes, reheat to re-settle.
         {
@@ -470,9 +480,13 @@ impl Engine {
     }
 
     /// Copy positions from simulation SoA arrays back to graph nodes.
-    fn sync_positions(&mut self) {
+    /// Sync all positions from Simulation into both Graph and World in a single lock.
+    /// Combines the old sync_positions + sync_sim_to_world into one mutex acquisition.
+    fn sync_all_positions(&mut self) {
         let sim = self.sim.lock();
+        let n = sim.x.len();
 
+        // Graph nodes (indexed by graph_indices mapping)
         for (si, &gi) in sim.graph_indices.iter().enumerate() {
             if gi < self.graph.nodes.len() {
                 self.graph.nodes[gi].x = sim.x[si];
@@ -481,36 +495,30 @@ impl Engine {
                 self.graph.nodes[gi].vy = sim.vy[si];
             }
         }
-    }
 
-    /// Sync Simulation positions/velocities into the ECS World.
-    /// Called from render() to keep World in sync for pixel art rendering.
-    fn sync_sim_to_world(&mut self) {
-        let sim = self.sim.lock();
-        let n = sim.x.len();
-
-        // Size mismatch — wait for next commit() to rebuild World.
+        // ECS World (direct index) — size mismatch means commit() hasn't rebuilt yet.
         if self.world.len() != n {
             return;
         }
 
-        for i in 0..n {
-            self.world.transform[i].x = sim.x[i];
-            self.world.transform[i].y = sim.y[i];
-            self.world.velocity[i].vx = sim.vx[i];
-            self.world.velocity[i].vy = sim.vy[i];
-        }
-
-        // Sync flat physics arrays for future ECS systems.
+        // Flat physics arrays
         self.world.px.resize(n, 0.0);
         self.world.py.resize(n, 0.0);
         self.world.pvx.resize(n, 0.0);
         self.world.pvy.resize(n, 0.0);
         for i in 0..n {
-            self.world.px[i] = sim.x[i];
-            self.world.py[i] = sim.y[i];
-            self.world.pvx[i] = sim.vx[i];
-            self.world.pvy[i] = sim.vy[i];
+            let x = sim.x[i];
+            let y = sim.y[i];
+            let vx = sim.vx[i];
+            let vy = sim.vy[i];
+            self.world.transform[i].x = x;
+            self.world.transform[i].y = y;
+            self.world.velocity[i].vx = vx;
+            self.world.velocity[i].vy = vy;
+            self.world.px[i] = x;
+            self.world.py[i] = y;
+            self.world.pvx[i] = vx;
+            self.world.pvy[i] = vy;
         }
 
         self.world.spatial_grid.rebuild(&self.world.entities, &self.world.transform);
@@ -522,16 +530,55 @@ impl Engine {
         self.viewport_height = height;
         let viewport_changed = self.renderer.set_viewport_size(width, height);
 
-        let sim_active = !self.sim.lock().is_settled;
+        // Single lock to read all simulation state — avoids per-field mutex contention.
+        let (sim_active, haptic_event, is_frozen) = {
+            let mut sim = self.sim.lock();
+            // Pass viewport bounds for scoped physics (Phase 4 optimization).
+            // At low zoom or when frozen, simulate all nodes (viewport covers everything).
+            if sim.user_frozen || self.renderer.camera_zoom < 0.3 {
+                sim.viewport_bounds = None;
+            } else {
+                let vp = viewport_bounds(
+                    self.renderer.camera_offset,
+                    self.renderer.camera_zoom,
+                    [width as f32, height as f32],
+                    300.0,
+                );
+                sim.viewport_bounds = Some([vp.min_x, vp.min_y, vp.max_x, vp.max_y]);
+            }
+            (!sim.is_settled, sim.haptic_event, sim.user_frozen)
+        };
+
         let positions_changed = sim_active || self.last_sim_active;
         if positions_changed {
-            self.sync_sim_to_world();
-            self.sync_positions();
+            self.sync_all_positions();
         }
         self.last_sim_active = sim_active;
 
+        // GPU N-body: dispatch brute-force repulsion on GPU for large graphs.
+        // Forces are written to sim.gpu_nbody_forces; the physics thread drains them
+        // atomically at the start of its next tick, preventing double-application.
+        let n = self.world.len();
+        if n > 200 && self.renderer.compute_pipeline.is_some() {
+            self.gpu_positions_scratch.clear();
+            self.gpu_positions_scratch.reserve(n);
+            for i in 0..n {
+                self.gpu_positions_scratch.push([self.world.transform[i].x, self.world.transform[i].y]);
+            }
+            let (charge, alpha, dmax) = {
+                let sim = self.sim.lock();
+                (sim.params.charge_strength, sim.params.alpha, sim.params.charge_range)
+            };
+            let dmin = 1.0_f32;
+
+            if let Some(forces) = self.renderer.dispatch_gpu_nbody(&self.gpu_positions_scratch, charge, alpha, dmax, dmin) {
+                let mut sim = self.sim.lock();
+                sim.gpu_nbody_forces = Some(forces);
+            }
+        }
+
         // Trigger impact visual effects when heavy collision detected.
-        if self.sim.lock().haptic_event >= 2 {
+        if haptic_event >= 2 {
             self.renderer.impact_intensity = 1.0;
         }
 
@@ -557,12 +604,19 @@ impl Engine {
             self.idle_frame_count = 0;
         }
 
+        // Edge visibility: in physics mode, hide edges unless a node is selected/hovered.
+        // In freeze mode, always show all edges.
+        if is_frozen {
+            self.renderer.edges_hidden = false;
+            self.renderer.edge_filter_node = None;
+        } else {
+            self.renderer.edges_hidden = true;
+            self.renderer.edge_filter_node = self.selected_id.or(self.hovered_id);
+        }
+
         if instance_buffers_changed {
             self.renderer.update_positions(&self.world);
             self.camera_rebuild_pending = false;
-        }
-        if self.renderer.use_aggregated_edges {
-            self.renderer.clear_aggregated_edges();
         }
         if positions_changed {
             self.spatial.build(&self.graph.nodes);
@@ -1009,8 +1063,7 @@ impl Engine {
 
     /// Zoom to fit all visible nodes with padding.
     pub fn zoom_to_fit(&mut self) {
-        self.sync_positions();
-        self.sync_sim_to_world();
+        self.sync_all_positions();
 
         let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
         let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
@@ -1478,20 +1531,16 @@ impl Drop for Engine {
 
 fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let target_dt = Duration::from_secs_f64(1.0 / PHYSICS_HZ);
-        let slow_dt = Duration::from_secs_f64(1.0 / 30.0); // 30Hz when nearly settled
-
         while !stop.load(Ordering::Relaxed) {
             let start = Instant::now();
 
-            let (settled, alpha) = {
+            let (settled, alpha, node_count) = {
                 let mut sim = sim.lock();
                 sim.tick();
-                (sim.is_settled, sim.params.alpha)
+                (sim.is_settled, sim.params.alpha, sim.x.len())
             };
 
             if settled {
-                // Check stop flag before committing to sleep.
                 if stop.load(Ordering::Relaxed) {
                     break;
                 }
@@ -1499,8 +1548,14 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
                 continue;
             }
 
-            // Throttle to 30Hz when alpha is very low (nearly settled) to reduce CPU.
-            let frame_dt = if alpha < 0.01 { slow_dt } else { target_dt };
+            // Adaptive rate: fewer ticks at high node counts.
+            let target_dt = Duration::from_secs_f64(1.0 / adaptive_physics_hz(node_count));
+            // Extra throttle when nearly settled.
+            let frame_dt = if alpha < 0.01 {
+                target_dt.max(Duration::from_secs_f64(1.0 / 15.0))
+            } else {
+                target_dt
+            };
             let elapsed = start.elapsed();
             if elapsed < frame_dt {
                 std::thread::sleep(frame_dt - elapsed);

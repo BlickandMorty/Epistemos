@@ -168,10 +168,10 @@ struct Uniforms {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ViewBounds {
-    min_x: f32,
-    min_y: f32,
-    max_x: f32,
-    max_y: f32,
+    pub(crate) min_x: f32,
+    pub(crate) min_y: f32,
+    pub(crate) max_x: f32,
+    pub(crate) max_y: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1078,6 +1078,42 @@ fragment float4 line_edge_fragment(LineVertexOut in [[stage_in]]) {
 
 "#;
 
+// ── Metal Compute Shader (GPU N-body repulsion) ──────────────────────────────
+
+const COMPUTE_SHADER_SOURCE: &str = r#"
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void nbody_repulsion(
+    device const float2* positions [[buffer(0)]],
+    device float2* forces [[buffer(1)]],
+    constant uint& node_count [[buffer(2)]],
+    constant float& charge_strength [[buffer(3)]],
+    constant float& alpha [[buffer(4)]],
+    constant float& distance_max_sq [[buffer(5)]],
+    constant float& distance_min_sq [[buffer(6)]],
+    uint tid [[thread_position_in_grid]])
+{
+    if (tid >= node_count) return;
+
+    float2 pos = positions[tid];
+    float2 force = float2(0.0);
+
+    for (uint j = 0; j < node_count; j++) {
+        if (j == tid) continue;
+        float2 d = positions[j] - pos;
+        float dist_sq = dot(d, d);
+        if (dist_sq > distance_max_sq) continue;
+        if (dist_sq < distance_min_sq) dist_sq = distance_min_sq;
+        float dist = sqrt(dist_sq);
+        float w = charge_strength * alpha / dist_sq;
+        force += (d / dist) * w;
+    }
+
+    forces[tid] = force;
+}
+"#;
+
 const DIALOGUE_SHADER_SOURCE: &str = r#"
 #include <metal_stdlib>
 using namespace metal;
@@ -1174,6 +1210,10 @@ pub struct Renderer {
     edge_instance_count: usize,
     pub use_aggregated_edges: bool,
     aggregated_edge_count: usize,
+    /// When true, edges are hidden unless `edge_filter_node` is set.
+    pub edges_hidden: bool,
+    /// When set, only edges connected to this node are drawn.
+    pub edge_filter_node: Option<u32>,
     highlight_count: usize,
     // Highlight
     pub highlight: HighlightState,
@@ -1246,6 +1286,12 @@ pub struct Renderer {
     dialogue_vertex_buf: Option<Buffer>,
     dialogue_vertex_scratch: Vec<DialogueVertex>,
     dialogue_uniform_buf: Option<Buffer>,
+    // ── GPU N-body compute pipeline ──────────────────────────────────
+    pub compute_pipeline: Option<ComputePipelineState>,
+    compute_position_buf: Option<Buffer>,
+    compute_force_buf: Option<Buffer>,
+    compute_position_capacity: usize,
+    compute_force_capacity: usize,
 }
 
 impl Renderer {
@@ -1335,6 +1381,8 @@ impl Renderer {
             MTLResourceOptions::StorageModeShared,
         );
 
+        let compute_pipeline = Self::create_compute_pipeline(&device);
+
         Some(Self {
             device,
             command_queue,
@@ -1359,6 +1407,8 @@ impl Renderer {
             edge_instance_count: 0,
             use_aggregated_edges: false,
             aggregated_edge_count: 0,
+            edges_hidden: false,
+            edge_filter_node: None,
             highlight_count: 0,
             highlight: HighlightState::new(),
             highlight_flag_buf: None,
@@ -1407,7 +1457,116 @@ impl Renderer {
             dialogue_vertex_buf: None,
             dialogue_vertex_scratch: Vec::new(),
             dialogue_uniform_buf: None,
+            compute_pipeline,
+            compute_position_buf: None,
+            compute_force_buf: None,
+            compute_position_capacity: 0,
+            compute_force_capacity: 0,
         })
+    }
+
+    fn create_compute_pipeline(device: &Device) -> Option<ComputePipelineState> {
+        let library = device
+            .new_library_with_source(COMPUTE_SHADER_SOURCE, &CompileOptions::new())
+            .map_err(|e| eprintln!("compute shader compile: {e}"))
+            .ok()?;
+        let func = library
+            .get_function("nbody_repulsion", None)
+            .map_err(|e| eprintln!("compute function lookup: {e}"))
+            .ok()?;
+        device
+            .new_compute_pipeline_state_with_function(&func)
+            .map_err(|e| eprintln!("compute pipeline: {e}"))
+            .ok()
+    }
+
+    /// Dispatch brute-force O(N^2) N-body repulsion on GPU.
+    /// Returns per-node force deltas, or None if compute pipeline unavailable.
+    pub fn dispatch_gpu_nbody(
+        &mut self,
+        positions: &[[f32; 2]],
+        charge_strength: f32,
+        alpha: f32,
+        distance_max: f32,
+        distance_min: f32,
+    ) -> Option<Vec<[f32; 2]>> {
+        let pipeline = self.compute_pipeline.as_ref()?;
+        let n = positions.len();
+        if n == 0 {
+            return Some(Vec::new());
+        }
+
+        let pos_bytes = n * std::mem::size_of::<[f32; 2]>();
+
+        // Grow position buffer if needed.
+        if n > self.compute_position_capacity || self.compute_position_buf.is_none() {
+            let cap = (n * 3 / 2).max(64);
+            self.compute_position_buf = Some(self.device.new_buffer(
+                (cap * std::mem::size_of::<[f32; 2]>()) as u64,
+                MTLResourceOptions::StorageModeShared,
+            ));
+            self.compute_position_capacity = cap;
+        }
+
+        // Grow force buffer if needed.
+        if n > self.compute_force_capacity || self.compute_force_buf.is_none() {
+            let cap = (n * 3 / 2).max(64);
+            self.compute_force_buf = Some(self.device.new_buffer(
+                (cap * std::mem::size_of::<[f32; 2]>()) as u64,
+                MTLResourceOptions::StorageModeShared,
+            ));
+            self.compute_force_capacity = cap;
+        }
+
+        let pos_buf = self.compute_position_buf.as_ref()?;
+        let force_buf = self.compute_force_buf.as_ref()?;
+
+        // Copy positions into GPU buffer.
+        // SAFETY: pos_buf is StorageModeShared with sufficient capacity, positions is valid.
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                positions.as_ptr() as *const u8,
+                pos_buf.contents() as *mut u8,
+                pos_bytes,
+            );
+        }
+
+        let cmd_buf = self.command_queue.new_command_buffer();
+        let encoder = cmd_buf.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(pipeline);
+        encoder.set_buffer(0, Some(pos_buf), 0);
+        encoder.set_buffer(1, Some(force_buf), 0);
+
+        let node_count = n as u32;
+        let distance_max_sq = distance_max * distance_max;
+        let distance_min_sq = distance_min * distance_min;
+
+        encoder.set_bytes(2, std::mem::size_of::<u32>() as u64, &node_count as *const u32 as *const c_void);
+        encoder.set_bytes(3, std::mem::size_of::<f32>() as u64, &charge_strength as *const f32 as *const c_void);
+        encoder.set_bytes(4, std::mem::size_of::<f32>() as u64, &alpha as *const f32 as *const c_void);
+        encoder.set_bytes(5, std::mem::size_of::<f32>() as u64, &distance_max_sq as *const f32 as *const c_void);
+        encoder.set_bytes(6, std::mem::size_of::<f32>() as u64, &distance_min_sq as *const f32 as *const c_void);
+
+        let threads_per_group = 256;
+        let thread_groups = (n + threads_per_group - 1) / threads_per_group;
+        encoder.dispatch_thread_groups(
+            MTLSize::new(thread_groups as u64, 1, 1),
+            MTLSize::new(threads_per_group as u64, 1, 1),
+        );
+        encoder.end_encoding();
+        cmd_buf.commit();
+        // Synchronous wait: at 200-5000 nodes the GPU kernel completes in <1ms on Apple
+        // Silicon. Async double-buffering can be added if profiling shows frame drops.
+        cmd_buf.wait_until_completed();
+
+        // Read back forces.
+        let mut forces = Vec::with_capacity(n);
+        // SAFETY: force_buf is StorageModeShared, GPU work is complete, buffer has n entries.
+        unsafe {
+            let ptr = force_buf.contents() as *const [f32; 2];
+            forces.extend_from_slice(std::slice::from_raw_parts(ptr, n));
+        }
+        Some(forces)
     }
 
     const CLASSIC_CULL_PADDING_PIXELS: f32 = 160.0;
@@ -1509,6 +1668,16 @@ impl Renderer {
                     continue;
                 }
                 self.edge_candidate_marks[edge_index] = generation;
+                self.edge_candidate_indices.push(edge_index);
+            }
+        }
+    }
+
+    /// Collect only edges connected to a single node — O(degree) instead of O(E).
+    fn collect_edges_for_node(&mut self, world: &World, node_id: u32) {
+        self.edge_candidate_indices.clear();
+        if let Some(node_index) = world.index_of_node_id(node_id) {
+            for &edge_index in world.edge_indices_for_index(node_index) {
                 self.edge_candidate_indices.push(edge_index);
             }
         }
@@ -1954,8 +2123,15 @@ impl Renderer {
             }
         }
 
-        if lod.draw_edges && !lod.cluster_nodes {
-            self.collect_candidate_edges(world);
+        let should_draw_edges = lod.draw_edges && !lod.cluster_nodes
+            && !(self.edges_hidden && self.edge_filter_node.is_none());
+        if should_draw_edges {
+            // When filtering to a single node, only collect that node's edges (O(degree) not O(E)).
+            if let Some(filter_id) = self.edge_filter_node {
+                self.collect_edges_for_node(world, filter_id);
+            } else {
+                self.collect_candidate_edges(world);
+            }
             self.reset_edge_lod_budget(world, lod);
             let curvature = self.edge_curvature();
             for candidate_index in 0..self.edge_candidate_indices.len() {
@@ -2776,11 +2952,7 @@ impl Renderer {
             let encoder = cmd_buf.new_render_command_encoder(render_desc);
 
             // Draw edges first (behind nodes)
-            let effective_edge_count = if self.use_aggregated_edges {
-                self.aggregated_edge_count
-            } else {
-                self.edge_instance_count
-            };
+            let effective_edge_count = self.edge_instance_count;
             if effective_edge_count > 0
                 && let Some(inst_buf) = &self.edge_instance_buf
             {

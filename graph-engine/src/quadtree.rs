@@ -8,8 +8,8 @@
 //! `cell_size / distance < theta`.
 
 /// Barnes-Hut opening angle. Cells whose `size / dist < THETA` are
-/// treated as single point charges. 0.5 = d3 default.
-pub const THETA: f32 = 0.5;
+/// treated as single point charges. 0.8 = aggressive approximation for layout.
+pub const THETA: f32 = 0.8;
 
 /// Maximum tree depth to prevent infinite recursion on coincident points.
 const MAX_DEPTH: u32 = 20;
@@ -796,7 +796,7 @@ mod tests {
 
     #[test]
     fn theta_constant_value() {
-        assert_eq!(THETA, 0.5);
+        assert_eq!(THETA, 0.8);
     }
 
     #[test]

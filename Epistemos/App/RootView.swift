@@ -9,6 +9,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
+    @Environment(InferenceState.self) private var inference
     @Environment(VaultSyncService.self) private var vaultSync
 
     /// Set by EpistemosApp when AppBootstrap detected a database error.
@@ -26,8 +27,8 @@ struct RootView: View {
             // Background wallpaper (theme-dependent)
             WallpaperView()
 
-            // Main content — lazy panels, instant swap
-            ContentRouter()
+            // Main content — tab-switched panels
+            ContentRouter(homeTab: ui.homeTab)
         }
         // Drive preferred color scheme from the resolved theme.
         // This ensures Ember/OLED/Sunset stay dark even when system is in light mode.
@@ -49,9 +50,9 @@ struct RootView: View {
             UtilityWindowManager.shared.syncTheme(isDark: ui.theme.isDark)
         }
         .toolbar {
-            // Back button — only during active chat
+            // Back button — only during active chat on Home tab
             ToolbarItem(placement: .navigation) {
-                if ui.activePanel == .home && !chat.messages.isEmpty && !chat.showLanding {
+                if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding {
                     Button {
                         chat.goHome()
                     } label: {
@@ -61,9 +62,17 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            // Chat sidebar toggle — always visible on Home panel
+            // Principal: model label during active chat, pill picker otherwise
+            ToolbarItem(placement: .principal) {
+                PrincipalToolbarContent()
+            }
+            .sharedBackgroundVisibility(
+                (ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding)
+                    ? .hidden : .automatic
+            )
+            // Chat sidebar toggle — only on Home tab
             ToolbarItem(placement: .primaryAction) {
-                if ui.activePanel == .home {
+                if ui.homeTab == .home {
                     @Bindable var ui = ui
                     Button {
                         ui.toggleChatSidebar()
@@ -81,15 +90,21 @@ struct RootView: View {
             }
         }
         .navigationTitle("")
-        // Toolbar glass: hidden on landing, visible during active chat.
-        // Uses delayed flag to prevent flash during landing→chat transition.
+        // Toolbar glass: hidden on home landing, visible for chat/library/settings.
         .toolbarBackgroundVisibility(
             showToolbarGlass ? .automatic : .hidden,
             for: .windowToolbar
         )
+        .onChange(of: ui.homeTab) { _, tab in
+            if tab != .home {
+                showToolbarGlass = true
+            } else if chat.showLanding || chat.messages.isEmpty {
+                showToolbarGlass = false
+            }
+        }
         .onChange(of: !chat.messages.isEmpty) { _, hasMessages in
+            guard ui.homeTab == .home else { return }
             if hasMessages && !chat.showLanding {
-                // Delay showing glass until the transition animation completes
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(350))
                     showToolbarGlass = true
@@ -99,6 +114,7 @@ struct RootView: View {
             }
         }
         .onChange(of: chat.showLanding) { _, isLanding in
+            guard ui.homeTab == .home else { return }
             if isLanding {
                 showToolbarGlass = false
             } else if !chat.messages.isEmpty {
@@ -119,13 +135,6 @@ struct RootView: View {
                 .animation(.easeInOut(duration: 0.25), value: ui.toastMessage)
             }
         }
-        .overlay {
-            if ui.breatheActive {
-                BreatheOverlay()
-                    .transition(.opacity)
-            }
-        }
-        .animation(.easeInOut(duration: 0.8), value: ui.breatheActive)
         // Command palette is now a global floating NSPanel (CommandPaletteWindowController).
         // Activated via Option+Space from any app, or Cmd+S in-app.
         // Glass Box overlay removed — research runs in regular chat
@@ -177,13 +186,116 @@ struct RootView: View {
     }
 }
 
+// MARK: - Home Tab
+
+enum HomeTab: String, CaseIterable {
+    case home, library, settings
+
+    var label: String {
+        switch self {
+        case .home: "Home"
+        case .library: "Library"
+        case .settings: "Settings"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .home: "house"
+        case .library: "books.vertical"
+        case .settings: "gear"
+        }
+    }
+}
+
+// MARK: - Principal Toolbar Content
+
+private struct PrincipalToolbarContent: View {
+    @Environment(UIState.self) private var ui
+    @Environment(ChatState.self) private var chat
+    @Environment(InferenceState.self) private var inference
+
+    private var showModelLabel: Bool {
+        ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding
+    }
+
+    private var availableProviders: [LLMProviderType] {
+        var providers: [LLMProviderType] = [.anthropic, .openai, .google, .kimi]
+        if inference.ollamaAvailable { providers.append(.ollama) }
+        return providers
+    }
+
+    var body: some View {
+        if showModelLabel {
+            Menu {
+                // Current provider's models
+                let models = inference.availableModels
+                if !models.isEmpty {
+                    ForEach(models, id: \.id) { m in
+                        Button {
+                            inference.setActiveModel(m.id)
+                        } label: {
+                            HStack {
+                                Text(m.name)
+                                if m.id == inference.activeModel {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                        .disabled(m.id == inference.activeModel)
+                    }
+                    Divider()
+                }
+
+                // Switch provider
+                Menu("Switch Provider") {
+                    ForEach(availableProviders, id: \.self) { p in
+                        Button {
+                            inference.setApiProvider(p)
+                            if inference.needsApiKey && inference.apiKey.isEmpty {
+                                ui.showToast("No API key for \(p.displayName) — set it in Settings", type: .warning)
+                            }
+                        } label: {
+                            Label(p.displayName, systemImage: p.iconName)
+                        }
+                        .disabled(p == inference.apiProvider)
+                    }
+                }
+            } label: {
+                Text("\(inference.apiProvider.displayName) · \(inference.activeModelDisplayName)")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+        } else {
+            @Bindable var uiBindable = ui
+            Picker("", selection: $uiBindable.homeTab) {
+                ForEach(HomeTab.allCases, id: \.self) { tab in
+                    Label(tab.label, systemImage: tab.icon).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 108)
+        }
+    }
+}
+
 // MARK: - Content Router
-// Main window content — Home (chat/landing) only.
-// Notes, Library, and Research Hub are separate windows via UtilityWindowManager.
+// Main window content — switches between Home, Library, and Settings.
 
 struct ContentRouter: View {
+    var homeTab: HomeTab
+
     var body: some View {
-        HomeRouter()
+        switch homeTab {
+        case .home:
+            HomeRouter()
+        case .library:
+            LibraryView()
+        case .settings:
+            SettingsView()
+        }
     }
 }
 
@@ -222,283 +334,6 @@ struct WallpaperView: View {
     }
 }
 
-// MARK: - Breathe Overlay
-// Full-screen 4-7-8 breathing guide with animated ring.
-// Phases: Inhale (4s) → Hold (7s) → Exhale (8s) = 19s per cycle.
-// After all cycles, shows completion state with "Remind me in…" picker.
-
-struct BreatheOverlay: View {
-    @Environment(UIState.self) private var ui
-
-    // Animation state
-    @State private var phase: BreathePhase = .entering
-    @State private var ringScale: CGFloat = 0.4
-    @State private var currentCycle = 1
-    @State private var countdown = 4
-    @State private var showCompletion = false
-    @State private var overlayOpacity: Double = 0
-
-    // Reminder state (shown after completion)
-    @State private var selectedReminder: BreatheReminder = .off
-
-    private var totalCycles: Int { ui.breatheCycles }
-
-    var body: some View {
-        ZStack {
-            // Dark scrim
-            Color.black.opacity(0.75)
-                .ignoresSafeArea()
-
-            if showCompletion {
-                completionView
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            } else {
-                breathingView
-                    .transition(.opacity)
-            }
-        }
-        .opacity(overlayOpacity)
-        .onAppear {
-            selectedReminder = ui.breatheReminder
-            withAnimation(.easeIn(duration: 0.6)) { overlayOpacity = 1 }
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(800))
-                await runBreathingCycles()
-            }
-        }
-        .onKeyPress(.escape) {
-            dismissBreathe()
-            return .handled
-        }
-    }
-
-    // MARK: - Breathing View
-
-    private var breathingView: some View {
-        VStack(spacing: 40) {
-            // Phase label
-            Text(phase.label)
-                .font(.system(size: 18, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.85))
-                .contentTransition(.numericText())
-                .animation(.easeInOut(duration: 0.3), value: phase)
-
-            // Animated ring
-            ZStack {
-                // Outer glow
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [.white.opacity(0.06), .clear],
-                            center: .center,
-                            startRadius: 60,
-                            endRadius: 140
-                        )
-                    )
-                    .frame(width: 280, height: 280)
-                    .scaleEffect(ringScale)
-
-                // Ring
-                Circle()
-                    .stroke(.white.opacity(0.35), lineWidth: 2)
-                    .frame(width: 180, height: 180)
-                    .scaleEffect(ringScale)
-
-                // Inner fill
-                Circle()
-                    .fill(.white.opacity(0.05))
-                    .frame(width: 176, height: 176)
-                    .scaleEffect(ringScale)
-
-                // Countdown
-                Text("\(countdown)")
-                    .font(.system(size: 48, weight: .light, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .contentTransition(.numericText())
-                    .animation(.easeInOut(duration: 0.2), value: countdown)
-            }
-
-            // Cycle counter
-            Text("Cycle \(currentCycle) of \(totalCycles)")
-                .font(.system(size: 13, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.4))
-
-            // Tap to exit hint
-            Text("press esc to exit")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.2))
-                .padding(.top, 20)
-        }
-    }
-
-    // MARK: - Completion View
-
-    private var completionView: some View {
-        VStack(spacing: 32) {
-            // Checkmark
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 44, weight: .thin))
-                .foregroundStyle(.white.opacity(0.7))
-
-            Text("Session Complete")
-                .font(.system(size: 22, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.9))
-
-            Text("\(totalCycles) cycles · \(totalCycles * 19)s")
-                .font(.system(size: 13, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.4))
-
-            // Remind me picker
-            VStack(spacing: 12) {
-                Text("Remind me in")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.5))
-
-                HStack(spacing: 8) {
-                    ForEach(BreatheReminder.allCases) { option in
-                        Button {
-                            selectedReminder = option
-                            ui.breatheReminder = option
-                        } label: {
-                            Text(option.label)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundStyle(
-                                    selectedReminder == option ? .white : .white.opacity(0.5)
-                                )
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background {
-                                    Capsule()
-                                        .fill(
-                                            selectedReminder == option
-                                                ? .white.opacity(0.15)
-                                                : .white.opacity(0.05))
-                                }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .padding(.top, 8)
-
-            // Done button
-            Button {
-                dismissBreathe()
-            } label: {
-                Text("Done")
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .frame(width: 120, height: 40)
-                    .background(Capsule().fill(.white.opacity(0.12)))
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 8)
-        }
-    }
-
-    // MARK: - Breathing Engine
-
-    @MainActor
-    private func runBreathingCycles() async {
-        for cycle in 1...totalCycles {
-            currentCycle = cycle
-            guard ui.breatheActive else { return }
-
-            // ── Inhale (4s) ──
-            phase = .inhale
-            countdown = 4
-            withAnimation(.easeInOut(duration: 4.0)) { ringScale = 1.0 }
-            for sec in stride(from: 4, through: 1, by: -1) {
-                guard ui.breatheActive else { return }
-                countdown = sec
-                try? await Task.sleep(for: .seconds(1))
-            }
-
-            guard ui.breatheActive else { return }
-
-            // ── Hold (7s) ──
-            phase = .hold
-            countdown = 7
-            for sec in stride(from: 7, through: 1, by: -1) {
-                guard ui.breatheActive else { return }
-                countdown = sec
-                try? await Task.sleep(for: .seconds(1))
-            }
-
-            guard ui.breatheActive else { return }
-
-            // ── Exhale (8s) ──
-            phase = .exhale
-            countdown = 8
-            withAnimation(.easeInOut(duration: 8.0)) { ringScale = 0.4 }
-            for sec in stride(from: 8, through: 1, by: -1) {
-                guard ui.breatheActive else { return }
-                countdown = sec
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
-
-        // All cycles complete → show completion
-        guard ui.breatheActive else { return }
-        withAnimation(.easeInOut(duration: 0.5)) {
-            showCompletion = true
-        }
-    }
-
-    private func dismissBreathe() {
-        withAnimation(.easeOut(duration: 0.5)) { overlayOpacity = 0 }
-        // Schedule next reminder if set
-        ui.scheduleBreatheReminder()
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(0.5))
-            ui.stopBreathe()
-        }
-    }
-}
-
-// MARK: - Breathe Phase
-
-private enum BreathePhase {
-    case entering, inhale, hold, exhale
-
-    var label: String {
-        switch self {
-        case .entering: "Get ready…"
-        case .inhale: "Breathe In"
-        case .hold: "Hold"
-        case .exhale: "Breathe Out"
-        }
-    }
-}
-
-// MARK: - Breathe Reminder
-
-enum BreatheReminder: String, CaseIterable, Identifiable, Codable {
-    case off = "off"
-    case thirtyMin = "30min"
-    case oneHour = "1hr"
-    case twoHours = "2hr"
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .off: "Off"
-        case .thirtyMin: "30 min"
-        case .oneHour: "1 hr"
-        case .twoHours: "2 hr"
-        }
-    }
-
-    var minutes: Int {
-        switch self {
-        case .off: 0
-        case .thirtyMin: 30
-        case .oneHour: 60
-        case .twoHours: 120
-        }
-    }
-}
 
 // MARK: - Setup View
 // Full-screen welcome shown after a Reset Everything.

@@ -106,7 +106,7 @@ impl Default for ForceParams {
             velocity_decay: 0.6,
             center_strength: 0.03,
             collision_radius: 26.0,
-            collision_iterations: 2,
+            collision_iterations: 1,
             // Extras off by default — clean d3-force baseline.
             cluster_strength: 0.0,
             center_mode: CenterMode::Attract,
@@ -361,6 +361,15 @@ pub struct Simulation {
     /// Original params temporarily overridden by search bullet-time.
     pub search_saved_velocity_decay: Option<f32>,
     pub search_saved_alpha_target: Option<f32>,
+    /// Viewport bounds in world space [min_x, min_y, max_x, max_y].
+    /// When set, only nodes inside (+ 1-hop neighbors) receive velocity updates.
+    /// None = simulate all nodes.
+    pub viewport_bounds: Option<[f32; 4]>,
+    /// Scratch buffer for viewport active mask, reused each tick to avoid allocation.
+    active_mask: Vec<bool>,
+    /// GPU-computed N-body forces to apply at next tick start, then drain.
+    /// Render thread writes, physics thread reads+clears. Protected by the sim mutex.
+    pub gpu_nbody_forces: Option<Vec<[f32; 2]>>,
 }
 
 impl Default for Simulation {
@@ -404,6 +413,9 @@ impl Simulation {
             fluid_grid: FluidGrid::new(),
             search_saved_velocity_decay: None,
             search_saved_alpha_target: None,
+            viewport_bounds: None,
+            active_mask: Vec::new(),
+            gpu_nbody_forces: None,
         }
     }
 
@@ -634,43 +646,54 @@ impl Simulation {
                 );
             }
 
-            // Many-body force (Barnes-Hut repulsion) — reuses scratch buffer.
-            self.bodies_scratch.clear();
-            forces::force_many_body_with_scratch(
-                &self.x,
-                &self.y,
-                &mut self.vx,
-                &mut self.vy,
-                &self.fx,
-                &self.fy,
-                self.params.charge_strength,
-                self.params.charge_range,
-                1.0, // distance_min (d3 default)
-                alpha,
-                &mut self.bodies_scratch,
-                &self.degrees,
-            );
+            // Many-body force: use GPU forces if available, otherwise CPU Barnes-Hut.
+            // GPU forces are written by the render thread via gpu_nbody_forces; draining
+            // them here is atomic within the mutex, preventing double-application.
+            if let Some(gpu_forces) = self.gpu_nbody_forces.take() {
+                let len = gpu_forces.len().min(n);
+                for i in 0..len {
+                    if self.fx[i].is_none() { self.vx[i] += gpu_forces[i][0]; }
+                    if self.fy[i].is_none() { self.vy[i] += gpu_forces[i][1]; }
+                }
+            } else {
+                self.bodies_scratch.clear();
+                forces::force_many_body_with_scratch(
+                    &self.x,
+                    &self.y,
+                    &mut self.vx,
+                    &mut self.vy,
+                    &self.fx,
+                    &self.fy,
+                    self.params.charge_strength,
+                    self.params.charge_range,
+                    1.0, // distance_min (d3 default)
+                    alpha,
+                    &mut self.bodies_scratch,
+                    &self.degrees,
+                );
+            }
 
             // Collision force (position-based overlap prevention) — reuses scratch grid.
-            // Passes fx/fy so fixed (dragged) nodes don't get pushed by collision.
-            // Full clear every 120 ticks to prevent stale key accumulation.
+            // Runs every 3rd tick to reduce CPU; overlap correction is gradual anyway.
             self.tick_count = self.tick_count.wrapping_add(1);
-            if self.tick_count.is_multiple_of(120) {
-                self.collision_grid.clear();
-            } else {
-                for v in self.collision_grid.values_mut() {
-                    v.clear();
+            if self.tick_count % 3 == 0 {
+                if self.tick_count.is_multiple_of(120) {
+                    self.collision_grid.clear();
+                } else {
+                    for v in self.collision_grid.values_mut() {
+                        v.clear();
+                    }
                 }
+                forces::force_collide_with_scratch(
+                    &mut self.x,
+                    &mut self.y,
+                    &self.collision_radii,
+                    &self.fx,
+                    &self.fy,
+                    self.params.collision_iterations,
+                    &mut self.collision_grid,
+                );
             }
-            forces::force_collide_with_scratch(
-                &mut self.x,
-                &mut self.y,
-                &self.collision_radii,
-                &self.fx,
-                &self.fy,
-                self.params.collision_iterations,
-                &mut self.collision_grid,
-            );
         }
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
@@ -778,30 +801,44 @@ impl Simulation {
         const MAX_VELOCITY: f32 = 500.0;
         let decay = self.params.velocity_decay;
         let mut max_speed_sq: f32 = 0.0;
-        for i in 0..n {
-            if let Some(fx_val) = self.fx[i] {
-                self.vx[i] = fx_val - self.x[i];
-                self.x[i] = fx_val;
-            } else {
-                self.vx[i] *= decay;
-                self.vx[i] = self.vx[i].clamp(-MAX_VELOCITY, MAX_VELOCITY);
-                self.x[i] += self.vx[i];
-                let spd = self.vx[i] * self.vx[i] + self.vy[i] * self.vy[i];
-                if spd > max_speed_sq { max_speed_sq = spd; }
-            }
-            if let Some(fy_val) = self.fy[i] {
-                self.vy[i] = fy_val - self.y[i];
-                self.y[i] = fy_val;
-            } else {
-                self.vy[i] *= decay;
-                self.vy[i] = self.vy[i].clamp(-MAX_VELOCITY, MAX_VELOCITY);
-                self.y[i] += self.vy[i];
-            }
 
-            // Safety: reset NaN/Inf positions to origin.
-            if !self.x[i].is_finite() { self.x[i] = 0.0; self.vx[i] = 0.0; }
-            if !self.y[i].is_finite() { self.y[i] = 0.0; self.vy[i] = 0.0; }
+        // Build viewport active mask — only update positions for visible + 1-hop neighbor nodes.
+        // Forces still compute on all nodes so the Barnes-Hut tree stays correct.
+        // Reuse scratch buffer to avoid per-tick allocation.
+        self.active_mask.clear();
+        self.active_mask.resize(n, true);
+        if let Some([vmin_x, vmin_y, vmax_x, vmax_y]) = self.viewport_bounds {
+            for i in 0..n {
+                self.active_mask[i] = self.x[i] >= vmin_x && self.x[i] <= vmax_x
+                    && self.y[i] >= vmin_y && self.y[i] <= vmax_y;
+            }
+            // Extend to exactly 1-hop neighbors: snapshot viewport membership first
+            // to prevent transitive propagation through edge-list ordering.
+            let viewport_mask: Vec<bool> = self.active_mask.clone();
+            for &(s, t) in &self.edges {
+                if s < n && t < n {
+                    if viewport_mask[s] { self.active_mask[t] = true; }
+                    if viewport_mask[t] { self.active_mask[s] = true; }
+                }
+            }
         }
+        // Take ownership of active mask to avoid borrow conflict with &mut self.
+        let active = std::mem::take(&mut self.active_mask);
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            self.integrate_velocities_neon(n, &active, decay, MAX_VELOCITY, &mut max_speed_sq);
+        }
+        #[cfg(not(target_arch = "aarch64"))]
+        {
+            Self::integrate_velocities_scalar(
+                &mut self.x, &mut self.y, &mut self.vx, &mut self.vy,
+                &self.fx, &self.fy, &active, n, decay, MAX_VELOCITY, &mut max_speed_sq,
+            );
+        }
+
+        // Return mask for reuse next tick.
+        self.active_mask = active;
 
         // Haptic event detection: significant node speed implies collision resolution
         // or force snap. Only fire when a node is being dragged (any_fixed).
@@ -817,9 +854,16 @@ impl Simulation {
 
         // Impact slow-motion: extra velocity damping during dramatic moments.
         if self.impact_frames > 0 {
-            for i in 0..n {
-                self.vx[i] *= 0.85;
-                self.vy[i] *= 0.85;
+            #[cfg(target_arch = "aarch64")]
+            {
+                Self::dampen_velocities_neon(&mut self.vx, &mut self.vy, n, 0.85);
+            }
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                for i in 0..n {
+                    self.vx[i] *= 0.85;
+                    self.vy[i] *= 0.85;
+                }
             }
         }
     }
@@ -889,6 +933,150 @@ impl Simulation {
             self.fy[sim_index] = None;
             self.vx[sim_index] = 0.0;
             self.vy[sim_index] = 0.0;
+        }
+    }
+
+    // ── SIMD velocity integration (aarch64 NEON) ─────────────────────────
+
+    /// Scalar velocity integration — shared by non-aarch64 fallback and SIMD remainder.
+    #[inline(always)]
+    fn integrate_velocities_scalar(
+        x: &mut [f32], y: &mut [f32], vx: &mut [f32], vy: &mut [f32],
+        fx: &[Option<f32>], fy: &[Option<f32>], active: &[bool],
+        n: usize, decay: f32, max_vel: f32, max_speed_sq: &mut f32,
+    ) {
+        for i in 0..n {
+            if !active[i] { continue; }
+            if let Some(fx_val) = fx[i] {
+                vx[i] = fx_val - x[i];
+                x[i] = fx_val;
+            } else {
+                vx[i] *= decay;
+                vx[i] = vx[i].clamp(-max_vel, max_vel);
+                x[i] += vx[i];
+                let spd = vx[i] * vx[i] + vy[i] * vy[i];
+                if spd > *max_speed_sq { *max_speed_sq = spd; }
+            }
+            if let Some(fy_val) = fy[i] {
+                vy[i] = fy_val - y[i];
+                y[i] = fy_val;
+            } else {
+                vy[i] *= decay;
+                vy[i] = vy[i].clamp(-max_vel, max_vel);
+                y[i] += vy[i];
+            }
+            if !x[i].is_finite() { x[i] = 0.0; vx[i] = 0.0; }
+            if !y[i].is_finite() { y[i] = 0.0; vy[i] = 0.0; }
+        }
+    }
+
+    /// NEON-accelerated velocity integration. Processes unpinned active nodes
+    /// in chunks of 4; falls back to scalar for pinned/inactive chunks and remainder.
+    #[cfg(target_arch = "aarch64")]
+    fn integrate_velocities_neon(
+        &mut self, n: usize, active: &[bool], decay: f32, max_vel: f32,
+        max_speed_sq: &mut f32,
+    ) {
+        use std::arch::aarch64::*;
+
+        let chunks = n / 4;
+        let remainder_start = chunks * 4;
+
+        // SAFETY: vld1q_f32/vst1q_f32 are unaligned loads/stores. Pointer offsets
+        // are bounded by `chunks * 4 <= n <= self.vx.len()`, so all accesses are in-bounds.
+        unsafe {
+            let v_decay = vdupq_n_f32(decay);
+            let v_max = vdupq_n_f32(max_vel);
+            let v_neg_max = vdupq_n_f32(-max_vel);
+
+            for c in 0..chunks {
+                let base = c * 4;
+
+                // Check if all 4 nodes in this chunk are active AND unpinned.
+                let all_eligible = active[base] && active[base + 1]
+                    && active[base + 2] && active[base + 3]
+                    && self.fx[base].is_none() && self.fx[base + 1].is_none()
+                    && self.fx[base + 2].is_none() && self.fx[base + 3].is_none()
+                    && self.fy[base].is_none() && self.fy[base + 1].is_none()
+                    && self.fy[base + 2].is_none() && self.fy[base + 3].is_none();
+
+                if !all_eligible {
+                    // Scalar fallback for this chunk.
+                    Self::integrate_velocities_scalar(
+                        &mut self.x[base..base + 4], &mut self.y[base..base + 4],
+                        &mut self.vx[base..base + 4], &mut self.vy[base..base + 4],
+                        &self.fx[base..base + 4], &self.fy[base..base + 4],
+                        &active[base..base + 4], 4, decay, max_vel, max_speed_sq,
+                    );
+                    continue;
+                }
+
+                // SIMD path: vx *= decay; clamp; x += vx (same for vy/y)
+                let mut vx4 = vld1q_f32(self.vx.as_ptr().add(base));
+                vx4 = vmulq_f32(vx4, v_decay);
+                vx4 = vminq_f32(vx4, v_max);
+                vx4 = vmaxq_f32(vx4, v_neg_max);
+                let mut x4 = vld1q_f32(self.x.as_ptr().add(base));
+                x4 = vaddq_f32(x4, vx4);
+                vst1q_f32(self.vx.as_mut_ptr().add(base), vx4);
+                vst1q_f32(self.x.as_mut_ptr().add(base), x4);
+
+                let mut vy4 = vld1q_f32(self.vy.as_ptr().add(base));
+                vy4 = vmulq_f32(vy4, v_decay);
+                vy4 = vminq_f32(vy4, v_max);
+                vy4 = vmaxq_f32(vy4, v_neg_max);
+                let mut y4 = vld1q_f32(self.y.as_ptr().add(base));
+                y4 = vaddq_f32(y4, vy4);
+                vst1q_f32(self.vy.as_mut_ptr().add(base), vy4);
+                vst1q_f32(self.y.as_mut_ptr().add(base), y4);
+
+                // max_speed_sq: compute per-node speed² and track maximum.
+                let spd4 = vaddq_f32(vmulq_f32(vx4, vx4), vmulq_f32(vy4, vy4));
+                let chunk_max = vmaxvq_f32(spd4);
+                if chunk_max > *max_speed_sq { *max_speed_sq = chunk_max; }
+
+                // NaN/Inf safety: check all 4 positions.
+                for j in base..base + 4 {
+                    if !self.x[j].is_finite() { self.x[j] = 0.0; self.vx[j] = 0.0; }
+                    if !self.y[j].is_finite() { self.y[j] = 0.0; self.vy[j] = 0.0; }
+                }
+            }
+        }
+
+        // Remainder nodes: scalar.
+        if remainder_start < n {
+            Self::integrate_velocities_scalar(
+                &mut self.x[remainder_start..], &mut self.y[remainder_start..],
+                &mut self.vx[remainder_start..], &mut self.vy[remainder_start..],
+                &self.fx[remainder_start..], &self.fy[remainder_start..],
+                &active[remainder_start..], n - remainder_start, decay, max_vel, max_speed_sq,
+            );
+        }
+    }
+
+    /// NEON-accelerated velocity damping (impact slow-motion).
+    #[cfg(target_arch = "aarch64")]
+    fn dampen_velocities_neon(vx: &mut [f32], vy: &mut [f32], n: usize, factor: f32) {
+        use std::arch::aarch64::*;
+
+        let chunks = n / 4;
+        let remainder_start = chunks * 4;
+
+        // SAFETY: NEON intrinsics operate on contiguous f32 slices within bounds.
+        unsafe {
+            let v_factor = vdupq_n_f32(factor);
+            for c in 0..chunks {
+                let base = c * 4;
+                let vx4 = vmulq_f32(vld1q_f32(vx.as_ptr().add(base)), v_factor);
+                vst1q_f32(vx.as_mut_ptr().add(base), vx4);
+                let vy4 = vmulq_f32(vld1q_f32(vy.as_ptr().add(base)), v_factor);
+                vst1q_f32(vy.as_mut_ptr().add(base), vy4);
+            }
+        }
+
+        for i in remainder_start..n {
+            vx[i] *= factor;
+            vy[i] *= factor;
         }
     }
 }
@@ -1072,7 +1260,7 @@ mod tests {
         assert_eq!(p.velocity_decay, 0.6);
         assert_eq!(p.center_strength, 0.03);
         assert_eq!(p.collision_radius, 26.0);
-        assert_eq!(p.collision_iterations, 2);
+        assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.0);
         assert_eq!(p.center_mode, CenterMode::Attract);
     }
@@ -1560,7 +1748,7 @@ mod tests {
         assert_eq!(p.velocity_decay, 0.6);
         assert_eq!(p.center_strength, 0.03);
         assert_eq!(p.collision_radius, 26.0);
-        assert_eq!(p.collision_iterations, 2);
+        assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.0);
         assert_eq!(p.center_mode, CenterMode::Attract);
         assert_eq!(p.semantic_strength, 0.0);

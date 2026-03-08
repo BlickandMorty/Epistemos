@@ -43,9 +43,11 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private var smallSize: CGFloat { max(baseFontSize - 1, 9) }
 
     /// Leading document title spacing.
-    static let leadingH1SpacingBefore: CGFloat = 24
+    static let leadingH1SpacingBefore: CGFloat = 36
     /// Mid-document H1 spacing.
-    static let sectionH1SpacingBefore: CGFloat = 18
+    static let sectionH1SpacingBefore: CGFloat = 30
+    /// Body indent — all non-H1 content is indented so H1 extends beyond (Notion-style).
+    static let bodyIndent: CGFloat = 28
 
     // MARK: - NSTextStorage Overrides
 
@@ -984,8 +986,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.lineSpacing = 3
         ps.paragraphSpacing = 1
         ps.paragraphSpacingBefore = 1
-        ps.headIndent = 20
-        ps.firstLineHeadIndent = 20
+        ps.headIndent = bodyIndent + 20
+        ps.firstLineHeadIndent = bodyIndent + 20
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -994,8 +996,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.lineSpacing = 3
         ps.paragraphSpacing = 0
         ps.paragraphSpacingBefore = 0
-        ps.headIndent = 16
-        ps.firstLineHeadIndent = 16
+        ps.headIndent = bodyIndent + 16
+        ps.firstLineHeadIndent = bodyIndent + 16
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -1004,21 +1006,24 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.lineSpacing = 5
         ps.paragraphSpacing = 8
         ps.paragraphSpacingBefore = 0
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
         return ps.copy() as! NSParagraphStyle
     }()
 
     private nonisolated(unsafe) static let h1Style: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
         ps.paragraphSpacingBefore = sectionH1SpacingBefore
-        ps.paragraphSpacing = 4          // Tight gap below title to body text
+        ps.paragraphSpacing = 6
         ps.lineSpacing = 0
+        // No indent — H1 bleeds past indented body text (Notion-style)
         return ps.copy() as! NSParagraphStyle
     }()
 
     private nonisolated(unsafe) static let leadingH1Style: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
         ps.paragraphSpacingBefore = leadingH1SpacingBefore
-        ps.paragraphSpacing = 4
+        ps.paragraphSpacing = 6
         ps.lineSpacing = 0
         return ps.copy() as! NSParagraphStyle
     }()
@@ -1028,6 +1033,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.paragraphSpacingBefore = 12
         ps.paragraphSpacing = 2
         ps.lineSpacing = 2
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -1036,6 +1043,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.paragraphSpacingBefore = 8
         ps.paragraphSpacing = 2
         ps.lineSpacing = 2
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -1044,6 +1053,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.paragraphSpacingBefore = 6
         ps.paragraphSpacing = 2
         ps.lineSpacing = 2
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -1052,6 +1063,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.paragraphSpacingBefore = 4
         ps.paragraphSpacing = 2
         ps.lineSpacing = 2
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -1059,7 +1072,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         let ps = NSMutableParagraphStyle()
         ps.lineSpacing = 3
         ps.paragraphSpacing = 1
-        ps.headIndent = 16
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent + 16
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -1069,6 +1083,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.lineSpacing = 4
         ps.paragraphSpacing = 1
         ps.paragraphSpacingBefore = 1
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
         return ps.copy() as! NSParagraphStyle
     }()
 

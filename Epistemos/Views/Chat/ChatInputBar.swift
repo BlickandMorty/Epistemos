@@ -165,11 +165,6 @@ struct ChatInputBar: View {
                     .accessibilityLabel("Send message")
                     .transition(.scale.combined(with: .opacity))
                     .animation(Motion.quick, value: trimmedText.isEmpty)
-                } else {
-                    // Provider badge — shows active LLM provider with brand color + icon
-                    ProviderBadge(provider: inference.apiProvider)
-                        .transition(.scale.combined(with: .opacity))
-                        .animation(Motion.quick, value: trimmedText.isEmpty)
                 }
             }
             .padding(.horizontal, Spacing.lg)
