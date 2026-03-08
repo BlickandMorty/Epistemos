@@ -206,7 +206,15 @@ extension ProseEditorRepresentable2 {
             guard let tv = textView else { return }
             let oldPageId = currentPageId
 
-            // 1. Save old page state (in-memory + disk)
+            // 1. Strip ephemeral content BEFORE reading text for save.
+            //    Folds replace real content with "…\n" — must restore first.
+            //    AI divider + unaccepted response must be discarded.
+            if !foldedSections.isEmpty {
+                clearAllFolds()
+            }
+            stripUnacceptedAIResponse()
+
+            // 2. Save old page state (in-memory + disk)
             saveCurrentPageState()
             let currentText = tv.string
             DiskStyleCache.shared.save(
@@ -216,7 +224,7 @@ extension ProseEditorRepresentable2 {
                 selection: tv.selectedRange()
             )
 
-            // 2. Flush unsaved edits to old page
+            // 3. Flush unsaved edits to old page
             if currentText != lastSyncedText {
                 parent.onPageFlush?(oldPageId, currentText)
             }
@@ -401,9 +409,31 @@ extension ProseEditorRepresentable2 {
             flushBindingSync()
         }
 
+        /// Strip in-progress AI response (divider + tokens) from storage.
+        /// Called before any save-path read of tv.string to avoid persisting ephemeral content.
+        private func stripUnacceptedAIResponse() {
+            guard let tv = textView, let ts = tv.textStorage else { return }
+            let str = ts.string
+            guard let range = str.range(of: Self.aiDivider, options: .backwards) else { return }
+            let nsRange = NSRange(range, in: str)
+            let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
+            isFlushingTokens = true
+            ts.replaceCharacters(in: deleteRange, with: "")
+            tv.didChangeText()
+            isFlushingTokens = false
+        }
+
         // MARK: - Dismantle
 
         func handleDismantle() {
+            // Strip ephemeral content before any save reads.
+            if !foldedSections.isEmpty { clearAllFolds() }
+            stripUnacceptedAIResponse()
+
+            // Flush binding FIRST so ProseEditorView.flushIfNeeded() sees current text.
+            // Must happen before cancel — the debounce window may hold unsaved keystrokes.
+            flushBindingSync()
+
             bindingSyncTask?.cancel()
             directSaveTask?.cancel()
             tableAlignTask?.cancel()
