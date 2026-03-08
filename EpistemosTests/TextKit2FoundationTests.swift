@@ -1360,3 +1360,66 @@ struct TextKit2Phase4EdgeCaseTests {
         tv.drawBackground(in: tv.bounds)
     }
 }
+
+// MARK: - Phase 5 Task 1: Checkbox Inline Styling
+
+@Suite("TextKit 2 - Checkbox Inline Styling")
+struct TextKit2CheckboxInlineTests {
+
+    @Test("unchecked checkbox gets monospace font")
+    func uncheckedMonospace() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [ ] unchecked")
+        let attrStr = NSMutableAttributedString(string: "- [ ] unchecked")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        let bodyFont = NSFont.systemFont(ofSize: 15)
+        attrStr.addAttributes([
+            .font: bodyFont,
+            .foregroundColor: NSColor.white
+        ], range: fullRange)
+        storage.applyInlineStyles(to: attrStr, fullRange: fullRange, isActive: true)
+        // The "[ ]" at position 2 should get monospace font from checkbox styling (kind 13)
+        let font = attrStr.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        #expect(font!.isFixedPitch, "Checkbox [ ] should be styled with a fixed-pitch (monospace) font")
+    }
+
+    @Test("checked checkbox gets monospace font")
+    func checkedMonospace() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [x] done task")
+        let attrStr = NSMutableAttributedString(string: "- [x] done task")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        let bodyFont = NSFont.systemFont(ofSize: 15)
+        attrStr.addAttributes([
+            .font: bodyFont,
+            .foregroundColor: NSColor.white
+        ], range: fullRange)
+        storage.applyInlineStyles(to: attrStr, fullRange: fullRange, isActive: true)
+        // The "[x]" at position 2 should get monospace font from checkbox styling (kind 14)
+        let font = attrStr.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        #expect(font!.isFixedPitch, "CheckboxChecked [x] should be styled with a fixed-pitch (monospace) font")
+    }
+
+    @Test("unchecked checkbox on inactive line is not body font")
+    func inactiveCheckbox() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "- [ ] todo")
+        let attrStr = NSMutableAttributedString(string: "- [ ] todo")
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        let bodyFont = NSFont.systemFont(ofSize: 15)
+        attrStr.addAttributes([
+            .font: bodyFont,
+            .foregroundColor: NSColor.white
+        ], range: fullRange)
+        storage.applyInlineStyles(to: attrStr, fullRange: fullRange, isActive: false)
+        // On inactive lines, checkbox should get styled differently from body text
+        let font = attrStr.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(font != nil)
+        // Either it gets monospace (styled) or gets hidden (ghost font size ~0.01)
+        let isMonospace = font!.isFixedPitch
+        let isGhostHidden = font!.pointSize < 1.0
+        #expect(isMonospace || isGhostHidden, "Inactive checkbox should either be monospace-styled or ghost-hidden, got: \(font!)")
+    }
+}

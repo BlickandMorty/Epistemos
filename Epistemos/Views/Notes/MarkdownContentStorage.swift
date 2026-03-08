@@ -27,6 +27,8 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         5,  // Italic
         6,  // Strikethrough
         7,  // InlineCode
+        13, // Checkbox
+        14, // CheckboxChecked
         15, // Wikilink
         16, // WikilinkBrackets
         17, // MarkdownLink
@@ -369,6 +371,18 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     .backgroundColor: accent.withAlphaComponent(0.10)
                 ], range: content)
             }
+
+        case 13: // Checkbox [ ] — accent marker, monospace
+            attrStr.addAttributes([
+                .foregroundColor: accent.withAlphaComponent(0.7),
+                .font: NSFont.monospacedSystemFont(ofSize: max(size - 1, 11), weight: .regular)
+            ], range: range)
+
+        case 14: // CheckboxChecked [x] — muted marker, monospace
+            attrStr.addAttributes([
+                .foregroundColor: muted,
+                .font: NSFont.monospacedSystemFont(ofSize: max(size - 1, 11), weight: .regular)
+            ], range: range)
 
         case 15: // Wikilink content — accent pill with native link
             let linkTitle = (attrStr.string as NSString).substring(with: range)
