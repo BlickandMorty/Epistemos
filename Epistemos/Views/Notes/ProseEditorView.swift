@@ -38,35 +38,53 @@ struct ProseEditorView: View {
     @State private var saveTask: Task<Void, Never>?
 
     var body: some View {
-        ProseEditorRepresentable(
-            text: $bodyText,
-            pageId: page.id,
-            pageBody: bodyText,
-            isFocused: isFocused,
-            isDark: ui.theme.isDark,
-            isEditable: isEditable,
-            isFocusMode: notesUI.isFocusMode,
-            modelContext: modelContext,
-            onWikilinkClick: handleWikilinkClick,
-            onBlockRefClick: handleBlockRefClick,
-            noteChatState: noteChatState,
-            onPageFlush: { oldPageId, currentText in
-                // Flush unsaved edits to the OLD page — body only, no metadata.
-                // Called by Coordinator during page swap so all flush logic
-                // lives in one place (updateNSView).
-                guard !oldPageId.isEmpty else { return }
-                let desc = FetchDescriptor<SDPage>(
-                    predicate: #Predicate<SDPage> { $0.id == oldPageId }
+        let flush: (String, String) -> Void = { oldPageId, currentText in
+            guard !oldPageId.isEmpty else { return }
+            let desc = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.id == oldPageId }
+            )
+            if let oldPage = try? modelContext.fetch(desc).first {
+                oldPage.saveBody(currentText)
+                oldPage.needsVaultSync = true
+                try? modelContext.save()
+            }
+        }
+
+        Group {
+            if notesUI.useTK2Editor {
+                ProseEditorRepresentable2(
+                    text: $bodyText,
+                    pageId: page.id,
+                    pageBody: bodyText,
+                    isFocused: isFocused,
+                    theme: ui.theme,
+                    isEditable: isEditable,
+                    isFocusMode: notesUI.isFocusMode,
+                    modelContext: modelContext,
+                    onWikilinkClick: handleWikilinkClick,
+                    onBlockRefClick: handleBlockRefClick,
+                    noteChatState: noteChatState,
+                    onPageFlush: flush,
+                    graphState: graphState
                 )
-                if let oldPage = try? modelContext.fetch(desc).first {
-                    // File write first, dirty flag + save after — same ordering as debouncedSave.
-                    oldPage.saveBody(currentText)
-                    oldPage.needsVaultSync = true
-                    try? modelContext.save()
-                }
-            },
-            graphState: graphState
-        )
+            } else {
+                ProseEditorRepresentable(
+                    text: $bodyText,
+                    pageId: page.id,
+                    pageBody: bodyText,
+                    isFocused: isFocused,
+                    isDark: ui.theme.isDark,
+                    isEditable: isEditable,
+                    isFocusMode: notesUI.isFocusMode,
+                    modelContext: modelContext,
+                    onWikilinkClick: handleWikilinkClick,
+                    onBlockRefClick: handleBlockRefClick,
+                    noteChatState: noteChatState,
+                    onPageFlush: flush,
+                    graphState: graphState
+                )
+            }
+        }
         .onAppear {
             let body = page.loadBody()
             bodyText = body

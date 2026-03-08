@@ -38,6 +38,14 @@ final class NotesUIState {
         }
     }
 
+    // MARK: - TextKit 2 Editor
+
+    /// When true, uses ProseEditorRepresentable2 (TextKit 2 stack).
+    /// Persisted via UserDefaults for cross-session stickiness.
+    var useTK2Editor: Bool = UserDefaults.standard.bool(forKey: "epistemos.editor.useTK2") {
+        didSet { UserDefaults.standard.set(useTK2Editor, forKey: "epistemos.editor.useTK2") }
+    }
+
     // MARK: - Focus Mode
 
     /// When true, dims all paragraphs except the one containing the cursor.

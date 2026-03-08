@@ -446,6 +446,7 @@ private struct NotePageContent: View {
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
     @State private var tocItems: [TOCItem] = []
+    @State private var wordCountDebounce: Task<Void, Never>?
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
@@ -620,6 +621,17 @@ private struct NotePageContent: View {
                         systemImage: showPreview ? "pencil" : "eye")
                 }
                 .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
+            }
+
+            // TK2 toggle (development — remove after migration)
+            ToolbarItem {
+                Button { notesUI.useTK2Editor.toggle() } label: {
+                    Label(
+                        notesUI.useTK2Editor ? "TK1" : "TK2",
+                        systemImage: notesUI.useTK2Editor ? "2.square.fill" : "2.square"
+                    )
+                }
+                .help(notesUI.useTK2Editor ? "Switch to TextKit 1" : "Switch to TextKit 2")
             }
 
             // Section navigator
@@ -809,7 +821,14 @@ private struct NotePageContent: View {
         ) { _ in refreshTabCount() }
         .onReceive(
             NotificationCenter.default.publisher(for: NSText.didChangeNotification)
-        ) { _ in refreshWordCount() }
+        ) { _ in
+            wordCountDebounce?.cancel()
+            wordCountDebounce = Task {
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }
+                refreshWordCount()
+            }
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: ClickableTextView.createIdeaNotification)
         ) { notif in

@@ -70,6 +70,7 @@
 		33C00A85A6F9B9522023D78D /* SDPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654F422C75468BDA30E3F786 /* SDPage.swift */; };
 		33DDF480F8BCF27AFADC6002 /* EpistemosFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */; };
 		34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */; };
+		1B8667E77DDBAE17AF042F9F /* ProseEditorRepresentable2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110461BC4A4A31B2FC52CFD8 /* ProseEditorRepresentable2.swift */; };
 		34AB035DB3836B164B7043AC /* BlockSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64C476599982FABD5D575935 /* BlockSearchTests.swift */; };
 		37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */; };
 		3A108651CC3EAA7022379103 /* WordProcessorIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9EF6E868A181F943681131F /* WordProcessorIntents.swift */; };
@@ -358,6 +359,7 @@
 		5D4B9B2A663CE3A6DA5BD213 /* SignalGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalGenerator.swift; sourceTree = "<group>"; };
 		5E979014D947958278ACFCF5 /* ResearchTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchTypes.swift; sourceTree = "<group>"; };
 		61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseEditorRepresentable.swift; sourceTree = "<group>"; };
+		110461BC4A4A31B2FC52CFD8 /* ProseEditorRepresentable2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseEditorRepresentable2.swift; sourceTree = "<group>"; };
 		6191BDA6829275B572F2D2AB /* StatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBar.swift; sourceTree = "<group>"; };
 		631B76DC8FFADF44A0EB0F6C /* ClickableTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClickableTextView.swift; sourceTree = "<group>"; };
 		64C476599982FABD5D575935 /* BlockSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockSearchTests.swift; sourceTree = "<group>"; };
@@ -724,6 +726,7 @@
 				CC2E5F70718293B5CD1E2F3F /* ConfidenceOverlay.swift */,
 				ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */,
 				61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */,
+				110461BC4A4A31B2FC52CFD8 /* ProseEditorRepresentable2.swift */,
 				3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */,
 				PTV200000000000000001 /* ProseTextView2.swift */,
 				2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */,
@@ -1291,6 +1294,7 @@
 				C36BBEB08DF48D61FFADEA08 /* PromptComposer.swift in Sources */,
 				C36BBEB18DF48D62FFADEA09 /* PromptComposer+Consolidated.swift in Sources */,
 				34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */,
+				1B8667E77DDBAE17AF042F9F /* ProseEditorRepresentable2.swift in Sources */,
 				82276E364C4840E91EC05660 /* ProseEditorView.swift in Sources */,
 				PTV200000000000000002 /* ProseTextView2.swift in Sources */,
 				2C375BDC6C96C53774B42003 /* ProviderDropdown.swift in Sources */,
