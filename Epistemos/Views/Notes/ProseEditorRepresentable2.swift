@@ -185,9 +185,80 @@ extension ProseEditorRepresentable2 {
         }
 
         // MARK: - Page Swap
+        // Saves old page state, flushes unsaved edits, loads new content in-place.
+        // No storage instance swap (unlike TK1) — reparse + replace is sufficient.
 
         func handlePageSwap() {
-            // placeholder — Task 3
+            guard let tv = textView else { return }
+            let oldPageId = currentPageId
+
+            // 1. Save old page state (in-memory + disk)
+            saveCurrentPageState()
+            let currentText = tv.string
+            DiskStyleCache.shared.save(
+                pageId: oldPageId,
+                bodyText: currentText,
+                scrollY: scrollView?.contentView.bounds.origin.y ?? 0,
+                selection: tv.selectedRange()
+            )
+
+            // 2. Flush unsaved edits to old page
+            if currentText != lastSyncedText {
+                parent.onPageFlush?(oldPageId, currentText)
+            }
+
+            // 3. Cancel pending tasks
+            bindingSyncTask?.cancel()
+            directSaveTask?.cancel()
+            tableAlignTask?.cancel()
+
+            // 4. Load new page
+            let newPageId = parent.pageId
+            let newBody = parent.pageBody
+            currentPageId = newPageId
+
+            // 5. Replace text in-place + reparse
+            tv.markdownDelegate.reparse(text: newBody)
+            let textStorage = tv.textStorage!
+            isFlushingTokens = true
+            textStorage.beginEditing()
+            textStorage.replaceCharacters(
+                in: NSRange(location: 0, length: textStorage.length),
+                with: newBody
+            )
+            textStorage.endEditing()
+            tv.didChangeText()
+            isFlushingTokens = false
+            lastSyncedText = newBody
+
+            // 6. Restore state for new page
+            if let state = pageStates[newPageId] {
+                tv.setSelectedRange(state.selection)
+                scrollView?.contentView.scroll(to: NSPoint(x: 0, y: state.scrollY))
+            } else if let diskState = DiskStyleCache.shared.restore(
+                pageId: newPageId, currentBodyText: newBody
+            ) {
+                tv.setSelectedRange(diskState.selection)
+                scrollView?.contentView.scroll(to: NSPoint(x: 0, y: diskState.scrollY))
+            } else {
+                tv.setSelectedRange(NSRange(location: 0, length: 0))
+                scrollView?.contentView.scroll(to: .zero)
+            }
+
+            // 7. Per-page undo manager
+            if let state = pageStates[newPageId] {
+                tv.pageUndoManager = state.undoManager
+            } else {
+                tv.pageUndoManager = UndoManager()
+            }
+
+            // 8. Update derived state
+            lastTheme = parent.theme
+            lastIsFocusMode = parent.isFocusMode
+            lastIsEditable = parent.isEditable
+            tv.isEditable = parent.isEditable
+            updateCentering()
+            tv.window?.makeFirstResponder(tv)
         }
 
         // MARK: - Theme Change

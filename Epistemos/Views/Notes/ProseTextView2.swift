@@ -16,6 +16,14 @@ final class ProseTextView2: NSTextView {
     /// When true, dim all paragraphs except the one containing the insertion point.
     nonisolated(unsafe) var isFocusMode = false
 
+    /// Per-page undo manager, set by Coordinator2 on page swap.
+    /// When nil, falls back to NSTextView's default undo manager.
+    var pageUndoManager: UndoManager?
+
+    override var undoManager: UndoManager? {
+        pageUndoManager ?? super.undoManager
+    }
+
     func applyTheme(_ theme: EpistemosTheme) {
         let foreground = NSColor(theme.foreground)
         backgroundColor = NSColor(theme.background)
