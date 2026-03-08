@@ -425,6 +425,7 @@ private struct NotePageContent: View {
 
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
     @Environment(UIState.self) private var ui
+    @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(ResearchState.self) private var researchState
     @Environment(EventBus.self) private var eventBus
@@ -689,6 +690,9 @@ private struct NotePageContent: View {
                 .hidden()
             Button("") { navState?.forward() }
                 .keyboardShortcut("]", modifiers: .command)
+                .hidden()
+            Button("") { notesUI.isFocusMode.toggle() }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
                 .hidden()
         }
         .popover(isPresented: $showInfoPopover) {

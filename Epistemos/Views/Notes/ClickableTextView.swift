@@ -47,6 +47,9 @@ final class ClickableTextView: NSTextView {
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
 
+    /// When true, dim all paragraphs except the one containing the insertion point.
+    nonisolated(unsafe) var isFocusMode = false
+
     // MARK: - Per-Page Undo Manager
     // Override the default undo manager (which comes from the window's responder chain)
     // so each page has its own isolated undo history. Set by the Coordinator on page swap.
@@ -877,6 +880,36 @@ final class ClickableTextView: NSTextView {
         NotificationCenter.default.post(
             name: Self.blockPropertyNotification, object: nil, userInfo: userInfo
         )
+    }
+
+    // MARK: - Focus Mode Dim
+
+    /// Apply temporary foreground attributes to dim non-active paragraphs.
+    /// Called by Coordinator on selection change when focus mode is active.
+    func applyFocusDimming() {
+        guard isFocusMode, let lm = layoutManager, let ts = textStorage else {
+            clearFocusDimming()
+            return
+        }
+
+        let fullRange = NSRange(location: 0, length: ts.length)
+        guard fullRange.length > 0 else { return }
+        let cursorRange = selectedRange()
+        let activeParaRange = (string as NSString).paragraphRange(for: cursorRange)
+
+        lm.addTemporaryAttribute(.foregroundColor,
+            value: NSColor.textColor.withAlphaComponent(0.25),
+            forCharacterRange: fullRange)
+
+        lm.removeTemporaryAttribute(.foregroundColor,
+            forCharacterRange: activeParaRange)
+    }
+
+    /// Clear all focus mode dimming.
+    func clearFocusDimming() {
+        guard let ts = textStorage, ts.length > 0 else { return }
+        layoutManager?.removeTemporaryAttribute(.foregroundColor,
+            forCharacterRange: NSRange(location: 0, length: ts.length))
     }
 }
 

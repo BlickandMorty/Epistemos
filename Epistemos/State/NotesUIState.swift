@@ -38,6 +38,19 @@ final class NotesUIState {
         }
     }
 
+    // MARK: - Focus Mode
+
+    /// When true, dims all paragraphs except the one containing the cursor.
+    var isFocusMode = false
+
+    // MARK: - Session Word Target
+
+    /// Word count at the start of the current writing session.
+    var sessionStartWordCount = 0
+
+    /// Target word count for the session (nil = no target).
+    var sessionWordTarget: Int?
+
     // MARK: - Folder Expansion
     /// IDs of folders currently expanded in the sidebar.
     /// Empty set = all collapsed (default on every sidebar open).

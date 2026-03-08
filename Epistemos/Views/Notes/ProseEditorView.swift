@@ -45,6 +45,7 @@ struct ProseEditorView: View {
             isFocused: isFocused,
             isDark: ui.theme.isDark,
             isEditable: isEditable,
+            isFocusMode: notesUI.isFocusMode,
             modelContext: modelContext,
             onWikilinkClick: handleWikilinkClick,
             onBlockRefClick: handleBlockRefClick,

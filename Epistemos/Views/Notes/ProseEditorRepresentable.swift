@@ -34,6 +34,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     let isFocused: Bool
     let isDark: Bool
     let isEditable: Bool
+    let isFocusMode: Bool
     var modelContext: ModelContext?
 
     /// Called when user clicks a [[wikilink]] in the editor.
@@ -368,6 +369,15 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             tv.isEditable = isEditable
         }
 
+        // Focus mode — sync from NotesUIState
+        let wasFocus = tv.isFocusMode
+        tv.isFocusMode = isFocusMode
+        if wasFocus && !isFocusMode {
+            tv.clearFocusDimming()
+        } else if isFocusMode {
+            tv.applyFocusDimming()
+        }
+
         // Reset page swap flag BEFORE text sync so the sync can correct stale cache content.
         // onChange(of: page.id) sets bodyText = page.body, making text == pageBody.
         // Once that happens, the swap is complete and text sync should be active.
@@ -700,7 +710,19 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
-            // Selection tracking — no special behavior needed
+            guard let tv = notification.object as? ClickableTextView else { return }
+            if tv.isFocusMode {
+                tv.applyFocusDimming()
+                if let scrollView = tv.enclosingScrollView {
+                    let insertionRect = tv.firstRect(forCharacterRange: tv.selectedRange(), actualRange: nil)
+                    let localRect = tv.convert(insertionRect, from: nil)
+                    let visibleHeight = scrollView.contentView.bounds.height
+                    var scrollPoint = localRect.origin
+                    scrollPoint.y -= visibleHeight / 2
+                    scrollPoint.y = max(0, scrollPoint.y)
+                    tv.scroll(scrollPoint)
+                }
+            }
         }
 
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
@@ -951,7 +973,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // MARK: - Transclusion Edit
 
         /// Handle edits from an EditableTransclusionView overlay.
-        /// Updates the source SDBlock in SwiftData directly.
+        /// Updates the source SDBlock in SwiftData and syncs to BTK.
         func handleTransclusionEdit(blockId: String, newContent: String) {
             guard let mc = parent.modelContext else { return }
 
@@ -962,8 +984,14 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             block.content = newContent
             block.updatedAt = .now
 
-            // TODO: Route through BTK (blockEditTranslator) when UpdateBlock FFI is available.
-            // For now, direct SwiftData mutation is the edit path.
+            if let engine = parent.graphState?.engineHandle {
+                _ = BlockEditTranslator.updateBlock(
+                    blockId: blockId,
+                    pageId: block.pageId,
+                    newContent: newContent,
+                    engine: engine
+                )
+            }
         }
 
         // MARK: - Binding Sync
