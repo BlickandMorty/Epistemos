@@ -39,35 +39,24 @@ struct LiquidGreeting: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: compact ? 8 : 16) {
-            HStack(alignment: .center, spacing: 0) {
-                // Text — directly rendered in theme color, no material masking
-                Text(displayText)
-                    .font(greetingFont)
-                    .foregroundStyle(theme.fontAccent)
-                    .fixedSize(horizontal: true, vertical: true)
+        HStack(alignment: .center, spacing: 0) {
+            // Text — directly rendered in theme color, no material masking
+            Text(displayText)
+                .font(greetingFont)
+                .foregroundStyle(theme.fontAccent)
+                .fixedSize(horizontal: true, vertical: true)
 
-                // Block cursor — always present, blinks via Task loop.
-                Rectangle()
-                    .fill(theme.fontAccent.opacity(0.85))
-                    .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
-                    .clipShape(RoundedRectangle(cornerRadius: 2))
-                    .opacity(cursorVisible ? 1 : 0)
-                    .animation(.easeInOut(duration: 0.3), value: cursorVisible)
-                    .padding(.leading, 2)
-            }
-
-            // Indexing indicator — shows during initial vault import
-            if vaultSync.isIndexing {
-                Text("wait...indexing")
-                    .font(.custom("RetroGaming", size: compact ? 11 : 16))
-                    .foregroundStyle(theme.fontAccent.opacity(0.4))
-                    .transition(.opacity)
-            }
+            // Block cursor — always present, blinks via Task loop.
+            Rectangle()
+                .fill(theme.fontAccent.opacity(0.85))
+                .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
+                .clipShape(RoundedRectangle(cornerRadius: 2))
+                .opacity(cursorVisible ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: cursorVisible)
+                .padding(.leading, 2)
         }
         .frame(minHeight: compact ? 0 : 80)
         .shadow(color: compact ? .clear : theme.fontAccent.opacity(0.12), radius: compact ? 0 : 8)
-        .animation(.smooth(duration: 0.3), value: vaultSync.isIndexing)
         // Single reactive task — SwiftUI cancels + restarts when taskKey changes.
         // No manual onAppear/onDisappear/onChange juggling needed.
         .task(id: taskKey) {
@@ -124,53 +113,81 @@ struct LiquidGreeting: View {
 
     @MainActor
     private func typewriterLoop() async {
+        // === INDEXING PHASE ===
+        // If vault is indexing on launch, type "indexing..." and hold until done.
+        if vaultSync.isIndexing {
+            let indexText = "indexing..."
+            await typePhrase(indexText)
+            guard !Task.isCancelled else { return }
+
+            // Hold — poll until indexing finishes
+            while vaultSync.isIndexing && !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            guard !Task.isCancelled else { return }
+
+            // Brief pause then untype
+            try? await Task.sleep(for: .milliseconds(400))
+            await untypePhrase(indexText)
+            guard !Task.isCancelled else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+        }
+
+        // === NORMAL GREETING LOOP ===
         var lastPhrase = ""
         var currentPhrase = ShortPrompts.greetings.randomElement() ?? "Greetings, Researcher"
 
         while !Task.isCancelled {
-            // === TYPE ===
-            for i in 1...currentPhrase.count {
-                guard !Task.isCancelled else { return }
-                displayText = String(currentPhrase.prefix(i))
+            await typePhrase(currentPhrase)
+            guard !Task.isCancelled else { return }
 
-                let ch = displayText.last ?? " "
-                var delay: Double = Double.random(in: 45...75)
-
-                if ".!?".contains(ch) { delay += Double.random(in: 200...400) }
-                else if ",;:".contains(ch) { delay += Double.random(in: 80...160) }
-                else if ch == " " && Double.random(in: 0...1) < 0.08 { delay += Double.random(in: 60...120) }
-
-                // Natural stutter
-                if Double.random(in: 0...1) < 0.10 { delay += Double.random(in: 120...250) }
-                if Double.random(in: 0...1) < 0.03 { delay += Double.random(in: 350...600) }
-
-                if i <= 2 { delay += 100 }
-
-                try? await Task.sleep(for: .milliseconds(Int(delay)))
-            }
-
-            // === PAUSE ===
             let pauseTime = currentPhrase.count < 8 ? 1200 : Int.random(in: 2400...3200)
             try? await Task.sleep(for: .milliseconds(pauseTime))
+            guard !Task.isCancelled else { return }
 
-            // === DELETE ===
-            var charIdx = currentPhrase.count
-            try? await Task.sleep(for: .milliseconds(80))
-            while charIdx > 0 && !Task.isCancelled {
-                let progress = 1.0 - Double(charIdx) / Double(currentPhrase.count)
-                let deleteSpeed = max(8, 28 - Int(progress * 20))
-                let charsToDelete = charIdx > 10 ? min(charIdx, 1 + Int.random(in: 0...1)) : 1
-                charIdx = max(0, charIdx - charsToDelete)
-                displayText = String(currentPhrase.prefix(charIdx))
-                try? await Task.sleep(for: .milliseconds(deleteSpeed))
-            }
+            await untypePhrase(currentPhrase)
+            guard !Task.isCancelled else { return }
 
-            // === PICK NEXT ===
             try? await Task.sleep(for: .milliseconds(Int.random(in: 300...500)))
 
-            // Pick from short prompts, avoiding repeat
             currentPhrase = ShortPrompts.pickRandom(excluding: lastPhrase)
             lastPhrase = currentPhrase
+        }
+    }
+
+    @MainActor
+    private func typePhrase(_ phrase: String) async {
+        for i in 1...phrase.count {
+            guard !Task.isCancelled else { return }
+            displayText = String(phrase.prefix(i))
+
+            let ch = displayText.last ?? " "
+            var delay: Double = Double.random(in: 45...75)
+
+            if ".!?".contains(ch) { delay += Double.random(in: 200...400) }
+            else if ",;:".contains(ch) { delay += Double.random(in: 80...160) }
+            else if ch == " " && Double.random(in: 0...1) < 0.08 { delay += Double.random(in: 60...120) }
+
+            if Double.random(in: 0...1) < 0.10 { delay += Double.random(in: 120...250) }
+            if Double.random(in: 0...1) < 0.03 { delay += Double.random(in: 350...600) }
+
+            if i <= 2 { delay += 100 }
+
+            try? await Task.sleep(for: .milliseconds(Int(delay)))
+        }
+    }
+
+    @MainActor
+    private func untypePhrase(_ phrase: String) async {
+        var charIdx = phrase.count
+        try? await Task.sleep(for: .milliseconds(80))
+        while charIdx > 0 && !Task.isCancelled {
+            let progress = 1.0 - Double(charIdx) / Double(phrase.count)
+            let deleteSpeed = max(8, 28 - Int(progress * 20))
+            let charsToDelete = charIdx > 10 ? min(charIdx, 1 + Int.random(in: 0...1)) : 1
+            charIdx = max(0, charIdx - charsToDelete)
+            displayText = String(phrase.prefix(charIdx))
+            try? await Task.sleep(for: .milliseconds(deleteSpeed))
         }
     }
 }
