@@ -548,6 +548,12 @@ impl Simulation {
             self.is_settled = false;
         }
 
+        // Warm start: run ticks synchronously with high damping to pre-settle
+        // the layout before the first render. The user never sees the unsettled state.
+        if !self.user_frozen && !self.static_layout && self.x.len() > 1 {
+            self.warm_start();
+        }
+
         // Reset fluid grid and compute bounds from node positions.
         self.fluid_grid.clear();
         if !self.x.is_empty() {
@@ -563,6 +569,45 @@ impl Simulation {
             }
             self.fluid_grid.update_bounds(min_x, min_y, max_x, max_y);
         }
+    }
+
+    /// Pre-settle layout by running ticks with aggressive damping.
+    /// Nodes reach approximate equilibrium before the first render frame.
+    fn warm_start(&mut self) {
+        let n = self.x.len();
+        // Scale iterations with graph size — larger graphs need more settling.
+        let iterations = match n {
+            0..=50 => 80,
+            51..=200 => 120,
+            201..=1000 => 200,
+            _ => 300,
+        };
+
+        // Save and override params for fast convergence.
+        let saved_decay = self.params.velocity_decay;
+        let saved_viewport = self.viewport_bounds.take();
+
+        self.params.alpha = 0.8;
+        self.params.velocity_decay = 0.3; // Heavy damping — nodes stop quickly
+        self.viewport_bounds = None; // All nodes active
+
+        for _ in 0..iterations {
+            self.tick();
+            if self.is_settled { break; }
+        }
+
+        // Restore params for interactive phase: low alpha, normal damping.
+        self.params.alpha = 0.1; // Gentle refinement from here
+        self.params.velocity_decay = saved_decay;
+        self.viewport_bounds = saved_viewport;
+        self.is_settled = false;
+
+        // Zero velocities so nodes don't drift from their settled positions.
+        for v in &mut self.vx { *v = 0.0; }
+        for v in &mut self.vy { *v = 0.0; }
+
+        // Reset tick_count so tests and collision throttling start fresh.
+        self.tick_count = 0;
     }
 
     /// Inject drag velocity into the fluid grid at a world position.
@@ -678,26 +723,24 @@ impl Simulation {
             }
 
             // Collision force (position-based overlap prevention) — reuses scratch grid.
-            // Runs every 3rd tick to reduce CPU; overlap correction is gradual anyway.
+            // Runs every tick to prevent visible bumping with velocity extrapolation.
             self.tick_count = self.tick_count.wrapping_add(1);
-            if self.tick_count % 3 == 0 {
-                if self.tick_count.is_multiple_of(120) {
-                    self.collision_grid.clear();
-                } else {
-                    for v in self.collision_grid.values_mut() {
-                        v.clear();
-                    }
+            if self.tick_count.is_multiple_of(120) {
+                self.collision_grid.clear();
+            } else {
+                for v in self.collision_grid.values_mut() {
+                    v.clear();
                 }
-                forces::force_collide_with_scratch(
-                    &mut self.x,
-                    &mut self.y,
-                    &self.collision_radii,
-                    &self.fx,
-                    &self.fy,
-                    self.params.collision_iterations,
-                    &mut self.collision_grid,
-                );
             }
+            forces::force_collide_with_scratch(
+                &mut self.x,
+                &mut self.y,
+                &self.collision_radii,
+                &self.fx,
+                &self.fy,
+                self.params.collision_iterations,
+                &mut self.collision_grid,
+            );
         }
 
         // Center force: pull toward anchor (page mode) or origin (global mode).
@@ -928,6 +971,10 @@ impl Simulation {
         if sim_index < self.x.len() {
             self.fx[sim_index] = Some(fx);
             self.fy[sim_index] = Some(fy);
+            self.x[sim_index] = fx;
+            self.y[sim_index] = fy;
+            self.vx[sim_index] = 0.0;
+            self.vy[sim_index] = 0.0;
         }
     }
 

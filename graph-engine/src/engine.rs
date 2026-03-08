@@ -511,11 +511,17 @@ impl Engine {
         self.world.py.resize(n, 0.0);
         self.world.pvx.resize(n, 0.0);
         self.world.pvy.resize(n, 0.0);
+        // Minimum speed² below which extrapolation is skipped (avoids noise amplification).
+        const EXTRAP_THRESHOLD_SQ: f32 = 0.25; // 0.5 px/tick
         for i in 0..n {
             let vx = sim.vx[i];
             let vy = sim.vy[i];
-            let ex = sim.x[i] + vx * dt;
-            let ey = sim.y[i] + vy * dt;
+            let speed_sq = vx * vx + vy * vy;
+            let (ex, ey) = if speed_sq > EXTRAP_THRESHOLD_SQ {
+                (sim.x[i] + vx * dt, sim.y[i] + vy * dt)
+            } else {
+                (sim.x[i], sim.y[i])
+            };
             self.world.transform[i].x = ex;
             self.world.transform[i].y = ey;
             self.world.velocity[i].vx = vx;
@@ -564,7 +570,7 @@ impl Engine {
         // Forces are written to sim.gpu_nbody_forces; the physics thread drains them
         // atomically at the start of its next tick, preventing double-application.
         let n = self.world.len();
-        if n > 200 && self.renderer.compute_pipeline.is_some() {
+        if n > 2000 && self.renderer.compute_pipeline.is_some() {
             self.gpu_positions_scratch.clear();
             self.gpu_positions_scratch.reserve(n);
             for i in 0..n {
@@ -1555,15 +1561,9 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
 
             // Adaptive rate: fewer ticks at high node counts.
             let target_dt = Duration::from_secs_f64(1.0 / adaptive_physics_hz(node_count));
-            // Extra throttle when nearly settled.
-            let frame_dt = if alpha < 0.01 {
-                target_dt.max(Duration::from_secs_f64(1.0 / 15.0))
-            } else {
-                target_dt
-            };
             let elapsed = start.elapsed();
-            if elapsed < frame_dt {
-                std::thread::sleep(frame_dt - elapsed);
+            if elapsed < target_dt {
+                std::thread::sleep(target_dt - elapsed);
             }
         }
     }));
