@@ -53,8 +53,8 @@ enum SpotlightIndexer {
         }
     }
 
-    /// Remove a note from Spotlight index.
-    static func deindex(_ pageId: String) {
+    /// Remove a note from Spotlight index. Thread-safe (CSSearchableIndex is sendable).
+    nonisolated static func deindex(_ pageId: String) {
         CSSearchableIndex.default().deleteSearchableItems(withIdentifiers: [pageId]) { error in
             if let error {
                 Log.notes.error("Spotlight deindex failed: \(error.localizedDescription, privacy: .private)")

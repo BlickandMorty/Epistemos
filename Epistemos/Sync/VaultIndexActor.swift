@@ -168,6 +168,7 @@ actor VaultIndexActor {
         var deleteCount = 0
         for path in deletedPaths {
             if let page = existingByPath[path] {
+                SpotlightIndexer.deindex(page.id)
                 modelContext.delete(page)
                 deleteCount += 1
             }
@@ -472,6 +473,7 @@ actor VaultIndexActor {
             }
             // Clean up orphaned SDNoteInsight
             let pageId = page.id
+            SpotlightIndexer.deindex(pageId)
             let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
             if let insight = try? modelContext.fetch(insightDesc).first {
                 modelContext.delete(insight)
