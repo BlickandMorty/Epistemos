@@ -18,9 +18,25 @@ struct RootView: View {
     var onResetDatabase: (() -> Void)?
 
     @State private var appearanceObserver = SystemAppearanceObserver()
-    /// Delayed flag — prevents toolbar glass from flashing during landing→chat transition.
-    @State private var showToolbarGlass = false
     @State private var showDatabaseAlert = false
+
+    /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
+    /// Only delays the *reveal*; hiding is always immediate.
+    @State private var homeChatToolbarReady = false
+
+    /// True when Home tab is showing an active chat (not landing).
+    private var activeHomeChat: Bool {
+        ui.homeTab == .home && !chat.showLanding && !chat.messages.isEmpty
+    }
+
+    /// Canonical toolbar glass visibility — deterministic from app state.
+    /// For non-Home tabs: always visible.
+    /// For Home landing: always hidden.
+    /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
+    private var toolbarGlassVisible: Bool {
+        if ui.homeTab != .home { return true }
+        return activeHomeChat && homeChatToolbarReady
+    }
 
     var body: some View {
         ZStack {
@@ -91,37 +107,22 @@ struct RootView: View {
         }
         .navigationTitle("")
         // Toolbar glass: hidden on home landing, visible for chat/library/settings.
+        // Canonical rule is derived from app state (deterministic).
+        // `homeChatToolbarReady` only gates the Home landing→chat reveal to avoid flash.
         .toolbarBackgroundVisibility(
-            showToolbarGlass ? .automatic : .hidden,
+            toolbarGlassVisible ? .automatic : .hidden,
             for: .windowToolbar
         )
-        .onChange(of: ui.homeTab) { _, tab in
-            if tab != .home {
-                showToolbarGlass = true
-            } else if chat.showLanding || chat.messages.isEmpty {
-                showToolbarGlass = false
-            }
-        }
-        .onChange(of: !chat.messages.isEmpty) { _, hasMessages in
-            guard ui.homeTab == .home else { return }
-            if hasMessages && !chat.showLanding {
+        .onChange(of: activeHomeChat) { _, isActive in
+            if isActive {
+                // Delay reveal until HomeRouter's landing→chat animation settles.
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(350))
-                    showToolbarGlass = true
+                    homeChatToolbarReady = true
                 }
             } else {
-                showToolbarGlass = false
-            }
-        }
-        .onChange(of: chat.showLanding) { _, isLanding in
-            guard ui.homeTab == .home else { return }
-            if isLanding {
-                showToolbarGlass = false
-            } else if !chat.messages.isEmpty {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(350))
-                    showToolbarGlass = true
-                }
+                // Hide immediately when returning to landing.
+                homeChatToolbarReady = false
             }
         }
         // Chat sidebar is now a popover on the toolbar button (above)
