@@ -1536,6 +1536,54 @@ struct TextKit2CheckboxToggleTests {
     }
 }
 
+// MARK: - Nested Checkbox Toggle
+
+@Suite("TextKit 2 - Nested Checkbox Toggle")
+struct TextKit2NestedCheckboxToggleTests {
+
+    @Test("toggle works with 2-space indented task")
+    func twoSpaceIndent() {
+        let text = "  - [ ] nested"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 5)
+        #expect(result == "  - [x] nested")
+    }
+
+    @Test("toggle works with 4-space indented task")
+    func fourSpaceIndent() {
+        let text = "    - [x] deep"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 7)
+        #expect(result == "    - [ ] deep")
+    }
+
+    @Test("toggle works with tab-indented task")
+    func tabIndent() {
+        let text = "\t- [ ] tabbed"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "\t- [x] tabbed")
+    }
+
+    @Test("toggle preserves indentation")
+    func preservesIndentation() {
+        let text = "    * [x] star nested"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 7)
+        #expect(result == "    * [ ] star nested")
+        #expect(result?.hasPrefix("    ") == true)
+    }
+
+    @Test("flat toggle still works after fix")
+    func flatStillWorks() {
+        let text = "- [ ] flat"
+        let result = ProseTextView2.toggleCheckbox(in: text, at: 3)
+        #expect(result == "- [x] flat")
+    }
+
+    @Test("click outside bracket on nested task returns nil")
+    func outsideBracket() {
+        let text = "  - [ ] nested"
+        #expect(ProseTextView2.toggleCheckbox(in: text, at: 10) == nil)
+    }
+}
+
 // MARK: - Nested Task Strikethrough
 
 @Suite("TextKit 2 - Nested Task Strikethrough")

@@ -556,12 +556,20 @@ final class ProseTextView2: NSTextView {
         let ns = line as NSString
         guard ns.length >= 5 else { return nil }
 
-        // Find checkbox pattern: "- [ ] ", "* [ ] ", "+ [ ] " or checked variants
+        // Strip leading whitespace to handle nested task lists
+        var leadingCount = 0
+        for ch in line {
+            if ch == " " || ch == "\t" { leadingCount += 1 } else { break }
+        }
+        let trimmed = String(line.dropFirst(leadingCount))
+
+        // Find checkbox pattern in trimmed content
         let prefixes = ["- ", "* ", "+ "]
         var bracketStart: Int?
         for pfx in prefixes {
-            if line.hasPrefix(pfx) && ns.length >= pfx.count + 3 {
-                let afterPrefix = ns.substring(with: NSRange(location: pfx.count, length: 1))
+            if trimmed.hasPrefix(pfx) && trimmed.count >= pfx.count + 3 {
+                let tns = trimmed as NSString
+                let afterPrefix = tns.substring(with: NSRange(location: pfx.count, length: 1))
                 if afterPrefix == "[" {
                     bracketStart = pfx.count
                     break
@@ -570,19 +578,25 @@ final class ProseTextView2: NSTextView {
         }
 
         guard let bStart = bracketStart else { return nil }
-        guard bStart + 2 < ns.length else { return nil }
-        let closing = ns.substring(with: NSRange(location: bStart + 2, length: 1))
+        let tns = trimmed as NSString
+        guard bStart + 2 < tns.length else { return nil }
+        let closing = tns.substring(with: NSRange(location: bStart + 2, length: 1))
         guard closing == "]" else { return nil }
 
-        let marker = ns.substring(with: NSRange(location: bStart + 1, length: 1))
+        let marker = tns.substring(with: NSRange(location: bStart + 1, length: 1))
         guard marker == " " || marker == "x" || marker == "X" else { return nil }
 
-        // Check offset is within the bracket region [bStart..bStart+2]
-        guard offset >= bStart && offset <= bStart + 2 else { return nil }
+        // Adjust offset for leading whitespace and check bracket region
+        let adjustedOffset = offset - leadingCount
+        guard adjustedOffset >= bStart && adjustedOffset <= bStart + 2 else { return nil }
 
+        // Replace in original string at correct position
         let newMarker = (marker == " ") ? "x" : " "
         let result = NSMutableString(string: line)
-        result.replaceCharacters(in: NSRange(location: bStart + 1, length: 1), with: newMarker)
+        result.replaceCharacters(
+            in: NSRange(location: leadingCount + bStart + 1, length: 1),
+            with: newMarker
+        )
         return result as String
     }
 
