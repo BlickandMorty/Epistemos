@@ -287,10 +287,103 @@ extension ProseEditorRepresentable2 {
             }
         }
 
-        // MARK: - AI Chat Wiring
+        // MARK: - AI Chat (v2 — inline response streaming)
+        // Same protocol as TK1: divider-based inline response with accept/discard.
+
+        private static let aiDivider = "\n\n<!-- ai-response -->\n\n"
+        private var wiredChatState: NoteChatState?
 
         func wireNoteChatCallbacks() {
-            // placeholder — Task 5
+            guard let noteChat = parent.noteChatState,
+                  wiredChatState !== noteChat else { return }
+            wiredChatState = noteChat
+
+            noteChat.noteBodyProvider = { [weak self] in
+                self?.textView?.string ?? ""
+            }
+
+            noteChat.onStreamStart = { [weak self] _ in
+                self?.startNoteChatStream()
+            }
+
+            noteChat.onTokenFlush = { [weak self] delta in
+                self?.appendNoteChatTokens(delta)
+            }
+
+            noteChat.onAccept = { [weak self] in
+                self?.acceptNoteChatResponse()
+            }
+
+            noteChat.onDiscard = { [weak self] in
+                self?.discardNoteChatResponse()
+            }
+
+            noteChat.onInsertAtCursor = { [weak self] text in
+                self?.insertTextAtCursor(text)
+            }
+        }
+
+        private func startNoteChatStream() {
+            guard let tv = textView, let ts = tv.textStorage else { return }
+            isFlushingTokens = true
+            ts.replaceCharacters(
+                in: NSRange(location: ts.length, length: 0),
+                with: Self.aiDivider
+            )
+            tv.didChangeText()
+            isFlushingTokens = false
+            tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
+        }
+
+        private func appendNoteChatTokens(_ delta: String) {
+            guard let tv = textView, let ts = tv.textStorage, !delta.isEmpty else { return }
+            isFlushingTokens = true
+            ts.replaceCharacters(
+                in: NSRange(location: ts.length, length: 0),
+                with: delta
+            )
+            tv.didChangeText()
+            isFlushingTokens = false
+            tv.scrollRangeToVisible(NSRange(location: ts.length, length: 0))
+        }
+
+        private func acceptNoteChatResponse() {
+            guard let tv = textView, let ts = tv.textStorage else { return }
+            let str = ts.string
+            guard let range = str.range(of: Self.aiDivider, options: .backwards) else { return }
+            let nsRange = NSRange(range, in: str)
+            isFlushingTokens = true
+            ts.replaceCharacters(in: nsRange, with: "\n\n")
+            tv.didChangeText()
+            isFlushingTokens = false
+            flushBindingSync()
+        }
+
+        private func discardNoteChatResponse() {
+            guard let tv = textView, let ts = tv.textStorage else { return }
+            let str = ts.string
+            guard let range = str.range(of: Self.aiDivider, options: .backwards) else { return }
+            let nsRange = NSRange(range, in: str)
+            let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
+            isFlushingTokens = true
+            ts.replaceCharacters(in: deleteRange, with: "")
+            tv.didChangeText()
+            isFlushingTokens = false
+            flushBindingSync()
+        }
+
+        private func insertTextAtCursor(_ text: String) {
+            guard let tv = textView, let ts = tv.textStorage else { return }
+            let loc = tv.selectedRange().location
+            let insertion = "\n\n" + text + "\n"
+            isFlushingTokens = true
+            if tv.shouldChangeText(in: NSRange(location: loc, length: 0), replacementString: insertion) {
+                ts.replaceCharacters(in: NSRange(location: loc, length: 0), with: insertion)
+                tv.didChangeText()
+                tv.setSelectedRange(NSRange(location: loc + (insertion as NSString).length, length: 0))
+            }
+            isFlushingTokens = false
+            flushBindingSync()
         }
 
         // MARK: - Dismantle
