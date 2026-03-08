@@ -1203,7 +1203,7 @@ private struct NotePageContent: View {
             TextField("Ask", text: $chat.inputText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 11))
-                .frame(width: 240)
+                .frame(width: 160)
                 .onSubmit {
                     noteChatState.submitQuery(
                         noteChatState.inputText,
