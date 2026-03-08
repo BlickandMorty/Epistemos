@@ -1104,3 +1104,67 @@ struct TextKit2TableDetectionTests {
         #expect(indices[0] == 0)
     }
 }
+
+// MARK: - Phase 4: Table Drawing Tests
+
+@Suite("TextKit 2 - Table Drawing")
+struct TextKit2TableDrawingTests {
+
+    @Test("drawBackground does not crash on empty text")
+    func emptyText() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on table content")
+    func tableContent() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on multiple tables")
+    func multipleTables() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A | B |\n|---|---|\n| x | y |\n\nBody\n\n| C | D |\n|---|---|\n| z | w |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on single-column table")
+    func singleColumnTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| A |\n|---|\n| x |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on unicode table")
+    func unicodeTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "| 你好 | 世界 |\n|------|------|\n| 🎉 | Test |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash on body-only text")
+    func bodyOnly() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Just some body text\nAnother line")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+}

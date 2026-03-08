@@ -164,6 +164,207 @@ final class ProseTextView2: NSTextView {
         return (scrollView, tv)
     }
 
+    // MARK: - Custom Drawing (Phase 4)
+
+    override func drawBackground(in rect: NSRect) {
+        super.drawBackground(in: rect)
+        drawTableFills(in: rect)
+        drawTableGridLines(in: rect)
+    }
+
+    private struct TableRegion {
+        var top: CGFloat
+        var bottom: CGFloat
+        var left: CGFloat
+        var right: CGFloat
+        var columnXs: [CGFloat]
+        var rowYs: [CGFloat]
+        var headerBottomY: CGFloat?
+    }
+
+    /// Get paragraph text and NSRange for a layout fragment.
+    private func paragraphInfo(
+        for fragment: NSTextLayoutFragment,
+        contentStorage: NSTextContentStorage
+    ) -> (text: String, nsRange: NSRange)? {
+        guard let textParagraph = fragment.textElement as? NSTextParagraph,
+              let elementRange = textParagraph.elementRange else { return nil }
+        let docStart = contentStorage.documentRange.location
+        let offset = contentStorage.offset(from: docStart, to: elementRange.location)
+        let length = contentStorage.offset(from: elementRange.location, to: elementRange.endLocation)
+        return (textParagraph.attributedString.string, NSRange(location: offset, length: length))
+    }
+
+    private func drawTableFills(in dirtyRect: NSRect) {
+        guard let tlm = textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+        let str = string as NSString
+        guard str.length > 0 else { return }
+
+        let isDark = markdownDelegate.theme.isDark
+        let headerFill = isDark
+            ? NSColor.white.withAlphaComponent(0.04)
+            : NSColor.black.withAlphaComponent(0.03)
+        let origin = textContainerOrigin
+
+        var inTable = false
+
+        tlm.enumerateTextLayoutFragments(
+            from: tlm.documentRange.location,
+            options: [.ensuresLayout, .ensuresExtraLineFragment]
+        ) { fragment in
+            let fragFrame = fragment.layoutFragmentFrame.offsetBy(dx: origin.x, dy: origin.y)
+
+            guard let (lineText, _) = self.paragraphInfo(for: fragment, contentStorage: contentStorage) else {
+                inTable = false
+                return true
+            }
+            let line = lineText.trimmingCharacters(in: .newlines)
+
+            if Self.isTableLine(line) {
+                if !Self.isSeparatorLine(line) && !inTable {
+                    // First non-separator data row = header → fill
+                    let pipeIndices = Self.pipeCharIndices(in: line)
+                    if let firstLineFrag = fragment.textLineFragments.first, pipeIndices.count >= 2 {
+                        let firstPipeX = firstLineFrag.locationForCharacter(at: pipeIndices[0]).x
+                        let lastPipeX = firstLineFrag.locationForCharacter(at: pipeIndices.last!).x
+
+                        let fillRect = NSRect(
+                            x: fragFrame.minX + firstPipeX - 1,
+                            y: fragFrame.minY,
+                            width: lastPipeX - firstPipeX + 2,
+                            height: fragFrame.height
+                        )
+                        headerFill.setFill()
+                        fillRect.fill()
+                    }
+                    inTable = true
+                }
+            } else {
+                inTable = false
+            }
+
+            return true
+        }
+    }
+
+    private func drawTableGridLines(in dirtyRect: NSRect) {
+        guard let tlm = textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+        let str = string as NSString
+        guard str.length > 0 else { return }
+
+        let borderColor = NSColor.separatorColor
+        let headerLineColor = NSColor.tertiaryLabelColor
+        let origin = textContainerOrigin
+
+        var tables: [TableRegion] = []
+        var current: TableRegion?
+
+        tlm.enumerateTextLayoutFragments(
+            from: tlm.documentRange.location,
+            options: [.ensuresLayout, .ensuresExtraLineFragment]
+        ) { fragment in
+            let fragFrame = fragment.layoutFragmentFrame.offsetBy(dx: origin.x, dy: origin.y)
+
+            guard let (lineText, _) = self.paragraphInfo(for: fragment, contentStorage: contentStorage) else {
+                if let t = current { tables.append(t); current = nil }
+                return true
+            }
+            let line = lineText.trimmingCharacters(in: .newlines)
+
+            if Self.isTableLine(line) {
+                let isSep = Self.isSeparatorLine(line)
+
+                if isSep {
+                    if current != nil {
+                        current!.headerBottomY = current!.rowYs.last.map {
+                            $0 + (fragFrame.minY - $0)
+                        } ?? fragFrame.minY
+                        current!.bottom = fragFrame.maxY
+                    }
+                } else {
+                    // Data row — compute pipe x-positions
+                    var pipeXs: [CGFloat] = []
+                    if let firstLineFrag = fragment.textLineFragments.first {
+                        let pipeIndices = Self.pipeCharIndices(in: line)
+                        for idx in pipeIndices {
+                            let loc = firstLineFrag.locationForCharacter(at: idx)
+                            pipeXs.append(fragFrame.minX + loc.x)
+                        }
+                    }
+
+                    if current == nil {
+                        current = TableRegion(
+                            top: fragFrame.minY, bottom: fragFrame.maxY,
+                            left: pipeXs.first ?? fragFrame.minX,
+                            right: pipeXs.last ?? fragFrame.maxX,
+                            columnXs: pipeXs, rowYs: [fragFrame.minY],
+                            headerBottomY: nil
+                        )
+                    } else {
+                        current!.bottom = fragFrame.maxY
+                        if let first = pipeXs.first { current!.left = min(current!.left, first) }
+                        if let last = pipeXs.last { current!.right = max(current!.right, last) }
+                        current!.rowYs.append(fragFrame.minY)
+                        // Weighted average for column alignment across rows
+                        if pipeXs.count == current!.columnXs.count {
+                            for i in current!.columnXs.indices {
+                                current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
+                            }
+                        }
+                    }
+                }
+            } else {
+                if let t = current { tables.append(t); current = nil }
+            }
+
+            return true
+        }
+        if let t = current { tables.append(t) }
+
+        // Draw all collected table regions
+        for table in tables {
+            let outerRect = NSRect(
+                x: table.left - 2, y: table.top - 1,
+                width: table.right - table.left + 4,
+                height: table.bottom - table.top + 2
+            )
+
+            // Outer border
+            borderColor.setStroke()
+            let outerPath = NSBezierPath(rect: outerRect)
+            outerPath.lineWidth = 0.5
+            outerPath.stroke()
+
+            // Inner grid
+            let innerPath = NSBezierPath()
+            innerPath.lineWidth = 0.5
+            if table.columnXs.count > 2 {
+                for x in table.columnXs[1..<(table.columnXs.count - 1)] {
+                    innerPath.move(to: NSPoint(x: x, y: table.top))
+                    innerPath.line(to: NSPoint(x: x, y: table.bottom))
+                }
+            }
+            for y in table.rowYs.dropFirst() {
+                if let hby = table.headerBottomY, abs(y - hby) < 4 { continue }
+                innerPath.move(to: NSPoint(x: table.left - 2, y: y))
+                innerPath.line(to: NSPoint(x: table.right + 2, y: y))
+            }
+            innerPath.stroke()
+
+            // Header underline — stronger
+            if let headerY = table.headerBottomY {
+                headerLineColor.setStroke()
+                let headerPath = NSBezierPath()
+                headerPath.lineWidth = 1.0
+                headerPath.move(to: NSPoint(x: table.left - 2, y: headerY))
+                headerPath.line(to: NSPoint(x: table.right + 2, y: headerY))
+                headerPath.stroke()
+            }
+        }
+    }
+
     // MARK: - Table Detection Helpers (static, testable)
 
     static func isTableLine(_ line: String) -> Bool {
