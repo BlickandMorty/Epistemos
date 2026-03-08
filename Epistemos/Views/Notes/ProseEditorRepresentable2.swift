@@ -264,7 +264,9 @@ extension ProseEditorRepresentable2 {
         // MARK: - Theme Change
 
         func handleThemeChange() {
-            // placeholder — Task 4
+            guard let tv = textView else { return }
+            lastTheme = parent.theme
+            tv.applyTheme(parent.theme)
         }
 
         // MARK: - Centering
