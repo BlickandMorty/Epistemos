@@ -361,7 +361,6 @@ struct HologramNodeInspector: View {
 
                     // Stats meters
                     VStack(spacing: 6) {
-                        statMeter(label: "Health", value: p.care.health, color: .green)
                         statMeter(label: "Focus", value: p.care.attention, color: .blue)
                         statMeter(label: "Mass", value: p.insight.prominence, color: .orange)
                     }
