@@ -732,166 +732,185 @@ fragment float4 node_fragment(
 
         if (ft == 1) {
             // Note (teal)
-            left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-            right_eye = (gp.x == 2.0  && gp.y == -2.0);
-            if (tier == 3) { // Big grin
-                mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 1.0 && (gp.x == -4.0 || gp.x == 4.0)) ||
-                        (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else if (tier == 2) { // Happy smile
-                mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0));
-            } else if (tier == 1) { // Neutral flat
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Sad frown
-                mouth = (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == 3.0));
-            }
-        } else if (ft == 2) {
-            // Chat (orange) — round eyes for tier >= 1, squinty for tier 3
-            if (tier == 3) { // Laughing — squinty line eyes
-                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                mouth = (gp.x >= -2.0 && gp.x <= 2.0 && gp.y >= 1.0 && gp.y <= 3.0) &&
-                        !(gp.y == 2.0 && gp.x == 0.0);
-            } else { // Round eyes for all other tiers
+            if (tier <= 1) { // Small — ecstatic wide eyes + toothy grin
                 left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
                 right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
-                if (tier == 2) { // Talking — O mouth
-                    mouth = (gp.x >= -1.0 && gp.x <= 1.0 && gp.y >= 1.0 && gp.y <= 3.0) &&
-                            !(gp.x == 0.0 && gp.y == 2.0);
-                } else if (tier == 1) { // Quiet — flat mouth
-                    mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-                } else { // Worried — wavy frown
-                    mouth = (gp.y == 3.0 && (gp.x == -2.0 || gp.x == 0.0 || gp.x == 2.0)) ||
-                            (gp.y == 2.0 && (gp.x == -1.0 || gp.x == 1.0));
-                }
+                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
+                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
+            } else if (tier == 2) { // Medium — neutral flat
+                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
+                right_eye = (gp.x == 2.0  && gp.y == -2.0);
+                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
+            } else { // Large hub — angry scowl + V brows
+                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
+                right_eye = (gp.x == 2.0  && gp.y == -2.0);
+                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
+                         (gp.y == -4.0 && gp.x == -2.0);
+                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
+                         (gp.y == -4.0 && gp.x == 2.0);
+                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
+            }
+        } else if (ft == 2) {
+            // Chat (orange)
+            if (tier <= 1) { // Small — laughing, squinty eyes + huge open mouth
+                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
+                right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
+                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
+                        (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
+            } else if (tier == 2) { // Medium — talking O mouth
+                left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
+                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
+                mouth = (gp.x >= -1.0 && gp.x <= 1.0 && gp.y >= 1.0 && gp.y <= 3.0) &&
+                        !(gp.x == 0.0 && gp.y == 2.0);
+            } else { // Large hub — furious, gritted teeth
+                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
+                right_eye = (gp.x == 2.0  && gp.y == -2.0);
+                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
+                         (gp.y == -4.0 && gp.x == -2.0);
+                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
+                         (gp.y == -4.0 && gp.x == 2.0);
+                mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 3.0 && (gp.x == -2.0 || gp.x == 0.0 || gp.x == 2.0));
             }
         } else if (ft == 3) {
-            // Idea (yellow) — star eyes for tier >= 2, dots for lower
-            if (tier >= 2) { // Star eyes
+            // Idea (yellow)
+            if (tier <= 1) { // Small — star eyes + ecstatic open grin
                 left_eye  = (gp.x == -2.0 && (gp.y == -3.0 || gp.y == -1.0)) ||
                             (gp.y == -2.0 && (gp.x == -3.0 || gp.x == -1.0)) ||
                             (gp.x == -2.0 && gp.y == -2.0);
                 right_eye = (gp.x == 2.0 && (gp.y == -3.0 || gp.y == -1.0)) ||
                             (gp.y == -2.0 && (gp.x == 1.0 || gp.x == 3.0)) ||
                             (gp.x == 2.0 && gp.y == -2.0);
-            } else { // Dot eyes
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-            }
-            if (tier == 3) { // Ecstatic — huge open grin
                 mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
                         (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
                         (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else if (tier == 2) { // Excited — wide smile
-                mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
-                        (gp.y == 1.0 && (gp.x == -4.0 || gp.x == 4.0));
-            } else if (tier == 1) { // Thinking — small O
+            } else if (tier == 2) { // Medium — thinking, small O
+                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
+                right_eye = (gp.x == 2.0  && gp.y == -2.0);
                 mouth = (gp.x >= -1.0 && gp.x <= 1.0 && gp.y >= 2.0 && gp.y <= 3.0) &&
                         !(gp.x == 0.0 && gp.y == 2.0);
-            } else { // Dejected — frown
-                mouth = (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == 3.0));
+            } else { // Large hub — maniacal, intense eyes + sharp frown
+                left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
+                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
+                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
+                         (gp.y == -4.0 && gp.x == -2.0);
+                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
+                         (gp.y == -4.0 && gp.x == 2.0);
+                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
             }
         } else if (ft == 4) {
             // Source (green) — always has glasses + nose bridge
-            left_eye  = at_left_eye;
-            right_eye = at_right_eye;
             extra = (gp.y == -2.0 && gp.x == 0.0);
-            if (tier == 3) { // Proud — confident smile
-                mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0));
-            } else if (tier == 2) { // Studious — flat mouth
+            if (tier <= 1) { // Small — happy nerd, big grin behind glasses
+                left_eye  = at_left_eye;
+                right_eye = at_right_eye;
+                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
+                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
+            } else if (tier == 2) { // Medium — studious, flat mouth
+                left_eye  = at_left_eye;
+                right_eye = at_right_eye;
                 mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else if (tier == 1) { // Bored — small frown
-                mouth = (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Frustrated — angry brows, frown
-                brow_l = (gp.y == -4.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                brow_r = (gp.y == -4.0 && gp.x >= 1.0  && gp.x <= 3.0);
+            } else { // Large hub — stern professor, angry brows + frown
+                left_eye  = at_left_eye;
+                right_eye = at_right_eye;
+                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
+                         (gp.y == -4.0 && gp.x == -2.0);
+                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
+                         (gp.y == -4.0 && gp.x == 2.0);
                 mouth = (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
                         (gp.y == 2.0 && (gp.x == -3.0 || gp.x == 3.0));
             }
         } else if (ft == 5) {
             // Folder (brown)
-            if (tier == 3) { // Awake — dot eyes, smile
+            if (tier <= 1) { // Small — cheerful, wide smile
                 left_eye  = (gp.x == -2.0 && gp.y == -2.0);
                 right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0));
-            } else if (tier == 2) { // Sleepy — line eyes, flat mouth
+                mouth = (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0)) ||
+                        (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
+                        (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0);
+            } else if (tier == 2) { // Medium — sleepy, line eyes
                 left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
                 right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0);
-            } else if (tier == 1) { // Drowsy — short line eyes, small mouth
-                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -2.0);
-                right_eye = (gp.y == -2.0 && gp.x >= 2.0  && gp.x <= 3.0);
                 mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Deep sleep — closed eyes, frown
+            } else { // Large hub — grumpy, furrowed brows + scowl
                 left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
                 right_eye = (gp.y == -2.0 && gp.x >= 1.0  && gp.x <= 3.0);
-                mouth = (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0) ||
-                        (gp.y == 2.0 && (gp.x == -2.0 || gp.x == 2.0));
+                brow_l = (gp.y == -3.0 && gp.x >= -3.0 && gp.x <= -1.0);
+                brow_r = (gp.y == -3.0 && gp.x >= 1.0  && gp.x <= 3.0);
+                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
             }
         } else if (ft == 6) {
             // Quote (purple)
-            if (tier == 3) { // Big wink, wide grin
+            if (tier <= 1) { // Small — winking + huge grin
                 left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 3.0) ||
-                        (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 4.0));
-            } else if (tier == 2) { // Winking — closed eye + dot, smirk
-                left_eye  = (gp.y == -2.0 && gp.x >= -3.0 && gp.x <= -1.0);
+                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
+                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
+                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
+            } else if (tier == 2) { // Medium — smirk
+                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
                 right_eye = (gp.x == 2.0  && gp.y == -2.0);
                 mouth = (gp.y == 2.0 && gp.x >= 0.0 && gp.x <= 3.0) ||
                         (gp.y == 1.0 && gp.x == -1.0);
-            } else if (tier == 1) { // Neutral — both dots, flat mouth
+            } else { // Large hub — unimpressed, heavy frown
                 left_eye  = (gp.x == -2.0 && gp.y == -2.0);
                 right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Unimpressed — both dots, frown
-                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
-                right_eye = (gp.x == 2.0  && gp.y == -2.0);
-                mouth = (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == 3.0));
+                brow_l = (gp.y == -3.0 && gp.x >= -3.0 && gp.x <= -1.0);
+                brow_r = (gp.y == -3.0 && gp.x >= 1.0  && gp.x <= 3.0);
+                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
             }
         } else if (ft == 7) {
-            // Tag (gray) — always tiny dot eyes
-            left_eye  = (gp.x == -2.0 && gp.y == -1.0);
-            right_eye = (gp.x == 2.0  && gp.y == -1.0);
-            if (tier == 3) { // Happy — curved smile
+            // Tag (gray)
+            if (tier <= 1) { // Small — happy little face, wide eyes + smile
+                left_eye  = at_left_eye && !((gp.x == -3.0 || gp.x == -1.0) && (gp.y == -3.0 || gp.y == -1.0));
+                right_eye = at_right_eye && !((gp.x == 1.0 || gp.x == 3.0) && (gp.y == -3.0 || gp.y == -1.0));
                 mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
                         (gp.y == 1.0 && (gp.x == -3.0 || gp.x == 3.0));
-            } else if (tier == 2) { // Minimal — dash
+            } else if (tier == 2) { // Medium — dot eyes, dash mouth
+                left_eye  = (gp.x == -2.0 && gp.y == -1.0);
+                right_eye = (gp.x == 2.0  && gp.y == -1.0);
                 mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else if (tier == 1) { // Tiny dot mouth
-                mouth = (gp.x == 0.0 && gp.y == 2.0);
-            } else { // Sad — small frown
-                mouth = (gp.y == 3.0 && gp.x >= -1.0 && gp.x <= 1.0) ||
-                        (gp.y == 2.0 && (gp.x == -2.0 || gp.x == 2.0));
+            } else { // Large hub — glaring, angry brows
+                left_eye  = (gp.x == -2.0 && gp.y == -1.0);
+                right_eye = (gp.x == 2.0  && gp.y == -1.0);
+                brow_l = (gp.y == -2.0 && gp.x == -1.0) || (gp.y == -3.0 && gp.x == -3.0) ||
+                         (gp.y == -2.0 && gp.x == -2.0);
+                brow_r = (gp.y == -2.0 && gp.x == 1.0) || (gp.y == -3.0 && gp.x == 3.0) ||
+                         (gp.y == -2.0 && gp.x == 2.0);
+                mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0);
             }
         } else if (ft == 8) {
             // Block (blue)
-            if (tier >= 2) { // ^_^ face — chevron eyes
+            if (tier <= 1) { // Small — ^_^ happy face + wide toothy grin
                 left_eye  = (gp.y == -2.0 && gp.x == -2.0) ||
                             (gp.y == -3.0 && (gp.x == -3.0 || gp.x == -1.0));
                 right_eye = (gp.y == -2.0 && gp.x == 2.0) ||
                             (gp.y == -3.0 && (gp.x == 1.0 || gp.x == 3.0));
-            } else { // v_v face — inverted chevrons
+                mouth = (gp.y == 1.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == -1.0 || gp.x == 1.0 || gp.x == 3.0)) ||
+                        (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0);
+            } else if (tier == 2) { // Medium — flat expression
+                left_eye  = (gp.x == -2.0 && gp.y == -2.0);
+                right_eye = (gp.x == 2.0  && gp.y == -2.0);
+                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
+            } else { // Large hub — v_v angry face + wide scowl
                 left_eye  = (gp.y == -3.0 && gp.x == -2.0) ||
                             (gp.y == -2.0 && (gp.x == -3.0 || gp.x == -1.0));
                 right_eye = (gp.y == -3.0 && gp.x == 2.0) ||
                             (gp.y == -2.0 && (gp.x == 1.0 || gp.x == 3.0));
-            }
-            if (tier == 3) { // Wide smile
-                mouth = (gp.y == 2.0 && gp.x >= -3.0 && gp.x <= 3.0);
-            } else if (tier == 2) { // Normal mouth
-                mouth = (gp.y == 2.0 && gp.x >= -2.0 && gp.x <= 2.0);
-            } else if (tier == 1) { // Flat dash
-                mouth = (gp.y == 2.0 && gp.x >= -1.0 && gp.x <= 1.0);
-            } else { // Frown
-                mouth = (gp.y == 3.0 && gp.x >= -2.0 && gp.x <= 2.0) ||
-                        (gp.y == 2.0 && (gp.x == -3.0 || gp.x == 3.0));
+                brow_l = (gp.y == -4.0 && gp.x == -1.0) || (gp.y == -5.0 && gp.x == -3.0) ||
+                         (gp.y == -4.0 && gp.x == -2.0);
+                brow_r = (gp.y == -4.0 && gp.x == 1.0) || (gp.y == -5.0 && gp.x == 3.0) ||
+                         (gp.y == -4.0 && gp.x == 2.0);
+                mouth = (gp.y == 3.0 && gp.x >= -3.0 && gp.x <= 3.0) ||
+                        (gp.y == 2.0 && (gp.x == -4.0 || gp.x == 4.0));
             }
         }
 
