@@ -360,7 +360,330 @@ fn extract_block_references(text: &str, spans: &mut Vec<StyleSpan>) {
     }
 }
 
+// ── Structure Parser (Paragraph-Level Classification) ──────────────────────
+
+/// Paragraph type for structural classification.
+/// One span per line — array index is the line number.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParaType {
+    Body = 0,
+    Heading = 1,
+    OrderedList = 2,
+    UnorderedList = 3,
+    TaskList = 4,
+    BlockQuote = 5,
+    CodeBlock = 6,
+    Table = 7,
+    HorizontalRule = 8,
+    HtmlComment = 9,
+}
+
+/// Structure span — 4 bytes per line. Array index is the line number.
+/// Metadata packing: heading level (1-6), list depth (high byte), etc.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct StructureSpan {
+    pub para_type: u8,
+    pub _pad: u8,
+    pub metadata: u16,
+}
+
+/// Classify each line in the document. Returns one span per line.
+pub fn parse_structure(text: &str) -> Vec<StructureSpan> {
+    if text.is_empty() {
+        return Vec::new();
+    }
+
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut spans = Vec::with_capacity(lines.len());
+    let mut in_code_block = false;
+    let mut in_html_comment = false;
+
+    for line in &lines {
+        let trimmed = line.trim_start();
+        let indent = line.len() - trimmed.len();
+
+        // Code block state machine
+        if in_code_block {
+            spans.push(StructureSpan {
+                para_type: ParaType::CodeBlock as u8,
+                _pad: 0,
+                metadata: 0,
+            });
+            if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                in_code_block = false;
+            }
+            continue;
+        }
+
+        // HTML comment state machine
+        if in_html_comment {
+            spans.push(StructureSpan {
+                para_type: ParaType::HtmlComment as u8,
+                _pad: 0,
+                metadata: 0,
+            });
+            if trimmed.contains("-->") {
+                in_html_comment = false;
+            }
+            continue;
+        }
+
+        // Empty line
+        if trimmed.is_empty() {
+            spans.push(StructureSpan {
+                para_type: ParaType::Body as u8,
+                _pad: 0,
+                metadata: 0,
+            });
+            continue;
+        }
+
+        // Code fence opening
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = true;
+            spans.push(StructureSpan {
+                para_type: ParaType::CodeBlock as u8,
+                _pad: 0,
+                metadata: 0,
+            });
+            continue;
+        }
+
+        // HTML comment
+        if trimmed.starts_with("<!--") {
+            if trimmed.contains("-->") {
+                spans.push(StructureSpan {
+                    para_type: ParaType::HtmlComment as u8,
+                    _pad: 0,
+                    metadata: 0,
+                });
+            } else {
+                in_html_comment = true;
+                spans.push(StructureSpan {
+                    para_type: ParaType::HtmlComment as u8,
+                    _pad: 0,
+                    metadata: 0,
+                });
+            }
+            continue;
+        }
+
+        // Heading
+        if let Some(level) = detect_heading_level(trimmed) {
+            spans.push(StructureSpan {
+                para_type: ParaType::Heading as u8,
+                _pad: 0,
+                metadata: level as u16,
+            });
+            continue;
+        }
+
+        // Horizontal rule (must check before unordered list since --- overlaps)
+        if is_horizontal_rule(trimmed) {
+            spans.push(StructureSpan {
+                para_type: ParaType::HorizontalRule as u8,
+                _pad: 0,
+                metadata: 0,
+            });
+            continue;
+        }
+
+        // Blockquote
+        if trimmed.starts_with('>') {
+            let depth = count_blockquote_depth(trimmed);
+            spans.push(StructureSpan {
+                para_type: ParaType::BlockQuote as u8,
+                _pad: 0,
+                metadata: depth as u16,
+            });
+            continue;
+        }
+
+        // Table (line starting with |)
+        if trimmed.starts_with('|') {
+            spans.push(StructureSpan {
+                para_type: ParaType::Table as u8,
+                _pad: 0,
+                metadata: 0,
+            });
+            continue;
+        }
+
+        // Task list (must check before unordered list)
+        if let Some((depth, checked)) = detect_task_list(trimmed, indent) {
+            let meta = ((depth as u16) << 8) | (checked as u16);
+            spans.push(StructureSpan {
+                para_type: ParaType::TaskList as u8,
+                _pad: 0,
+                metadata: meta,
+            });
+            continue;
+        }
+
+        // Unordered list
+        if let Some(depth) = detect_unordered_list(trimmed, indent) {
+            spans.push(StructureSpan {
+                para_type: ParaType::UnorderedList as u8,
+                _pad: 0,
+                metadata: depth as u16,
+            });
+            continue;
+        }
+
+        // Ordered list
+        if let Some((depth, start_index)) = detect_ordered_list(trimmed, indent) {
+            let meta = ((depth as u16) << 8) | (start_index.min(255) as u16);
+            spans.push(StructureSpan {
+                para_type: ParaType::OrderedList as u8,
+                _pad: 0,
+                metadata: meta,
+            });
+            continue;
+        }
+
+        // Default: body
+        spans.push(StructureSpan {
+            para_type: ParaType::Body as u8,
+            _pad: 0,
+            metadata: 0,
+        });
+    }
+
+    spans
+}
+
+fn detect_heading_level(trimmed: &str) -> Option<u8> {
+    let bytes = trimmed.as_bytes();
+    let mut count = 0u8;
+    for &b in bytes {
+        if b == b'#' {
+            count += 1;
+        } else if b == b' ' && count > 0 {
+            return if count <= 6 { Some(count) } else { None };
+        } else {
+            return None;
+        }
+    }
+    None
+}
+
+fn is_horizontal_rule(trimmed: &str) -> bool {
+    if trimmed.len() < 3 {
+        return false;
+    }
+    let first = trimmed.as_bytes()[0];
+    if first != b'-' && first != b'*' && first != b'_' {
+        return false;
+    }
+    trimmed.bytes().all(|b| b == first || b == b' ')
+}
+
+fn count_blockquote_depth(trimmed: &str) -> u8 {
+    let mut depth = 0u8;
+    for &b in trimmed.as_bytes() {
+        if b == b'>' {
+            depth = depth.saturating_add(1);
+        } else if b == b' ' {
+            continue;
+        } else {
+            break;
+        }
+    }
+    depth
+}
+
+fn detect_task_list(trimmed: &str, indent: usize) -> Option<(u8, u8)> {
+    let rest = trimmed
+        .strip_prefix("- ")
+        .or_else(|| trimmed.strip_prefix("* "))
+        .or_else(|| trimmed.strip_prefix("+ "))?;
+
+    if rest == "[ ]" || rest.starts_with("[ ] ") {
+        Some(((indent / 2) as u8, 0))
+    } else if rest == "[x]"
+        || rest.starts_with("[x] ")
+        || rest == "[X]"
+        || rest.starts_with("[X] ")
+    {
+        Some(((indent / 2) as u8, 1))
+    } else {
+        None
+    }
+}
+
+fn detect_unordered_list(trimmed: &str, indent: usize) -> Option<u8> {
+    let rest = trimmed
+        .strip_prefix("- ")
+        .or_else(|| trimmed.strip_prefix("* "))
+        .or_else(|| trimmed.strip_prefix("+ "))?;
+
+    // Exclude task list patterns (already handled above, but defensive)
+    if rest.starts_with("[ ] ") || rest.starts_with("[x] ") || rest.starts_with("[X] ") {
+        return None;
+    }
+    Some((indent / 2) as u8)
+}
+
+fn detect_ordered_list(trimmed: &str, indent: usize) -> Option<(u8, u32)> {
+    let bytes = trimmed.as_bytes();
+    let mut num_end = 0usize;
+    for &b in bytes {
+        if b.is_ascii_digit() {
+            num_end += 1;
+        } else {
+            break;
+        }
+    }
+    if num_end == 0 || num_end + 1 >= bytes.len() {
+        return None;
+    }
+    if bytes[num_end] != b'.' && bytes[num_end] != b')' {
+        return None;
+    }
+    if bytes[num_end + 1] != b' ' {
+        return None;
+    }
+    let num: u32 = trimmed[..num_end].parse().ok()?;
+    Some(((indent / 2) as u8, num))
+}
+
 // ── FFI ──────────────────────────────────────────────────────────────────
+
+/// Parse markdown structure: one StructureSpan per line, written to pre-allocated buffer.
+/// Returns the number of lines (spans written). Returns 0 on null/invalid input.
+///
+/// # Safety
+/// `text` must be a valid null-terminated UTF-8 C string.
+/// `out_spans` must point to a buffer of at least `max_spans` StructureSpan elements.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn markdown_parse_structure(
+    text: *const c_char,
+    out_spans: *mut StructureSpan,
+    max_spans: u32,
+) -> u32 {
+    if text.is_null() || out_spans.is_null() || max_spans == 0 {
+        return 0;
+    }
+
+    // SAFETY: text is a valid null-terminated C string per FFI contract.
+    let c_str = unsafe { CStr::from_ptr(text) };
+    let rust_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+
+    let spans = parse_structure(rust_str);
+    let count = spans.len().min(max_spans as usize);
+
+    // SAFETY: out_spans buffer has capacity for at least max_spans elements.
+    unsafe {
+        std::ptr::copy_nonoverlapping(spans.as_ptr(), out_spans, count);
+    }
+
+    count as u32
+}
 
 /// Parse markdown text and return an array of StyleSpans.
 /// Returns 0 on success, 1 on error (null pointer or invalid UTF-8).
@@ -627,5 +950,210 @@ mod tests {
             )
         };
         assert_eq!(result, 1);
+    }
+
+    // ── Structure Parser Tests ──────────────────────────────────────────
+
+    fn structure(text: &str) -> Vec<StructureSpan> {
+        parse_structure(text)
+    }
+
+    #[test]
+    fn structure_empty() {
+        assert!(structure("").is_empty());
+    }
+
+    #[test]
+    fn structure_heading_levels() {
+        let spans = structure("# H1\n## H2\n### H3\n#### H4\n##### H5\n###### H6");
+        assert_eq!(spans.len(), 6);
+        for (i, span) in spans.iter().enumerate() {
+            assert_eq!(span.para_type, ParaType::Heading as u8);
+            assert_eq!(span.metadata, (i + 1) as u16);
+        }
+    }
+
+    #[test]
+    fn structure_body_text() {
+        let spans = structure("Hello world\nSecond line");
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].para_type, ParaType::Body as u8);
+        assert_eq!(spans[1].para_type, ParaType::Body as u8);
+    }
+
+    #[test]
+    fn structure_unordered_list() {
+        let spans = structure("- item one\n* item two\n+ item three");
+        assert_eq!(spans.len(), 3);
+        for span in &spans {
+            assert_eq!(span.para_type, ParaType::UnorderedList as u8);
+            assert_eq!(span.metadata, 0); // depth 0
+        }
+    }
+
+    #[test]
+    fn structure_ordered_list() {
+        let spans = structure("1. first\n2. second\n3. third");
+        assert_eq!(spans.len(), 3);
+        for (i, span) in spans.iter().enumerate() {
+            assert_eq!(span.para_type, ParaType::OrderedList as u8);
+            assert_eq!(span.metadata & 0xFF, (i + 1) as u16); // start index
+        }
+    }
+
+    #[test]
+    fn structure_task_list() {
+        let spans = structure("- [ ] todo\n- [x] done");
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].para_type, ParaType::TaskList as u8);
+        assert_eq!(spans[0].metadata & 1, 0); // unchecked
+        assert_eq!(spans[1].para_type, ParaType::TaskList as u8);
+        assert_eq!(spans[1].metadata & 1, 1); // checked
+    }
+
+    #[test]
+    fn structure_code_block() {
+        let spans = structure("text\n```python\nx = 1\ny = 2\n```\nmore text");
+        assert_eq!(spans.len(), 6);
+        assert_eq!(spans[0].para_type, ParaType::Body as u8);
+        assert_eq!(spans[1].para_type, ParaType::CodeBlock as u8); // fence
+        assert_eq!(spans[2].para_type, ParaType::CodeBlock as u8); // x = 1
+        assert_eq!(spans[3].para_type, ParaType::CodeBlock as u8); // y = 2
+        assert_eq!(spans[4].para_type, ParaType::CodeBlock as u8); // close fence
+        assert_eq!(spans[5].para_type, ParaType::Body as u8);
+    }
+
+    #[test]
+    fn structure_unclosed_code_block() {
+        let spans = structure("```\ncode\nmore code");
+        assert_eq!(spans.len(), 3);
+        for span in &spans {
+            assert_eq!(span.para_type, ParaType::CodeBlock as u8);
+        }
+    }
+
+    #[test]
+    fn structure_blockquote() {
+        let spans = structure("> level 1\n>> level 2\n> > also level 2");
+        assert_eq!(spans.len(), 3);
+        assert_eq!(spans[0].para_type, ParaType::BlockQuote as u8);
+        assert_eq!(spans[0].metadata, 1);
+        assert_eq!(spans[1].para_type, ParaType::BlockQuote as u8);
+        assert_eq!(spans[1].metadata, 2);
+        assert_eq!(spans[2].para_type, ParaType::BlockQuote as u8);
+        assert_eq!(spans[2].metadata, 2);
+    }
+
+    #[test]
+    fn structure_table() {
+        let spans = structure("| A | B |\n|---|---|\n| 1 | 2 |");
+        assert_eq!(spans.len(), 3);
+        for span in &spans {
+            assert_eq!(span.para_type, ParaType::Table as u8);
+        }
+    }
+
+    #[test]
+    fn structure_horizontal_rule() {
+        let spans = structure("---\n***\n___");
+        assert_eq!(spans.len(), 3);
+        for span in &spans {
+            assert_eq!(span.para_type, ParaType::HorizontalRule as u8);
+        }
+    }
+
+    #[test]
+    fn structure_html_comment_single_line() {
+        let spans = structure("<!-- comment -->");
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].para_type, ParaType::HtmlComment as u8);
+    }
+
+    #[test]
+    fn structure_html_comment_multiline() {
+        let spans = structure("<!-- start\nmiddle\nend -->");
+        assert_eq!(spans.len(), 3);
+        for span in &spans {
+            assert_eq!(span.para_type, ParaType::HtmlComment as u8);
+        }
+    }
+
+    #[test]
+    fn structure_mixed_content() {
+        let text = "# Title\n\nSome body.\n\n- list item\n\n> quote\n\n---";
+        let spans = structure(text);
+        assert_eq!(spans[0].para_type, ParaType::Heading as u8);
+        assert_eq!(spans[1].para_type, ParaType::Body as u8); // empty
+        assert_eq!(spans[2].para_type, ParaType::Body as u8);
+        assert_eq!(spans[3].para_type, ParaType::Body as u8); // empty
+        assert_eq!(spans[4].para_type, ParaType::UnorderedList as u8);
+        assert_eq!(spans[5].para_type, ParaType::Body as u8); // empty
+        assert_eq!(spans[6].para_type, ParaType::BlockQuote as u8);
+        assert_eq!(spans[7].para_type, ParaType::Body as u8); // empty
+        assert_eq!(spans[8].para_type, ParaType::HorizontalRule as u8);
+    }
+
+    #[test]
+    fn structure_indented_list() {
+        let spans = structure("- level 0\n  - level 1\n    - level 2");
+        assert_eq!(spans.len(), 3);
+        assert_eq!(spans[0].metadata, 0);
+        assert_eq!(spans[1].metadata, 1);
+        assert_eq!(spans[2].metadata, 2);
+    }
+
+    #[test]
+    fn structure_ffi_roundtrip() {
+        let text = b"# Heading\nBody text\n```\ncode\n```\0";
+        let mut buffer = [StructureSpan {
+            para_type: 255,
+            _pad: 0,
+            metadata: 0,
+        }; 16];
+
+        let count = unsafe {
+            markdown_parse_structure(
+                text.as_ptr() as *const c_char,
+                buffer.as_mut_ptr(),
+                16,
+            )
+        };
+
+        assert_eq!(count, 5);
+        assert_eq!(buffer[0].para_type, ParaType::Heading as u8);
+        assert_eq!(buffer[1].para_type, ParaType::Body as u8);
+        assert_eq!(buffer[2].para_type, ParaType::CodeBlock as u8);
+        assert_eq!(buffer[3].para_type, ParaType::CodeBlock as u8);
+        assert_eq!(buffer[4].para_type, ParaType::CodeBlock as u8);
+    }
+
+    #[test]
+    fn structure_ffi_null_safety() {
+        let count = unsafe {
+            markdown_parse_structure(std::ptr::null(), std::ptr::null_mut(), 0)
+        };
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn structure_ffi_buffer_cap() {
+        let text = b"# H1\n## H2\n### H3\n#### H4\0";
+        let mut buffer = [StructureSpan {
+            para_type: 255,
+            _pad: 0,
+            metadata: 0,
+        }; 2]; // Only room for 2 spans
+
+        let count = unsafe {
+            markdown_parse_structure(
+                text.as_ptr() as *const c_char,
+                buffer.as_mut_ptr(),
+                2,
+            )
+        };
+
+        assert_eq!(count, 2); // Capped at buffer size
+        assert_eq!(buffer[0].para_type, ParaType::Heading as u8);
+        assert_eq!(buffer[1].para_type, ParaType::Heading as u8);
     }
 }

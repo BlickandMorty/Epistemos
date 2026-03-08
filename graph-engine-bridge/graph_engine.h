@@ -79,6 +79,30 @@ void graph_engine_add_edges_batch(
 /// @param entrance 1 to use spiral initial layout for node positions.
 void graph_engine_commit(Engine* engine, uint8_t entrance);
 
+/// Remove a node by UUID (also removes all touching edges).
+/// Returns 1 if removed, 0 if not found.
+uint8_t graph_engine_remove_node(Engine* engine, const char* uuid);
+
+/// Remove edges between two nodes by UUID (both directions).
+/// Returns number of edges removed.
+uint32_t graph_engine_remove_edge(
+    Engine* engine,
+    const char* source_uuid,
+    const char* target_uuid
+);
+
+/// Batch-remove nodes by UUID array.
+/// Returns count of nodes successfully removed.
+uint32_t graph_engine_remove_nodes_batch(
+    Engine* engine,
+    const char** uuids,
+    uint32_t count
+);
+
+/// Lightweight commit after incremental adds/removes.
+/// Preserves node positions (no BFS layout). Use after add/remove operations.
+void graph_engine_commit_incremental(Engine* engine);
+
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 /// Render one frame.
@@ -385,6 +409,29 @@ uint8_t markdown_parse(
 /// Free a spans array previously returned by markdown_parse.
 void markdown_free_spans(StyleSpan* spans, uint32_t count);
 
+/// Structure span for paragraph-level classification.
+/// One span per line — array index is the line number.
+/// para_type: 0=body, 1=heading, 2=orderedList, 3=unorderedList,
+///            4=taskList, 5=blockQuote, 6=codeBlock, 7=table,
+///            8=horizontalRule, 9=htmlComment.
+/// metadata:  heading level (1-6), list depth (high byte), etc.
+typedef struct {
+    uint8_t  para_type;
+    uint8_t  _pad;
+    uint16_t metadata;
+} StructureSpan;
+
+/// Parse markdown structure: one StructureSpan per line, written to caller's buffer.
+/// @param text       Null-terminated UTF-8 markdown text.
+/// @param out_spans  Pre-allocated buffer for output spans.
+/// @param max_spans  Capacity of the output buffer.
+/// @return Number of lines (spans written). 0 on null/invalid input.
+uint32_t markdown_parse_structure(
+    const char* text,
+    StructureSpan* out_spans,
+    uint32_t max_spans
+);
+
 // ── Block Transaction Kernel (BTK) ───────────────────────────────────────────
 
 /// Block FFI struct for loading existing blocks from SwiftData
@@ -422,8 +469,38 @@ uint32_t graph_engine_btk_translate_edit(
 /// Returns a C string that must be freed with graph_engine_free_string.
 const char* graph_engine_btk_get_markdown(Engine* engine, const char* page_id);
 
+/// Directly update a block's content by block_id.
+/// block_id_bytes: pointer to 16 bytes (UUID). Returns 1 on success, 0 on failure.
+uint8_t graph_engine_btk_update_block(
+    Engine* engine,
+    const char* page_id,
+    const uint8_t* block_id_bytes,
+    const char* new_content
+);
+
 /// Free a string returned by graph_engine_btk_get_markdown.
 void graph_engine_free_string(char* s);
+
+/// Query BTK trees for blocks matching a property filter.
+/// Returns newline-separated page_ids, or NULL if no matches.
+/// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte, 6=contains
+/// val_type: 0=string, 1=float, 2=int, 3=bool
+const char* graph_engine_btk_query_property(
+    Engine* engine,
+    const char* key,
+    uint8_t op,
+    uint8_t val_type,
+    const char* val_str
+);
+
+/// Query BTK trees for blocks matching a depth filter.
+/// Returns newline-separated page_ids, or NULL if no matches.
+/// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte
+const char* graph_engine_btk_query_depth(
+    Engine* engine,
+    uint8_t op,
+    uint32_t depth
+);
 
 // ── Dialogue ────────────────────────────────────────────────────────────────
 

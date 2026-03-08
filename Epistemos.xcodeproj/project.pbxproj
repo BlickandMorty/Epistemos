@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		MCSTOR00000000000002 /* MarkdownContentStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = MCSTOR00000000000001 /* MarkdownContentStorage.swift */; };
+		PTV200000000000000002 /* ProseTextView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = PTV200000000000000001 /* ProseTextView2.swift */; };
+		TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TK2FT00000000000001 /* TextKit2FoundationTests.swift */; };
 		NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = NLANLYS00000000000001F1 /* NLAnalysisService.swift */; };
 		DATADET00000000000002F2 /* DataDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATADET00000000000001F1 /* DataDetectionService.swift */; };
 		DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMOD00000000000000001 /* DocumentModeTests.swift */; };
@@ -247,6 +250,8 @@
 		WIRE00000000000000000004 /* MemoryStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174D03C81BEE6EB5556066 /* MemoryStressTests.swift */; };
 		DOCTV000000000000000001 /* DocumentTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCTV000000000000000002 /* DocumentTextView.swift */; };
 		DOCER000000000000000001 /* DocumentEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCER000000000000000002 /* DocumentEditorRepresentable.swift */; };
+		DOCFB000000000000000001 /* DocumentFormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCFB000000000000000002 /* DocumentFormatBar.swift */; };
+		DOCIE000000000000000001 /* DocumentImportExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCIE000000000000000002 /* DocumentImportExport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -260,6 +265,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		MCSTOR00000000000001 /* MarkdownContentStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownContentStorage.swift; sourceTree = "<group>"; };
+		PTV200000000000000001 /* ProseTextView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseTextView2.swift; sourceTree = "<group>"; };
+		TK2FT00000000000001 /* TextKit2FoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextKit2FoundationTests.swift; sourceTree = "<group>"; };
 		NLANLYS00000000000001F1 /* NLAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NLAnalysisService.swift; sourceTree = "<group>"; };
 		DATADET00000000000001F1 /* DataDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDetectionService.swift; sourceTree = "<group>"; };
 		DOCMOD00000000000000001 /* DocumentModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModeTests.swift; sourceTree = "<group>"; };
@@ -506,6 +514,8 @@
 		OBJCEXC00000000000000003 /* Epistemos-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Epistemos-Bridging-Header.h"; sourceTree = "<group>"; };
 		DOCTV000000000000000002 /* DocumentTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentTextView.swift; sourceTree = "<group>"; };
 		DOCER000000000000000002 /* DocumentEditorRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditorRepresentable.swift; sourceTree = "<group>"; };
+		DOCFB000000000000000002 /* DocumentFormatBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentFormatBar.swift; sourceTree = "<group>"; };
+		DOCIE000000000000000002 /* DocumentImportExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentImportExport.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -685,6 +695,8 @@
 			children = (
 				DOCTV000000000000000002 /* DocumentTextView.swift */,
 				DOCER000000000000000002 /* DocumentEditorRepresentable.swift */,
+				DOCFB000000000000000002 /* DocumentFormatBar.swift */,
+				DOCIE000000000000000002 /* DocumentImportExport.swift */,
 			);
 			path = Document;
 			sourceTree = "<group>";
@@ -701,6 +713,7 @@
 				78C1D41B9E064ABAA03A0B58 /* EditableTransclusionView.swift */,
 				8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */,
 				B980FE6E8ADB38B410D728FC /* LineDiff.swift */,
+				MCSTOR00000000000001 /* MarkdownContentStorage.swift */,
 				9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */,
 				59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */,
 				3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */,
@@ -712,6 +725,7 @@
 				ABBD145804AFC0BBB198BE4E /* PageStoragePool.swift */,
 				61464BB4E610C848380C6105 /* ProseEditorRepresentable.swift */,
 				3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */,
+				PTV200000000000000001 /* ProseTextView2.swift */,
 				2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */,
 				344620E70A8B3C4D8D6845D7 /* VaultOrganizerView.swift */,
 				CC1D4E5F60718293AB0C1D2E /* VersionTimeline.swift */,
@@ -954,6 +968,7 @@
 				80F132458375D73807906E8E /* NoteInsightServiceTests.swift */,
 				FOCUSMD00000000000000001 /* FocusModeTests.swift */,
 				DOCMOD00000000000000001 /* DocumentModeTests.swift */,
+				TK2FT00000000000001 /* TextKit2FoundationTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -1188,6 +1203,7 @@
 				586528B080AC28C52DBA3067 /* NoteInsightServiceTests.swift in Sources */,
 				FOCUSMD00000000000000002 /* FocusModeTests.swift in Sources */,
 				DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */,
+				TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1246,6 +1262,7 @@
 				D2FB41E55F2DEE0892E84085 /* LineDiff.swift in Sources */,
 				B9459F26DD021E7EF1A16BEE /* LiquidGreeting.swift in Sources */,
 				A2D85D5B84149A478F48C4AE /* Log.swift in Sources */,
+				MCSTOR00000000000002 /* MarkdownContentStorage.swift in Sources */,
 				37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */,
 				06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */,
 				5EA39F523812F677F8CD543A /* MessageBubble.swift in Sources */,
@@ -1275,6 +1292,7 @@
 				C36BBEB18DF48D62FFADEA09 /* PromptComposer+Consolidated.swift in Sources */,
 				34645DB46285718BA3652ACF /* ProseEditorRepresentable.swift in Sources */,
 				82276E364C4840E91EC05660 /* ProseEditorView.swift in Sources */,
+				PTV200000000000000002 /* ProseTextView2.swift in Sources */,
 				2C375BDC6C96C53774B42003 /* ProviderDropdown.swift in Sources */,
 				123F481CAB63459BC1326D48 /* QueryAST.swift in Sources */,
 				600D9CBC359E1B304E5795D5 /* QueryCompiler.swift in Sources */,
@@ -1371,6 +1389,8 @@
 				720A6BE44672A02E5A4A7611 /* NoteInsightService.swift in Sources */,
 				DOCTV000000000000000001 /* DocumentTextView.swift in Sources */,
 				DOCER000000000000000001 /* DocumentEditorRepresentable.swift in Sources */,
+				DOCFB000000000000000001 /* DocumentFormatBar.swift in Sources */,
+				DOCIE000000000000000001 /* DocumentImportExport.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
