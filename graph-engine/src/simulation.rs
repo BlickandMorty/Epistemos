@@ -538,7 +538,7 @@ impl Simulation {
 
         // Reset simulation state for fresh run (skip if user-frozen).
         if !self.user_frozen {
-            self.params.alpha = 1.0; // d3 default
+            self.params.alpha = 0.3; // Gentle start — avoids violent explosion from spiral
             self.params.alpha_decay = 0.0228;
             self.params.alpha_target = 0.0;
             self.is_settled = false;

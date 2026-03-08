@@ -262,7 +262,7 @@ final class GraphStore {
         for (index, sdNode) in sdNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
                 ?? {
-                    let r: Float = 120.0 * sqrt(Float(index))
+                    let r: Float = 250.0 * sqrt(Float(index))
                     let theta = Float(index) * golden
                     return SIMD2<Float>(r * cos(theta), r * sin(theta))
                 }()
@@ -298,7 +298,7 @@ final class GraphStore {
         for (index, sdNode) in sdNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
                 ?? {
-                    let r: Float = 120.0 * sqrt(Float(index))
+                    let r: Float = 250.0 * sqrt(Float(index))
                     let theta = Float(index) * golden
                     return SIMD2<Float>(r * cos(theta), r * sin(theta))
                 }()

@@ -24,7 +24,7 @@ actor BackgroundGraphActor {
         let nodeRecords = sdNodes.enumerated().map { index, sdNode -> GraphNodeRecord in
             let position: SIMD2<Float> = hints.removeValue(forKey: sdNode.id)
                 ?? {
-                    let r: Float = 120.0 * sqrt(Float(index))
+                    let r: Float = 250.0 * sqrt(Float(index))
                     let theta = Float(index) * golden
                     return SIMD2<Float>(r * cos(theta), r * sin(theta))
                 }()
