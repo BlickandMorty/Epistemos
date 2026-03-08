@@ -97,6 +97,7 @@ final class ClickableTextView: NSTextView {
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
         drawTableFills(in: rect)
+        drawTableGridLines(in: rect)
         drawFoldIndicators(in: rect)
     }
 
@@ -110,13 +111,12 @@ final class ClickableTextView: NSTextView {
         let origin = textContainerOrigin
 
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let accent = MarkdownTextStorage.accentColor(isDark: isDark)
-        let headerFill = isDark ? accent.withAlphaComponent(0.08) : accent.withAlphaComponent(0.06)
-        let evenFill = isDark ? accent.withAlphaComponent(0.04) : accent.withAlphaComponent(0.03)
-        let oddFill = isDark ? accent.withAlphaComponent(0.02) : accent.withAlphaComponent(0.015)
+        // Apple Notes style: subtle gray header fill, no alternating row colors
+        let headerFill = isDark
+            ? NSColor.white.withAlphaComponent(0.04)
+            : NSColor.black.withAlphaComponent(0.03)
 
         var lineStart = charRange.location
-        var dataRowIdx = 0
         var inTable = false
 
         while lineStart < NSMaxRange(charRange) {
@@ -134,7 +134,6 @@ final class ClickableTextView: NSTextView {
                     let fragRect = lm.lineFragmentRect(forGlyphAt: gi, effectiveRange: nil,
                                                        withoutAdditionalLayout: true)
 
-                    // Find table left/right from pipe positions
                     var firstPipeX = fragRect.minX
                     var lastPipeX = fragRect.maxX
                     for (offset, ch) in line.utf16.enumerated() where ch == 0x7C {
@@ -148,33 +147,152 @@ final class ClickableTextView: NSTextView {
                         }
                     }
 
-                    let fillRect = NSRect(
-                        x: firstPipeX + origin.x - 1,
-                        y: fragRect.minY + origin.y,
-                        width: lastPipeX - firstPipeX + 2,
-                        height: fragRect.height
-                    )
-
-                    let fill: NSColor
+                    // Only fill the header row
                     if !inTable {
-                        // First non-sep row = header
-                        fill = headerFill
+                        let fillRect = NSRect(
+                            x: firstPipeX + origin.x - 1,
+                            y: fragRect.minY + origin.y,
+                            width: lastPipeX - firstPipeX + 2,
+                            height: fragRect.height
+                        )
+                        headerFill.setFill()
+                        fillRect.fill()
                         inTable = true
-                        dataRowIdx = 0
-                    } else {
-                        fill = dataRowIdx % 2 == 0 ? evenFill : oddFill
-                        dataRowIdx += 1
                     }
-
-                    fill.setFill()
-                    fillRect.fill()
                 }
             } else {
                 inTable = false
-                dataRowIdx = 0
             }
 
             lineStart = NSMaxRange(lineRange)
+        }
+    }
+
+    // MARK: - Table Grid Lines (drawn BEHIND text via NSBezierPath)
+
+    private func drawTableGridLines(in dirtyRect: NSRect) {
+        guard let lm = layoutManager, let tc = textContainer, let storage = textStorage else { return }
+        let str = storage.string as NSString
+        guard str.length > 0 else { return }
+
+        let visibleGlyphs = lm.glyphRange(forBoundingRect: dirtyRect, in: tc)
+        let charRange = lm.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        let origin = textContainerOrigin
+
+        // Apple Notes style: uniform system gray borders
+        let borderColor = NSColor.separatorColor
+        let headerLineColor = NSColor.tertiaryLabelColor
+
+        struct TableRegion {
+            var top: CGFloat
+            var bottom: CGFloat
+            var left: CGFloat
+            var right: CGFloat
+            var columnXs: [CGFloat]
+            var rowYs: [CGFloat]
+            var headerBottomY: CGFloat?
+        }
+
+        var tables: [TableRegion] = []
+        var current: TableRegion?
+
+        var lineStart = charRange.location
+        while lineStart < NSMaxRange(charRange) {
+            let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
+            let line = str.substring(with: lineRange).trimmingCharacters(in: .newlines)
+            let isTableLine = line.hasPrefix("|") && line.hasSuffix("|") && line.count >= 3
+
+            if isTableLine {
+                let glyphIdx = lm.glyphIndexForCharacter(at: lineRange.location)
+                let lineFragRect = lm.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil,
+                                                       withoutAdditionalLayout: true)
+                    .offsetBy(dx: origin.x, dy: origin.y)
+
+                let isSep = line.dropFirst().dropLast()
+                    .split(separator: "|", omittingEmptySubsequences: false)
+                    .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+
+                if isSep {
+                    if current != nil {
+                        current!.headerBottomY = current!.rowYs.last.map { $0 + (lineFragRect.minY - $0) } ?? lineFragRect.minY
+                        current!.bottom = lineFragRect.maxY
+                    }
+                } else {
+                    var pipeXs: [CGFloat] = []
+                    for (offset, ch) in line.utf16.enumerated() where ch == 0x7C {
+                        let charIdx = lineRange.location + offset
+                        if charIdx < str.length {
+                            let gi = lm.glyphIndexForCharacter(at: charIdx)
+                            let loc = lm.location(forGlyphAt: gi)
+                            pipeXs.append(lineFragRect.minX + loc.x)
+                        }
+                    }
+
+                    if current == nil {
+                        current = TableRegion(
+                            top: lineFragRect.minY, bottom: lineFragRect.maxY,
+                            left: pipeXs.first ?? lineFragRect.minX,
+                            right: pipeXs.last ?? lineFragRect.maxX,
+                            columnXs: pipeXs, rowYs: [lineFragRect.minY],
+                            headerBottomY: nil
+                        )
+                    } else {
+                        current!.bottom = lineFragRect.maxY
+                        if let first = pipeXs.first { current!.left = min(current!.left, first) }
+                        if let last = pipeXs.last { current!.right = max(current!.right, last) }
+                        current!.rowYs.append(lineFragRect.minY)
+                        if pipeXs.count == current!.columnXs.count {
+                            for i in current!.columnXs.indices {
+                                current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
+                            }
+                        }
+                    }
+                }
+            } else {
+                if let t = current { tables.append(t); current = nil }
+            }
+            lineStart = NSMaxRange(lineRange)
+        }
+        if let t = current { tables.append(t) }
+
+        for table in tables {
+            let outerRect = NSRect(
+                x: table.left - 2, y: table.top - 1,
+                width: table.right - table.left + 4,
+                height: table.bottom - table.top + 2
+            )
+
+            // Outer border — thin, straight corners (Apple Notes style)
+            borderColor.setStroke()
+            let outerPath = NSBezierPath(rect: outerRect)
+            outerPath.lineWidth = 0.5
+            outerPath.stroke()
+
+            // Inner grid — same color, uniform weight
+            let innerPath = NSBezierPath()
+            innerPath.lineWidth = 0.5
+            if table.columnXs.count > 2 {
+                for x in table.columnXs[1..<(table.columnXs.count - 1)] {
+                    innerPath.move(to: NSPoint(x: x, y: table.top))
+                    innerPath.line(to: NSPoint(x: x, y: table.bottom))
+                }
+            }
+            for y in table.rowYs.dropFirst() {
+                if let hby = table.headerBottomY, abs(y - hby) < 4 { continue }
+                innerPath.move(to: NSPoint(x: table.left - 2, y: y))
+                innerPath.line(to: NSPoint(x: table.right + 2, y: y))
+            }
+            innerPath.stroke()
+
+            // Header bottom line — slightly stronger
+            if let headerY = table.headerBottomY {
+                headerLineColor.setStroke()
+                let headerPath = NSBezierPath()
+                headerPath.lineWidth = 1.0
+                headerPath.move(to: NSPoint(x: table.left - 2, y: headerY))
+                headerPath.line(to: NSPoint(x: table.right + 2, y: headerY))
+                headerPath.stroke()
+            }
         }
     }
 

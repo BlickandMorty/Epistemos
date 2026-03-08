@@ -173,8 +173,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             context.coordinator.blockRefAutocomplete = autocomplete
         }
 
-        // Table border overlay — Obsidian-style grid lines drawn via CAShapeLayer
-        context.coordinator.setupTableBorderLayer(in: tv)
 
         // Wire wikilink + block ref handlers and page ID for scoped notifications
         let coord = context.coordinator
@@ -542,9 +540,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Scroll observer for continuous scroll position tracking.
         nonisolated(unsafe) var scrollObserver: (any NSObjectProtocol)?
 
-        // Table border overlay — draws Obsidian-style grid lines over table regions.
-        var tableBorderLayer: CAShapeLayer?
-        nonisolated(unsafe) var borderScrollObserver: (any NSObjectProtocol)?
 
         /// Block Transaction Kernel translator — tracks edits as block ops.
         var blockEditTranslator: BlockEditTranslator?
@@ -572,9 +567,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 NotificationCenter.default.removeObserver(observer)
             }
             if let observer = scrollObserver {
-                NotificationCenter.default.removeObserver(observer)
-            }
-            if let observer = borderScrollObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
         }
@@ -696,8 +688,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             // Auto-align table columns (500ms debounce)
             scheduleTableAlignment(tv)
 
-            // Update table border overlay after layout settles
-            updateTableBorders()
 
             // Refresh transclusion overlays
             transclusionManager?.refresh()
@@ -1275,217 +1265,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         }
 
 
-        // MARK: - Table Border Overlay
-
-        /// Sets up the CAShapeLayer that draws Obsidian-style cell borders.
-        /// Called once from makeNSView after the text view is ready.
-        func setupTableBorderLayer(in tv: ClickableTextView) {
-            guard tv.wantsLayer, let layer = tv.layer else { return }
-            let border = CAShapeLayer()
-            border.fillColor = nil
-            border.lineWidth = 0.5
-            border.zPosition = -1
-            layer.addSublayer(border)
-            tableBorderLayer = border
-
-            // Update borders on scroll (bounds change of clip view)
-            borderScrollObserver = NotificationCenter.default.addObserver(
-                forName: NSView.boundsDidChangeNotification,
-                object: tv.enclosingScrollView?.contentView,
-                queue: .main
-            ) { [weak self] _ in
-                self?.updateTableBorders()
-            }
-        }
-
-        /// Redraws liquid-glass table grid for all visible table regions.
-        /// Rounded outer border with accent glow, translucent fill, clean inner dividers.
-        func updateTableBorders() {
-            guard let tv = textView,
-                  let lm = tv.layoutManager,
-                  let tc = tv.textContainer,
-                  let storage = storage,
-                  let borderLayer = tableBorderLayer else { return }
-
-            let str = storage.string as NSString
-            guard str.length > 0 else {
-                borderLayer.path = nil
-                borderLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
-                return
-            }
-
-            // Visible glyph range — only process what's on screen
-            let visibleRect = tv.visibleRect
-            let glyphRange = lm.glyphRange(forBoundingRect: visibleRect, in: tc)
-            let charRange = lm.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-
-            let isDark = parent.isDark
-            let accent = MarkdownTextStorage.accentColor(isDark: isDark)
-
-            // Stroke-only palette (no fills — fills cover text since sublayers draw on top)
-            let outerBorderColor = (isDark
-                ? accent.withAlphaComponent(0.25)
-                : accent.withAlphaComponent(0.20)).cgColor
-            let innerLineColor = (isDark
-                ? accent.withAlphaComponent(0.12)
-                : accent.withAlphaComponent(0.10)).cgColor
-            let headerLineColor = (isDark
-                ? accent.withAlphaComponent(0.40)
-                : accent.withAlphaComponent(0.30)).cgColor
-
-            // Collect table regions
-            struct TableRegion {
-                var top: CGFloat
-                var bottom: CGFloat
-                var left: CGFloat
-                var right: CGFloat
-                var columnXs: [CGFloat]
-                var rowYs: [CGFloat]          // top Y of each row
-                var headerBottomY: CGFloat?   // Y where header separator sits
-            }
-
-            var tables: [TableRegion] = []
-            var current: TableRegion?
-
-            var lineStart = charRange.location
-            while lineStart < NSMaxRange(charRange) {
-                let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
-                let line = str.substring(with: lineRange).trimmingCharacters(in: .newlines)
-                let isTableLine = line.hasPrefix("|") && line.hasSuffix("|") && line.count >= 3
-
-                if isTableLine {
-                    let glyphIdx = lm.glyphIndexForCharacter(at: lineRange.location)
-                    let origin = tv.textContainerOrigin
-                    let lineFragRect = lm.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil,
-                                                           withoutAdditionalLayout: true)
-                        .offsetBy(dx: origin.x, dy: origin.y)
-
-                    let isSep = line.dropFirst().dropLast()
-                        .split(separator: "|", omittingEmptySubsequences: false)
-                        .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
-
-                    if isSep {
-                        // Separator row — only record headerBottomY, skip all geometry
-                        // (1pt font makes its pipe positions and line height unreliable)
-                        if current != nil {
-                            current!.headerBottomY = current!.rowYs.last.map { $0 + (lineFragRect.minY - $0) } ?? lineFragRect.minY
-                            current!.bottom = lineFragRect.maxY
-                        }
-                    } else {
-                        // Find pipe x-positions for header/data rows
-                        var pipeXs: [CGFloat] = []
-                        for (offset, ch) in line.utf16.enumerated() where ch == 0x7C {
-                            let charIdx = lineRange.location + offset
-                            if charIdx < str.length {
-                                let gi = lm.glyphIndexForCharacter(at: charIdx)
-                                let loc = lm.location(forGlyphAt: gi)
-                                pipeXs.append(lineFragRect.minX + loc.x)
-                            }
-                        }
-
-                        if current == nil {
-                            current = TableRegion(
-                                top: lineFragRect.minY,
-                                bottom: lineFragRect.maxY,
-                                left: pipeXs.first ?? lineFragRect.minX,
-                                right: pipeXs.last ?? lineFragRect.maxX,
-                                columnXs: pipeXs,
-                                rowYs: [lineFragRect.minY],
-                                headerBottomY: nil
-                            )
-                        } else {
-                            current!.bottom = lineFragRect.maxY
-                            if let first = pipeXs.first { current!.left = min(current!.left, first) }
-                            if let last = pipeXs.last { current!.right = max(current!.right, last) }
-                            current!.rowYs.append(lineFragRect.minY)
-                            // Stabilize column positions using first row as reference
-                            if pipeXs.count == current!.columnXs.count {
-                                for i in current!.columnXs.indices {
-                                    current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    if let t = current {
-                        tables.append(t)
-                        current = nil
-                    }
-                }
-
-                lineStart = NSMaxRange(lineRange)
-            }
-            if let t = current { tables.append(t) }
-
-            // Clear old sublayers
-            borderLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
-
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            borderLayer.path = nil
-            borderLayer.frame = tv.bounds
-
-            let cornerRadius: CGFloat = 6
-
-            for table in tables {
-                let outerRect = CGRect(
-                    x: table.left - 2,
-                    y: table.top - 1,
-                    width: table.right - table.left + 4,
-                    height: table.bottom - table.top + 2
-                )
-
-                // Outer rounded border (stroke only — no fills, they cover text)
-                let outerBorder = CAShapeLayer()
-                outerBorder.path = CGPath(roundedRect: outerRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-                outerBorder.fillColor = nil
-                outerBorder.strokeColor = outerBorderColor
-                outerBorder.lineWidth = 1.0
-                borderLayer.addSublayer(outerBorder)
-
-                // Inner grid lines — vertical column dividers
-                let innerPath = CGMutablePath()
-
-                // Skip first and last column x (those are the outer border)
-                if table.columnXs.count > 2 {
-                    for x in table.columnXs[1..<(table.columnXs.count - 1)] {
-                        innerPath.move(to: CGPoint(x: x, y: table.top + cornerRadius))
-                        innerPath.addLine(to: CGPoint(x: x, y: table.bottom - cornerRadius))
-                    }
-                }
-
-                // Horizontal row dividers (skip first row top — that's the outer border)
-                for y in table.rowYs.dropFirst() {
-                    // Skip the separator row itself (drawn as header line)
-                    if let hby = table.headerBottomY, abs(y - hby) < 4 { continue }
-                    innerPath.move(to: CGPoint(x: table.left + cornerRadius, y: y))
-                    innerPath.addLine(to: CGPoint(x: table.right - cornerRadius, y: y))
-                }
-
-                let innerLayer = CAShapeLayer()
-                innerLayer.path = innerPath
-                innerLayer.fillColor = nil
-                innerLayer.strokeColor = innerLineColor
-                innerLayer.lineWidth = 0.5
-                borderLayer.addSublayer(innerLayer)
-
-                // Header separator — thicker accent line below header row
-                if let headerY = table.headerBottomY {
-                    let headerPath = CGMutablePath()
-                    headerPath.move(to: CGPoint(x: table.left + 2, y: headerY))
-                    headerPath.addLine(to: CGPoint(x: table.right - 2, y: headerY))
-
-                    let headerLayer = CAShapeLayer()
-                    headerLayer.path = headerPath
-                    headerLayer.fillColor = nil
-                    headerLayer.strokeColor = headerLineColor
-                    headerLayer.lineWidth = 1.5
-                    borderLayer.addSublayer(headerLayer)
-                }
-            }
-
-            CATransaction.commit()
-        }
 
     }
 }

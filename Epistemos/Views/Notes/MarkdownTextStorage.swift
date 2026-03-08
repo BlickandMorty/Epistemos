@@ -470,8 +470,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             }
 
         } else if t.hasPrefix("|") && t.hasSuffix("|") {
-            // Table row — liquid glass styling. Grid overlay (CAShapeLayer) draws
-            // the rounded border, glow, and divider lines. Text styling here handles:
+            // Table row — liquid glass styling. Grid lines drawn in drawBackground()
+            // via NSBezierPath (rounded border, dividers). Text styling here handles:
             // - Monospace font for column alignment
             // - Header bold weight
             // - Muted pipe characters (grid lines replace them visually)
@@ -483,7 +483,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
 
             if isSepRow {
-                // Separator row — fully hidden, the grid overlay draws the header line
+                // Separator row — collapsed to near-zero height
                 backing.addAttributes([
                     .font: NSFont.monospacedSystemFont(ofSize: 1, weight: .regular),
                     .foregroundColor: NSColor.clear,
@@ -493,23 +493,15 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 let str = backing.string as NSString
                 let isHeader = Self.isTableHeader(at: range, in: str)
 
-                if isHeader {
-                    // Header row — semibold, bright
-                    backing.addAttributes([
-                        .font: NSFont.monospacedSystemFont(ofSize: baseFontSize, weight: .semibold),
-                        .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.95) : NSColor(white: 0.05, alpha: 1),
-                        .paragraphStyle: Self.tableStyle
-                    ], range: range)
-                } else {
-                    // Data row
-                    backing.addAttributes([
-                        .font: NSFont.monospacedSystemFont(ofSize: baseFontSize - 1, weight: .regular),
-                        .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.88) : NSColor(white: 0.12, alpha: 1),
-                        .paragraphStyle: Self.tableStyle
-                    ], range: range)
-                }
+                // Apple Notes style: system font, standard label colors
+                backing.addAttributes([
+                    .font: NSFont.systemFont(ofSize: isHeader ? baseFontSize : baseFontSize - 1,
+                                             weight: isHeader ? .semibold : .regular),
+                    .foregroundColor: NSColor.labelColor,
+                    .paragraphStyle: Self.tableStyle
+                ], range: range)
 
-                // Hide pipes — the grid overlay provides the visual column borders
+                // Hide pipes — grid lines drawn in drawBackground()
                 for (offset, ch) in lineStr.utf16.enumerated() where ch == 0x7C {
                     let pipeRange = NSRange(location: range.location + offset, length: 1)
                     if pipeRange.location + pipeRange.length <= backing.length {
