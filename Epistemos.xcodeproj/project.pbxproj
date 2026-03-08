@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = NLANLYS00000000000001F1 /* NLAnalysisService.swift */; };
 		DATADET00000000000002F2 /* DataDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATADET00000000000001F1 /* DataDetectionService.swift */; };
+		DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMOD00000000000000001 /* DocumentModeTests.swift */; };
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		00958C84B66DAFB874ACC7A0 /* NoteChatState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064E3C4638DEEB27E2A45CE8 /* NoteChatState.swift */; };
 		01FA6D61B314D9E3ADD3E5D6 /* StructuredQueryParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68E1FA92B55587632545579 /* StructuredQueryParser.swift */; };
@@ -259,6 +260,7 @@
 /* Begin PBXFileReference section */
 		NLANLYS00000000000001F1 /* NLAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NLAnalysisService.swift; sourceTree = "<group>"; };
 		DATADET00000000000001F1 /* DataDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDetectionService.swift; sourceTree = "<group>"; };
+		DOCMOD00000000000000001 /* DocumentModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModeTests.swift; sourceTree = "<group>"; };
 		006D4AFC106E6BBA941CDBD4 /* ResearchIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchIntents.swift; sourceTree = "<group>"; };
 		01E39AEBA6CCBE938F617A0F /* SignalGeneratorComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignalGeneratorComprehensiveTests.swift; sourceTree = "<group>"; };
 		048C9E2D136FBBD0A79B9D60 /* CommandPaletteOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteOverlay.swift; sourceTree = "<group>"; };
@@ -937,6 +939,7 @@
 				90A09466F35F354234C1FBAB /* IncrementalFFIUpdateTests.swift */,
 				80F132458375D73807906E8E /* NoteInsightServiceTests.swift */,
 				FOCUSMD00000000000000001 /* FocusModeTests.swift */,
+				DOCMOD00000000000000001 /* DocumentModeTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -1170,6 +1173,7 @@
 				A9F0B3B745CE00F2A7D57E63 /* IncrementalFFIUpdateTests.swift in Sources */,
 				586528B080AC28C52DBA3067 /* NoteInsightServiceTests.swift in Sources */,
 				FOCUSMD00000000000000002 /* FocusModeTests.swift in Sources */,
+				DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

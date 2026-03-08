@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import os
 
@@ -92,6 +93,48 @@ enum NoteFileStorage {
     nonisolated static func bodyExists(pageId: String) -> Bool {
         guard isValidPageId(pageId) else { return false }
         let url = storageDirectory().appendingPathComponent("\(pageId).md")
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    // MARK: - Rich Text (RTFD) Storage
+
+    /// Read a rich text document from disk. Returns nil if file doesn't exist.
+    nonisolated static func readRichText(pageId: String) -> NSAttributedString? {
+        guard isValidPageId(pageId) else { return nil }
+        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try? NSAttributedString(url: url, options: [:], documentAttributes: nil)
+    }
+
+    /// Write a rich text document to disk as RTFD bundle.
+    nonisolated static func writeRichText(pageId: String, content: NSAttributedString) {
+        guard isValidPageId(pageId) else {
+            logger.error("Invalid pageId rejected in writeRichText: \(pageId.prefix(20))")
+            return
+        }
+        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
+        let range = NSRange(location: 0, length: content.length)
+        do {
+            let wrapper = try content.fileWrapper(from: range, documentAttributes: [
+                .documentType: NSAttributedString.DocumentType.rtfd
+            ])
+            try wrapper.write(to: url, options: .atomic, originalContentsURL: nil)
+        } catch {
+            logger.error("Failed to write RTFD for \(pageId): \(error.localizedDescription)")
+        }
+    }
+
+    /// Delete a rich text document bundle.
+    nonisolated static func deleteRichText(pageId: String) {
+        guard isValidPageId(pageId) else { return }
+        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Check if an RTFD file exists on disk.
+    nonisolated static func richTextExists(pageId: String) -> Bool {
+        guard isValidPageId(pageId) else { return false }
+        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
         return FileManager.default.fileExists(atPath: url.path)
     }
 
