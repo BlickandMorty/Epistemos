@@ -46,16 +46,17 @@ in format bar for split-view live preview. 500ms debounced refresh on text chang
 
 ---
 
-## Phase 3: NaturalLanguage Framework (DONE)
+## Phase 3: NaturalLanguage Framework (PARTIAL)
 
-`NLAnalysisService.swift` created in Engine/. Provides:
-- Entity extraction: `NLTagger` with `.nameType` (person/place/org)
-- Sentiment analysis: `NLTagger` with `.sentimentScore` (-1.0 to +1.0)
-- Language detection: `NLLanguageRecognizer` (BCP-47 codes)
-- Word count: `NLTokenizer` (more accurate than NSSpellChecker for non-English)
+`NLAnalysisService.swift` created in Engine/ with entity extraction, sentiment analysis,
+language detection, and word count APIs. However:
+- **No call sites** — NLAnalysisService is unused. GraphBuilder does not consume NL entities.
+- **Word count** still uses `NSSpellChecker` in NoteWindowManager and a separate counter
+  in VaultIndexActor, not `NLTokenizer`.
 
 ### Remaining
-- Wire NL entities into GraphBuilder alongside Rust-extracted entities (deduplicate)
+- Wire NLAnalysisService into GraphBuilder for entity extraction (deduplicate with Rust)
+- Replace NSSpellChecker word count with NLTokenizer
 
 ---
 
@@ -66,10 +67,11 @@ Prose editor (ClickableTextView) inherits default NSTextView behavior — alread
 
 ---
 
-## Phase 5: CoreSpotlight (DONE — already existed)
+## Phase 5: CoreSpotlight (DONE)
 
-`SpotlightIndexer.swift` already implemented in Sync/. Full CoreSpotlight integration
-with index/deindex/reindexAll. No work needed.
+`SpotlightIndexer.swift` in Engine/. Index on create/save (VaultSyncService), deindex
+on page/folder delete (NotesSidebar), reindexAll on vault load. Open-from-Spotlight
+wired in EpistemosApp via `onContinueUserActivity`.
 
 ---
 
@@ -213,9 +215,9 @@ DocumentEditorView (NSViewRepresentable)
 |-------|-----------|--------|----------|
 | 1 | Writer Mode Polish (TextKit 1) | DONE | — |
 | 2 | PDFKit Preview + Export | DONE | — |
-| 3 | NaturalLanguage | DONE (wire to graph remaining) | — |
+| 3 | NaturalLanguage | PARTIAL (service exists, no call sites) | LOWER |
 | 4 | WritingTools | DONE | — |
-| 5 | CoreSpotlight | DONE (pre-existing) | — |
+| 5 | CoreSpotlight | DONE (index + deindex + open wired) | — |
 | 6 | QuickLook | DONE | — |
 | 7 | Translation | DONE | — |
 | 8 | Vision OCR | DONE | — |

@@ -851,6 +851,7 @@ struct NotesSidebar: View {
         notesUI.closeTab(item.id)
         if let page = fetchPage(item.id) {
             vaultSync.deletePageFromDisk(filePath: page.filePath)
+            SpotlightIndexer.deindex(page.id)
             // Clean up orphaned SDNoteInsight before deleting the page
             let pageId = page.id
             let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
@@ -890,6 +891,7 @@ struct NotesSidebar: View {
 
     private func deletePagesInFolder(_ folder: SDFolder) {
         for page in (folder.pages ?? []) {
+            SpotlightIndexer.deindex(page.id)
             modelContext.delete(page)
         }
         for child in (folder.children ?? []) {
