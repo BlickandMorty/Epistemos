@@ -108,9 +108,9 @@ Detected ranges styled with subtle underline. Click-to-open wired in ClickableTe
 
 ## Phase 10: Polish Frameworks (MOSTLY DONE)
 
-### 10a: UserNotifications (DONE)
-Already implemented in UIState.swift — breathe reminders using UNUserNotificationCenter
-with ObjC exception safety wrapper for entitlement-less builds.
+### 10a: UserNotifications (REMOVED)
+Breathe reminders were implemented but later removed (UI, settings, reset hooks deleted).
+No `UNUserNotificationCenter` call sites remain in the codebase.
 
 ### 10b: Continuity Camera (DONE)
 Built into NSTextView — "Import from iPhone or iPad" available in Edit menu automatically.
@@ -221,7 +221,7 @@ DocumentEditorView (NSViewRepresentable)
 | 7 | Translation | DONE | — |
 | 8 | Vision OCR | DONE | — |
 | 9 | DataDetection | DONE | — |
-| 10a | UserNotifications | DONE (breathe reminders) | — |
+| 10a | UserNotifications | REMOVED (breathe reminders deleted) | — |
 | 10b | Continuity Camera | DONE (built-in NSTextView) | — |
 | 10c | ShortcutsProvider | DONE (pre-existing, 10 shortcuts) | — |
 | 10d | swift-collections | DEFERRED (no SPM, needs dependency setup) | LOWER |

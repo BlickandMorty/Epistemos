@@ -91,6 +91,7 @@ final class StatusBar {
         Task { @MainActor in
             AppBootstrap.shared?.chatState.goHome()
             AppBootstrap.shared?.uiState.setActivePanel(.home)
+            AppBootstrap.shared?.uiState.homeTab = .home
             NSApplication.shared.activate()
             // mainWindow can be nil when app is backgrounded — find by title.
             if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {

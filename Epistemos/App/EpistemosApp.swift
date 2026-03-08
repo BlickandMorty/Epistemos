@@ -133,6 +133,7 @@ struct EpistemosCommands: Commands {
         CommandGroup(after: .sidebar) {
             Button("Show Home") {
                 chat.goHome()
+                ui.homeTab = .home
                 ui.setActivePanel(.home)
                 NSApp.activate()
                 if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
@@ -144,8 +145,14 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
-            Button("Show Library & Research") { UtilityWindowManager.shared.show(.library) }
-                .keyboardShortcut("3", modifiers: .command)
+            Button("Show Library") {
+                ui.homeTab = .library
+                NSApp.activate()
+                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+                    main.makeKeyAndOrderFront(nil)
+                }
+            }
+            .keyboardShortcut("3", modifiers: .command)
 
             Button("Knowledge Graph") {
                 HologramController.shared.toggle()
@@ -154,8 +161,14 @@ struct EpistemosCommands: Commands {
 
             Divider()
 
-            Button("Open Settings") { UtilityWindowManager.shared.show(.settings) }
-                .keyboardShortcut(",", modifiers: .command)
+            Button("Open Settings") {
+                ui.homeTab = .settings
+                NSApp.activate()
+                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+                    main.makeKeyAndOrderFront(nil)
+                }
+            }
+            .keyboardShortcut(",", modifiers: .command)
 
             Divider()
 
@@ -187,6 +200,7 @@ struct EpistemosCommands: Commands {
             Button("Go Home") {
                 chat.goHome()
                 ui.setActivePanel(.home)
+                ui.homeTab = .home
                 NSApp.activate()
                 if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
                     main.makeKeyAndOrderFront(nil)

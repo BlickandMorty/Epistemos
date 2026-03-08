@@ -21,7 +21,6 @@ struct CommandPaletteOverlay: View {
     @Environment(InferenceState.self) private var inference
     @Environment(GraphState.self) private var graphState
     @Environment(QueryEngine.self) private var queryEngine
-    @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(ThreadState.self) private var threadState
     @Environment(TriageService.self) private var triage
     @Environment(LLMService.self) private var llmService
@@ -1485,20 +1484,6 @@ struct CommandPaletteOverlay: View {
         HologramController.shared.show()
     }
 
-    private func captureIdea(type: NoteIdea.IdeaType) {
-        let content = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let title = content.isEmpty
-            ? (type == .idea ? "New Idea" : "Brain Dump")
-            : String(content.prefix(60))
-        let emoji = type == .idea ? "\u{1F4A1}" : "\u{1F9E0}"
-        dismiss()
-        Task {
-            if let pageId = await vaultSync.createPage(title: title, body: content, emoji: emoji) {
-                NoteWindowManager.shared.open(pageId: pageId)
-            }
-        }
-    }
-
     // MARK: - Palette UI Components
 
     private var sparklesIcon: some View {
@@ -1554,35 +1539,13 @@ struct CommandPaletteOverlay: View {
 
     private func makeCommands() -> [LandingCommandItem] {
         [
-            LandingCommandItem(id: "daily-brief", label: "Daily Brief", icon: "newspaper.fill", category: "Think") { [self] in
-                dismiss(); ui.setActivePanel(.home)
-                let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
-                dailyBrief.requestDailyBrief(prompt: prompt)
-            },
-            LandingCommandItem(id: "vault-briefing", label: "Vault Briefing", icon: "book.pages", category: "Think") { [self] in
-                dismiss()
-                chat.startNewChat()
-                ui.setActivePanel(.home)
-                AppBootstrap.shared?.requestVaultBriefing(chatState: chat)
-            },
-            LandingCommandItem(id: "breathe", label: "Breathe Now", icon: "wind", category: "Think") {
-                ui.startBreathe(); dismiss()
-            },
             LandingCommandItem(id: "new-note", label: "New Note", icon: "doc.badge.plus", category: "Create", badge: "\u{2318}N") {
                 dismiss()
                 Task { if let id = await vaultSync.createPage(title: "New Note") { NoteWindowManager.shared.open(pageId: id) } }
             },
-            LandingCommandItem(id: "quick-idea", label: "Quick Idea", icon: "lightbulb", category: "Create", badge: "\u{2318}I") { [self] in
-                captureIdea(type: .idea)
-            },
-            LandingCommandItem(id: "brain-dump", label: "Brain Dump", icon: "brain", category: "Create") { [self] in
-                captureIdea(type: .brainDump)
-            },
-            LandingCommandItem(id: "new-chat", label: "New Chat", icon: "plus.bubble", category: "Create") { [self] in
-                dismiss(); chat.startNewChat(); ui.setActivePanel(.home)
-            },
             LandingCommandItem(id: "nav-home", label: "Go Home", icon: "house", category: "Navigate", badge: "\u{2318}1") {
                 ui.setActivePanel(.home)
+                ui.homeTab = .home
                 if let w = NSApp.windows.first(where: { $0.title == "Epistemos" }) { w.makeKeyAndOrderFront(nil) }
                 dismiss()
             },
@@ -1590,13 +1553,13 @@ struct CommandPaletteOverlay: View {
                 UtilityWindowManager.shared.show(.notes); dismiss()
             },
             LandingCommandItem(id: "nav-library", label: "Open Library", icon: "books.vertical", category: "Navigate", badge: "\u{2318}3") {
-                UtilityWindowManager.shared.show(.library); dismiss()
+                ui.homeTab = .library; dismiss()
             },
             LandingCommandItem(id: "open-graph", label: "Knowledge Graph", icon: "point.3.connected.trianglepath.dotted", category: "Navigate", badge: "\u{2318}G") {
                 HologramController.shared.show(); dismiss()
             },
             LandingCommandItem(id: "nav-settings", label: "Open Settings", icon: "gearshape", category: "Navigate", badge: "\u{2318},") {
-                UtilityWindowManager.shared.show(.settings); dismiss()
+                ui.homeTab = .settings; dismiss()
             },
             LandingCommandItem(id: "rebuild-graph", label: "Rebuild Graph", icon: "arrow.triangle.2.circlepath", category: "Tools") { [self] in
                 dismiss()

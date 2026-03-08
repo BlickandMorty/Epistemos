@@ -263,6 +263,7 @@ final class AppCoordinator {
         chatState.chatTitle = sdChat.title
         chatState.loadMessages(messages)
         uiState.setActivePanel(.home)
+        uiState.homeTab = .home
         if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
             main.makeKeyAndOrderFront(nil)
         }
