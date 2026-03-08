@@ -19,8 +19,10 @@ struct LiquidGreeting: View {
     @Binding var retractNow: Bool
     var onRetractComplete: (() -> Void)? = nil
 
-    // Typewriter state
-    @State private var displayText = ""
+    // Typewriter state — pre-fill with "indexing..." if vault will import on launch
+    @State private var displayText: String = {
+        UserDefaults.standard.data(forKey: "epistemos.vaultBookmark") != nil ? "indexing..." : ""
+    }()
     @State private var cursorVisible = true
 
     private var theme: EpistemosTheme { ui.theme }
@@ -114,21 +116,19 @@ struct LiquidGreeting: View {
     @MainActor
     private func typewriterLoop() async {
         // === INDEXING PHASE ===
-        // If vault is indexing on launch, type "indexing..." and hold until done.
+        // displayText is pre-filled with "indexing..." from init if a vault
+        // bookmark exists, so it's visible on the very first frame.
+        // Just hold until indexing finishes, then untype.
         if vaultSync.isIndexing {
-            let indexText = "indexing..."
-            await typePhrase(indexText)
-            guard !Task.isCancelled else { return }
+            displayText = "indexing..."
 
-            // Hold — poll until indexing finishes
             while vaultSync.isIndexing && !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(200))
             }
             guard !Task.isCancelled else { return }
 
-            // Brief pause then untype
             try? await Task.sleep(for: .milliseconds(400))
-            await untypePhrase(indexText)
+            await untypePhrase("indexing...")
             guard !Task.isCancelled else { return }
             try? await Task.sleep(for: .milliseconds(300))
         }
