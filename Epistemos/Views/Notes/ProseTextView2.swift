@@ -11,6 +11,7 @@ final class ProseTextView2: NSTextView {
     /// Delegate that classifies paragraphs via Rust FFI and applies structural styles.
     let markdownDelegate = MarkdownContentStorage()
     private var reparseTask: Task<Void, Never>?
+    private var currentActiveLine: Int?
 
     func applyTheme(_ theme: EpistemosTheme) {
         let foreground = NSColor(theme.foreground)
@@ -32,6 +33,50 @@ final class ProseTextView2: NSTextView {
 
         markdownDelegate.theme = theme
         reparseAndInvalidate()
+    }
+
+    // MARK: - Active Line Tracking (Phase 3)
+
+    override func setSelectedRanges(
+        _ ranges: [NSValue],
+        affinity: NSSelectionAffinity,
+        stillSelecting: Bool
+    ) {
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        guard !stillSelecting else { return }
+        updateActiveLine()
+    }
+
+    private func updateActiveLine() {
+        let cursorOffset = selectedRange().location
+        let newLine = markdownDelegate.lineIndex(at: cursorOffset)
+        guard newLine != currentActiveLine else { return }
+
+        let oldLine = currentActiveLine
+        currentActiveLine = newLine
+        markdownDelegate.activeLine = newLine
+
+        invalidateParagraphLayout(line: oldLine)
+        invalidateParagraphLayout(line: newLine)
+    }
+
+    private func invalidateParagraphLayout(line: Int?) {
+        guard let line,
+              let contentStorage = textLayoutManager?.textContentManager
+                  as? NSTextContentStorage,
+              let lineRange = markdownDelegate.lineRange(at: line) else { return }
+
+        guard let startLoc = contentStorage.location(
+                  contentStorage.documentRange.location,
+                  offsetBy: lineRange.location
+              ),
+              let endLoc = contentStorage.location(
+                  startLoc,
+                  offsetBy: lineRange.length
+              ) else { return }
+
+        guard let textRange = NSTextRange(location: startLoc, end: endLoc) else { return }
+        textLayoutManager?.invalidateLayout(for: textRange)
     }
 
     // MARK: - Live Edit Loop
