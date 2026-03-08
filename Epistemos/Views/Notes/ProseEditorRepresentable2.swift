@@ -278,15 +278,44 @@ extension ProseEditorRepresentable2 {
         }
 
         // MARK: - Binding Sync (300ms debounce)
+        // Coalesces rapid keystrokes so SwiftUI @Binding updates at most ~3×/second.
+        // Prevents per-keystroke view tree re-evaluation (same cadence as TK1).
 
         func debouncedBindingSync(_ newText: String) {
-            // placeholder — Task 2
+            bindingSyncTask?.cancel()
+            bindingSyncTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled, let self else { return }
+                guard !self.isFlushingTokens else { return }
+                self.parent.text = newText
+                self.lastSyncedText = newText
+            }
+        }
+
+        /// Flush binding immediately — called by accept/discard to persist AI changes.
+        func flushBindingSync() {
+            bindingSyncTask?.cancel()
+            guard let tv = textView else { return }
+            let text = tv.string
+            parent.text = text
+            lastSyncedText = text
         }
 
         // MARK: - Direct File Save (3s defense-in-depth)
+        // Writes to disk independently of SwiftData persist cycle.
+        // If the app crashes between binding sync and debouncedSave (in ProseEditorView),
+        // the file on disk still has recent content.
 
         func scheduleDirectSave(_ newText: String) {
-            // placeholder — Task 2
+            directSaveTask?.cancel()
+            let pageId = currentPageId
+            directSaveTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled, let self else { return }
+                await Task.detached(priority: .utility) {
+                    NoteFileStorage.writeBody(pageId: pageId, content: newText)
+                }.value
+            }
         }
     }
 }
