@@ -20,7 +20,7 @@ struct CommandPaletteOverlay: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
     @Environment(GraphState.self) private var graphState
-    @Environment(QueryEngine.self) private var queryEngine
+
     @Environment(ThreadState.self) private var threadState
     @Environment(TriageService.self) private var triage
     @Environment(LLMService.self) private var llmService
@@ -36,7 +36,7 @@ struct CommandPaletteOverlay: View {
     @State private var searchText = ""
     @State private var selectedIndex = 0
     @State private var hasManuallyNavigated = false
-    @State private var searchHighlightTask: Task<Void, Never>?
+
     @State private var cachedSearchResults: [LandingCommandItem] = []
     @State private var ftsDebounceTask: Task<Void, Never>?
     @State private var appeared = false
@@ -230,22 +230,10 @@ struct CommandPaletteOverlay: View {
                             .onSubmit { executeSelected() }
 
                         if !searchText.isEmpty {
-                            if queryEngine.isReactive {
-                                Text("LIVE")
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(theme.accent)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(theme.accent.opacity(0.15), in: Capsule())
-                            }
-
                             Button {
                                 searchText = ""
-                                queryEngine.stopReactive()
                                 cachedSearchResults = []
                                 selectedIndex = 0
-                                graphState.searchHighlight("")
-                                graphState.setSearchActive(false)
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 14))
@@ -358,13 +346,6 @@ struct CommandPaletteOverlay: View {
         .onChange(of: searchText) { _, newText in
             handleSearchChange(newText)
         }
-        .onChange(of: queryEngine.resultVersion) { _, _ in
-            guard searchText.hasPrefix("?") else { return }
-            cachedSearchResults = buildQueryResultItems()
-            if !cachedSearchResults.isEmpty && selectedIndex >= cachedSearchResults.count {
-                selectedIndex = max(0, cachedSearchResults.count - 1)
-            }
-        }
     }
 
     // MARK: - Expanded Commands
@@ -442,7 +423,7 @@ struct CommandPaletteOverlay: View {
     }
 
     private func orderedCategories(from grouped: [String: [LandingCommandItem]]) -> [String] {
-        let searchCategories = ["Notes", "Body Match", "Block Match", "Graph"]
+        let searchCategories = ["Notes", "Body Match", "Block Match"]
         let actionCategories = ["Chat"]
         let commandCategories = Self.categoryOrder
 
@@ -707,18 +688,43 @@ struct CommandPaletteOverlay: View {
                 }
             }
             do {
-                // Build context from active note + vault
-                var contextParts: [String] = []
+                // Phase 1 (main actor): lightweight SwiftData fetches + metadata
                 let page = activePage()
+                let pageId = page?.id
+                let pageTitle = page?.title ?? ""
+                let pageTags = page?.tags ?? []
 
-                if let page {
-                    let body = page.loadBody()
-                    if !body.isEmpty {
-                        contextParts.append("## Active Note: \(page.title)\nTags: [\(page.tags.joined(separator: ", "))]\n\(String(body.prefix(2000)))")
-                    }
+                var folderNames: [String] = []
+                let folderDescriptor = FetchDescriptor<SDFolder>(sortBy: [SortDescriptor(\.sortOrder)])
+                if let folders = try? modelContext.fetch(folderDescriptor) {
+                    folderNames = folders.map(\.name)
                 }
 
-                let vaultSnippets = searchVault(query: trimmed)
+                let activeMessages = activeThread?.messages ?? []
+                let hasHistory = activeMessages.count > 1
+                let conversationNote = hasHistory
+                    ? " The user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
+                    : ""
+
+                // Phase 2 (off main): file I/O + FTS search
+                let noteBody: String
+                if let pageId {
+                    noteBody = await Task.detached {
+                        NoteFileStorage.readBody(pageId: pageId)
+                    }.value
+                } else {
+                    noteBody = ""
+                }
+
+                let vaultSnippets = await vaultSync.searchFullAsync(query: trimmed, limit: 5)
+
+                // Phase 3 (main actor): build prompts
+                var contextParts: [String] = []
+
+                if !noteBody.isEmpty {
+                    contextParts.append("## Active Note: \(pageTitle)\nTags: [\(pageTags.joined(separator: ", "))]\n\(String(noteBody.prefix(2000)))")
+                }
+
                 if !vaultSnippets.isEmpty {
                     let snippetText = vaultSnippets.map { "- **\($0.title)**: \($0.snippet)" }.joined(separator: "\n")
                     contextParts.append("## Related Notes from Vault\n\(snippetText)")
@@ -728,21 +734,6 @@ struct CommandPaletteOverlay: View {
                     contextParts.append(manifest.asManifestOnly())
                 }
 
-                // Build folder list for move actions
-                var folderNames: [String] = []
-                let folderDescriptor = FetchDescriptor<SDFolder>(sortBy: [SortDescriptor(\.sortOrder)])
-                if let folders = try? modelContext.fetch(folderDescriptor) {
-                    folderNames = folders.map(\.name)
-                }
-
-                // Multi-turn conversation history
-                let activeMessages = activeThread?.messages ?? []
-                let hasHistory = activeMessages.count > 1
-                let conversationNote = hasHistory
-                    ? " The user's message includes recent conversation history formatted as 'User:' and 'Assistant:' turns. Respond only to the latest User message, using prior turns for context."
-                    : ""
-
-                // Context-aware system prompt
                 let systemPrompt: String
                 if contextParts.isEmpty {
                     systemPrompt = "You are Epistemos, a research assistant. Answer clearly and helpfully. Use markdown formatting.\(conversationNote)"
@@ -768,15 +759,7 @@ struct CommandPaletteOverlay: View {
                     """
                 }
 
-                // Include note context in the user prompt so it survives
-                // trimForAppleIntelligence (which replaces the system prompt).
-                var noteContext = ""
-                if let page {
-                    let body = page.loadBody()
-                    if !body.isEmpty {
-                        noteContext = "Note: \(page.title)\n\(String(body.prefix(2000)))\n\n"
-                    }
-                }
+                let noteContext = noteBody.isEmpty ? "" : "Note: \(pageTitle)\n\(String(noteBody.prefix(2000)))\n\n"
 
                 // Build conversation-aware prompt with thread history
                 let conversationPrompt: String
@@ -889,48 +872,6 @@ struct CommandPaletteOverlay: View {
         return try? modelContext.fetch(descriptor).first
     }
 
-    // MARK: - Vault Search
-
-    private func searchVault(query: String) -> [(title: String, snippet: String)] {
-        var descriptor = FetchDescriptor<SDPage>(
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 200
-        guard let pages = try? modelContext.fetch(descriptor) else { return [] }
-
-        let terms = query.lowercased()
-            .split(separator: " ")
-            .map(String.init)
-            .filter { $0.count > 2 }
-        guard !terms.isEmpty else { return [] }
-
-        let activeId = notesUI.activePageId
-
-        // Pass 1: title match (cheap)
-        var matches = pages.filter { page in
-            guard page.id != activeId else { return false }
-            let title = page.title.lowercased()
-            return terms.contains { title.contains($0) }
-        }
-
-        // Pass 2: body match for a small subset if few title hits
-        if matches.count < 3 {
-            let titleIds = Set(matches.map(\.id))
-            let candidates = pages.prefix(30).filter {
-                $0.id != activeId && !titleIds.contains($0.id)
-            }
-            let bodyMatches = candidates.filter { page in
-                let body = page.loadBody().lowercased()
-                return terms.contains { body.contains($0) }
-            }
-            matches.append(contentsOf: bodyMatches)
-        }
-
-        return Array(matches
-            .prefix(3)
-            .map { (title: $0.title, snippet: String($0.loadBody().prefix(300))) })
-    }
-
     // MARK: - Action Parsing
 
     private func executeActions(in response: String, page: SDPage) -> String {
@@ -1015,63 +956,39 @@ struct CommandPaletteOverlay: View {
         hasManuallyNavigated = false
 
         if newText.isEmpty {
-            searchHighlightTask?.cancel()
             ftsDebounceTask?.cancel()
             cachedSearchResults = []
             selectedIndex = 0
-            graphState.searchHighlight("")
-            graphState.setSearchActive(false)
             return
         }
 
-        // Structured query mode: route ? prefix through reactive QueryEngine
-        if newText.hasPrefix("?") {
-            ftsDebounceTask?.cancel()
-            searchHighlightTask?.cancel()
-            queryEngine.executeReactive(query: newText)
-            return
-        }
-
-        // Non-structured query — stop any active reactive stream
-        queryEngine.stopReactive()
-
-        // Title search is the guaranteed backbone — always runs first, never excluded.
-        // Graph search adds fuzzy/typo-tolerant matches but skips note nodes
-        // already covered by title search (avoids duplicate rows).
-        let titleItems = computeTitleResults(for: newText, excluding: [])
+        // Title search — always runs first.
+        let titleItems = computeTitleResults(for: newText)
         let titlePageIds = Set(titleItems.compactMap { item in
             item.id.hasPrefix("title-") ? String(item.id.dropFirst(6)) : nil
         })
-        let (graphItems, graphPageIds) = computeGraphResults(for: newText, excludingPageIds: titlePageIds)
-        cachedSearchResults = titleItems + graphItems
+        cachedSearchResults = titleItems
 
+        // FTS body + block search (debounced 150ms).
         ftsDebounceTask?.cancel()
         ftsDebounceTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
-            let seenPageIds = titlePageIds.union(graphPageIds)
             let bodyHits = await vaultSync.searchFullAsync(query: newText, limit: 30)
+            guard !Task.isCancelled else { return }
             let blockHits = await vaultSync.searchBlocksAsync(query: newText, limit: 10)
-            let bodyItems = computeBodyResults(from: bodyHits, excluding: seenPageIds)
-            let blockItems = computeBlockResults(from: blockHits, excluding: seenPageIds)
+            guard !Task.isCancelled else { return }
+            let bodyItems = computeBodyResults(from: bodyHits, excluding: titlePageIds)
+            let blockItems = computeBlockResults(from: blockHits, excluding: titlePageIds)
             withAnimation(Motion.quick) {
-                cachedSearchResults = titleItems + graphItems + bodyItems + blockItems
+                cachedSearchResults = titleItems + bodyItems + blockItems
             }
         }
 
         if !cachedSearchResults.isEmpty {
-            let askOffset = newText.hasPrefix("/query ") ? 2 : 1
-            selectedIndex = askOffset
+            selectedIndex = 1
         } else {
             selectedIndex = 0
-        }
-
-        searchHighlightTask?.cancel()
-        searchHighlightTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
-            guard !Task.isCancelled else { return }
-            graphState.searchHighlight(newText)
-            graphState.setSearchActive(!newText.isEmpty)
         }
     }
 
@@ -1079,20 +996,6 @@ struct CommandPaletteOverlay: View {
 
     private var filteredResults: [LandingCommandItem] {
         var base: [LandingCommandItem] = []
-
-        if searchText.hasPrefix("?") || searchText.hasPrefix("/query ") {
-            let queryText = searchText.hasPrefix("?")
-                ? String(searchText.dropFirst()).trimmingCharacters(in: .whitespaces)
-                : String(searchText.dropFirst(7)).trimmingCharacters(in: .whitespaces)
-            if !queryText.isEmpty {
-                let q = queryText
-                base.append(
-                    LandingCommandItem(
-                        id: "graph-query", label: "Graph Query: \"\(q)\"",
-                        icon: "sparkle.magnifyingglass", category: "Graph"
-                    ) { [self] in executeGraphQuery(q) })
-            }
-        }
 
         if !searchText.isEmpty {
             let q = searchText
@@ -1113,90 +1016,13 @@ struct CommandPaletteOverlay: View {
 
     // MARK: - Search Engine
 
-    private func computeGraphResults(for query: String, excludingPageIds: Set<String> = []) -> (items: [LandingCommandItem], seenPageIds: Set<String>) {
-        guard !query.isEmpty else { return ([], []) }
-        var items: [LandingCommandItem] = []
-        var seenPageIds = Set<String>()
-
-        let index = pageIndex
-        if graphState.isLoaded {
-            let hits = graphState.rustSearch(query: query, limit: 20)
-            for hit in hits {
-                let node = hit.node
-                let icon = node.type == .note ? "doc.text" : node.type.icon
-                let category = node.type == .note ? "Notes" : node.type.displayName
-                let nodeId = node.id
-                let sourceId = node.sourceId
-                if node.type == .note, let sid = sourceId {
-                    seenPageIds.insert(sid)
-                    // Skip note nodes already covered by title search
-                    if excludingPageIds.contains(sid) { continue }
-                }
-
-                var label = node.label
-                var subtitle: String?
-                if node.type == .note, let sid = sourceId, let page = index[sid] {
-                    if !page.emoji.isEmpty { label = "\(page.emoji) \(node.label)" }
-                    let parts = [
-                        "\(page.wordCount)w",
-                        page.tags.prefix(2).joined(separator: ", "),
-                        relativeDate(page.updatedAt),
-                    ].filter { !$0.isEmpty }
-                    subtitle = parts.joined(separator: " \u{00B7} ")
-                }
-
-                var contextActions: [LandingCommandItem.ContextAction] = []
-                if node.type == .note, let pid = sourceId {
-                    contextActions.append(.init(label: "Open in Notes", icon: "doc.text") { [self] in
-                        dismiss()
-                        NoteWindowManager.shared.open(pageId: pid)
-                    })
-                    contextActions.append(.init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
-                        dismiss()
-                        HologramController.shared.show()
-                        graphState.selectNode(nodeId)
-                        graphState.mode = .page(nodeId: nodeId)
-                        graphState.focusOnNode(nodeId, depth: 2)
-                        graphState.requestRecommit()
-                    })
-                } else {
-                    contextActions.append(.init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
-                        dismiss()
-                        HologramController.shared.show()
-                        graphState.selectNode(nodeId)
-                        graphState.pendingCenterNodeId = nodeId
-                    })
-                }
-
-                items.append(
-                    LandingCommandItem(
-                        id: "graph-\(nodeId)", label: label, icon: icon,
-                        category: category, subtitle: subtitle,
-                        contextActions: contextActions
-                    ) { [self] in
-                        dismiss()
-                        if node.type == .note, let pageId = sourceId {
-                            NoteWindowManager.shared.open(pageId: pageId)
-                        } else {
-                            HologramController.shared.show()
-                            graphState.selectNode(nodeId)
-                            graphState.pendingCenterNodeId = nodeId
-                        }
-                    })
-            }
-        }
-
-        return (items, seenPageIds)
-    }
-
-    private func computeTitleResults(for query: String, excluding graphPageIds: Set<String>) -> [LandingCommandItem] {
+    private func computeTitleResults(for query: String) -> [LandingCommandItem] {
         guard !query.isEmpty else { return [] }
         let q = query.lowercased()
 
         // Relevance scoring: exact > prefix > contains > tag match.
         // Within same tier, shorter titles rank higher (closer match).
         let scored: [(page: SDPage, score: Int)] = allPages
-            .filter { !graphPageIds.contains($0.id) }
             .compactMap { page in
                 let title = page.title.lowercased()
                 let score: Int
@@ -1227,33 +1053,10 @@ struct CommandPaletteOverlay: View {
                 ].filter { !$0.isEmpty }
                 let subtitle = parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
                 let pageId = page.id
-                let contextActions: [LandingCommandItem.ContextAction] = [
-                    .init(label: "Open in Notes", icon: "doc.text") { [self] in
-                        dismiss()
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    },
-                    .init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
-                        dismiss()
-                        if let node = graphState.store.node(bySourceId: pageId, type: .note) {
-                            HologramController.shared.show()
-                            graphState.selectNode(node.id)
-                            graphState.mode = .page(nodeId: node.id)
-                            graphState.focusOnNode(node.id, depth: 2)
-                            graphState.requestRecommit()
-                        }
-                    },
-                ]
                 return LandingCommandItem(
                     id: "title-\(pageId)", label: label, icon: "doc.text",
-                    category: "Notes", subtitle: subtitle,
-                    contextActions: contextActions
+                    category: "Notes", subtitle: subtitle
                 ) { [self] in
-                    // Navigate the graph to this note's node (for mini graph companion).
-                    if let node = graphState.store.node(bySourceId: pageId, type: .note) {
-                        graphState.selectNode(node.id)
-                        graphState.focusOnNode(node.id, depth: 2)
-                        graphState.requestFilterSync()
-                    }
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
                 }
@@ -1284,34 +1087,11 @@ struct CommandPaletteOverlay: View {
             let subtitle = subtitleParts.isEmpty ? nil : subtitleParts.joined(separator: " \u{00B7} ")
             let snippet = rawSnippet.isEmpty ? nil : rawSnippet
 
-            let contextActions: [LandingCommandItem.ContextAction] = [
-                .init(label: "Open in Notes", icon: "doc.text") { [self] in
-                    dismiss()
-                    NoteWindowManager.shared.open(pageId: pageId)
-                },
-                .init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
-                    dismiss()
-                    if let node = graphState.store.node(bySourceId: pageId, type: .note) {
-                        HologramController.shared.show()
-                        graphState.selectNode(node.id)
-                        graphState.mode = .page(nodeId: node.id)
-                        graphState.focusOnNode(node.id, depth: 2)
-                        graphState.requestRecommit()
-                    }
-                },
-            ]
             items.append(
                 LandingCommandItem(
                     id: "fts-\(pageId)", label: label, icon: "doc.text.magnifyingglass",
-                    category: "Body Match", subtitle: subtitle, snippet: snippet,
-                    contextActions: contextActions
+                    category: "Body Match", subtitle: subtitle, snippet: snippet
                 ) { [self] in
-                    // Navigate the graph to this note's node (for mini graph companion).
-                    if let node = graphState.store.node(bySourceId: pageId, type: .note) {
-                        graphState.selectNode(node.id)
-                        graphState.focusOnNode(node.id, depth: 2)
-                        graphState.requestFilterSync()
-                    }
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
                 })
@@ -1350,76 +1130,6 @@ struct CommandPaletteOverlay: View {
         return items
     }
 
-    /// Map current QueryEngine result to command items (called on each reactive update).
-    private func buildQueryResultItems() -> [LandingCommandItem] {
-        guard let result = queryEngine.currentResult else { return [] }
-
-        let index = pageIndex
-        var items: [LandingCommandItem] = []
-
-        for node in result.nodes.prefix(30) {
-            let nodeId = node.id
-            let sourceId = node.sourceId
-            let nodeType = node.type
-
-            var label = node.label
-            var subtitle = nodeType.displayName
-            let icon = nodeType.icon
-
-            if nodeType == .note, let sid = sourceId, let page = index[sid] {
-                if !page.emoji.isEmpty { label = "\(page.emoji) \(label)" }
-                let parts = [
-                    "\(page.wordCount)w",
-                    page.tags.prefix(2).joined(separator: ", "),
-                    relativeDate(page.updatedAt),
-                ].filter { !$0.isEmpty }
-                subtitle = parts.joined(separator: " \u{00B7} ")
-            }
-
-            if let snippet = node.snippet {
-                subtitle = snippet
-            }
-
-            var contextActions: [LandingCommandItem.ContextAction] = []
-            if nodeType == .note, let pid = sourceId {
-                contextActions.append(.init(label: "Open in Notes", icon: "doc.text") { [self] in
-                    dismiss()
-                    NoteWindowManager.shared.open(pageId: pid)
-                })
-            }
-            contextActions.append(.init(label: "Reveal in Graph", icon: "point.3.connected.trianglepath.dotted") { [self] in
-                dismiss()
-                HologramController.shared.show()
-                graphState.selectNode(nodeId)
-                if nodeType == .note, sourceId != nil {
-                    graphState.mode = .page(nodeId: nodeId)
-                    graphState.focusOnNode(nodeId, depth: 2)
-                    graphState.requestRecommit()
-                } else {
-                    graphState.pendingCenterNodeId = nodeId
-                }
-            })
-
-            items.append(
-                LandingCommandItem(
-                    id: "sq-\(nodeId)", label: label, icon: icon,
-                    category: "Query Result", subtitle: subtitle,
-                    contextActions: contextActions
-                ) { [self] in
-                    dismiss()
-                    if nodeType == .note, let pageId = sourceId {
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    } else {
-                        HologramController.shared.show()
-                        graphState.selectNode(nodeId)
-                        graphState.pendingCenterNodeId = nodeId
-                    }
-                })
-        }
-
-        return items
-    }
-
     // MARK: - Actions
 
     private func moveSelection(by delta: Int) {
@@ -1431,11 +1141,8 @@ struct CommandPaletteOverlay: View {
 
     private func dismiss() {
         cancelStream()
-        queryEngine.stopReactive()
         ftsDebounceTask?.cancel()
         ftsDebounceTask = nil
-        searchHighlightTask?.cancel()
-        searchHighlightTask = nil
         mode = .search
         chatInput = ""
         isSearchFocused = false
@@ -1444,8 +1151,6 @@ struct CommandPaletteOverlay: View {
         hasManuallyNavigated = false
         isExpanded = false
         cachedSearchResults = []
-        graphState.searchHighlight("")
-        graphState.setSearchActive(false)
         CommandPaletteWindowController.shared.hide()
     }
 
@@ -1497,11 +1202,6 @@ struct CommandPaletteOverlay: View {
         filteredResults[selectedIndex].action()
     }
 
-    private func executeGraphQuery(_ query: String) {
-        queryEngine.execute(query: query)
-        dismiss()
-        HologramController.shared.show()
-    }
 
     // MARK: - Palette UI Components
 
