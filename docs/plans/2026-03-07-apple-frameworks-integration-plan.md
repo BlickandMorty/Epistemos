@@ -99,14 +99,12 @@ Inserts extracted text as blockquote below cursor.
 
 ---
 
-## Phase 9: DataDetection (PARTIAL)
+## Phase 9: DataDetection (DONE)
 
-`DataDetectionService.swift` exists with `NSDataDetector` for dates, addresses, phones,
-URLs. Click handling exists in ClickableTextView. However `detect` and `styleDetectedRanges`
-have no call sites — the service is never invoked.
-
-### Remaining
-- Wire DataDetectionService into the editor (call on text changes or load)
+`DataDetectionService.swift` — `NSDataDetector` for dates, addresses, phones, URLs.
+Detection runs on 1s debounce after text changes in ProseEditorRepresentable.
+Detected ranges styled with subtle underline. Click-to-open wired in ClickableTextView
+(Calendar, Maps, FaceTime, browser).
 
 ---
 
@@ -224,7 +222,7 @@ DocumentEditorView (NSViewRepresentable)
 | 6 | QuickLook | DONE | — |
 | 7 | Translation | DONE | — |
 | 8 | Vision OCR | DONE | — |
-| 9 | DataDetection | PARTIAL (service exists, no call sites) | LOWER |
+| 9 | DataDetection | DONE | — |
 | 10a | UserNotifications | DONE (breathe reminders) | — |
 | 10b | Continuity Camera | DONE (built-in NSTextView) | — |
 | 10c | ShortcutsProvider | DONE (pre-existing, 10 shortcuts) | — |

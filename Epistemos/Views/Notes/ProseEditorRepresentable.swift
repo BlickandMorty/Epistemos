@@ -556,6 +556,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         /// True while programmatically folding/unfolding — suppresses textDidChange.
         var isFolding = false
 
+        /// Debounced data detection (dates, addresses, phones, URLs).
+        private var dataDetectionTask: Task<Void, Never>?
+
         init(_ parent: ProseEditorRepresentable) {
             self.parent = parent
             self.lastIsDark = parent.isDark
@@ -691,6 +694,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Refresh transclusion overlays
             transclusionManager?.refresh()
+
+            // Data detection (1s debounce — scans full document for dates, addresses, etc.)
+            scheduleDataDetection(tv)
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
@@ -977,6 +983,27 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // MARK: - Table Auto-Alignment
 
         /// Schedule table column alignment 500ms after the last keystroke on a table line.
+        private func scheduleDataDetection(_ tv: NSTextView) {
+            dataDetectionTask?.cancel()
+            dataDetectionTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, !Task.isCancelled else { return }
+                guard let storage = tv.textStorage else { return }
+                let text = storage.string
+                let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                let items = DataDetectionService.detect(in: text)
+                // Clear old detection attributes (only ranges that had them).
+                let fullRange = NSRange(location: 0, length: storage.length)
+                storage.enumerateAttribute(DataDetectionService.detectedDataKey, in: fullRange) { val, range, _ in
+                    guard val != nil else { return }
+                    storage.removeAttribute(DataDetectionService.detectedDataKey, range: range)
+                    storage.removeAttribute(.underlineStyle, range: range)
+                    storage.removeAttribute(.underlineColor, range: range)
+                }
+                DataDetectionService.styleDetectedRanges(in: storage, items: items, isDark: isDark)
+            }
+        }
+
         private func scheduleTableAlignment(_ tv: NSTextView) {
             let str = tv.string as NSString
             let cursorLoc = tv.selectedRange().location
