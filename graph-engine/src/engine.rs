@@ -480,18 +480,22 @@ impl Engine {
         }
     }
 
-    /// Copy positions from simulation SoA arrays back to graph nodes.
-    /// Sync all positions from Simulation into both Graph and World in a single lock.
-    /// Combines the old sync_positions + sync_sim_to_world into one mutex acquisition.
+    /// Copy positions from simulation to graph nodes and ECS World.
+    /// Extrapolates positions using velocity * time-since-last-tick for smooth
+    /// sub-tick motion at display refresh rate (120Hz renders, 40Hz physics).
     fn sync_all_positions(&mut self) {
         let sim = self.sim.lock();
         let n = sim.x.len();
 
+        // Time since last physics tick — used to extrapolate positions forward.
+        // Clamped to prevent overshoot if physics thread stalls.
+        let dt = sim.last_tick_instant.elapsed().as_secs_f32().min(0.05);
+
         // Graph nodes (indexed by graph_indices mapping)
         for (si, &gi) in sim.graph_indices.iter().enumerate() {
             if gi < self.graph.nodes.len() {
-                self.graph.nodes[gi].x = sim.x[si];
-                self.graph.nodes[gi].y = sim.y[si];
+                self.graph.nodes[gi].x = sim.x[si] + sim.vx[si] * dt;
+                self.graph.nodes[gi].y = sim.y[si] + sim.vy[si] * dt;
                 self.graph.nodes[gi].vx = sim.vx[si];
                 self.graph.nodes[gi].vy = sim.vy[si];
             }
@@ -502,22 +506,22 @@ impl Engine {
             return;
         }
 
-        // Flat physics arrays
+        // Flat physics arrays — extrapolated positions for renderer, raw for physics.
         self.world.px.resize(n, 0.0);
         self.world.py.resize(n, 0.0);
         self.world.pvx.resize(n, 0.0);
         self.world.pvy.resize(n, 0.0);
         for i in 0..n {
-            let x = sim.x[i];
-            let y = sim.y[i];
             let vx = sim.vx[i];
             let vy = sim.vy[i];
-            self.world.transform[i].x = x;
-            self.world.transform[i].y = y;
+            let ex = sim.x[i] + vx * dt;
+            let ey = sim.y[i] + vy * dt;
+            self.world.transform[i].x = ex;
+            self.world.transform[i].y = ey;
             self.world.velocity[i].vx = vx;
             self.world.velocity[i].vy = vy;
-            self.world.px[i] = x;
-            self.world.py[i] = y;
+            self.world.px[i] = ex;
+            self.world.py[i] = ey;
             self.world.pvx[i] = vx;
             self.world.pvy[i] = vy;
         }

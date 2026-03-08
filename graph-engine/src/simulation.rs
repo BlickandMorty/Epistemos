@@ -370,6 +370,9 @@ pub struct Simulation {
     /// GPU-computed N-body forces to apply at next tick start, then drain.
     /// Render thread writes, physics thread reads+clears. Protected by the sim mutex.
     pub gpu_nbody_forces: Option<Vec<[f32; 2]>>,
+    /// Timestamp of last tick() completion. Used by render thread to extrapolate
+    /// positions between physics ticks for smooth sub-tick motion.
+    pub last_tick_instant: std::time::Instant,
 }
 
 impl Default for Simulation {
@@ -416,6 +419,7 @@ impl Simulation {
             viewport_bounds: None,
             active_mask: Vec::new(),
             gpu_nbody_forces: None,
+            last_tick_instant: std::time::Instant::now(),
         }
     }
 
@@ -866,6 +870,8 @@ impl Simulation {
                 }
             }
         }
+
+        self.last_tick_instant = std::time::Instant::now();
     }
 
     /// Reheat the simulation (for user parameter changes or data reload).
