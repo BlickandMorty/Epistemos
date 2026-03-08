@@ -170,6 +170,7 @@ final class ProseTextView2: NSTextView {
         super.drawBackground(in: rect)
         drawTableFills(in: rect)
         drawTableGridLines(in: rect)
+        drawFoldIndicators(in: rect)
     }
 
     private struct TableRegion {
@@ -362,6 +363,57 @@ final class ProseTextView2: NSTextView {
                 headerPath.line(to: NSPoint(x: table.right + 2, y: headerY))
                 headerPath.stroke()
             }
+        }
+    }
+
+    private func drawFoldIndicators(in dirtyRect: NSRect) {
+        guard let tlm = textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+        let str = string as NSString
+        guard str.length > 0 else { return }
+
+        let isDark = markdownDelegate.theme.isDark
+        let accent = MarkdownContentStorage.accentColor(isDark: isDark)
+        let origin = textContainerOrigin
+
+        tlm.enumerateTextLayoutFragments(
+            from: tlm.documentRange.location,
+            options: [.ensuresLayout, .ensuresExtraLineFragment]
+        ) { fragment in
+            let fragFrame = fragment.layoutFragmentFrame.offsetBy(dx: origin.x, dy: origin.y)
+
+            guard let (_, nsRange) = self.paragraphInfo(for: fragment, contentStorage: contentStorage) else {
+                return true
+            }
+
+            let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
+            guard self.markdownDelegate.paragraphType(at: lineIdx) == 1 else { return true }
+
+            // Check fold state: next line is "…"
+            let isFolded: Bool
+            let nextLineStart = NSMaxRange(nsRange)
+            if nextLineStart < str.length {
+                let nextLineRange = str.lineRange(for: NSRange(location: nextLineStart, length: 0))
+                let nextLine = str.substring(with: nextLineRange)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                isFolded = nextLine == "\u{2026}"
+            } else {
+                isFolded = false
+            }
+
+            let size: CGFloat = 10
+            let x = fragFrame.minX - 20
+            let y = fragFrame.midY - size / 2
+
+            let glyph = isFolded ? "\u{25B6}" : "\u{25BC}"
+            let alpha: CGFloat = isFolded ? 0.7 : 0.35
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9, weight: .medium),
+                .foregroundColor: accent.withAlphaComponent(alpha)
+            ]
+            (glyph as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
+
+            return true
         }
     }
 

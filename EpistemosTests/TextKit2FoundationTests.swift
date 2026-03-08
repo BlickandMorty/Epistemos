@@ -1168,3 +1168,49 @@ struct TextKit2TableDrawingTests {
         tv.drawBackground(in: tv.bounds)
     }
 }
+
+// MARK: - Phase 4: Fold Indicator Tests
+
+@Suite("TextKit 2 - Fold Indicators")
+struct TextKit2FoldIndicatorTests {
+
+    @Test("drawBackground does not crash with headings")
+    func headings() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# H1\n## H2\n### H3\nBody")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash with folded heading")
+    func foldedHeading() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Folded\n\u{2026}\n## Next")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash with heading at document end")
+    func headingAtEnd() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "Body\n# Last Heading")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+
+    @Test("drawBackground does not crash with heading + table combo")
+    func headingAndTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.textStorage?.setAttributedString(
+            NSAttributedString(string: "# Data\n| A | B |\n|---|---|\n| x | y |")
+        )
+        tv.reparseAndInvalidate()
+        tv.drawBackground(in: tv.bounds)
+    }
+}
