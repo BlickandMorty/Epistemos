@@ -60,7 +60,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     private static let minHorizontalInset: CGFloat = 60
     /// Vertical breathing room inside the text container.
     /// Vertical breathing room inside the text container.
-    static let verticalInset: CGFloat = 80
+    static let verticalInset: CGFloat = 40
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -121,6 +121,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         tv.isAutomaticSpellingCorrectionEnabled = false
         tv.isAutomaticTextReplacementEnabled = false
         tv.isAutomaticLinkDetectionEnabled = false
+        // Prevent NSTextView from overriding our custom wikilink styling with system link blue
+        tv.linkTextAttributes = [:]
 
         // Writing Tools — competitive advantage: only native apps get full integration
         tv.writingToolsBehavior = NSWritingToolsBehavior.default
@@ -177,11 +179,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Wire wikilink + block ref handlers and page ID for scoped notifications
         let coord = context.coordinator
         tv.pageId = pageId
-        tv.onWikilinkClick = { [weak coord] title in
-            coord?.parent.onWikilinkClick?(title)
-        }
-        tv.onBlockRefClick = { [weak coord] blockId in
-            coord?.parent.onBlockRefClick?(blockId)
+        tv.onFoldToggle = { [weak coord] headingOffset in
+            coord?.toggleFold(headingOffset: headingOffset)
         }
         tv.onOpenInGraph = { pageId in
             HologramController.shared.revealPage(pageId)
@@ -409,11 +408,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         // Update wikilink + block ref handler references + page ID for scoped notifications
         tv.pageId = pageId
-        tv.onWikilinkClick = { [weak coord] title in
-            coord?.parent.onWikilinkClick?(title)
-        }
-        tv.onBlockRefClick = { [weak coord] blockId in
-            coord?.parent.onBlockRefClick?(blockId)
+        tv.onFoldToggle = { [weak coord] headingOffset in
+            coord?.toggleFold(headingOffset: headingOffset)
         }
 
         // Wire Note Chat callbacks — only when the state reference changes.
@@ -553,6 +549,18 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         /// Block Transaction Kernel translator — tracks edits as block ops.
         var blockEditTranslator: BlockEditTranslator?
 
+        // MARK: - Heading Fold State
+        // Ephemeral visual fold — text storage replacement approach.
+        // Folded content is replaced with "…\n" in storage and original text stored here.
+        // Key = character offset of the heading line. Value = (original text, marker range).
+        struct FoldInfo {
+            let originalText: String
+            var markerRange: NSRange  // range of the "…\n" in current storage
+        }
+        var foldedSections: [Int: FoldInfo] = [:]
+        /// True while programmatically folding/unfolding — suppresses textDidChange.
+        var isFolding = false
+
         init(_ parent: ProseEditorRepresentable) {
             self.parent = parent
             self.lastIsDark = parent.isDark
@@ -571,6 +579,23 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             }
         }
 
+        // MARK: - Native Link Click Handling
+
+        func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
+            guard let urlString = link as? String else { return false }
+            if urlString.hasPrefix("wikilink://") {
+                let title = String(urlString.dropFirst("wikilink://".count))
+                parent.onWikilinkClick?(title)
+                return true
+            }
+            if urlString.hasPrefix("blockref://") {
+                let blockId = String(urlString.dropFirst("blockref://".count))
+                parent.onBlockRefClick?(blockId)
+                return true
+            }
+            return false
+        }
+
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
 
@@ -582,6 +607,14 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Suppress during AI token flushing.
             guard !isFlushingTokens else { return }
+
+            // Suppress during programmatic fold/unfold operations.
+            guard !isFolding else { return }
+
+            // Clear all heading folds on any edit — folds are purely a reading aid.
+            if !foldedSections.isEmpty {
+                clearAllFolds()
+            }
 
             // ═══════════════════════════════════════════════════════════
             // SAVE-CRITICAL: binding sync + direct file save FIRST.
@@ -1143,6 +1176,105 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             flushBindingSync()
         }
 
+        // MARK: - Heading Fold (Collapsible Sections)
+        // Ephemeral visual fold — text storage is NEVER modified.
+        // Uses setNotShownAttribute (hide glyphs) + shouldSetLineFragmentRect (collapse space).
+        // All folds clear on any text edit.
+
+        /// Toggle fold for a heading at the given character offset.
+        func toggleFold(headingOffset: Int) {
+            guard let tv = textView, let storage = storage else { return }
+            let str = storage.string as NSString
+
+            // Adjust heading offset for any prior folds that shifted positions
+            if foldedSections[headingOffset] != nil {
+                unfold(headingOffset: headingOffset)
+            } else {
+                let headingLineRange = str.lineRange(for: NSRange(location: headingOffset, length: 0))
+                let headingLine = str.substring(with: headingLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let level = headingLevel(headingLine) else { return }
+
+                // Content range: from end of heading line to next heading of equal/higher level
+                let contentStart = NSMaxRange(headingLineRange)
+                var contentEnd = str.length
+                var cursor = contentStart
+                while cursor < str.length {
+                    let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
+                    let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let nextLevel = headingLevel(line), nextLevel <= level {
+                        contentEnd = lineRange.location
+                        break
+                    }
+                    cursor = NSMaxRange(lineRange)
+                    if cursor == lineRange.location { break }
+                }
+
+                guard contentEnd > contentStart else { return }
+                let foldRange = NSRange(location: contentStart, length: contentEnd - contentStart)
+                let originalText = str.substring(with: foldRange)
+
+                // Replace folded content with marker in text storage
+                isFolding = true
+                let marker = "…\n"
+                if tv.shouldChangeText(in: foldRange, replacementString: marker) {
+                    storage.replaceCharacters(in: foldRange, with: marker)
+                    tv.didChangeText()
+                }
+                let markerRange = NSRange(location: contentStart, length: (marker as NSString).length)
+                // Style the marker
+                storage.addAttributes([
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .font: NSFont.systemFont(ofSize: 11, weight: .medium)
+                ], range: markerRange)
+                foldedSections[headingOffset] = FoldInfo(originalText: originalText, markerRange: markerRange)
+                isFolding = false
+                tv.needsDisplay = true
+            }
+        }
+
+        func unfold(headingOffset: Int) {
+            guard let tv = textView, let storage = storage else { return }
+            guard let info = foldedSections.removeValue(forKey: headingOffset) else { return }
+
+            isFolding = true
+            if tv.shouldChangeText(in: info.markerRange, replacementString: info.originalText) {
+                storage.replaceCharacters(in: info.markerRange, with: info.originalText)
+                tv.didChangeText()
+            }
+            isFolding = false
+            tv.needsDisplay = true
+        }
+
+        func clearAllFolds() {
+            guard let tv = textView, let storage = storage else {
+                foldedSections.removeAll()
+                return
+            }
+            // Unfold in reverse order of marker position to keep offsets valid
+            let sorted = foldedSections.sorted { $0.value.markerRange.location > $1.value.markerRange.location }
+            isFolding = true
+            for (_, info) in sorted {
+                if tv.shouldChangeText(in: info.markerRange, replacementString: info.originalText) {
+                    storage.replaceCharacters(in: info.markerRange, with: info.originalText)
+                    tv.didChangeText()
+                }
+            }
+            foldedSections.removeAll()
+            isFolding = false
+            tv.needsDisplay = true
+        }
+
+        private func headingLevel(_ line: String) -> Int? {
+            var count = 0
+            for ch in line {
+                if ch == "#" { count += 1 }
+                else if ch == " " && count > 0 { return count <= 6 ? count : nil }
+                else { return nil }
+            }
+            return nil
+        }
+
+
         // MARK: - Table Border Overlay
 
         /// Sets up the CAShapeLayer that draws Obsidian-style cell borders.
@@ -1223,49 +1355,56 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
                 if isTableLine {
                     let glyphIdx = lm.glyphIndexForCharacter(at: lineRange.location)
+                    let origin = tv.textContainerOrigin
                     let lineFragRect = lm.lineFragmentRect(forGlyphAt: glyphIdx, effectiveRange: nil,
                                                            withoutAdditionalLayout: true)
-
-                    // Find pipe x-positions
-                    var pipeXs: [CGFloat] = []
-                    for (offset, ch) in line.utf16.enumerated() where ch == 0x7C {
-                        let charIdx = lineRange.location + offset
-                        if charIdx < str.length {
-                            let gi = lm.glyphIndexForCharacter(at: charIdx)
-                            let loc = lm.location(forGlyphAt: gi)
-                            pipeXs.append(lineFragRect.minX + loc.x)
-                        }
-                    }
+                        .offsetBy(dx: origin.x, dy: origin.y)
 
                     let isSep = line.dropFirst().dropLast()
                         .split(separator: "|", omittingEmptySubsequences: false)
                         .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
 
-                    if current == nil {
-                        current = TableRegion(
-                            top: lineFragRect.minY,
-                            bottom: lineFragRect.maxY,
-                            left: pipeXs.first ?? lineFragRect.minX,
-                            right: pipeXs.last ?? lineFragRect.maxX,
-                            columnXs: pipeXs,
-                            rowYs: [lineFragRect.minY],
-                            headerBottomY: nil
-                        )
+                    if isSep {
+                        // Separator row — only record headerBottomY, skip all geometry
+                        // (1pt font makes its pipe positions and line height unreliable)
+                        if current != nil {
+                            current!.headerBottomY = current!.rowYs.last.map { $0 + (lineFragRect.minY - $0) } ?? lineFragRect.minY
+                            current!.bottom = lineFragRect.maxY
+                        }
                     } else {
-                        current!.bottom = lineFragRect.maxY
-                        if let first = pipeXs.first { current!.left = min(current!.left, first) }
-                        if let last = pipeXs.last { current!.right = max(current!.right, last) }
-                        current!.rowYs.append(lineFragRect.minY)
-                        // Stabilize column positions using first row as reference
-                        if pipeXs.count == current!.columnXs.count {
-                            for i in current!.columnXs.indices {
-                                current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
+                        // Find pipe x-positions for header/data rows
+                        var pipeXs: [CGFloat] = []
+                        for (offset, ch) in line.utf16.enumerated() where ch == 0x7C {
+                            let charIdx = lineRange.location + offset
+                            if charIdx < str.length {
+                                let gi = lm.glyphIndexForCharacter(at: charIdx)
+                                let loc = lm.location(forGlyphAt: gi)
+                                pipeXs.append(lineFragRect.minX + loc.x)
                             }
                         }
-                    }
 
-                    if isSep {
-                        current?.headerBottomY = lineFragRect.maxY
+                        if current == nil {
+                            current = TableRegion(
+                                top: lineFragRect.minY,
+                                bottom: lineFragRect.maxY,
+                                left: pipeXs.first ?? lineFragRect.minX,
+                                right: pipeXs.last ?? lineFragRect.maxX,
+                                columnXs: pipeXs,
+                                rowYs: [lineFragRect.minY],
+                                headerBottomY: nil
+                            )
+                        } else {
+                            current!.bottom = lineFragRect.maxY
+                            if let first = pipeXs.first { current!.left = min(current!.left, first) }
+                            if let last = pipeXs.last { current!.right = max(current!.right, last) }
+                            current!.rowYs.append(lineFragRect.minY)
+                            // Stabilize column positions using first row as reference
+                            if pipeXs.count == current!.columnXs.count {
+                                for i in current!.columnXs.indices {
+                                    current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
+                                }
+                            }
+                        }
                     }
                 } else {
                     if let t = current {

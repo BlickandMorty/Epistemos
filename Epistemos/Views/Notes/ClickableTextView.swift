@@ -36,12 +36,9 @@ final class ClickableTextView: NSTextView {
     static let translateNotification = Notification.Name("EpistemosTranslateText")
 
     // MARK: - Wikilink Click Handling
-
-    /// Closure called when user clicks a [[wikilink]]. Receives the link title.
-    var onWikilinkClick: ((String) -> Void)?
-
-    /// Closure called when user clicks a ((block-ref)). Receives the block ID.
-    var onBlockRefClick: ((String) -> Void)?
+    // Wikilinks and block refs use native .link attributes with custom URL schemes
+    // (wikilink:// and blockref://). Click handling is in the NSTextViewDelegate
+    // (ProseEditorRepresentable.Coordinator.textView(_:clickedOnLink:at:)).
 
     /// Closure called when user selects "Open in Graph" from context menu.
     /// Receives a page ID (current note or wikilink target).
@@ -93,6 +90,145 @@ final class ClickableTextView: NSTextView {
             ctx.clear(dirtyRect)
         }
         super.draw(dirtyRect)
+    }
+
+    // MARK: - Table Background Fills (drawn BEHIND text)
+
+    override func drawBackground(in rect: NSRect) {
+        super.drawBackground(in: rect)
+        drawTableFills(in: rect)
+        drawFoldIndicators(in: rect)
+    }
+
+    private func drawTableFills(in dirtyRect: NSRect) {
+        guard let lm = layoutManager, let tc = textContainer, let storage = textStorage else { return }
+        let str = storage.string as NSString
+        guard str.length > 0 else { return }
+
+        let visibleGlyphs = lm.glyphRange(forBoundingRect: dirtyRect, in: tc)
+        let charRange = lm.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        let origin = textContainerOrigin
+
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let accent = MarkdownTextStorage.accentColor(isDark: isDark)
+        let headerFill = isDark ? accent.withAlphaComponent(0.08) : accent.withAlphaComponent(0.06)
+        let evenFill = isDark ? accent.withAlphaComponent(0.04) : accent.withAlphaComponent(0.03)
+        let oddFill = isDark ? accent.withAlphaComponent(0.02) : accent.withAlphaComponent(0.015)
+
+        var lineStart = charRange.location
+        var dataRowIdx = 0
+        var inTable = false
+
+        while lineStart < NSMaxRange(charRange) {
+            let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
+            let line = str.substring(with: lineRange).trimmingCharacters(in: .newlines)
+            let isTableLine = line.hasPrefix("|") && line.hasSuffix("|") && line.count >= 3
+
+            if isTableLine {
+                let isSep = line.dropFirst().dropLast()
+                    .split(separator: "|", omittingEmptySubsequences: false)
+                    .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+
+                if !isSep {
+                    let gi = lm.glyphIndexForCharacter(at: lineRange.location)
+                    let fragRect = lm.lineFragmentRect(forGlyphAt: gi, effectiveRange: nil,
+                                                       withoutAdditionalLayout: true)
+
+                    // Find table left/right from pipe positions
+                    var firstPipeX = fragRect.minX
+                    var lastPipeX = fragRect.maxX
+                    for (offset, ch) in line.utf16.enumerated() where ch == 0x7C {
+                        let ci = lineRange.location + offset
+                        if ci < str.length {
+                            let pgi = lm.glyphIndexForCharacter(at: ci)
+                            let loc = lm.location(forGlyphAt: pgi)
+                            let x = fragRect.minX + loc.x
+                            if offset == 0 { firstPipeX = x }
+                            lastPipeX = x
+                        }
+                    }
+
+                    let fillRect = NSRect(
+                        x: firstPipeX + origin.x - 1,
+                        y: fragRect.minY + origin.y,
+                        width: lastPipeX - firstPipeX + 2,
+                        height: fragRect.height
+                    )
+
+                    let fill: NSColor
+                    if !inTable {
+                        // First non-sep row = header
+                        fill = headerFill
+                        inTable = true
+                        dataRowIdx = 0
+                    } else {
+                        fill = dataRowIdx % 2 == 0 ? evenFill : oddFill
+                        dataRowIdx += 1
+                    }
+
+                    fill.setFill()
+                    fillRect.fill()
+                }
+            } else {
+                inTable = false
+                dataRowIdx = 0
+            }
+
+            lineStart = NSMaxRange(lineRange)
+        }
+    }
+
+    /// Draw disclosure triangles in the gutter next to heading lines.
+    private func drawFoldIndicators(in dirtyRect: NSRect) {
+        guard let lm = layoutManager, let tc = textContainer, let storage = textStorage else { return }
+        let str = storage.string as NSString
+        guard str.length > 0 else { return }
+
+        let visibleGlyphs = lm.glyphRange(forBoundingRect: dirtyRect, in: tc)
+        let charRange = lm.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        let origin = textContainerOrigin
+
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let accent = MarkdownTextStorage.accentColor(isDark: isDark)
+
+        var lineStart = charRange.location
+        while lineStart < NSMaxRange(charRange) {
+            let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
+            let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if isHeadingLine(line) {
+                let gi = lm.glyphIndexForCharacter(at: lineRange.location)
+                let fragRect = lm.lineFragmentRect(forGlyphAt: gi, effectiveRange: nil)
+
+                // Check fold state: next line is "…" marker
+                let isFolded: Bool
+                let nextLineStart = NSMaxRange(lineRange)
+                if nextLineStart < str.length {
+                    let nextLineRange = str.lineRange(for: NSRange(location: nextLineStart, length: 0))
+                    let nextLine = str.substring(with: nextLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                    isFolded = nextLine == "…"
+                } else {
+                    isFolded = false
+                }
+
+                // Draw disclosure triangle
+                let size: CGFloat = 10
+                let x = fragRect.minX + origin.x - 20
+                let y = fragRect.midY + origin.y - size / 2
+
+                let glyph = isFolded ? "▶" : "▼"
+                let alpha: CGFloat = isFolded ? 0.7 : 0.35
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 9, weight: .medium),
+                    .foregroundColor: accent.withAlphaComponent(alpha)
+                ]
+                let str = glyph as NSString
+                str.draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
+            }
+
+            lineStart = NSMaxRange(lineRange)
+            if lineStart == lineRange.location { break }
+        }
     }
 
     // Expand invalidation rects to cover emoji glyph overflow — but ONLY during
@@ -409,98 +545,53 @@ final class ClickableTextView: NSTextView {
         }
     }
 
-    // MARK: - Wikilink Hover Glow
-
-    /// Character range currently highlighted by mouse hover. nil = no hover.
-    private var hoveredLinkRange: NSRange?
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        // Ensure we get mouseMoved for hover detection
-        for area in trackingAreas where area.owner === self && area.options.contains(.mouseMoved) {
-            removeTrackingArea(area)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        let idx = characterIndexForInsertion(at: point)
-
-        var effectiveRange = NSRange(location: 0, length: 0)
-        let isLink: Bool
-        if idx < (textStorage?.length ?? 0),
-           let attrs = textStorage?.attributes(at: idx, effectiveRange: &effectiveRange) {
-            isLink = attrs[NSAttributedString.Key("EpistemosWikilink")] != nil
-                || attrs[NSAttributedString.Key("EpistemosBlockRef")] != nil
-        } else {
-            isLink = false
-        }
-
-        let newRange = isLink ? effectiveRange : nil
-
-        if newRange != hoveredLinkRange {
-            // Clear old hover
-            if let old = hoveredLinkRange, old.location + old.length <= (textStorage?.length ?? 0) {
-                textStorage?.removeAttribute(.backgroundColor, range: old)
-                // Re-apply base styling by triggering a restyle of just this range
-                if let mds = textStorage as? MarkdownTextStorage {
-                    mds.reapplyStyles(in: old)
-                }
-            }
-            // Apply new hover glow
-            if let new = newRange, new.location + new.length <= (textStorage?.length ?? 0) {
-                let glowBg: NSColor = (textStorage as? MarkdownTextStorage)?.isDark == true
-                    ? NSColor(red: 0.40, green: 0.65, blue: 1.0, alpha: 0.22)
-                    : NSColor(red: 0.15, green: 0.45, blue: 0.85, alpha: 0.16)
-                textStorage?.addAttribute(.backgroundColor, value: glowBg, range: new)
-            }
-            hoveredLinkRange = newRange
-        }
-
-        super.mouseMoved(with: event)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        if let old = hoveredLinkRange, old.location + old.length <= (textStorage?.length ?? 0) {
-            textStorage?.removeAttribute(.backgroundColor, range: old)
-            if let mds = textStorage as? MarkdownTextStorage {
-                mds.reapplyStyles(in: old)
-            }
-        }
-        hoveredLinkRange = nil
-        super.mouseExited(with: event)
-    }
-
     // MARK: - Wikilink Mouse Handling
+
+    /// Closure called when user clicks a heading fold triangle. Receives the heading character offset.
+    var onFoldToggle: ((Int) -> Void)?
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         let idx = characterIndexForInsertion(at: point)
 
-        if idx < string.utf16.count,
-           let attrs = textStorage?.attributes(at: idx, effectiveRange: nil) {
-            if let linkTitle = attrs[NSAttributedString.Key("EpistemosWikilink")] as? String {
-                onWikilinkClick?(linkTitle)
-                return
-            }
-            if let blockId = attrs[NSAttributedString.Key("EpistemosBlockRef")] as? String {
-                onBlockRefClick?(blockId)
-                return
-            }
-            // Data detection: click to open in system app
-            if let item = attrs[DataDetectionService.detectedDataKey] as? DataDetectionService.DetectedItem {
-                DataDetectionService.open(item)
-                return
+        // Fold triangle click — left gutter area on a heading line
+        if let lm = layoutManager, idx < (string as NSString).length {
+            let lineRange = (string as NSString).lineRange(for: NSRange(location: idx, length: 0))
+            let line = (string as NSString).substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            if isHeadingLine(line) {
+                let gi = lm.glyphIndexForCharacter(at: lineRange.location)
+                let fragRect = lm.lineFragmentRect(forGlyphAt: gi, effectiveRange: nil)
+                let origin = textContainerOrigin
+                let lineLeft = fragRect.minX + origin.x
+                // Click in the gutter area (left of text start, ~30pt zone)
+                if point.x < lineLeft + 6 && point.x > lineLeft - 30 {
+                    onFoldToggle?(lineRange.location)
+                    return
+                }
             }
         }
+
+        // Wikilinks and block refs are handled by NSTextView's native link system
+        // via the delegate's textView(_:clickedOnLink:at:) method.
+
+        // Data detection: click to open in system app
+        if idx < string.utf16.count,
+           let attrs = textStorage?.attributes(at: idx, effectiveRange: nil),
+           let item = attrs[DataDetectionService.detectedDataKey] as? DataDetectionService.DetectedItem {
+            DataDetectionService.open(item)
+            return
+        }
         super.mouseDown(with: event)
+    }
+
+    private func isHeadingLine(_ line: String) -> Bool {
+        var count = 0
+        for ch in line {
+            if ch == "#" { count += 1 }
+            else if ch == " " && count > 0 { return count <= 6 }
+            else { return false }
+        }
+        return false
     }
 
     // MARK: - Context Menu

@@ -13,9 +13,8 @@ struct NoteChatSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
 
             if noteChat.messages.isEmpty {
                 emptyState
@@ -44,8 +43,8 @@ struct NoteChatSidebar: View {
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(theme.textTertiary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(theme.foreground.opacity(0.06), in: Capsule())
         }
     }
@@ -62,7 +61,7 @@ struct NoteChatSidebar: View {
                     }
                 }
                 .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
             }
             .onChange(of: noteChat.messages.count) { _, _ in
                 if let last = noteChat.messages.last {
@@ -80,9 +79,9 @@ struct NoteChatSidebar: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(msg.role == .user ? theme.textTertiary : theme.accent)
                 .frame(width: 16, alignment: .center)
-                .padding(.top, 3)
+                .padding(.top, 4)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(msg.content)
                     .font(.system(size: 12))
                     .foregroundStyle(msg.role == .user ? theme.textSecondary : theme.foreground)
@@ -94,7 +93,7 @@ struct NoteChatSidebar: View {
                     .foregroundStyle(theme.textTertiary.opacity(0.6))
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 8)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(
@@ -122,6 +121,6 @@ struct NoteChatSidebar: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 40)
+        .padding(.top, 32)
     }
 }

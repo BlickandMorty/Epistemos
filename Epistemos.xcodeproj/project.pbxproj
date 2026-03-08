@@ -150,6 +150,7 @@
 		A0899F3EBFBABCD7A676E01A /* GraphStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA1E409DD7F10860B3ADAB4 /* GraphStore.swift */; };
 		A0C6B59A397B53CFCBC36C9A /* SDFolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2C0D9640D6DF3417E41438 /* SDFolder.swift */; };
 		A1B2C3D4E5F60718NOTETOC2 /* NoteTableOfContents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */; };
+		A1B2C3D4E5F60718BACKLN02 /* NoteBacklinksPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718BACKLN01 /* NoteBacklinksPanel.swift */; };
 		A1B2C3D4E5F6PHYSMOD02 /* PhysicsModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */; };
 		A1C0N500000000ASSET002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0N500000000ASSET001 /* Assets.xcassets */; };
 		A29025410BEF420590AC1E9A /* BlockRefAutocomplete.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */; };
@@ -400,6 +401,7 @@
 		9EF03138061D7396317DF9F6 /* BrandedTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandedTypes.swift; sourceTree = "<group>"; };
 		A0DEC64ED9ED804781639E05 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteTableOfContents.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718BACKLN01 /* NoteBacklinksPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteBacklinksPanel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F607890ABCDEF1 /* BlockEmbeddingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEmbeddingTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* NodeInspectorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeInspectorState.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsModifiers.swift; sourceTree = "<group>"; };
@@ -701,6 +703,7 @@
 				59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */,
 				3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */,
 				A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */,
+				A1B2C3D4E5F60718BACKLN01 /* NoteBacklinksPanel.swift */,
 				71979E0D0C256EC90B552A1B /* NoteWindowManager.swift */,
 				0735CB2532A434111036257E /* PageEditorCache.swift */,
 				CC2E5F70718293B5CD1E2F3F /* ConfidenceOverlay.swift */,
@@ -1275,6 +1278,7 @@
 				CD4E9F59276F545B492CEC3F /* NotesMentionDropdown.swift in Sources */,
 				CBD58CD0923FE36FE7FFD82D /* NotesSidebar.swift in Sources */,
 				A1B2C3D4E5F60718NOTETOC2 /* NoteTableOfContents.swift in Sources */,
+				A1B2C3D4E5F60718BACKLN02 /* NoteBacklinksPanel.swift in Sources */,
 				9C63C274562EF873FCDF079C /* NotesUIState.swift in Sources */,
 				2ADFF2EE98DD1F4778A03875 /* PageEditorCache.swift in Sources */,
 				ACEE861F6BD0857E448EE390 /* PageShell.swift in Sources */,

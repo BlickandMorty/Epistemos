@@ -206,14 +206,11 @@ final class NoteWindowManager {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = pageTitle
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
@@ -222,9 +219,8 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
-        // No NSToolbar — custom SwiftUI glass bar instead.
-        // titlebarAppearsTransparent + fullSizeContentView = content fills entire window.
 
+        // Match system appearance to theme (light/dark)
         if let theme = AppBootstrap.shared?.uiState.theme {
             window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         }
@@ -301,8 +297,6 @@ final class NoteWindowManager {
         )
         let windowTitle = title.isEmpty ? "Untitled" : title
         window.title = "\(windowTitle) — \(dateStr)"
-        window.titleVisibility = .hidden
-        window.isMovableByWindowBackground = true
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
@@ -442,6 +436,8 @@ private struct NotePageContent: View {
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
+    @State private var showTOCSidebar = false
+    @State private var showBacklinksPopover = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
     @State private var showBlockPropertySheet = false
@@ -506,6 +502,16 @@ private struct NotePageContent: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(transitionOpacity > 0)
             }
+            .overlay(alignment: .bottom) {
+                Text("\(wordCount) words")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .glassEffect(.regular, in: Capsule())
+                    .padding(8)
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(ui.theme.background)
             .environment(noteChatState)
@@ -526,6 +532,18 @@ private struct NotePageContent: View {
                 }
             }
 
+            // Outline sidebar (right)
+            if showTOCSidebar, let page = pages.first {
+                Divider()
+                NoteTableOfContentsSidebar(
+                    markdown: page.loadBody(),
+                    onNavigate: { charOffset in
+                        scrollEditorTo(charOffset: charOffset)
+                    }
+                )
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+
             // Chat History sidebar
             if showChatSidebar {
                 Divider()
@@ -537,55 +555,105 @@ private struct NotePageContent: View {
 
         }
         .animation(.smooth(duration: 0.2), value: showChatSidebar)
+        .animation(.smooth(duration: 0.2), value: showTOCSidebar)
         }
-        .overlay(alignment: .top) {
-            if !showWriterMode && !showPreview {
-                VStack(spacing: 0) {
-                    // Glass title strip — bridges the gap under the tab bar
-                    Text(pages.first?.title ?? "Untitled")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial)
-                    // Soft fade below the strip
-                    LinearGradient(
-                        colors: [ui.theme.background.opacity(0.6), ui.theme.background.opacity(0)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 20)
-                    .allowsHitTesting(false)
+        .toolbar {
+            // Back / Forward (only when navigating wikilinks)
+            if let nav = navState, nav.hasBreadcrumb {
+                ToolbarItem(placement: .navigation) {
+                    wikilinksNavButtons(nav: nav)
                 }
             }
-        }
-        .overlay(alignment: .leading) {
-            if !showWriterMode && !showPreview,
-               let page = pages.first {
-                NoteTableOfContents(
-                    markdown: page.loadBody(),
-                    isDark: ui.theme.isDark,
-                    onNavigate: { charOffset in
-                        scrollEditorTo(charOffset: charOffset)
+
+            // Format menu
+            ToolbarItem {
+                Menu {
+                    Button("Bold  ⌘B") { insertMarkdown("**", "**") }
+                    Button("Italic  ⌘I") { insertMarkdown("*", "*") }
+                    Menu("Heading") {
+                        Button("H1") { insertLinePrefix("# ") }
+                        Button("H2") { insertLinePrefix("## ") }
+                        Button("H3") { insertLinePrefix("### ") }
                     }
-                )
-                .padding(.leading, 6)
+                    Divider()
+                    Button("Strikethrough") { insertMarkdown("~~", "~~") }
+                    Button("Code") { insertMarkdown("`", "`") }
+                    Button("Link") { insertMarkdown("[", "](url)") }
+                } label: {
+                    Label("Format", systemImage: "textformat")
+                }
+                .help("Format")
             }
-        }
-        .overlay(alignment: .trailing) {
-            if !showWriterMode && !showPreview,
-               let nav = navState, nav.hasBreadcrumb {
-                NoteBreadcrumbBar(navState: nav)
-                    .padding(.trailing, 6)
+
+            // Preview toggle
+            ToolbarItem {
+                Button { togglePreviewMode() } label: {
+                    Label(
+                        showPreview ? "Editor" : "Preview",
+                        systemImage: showPreview ? "pencil" : "eye")
+                }
+                .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
             }
-        }
-        .overlay(alignment: .bottom) {
-            bottomToolbarPill
-                .padding(.bottom, 12)
+
+            // More menu
+            ToolbarItem {
+                moreMenu
+            }
+
+            // Ask field (centered)
+            if !showWriterMode && !showPreview {
+                ToolbarItem(placement: .principal) {
+                    toolbarChatField
+                }
+            }
+
+            // Table of Contents sidebar toggle
+            if !showWriterMode && !showPreview {
+                ToolbarItem {
+                    Button { withAnimation(.smooth(duration: 0.2)) { showTOCSidebar.toggle() } } label: {
+                        Label("Outline", systemImage: "list.bullet")
+                    }
+                    .help("Toggle Outline (⌘⇧O)")
+                }
+            }
+
+            // Backlinks
+            if !showWriterMode && !showPreview {
+                ToolbarItem {
+                    Button { showBacklinksPopover.toggle() } label: {
+                        Label("Backlinks", systemImage: "link")
+                    }
+                    .help("Backlinks")
+                    .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
+                        if let page = pages.first {
+                            NoteBacklinksPopover(
+                                pageTitle: page.title,
+                                onNavigate: { targetId in
+                                    showBacklinksPopover = false
+                                    navState?.push(pageId: targetId, title: "")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Chat History sidebar toggle
+            if !showWriterMode && !showPreview {
+                ToolbarItem {
+                    Button {
+                        withAnimation(.smooth(duration: 0.2)) { showChatSidebar.toggle() }
+                    } label: {
+                        Label(
+                            showChatSidebar ? "Hide Chat" : "Chat History",
+                            systemImage: showChatSidebar ? "bubble.left.fill" : "bubble.left")
+                    }
+                    .help("Toggle Chat History")
+                }
+            }
+
         }
         .preferredColorScheme(ui.theme.colorScheme)
-        .ignoresSafeArea(edges: .top)
         .background {
             // Hidden keyboard shortcut buttons
             Button("") {
@@ -687,6 +755,11 @@ private struct NotePageContent: View {
             guard let newTitle, !newTitle.isEmpty else { return }
             navState?.syncTitle(pageId: pageId, title: newTitle)
         }
+        .onChange(of: ui.theme) { _, newTheme in
+            if let window = NSApp.keyWindow {
+                window.appearance = NSAppearance(named: newTheme.isDark ? .darkAqua : .aqua)
+            }
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
         ) { _ in refreshTabCount() }
@@ -752,57 +825,21 @@ private struct NotePageContent: View {
         }
     }
 
-    // MARK: - Bottom Floating Toolbar
+    // MARK: - Wikilink Navigation (Native Toolbar Items)
 
-    /// Liquid glass pill toolbar floating at the bottom of the editor.
-    /// Uses .glassEffect for macOS 26 depth-aware frosted glass.
-    private var bottomToolbarPill: some View {
-        HStack(spacing: 10) {
-            // Format menu
-            Menu {
-                Button("Bold  \u{2318}B") { insertMarkdown("**", "**") }
-                Button("Italic  \u{2318}I") { insertMarkdown("*", "*") }
-                Menu("Heading") {
-                    Button("H1") { insertLinePrefix("# ") }
-                    Button("H2") { insertLinePrefix("## ") }
-                    Button("H3") { insertLinePrefix("### ") }
-                }
-                Divider()
-                Button("Strikethrough") { insertMarkdown("~~", "~~") }
-                Button("Code") { insertMarkdown("`", "`") }
-                Button("Link") { insertMarkdown("[", "](url)") }
-            } label: {
-                Image(systemName: "textformat")
-                    .font(.system(size: 12, weight: .medium))
+    @ViewBuilder
+    private func wikilinksNavButtons(nav: NoteNavigationState) -> some View {
+        HStack(spacing: 2) {
+            Button { nav.back() } label: {
+                Image(systemName: "chevron.left")
             }
-            .help("Format")
+            .disabled(!nav.canGoBack)
 
-            // Preview toggle
-            Button { togglePreviewMode() } label: {
-                Image(systemName: showPreview ? "pencil" : "eye")
-                    .font(.system(size: 12, weight: .medium))
+            Button { nav.forward() } label: {
+                Image(systemName: "chevron.right")
             }
-            .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
-
-            // More menu
-            moreMenu
-
-            // Ask bar
-            if !showWriterMode && !showPreview {
-                toolbarChatField
-            }
-
-            // Word count
-            Text("\(wordCount) words")
-                .font(.system(size: 10, weight: .regular, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(.tertiary)
+            .disabled(!nav.canGoForward)
         }
-        .buttonStyle(.borderless)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .glassEffect(.regular, in: Capsule())
-        .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
     }
 
     // MARK: - Selection Capture for Ideas Panel
@@ -1089,7 +1126,7 @@ private struct NotePageContent: View {
                     .foregroundStyle(ui.theme.accent)
                 Text("Response")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(ui.theme.foreground)
+                    .foregroundStyle(.primary)
                 Spacer()
                 if noteChatState.isStreaming {
                     ProgressView().controlSize(.mini)
@@ -1106,34 +1143,34 @@ private struct NotePageContent: View {
                     .help("Copy")
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 10)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
 
             Divider().opacity(0.3)
 
             ScrollView {
                 if noteChatState.responseText.isEmpty && noteChatState.isStreaming {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text("Thinking\u{2026}")
                             .font(.system(size: 12))
-                            .foregroundStyle(ui.theme.mutedForeground)
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
+                    .padding(16)
                 } else {
-                    MarkdownTextView(
-                        content: noteChatState.responseText
-                            + (noteChatState.isStreaming ? " \u{258D}" : ""),
-                        theme: ui.theme
-                    )
-                    .font(.system(size: 13))
-                    .textSelection(.enabled)
-                    .padding(14)
+                    Text(noteChatState.responseText
+                         + (noteChatState.isStreaming ? " \u{258D}" : ""))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .id(noteChatState.responseText.count)
                 }
             }
-            .frame(maxHeight: 300)
+            .frame(minHeight: 200, idealHeight: 300, maxHeight: 500)
 
             if !noteChatState.isStreaming {
                 Divider().opacity(0.3)
@@ -1144,46 +1181,38 @@ private struct NotePageContent: View {
                         Label("Insert into note", systemImage: "text.insert")
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(ui.theme.accent.opacity(0.12), in: Capsule())
-                    .foregroundStyle(ui.theme.accent)
+                    .buttonStyle(.bordered)
+                    .tint(ui.theme.accent)
 
                     Button {
                         noteChatState.discardResponse()
                     } label: {
                         Label("Dismiss", systemImage: "xmark")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(ui.theme.textSecondary)
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
 
                     Spacer()
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
         }
-        .frame(width: 400)
+        .frame(minWidth: 400, idealWidth: 520, maxWidth: 600)
     }
 
     // MARK: - Toolbar Chat Field
 
     private var toolbarChatField: some View {
         HStack(spacing: 6) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(
-                    noteChatState.isStreaming ? ui.theme.accent : ui.theme.textTertiary)
-
             @Bindable var chat = noteChatState
-            TextField("Ask\u{2026}", text: $chat.inputText)
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+            TextField("Ask", text: $chat.inputText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
-                .frame(width: 140)
+                .frame(width: 300)
                 .onSubmit {
                     noteChatState.submitQuery(
                         noteChatState.inputText,
@@ -1203,10 +1232,9 @@ private struct NotePageContent: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(ui.theme.foreground.opacity(0.04), in: Capsule())
-        .overlay(Capsule().stroke(ui.theme.foreground.opacity(0.08), lineWidth: 0.5))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.clear, in: RoundedRectangle(cornerRadius: 6))
         .popover(
             isPresented: Binding(
                 get: { noteChatState.hasResponse && noteChatState.useResponsePanel },
@@ -1522,12 +1550,12 @@ private struct IdeasPanel: View {
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(theme.textTertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .background(theme.glassBg, in: Capsule())
             }
             .padding(.horizontal, 16)
-            .padding(.top, 14)
+            .padding(.top, 16)
             .padding(.bottom, 8)
 
             // Tab picker
@@ -1538,7 +1566,7 @@ private struct IdeasPanel: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
-            .padding(.bottom, 10)
+            .padding(.bottom, 8)
 
             // Selection indicator — shows captured highlight so user knows Integrate will use it
             if let selText = capturedSelectionText, !selText.isEmpty {
@@ -1579,7 +1607,7 @@ private struct IdeasPanel: View {
                         .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 30)
+                    .padding(.vertical, 32)
                 } else {
                     let body = page.loadBody()
                     LazyVStack(spacing: 6) {
@@ -1672,15 +1700,15 @@ private struct IdeasPanel: View {
                 }
                 .foregroundStyle(theme.accent.opacity(0.8))
                 .padding(.horizontal, 8)
-                .padding(.vertical, 3)
+                .padding(.vertical, 4)
                 .background(theme.accent.opacity(0.08), in: Capsule())
             }
 
             TextField(activeTab == .ideas ? "Idea title" : "Brain dump title", text: $newTitle)
                 .font(.system(size: 12))
                 .textFieldStyle(.plain)
-                .padding(6)
-                .background(theme.glassBg, in: RoundedRectangle(cornerRadius: 6))
+                .padding(8)
+                .background(theme.glassBg, in: RoundedRectangle(cornerRadius: 8))
 
             TextEditor(text: $newBody)
                 .font(.system(size: 11))
@@ -1688,12 +1716,13 @@ private struct IdeasPanel: View {
                 .scrollContentBackground(.hidden)
                 .frame(height: 80)
                 .padding(4)
-                .background(theme.glassBg, in: RoundedRectangle(cornerRadius: 6))
+                .background(theme.glassBg, in: RoundedRectangle(cornerRadius: 8))
 
             HStack {
                 Spacer()
                 Button("Save") { saveNewItem() }
                     .font(.system(size: 11, weight: .medium))
+                    .buttonStyle(.bordered)
                     .disabled(
                         newTitle.trimmingCharacters(in: .whitespaces).isEmpty
                             && newBody.trimmingCharacters(in: .whitespaces).isEmpty
@@ -1702,7 +1731,7 @@ private struct IdeasPanel: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Cursor / Line Helpers
@@ -2120,8 +2149,8 @@ private struct IdeaRow: View {
                         }
                     }
                     .foregroundStyle(theme.accent.opacity(0.8))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .background(theme.accent.opacity(0.08), in: Capsule())
                     .contentShape(Capsule())
                 }
@@ -2136,7 +2165,7 @@ private struct IdeaRow: View {
                     Button {
                         onInsert()
                     } label: {
-                        HStack(spacing: 3) {
+                        HStack(spacing: 4) {
                             Image(systemName: "text.insert")
                                 .font(.system(size: 9))
                             Text("Insert")
@@ -2144,7 +2173,7 @@ private struct IdeaRow: View {
                         }
                         .foregroundStyle(theme.accent)
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
+                        .padding(.vertical, 4)
                         .background(theme.accent.opacity(0.1), in: Capsule())
                         .contentShape(Capsule())
                     }
@@ -2156,7 +2185,7 @@ private struct IdeaRow: View {
                     Button {
                         onIntegrate()
                     } label: {
-                        HStack(spacing: 3) {
+                        HStack(spacing: 4) {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 9))
                             Text("Integrate")
@@ -2164,7 +2193,7 @@ private struct IdeaRow: View {
                         }
                         .foregroundStyle(.purple)
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
+                        .padding(.vertical, 4)
                         .background(Color.purple.opacity(0.1), in: Capsule())
                         .contentShape(Capsule())
                     }
@@ -2177,7 +2206,7 @@ private struct IdeaRow: View {
                         Button {
                             onFormat()
                         } label: {
-                            HStack(spacing: 3) {
+                            HStack(spacing: 4) {
                                 Image(systemName: "wand.and.stars")
                                     .font(.system(size: 9))
                                 Text("Format")
@@ -2185,7 +2214,7 @@ private struct IdeaRow: View {
                             }
                             .foregroundStyle(.orange)
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
+                            .padding(.vertical, 4)
                             .background(Color.orange.opacity(0.1), in: Capsule())
                             .contentShape(Capsule())
                         }
@@ -2199,7 +2228,7 @@ private struct IdeaRow: View {
                         Button {
                             showFormatted.toggle()
                         } label: {
-                            HStack(spacing: 3) {
+                            HStack(spacing: 4) {
                                 Image(systemName: showFormatted ? "text.quote" : "text.alignleft")
                                     .font(.system(size: 9))
                                 Text(showFormatted ? "Raw" : "Formatted")
@@ -2207,7 +2236,7 @@ private struct IdeaRow: View {
                             }
                             .foregroundStyle(theme.textTertiary)
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
+                            .padding(.vertical, 4)
                             .background(theme.glassBg, in: Capsule())
                             .contentShape(Capsule())
                         }
@@ -2219,7 +2248,7 @@ private struct IdeaRow: View {
             }
 
             // Timestamp + badges
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Text(item.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.system(size: 9))
                     .foregroundStyle(theme.textTertiary.opacity(0.6))
@@ -2227,8 +2256,8 @@ private struct IdeaRow: View {
                     Text("AI formatted")
                         .font(.system(size: 8, weight: .medium))
                         .foregroundStyle(theme.accent.opacity(0.7))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
                         .background(theme.accent.opacity(0.1), in: Capsule())
                 }
             }
@@ -2239,80 +2268,6 @@ private struct IdeaRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(theme.glassBorder, lineWidth: 0.5)
         )
-    }
-}
-
-// MARK: - Note Breadcrumb Bar
-// Thin horizontal bar showing the wikilink navigation trail.
-// Each crumb is clickable to activate that note's tab.
-
-private struct NoteBreadcrumbBar: View {
-    let navState: NoteNavigationState
-    @Environment(UIState.self) private var ui
-    @State private var isHovering = false
-    @State private var hoveredItemId: String?
-
-    var body: some View {
-        ZStack(alignment: .trailing) {
-            if isHovering {
-                // Expanded: page list
-                VStack(alignment: .trailing, spacing: 1) {
-                    ForEach(Array(navState.stack.enumerated()), id: \.element.id) { _, item in
-                        let isCurrent = item.id == navState.currentPageId
-                        let isItemHovered = hoveredItemId == item.id
-
-                        Button {
-                            navState.navigateTo(pageId: item.id)
-                        } label: {
-                            Text(item.title)
-                                .font(.system(size: 12, weight: isCurrent ? .medium : .regular))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .foregroundStyle(isItemHovered ? .white : .primary.opacity(0.8))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                                .background {
-                                    if isItemHovered {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(ui.theme.accent.opacity(0.7))
-                                    }
-                                }
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .onHover { h in hoveredItemId = h ? item.id : nil }
-                    }
-                }
-                .padding(6)
-                .frame(width: 220)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .trailing)))
-            } else {
-                // Collapsed: segmented horizontal dashes
-                VStack(alignment: .trailing, spacing: 5) {
-                    ForEach(Array(navState.stack.enumerated()), id: \.element.id) { _, item in
-                        let isCurrent = item.id == navState.currentPageId
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(ui.theme.accent.opacity(isCurrent ? 0.9 : 0.5))
-                            .frame(width: isCurrent ? 16 : 10, height: 2)
-                    }
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 3)
-                .transition(.opacity)
-            }
-        }
-        .animation(.spring(duration: 0.25, bounce: 0.15), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering {
-                NSCursor.arrow.push()
-            } else {
-                NSCursor.pop()
-            }
-        }
     }
 }
 
@@ -2466,7 +2421,7 @@ private struct TransitionGreetingView: View {
                 .font(.system(size: 18, weight: .regular, design: .serif))
                 .foregroundStyle(theme.mutedForeground)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+                .padding(.horizontal, 32)
         }
     }
 }

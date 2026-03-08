@@ -392,29 +392,48 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             }
 
         } else if t.hasPrefix("> [!") {
+            let calloutType = Self.parseCalloutType(t)
+            let colors = Self.calloutColors(for: calloutType, isDark: isDark)
             backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: baseFontSize),
-                .foregroundColor: isDark ? accentColor.withAlphaComponent(0.9) : accentColor,
-                .backgroundColor: isDark ? accentColor.withAlphaComponent(0.06) : accentColor.withAlphaComponent(0.04)
+                .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium),
+                .foregroundColor: colors.text,
+                .backgroundColor: colors.bg,
+                .paragraphStyle: Self.calloutStyle
             ], range: range)
+            // Dim the > [!type] prefix, show the icon + title portion brighter
             let calloutPrefix: String
             if let bracketEnd = t.range(of: "] ") {
+                calloutPrefix = String(t[t.startIndex..<bracketEnd.upperBound])
+            } else if let bracketEnd = t.range(of: "]") {
                 calloutPrefix = String(t[t.startIndex..<bracketEnd.upperBound])
             } else {
                 calloutPrefix = "> "
             }
-            dimPrefix(in: line, prefix: calloutPrefix, lineStart: range.location, color: mutedColor)
+            dimPrefix(in: line, prefix: calloutPrefix, lineStart: range.location, color: colors.accent.withAlphaComponent(0.5))
 
         } else if t.hasPrefix("> ") {
-            let quoteBg: NSColor = isDark
-                ? accentColor.withAlphaComponent(0.04)
-                : accentColor.withAlphaComponent(0.03)
-            backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: baseFontSize).italic,
-                .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.60) : NSColor(white: 0.35, alpha: 1),
-                .backgroundColor: quoteBg
-            ], range: range)
-            dimPrefix(in: line, prefix: "> ", lineStart: range.location, color: accentColor.withAlphaComponent(0.40))
+            // Check if this is a callout continuation line
+            let calloutCtx = calloutContext(at: range.location, in: backing.string as NSString)
+            if let calloutType = calloutCtx {
+                let colors = Self.calloutColors(for: calloutType, isDark: isDark)
+                backing.addAttributes([
+                    .font: NSFont.systemFont(ofSize: baseFontSize),
+                    .foregroundColor: colors.text,
+                    .backgroundColor: colors.bg,
+                    .paragraphStyle: Self.calloutStyle
+                ], range: range)
+                dimPrefix(in: line, prefix: "> ", lineStart: range.location, color: colors.accent.withAlphaComponent(0.35))
+            } else {
+                let quoteBg: NSColor = isDark
+                    ? accentColor.withAlphaComponent(0.04)
+                    : accentColor.withAlphaComponent(0.03)
+                backing.addAttributes([
+                    .font: NSFont.systemFont(ofSize: baseFontSize).italic,
+                    .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.60) : NSColor(white: 0.35, alpha: 1),
+                    .backgroundColor: quoteBg
+                ], range: range)
+                dimPrefix(in: line, prefix: "> ", lineStart: range.location, color: accentColor.withAlphaComponent(0.40))
+            }
 
         } else if t == "---" || t == "***" {
             backing.addAttributes([
@@ -431,10 +450,17 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("$$") || (t.hasPrefix("$") && t.hasSuffix("$") && t.count > 2
                 && !t.dropFirst().dropLast().allSatisfy({ $0.isNumber || $0 == "," || $0 == "." })) {
-            backing.addAttributes([
-                .font: NSFont(name: "NewYork-RegularItalic", size: baseFontSize) ?? NSFont.systemFont(ofSize: baseFontSize).italic,
-                .foregroundColor: isDark ? accentColor.withAlphaComponent(0.85) : accentColor.withAlphaComponent(0.9)
-            ], range: range)
+            let isBlock = t.hasPrefix("$$")
+            let mathFont = NSFont(name: "NewYork-RegularItalic", size: isBlock ? baseFontSize + 2 : baseFontSize)
+                ?? NSFont.systemFont(ofSize: isBlock ? baseFontSize + 2 : baseFontSize).italic
+            let mathColor = isDark ? accentColor.withAlphaComponent(0.85) : accentColor.withAlphaComponent(0.9)
+            let mathBg = isDark ? accentColor.withAlphaComponent(0.05) : accentColor.withAlphaComponent(0.04)
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: mathFont,
+                .foregroundColor: mathColor,
+                .backgroundColor: mathBg
+            ]
+            backing.addAttributes(attrs, range: range)
             let lineStr = (backing.string as NSString).substring(with: range)
             for (offset, ch) in lineStr.utf16.enumerated() where ch == 0x24 /* $ */ {
                 let dollarRange = NSRange(location: range.location + offset, length: 1)
@@ -457,42 +483,38 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
 
             if isSepRow {
-                // Separator row — near-invisible, the grid overlay draws the header line
+                // Separator row — fully hidden, the grid overlay draws the header line
                 backing.addAttributes([
-                    .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .regular),
-                    .foregroundColor: isDark ? accentColor.withAlphaComponent(0.12) : accentColor.withAlphaComponent(0.10),
-                    .paragraphStyle: Self.tableStyle
+                    .font: NSFont.monospacedSystemFont(ofSize: 1, weight: .regular),
+                    .foregroundColor: NSColor.clear,
+                    .paragraphStyle: Self.tableSepStyle
                 ], range: range)
             } else {
                 let str = backing.string as NSString
                 let isHeader = Self.isTableHeader(at: range, in: str)
 
                 if isHeader {
-                    // Header row — bold, slightly brighter. No .backgroundColor —
-                    // the grid overlay draws clipped fills to avoid full-width bleed.
+                    // Header row — semibold, bright
                     backing.addAttributes([
-                        .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .semibold),
+                        .font: NSFont.monospacedSystemFont(ofSize: baseFontSize, weight: .semibold),
                         .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.95) : NSColor(white: 0.05, alpha: 1),
                         .paragraphStyle: Self.tableStyle
                     ], range: range)
                 } else {
-                    // Data row — no .backgroundColor (grid overlay handles alternating fills).
+                    // Data row
                     backing.addAttributes([
-                        .font: NSFont.monospacedSystemFont(ofSize: codeSize, weight: .regular),
+                        .font: NSFont.monospacedSystemFont(ofSize: baseFontSize - 1, weight: .regular),
                         .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.88) : NSColor(white: 0.12, alpha: 1),
                         .paragraphStyle: Self.tableStyle
                     ], range: range)
                 }
 
-                // Muted pipes — the grid overlay provides the visual column borders
-                let pipeMuted: NSColor = isDark
-                    ? accentColor.withAlphaComponent(0.15)
-                    : accentColor.withAlphaComponent(0.12)
+                // Hide pipes — the grid overlay provides the visual column borders
                 for (offset, ch) in lineStr.utf16.enumerated() where ch == 0x7C {
                     let pipeRange = NSRange(location: range.location + offset, length: 1)
                     if pipeRange.location + pipeRange.length <= backing.length {
                         backing.addAttributes([
-                            .foregroundColor: pipeMuted
+                            .foregroundColor: NSColor.clear
                         ], range: pipeRange)
                     }
                 }
@@ -678,7 +700,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 ], range: content)
             }
 
-        case 15: // Wikilink content — accent pill with background glow
+        case 15: // Wikilink content — accent pill with native link handling
             let linkTitle = (backing.string as NSString).substring(with: range)
             let linkBg: NSColor = isDark
                 ? accent.withAlphaComponent(0.10)
@@ -688,8 +710,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 .backgroundColor: linkBg,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .underlineColor: accent.withAlphaComponent(0.35),
-                .cursor: NSCursor.pointingHand,
-                .init("EpistemosWikilink"): linkTitle
+                .link: "wikilink://\(linkTitle)" as NSString,
+                .cursor: NSCursor.pointingHand
             ], range: range)
 
         case 16: // WikilinkBrackets [[ or ]] — ghosted
@@ -731,15 +753,15 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 ], range: content)
             }
 
-        case 24: // BlockReference content — accent + tinted background + clickable
+        case 24: // BlockReference content — accent + tinted background + native link
             let blockId = (backing.string as NSString).substring(with: range)
             backing.addAttributes([
                 .foregroundColor: accent,
                 .backgroundColor: accent.withAlphaComponent(isDark ? 0.10 : 0.08),
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .underlineColor: accent.withAlphaComponent(0.35),
-                .cursor: NSCursor.pointingHand,
-                .init("EpistemosBlockRef"): blockId
+                .link: "blockref://\(blockId)" as NSString,
+                .cursor: NSCursor.pointingHand
             ], range: range)
 
         case 25: // BlockReferenceBrackets (( or )) — ghosted
@@ -866,6 +888,84 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         return prefix.allSatisfy(\.isWhitespace)
     }
 
+    // MARK: - Callout Support
+
+    enum CalloutType: String {
+        case note, info, tip, hint, important
+        case warning, caution, attention
+        case danger, error, bug, fail, failure
+        case success, check, done
+        case question, help, faq
+        case quote, cite
+        case example
+        case abstract, summary, tldr
+    }
+
+    struct CalloutColors {
+        let accent: NSColor
+        let text: NSColor
+        let bg: NSColor
+    }
+
+    static func parseCalloutType(_ line: String) -> CalloutType {
+        // Extract type from > [!type] or > [!type] Title
+        guard let start = line.range(of: "[!")?.upperBound,
+              let end = line[start...].firstIndex(of: "]") else { return .note }
+        let raw = String(line[start..<end]).lowercased().trimmingCharacters(in: .whitespaces)
+        return CalloutType(rawValue: raw) ?? .note
+    }
+
+    static func calloutColors(for type: CalloutType, isDark: Bool) -> CalloutColors {
+        let base: NSColor
+        switch type {
+        case .note, .info:
+            base = NSColor(red: 0.35, green: 0.55, blue: 0.95, alpha: 1) // blue
+        case .tip, .hint, .important:
+            base = NSColor(red: 0.25, green: 0.75, blue: 0.55, alpha: 1) // teal
+        case .warning, .caution, .attention:
+            base = NSColor(red: 0.90, green: 0.70, blue: 0.20, alpha: 1) // amber
+        case .danger, .error, .bug, .fail, .failure:
+            base = NSColor(red: 0.90, green: 0.30, blue: 0.30, alpha: 1) // red
+        case .success, .check, .done:
+            base = NSColor(red: 0.25, green: 0.75, blue: 0.35, alpha: 1) // green
+        case .question, .help, .faq:
+            base = NSColor(red: 0.65, green: 0.50, blue: 0.90, alpha: 1) // purple
+        case .quote, .cite:
+            base = NSColor(red: 0.55, green: 0.55, blue: 0.60, alpha: 1) // gray
+        case .example:
+            base = NSColor(red: 0.60, green: 0.45, blue: 0.85, alpha: 1) // indigo
+        case .abstract, .summary, .tldr:
+            base = NSColor(red: 0.30, green: 0.70, blue: 0.85, alpha: 1) // cyan
+        }
+
+        let text = isDark ? base.withAlphaComponent(0.9) : base
+        let bg = isDark ? base.withAlphaComponent(0.07) : base.withAlphaComponent(0.05)
+        return CalloutColors(accent: base, text: text, bg: bg)
+    }
+
+    /// Walk backward from `location` to find if this `> ` line is a callout continuation.
+    /// Returns the callout type if the preceding `> ` chain leads to a `> [!type]` header.
+    private func calloutContext(at location: Int, in str: NSString) -> CalloutType? {
+        guard location > 0 else { return nil }
+        var cursor = location
+        while cursor > 0 {
+            // Find previous line
+            let prevEnd = cursor - 1
+            guard prevEnd >= 0 else { return nil }
+            let prevLineRange = str.lineRange(for: NSRange(location: max(0, prevEnd), length: 0))
+            let prevLine = str.substring(with: prevLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if prevLine.hasPrefix("> [!") {
+                return Self.parseCalloutType(prevLine)
+            } else if prevLine.hasPrefix("> ") {
+                cursor = prevLineRange.location
+            } else {
+                return nil
+            }
+        }
+        return nil
+    }
+
     // MARK: - Theme Colors (Static Helpers)
 
     static func accentColor(isDark: Bool) -> NSColor {
@@ -887,6 +987,16 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
     /// Code block content: indented with tight line spacing.
     /// No monospaced font — visual block via background color + indent (iA Writer style).
+    private nonisolated(unsafe) static let calloutStyle: NSParagraphStyle = {
+        let ps = NSMutableParagraphStyle()
+        ps.lineSpacing = 3
+        ps.paragraphSpacing = 1
+        ps.paragraphSpacingBefore = 1
+        ps.headIndent = 20
+        ps.firstLineHeadIndent = 20
+        return ps.copy() as! NSParagraphStyle
+    }()
+
     private nonisolated(unsafe) static let codeBlockStyle: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
         ps.lineSpacing = 3
@@ -961,10 +1071,21 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         return ps.copy() as! NSParagraphStyle
     }()
 
-    /// Tight vertical spacing for table rows — keeps rows visually grouped.
+    /// Table row spacing — enough padding for a clean rendered look.
     private nonisolated(unsafe) static let tableStyle: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
-        ps.lineSpacing = 2
+        ps.lineSpacing = 4
+        ps.paragraphSpacing = 1
+        ps.paragraphSpacingBefore = 1
+        return ps.copy() as! NSParagraphStyle
+    }()
+
+    /// Separator row — collapsed to near-zero height so it's invisible.
+    private nonisolated(unsafe) static let tableSepStyle: NSParagraphStyle = {
+        let ps = NSMutableParagraphStyle()
+        ps.minimumLineHeight = 1
+        ps.maximumLineHeight = 1
+        ps.lineSpacing = 0
         ps.paragraphSpacing = 0
         ps.paragraphSpacingBefore = 0
         return ps.copy() as! NSParagraphStyle
