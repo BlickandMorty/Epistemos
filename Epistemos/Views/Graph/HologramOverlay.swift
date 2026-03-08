@@ -781,7 +781,7 @@ final class HologramOverlay {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         blurView?.material = .fullScreenUI
         darkenLayer?.layer?.backgroundColor = (isDark
-            ? NSColor.black.withAlphaComponent(0.85)
+            ? NSColor.black.withAlphaComponent(0.75)
             : NSColor.white.withAlphaComponent(0.55)
         ).cgColor
         metalView?.setLightMode(!isDark)
@@ -882,7 +882,7 @@ final class HologramOverlay {
         let darken = NSView(frame: screen.frame)
         darken.wantsLayer = true
         darken.layer?.backgroundColor = (isDark
-            ? NSColor.black.withAlphaComponent(0.85)
+            ? NSColor.black.withAlphaComponent(0.75)
             : NSColor.white.withAlphaComponent(0.55)
         ).cgColor
         darken.autoresizingMask = [.width, .height]
