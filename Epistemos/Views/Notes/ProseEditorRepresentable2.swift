@@ -123,6 +123,20 @@ extension ProseEditorRepresentable2 {
         // Table alignment
         var tableAlignTask: Task<Void, Never>?
 
+        // Bracket auto-close
+        private var isInsertingBrackets = false
+
+        // Heading fold state (ephemeral — text replaced with "…\n" marker)
+        struct FoldInfo {
+            let originalText: String
+            var markerRange: NSRange
+        }
+        var foldedSections: [Int: FoldInfo] = [:]
+        var isFolding = false
+
+        // Data detection
+        private var dataDetectionTask: Task<Void, Never>?
+
         // Per-page state
         struct PageState {
             var scrollY: CGFloat = 0
@@ -211,6 +225,7 @@ extension ProseEditorRepresentable2 {
             bindingSyncTask?.cancel()
             directSaveTask?.cancel()
             tableAlignTask?.cancel()
+            dataDetectionTask?.cancel()
 
             // 4. Load new page
             let newPageId = parent.pageId
@@ -392,6 +407,7 @@ extension ProseEditorRepresentable2 {
             bindingSyncTask?.cancel()
             directSaveTask?.cancel()
             tableAlignTask?.cancel()
+            dataDetectionTask?.cancel()
             saveCurrentPageState()
             // Persist to disk
             if !currentPageId.isEmpty {
@@ -421,10 +437,41 @@ extension ProseEditorRepresentable2 {
             guard let tv = notification.object as? NSTextView else { return }
             guard !tv.hasMarkedText() else { return }
             guard !isFlushingTokens else { return }
+            guard !isFolding else { return }
+
+            // Clear all folds on any edit — folds are purely a reading aid
+            if !foldedSections.isEmpty {
+                clearAllFolds()
+            }
+
+            // ── SAVE-CRITICAL ──────────────────────────────────
             let newText = tv.string
             debouncedBindingSync(newText)
             scheduleDirectSave(newText)
+
+            // ── NON-CRITICAL ───────────────────────────────────
+
+            // Auto-close [[ → [[|]]
+            if !isInsertingBrackets {
+                let str = tv.string as NSString
+                let cursorLoc = tv.selectedRange().location
+                if cursorLoc != NSNotFound, cursorLoc >= 2, cursorLoc <= str.length,
+                   str.substring(with: NSRange(location: cursorLoc - 2, length: 2)) == "[["
+                {
+                    let remaining = str.length - cursorLoc
+                    let hasClosing = remaining >= 2
+                        && str.substring(with: NSRange(location: cursorLoc, length: 2)) == "]]"
+                    if !hasClosing {
+                        isInsertingBrackets = true
+                        tv.insertText("]]", replacementRange: NSRange(location: cursorLoc, length: 0))
+                        tv.setSelectedRange(NSRange(location: cursorLoc, length: 0))
+                        isInsertingBrackets = false
+                    }
+                }
+            }
+
             scheduleTableAlignment(tv)
+            scheduleDataDetection(newText)
         }
 
         // MARK: - Command Dispatch (Tab, Enter, etc.)
@@ -774,6 +821,119 @@ extension ProseEditorRepresentable2 {
                 return true
             }
             return false
+        }
+
+        // MARK: - Heading Fold (Collapsible Sections)
+        // Ephemeral visual fold — text storage content replaced with "…\n" marker.
+        // Original text stored in foldedSections dict. All folds clear on any edit.
+
+        func toggleFold(headingOffset: Int) {
+            guard let tv = textView, let ts = tv.textStorage else { return }
+            let str = ts.string as NSString
+
+            if foldedSections[headingOffset] != nil {
+                unfold(headingOffset: headingOffset)
+            } else {
+                let headingLineRange = str.lineRange(for: NSRange(location: headingOffset, length: 0))
+                let headingLine = str.substring(with: headingLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let level = headingLevel(headingLine) else { return }
+
+                // Content range: from end of heading line to next heading of equal/higher level
+                let contentStart = NSMaxRange(headingLineRange)
+                var contentEnd = str.length
+                var cursor = contentStart
+                while cursor < str.length {
+                    let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
+                    let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let nextLevel = headingLevel(line), nextLevel <= level {
+                        contentEnd = lineRange.location
+                        break
+                    }
+                    cursor = NSMaxRange(lineRange)
+                    if cursor == lineRange.location { break }
+                }
+
+                guard contentEnd > contentStart else { return }
+                let foldRange = NSRange(location: contentStart, length: contentEnd - contentStart)
+                let originalText = str.substring(with: foldRange)
+
+                isFolding = true
+                let marker = "…\n"
+                if tv.shouldChangeText(in: foldRange, replacementString: marker) {
+                    ts.replaceCharacters(in: foldRange, with: marker)
+                    tv.didChangeText()
+                }
+                let markerRange = NSRange(location: contentStart, length: (marker as NSString).length)
+                ts.addAttributes([
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .font: NSFont.systemFont(ofSize: 11, weight: .medium)
+                ], range: markerRange)
+                foldedSections[headingOffset] = FoldInfo(originalText: originalText, markerRange: markerRange)
+                isFolding = false
+                tv.needsDisplay = true
+            }
+        }
+
+        func unfold(headingOffset: Int) {
+            guard let tv = textView, let ts = tv.textStorage else { return }
+            guard let info = foldedSections.removeValue(forKey: headingOffset) else { return }
+            isFolding = true
+            if tv.shouldChangeText(in: info.markerRange, replacementString: info.originalText) {
+                ts.replaceCharacters(in: info.markerRange, with: info.originalText)
+                tv.didChangeText()
+            }
+            isFolding = false
+            tv.needsDisplay = true
+        }
+
+        func clearAllFolds() {
+            guard let tv = textView, let ts = tv.textStorage else {
+                foldedSections.removeAll()
+                return
+            }
+            let sorted = foldedSections.sorted { $0.value.markerRange.location > $1.value.markerRange.location }
+            isFolding = true
+            for (_, info) in sorted {
+                if tv.shouldChangeText(in: info.markerRange, replacementString: info.originalText) {
+                    ts.replaceCharacters(in: info.markerRange, with: info.originalText)
+                    tv.didChangeText()
+                }
+            }
+            foldedSections.removeAll()
+            isFolding = false
+            tv.needsDisplay = true
+        }
+
+        private func headingLevel(_ line: String) -> Int? {
+            var count = 0
+            for ch in line {
+                if ch == "#" { count += 1 }
+                else if ch == " " && count > 0 { return count <= 6 ? count : nil }
+                else { return nil }
+            }
+            return nil
+        }
+
+        // MARK: - Data Detection (1s debounce)
+
+        private func scheduleDataDetection(_ text: String) {
+            dataDetectionTask?.cancel()
+            let pageId = currentPageId
+            dataDetectionTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, !Task.isCancelled else { return }
+                guard let tv = self.textView, let storage = tv.textStorage else { return }
+                let items = DataDetectionService.detect(in: text)
+                let fullRange = NSRange(location: 0, length: storage.length)
+                storage.enumerateAttribute(DataDetectionService.detectedDataKey, in: fullRange) { val, range, _ in
+                    guard val != nil else { return }
+                    storage.removeAttribute(DataDetectionService.detectedDataKey, range: range)
+                    storage.removeAttribute(.underlineStyle, range: range)
+                    storage.removeAttribute(.underlineColor, range: range)
+                }
+                let isDark = self.parent.theme.isDark
+                DataDetectionService.styleDetectedRanges(in: storage, items: items, isDark: isDark)
+            }
         }
 
         // MARK: - Binding Sync (300ms debounce)
