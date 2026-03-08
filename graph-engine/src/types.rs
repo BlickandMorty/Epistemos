@@ -241,6 +241,43 @@ impl Graph {
             });
         }
     }
+
+    /// Remove a node by UUID. Also removes all edges touching it.
+    /// Uses swap-remove for O(1) Vec removal, fixes id_to_index for the swapped element.
+    /// `next_id` is NOT reset — IDs are monotonically increasing to avoid collisions.
+    pub fn remove_node(&mut self, uuid: &str) -> bool {
+        let Some(&id) = self.uuid_to_id.get(uuid) else { return false };
+        let Some(&idx) = self.id_to_index.get(&id) else { return false };
+
+        // Remove all edges touching this node.
+        self.edges.retain(|e| e.source != id && e.target != id);
+
+        // Swap-remove: if not the last element, fix the swapped node's index.
+        let last_idx = self.nodes.len() - 1;
+        if idx != last_idx {
+            let swapped_id = self.nodes[last_idx].id;
+            self.id_to_index.insert(swapped_id, idx);
+        }
+        self.nodes.swap_remove(idx);
+
+        self.uuid_to_id.remove(uuid);
+        self.id_to_index.remove(&id);
+        true
+    }
+
+    /// Remove edges between two nodes (both directions).
+    /// Returns the number of edges removed.
+    pub fn remove_edges(&mut self, source_uuid: &str, target_uuid: &str) -> usize {
+        let src_id = self.uuid_to_id.get(source_uuid).copied();
+        let tgt_id = self.uuid_to_id.get(target_uuid).copied();
+        let (Some(src), Some(tgt)) = (src_id, tgt_id) else { return 0 };
+
+        let before = self.edges.len();
+        self.edges.retain(|e| {
+            !((e.source == src && e.target == tgt) || (e.source == tgt && e.target == src))
+        });
+        before - self.edges.len()
+    }
 }
 
 // ── Theme Types ─────────────────────────────────────────────────────────────
@@ -913,4 +950,97 @@ mod tests {
         assert_eq!(VisualTheme::from_u8(255), VisualTheme::Dialogue); // default
     }
 
+    // =========================================================================
+    // Graph Remove Tests (8 tests)
+    // =========================================================================
+
+    #[test]
+    fn remove_node_basic() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        g.add_node("c".into(), 2.0, 0.0, 0, 0, "C".into());
+        assert!(g.remove_node("b"));
+        assert_eq!(g.nodes.len(), 2);
+        assert!(g.uuid_to_id.get("b").is_none());
+        // a and c should still be reachable
+        assert!(g.uuid_to_id.contains_key("a"));
+        assert!(g.uuid_to_id.contains_key("c"));
+    }
+
+    #[test]
+    fn remove_node_cleans_edges() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        g.add_node("c".into(), 2.0, 0.0, 0, 0, "C".into());
+        g.add_edge("a", "b", 1.0, 0);
+        g.add_edge("b", "c", 1.0, 0);
+        assert_eq!(g.edges.len(), 2);
+        g.remove_node("b");
+        assert_eq!(g.edges.len(), 0); // both edges touched b
+    }
+
+    #[test]
+    fn remove_node_swap_fixup() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        g.add_node("c".into(), 2.0, 0.0, 0, 0, "C".into());
+        let c_id = *g.uuid_to_id.get("c").unwrap();
+        // Remove a (index 0) → c swaps into index 0
+        g.remove_node("a");
+        assert_eq!(*g.id_to_index.get(&c_id).unwrap(), 0);
+        assert_eq!(g.nodes[0].uuid, "c");
+    }
+
+    #[test]
+    fn remove_node_nonexistent() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        assert!(!g.remove_node("zzz"));
+        assert_eq!(g.nodes.len(), 1);
+    }
+
+    #[test]
+    fn remove_node_last_element() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        // Remove last element — no swap needed
+        assert!(g.remove_node("b"));
+        assert_eq!(g.nodes.len(), 1);
+        assert_eq!(g.nodes[0].uuid, "a");
+    }
+
+    #[test]
+    fn remove_edges_basic() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        g.add_edge("a", "b", 1.0, 0);
+        assert_eq!(g.remove_edges("a", "b"), 1);
+        assert!(g.edges.is_empty());
+    }
+
+    #[test]
+    fn remove_edges_bidirectional() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        g.add_edge("a", "b", 1.0, 0);
+        g.add_edge("b", "a", 0.5, 1);
+        assert_eq!(g.remove_edges("a", "b"), 2);
+        assert!(g.edges.is_empty());
+    }
+
+    #[test]
+    fn remove_edges_no_match() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        assert_eq!(g.remove_edges("a", "b"), 0);
+        // Non-existent nodes
+        assert_eq!(g.remove_edges("x", "y"), 0);
+    }
 }

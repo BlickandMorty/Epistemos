@@ -229,12 +229,14 @@ actor SearchIndexService {
                 arguments: [blockId, pageId, content]
             )
         }
+        Self.notifyIndexChanged()
     }
 
     nonisolated func deleteBlock(blockId: String) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
         }
+        Self.notifyIndexChanged()
     }
 
     // MARK: - Upsert / Delete
@@ -254,6 +256,7 @@ actor SearchIndexService {
                 arguments: [id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate]
             )
         }
+        Self.notifyIndexChanged()
     }
 
     nonisolated func upsertPages(
@@ -283,11 +286,23 @@ actor SearchIndexService {
                 )
             }
         }
+        Self.notifyIndexChanged()
     }
 
     nonisolated func delete(pageId: String) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [pageId])
+        }
+        Self.notifyIndexChanged()
+    }
+
+    // MARK: - Change Notification
+
+    /// Post searchIndexDidUpdate on main actor. Debounced via Task to coalesce rapid writes.
+    /// Static because nonisolated callers can't access instance state.
+    private nonisolated static func notifyIndexChanged() {
+        Task { @MainActor in
+            NotificationCenter.default.post(name: .searchIndexDidUpdate, object: nil)
         }
     }
 

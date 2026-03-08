@@ -457,7 +457,7 @@ final class MetalGraphNSView: NSView {
         }
 
         if !graphState.pendingNodeAdds.isEmpty || !graphState.pendingEdgeAdds.isEmpty {
-            graph_engine_commit(engine, 0)
+            graph_engine_commit_incremental(engine)
             let pendingIds = graphState.pendingNodeAdds.map(\.id)
             if !pendingIds.isEmpty {
                 applyDialogueDepthPalette(for: pendingIds)
@@ -466,6 +466,33 @@ final class MetalGraphNSView: NSView {
 
         graphState.pendingNodeAdds.removeAll()
         graphState.pendingEdgeAdds.removeAll()
+    }
+
+    /// Send pending node/edge removals to the Rust engine.
+    /// O(k) where k = pending items, vs O(N) for a full recommit.
+    private func commitIncrementalRemovals(graphState: GraphState) {
+        guard let engine else { return }
+
+        for nodeId in graphState.pendingNodeRemovals {
+            nodeId.withCString { uuid in
+                graph_engine_remove_node(engine, uuid)
+            }
+        }
+
+        for (srcId, tgtId) in graphState.pendingEdgeRemovals {
+            srcId.withCString { srcPtr in
+                tgtId.withCString { tgtPtr in
+                    graph_engine_remove_edge(engine, srcPtr, tgtPtr)
+                }
+            }
+        }
+
+        if !graphState.pendingNodeRemovals.isEmpty || !graphState.pendingEdgeRemovals.isEmpty {
+            graph_engine_commit_incremental(engine)
+        }
+
+        graphState.pendingNodeRemovals.removeAll()
+        graphState.pendingEdgeRemovals.removeAll()
     }
 
     // MARK: - Lightweight Filter Sync
@@ -754,6 +781,12 @@ final class MetalGraphNSView: NSView {
                 graphState.refreshStructuralData(context: context)
                 graphState.requestRecommit()
             }
+        }
+
+        // Drain incremental removals (before adds, in case a remove+add cycle happens).
+        if let graphState,
+           !graphState.pendingNodeRemovals.isEmpty || !graphState.pendingEdgeRemovals.isEmpty {
+            commitIncrementalRemovals(graphState: graphState)
         }
 
         // Drain incremental node/edge additions (avoids full O(N) recommit).

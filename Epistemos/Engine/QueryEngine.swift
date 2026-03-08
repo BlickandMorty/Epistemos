@@ -17,10 +17,14 @@ final class QueryEngine {
     var currentQuery: String = ""
     var queryHistory: [QueryHistoryEntry] = []
     var errorMessage: String?
+    var isReactive = false
+    var resultVersion = 0
 
     // MARK: - Dependencies
 
     private var runtime: QueryRuntime?
+    private var activeReactiveQuery: ReactiveQuery?
+    private var reactiveTask: Task<Void, Never>?
 
     /// Configure with live dependencies. Called once during app bootstrap.
     func configure(graphStore: GraphStore, graphState: GraphState, searchIndex: SearchIndexService) {
@@ -52,26 +56,81 @@ final class QueryEngine {
         let result = runtime.query(trimmed)
         
         currentResult = result
+        resultVersion += 1
         isProcessing = false
+        addToHistory(query: trimmed, result: result)
+    }
 
-        // Add to history
-        queryHistory.insert(QueryHistoryEntry(
-            query: trimmed,
-            resultCount: result.nodes.count + (result.aggregation?.rows.count ?? 0),
-            timestamp: .now
-        ), at: 0)
+    // MARK: - Reactive Execute
 
-        // Keep history manageable
-        if queryHistory.count > 50 {
-            queryHistory = Array(queryHistory.prefix(50))
+    /// Start a reactive query that auto-updates when graph/index data changes.
+    /// Replaces one-shot execute() for pinned/live queries.
+    func executeReactive(query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let runtime else {
+            errorMessage = "Query engine not configured"
+            return
         }
+
+        // Tear down previous reactive stream
+        stopReactive()
+
+        guard let rq = ReactiveQuery(runtime: runtime, query: trimmed) else {
+            // Fall back to one-shot if query can't parse
+            execute(query: trimmed)
+            return
+        }
+
+        activeReactiveQuery = rq
+        isReactive = true
+        isProcessing = true
+        errorMessage = nil
+        currentQuery = trimmed
+
+        let stream = rq.stream()
+        reactiveTask = Task { @MainActor [weak self] in
+            var first = true
+            for await result in stream {
+                guard let self, !Task.isCancelled else { break }
+                self.currentResult = result
+                self.resultVersion += 1
+                if first {
+                    self.isProcessing = false
+                    self.addToHistory(query: trimmed, result: result)
+                    first = false
+                }
+            }
+            // Stream ended
+            self?.isReactive = false
+        }
+    }
+
+    /// Stop the active reactive query stream.
+    func stopReactive() {
+        reactiveTask?.cancel()
+        reactiveTask = nil
+        activeReactiveQuery = nil
+        isReactive = false
     }
 
     /// Clear current results.
     func clear() {
+        stopReactive()
         currentResult = nil
         currentQuery = ""
         errorMessage = nil
+    }
+
+    private func addToHistory(query: String, result: QueryResult) {
+        queryHistory.insert(QueryHistoryEntry(
+            query: query,
+            resultCount: result.nodes.count + (result.aggregation?.rows.count ?? 0),
+            timestamp: .now
+        ), at: 0)
+        if queryHistory.count > 50 {
+            queryHistory = Array(queryHistory.prefix(50))
+        }
     }
 }
 

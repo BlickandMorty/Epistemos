@@ -85,4 +85,28 @@ final class BlockEditTranslator {
             }
         }
     }
+
+    /// Directly update a specific block's content by UUID.
+    /// Used for transclusion edits where the block belongs to a specific page.
+    static func updateBlock(
+        blockId: String,
+        pageId: String,
+        newContent: String,
+        engine: OpaquePointer
+    ) -> Bool {
+        guard let uuid = UUID(uuidString: blockId) else { return false }
+        let (b0, b1, b2, b3, b4, b5, b6, b7,
+             b8, b9, b10, b11, b12, b13, b14, b15) = uuid.uuid
+        var bytes: [UInt8] = [b0, b1, b2, b3, b4, b5, b6, b7,
+                              b8, b9, b10, b11, b12, b13, b14, b15]
+
+        let result = pageId.withCString { pageIdPtr in
+            newContent.withCString { contentPtr in
+                bytes.withUnsafeBufferPointer { buf in
+                    graph_engine_btk_update_block(engine, pageIdPtr, buf.baseAddress, contentPtr)
+                }
+            }
+        }
+        return result == 1
+    }
 }

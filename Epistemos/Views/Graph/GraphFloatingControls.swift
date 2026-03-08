@@ -126,7 +126,7 @@ struct GraphFloatingControls: View {
             if graphState.useSemanticClustering {
                 graphState.computeSemanticClusters()
             } else {
-                graphState.requestRecommit()
+                graphState.requestFilterSync()
             }
         } label: {
             HStack(spacing: 4) {

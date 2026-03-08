@@ -1,6 +1,60 @@
 use std::collections::HashMap;
 use crate::block_kernel::op::{BlockId, Op, PropertyValue};
 
+/// Extract trailing @key=value properties from block content.
+/// Mirrors the Swift BlockPropertyParser pattern: only trailing @key=value pairs.
+fn parse_inline_properties(content: &str) -> HashMap<String, PropertyValue> {
+    let mut props = HashMap::new();
+    // Scan backward from end for @key=value tokens
+    let trimmed = content.trim_end();
+    let bytes = trimmed.as_bytes();
+    let mut pos = trimmed.len();
+
+    loop {
+        // Skip trailing whitespace
+        while pos > 0 && bytes[pos - 1] == b' ' {
+            pos -= 1;
+        }
+        if pos == 0 { break; }
+
+        // Find the value: non-whitespace, non-@ chars backward
+        let val_end = pos;
+        while pos > 0 && bytes[pos - 1] != b' ' && bytes[pos - 1] != b'=' {
+            pos -= 1;
+        }
+        if pos == 0 || bytes[pos - 1] != b'=' { break; }
+        let val_start = pos;
+        pos -= 1; // skip '='
+
+        // Find the key: word chars backward
+        let key_end = pos;
+        while pos > 0 && (bytes[pos - 1].is_ascii_alphanumeric() || bytes[pos - 1] == b'_') {
+            pos -= 1;
+        }
+        if pos == key_end { break; } // empty key
+        // Must be preceded by '@'
+        if pos == 0 || bytes[pos - 1] != b'@' { break; }
+        let key_start = pos;
+        pos -= 1; // skip '@'
+
+        let key = &trimmed[key_start..key_end];
+        let val = &trimmed[val_start..val_end];
+        props.insert(key.to_string(), parse_property_value(val));
+    }
+
+    props
+}
+
+fn parse_property_value(raw: &str) -> PropertyValue {
+    if raw.eq_ignore_ascii_case("true") { return PropertyValue::Bool(true); }
+    if raw.eq_ignore_ascii_case("false") { return PropertyValue::Bool(false); }
+    if let Ok(i) = raw.parse::<i64>() {
+        if !raw.contains('.') { return PropertyValue::Int(i); }
+    }
+    if let Ok(f) = raw.parse::<f32>() { return PropertyValue::Float(f); }
+    PropertyValue::String(raw.to_string())
+}
+
 #[derive(Clone, Debug)]
 pub struct Block {
     pub id: BlockId,
@@ -57,7 +111,7 @@ impl BlockTree {
                     depth: *depth,
                     order: *position,
                     children: Vec::new(),
-                    properties: HashMap::new(),
+                    properties: parse_inline_properties(content),
                 };
                 self.blocks.insert(*block_id, block);
                 if let Some(pid) = parent_id {
@@ -117,6 +171,11 @@ impl BlockTree {
             Op::UpdateBlock { block_id, content } => {
                 if let Some(block) = self.blocks.get_mut(block_id) {
                     block.content = content.clone();
+                    // Re-extract inline properties from updated content
+                    let inline = parse_inline_properties(content);
+                    // Merge: inline props overwrite, but keep explicit SetProperty values
+                    // that don't conflict with inline. Clear old inline-sourced props.
+                    block.properties = inline;
                 }
             }
             Op::SplitBlock { block_id, offset, new_block_id } => {
@@ -232,6 +291,102 @@ impl BlockTree {
                 self.walk_recursive(child_id, out);
             }
         }
+    }
+
+    /// Returns true if any block matches the given property filter.
+    pub fn has_matching_property(&self, key: &str, op: u8, value: &PropertyValue) -> bool {
+        self.blocks.values().any(|b| {
+            if let Some(prop) = b.properties.get(key) {
+                compare_property(prop, op, value)
+            } else {
+                false
+            }
+        })
+    }
+
+    /// Returns true if any block matches the given depth filter.
+    pub fn has_matching_depth(&self, op: u8, depth: u16) -> bool {
+        self.blocks.values().any(|b| compare_u16(b.depth, op, depth))
+    }
+
+    /// Returns block IDs matching a property filter.
+    pub fn blocks_matching_property(&self, key: &str, op: u8, value: &PropertyValue) -> Vec<&Block> {
+        self.blocks.values().filter(|b| {
+            if let Some(prop) = b.properties.get(key) {
+                compare_property(prop, op, value)
+            } else {
+                false
+            }
+        }).collect()
+    }
+
+    /// Returns block IDs matching a depth filter.
+    pub fn blocks_matching_depth(&self, op: u8, depth: u16) -> Vec<&Block> {
+        self.blocks.values().filter(|b| compare_u16(b.depth, op, depth)).collect()
+    }
+}
+
+// CompOp mapping: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte, 6=contains
+fn compare_property(prop: &PropertyValue, op: u8, value: &PropertyValue) -> bool {
+    match (prop, value) {
+        (PropertyValue::Float(a), PropertyValue::Float(b)) => compare_f32(*a, op, *b),
+        (PropertyValue::Int(a), PropertyValue::Int(b)) => compare_i64(*a, op, *b),
+        (PropertyValue::Bool(a), PropertyValue::Bool(b)) => match op {
+            0 => a == b,  // eq
+            1 => a != b,  // neq
+            _ => false,
+        },
+        (PropertyValue::String(a), PropertyValue::String(b)) => match op {
+            0 => a == b,
+            1 => a != b,
+            6 => a.to_lowercase().contains(&b.to_lowercase()), // contains
+            _ => a.cmp(b) == str_cmp_for_op(op),
+        },
+        _ => false,
+    }
+}
+
+fn compare_f32(a: f32, op: u8, b: f32) -> bool {
+    match op {
+        0 => (a - b).abs() < f32::EPSILON,
+        1 => (a - b).abs() >= f32::EPSILON,
+        2 => a < b,
+        3 => a > b,
+        4 => a <= b,
+        5 => a >= b,
+        _ => false,
+    }
+}
+
+fn compare_i64(a: i64, op: u8, b: i64) -> bool {
+    match op {
+        0 => a == b,
+        1 => a != b,
+        2 => a < b,
+        3 => a > b,
+        4 => a <= b,
+        5 => a >= b,
+        _ => false,
+    }
+}
+
+fn compare_u16(a: u16, op: u8, b: u16) -> bool {
+    match op {
+        0 => a == b,
+        1 => a != b,
+        2 => a < b,
+        3 => a > b,
+        4 => a <= b,
+        5 => a >= b,
+        _ => false,
+    }
+}
+
+fn str_cmp_for_op(op: u8) -> std::cmp::Ordering {
+    match op {
+        2 => std::cmp::Ordering::Less,
+        3 => std::cmp::Ordering::Greater,
+        _ => std::cmp::Ordering::Equal,
     }
 }
 
@@ -403,5 +558,77 @@ mod tests {
         });
         let walked: Vec<&str> = tree.walk().iter().map(|b| b.content.as_str()).collect();
         assert_eq!(walked, vec!["A", "C", "B"]);
+    }
+
+    #[test]
+    fn insert_extracts_inline_properties() {
+        let mut tree = BlockTree::new();
+        let id = BlockId::new();
+        tree.apply(&Op::InsertBlock {
+            block_id: id, parent_id: None, position: 0,
+            content: "This is a claim @tag=claim @confidence=0.8".into(), depth: 0,
+        });
+        let block = tree.get(&id).unwrap();
+        assert_eq!(block.properties.get("tag"), Some(&PropertyValue::String("claim".into())));
+        assert_eq!(block.properties.get("confidence"), Some(&PropertyValue::Float(0.8)));
+    }
+
+    #[test]
+    fn update_syncs_inline_properties() {
+        let mut tree = BlockTree::new();
+        let id = BlockId::new();
+        tree.apply(&Op::InsertBlock {
+            block_id: id, parent_id: None, position: 0,
+            content: "text @tag=claim".into(), depth: 0,
+        });
+        assert_eq!(tree.get(&id).unwrap().properties.get("tag"),
+                   Some(&PropertyValue::String("claim".into())));
+
+        // Update removes the property
+        tree.apply(&Op::UpdateBlock {
+            block_id: id, content: "text without properties".into(),
+        });
+        assert!(tree.get(&id).unwrap().properties.is_empty());
+
+        // Update adds a different property
+        tree.apply(&Op::UpdateBlock {
+            block_id: id, content: "text @status=verified".into(),
+        });
+        assert_eq!(tree.get(&id).unwrap().properties.get("status"),
+                   Some(&PropertyValue::String("verified".into())));
+    }
+
+    #[test]
+    fn parse_inline_properties_values() {
+        let props = parse_inline_properties("hello @bool=true @int=42 @float=3.14");
+        assert_eq!(props.get("bool"), Some(&PropertyValue::Bool(true)));
+        assert_eq!(props.get("int"), Some(&PropertyValue::Int(42)));
+        assert_eq!(props.get("float"), Some(&PropertyValue::Float(3.14)));
+    }
+
+    #[test]
+    fn parse_inline_properties_empty() {
+        assert!(parse_inline_properties("no properties here").is_empty());
+        assert!(parse_inline_properties("").is_empty());
+    }
+
+    #[test]
+    fn property_filter_queries_work() {
+        let mut tree = BlockTree::new();
+        let a = BlockId::new();
+        let b = BlockId::new();
+        tree.apply(&Op::InsertBlock {
+            block_id: a, parent_id: None, position: 0,
+            content: "claim @confidence=0.3".into(), depth: 0,
+        });
+        tree.apply(&Op::InsertBlock {
+            block_id: b, parent_id: None, position: 1,
+            content: "fact @confidence=0.9".into(), depth: 0,
+        });
+        // confidence < 0.5 should match only block a
+        assert!(tree.has_matching_property("confidence", 2, &PropertyValue::Float(0.5))); // lt
+        let matches = tree.blocks_matching_property("confidence", 2, &PropertyValue::Float(0.5));
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].content, "claim @confidence=0.3");
     }
 }

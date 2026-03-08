@@ -408,6 +408,69 @@ impl Engine {
         sim.cluster_ids = cluster_ids;
     }
 
+    // ── Incremental Commit ────────────────────────────────────────────
+
+    /// Lightweight commit after incremental adds/removes.
+    /// Preserves existing node positions (no BFS layout, no pre-settle).
+    /// Reloads simulation, rebuilds spatial + search index, re-uploads renderer.
+    /// Keeps interaction state (selected/hovered) if the node still exists.
+    pub fn commit_incremental(&mut self) {
+        self.idle_frame_count = 0;
+        self.stop_physics();
+
+        // Sync positions from simulation → graph before reloading sim.
+        self.sync_all_positions();
+
+        {
+            let mut sim = self.sim.lock();
+            sim.load_from_graph(&self.graph);
+            Self::ensure_cluster_assignments(&mut self.cluster_cache, &mut sim);
+
+            // Page mode: re-enable physics if not user-frozen.
+            if self.mode == 1 && sim.static_layout && !sim.user_frozen {
+                sim.static_layout = false;
+            }
+
+            // Gentle reheat — existing positions are good, just nudge.
+            if !sim.static_layout {
+                sim.params.alpha = 0.10;
+                sim.is_settled = false;
+            }
+        }
+
+        // Rebuild ECS World from updated graph.
+        self.world = World::from_graph(&self.graph);
+        {
+            let sim = self.sim.lock();
+            self.world.sync_clusters(&sim.cluster_ids, &sim.graph_indices);
+            self.renderer.link_distance = sim.params.link_distance;
+        }
+
+        self.renderer.upload_graph(&self.world);
+        self.spatial.build(&self.graph.nodes);
+        self.search_index.build(&self.graph.nodes);
+
+        // Preserve interaction state — clear only if the target was removed.
+        if let Some(sel_id) = self.selected_id {
+            if !self.graph.id_to_index.contains_key(&sel_id) {
+                self.selected_id = None;
+            }
+        }
+        if let Some(hov_id) = self.hovered_id {
+            if !self.graph.id_to_index.contains_key(&hov_id) {
+                self.hovered_id = None;
+            }
+        }
+        if let Some(ref drag) = self.drag {
+            if !self.graph.id_to_index.contains_key(&drag.node_id) {
+                self.drag = None;
+            }
+        }
+        self.highlight_dirty = true;
+
+        self.start_physics();
+    }
+
     // ── Visibility (Lightweight Filtering) ──────────────────────────
 
     /// Toggle a single node's visibility by UUID.

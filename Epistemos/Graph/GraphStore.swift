@@ -517,6 +517,7 @@ final class GraphStore {
         nodes[node.id] = node
         let nodeIdx = assignNodeIndex(node.id)
         addToTrigramIndex(nodeIdx: nodeIdx, label: node.label)
+        notifyChange()
     }
 
     /// Add an edge to the store, updating compact adjacency for both endpoints.
@@ -539,6 +540,7 @@ final class GraphStore {
         // Edge reverse index: always add (multiple edges between same pair are valid)
         _edgesOf[srcIdx].append(edgeIdx)
         _edgesOf[tgtIdx].append(edgeIdx)
+        notifyChange()
     }
 
     /// Remove a node and all its edges, cleaning up compact adjacency.
@@ -574,6 +576,7 @@ final class GraphStore {
         _nodeIds[nodeIdx] = ""  // Tombstone
         _neighbors[nodeIdx] = []
         _edgesOf[nodeIdx] = []
+        notifyChange()
     }
 
     /// Remove a single edge by ID, cleaning up compact adjacency.
@@ -607,6 +610,22 @@ final class GraphStore {
         edges.removeValue(forKey: edgeId)
         _edgeIdx.removeValue(forKey: edgeId)
         _edgeIds[edgeIdx] = ""  // Tombstone
+        notifyChange()
+    }
+
+    // MARK: - Change Notification (debounced for ReactiveQuery)
+
+    private var changeNotifyTask: Task<Void, Never>?
+
+    /// Coalesce rapid mutations into a single notification (50ms debounce).
+    /// ReactiveQuery adds its own 100ms debounce on top, so total latency is ~150ms.
+    private func notifyChange() {
+        changeNotifyTask?.cancel()
+        changeNotifyTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled, self != nil else { return }
+            NotificationCenter.default.post(name: .graphStoreDidChange, object: nil)
+        }
     }
 
     // MARK: - Fuzzy Search (W13.2 — Trigram-Accelerated)

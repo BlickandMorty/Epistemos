@@ -38,14 +38,18 @@ final class ReactiveQuery {
             self.lastResult = initial
             continuation.yield(initial)
 
-            // Subscribe to notifications to trigger re-evaluation
+            // Subscribe to notifications to trigger re-evaluation.
+            // receive(on: RunLoop.main) ensures sink fires on @MainActor
+            // regardless of which thread posted the notification.
             NotificationCenter.default.publisher(for: .graphStoreDidChange)
+                .receive(on: RunLoop.main)
                 .sink { [weak self] _ in
                     self?.reevaluate()
                 }
                 .store(in: &self.cancellables)
 
             NotificationCenter.default.publisher(for: .searchIndexDidUpdate)
+                .receive(on: RunLoop.main)
                 .sink { [weak self] _ in
                     self?.reevaluate()
                 }

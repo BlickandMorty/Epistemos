@@ -126,14 +126,41 @@ Deferred to a future session.
 
 ---
 
-## Phase 11: Document Mode (REVERTED — removed per user request)
+## Phase 11: TextKit 2 Continuous Document Lane (PARKED FOR LATER — prior attempt reverted)
 
-**The third editing mode.** Alongside Markdown/Prose (TextKit 1) and Writer (TextKit 1 paginated),
-Document mode is a single-continuous-scroll rich text editor using TextKit 2. This is where
-TextKit 2 shines — single container, modern layout, rich inline elements.
+**Keep this plan. Do not treat it as active work right now.** A previous TextKit 2 document-mode
+attempt was reverted, but the idea is still worth preserving for a future pass if Writer mode is
+deleted or split out.
+
+**The right use case:** a separate continuous-scroll rich text lane alongside the current
+Markdown/Prose editor, not an in-place rewrite of the existing TextKit 1 markdown stack.
 
 **Purpose:** Import/export Word (.docx) files, edit rich text with tables, lists, inline images,
 and formatting — all native, no web engine needed.
+
+### Why keep TextKit 2 on the backlog
+- **Viewport-based layout for long continuous documents** — better fit for large single-flow notes,
+  research documents, and read-mostly rich text than a fully custom TextKit 1 stack.
+- **Fragment-driven rendering** — better foundation for comment bubbles, inline annotations,
+  custom highlights, and other layout-fragment-aware overlays.
+- **Native rich text structures** — stronger fit for `NSTextTable`, `NSTextList`, attachments,
+  exclusion paths, and richer document editing than markdown-backed plain text.
+- **DOCX / rich text interoperability** — stronger long-term lane for Word import/export,
+  attributed-text editing, and richer copy/paste fidelity.
+- **Better text-system correctness** — more modern text layout model for complex scripts and
+  mixed-language content.
+
+### What not to do
+- **Do not casually migrate the current prose editor in place.** The live editor is still deeply
+  TextKit 1-based: `MarkdownTextStorage`, `NSLayoutManager`, custom `NSTextView` drawing,
+  table rendering, fold drawing, and BTK edit interception all assume the current stack.
+- **Do not revive TextKit 2 just because Writer might be removed.** Removing Writer removes the
+  main blocker, but the prose editor would still be a rewrite, not a swap.
+
+### Best future targets
+- A **separate continuous document editor** for rich text and DOCX-focused work
+- A **read-only or lightly editable preview surface** with annotations / comments / inline widgets
+- A **research / export document lane** distinct from the markdown-first note editor
 
 ### Architecture
 ```
@@ -225,7 +252,7 @@ DocumentEditorView (NSViewRepresentable)
 | 10b | Continuity Camera | DONE (built-in NSTextView) | — |
 | 10c | ShortcutsProvider | DONE (pre-existing, 10 shortcuts) | — |
 | 10d | swift-collections | DEFERRED (no SPM, needs dependency setup) | LOWER |
-| **11** | **Document Mode (TextKit 2 WYSIWYG)** | **REVERTED** | — |
+| **11** | **TextKit 2 Continuous Document Lane** | **PARKED (prior attempt reverted; keep for later)** | LATER |
 
 ## What Stays Unchanged
 - TextKit 1 prose editor (MarkdownTextStorage, ClickableTextView, ProseEditorRepresentable)

@@ -230,8 +230,18 @@ struct CommandPaletteOverlay: View {
                             .onSubmit { executeSelected() }
 
                         if !searchText.isEmpty {
+                            if queryEngine.isReactive {
+                                Text("LIVE")
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(theme.accent)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(theme.accent.opacity(0.15), in: Capsule())
+                            }
+
                             Button {
                                 searchText = ""
+                                queryEngine.stopReactive()
                                 cachedSearchResults = []
                                 selectedIndex = 0
                                 graphState.searchHighlight("")
@@ -347,6 +357,13 @@ struct CommandPaletteOverlay: View {
         }
         .onChange(of: searchText) { _, newText in
             handleSearchChange(newText)
+        }
+        .onChange(of: queryEngine.resultVersion) { _, _ in
+            guard searchText.hasPrefix("?") else { return }
+            cachedSearchResults = buildQueryResultItems()
+            if !cachedSearchResults.isEmpty && selectedIndex >= cachedSearchResults.count {
+                selectedIndex = max(0, cachedSearchResults.count - 1)
+            }
         }
     }
 
@@ -1007,15 +1024,16 @@ struct CommandPaletteOverlay: View {
             return
         }
 
-        // Structured query mode: route ? prefix through QueryEngine
+        // Structured query mode: route ? prefix through reactive QueryEngine
         if newText.hasPrefix("?") {
             ftsDebounceTask?.cancel()
             searchHighlightTask?.cancel()
-            cachedSearchResults = computeStructuredQueryResults(for: newText)
-            let askOffset = cachedSearchResults.isEmpty ? 0 : 2
-            selectedIndex = askOffset
+            queryEngine.executeReactive(query: newText)
             return
         }
+
+        // Non-structured query — stop any active reactive stream
+        queryEngine.stopReactive()
 
         // Title search is the guaranteed backbone — always runs first, never excluded.
         // Graph search adds fuzzy/typo-tolerant matches but skips note nodes
@@ -1234,7 +1252,7 @@ struct CommandPaletteOverlay: View {
                     if let node = graphState.store.node(bySourceId: pageId, type: .note) {
                         graphState.selectNode(node.id)
                         graphState.focusOnNode(node.id, depth: 2)
-                        graphState.requestRecommit()
+                        graphState.requestFilterSync()
                     }
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
@@ -1292,7 +1310,7 @@ struct CommandPaletteOverlay: View {
                     if let node = graphState.store.node(bySourceId: pageId, type: .note) {
                         graphState.selectNode(node.id)
                         graphState.focusOnNode(node.id, depth: 2)
-                        graphState.requestRecommit()
+                        graphState.requestFilterSync()
                     }
                     dismiss()
                     NoteWindowManager.shared.open(pageId: pageId)
@@ -1332,8 +1350,8 @@ struct CommandPaletteOverlay: View {
         return items
     }
 
-    private func computeStructuredQueryResults(for input: String) -> [LandingCommandItem] {
-        queryEngine.execute(query: input)
+    /// Map current QueryEngine result to command items (called on each reactive update).
+    private func buildQueryResultItems() -> [LandingCommandItem] {
         guard let result = queryEngine.currentResult else { return [] }
 
         let index = pageIndex
@@ -1413,6 +1431,7 @@ struct CommandPaletteOverlay: View {
 
     private func dismiss() {
         cancelStream()
+        queryEngine.stopReactive()
         ftsDebounceTask?.cancel()
         ftsDebounceTask = nil
         searchHighlightTask?.cancel()

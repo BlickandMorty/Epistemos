@@ -16,6 +16,7 @@ struct HologramNodeInspector: View {
     enum EditorDisplay: String { case raw, formatted }
     @State private var expandedSection: Section = .profile
     @State private var editorText = ""
+    @State private var lastPersistedBody = ""
     @State private var editorSaveTask: Task<Void, Never>?
     @State private var isEditorExpanded = false
     @State private var editorDisplay: EditorDisplay = .raw
@@ -124,27 +125,61 @@ struct HologramNodeInspector: View {
         .frame(maxHeight: .infinity)
         .frame(minHeight: inspectorState.inspectorMode == .editor ? 500 : 300)
         .onAppear {
-            editorText = NoteFileStorage.readBody(pageId: pageId)
+            let body = NoteFileStorage.readBody(pageId: pageId)
+            editorText = body
+            lastPersistedBody = body
         }
-        .onChange(of: pageId) { _, newId in
-            editorSaveTask?.cancel()
-            editorText = NoteFileStorage.readBody(pageId: newId)
+        .onChange(of: pageId) { oldId, newId in
+            // Flush old note BEFORE loading new one — prevents data loss
+            flushEditorIfNeeded(pageId: oldId)
+            let body = NoteFileStorage.readBody(pageId: newId)
+            editorText = body
+            lastPersistedBody = body
         }
         .onChange(of: editorText) {
-            editorSaveTask?.cancel()
-            let pid = pageId
-            let text = editorText
-            editorSaveTask = Task {
-                try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled else { return }
-                NoteFileStorage.writeBody(pageId: pid, content: text)
-            }
+            guard editorText != lastPersistedBody else { return }
+            debouncedEditorSave(pageId: pageId, text: editorText)
         }
         .onDisappear {
-            editorSaveTask?.cancel()
-            if !editorText.isEmpty {
-                NoteFileStorage.writeBody(pageId: pageId, content: editorText)
-            }
+            flushEditorIfNeeded(pageId: pageId)
+        }
+    }
+
+    // MARK: - Editor Save Pipeline
+    // Mirrors ProseEditorView: file write → dirty flag → modelContext.save().
+
+    private func flushEditorIfNeeded(pageId: String) {
+        editorSaveTask?.cancel()
+        editorSaveTask = nil
+        guard lastPersistedBody != editorText else { return }
+        NoteFileStorage.writeBody(pageId: pageId, content: editorText)
+        lastPersistedBody = editorText
+        markPageDirty(pageId: pageId)
+        NoteFileStorage.notifyBodyChanged(pageId: pageId)
+    }
+
+    private func debouncedEditorSave(pageId: String, text: String) {
+        editorSaveTask?.cancel()
+        editorSaveTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            guard text != lastPersistedBody else { return }
+            await Task.detached(priority: .utility) {
+                NoteFileStorage.writeBody(pageId: pageId, content: text)
+            }.value
+            lastPersistedBody = text
+            markPageDirty(pageId: pageId)
+            NoteFileStorage.notifyBodyChanged(pageId: pageId)
+        }
+    }
+
+    private func markPageDirty(pageId: String) {
+        let desc = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.id == pageId }
+        )
+        if let page = try? modelContext.fetch(desc).first {
+            page.needsVaultSync = true
+            try? modelContext.save()
         }
     }
 

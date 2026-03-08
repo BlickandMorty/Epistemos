@@ -323,6 +323,22 @@ final class GraphState {
         pendingEdgeAdds.append(edge)
     }
 
+    /// Node UUIDs pending removal from Rust engine.
+    var pendingNodeRemovals: [String] = []
+
+    /// Edge pairs pending removal from Rust engine (source UUID, target UUID).
+    var pendingEdgeRemovals: [(String, String)] = []
+
+    /// Queue a node for incremental FFI removal.
+    func requestIncrementalRemove(nodeId: String) {
+        pendingNodeRemovals.append(nodeId)
+    }
+
+    /// Queue an edge for incremental FFI removal.
+    func requestIncrementalRemoveEdge(sourceId: String, targetId: String) {
+        pendingEdgeRemovals.append((sourceId, targetId))
+    }
+
     /// Incremented when filter toggles require a lightweight visibility refresh.
     /// Unlike graphDataVersion (full recommit), this only toggles node visibility in Rust.
     var filterVersion: Int = 0
@@ -929,13 +945,24 @@ final class GraphState {
     }
 
     /// Remove all ephemeral nodes (and their edges) created for page mode.
+    /// Enqueues FFI removals so Rust engine updates incrementally in the next render frame.
     func cleanupEphemeralNodes() {
+        // Enqueue FFI removals BEFORE Swift-side store removal (which deletes edge records).
+        for nodeId in ephemeralNodeIds {
+            requestIncrementalRemove(nodeId: nodeId)
+        }
+        for edgeId in ephemeralEdgeIds {
+            if let edge = store.edges[edgeId] {
+                requestIncrementalRemoveEdge(sourceId: edge.sourceNodeId, targetId: edge.targetNodeId)
+            }
+        }
+
+        // Swift-side cleanup
         for nodeId in ephemeralNodeIds {
             store.removeNode(nodeId)
         }
         ephemeralNodeIds.removeAll()
 
-        // Remove ephemeral wikilink edges (between permanent nodes, not cleaned by removeNode).
         for edgeId in ephemeralEdgeIds {
             store.removeEdge(edgeId)
         }

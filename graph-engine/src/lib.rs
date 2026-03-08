@@ -251,6 +251,71 @@ pub extern "C" fn graph_engine_commit(engine: *mut Engine, entrance: u8) {
     engine.commit(entrance != 0);
 }
 
+/// Remove a node by UUID. Also removes all edges touching it.
+/// Returns 1 if the node was found and removed, 0 otherwise.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_remove_node(engine: *mut Engine, uuid: *const c_char) -> u8 {
+    ffi_engine_or!(engine, 0);
+    let uuid_str = ffi_cstr!(uuid);
+    u8::from(engine.graph_mut().remove_node(uuid_str))
+}
+
+/// Remove edges between two nodes by UUID (both directions).
+/// Returns the number of edges removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_remove_edge(
+    engine: *mut Engine,
+    source_uuid: *const c_char,
+    target_uuid: *const c_char,
+) -> u32 {
+    ffi_engine_or!(engine, 0);
+    let src = ffi_cstr!(source_uuid);
+    let tgt = ffi_cstr!(target_uuid);
+    engine.graph_mut().remove_edges(src, tgt) as u32
+}
+
+/// Batch-remove nodes by UUID array.
+/// Returns the count of nodes successfully removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_remove_nodes_batch(
+    engine: *mut Engine,
+    uuids: *const *const c_char,
+    count: u32,
+) -> u32 {
+    ffi_engine_or!(engine, 0);
+    let count = count as usize;
+    if count == 0 || uuids.is_null() {
+        return 0;
+    }
+    // SAFETY: caller guarantees `uuids` points to `count` valid pointers.
+    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+    let graph = engine.graph_mut();
+    let mut removed = 0u32;
+    for i in 0..count {
+        let uuid_str = if uuid_ptrs[i].is_null() {
+            ""
+        } else {
+            // SAFETY: caller guarantees null-terminated UTF-8.
+            unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+                .to_str()
+                .unwrap_or("")
+        };
+        if graph.remove_node(uuid_str) {
+            removed += 1;
+        }
+    }
+    removed
+}
+
+/// Lightweight commit after incremental adds/removes.
+/// Preserves node positions (no BFS layout, no pre-settle).
+/// Use instead of `graph_engine_commit` for incremental topology changes.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_commit_incremental(engine: *mut Engine) {
+    ffi_engine!(engine);
+    engine.commit_incremental();
+}
+
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
@@ -1138,6 +1203,124 @@ pub extern "C" fn graph_engine_free_string(s: *mut c_char) {
         unsafe {
             let _ = CString::from_raw(s);
         }
+    }
+}
+
+/// Directly update a block's content by block_id (16-byte UUID).
+/// Used for transclusion edits where the block may belong to a different page.
+/// Returns 1 on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_update_block(
+    engine: *mut Engine,
+    page_id: *const c_char,
+    block_id_bytes: *const u8,
+    new_content: *const c_char,
+) -> u8 {
+    ffi_engine_or!(engine, 0);
+    let page_id_str = ffi_cstr!(page_id);
+    if page_id_str.is_empty() || block_id_bytes.is_null() { return 0; }
+    let content_str = ffi_cstr!(new_content);
+
+    // SAFETY: block_id_bytes points to 16 bytes from Swift.
+    let mut id_arr = [0u8; 16];
+    unsafe { std::ptr::copy_nonoverlapping(block_id_bytes, id_arr.as_mut_ptr(), 16); }
+    let block_id = block_kernel::op::BlockId(id_arr);
+
+    let op = block_kernel::op::Op::UpdateBlock {
+        block_id,
+        content: content_str.to_string(),
+    };
+
+    if let Some(tree) = engine.btk_trees.get_mut(page_id_str) {
+        tree.apply(&op);
+        if let Some(log) = engine.btk_logs.get_mut(page_id_str) {
+            log.append(op);
+        }
+        1
+    } else {
+        0
+    }
+}
+
+// ── BTK Queries ─────────────────────────────────────────────────────────────
+
+/// Query all BTK trees for blocks matching a property filter.
+/// Returns newline-separated page_ids that contain at least one matching block.
+/// Result must be freed with graph_engine_free_string.
+/// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte, 6=contains
+/// val_type: 0=string, 1=float, 2=int, 3=bool
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_query_property(
+    engine: *mut Engine,
+    key: *const c_char,
+    op: u8,
+    val_type: u8,
+    val_str: *const c_char,
+) -> *const c_char {
+    ffi_engine_or!(engine, std::ptr::null());
+    let key_str = ffi_cstr!(key);
+    let val_raw = ffi_cstr!(val_str);
+
+    let value = match val_type {
+        0 => block_kernel::op::PropertyValue::String(val_raw.to_string()),
+        1 => match val_raw.parse::<f32>() {
+            Ok(f) => block_kernel::op::PropertyValue::Float(f),
+            Err(_) => return std::ptr::null(),
+        },
+        2 => match val_raw.parse::<i64>() {
+            Ok(i) => block_kernel::op::PropertyValue::Int(i),
+            Err(_) => return std::ptr::null(),
+        },
+        3 => block_kernel::op::PropertyValue::Bool(val_raw == "true"),
+        _ => return std::ptr::null(),
+    };
+
+    let mut matching_pages = Vec::new();
+    for (page_id, tree) in &engine.btk_trees {
+        if tree.has_matching_property(key_str, op, &value) {
+            matching_pages.push(page_id.clone());
+        }
+    }
+
+    if matching_pages.is_empty() {
+        return std::ptr::null();
+    }
+
+    let result = matching_pages.join("\n");
+    match CString::new(result) {
+        Ok(cs) => cs.into_raw(),
+        Err(_) => std::ptr::null(),
+    }
+}
+
+/// Query all BTK trees for blocks matching a depth filter.
+/// Returns newline-separated page_ids that contain at least one matching block.
+/// Result must be freed with graph_engine_free_string.
+/// op: 0=eq, 1=neq, 2=lt, 3=gt, 4=lte, 5=gte
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_query_depth(
+    engine: *mut Engine,
+    op: u8,
+    depth: u32,
+) -> *const c_char {
+    ffi_engine_or!(engine, std::ptr::null());
+
+    let depth16 = depth.min(u16::MAX as u32) as u16;
+    let mut matching_pages = Vec::new();
+    for (page_id, tree) in &engine.btk_trees {
+        if tree.has_matching_depth(op, depth16) {
+            matching_pages.push(page_id.clone());
+        }
+    }
+
+    if matching_pages.is_empty() {
+        return std::ptr::null();
+    }
+
+    let result = matching_pages.join("\n");
+    match CString::new(result) {
+        Ok(cs) => cs.into_raw(),
+        Err(_) => std::ptr::null(),
     }
 }
 
