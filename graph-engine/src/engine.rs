@@ -27,13 +27,14 @@ use crate::version::VersionStore;
 use crate::block_kernel::{BlockTree, OpLog};
 use std::collections::HashMap;
 
-/// Adaptive physics tick rate: fewer ticks when many nodes (diminishing visual returns).
+/// Adaptive physics tick rate: scale down gently at very high counts.
+/// Floor of 30Hz keeps on-screen node motion smooth; real savings come from
+/// viewport-scoped physics and GPU N-body, not tick throttling.
 fn adaptive_physics_hz(node_count: usize) -> f64 {
     match node_count {
-        0..=500 => 40.0,
-        501..=1500 => 25.0,
-        1501..=3000 => 15.0,
-        _ => 10.0,
+        0..=1000 => 40.0,
+        1001..=3000 => 30.0,
+        _ => 20.0,
     }
 }
 /// Sleep duration (ms) when simulation is settled (avoids spinning).
