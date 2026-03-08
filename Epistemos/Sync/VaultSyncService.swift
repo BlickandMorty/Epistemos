@@ -251,6 +251,7 @@ final class VaultSyncService {
         let actor = indexActor
         let url = vaultURL
         let svc = searchService
+        isIndexing = true
         importTask = Task {
             // Inject search service into actor before import
             if let svc { await actor?.setSearchService(svc) }
@@ -282,6 +283,7 @@ final class VaultSyncService {
                     log.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
+            await MainActor.run { self.isIndexing = false }
         }
 
 

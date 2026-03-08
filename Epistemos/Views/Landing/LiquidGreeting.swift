@@ -12,6 +12,7 @@ import SwiftUI
 
 struct LiquidGreeting: View {
     @Environment(UIState.self) private var ui
+    @Environment(VaultSyncService.self) private var vaultSync
 
     // Configuration
     var compact: Bool = false
@@ -38,24 +39,35 @@ struct LiquidGreeting: View {
     // MARK: - Body
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            // Text — directly rendered in theme color, no material masking
-            Text(displayText)
-                .font(greetingFont)
-                .foregroundStyle(theme.fontAccent)
-                .fixedSize(horizontal: true, vertical: true)
+        VStack(spacing: compact ? 8 : 16) {
+            HStack(alignment: .center, spacing: 0) {
+                // Text — directly rendered in theme color, no material masking
+                Text(displayText)
+                    .font(greetingFont)
+                    .foregroundStyle(theme.fontAccent)
+                    .fixedSize(horizontal: true, vertical: true)
 
-            // Block cursor — always present, blinks via Task loop.
-            Rectangle()
-                .fill(theme.fontAccent.opacity(0.85))
-                .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
-                .clipShape(RoundedRectangle(cornerRadius: 2))
-                .opacity(cursorVisible ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: cursorVisible)
-                .padding(.leading, 2)
+                // Block cursor — always present, blinks via Task loop.
+                Rectangle()
+                    .fill(theme.fontAccent.opacity(0.85))
+                    .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                    .opacity(cursorVisible ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.3), value: cursorVisible)
+                    .padding(.leading, 2)
+            }
+
+            // Indexing indicator — shows during initial vault import
+            if vaultSync.isIndexing {
+                Text("wait...indexing")
+                    .font(.custom("RetroGaming", size: compact ? 11 : 16))
+                    .foregroundStyle(theme.fontAccent.opacity(0.4))
+                    .transition(.opacity)
+            }
         }
         .frame(minHeight: compact ? 0 : 80)
         .shadow(color: compact ? .clear : theme.fontAccent.opacity(0.12), radius: compact ? 0 : 8)
+        .animation(.smooth(duration: 0.3), value: vaultSync.isIndexing)
         // Single reactive task — SwiftUI cancels + restarts when taskKey changes.
         // No manual onAppear/onDisappear/onChange juggling needed.
         .task(id: taskKey) {
