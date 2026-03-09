@@ -218,126 +218,118 @@ struct TK2ParityParagraphTests {
         return storage
     }
 
-    /// TK2: load markdown into ProseTextView2, reparse, return text storage.
-    /// Uses the full TK2 stack with delegate wiring.
-    private func tk2View(_ markdown: String) -> ProseTextView2 {
-        let (_, tv) = ProseTextView2.makeTextKit2()
-        tv.applyTheme(.sunny)
-        tv.textStorage?.setAttributedString(NSAttributedString(string: markdown))
-        tv.reparseAndInvalidate()
-        return tv
+    /// TK2: reparse + apply structural/inline styles via MarkdownContentStorage.
+    /// Applies per-line structural styles, then inline styles over the full range.
+    /// Reliable in headless tests (no NSTextContentStorageDelegate required).
+    private func tk2Styled(_ markdown: String, theme: EpistemosTheme = .sunny) -> NSMutableAttributedString {
+        let delegate = MarkdownContentStorage()
+        delegate.theme = theme
+        delegate.reparse(text: markdown)
+
+        let attrStr = NSMutableAttributedString(string: markdown)
+        guard attrStr.length > 0 else { return attrStr }
+
+        let nsStr = markdown as NSString
+        var loc = 0
+        var lineIdx = 0
+        while loc < nsStr.length {
+            let lineRange = nsStr.lineRange(for: NSRange(location: loc, length: 0))
+            let hasTrailingNewline = lineRange.length > 0
+                && lineRange.location + lineRange.length <= nsStr.length
+                && nsStr.character(at: lineRange.location + lineRange.length - 1) == 0x0A
+            let styleLen = hasTrailingNewline ? lineRange.length - 1 : lineRange.length
+            let styleRange = NSRange(location: lineRange.location, length: max(0, styleLen))
+
+            if styleRange.length > 0 {
+                let paraType = delegate.paragraphType(at: lineIdx) ?? 0
+                let metadata = delegate.paragraphMetadata(at: lineIdx) ?? 0
+                delegate.applyStructuralStyleForTest(to: attrStr, range: styleRange, paraType: paraType, metadata: metadata)
+            }
+
+            loc = lineRange.location + lineRange.length
+            if loc == lineRange.location { break }
+            lineIdx += 1
+        }
+
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        delegate.applyInlineStyles(to: attrStr, fullRange: fullRange)
+        return attrStr
     }
 
     // MARK: - H1
 
-    @Test("H1 heading — both stacks use font larger than body (15pt)")
+    @Test("H1 heading — both stacks preserve text and apply font larger than body (15pt)")
     func h1Parity() {
         let md = "# Big Heading"
         let tk1 = tk1Styled(md)
-        let tk2View = tk2View(md)
+        let tk2 = tk2Styled(md)
 
-        #expect(tk1.string == tk2View.string)
+        #expect(tk1.string == tk2.string)
 
-        // TK1: heading font should be > 15pt body
+        // Content starts at offset 2 (after "# ")
         let tk1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         #expect(tk1Font != nil)
+        #expect(tk2Font != nil)
         #expect(tk1Font!.pointSize > 15)
-
-        // TK2: verify text preserved (delegate styling may not fire in headless tests)
-        #expect(tk2View.string == md)
-    }
-
-    @Test("H1 — TK2 delegate classifies line as heading")
-    func h1DelegateClassification() {
-        let delegate = MarkdownContentStorage()
-        delegate.reparse(text: "# Big Heading")
-        #expect(delegate.paragraphType(at: 0) == 1) // Heading
-        #expect(delegate.paragraphMetadata(at: 0) == 1) // Level 1
+        #expect(tk2Font!.pointSize > 15)
     }
 
     // MARK: - H2
 
-    @Test("H2 heading — TK1 uses font larger than body")
-    func h2Tk1() {
-        let tk1 = tk1Styled("## Sub Heading")
-        let font = tk1.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
-        #expect(font != nil)
-        #expect(font!.pointSize > 15)
-    }
+    @Test("H2 heading — both stacks preserve text and apply font larger than body")
+    func h2Parity() {
+        let md = "## Sub Heading"
+        let tk1 = tk1Styled(md)
+        let tk2 = tk2Styled(md)
 
-    @Test("H2 — TK2 delegate classifies line as heading level 2")
-    func h2DelegateClassification() {
-        let delegate = MarkdownContentStorage()
-        delegate.reparse(text: "## Sub Heading")
-        #expect(delegate.paragraphType(at: 0) == 1)
-        #expect(delegate.paragraphMetadata(at: 0) == 2)
+        #expect(tk1.string == tk2.string)
+
+        // Content starts at offset 3 (after "## ")
+        let tk1Font = tk1.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
+        #expect(tk1Font != nil)
+        #expect(tk2Font != nil)
+        #expect(tk1Font!.pointSize > 15)
+        #expect(tk2Font!.pointSize > 15)
     }
 
     // MARK: - Blockquote
 
-    @Test("Blockquote — TK1 applies foreground color attribute")
-    func blockquoteTk1() {
-        let tk1 = tk1Styled("> quoted text")
-        let fg = tk1.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
-        #expect(fg != nil)
-    }
+    @Test("Blockquote — both stacks preserve text and apply foreground color")
+    func blockquoteParity() {
+        let md = "> quoted text"
+        let tk1 = tk1Styled(md)
+        let tk2 = tk2Styled(md)
 
-    @Test("Blockquote — TK2 delegate classifies as blockquote")
-    func blockquoteDelegateClassification() {
-        let delegate = MarkdownContentStorage()
-        delegate.reparse(text: "> quoted text")
-        #expect(delegate.paragraphType(at: 0) == 5) // BlockQuote
-    }
+        #expect(tk1.string == tk2.string)
 
-    @Test("Blockquote — TK2 structural style applies foreground color")
-    func blockquoteStructuralStyle() {
-        let delegate = MarkdownContentStorage()
-        delegate.theme = .sunny
-        delegate.reparse(text: "> quoted text")
-
-        let attrStr = NSMutableAttributedString(string: "> quoted text")
-        let range = NSRange(location: 0, length: attrStr.length)
-        delegate.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 5, metadata: 1)
-
-        let fg = attrStr.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
-        #expect(fg != nil)
+        let tk1Fg = tk1.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+        let tk2Fg = tk2.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+        #expect(tk1Fg != nil)
+        #expect(tk2Fg != nil)
     }
 
     // MARK: - Code Block
 
-    @Test("Code block — TK1 applies code font to content lines")
-    func codeBlockTk1() {
+    @Test("Code block — both stacks preserve text and apply foreground color to content")
+    func codeBlockParity() {
         let md = "```\ncode here\n```"
         let tk1 = tk1Styled(md)
+        let tk2 = tk2Styled(md)
+
+        #expect(tk1.string == tk2.string)
+
         // "code here" starts at offset 4 (after "```\n")
-        let font = tk1.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
-        #expect(font != nil)
-        // TK1 code block uses body font with subtle background (iA Writer style),
-        // not necessarily monospace. Verify foreground color is code-colored.
-        let fg = tk1.attribute(.foregroundColor, at: 5, effectiveRange: nil) as? NSColor
-        #expect(fg != nil)
-    }
+        let tk1Fg = tk1.attribute(.foregroundColor, at: 5, effectiveRange: nil) as? NSColor
+        let tk2Fg = tk2.attribute(.foregroundColor, at: 5, effectiveRange: nil) as? NSColor
+        #expect(tk1Fg != nil)
+        #expect(tk2Fg != nil)
 
-    @Test("Code block — TK2 delegate classifies all lines as CodeBlock (type 6)")
-    func codeBlockDelegateClassification() {
-        let delegate = MarkdownContentStorage()
-        delegate.reparse(text: "```\ncode here\n```")
-        #expect(delegate.paragraphType(at: 0) == 6) // CodeBlock
-        #expect(delegate.paragraphType(at: 1) == 6) // CodeBlock
-        #expect(delegate.paragraphType(at: 2) == 6) // CodeBlock
-    }
-
-    @Test("Code block — TK2 structural style applies monospace font")
-    func codeBlockStructuralFont() {
-        let delegate = MarkdownContentStorage()
-        delegate.theme = .sunny
-        let attrStr = NSMutableAttributedString(string: "code here")
-        let range = NSRange(location: 0, length: attrStr.length)
-        delegate.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 6, metadata: 0)
-
-        let font = attrStr.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
-        #expect(font != nil)
-        #expect(font!.isFixedPitch || font!.fontName.lowercased().contains("mono"))
+        // TK2 code block applies monospace font
+        let tk2Font = tk2.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
+        #expect(tk2Font != nil)
+        #expect(tk2Font!.isFixedPitch || tk2Font!.fontName.lowercased().contains("mono"))
     }
 
     // MARK: - Text Preservation
@@ -346,7 +338,7 @@ struct TK2ParityParagraphTests {
     func multiElementTextParity() {
         let md = "# Title\n\nBody text\n\n- list item\n\n> blockquote\n\n```\ncode\n```"
         let tk1 = tk1Styled(md)
-        let tk2 = tk2View(md)
+        let tk2 = tk2Styled(md)
 
         #expect(tk1.string == md)
         #expect(tk2.string == md)
@@ -485,10 +477,17 @@ struct TK2ParityAIStreamingTests {
 
     // MARK: - Divider Format
 
-    @Test("AI divider format is exactly: newline-newline-comment-newline-newline")
+    @Test("AI divider — both stacks locate divider at same offset in document")
     func dividerFormat() {
-        #expect(divider == "\n\n<!-- ai-response -->\n\n")
-        #expect(divider.count == 24)
+        let doc = initialBody + divider + "AI response."
+        let tk1 = tk1Storage(with: doc)
+        let tk2 = tk2View(with: doc)
+
+        let tk1Loc = (tk1.string as NSString).range(of: "<!-- ai-response -->").location
+        let tk2Loc = (tk2.string as NSString).range(of: "<!-- ai-response -->").location
+        #expect(tk1Loc != NSNotFound)
+        #expect(tk2Loc != NSNotFound)
+        #expect(tk1Loc == tk2Loc)
     }
 }
 
@@ -515,6 +514,53 @@ struct TK2ParityEdgeCaseTests {
             tv.reparseAndInvalidate()
         }
         return tv.string
+    }
+
+    /// TK1: load markdown, run full restyle, return styled storage.
+    private func tk1Styled(_ markdown: String) -> NSAttributedString {
+        let storage = MarkdownTextStorage()
+        guard !markdown.isEmpty else { return storage }
+        storage.beginEditing()
+        storage.replaceCharacters(in: NSRange(location: 0, length: 0), with: markdown)
+        storage.endEditing()
+        storage.reapplyAllStyles()
+        return storage
+    }
+
+    /// TK2: reparse + apply structural/inline styles via MarkdownContentStorage.
+    private func tk2Styled(_ markdown: String, theme: EpistemosTheme = .sunny) -> NSMutableAttributedString {
+        let delegate = MarkdownContentStorage()
+        delegate.theme = theme
+        delegate.reparse(text: markdown)
+
+        let attrStr = NSMutableAttributedString(string: markdown)
+        guard attrStr.length > 0 else { return attrStr }
+
+        let nsStr = markdown as NSString
+        var loc = 0
+        var lineIdx = 0
+        while loc < nsStr.length {
+            let lineRange = nsStr.lineRange(for: NSRange(location: loc, length: 0))
+            let hasTrailingNewline = lineRange.length > 0
+                && lineRange.location + lineRange.length <= nsStr.length
+                && nsStr.character(at: lineRange.location + lineRange.length - 1) == 0x0A
+            let styleLen = hasTrailingNewline ? lineRange.length - 1 : lineRange.length
+            let styleRange = NSRange(location: lineRange.location, length: max(0, styleLen))
+
+            if styleRange.length > 0 {
+                let paraType = delegate.paragraphType(at: lineIdx) ?? 0
+                let metadata = delegate.paragraphMetadata(at: lineIdx) ?? 0
+                delegate.applyStructuralStyleForTest(to: attrStr, range: styleRange, paraType: paraType, metadata: metadata)
+            }
+
+            loc = lineRange.location + lineRange.length
+            if loc == lineRange.location { break }
+            lineIdx += 1
+        }
+
+        let fullRange = NSRange(location: 0, length: attrStr.length)
+        delegate.applyInlineStyles(to: attrStr, fullRange: fullRange)
+        return attrStr
     }
 
     // MARK: - Empty Document
@@ -561,11 +607,23 @@ struct TK2ParityEdgeCaseTests {
         #expect(tk2String(text) == text)
     }
 
-    @Test("Combined unicode: emoji + bold markdown preserved")
+    @Test("Combined unicode: emoji + bold markdown produces bold trait in both stacks")
     func unicodeBoldParity() {
-        let text = "🎉 **bold** end"
-        #expect(tk1String(text) == text)
-        #expect(tk2String(text) == text)
+        let md = "🎉 **bold** end"
+        let tk1 = tk1Styled(md)
+        let tk2 = tk2Styled(md)
+
+        #expect(tk1.string == md)
+        #expect(tk2.string == md)
+
+        // "bold" content: "🎉 " = 3 UTF-16 units (🎉=2 + space=1), then "**" = 2, so offset 5
+        let offset = 5
+        let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
+        let tk1Traits = tk1Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
+        let tk2Traits = tk2Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
+        #expect(tk1Traits.contains(.boldFontMask))
+        #expect(tk2Traits.contains(.boldFontMask))
     }
 
     // MARK: - Long Single Line
