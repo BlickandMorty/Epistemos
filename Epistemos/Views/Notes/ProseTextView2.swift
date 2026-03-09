@@ -29,6 +29,14 @@ final class ProseTextView2: NSTextView {
     /// Closure called when user selects "Open in Graph" from context menu.
     var onOpenInGraph: ((String) -> Void)?
 
+    // MARK: - Notifications (same names as ClickableTextView for NotePageContent compatibility)
+    static let createIdeaNotification = Notification.Name("EpistemosCreateIdeaAtLine")
+    static let createBrainDumpNotification = Notification.Name("EpistemosCreateBrainDumpAtLine")
+    static let aiOperationNotification = Notification.Name("EpistemosAIOperation")
+    static let blockPropertyNotification = Notification.Name("EpistemosBlockPropertyEdit")
+    static let translateNotification = Notification.Name("EpistemosTranslateText")
+    static let scrollToOffsetNotification = Notification.Name("EpistemosScrollToOffset")
+
     override var undoManager: UndoManager? {
         pageUndoManager ?? super.undoManager
     }
@@ -740,6 +748,7 @@ final class ProseTextView2: NSTextView {
 
             // Data detection click
             if let storage = textStorage,
+               storage.length > 0,
                paraOffset < storage.length {
                 let charIdx = min(paraOffset + Int(frag.textLineFragments.first?.characterIndex(for:
                     NSPoint(x: containerPoint.x - fragFrame.minX, y: containerPoint.y - fragFrame.minY)
@@ -771,6 +780,142 @@ final class ProseTextView2: NSTextView {
         }
 
         super.mouseDown(with: event)
+    }
+
+    // MARK: - Context Menu
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event) ?? NSMenu()
+
+        // Reveal in Graph
+        if let pid = pageId {
+            menu.addItem(NSMenuItem.separator())
+            let graphItem = NSMenuItem(title: "Reveal in Graph", action: #selector(contextRevealInGraph(_:)), keyEquivalent: "")
+            graphItem.image = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted", accessibilityDescription: "Graph")
+            graphItem.target = self
+            graphItem.representedObject = pid
+            menu.addItem(graphItem)
+        }
+
+        // Set Property
+        let propItem = NSMenuItem(title: "Set Property\u{2026}", action: #selector(openBlockPropertySheet), keyEquivalent: "")
+        propItem.image = NSImage(systemSymbolName: "tag", accessibilityDescription: "Property")
+        propItem.target = self
+        menu.addItem(propItem)
+
+        // Insert submenu
+        menu.addItem(NSMenuItem.separator())
+        let insertMenu = NSMenu(title: "Insert")
+        let tableItem = NSMenuItem(title: "Table", action: #selector(insertMarkdownTable(_:)), keyEquivalent: "")
+        tableItem.image = NSImage(systemSymbolName: "tablecells", accessibilityDescription: "Table")
+        tableItem.target = self
+        insertMenu.addItem(tableItem)
+        let insertSubmenuItem = NSMenuItem(title: "Insert", action: nil, keyEquivalent: "")
+        insertSubmenuItem.submenu = insertMenu
+        insertSubmenuItem.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "Insert")
+        menu.addItem(insertSubmenuItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let ideaItem = NSMenuItem(title: "New Idea at This Line", action: #selector(createIdeaAtLine), keyEquivalent: "")
+        ideaItem.image = NSImage(systemSymbolName: "lightbulb", accessibilityDescription: "Idea")
+        ideaItem.target = self
+        menu.addItem(ideaItem)
+
+        let dumpItem = NSMenuItem(title: "New Brain Dump at This Line", action: #selector(createBrainDumpAtLine), keyEquivalent: "")
+        dumpItem.image = NSImage(systemSymbolName: "brain", accessibilityDescription: "Brain Dump")
+        dumpItem.target = self
+        menu.addItem(dumpItem)
+
+        // AI Assistant submenu
+        menu.addItem(NSMenuItem.separator())
+        let aiMenu = NSMenu(title: "AI Assistant")
+        let hasSelection = selectedRange().length > 0
+        if hasSelection {
+            aiMenu.addItem(makeAIItem("Rewrite", icon: "arrow.triangle.2.circlepath", op: "rewrite"))
+            aiMenu.addItem(makeAIItem("Summarize", icon: "text.quote", op: "summarize"))
+            aiMenu.addItem(makeAIItem("Expand", icon: "arrow.up.left.and.arrow.down.right", op: "expand"))
+            aiMenu.addItem(makeAIItem("Simplify", icon: "text.redaction", op: "simplify"))
+            aiMenu.addItem(NSMenuItem.separator())
+            aiMenu.addItem(makeAIItem("Convert to List", icon: "list.bullet", op: "toList"))
+            aiMenu.addItem(makeAIItem("Convert to Table", icon: "tablecells", op: "toTable"))
+            aiMenu.addItem(NSMenuItem.separator())
+            aiMenu.addItem(makeAIItem("Translate", icon: "character.book.closed", op: "translate"))
+        } else {
+            aiMenu.addItem(makeAIItem("Continue Writing", icon: "text.append", op: "continue"))
+            aiMenu.addItem(makeAIItem("Generate Outline", icon: "list.number", op: "outline"))
+            aiMenu.addItem(makeAIItem("Suggest Structure", icon: "rectangle.3.group", op: "structure"))
+            aiMenu.addItem(NSMenuItem.separator())
+            aiMenu.addItem(makeAIItem("Restructure Note", icon: "arrow.triangle.branch", op: "restructure"))
+        }
+        let aiSubmenuItem = NSMenuItem(title: "AI Assistant", action: nil, keyEquivalent: "")
+        aiSubmenuItem.submenu = aiMenu
+        aiSubmenuItem.image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "AI")
+        menu.addItem(aiSubmenuItem)
+
+        return menu
+    }
+
+    private func makeAIItem(_ title: String, icon: String, op: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: #selector(handleAIOperation(_:)), keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
+        item.target = self
+        item.representedObject = op
+        return item
+    }
+
+    @objc private func contextRevealInGraph(_ sender: NSMenuItem) {
+        guard let pid = sender.representedObject as? String else { return }
+        onOpenInGraph?(pid)
+    }
+
+    @objc private func createIdeaAtLine() {
+        NotificationCenter.default.post(
+            name: Self.createIdeaNotification, object: nil,
+            userInfo: pageId.map { ["pageId": $0] }
+        )
+    }
+
+    @objc private func createBrainDumpAtLine() {
+        NotificationCenter.default.post(
+            name: Self.createBrainDumpNotification, object: nil,
+            userInfo: pageId.map { ["pageId": $0] }
+        )
+    }
+
+    @objc private func handleAIOperation(_ sender: NSMenuItem) {
+        guard let op = sender.representedObject as? String else { return }
+        var userInfo: [String: String] = ["operation": op]
+        if let pageId { userInfo["pageId"] = pageId }
+        let sel = selectedRange()
+        if sel.length > 0, let str = string as NSString? {
+            userInfo["selectedText"] = str.substring(with: sel)
+        }
+        if op == "translate" {
+            NotificationCenter.default.post(name: Self.translateNotification, object: nil, userInfo: userInfo)
+            return
+        }
+        NotificationCenter.default.post(name: Self.aiOperationNotification, object: nil, userInfo: userInfo)
+    }
+
+    @objc private func openBlockPropertySheet() {
+        let nsStr = string as NSString
+        let cursorLoc = selectedRange().location
+        let lineRange = nsStr.lineRange(for: NSRange(location: cursorLoc, length: 0))
+        let lineText = nsStr.substring(with: lineRange).trimmingCharacters(in: .newlines)
+        var userInfo: [String: Any] = ["lineText": lineText, "lineRange": lineRange]
+        if let pageId { userInfo["pageId"] = pageId }
+        NotificationCenter.default.post(name: Self.blockPropertyNotification, object: nil, userInfo: userInfo)
+    }
+
+    @objc private func insertMarkdownTable(_ sender: NSMenuItem) {
+        let table = "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n|  |  |  |\n"
+        let loc = selectedRange().location
+        if shouldChangeText(in: NSRange(location: loc, length: 0), replacementString: table) {
+            textStorage?.replaceCharacters(in: NSRange(location: loc, length: 0), with: table)
+            didChangeText()
+            setSelectedRange(NSRange(location: loc + "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| ".count, length: 0))
+        }
     }
 
     // MARK: - Navigation

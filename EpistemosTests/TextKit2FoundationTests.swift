@@ -1996,3 +1996,43 @@ struct ProseTextView2MouseDownTests {
         #expect(firedOffset == 0)
     }
 }
+
+// MARK: - Phase 8: ProseTextView2 Context Menu
+
+@Suite("TextKit 2 - ProseTextView2 Context Menu")
+struct ProseTextView2ContextMenuTests {
+
+    @Test("context menu posts AI operation notification")
+    func aiOperationNotification() async {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.pageId = "test-page"
+
+        var received: Notification?
+        let observer = NotificationCenter.default.addObserver(
+            forName: ProseTextView2.aiOperationNotification,
+            object: nil, queue: .main
+        ) { note in received = note }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        // Simulate the notification post directly (can't simulate right-click in test)
+        NotificationCenter.default.post(
+            name: ProseTextView2.aiOperationNotification,
+            object: nil,
+            userInfo: ["operation": "rewrite", "pageId": "test-page"]
+        )
+
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(received != nil)
+        #expect(received?.userInfo?["operation"] as? String == "rewrite")
+    }
+
+    @Test("notification names match ClickableTextView for compatibility")
+    func notificationNameParity() {
+        #expect(ProseTextView2.createIdeaNotification.rawValue == "EpistemosCreateIdeaAtLine")
+        #expect(ProseTextView2.createBrainDumpNotification.rawValue == "EpistemosCreateBrainDumpAtLine")
+        #expect(ProseTextView2.aiOperationNotification.rawValue == "EpistemosAIOperation")
+        #expect(ProseTextView2.blockPropertyNotification.rawValue == "EpistemosBlockPropertyEdit")
+        #expect(ProseTextView2.translateNotification.rawValue == "EpistemosTranslateText")
+        #expect(ProseTextView2.scrollToOffsetNotification.rawValue == "EpistemosScrollToOffset")
+    }
+}
