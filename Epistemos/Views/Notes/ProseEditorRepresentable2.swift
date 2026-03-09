@@ -222,6 +222,34 @@ extension ProseEditorRepresentable2 {
             if let noteChat = parent.noteChatState {
                 wireNoteChatCallbacks()
             }
+
+            // External body sync — vault sync / restore-to-version changed pageBody
+            // outside of user editing. Replace storage content to pick up the new text.
+            // Guards: skip during AI streaming (isFlushingTokens), IME composition,
+            // pending binding sync (debounce window holds unsaved keystrokes).
+            if !isFlushingTokens,
+               !tv.hasMarkedText(),
+               bindingSyncTask == nil,
+               parent.pageBody != lastSyncedText,
+               parent.pageBody != tv.string
+            {
+                let newBody = parent.pageBody
+                let sel = tv.selectedRange()
+                tv.markdownDelegate.reparse(text: newBody)
+                let textStorage = tv.textStorage!
+                isFlushingTokens = true
+                textStorage.beginEditing()
+                textStorage.replaceCharacters(
+                    in: NSRange(location: 0, length: textStorage.length),
+                    with: newBody
+                )
+                textStorage.endEditing()
+                tv.didChangeText()
+                isFlushingTokens = false
+                lastSyncedText = newBody
+                let safeLoc = min(sel.location, (tv.string as NSString).length)
+                tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
+            }
         }
 
         // MARK: - Page Swap
@@ -526,6 +554,15 @@ extension ProseEditorRepresentable2 {
 
             // ── NON-CRITICAL ───────────────────────────────────
 
+            // Notify template overlay that user started typing (short docs only).
+            if tv.textStorage?.length ?? 0 <= 10 {
+                NotificationCenter.default.post(
+                    name: .init("ProseEditorUserDidType"),
+                    object: nil,
+                    userInfo: ["pageId": currentPageId]
+                )
+            }
+
             // Auto-close [[ → [[|]]
             if !isInsertingBrackets {
                 let str = tv.string as NSString
@@ -560,6 +597,22 @@ extension ProseEditorRepresentable2 {
 
             scheduleTableAlignment(tv)
             scheduleDataDetection(newText)
+        }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = notification.object as? ProseTextView2 else { return }
+            if tv.isFocusMode {
+                tv.applyFocusDimming()
+                if let scrollView = tv.enclosingScrollView {
+                    let insertionRect = tv.firstRect(forCharacterRange: tv.selectedRange(), actualRange: nil)
+                    let localRect = tv.convert(insertionRect, from: nil)
+                    let visibleHeight = scrollView.contentView.bounds.height
+                    var scrollPoint = localRect.origin
+                    scrollPoint.y -= visibleHeight / 2
+                    scrollPoint.y = max(0, scrollPoint.y)
+                    tv.scroll(scrollPoint)
+                }
+            }
         }
 
         // MARK: - Command Dispatch (Tab, Enter, etc.)
