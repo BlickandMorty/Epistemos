@@ -551,8 +551,16 @@ private struct NotePageContent: View {
             }
             .overlay(alignment: .trailing) {
                 NoteOutlineOverlay(
-                    markdown: PageStoragePool.shared.bodyText(for: pageId)
-                        ?? pages.first?.loadBody() ?? "",
+                    markdown: {
+                        if notesUI.useTK2Editor {
+                            // TK2: no PageStoragePool. Read from disk (body is saved
+                            // within 3s by Coordinator2's direct file save).
+                            return pages.first?.loadBody() ?? ""
+                        }
+                        // TK1: read from in-memory pre-styled storage pool.
+                        return PageStoragePool.shared.bodyText(for: pageId)
+                            ?? pages.first?.loadBody() ?? ""
+                    }(),
                     theme: ui.theme,
                     onNavigate: { charOffset in
                         scrollEditorTo(charOffset: charOffset)
@@ -1091,19 +1099,22 @@ private struct NotePageContent: View {
     // MarkdownTextStorage with correct formatting when switching back from Writer/Preview.
 
     private func invalidateEditorCache() {
+        guard !notesUI.useTK2Editor else { return }
         PageStoragePool.shared.saveToDisk(pageId: pageId)
         PageStoragePool.shared.remove(pageId: pageId)
     }
 
     private func flushCurrentEditor() {
         guard let page = pages.first else { return }
-        // Read from PageStoragePool first — reliable regardless of first responder.
-        // Falls back to NSTextView first responder for Writer Mode (separate storage).
         let fullText: String
-        if let poolText = PageStoragePool.shared.bodyText(for: pageId) {
+        if !notesUI.useTK2Editor,
+           let poolText = PageStoragePool.shared.bodyText(for: pageId) {
+            // TK1: read from PageStoragePool (reliable, pre-styled storage).
             fullText = poolText
         } else if let responder = NSApp.keyWindow?.firstResponder as? NSTextView {
-            fullText = responder.layoutManager?.textStorage?.string ?? responder.string
+            // TK2 (or TK1 fallback for Writer Mode): read NSTextView.string directly.
+            // Works for both ProseTextView2 (TK2) and ClickableTextView (TK1).
+            fullText = responder.string
         } else {
             return
         }
