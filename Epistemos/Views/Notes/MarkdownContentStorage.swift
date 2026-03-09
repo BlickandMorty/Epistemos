@@ -48,6 +48,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         19, // InlineMath
         24, // BlockReference
         25, // BlockReferenceBrackets
+        26, // DisplayMath
     ]
 
     /// Number of classified lines after most recent reparse.
@@ -535,6 +536,25 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
 
         case 25: // BlockReferenceBrackets (( or )) — ghosted
             attrStr.addAttributes(ghost, range: range)
+
+        case 26: // DisplayMath $$...$$ — muted delimiters, accent italic content, centered
+            attrStr.addAttributes([.foregroundColor: muted], range: range)
+            if range.length > 4 {
+                let content = NSRange(location: range.location + 2, length: range.length - 4)
+                let mathSize = max(size + 1, 13)
+                let centered = NSMutableParagraphStyle()
+                centered.alignment = .center
+                centered.lineSpacing = 6
+                centered.paragraphSpacingBefore = 8
+                centered.paragraphSpacing = 8
+                attrStr.addAttributes([
+                    .font: NSFont(name: "NewYork-RegularItalic", size: mathSize)
+                        ?? NSFontManager.shared.convert(existingFont, toHaveTrait: .italicFontMask),
+                    .foregroundColor: accent.withAlphaComponent(0.85),
+                    .backgroundColor: accent.withAlphaComponent(theme.isDark ? 0.06 : 0.04),
+                    .paragraphStyle: centered,
+                ], range: content)
+            }
 
         default:
             break

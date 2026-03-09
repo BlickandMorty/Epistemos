@@ -1812,6 +1812,53 @@ struct CalloutStylingTests {
     }
 }
 
+// MARK: - Phase 7: Display Math Styling
+
+@Suite("TextKit 2 - Display Math Styling")
+struct DisplayMathStylingTests {
+
+    private func styledString(_ text: String, theme: EpistemosTheme = .light) -> NSMutableAttributedString {
+        let storage = MarkdownContentStorage()
+        storage.theme = theme
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+        return attrStr
+    }
+
+    @Test("Display math $$...$$ content gets italic styling")
+    func displayMathItalic() {
+        let result = styledString("$$E = mc^2$$")
+        // Content "E = mc^2" starts at position 2 (after "$$")
+        guard result.length > 4 else {
+            #expect(Bool(false), "String too short")
+            return
+        }
+        let contentFont = result.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
+        #expect(contentFont != nil)
+        let traits = NSFontManager.shared.traits(of: contentFont!)
+        #expect(traits.contains(.italicFontMask), "Display math content should be italic")
+    }
+
+    @Test("Display math $$ markers are ghosted")
+    func displayMathGhostedMarkers() {
+        let result = styledString("$$E = mc^2$$")
+        // First $$ starts at position 0
+        let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(markerColor != nil)
+        #expect(markerColor!.alphaComponent < 0.3, "Display math markers should be muted")
+    }
+
+    @Test("Display math content gets centered paragraph style")
+    func displayMathCentered() {
+        let result = styledString("$$x^2 + y^2$$")
+        guard result.length > 4 else { return }
+        let paraStyle = result.attribute(.paragraphStyle, at: 3, effectiveRange: nil) as? NSParagraphStyle
+        #expect(paraStyle != nil)
+        #expect(paraStyle!.alignment == .center, "Display math should be centered")
+    }
+}
+
 // MARK: - Phase 7: Display Math FFI Test
 
 @Suite("TextKit 2 - Display Math FFI")
