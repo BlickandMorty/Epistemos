@@ -1735,3 +1735,102 @@ struct NonDestructiveFoldingTests {
         #expect(delegate.isLineInFoldedRange(5) == false) // C body not folded
     }
 }
+
+// MARK: - Phase 7: Display Math FFI Test
+
+@Suite("TextKit 2 - Display Math FFI")
+struct DisplayMathFFITests {
+
+    @Test("Display math $$...$$ detected by Rust parser via FFI")
+    func displayMathDetection() {
+        let text = "$$x^2$$"
+        var spansPtr: UnsafeMutablePointer<StyleSpan>?
+        var count: UInt32 = 0
+        let result = text.withCString { cStr in
+            markdown_parse(cStr, UInt32(text.utf8.count), &spansPtr, &count)
+        }
+        #expect(result == 0)
+        guard let spans = spansPtr, count > 0 else {
+            #expect(Bool(false), "No spans returned")
+            return
+        }
+        defer { markdown_free_spans(spans, count) }
+
+        let displayMath = (0..<Int(count)).filter { spans[$0].style == 26 }
+        #expect(!displayMath.isEmpty, "Expected DisplayMath (style=26) span")
+    }
+
+    @Test("Display math multiline $$...\\n...$$ detected")
+    func displayMathMultiline() {
+        let text = "before\n$$\nE = mc^2\n$$\nafter"
+        var spansPtr: UnsafeMutablePointer<StyleSpan>?
+        var count: UInt32 = 0
+        let result = text.withCString { cStr in
+            markdown_parse(cStr, UInt32(text.utf8.count), &spansPtr, &count)
+        }
+        #expect(result == 0)
+        guard let spans = spansPtr, count > 0 else {
+            #expect(Bool(false), "No spans returned")
+            return
+        }
+        defer { markdown_free_spans(spans, count) }
+
+        let displayMath = (0..<Int(count)).filter { spans[$0].style == 26 }
+        #expect(displayMath.count == 1, "Expected exactly one DisplayMath span")
+    }
+
+    @Test("Inline $..$ NOT classified as display math")
+    func inlineMathNotDisplay() {
+        let text = "The formula $x^2$ is inline"
+        var spansPtr: UnsafeMutablePointer<StyleSpan>?
+        var count: UInt32 = 0
+        _ = text.withCString { cStr in
+            markdown_parse(cStr, UInt32(text.utf8.count), &spansPtr, &count)
+        }
+        guard let spans = spansPtr, count > 0 else { return }
+        defer { markdown_free_spans(spans, count) }
+
+        let inline = (0..<Int(count)).filter { spans[$0].style == 19 }
+        let display = (0..<Int(count)).filter { spans[$0].style == 26 }
+        #expect(inline.count == 1, "Expected one InlineMath span")
+        #expect(display.count == 0, "Expected zero DisplayMath spans")
+    }
+}
+
+// MARK: - Phase 7: Callout Metadata Round-Trip
+
+@Suite("TextKit 2 - Callout Metadata")
+struct CalloutMetadataTests {
+
+    @Test("Callout metadata round-trip: Rust parser → Swift type ID")
+    func calloutMetadataRoundTrip() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "> [!warning] Be careful\n> Details here\nPlain")
+
+        // Line 0: callout header
+        let meta0 = storage.paragraphMetadata(at: 0)
+        #expect(meta0 != nil)
+        let type0 = (meta0! >> 8) & 0xFF
+        #expect(type0 == 3, "Expected warning type (3)")
+
+        // Line 1: continuation inherits callout type
+        let meta1 = storage.paragraphMetadata(at: 1)
+        #expect(meta1 != nil)
+        let type1 = (meta1! >> 8) & 0xFF
+        #expect(type1 == 3, "Continuation should inherit warning type")
+
+        // Line 2: plain body, not a blockquote
+        #expect(storage.paragraphType(at: 2) == 0, "Plain text should be Body")
+    }
+
+    @Test("Plain blockquote has callout type 0")
+    func plainBlockquoteNoCallout() {
+        let storage = MarkdownContentStorage()
+        storage.reparse(text: "> Just a quote\n> Second line")
+
+        let meta0 = storage.paragraphMetadata(at: 0)
+        #expect(meta0 != nil)
+        let type0 = (meta0! >> 8) & 0xFF
+        #expect(type0 == 0, "Plain blockquote should have callout type 0")
+    }
+}
