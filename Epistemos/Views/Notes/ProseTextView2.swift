@@ -20,6 +20,15 @@ final class ProseTextView2: NSTextView {
     /// When nil, falls back to NSTextView's default undo manager.
     var pageUndoManager: UndoManager?
 
+    /// Page ID for scoping notifications to the correct tab.
+    var pageId: String?
+
+    /// Closure called when user clicks a heading fold triangle. Receives the heading character offset.
+    var onFoldToggle: ((Int) -> Void)?
+
+    /// Closure called when user selects "Open in Graph" from context menu.
+    var onOpenInGraph: ((String) -> Void)?
+
     override var undoManager: UndoManager? {
         pageUndoManager ?? super.undoManager
     }

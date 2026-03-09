@@ -1957,3 +1957,26 @@ struct CalloutMetadataTests {
         #expect(type0 == 0, "Plain blockquote should have callout type 0")
     }
 }
+
+// MARK: - Phase 8: ProseTextView2 Properties
+
+@Suite("TextKit 2 - ProseTextView2 Properties")
+struct ProseTextView2PropertiesTests {
+
+    @Test("pageId and closures are settable")
+    func pageIdAndClosures() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.pageId = "test-page"
+        #expect(tv.pageId == "test-page")
+
+        var foldCalled = false
+        tv.onFoldToggle = { _ in foldCalled = true }
+        tv.onFoldToggle?(42)
+        #expect(foldCalled)
+
+        var graphCalled = false
+        tv.onOpenInGraph = { _ in graphCalled = true }
+        tv.onOpenInGraph?("pid")
+        #expect(graphCalled)
+    }
+}
