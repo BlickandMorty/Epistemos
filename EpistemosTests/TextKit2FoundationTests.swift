@@ -1736,6 +1736,35 @@ struct NonDestructiveFoldingTests {
     }
 }
 
+// MARK: - Phase 7: Callout Colors
+
+@Suite("TextKit 2 - Callout Colors")
+struct CalloutColorTests {
+
+    @Test("callout color for each type returns non-nil")
+    func calloutColorTypes() {
+        for typeId: UInt8 in 1...9 {
+            let style = EpistemosTheme.light.calloutColors(typeId: typeId)
+            #expect(style != nil, "Type \(typeId) should return callout style")
+            #expect(style!.accent != .clear)
+            #expect(style!.background != .clear)
+        }
+    }
+
+    @Test("plain blockquote (type 0) returns nil")
+    func plainBlockquote() {
+        let style = EpistemosTheme.light.calloutColors(typeId: 0)
+        #expect(style == nil)
+    }
+
+    @Test("dark theme callout backgrounds differ from light")
+    func darkThemeCalloutColors() {
+        let lightStyle = EpistemosTheme.light.calloutColors(typeId: 1)!
+        let darkStyle = EpistemosTheme.sunset.calloutColors(typeId: 1)!
+        #expect(lightStyle.background.alphaComponent != darkStyle.background.alphaComponent)
+    }
+}
+
 // MARK: - Phase 7: Display Math FFI Test
 
 @Suite("TextKit 2 - Display Math FFI")

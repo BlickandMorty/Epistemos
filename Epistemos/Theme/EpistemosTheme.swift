@@ -175,6 +175,58 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    // MARK: - Callout Styling
+
+    struct CalloutStyle {
+        let accent: NSColor
+        let background: NSColor
+        let icon: String
+    }
+
+    /// Returns callout styling for a callout type ID from the Rust parser.
+    /// Type 0 = plain blockquote (no callout). Types 1-9 map to callout categories.
+    func calloutColors(typeId: UInt8) -> CalloutStyle? {
+        guard typeId > 0 else { return nil }
+        let dark = isDark
+        let base: NSColor
+        let icon: String
+
+        switch typeId {
+        case 1: // note, info
+            base = NSColor(red: 0.35, green: 0.55, blue: 0.95, alpha: 1)
+            icon = "info.circle.fill"
+        case 2: // tip, hint, important
+            base = NSColor(red: 0.25, green: 0.75, blue: 0.55, alpha: 1)
+            icon = "lightbulb.fill"
+        case 3: // warning, caution, attention
+            base = NSColor(red: 0.90, green: 0.70, blue: 0.20, alpha: 1)
+            icon = "exclamationmark.triangle.fill"
+        case 4: // success, check, done
+            base = NSColor(red: 0.25, green: 0.75, blue: 0.35, alpha: 1)
+            icon = "checkmark.circle.fill"
+        case 5: // question, help, faq
+            base = NSColor(red: 0.65, green: 0.50, blue: 0.90, alpha: 1)
+            icon = "questionmark.circle.fill"
+        case 6: // quote, cite
+            base = NSColor(red: 0.55, green: 0.55, blue: 0.60, alpha: 1)
+            icon = "quote.opening"
+        case 7: // danger, error, bug, fail
+            base = NSColor(red: 0.90, green: 0.30, blue: 0.30, alpha: 1)
+            icon = "xmark.octagon.fill"
+        case 8: // example
+            base = NSColor(red: 0.60, green: 0.45, blue: 0.85, alpha: 1)
+            icon = "list.clipboard.fill"
+        case 9: // abstract, summary, tldr
+            base = NSColor(red: 0.30, green: 0.70, blue: 0.85, alpha: 1)
+            icon = "doc.text.fill"
+        default:
+            return nil
+        }
+
+        let background = dark ? base.withAlphaComponent(0.07) : base.withAlphaComponent(0.05)
+        return CalloutStyle(accent: base, background: background, icon: icon)
+    }
+
     // MARK: - Glass Tokens
 
     var glassBg: Color {
