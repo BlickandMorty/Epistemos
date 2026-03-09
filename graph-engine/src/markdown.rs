@@ -43,6 +43,7 @@ pub enum StyleKind {
     Callout = 23,
     BlockReference = 24,
     BlockReferenceBrackets = 25,
+    DisplayMath = 26,
 }
 
 /// A styled range returned to Swift via FFI.
@@ -217,6 +218,9 @@ fn parse_markdown(text: &str) -> Vec<StyleSpan> {
     // Post-parse: extract [[wikilinks]]
     extract_wikilinks(text, &mut spans);
 
+    // Post-parse: extract $$display math$$ (before inline to take priority)
+    extract_display_math(text, &mut spans);
+
     // Post-parse: extract $inline math$
     extract_inline_math(text, &mut spans);
 
@@ -303,6 +307,39 @@ fn extract_inline_math(text: &str, spans: &mut Vec<StyleSpan>) {
             }
         }
         i += 1;
+    }
+}
+
+/// Extract display math blocks: $$...$$ (possibly multi-line).
+fn extract_display_math(text: &str, spans: &mut Vec<StyleSpan>) {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'$' && bytes[i + 1] == b'$' {
+            let start = i;
+            let mut j = i + 2;
+            while j + 1 < bytes.len() {
+                if bytes[j] == b'$' && bytes[j + 1] == b'$' {
+                    let end = j + 2;
+                    spans.push(StyleSpan {
+                        start: start as u32,
+                        end: end as u32,
+                        style: StyleKind::DisplayMath as u8,
+                        depth: 0,
+                        group: 0,
+                        _pad: 0,
+                    });
+                    i = end;
+                    break;
+                }
+                j += 1;
+            }
+            if j + 1 >= bytes.len() {
+                break; // no closing found
+            }
+        } else {
+            i += 1;
+        }
     }
 }
 
@@ -1083,6 +1120,30 @@ mod tests {
         // $$ should not be parsed as inline math
         let math = spans_of_kind(&spans, StyleKind::InlineMath);
         assert_eq!(math.len(), 0);
+        // But display math should pick it up
+        let display = spans_of_kind(&spans, StyleKind::DisplayMath);
+        assert_eq!(display.len(), 1);
+    }
+
+    #[test]
+    fn extract_display_math_multiline() {
+        let text = "before\n$$\nx^2 + y^2 = z^2\n$$\nafter";
+        let spans = parse(text);
+        let display: Vec<_> = spans_of_kind(&spans, StyleKind::DisplayMath);
+        assert_eq!(display.len(), 1);
+        let captured = &text[display[0].start as usize..display[0].end as usize];
+        assert!(captured.starts_with("$$"));
+        assert!(captured.ends_with("$$"));
+    }
+
+    #[test]
+    fn display_math_inline_math_coexist() {
+        let text = "The formula $x^2$ is inline but $$y^2$$ is display";
+        let spans = parse(text);
+        let inline = spans_of_kind(&spans, StyleKind::InlineMath);
+        let display = spans_of_kind(&spans, StyleKind::DisplayMath);
+        assert_eq!(inline.len(), 1);
+        assert_eq!(display.len(), 1);
     }
 
     #[test]
