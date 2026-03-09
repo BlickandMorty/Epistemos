@@ -398,6 +398,7 @@ pub fn parse_structure(text: &str) -> Vec<StructureSpan> {
     let lines: Vec<&str> = text.split('\n').collect();
     let mut spans = Vec::with_capacity(lines.len());
     let mut in_code_block = false;
+    let mut code_block_lang: u8 = 0;
     let mut in_html_comment = false;
 
     for line in &lines {
@@ -409,10 +410,11 @@ pub fn parse_structure(text: &str) -> Vec<StructureSpan> {
             spans.push(StructureSpan {
                 para_type: ParaType::CodeBlock as u8,
                 _pad: 0,
-                metadata: 0,
+                metadata: code_block_lang as u16,
             });
             if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
                 in_code_block = false;
+                code_block_lang = 0;
             }
             continue;
         }
@@ -443,10 +445,12 @@ pub fn parse_structure(text: &str) -> Vec<StructureSpan> {
         // Code fence opening
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
             in_code_block = true;
+            let lang_tag = trimmed[3..].trim();
+            code_block_lang = language_id_from_str(lang_tag);
             spans.push(StructureSpan {
                 para_type: ParaType::CodeBlock as u8,
                 _pad: 0,
-                metadata: 0,
+                metadata: code_block_lang as u16,
             });
             continue;
         }
@@ -1265,5 +1269,35 @@ mod tests {
         assert_eq!(language_id_from_str(""), 0);
         assert_eq!(language_id_from_str("brainfuck"), 0);
         assert_eq!(language_id_from_str("unknown"), 0);
+    }
+
+    #[test]
+    fn structure_parser_captures_language() {
+        let text = "```swift\nlet x = 1\n```";
+        let spans = parse_structure(text);
+        assert_eq!(spans.len(), 3);
+        assert_eq!(spans[0].para_type, ParaType::CodeBlock as u8);
+        assert_eq!(spans[1].para_type, ParaType::CodeBlock as u8);
+        assert_eq!(spans[2].para_type, ParaType::CodeBlock as u8);
+        // metadata low byte = language_id for swift (1)
+        assert_eq!(spans[0].metadata & 0xFF, 1);
+        assert_eq!(spans[1].metadata & 0xFF, 1);
+        assert_eq!(spans[2].metadata & 0xFF, 1);
+    }
+
+    #[test]
+    fn structure_parser_unknown_language() {
+        let text = "```\nplain code\n```";
+        let spans = parse_structure(text);
+        assert_eq!(spans.len(), 3);
+        assert_eq!(spans[0].metadata & 0xFF, 0);
+        assert_eq!(spans[1].metadata & 0xFF, 0);
+    }
+
+    #[test]
+    fn structure_parser_rust_language() {
+        let text = "```rust\nfn main() {}\n```";
+        let spans = parse_structure(text);
+        assert_eq!(spans[1].metadata & 0xFF, 2);
     }
 }
