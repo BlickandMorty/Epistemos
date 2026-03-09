@@ -11,6 +11,7 @@
 		MCSTOR00000000000002 /* MarkdownContentStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = MCSTOR00000000000001 /* MarkdownContentStorage.swift */; };
 		PTV200000000000000002 /* ProseTextView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = PTV200000000000000001 /* ProseTextView2.swift */; };
 		TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TK2FT00000000000001 /* TextKit2FoundationTests.swift */; };
+		TK2PT00000000000002 /* TextKit2ParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TK2PT00000000000001 /* TextKit2ParityTests.swift */; };
 		NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = NLANLYS00000000000001F1 /* NLAnalysisService.swift */; };
 		DATADET00000000000002F2 /* DataDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATADET00000000000001F1 /* DataDetectionService.swift */; };
 		DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMOD00000000000000001 /* DocumentModeTests.swift */; };
@@ -161,6 +162,8 @@
 		A1C0N500000000ASSET002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0N500000000ASSET001 /* Assets.xcassets */; };
 
 		A29025410BEF420590AC1E9A /* BlockRefAutocomplete.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */; };
+		0770866B86B84C7D9DEFF7D2 /* BlockRefAutocomplete2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05B224F7607549788C17EC0B /* BlockRefAutocomplete2.swift */; };
+		677BA40CFEAE4F04BCA08CAB /* TransclusionOverlayManager2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08B62DAD75E04021B7805F07 /* TransclusionOverlayManager2.swift */; };
 		A2D85D5B84149A478F48C4AE /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD39ADCBE426B353E3FA283B /* Log.swift */; };
 		A3F2E1D0C9B8A7F6E5D4C3B2 /* HologramNodeInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3 /* HologramNodeInspector.swift */; };
 		A4B49D73FE5849013B00C96C /* CollectionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2760010046AC639AF26F58 /* CollectionRegistry.swift */; };
@@ -273,6 +276,7 @@
 		MCSTOR00000000000001 /* MarkdownContentStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownContentStorage.swift; sourceTree = "<group>"; };
 		PTV200000000000000001 /* ProseTextView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseTextView2.swift; sourceTree = "<group>"; };
 		TK2FT00000000000001 /* TextKit2FoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextKit2FoundationTests.swift; sourceTree = "<group>"; };
+		TK2PT00000000000001 /* TextKit2ParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextKit2ParityTests.swift; sourceTree = "<group>"; };
 		NLANLYS00000000000001F1 /* NLAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NLAnalysisService.swift; sourceTree = "<group>"; };
 		DATADET00000000000001F1 /* DataDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDetectionService.swift; sourceTree = "<group>"; };
 		DOCMOD00000000000000001 /* DocumentModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModeTests.swift; sourceTree = "<group>"; };
@@ -393,6 +397,8 @@
 		84BDAD491E8FB25B8E1E3D1A /* CommandPaletteWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteWindowController.swift; sourceTree = "<group>"; };
 		867AD4732275B3BB472FB1A3 /* LineDiffTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiffTests.swift; sourceTree = "<group>"; };
 		8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRefAutocomplete.swift; sourceTree = "<group>"; };
+		05B224F7607549788C17EC0B /* BlockRefAutocomplete2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRefAutocomplete2.swift; sourceTree = "<group>"; };
+		08B62DAD75E04021B7805F07 /* TransclusionOverlayManager2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransclusionOverlayManager2.swift; sourceTree = "<group>"; };
 		879EC1715BBE486CB9D267DC /* HologramController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HologramController.swift; sourceTree = "<group>"; };
 		894E1019EEBC96777152384D /* TriageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageServiceTests.swift; sourceTree = "<group>"; };
 		8FB044948A34572FFF0AD11E /* QueryEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryEngine.swift; sourceTree = "<group>"; };
@@ -722,6 +728,8 @@
 				78C1D41B9E064ABAA03A0B57 /* TransclusionOverlayView.swift */,
 				78C1D41B9E064ABAA03A0B58 /* EditableTransclusionView.swift */,
 				8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */,
+				05B224F7607549788C17EC0B /* BlockRefAutocomplete2.swift */,
+				08B62DAD75E04021B7805F07 /* TransclusionOverlayManager2.swift */,
 				B980FE6E8ADB38B410D728FC /* LineDiff.swift */,
 				MCSTOR00000000000001 /* MarkdownContentStorage.swift */,
 				MKLFRAG0000000000001 /* MarkdownLayoutFragment.swift */,
@@ -981,6 +989,7 @@
 				FOCUSMD00000000000000001 /* FocusModeTests.swift */,
 				DOCMOD00000000000000001 /* DocumentModeTests.swift */,
 				TK2FT00000000000001 /* TextKit2FoundationTests.swift */,
+				TK2PT00000000000001 /* TextKit2ParityTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -1219,6 +1228,7 @@
 				FOCUSMD00000000000000002 /* FocusModeTests.swift in Sources */,
 				DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */,
 				TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */,
+				TK2PT00000000000002 /* TextKit2ParityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1234,6 +1244,8 @@
 				040E15E508A34F7E890D6B9C /* TransclusionOverlayView.swift in Sources */,
 				040E15E508A34F7E890D6BA1 /* EditableTransclusionView.swift in Sources */,
 				A29025410BEF420590AC1E9A /* BlockRefAutocomplete.swift in Sources */,
+				0770866B86B84C7D9DEFF7D2 /* BlockRefAutocomplete2.swift in Sources */,
+				677BA40CFEAE4F04BCA08CAB /* TransclusionOverlayManager2.swift in Sources */,
 				3E370AE10120951AFFDE2592 /* AnalysisIntents.swift in Sources */,
 				62A6FF51A6ECC1A7E22A40AC /* AnalysisResultEntity.swift in Sources */,
 				709603D34C0C1AB5E3035898 /* AppCoordinator.swift in Sources */,
