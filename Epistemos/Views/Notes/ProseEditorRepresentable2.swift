@@ -157,6 +157,9 @@ extension ProseEditorRepresentable2 {
         // Data detection
         private var dataDetectionTask: Task<Void, Never>?
 
+        // BTK: block edit translator for real-time block tracking
+        var blockEditTranslator: BlockEditTranslator?
+
         // Scroll-to-offset observer for TOC section navigator.
         var scrollToOffsetObserver: (any NSObjectProtocol)?
 
@@ -304,6 +307,24 @@ extension ProseEditorRepresentable2 {
             tv.isEditable = parent.isEditable
             updateCentering()
             tv.window?.makeFirstResponder(tv)
+
+            // 9. BTK: Initialize block edit translator for new page
+            if let graphState = parent.graphState {
+                let translator = BlockEditTranslator(
+                    pageId: newPageId, graphState: graphState
+                )
+                if let mc = parent.modelContext {
+                    let descriptor = FetchDescriptor<SDBlock>(
+                        predicate: #Predicate<SDBlock> { $0.pageId == newPageId },
+                        sortBy: [SortDescriptor(\.order)]
+                    )
+                    let existingBlocks = (try? mc.fetch(descriptor)) ?? []
+                    translator.initIfNeeded(existingBlocks: existingBlocks)
+                }
+                blockEditTranslator = translator
+            } else {
+                blockEditTranslator = nil
+            }
         }
 
         // MARK: - Theme Change
@@ -460,6 +481,7 @@ extension ProseEditorRepresentable2 {
             directSaveTask?.cancel()
             tableAlignTask?.cancel()
             dataDetectionTask?.cancel()
+            blockEditTranslator = nil
             if let obs = scrollToOffsetObserver {
                 NotificationCenter.default.removeObserver(obs)
                 scrollToOffsetObserver = nil
@@ -520,6 +542,19 @@ extension ProseEditorRepresentable2 {
                         tv.setSelectedRange(NSRange(location: cursorLoc, length: 0))
                         isInsertingBrackets = false
                     }
+                }
+            }
+
+            // BTK: translate edit into block ops
+            if let translator = blockEditTranslator,
+               let storage = tv.textStorage {
+                let editedRange = storage.editedRange
+                if editedRange.location != NSNotFound,
+                   editedRange.location + editedRange.length <= storage.length {
+                    let changeInLength = storage.changeInLength
+                    let oldLength = editedRange.length - changeInLength
+                    let newText = (storage.string as NSString).substring(with: editedRange)
+                    translator.translateEdit(offset: editedRange.location, oldLength: oldLength, newText: newText)
                 }
             }
 
