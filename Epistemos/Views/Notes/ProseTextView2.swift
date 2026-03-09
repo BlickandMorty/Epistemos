@@ -704,23 +704,55 @@ final class ProseTextView2: NSTextView {
     override func mouseDown(with event: NSEvent) {
         let clickPoint = convert(event.locationInWindow, from: nil)
 
-        if let tlm = textLayoutManager,
-           let contentStorage = tlm.textContentManager as? NSTextContentStorage {
-            let containerPoint = NSPoint(
-                x: clickPoint.x - textContainerOrigin.x,
-                y: clickPoint.y - textContainerOrigin.y
-            )
-            if let frag = tlm.textLayoutFragment(for: containerPoint),
-               let lineFrag = frag.textLineFragments.first,
-               let elemRange = frag.textElement?.elementRange {
-                let docStart = contentStorage.documentRange.location
-                let paraOffset = contentStorage.offset(from: docStart, to: elemRange.location)
-                let paraLength = contentStorage.offset(from: elemRange.location, to: elemRange.endLocation)
-                let str = string as NSString
-                let paraText = str.substring(with: NSRange(location: paraOffset, length: paraLength))
-                    .trimmingCharacters(in: .newlines)
+        guard let tlm = textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else {
+            super.mouseDown(with: event)
+            return
+        }
 
-                let fragFrame = frag.layoutFragmentFrame
+        let containerPoint = NSPoint(
+            x: clickPoint.x - textContainerOrigin.x,
+            y: clickPoint.y - textContainerOrigin.y
+        )
+
+        if let frag = tlm.textLayoutFragment(for: containerPoint),
+           let elemRange = frag.textElement?.elementRange {
+            let docStart = contentStorage.documentRange.location
+            let paraOffset = contentStorage.offset(from: docStart, to: elemRange.location)
+            let paraLength = contentStorage.offset(from: elemRange.location, to: elemRange.endLocation)
+            let str = string as NSString
+            let paraText = str.substring(with: NSRange(location: paraOffset, length: paraLength))
+                .trimmingCharacters(in: .newlines)
+
+            // Fold triangle click — gutter area on a heading line
+            let fragFrame = frag.layoutFragmentFrame
+            let lineLeft = fragFrame.minX + textContainerOrigin.x
+            if clickPoint.x < lineLeft + 6 && clickPoint.x > lineLeft - 30 {
+                if paraText.hasPrefix("#") && paraText.contains(" ") {
+                    var hashCount = 0
+                    for ch in paraText { if ch == "#" { hashCount += 1 } else { break } }
+                    if hashCount >= 1 && hashCount <= 6 {
+                        onFoldToggle?(paraOffset)
+                        return
+                    }
+                }
+            }
+
+            // Data detection click
+            if let storage = textStorage,
+               paraOffset < storage.length {
+                let charIdx = min(paraOffset + Int(frag.textLineFragments.first?.characterIndex(for:
+                    NSPoint(x: containerPoint.x - fragFrame.minX, y: containerPoint.y - fragFrame.minY)
+                ) ?? 0), storage.length - 1)
+                if charIdx < storage.length,
+                   let item = storage.attribute(DataDetectionService.detectedDataKey, at: charIdx, effectiveRange: nil) as? DataDetectionService.DetectedItem {
+                    DataDetectionService.open(item)
+                    return
+                }
+            }
+
+            // Checkbox toggle
+            if let lineFrag = frag.textLineFragments.first {
                 let localPoint = NSPoint(
                     x: containerPoint.x - fragFrame.minX,
                     y: containerPoint.y - fragFrame.minY

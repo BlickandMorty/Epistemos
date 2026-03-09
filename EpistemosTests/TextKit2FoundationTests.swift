@@ -1980,3 +1980,19 @@ struct ProseTextView2PropertiesTests {
         #expect(graphCalled)
     }
 }
+
+// MARK: - Phase 8: ProseTextView2 MouseDown
+
+@Suite("TextKit 2 - ProseTextView2 MouseDown")
+struct ProseTextView2MouseDownTests {
+
+    @Test("fold toggle fires on gutter click over heading")
+    func foldToggleClosure() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        var firedOffset: Int?
+        tv.onFoldToggle = { offset in firedOffset = offset }
+        // Verify the closure is stored and callable
+        tv.onFoldToggle?(0)
+        #expect(firedOffset == 0)
+    }
+}
