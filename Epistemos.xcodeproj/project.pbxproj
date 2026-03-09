@@ -12,6 +12,7 @@
 		PTV200000000000000002 /* ProseTextView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = PTV200000000000000001 /* ProseTextView2.swift */; };
 		TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TK2FT00000000000001 /* TextKit2FoundationTests.swift */; };
 		TK2PT00000000000002 /* TextKit2ParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TK2PT00000000000001 /* TextKit2ParityTests.swift */; };
+		TK2BM00000000000002 /* TextKit2BenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TK2BM00000000000001 /* TextKit2BenchmarkTests.swift */; };
 		NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = NLANLYS00000000000001F1 /* NLAnalysisService.swift */; };
 		DATADET00000000000002F2 /* DataDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DATADET00000000000001F1 /* DataDetectionService.swift */; };
 		DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMOD00000000000000001 /* DocumentModeTests.swift */; };
@@ -277,6 +278,7 @@
 		PTV200000000000000001 /* ProseTextView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseTextView2.swift; sourceTree = "<group>"; };
 		TK2FT00000000000001 /* TextKit2FoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextKit2FoundationTests.swift; sourceTree = "<group>"; };
 		TK2PT00000000000001 /* TextKit2ParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextKit2ParityTests.swift; sourceTree = "<group>"; };
+		TK2BM00000000000001 /* TextKit2BenchmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextKit2BenchmarkTests.swift; sourceTree = "<group>"; };
 		NLANLYS00000000000001F1 /* NLAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NLAnalysisService.swift; sourceTree = "<group>"; };
 		DATADET00000000000001F1 /* DataDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataDetectionService.swift; sourceTree = "<group>"; };
 		DOCMOD00000000000000001 /* DocumentModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModeTests.swift; sourceTree = "<group>"; };
@@ -990,6 +992,7 @@
 				DOCMOD00000000000000001 /* DocumentModeTests.swift */,
 				TK2FT00000000000001 /* TextKit2FoundationTests.swift */,
 				TK2PT00000000000001 /* TextKit2ParityTests.swift */,
+				TK2BM00000000000001 /* TextKit2BenchmarkTests.swift */,
 			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
@@ -1229,6 +1232,7 @@
 				DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */,
 				TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */,
 				TK2PT00000000000002 /* TextKit2ParityTests.swift in Sources */,
+				TK2BM00000000000002 /* TextKit2BenchmarkTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
