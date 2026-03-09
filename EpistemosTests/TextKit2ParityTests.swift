@@ -1,5 +1,6 @@
 import Testing
 import AppKit
+import SwiftUI
 @testable import Epistemos
 
 // MARK: - Shared Parity Helpers
@@ -206,6 +207,69 @@ struct TK2ParityInlineTests {
         #expect(tk1Traits.contains(.boldFontMask))
         #expect(tk2Traits.contains(.boldFontMask))
     }
+
+    // MARK: - Full-Stack Integration (ProseTextView2 delegate pipeline)
+
+    @Test("Full-stack bold — ProseTextView2 delegate produces bold in text element")
+    func tk2FullStackBoldStyling() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "Hello **bold** world"
+        tv.textStorage?.setAttributedString(NSAttributedString(string: md))
+        tv.reparseAndInvalidate()
+
+        guard let tlm = tv.textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else {
+            Issue.record("TK2 stack not configured")
+            return
+        }
+
+        // Force layout so delegate provides styled paragraphs
+        tlm.ensureLayout(for: contentStorage.documentRange)
+
+        var foundBold = false
+        contentStorage.enumerateTextElements(from: contentStorage.documentRange.location) { element in
+            guard let para = element as? NSTextParagraph else { return true }
+            let attrStr = para.attributedString
+            // "bold" content starts at offset 8 in "Hello **bold** world"
+            guard attrStr.length > 8 else { return true }
+            let font = attrStr.attribute(.font, at: 8, effectiveRange: nil) as? NSFont
+            if let font, NSFontManager.shared.traits(of: font).contains(.boldFontMask) {
+                foundBold = true
+            }
+            return false
+        }
+        #expect(foundBold)
+    }
+
+    @Test("Full-stack wikilink — ProseTextView2 delegate produces .link attribute")
+    func tk2FullStackWikilinkAttribute() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "see [[MyPage]] here"
+        tv.textStorage?.setAttributedString(NSAttributedString(string: md))
+        tv.reparseAndInvalidate()
+
+        guard let tlm = tv.textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else {
+            Issue.record("TK2 stack not configured")
+            return
+        }
+
+        tlm.ensureLayout(for: contentStorage.documentRange)
+
+        var foundWikilink = false
+        contentStorage.enumerateTextElements(from: contentStorage.documentRange.location) { element in
+            guard let para = element as? NSTextParagraph else { return true }
+            let attrStr = para.attributedString
+            let range = NSRange(location: 0, length: attrStr.length)
+            attrStr.enumerateAttribute(.link, in: range) { val, _, _ in
+                if let link = val as? NSString, link.hasPrefix("wikilink://") {
+                    foundWikilink = true
+                }
+            }
+            return false
+        }
+        #expect(foundWikilink)
+    }
 }
 
 // MARK: - Suite 2: Paragraph Classification Parity
@@ -295,161 +359,150 @@ struct TK2ParityParagraphTests {
     }
 }
 
-// MARK: - Suite 3: AI Streaming Parity
+// MARK: - Suite 3: AI Streaming Integration (Coordinator2 + NoteChatState)
 
 @Suite("TK2 Parity - AI Streaming")
 struct TK2ParityAIStreamingTests {
 
-    private let divider = "\n\n<!-- ai-response -->\n\n"
-    private let initialBody = "User's note content here."
+    // MARK: - Helper
 
-    // MARK: - Helpers
+    @MainActor
+    private static func makeCoordinator2Stack(body: String = "Hello world.")
+        -> (coord: ProseEditorRepresentable2.Coordinator2,
+            tv: ProseTextView2,
+            chat: NoteChatState,
+            getText: () -> String)
+    {
+        var text = body
+        let binding = Binding<String>(get: { text }, set: { text = $0 })
 
-    private func tk1Storage(with text: String) -> MarkdownTextStorage {
-        let storage = MarkdownTextStorage()
-        storage.isDark = false
-        storage.beginEditing()
-        storage.replaceCharacters(in: NSRange(location: 0, length: 0), with: text)
-        storage.endEditing()
-        return storage
-    }
-
-    private func tk2View(with text: String) -> ProseTextView2 {
-        let (_, tv) = ProseTextView2.makeTextKit2()
-        tv.textStorage?.setAttributedString(NSAttributedString(string: text))
-        tv.reparseAndInvalidate()
-        return tv
-    }
-
-    // MARK: - Divider Insertion
-
-    @Test("Divider insertion — both stacks produce same text after appending divider")
-    func dividerInsertion() {
-        let expected = initialBody + divider
-        let tk1 = tk1Storage(with: initialBody)
-        tk1.beginEditing()
-        tk1.replaceCharacters(
-            in: NSRange(location: tk1.length, length: 0),
-            with: divider
+        var repr = ProseEditorRepresentable2(
+            text: binding,
+            pageId: "test-page",
+            pageBody: body,
+            isFocused: false,
+            theme: .light,
+            isEditable: true,
+            isFocusMode: false
         )
-        tk1.endEditing()
+        let chat = NoteChatState(pageId: "test-page")
+        repr.noteChatState = chat
 
-        let tk2 = tk2View(with: initialBody)
-        tk2.textStorage?.replaceCharacters(
-            in: NSRange(location: (tk2.string as NSString).length, length: 0),
-            with: divider
-        )
+        let coord = ProseEditorRepresentable2.Coordinator2(repr)
+        let (scrollView, tv) = ProseTextView2.makeTextKit2()
 
-        #expect(tk1.string == expected)
-        #expect(tk2.string == expected)
+        tv.delegate = coord
+        coord.textView = tv
+        coord.scrollView = scrollView
+        coord.currentPageId = "test-page"
+        coord.lastSyncedText = body
+        coord.lastTheme = .light
+
+        // Load initial content (minimal setup — skips reparse, not needed for AI tests)
+        coord.isFlushingTokens = true
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: body)
+        ts.endEditing()
+        tv.didChangeText()
+        coord.isFlushingTokens = false
+
+        // Wire real AI callbacks
+        coord.wireNoteChatCallbacks()
+
+        return (coord, tv, chat, { text })
     }
 
-    // MARK: - Token Append
+    // MARK: - Stream Start
 
-    @Test("Token append — streaming tokens produce same string in both stacks")
-    func tokenAppend() {
-        let tokens = ["Here ", "is ", "the ", "AI ", "response."]
-        let fullText = initialBody + divider + tokens.joined()
-
-        let tk1 = tk1Storage(with: initialBody + divider)
-        for token in tokens {
-            tk1.beginEditing()
-            tk1.replaceCharacters(
-                in: NSRange(location: tk1.length, length: 0),
-                with: token
-            )
-            tk1.endEditing()
-        }
-
-        let tk2 = tk2View(with: initialBody + divider)
-        for token in tokens {
-            guard let ts = tk2.textStorage else { continue }
-            ts.replaceCharacters(
-                in: NSRange(location: ts.length, length: 0),
-                with: token
-            )
-        }
-
-        #expect(tk1.string == fullText)
-        #expect(tk2.string == fullText)
-        #expect(tk1.string == tk2.string)
+    @Test("Stream start — inserts AI divider at end of document")
+    func streamStartInsertsDivider() {
+        let (_, tv, chat, _) = Self.makeCoordinator2Stack()
+        chat.onStreamStart?("test query")
+        let expected = "Hello world.\n\n<!-- ai-response -->\n\n"
+        #expect(tv.string == expected)
     }
 
-    // MARK: - Accept (replace divider with newlines)
+    // MARK: - Token Flush
 
-    @Test("Accept — replacing divider with double newline produces same text")
-    func acceptOperation() {
-        let streamed = initialBody + divider + "AI response text."
-        let expected = initialBody + "\n\n" + "AI response text."
-
-        let tk1 = tk1Storage(with: streamed)
-        let tk1DividerRange = (tk1.string as NSString).range(of: divider)
-        #expect(tk1DividerRange.location != NSNotFound)
-        tk1.beginEditing()
-        tk1.replaceCharacters(in: tk1DividerRange, with: "\n\n")
-        tk1.endEditing()
-
-        let tk2 = tk2View(with: streamed)
-        let tk2DividerRange = (tk2.string as NSString).range(of: divider)
-        #expect(tk2DividerRange.location != NSNotFound)
-        tk2.textStorage?.replaceCharacters(in: tk2DividerRange, with: "\n\n")
-
-        #expect(tk1.string == expected)
-        #expect(tk2.string == expected)
-        #expect(tk1.string == tk2.string)
+    @Test("Token flush — appends tokens after divider")
+    func tokenFlushAppends() {
+        let (_, tv, chat, _) = Self.makeCoordinator2Stack()
+        chat.onStreamStart?("q")
+        chat.onTokenFlush?("Hello ")
+        chat.onTokenFlush?("world.")
+        #expect(tv.string.hasSuffix("Hello world."))
+        #expect(tv.string.contains("<!-- ai-response -->"))
     }
 
-    // MARK: - Discard (delete from divider to end)
+    // MARK: - Accept
 
-    @Test("Discard — deleting from divider to end produces same text")
-    func discardOperation() {
-        let streamed = initialBody + divider + "AI response text."
+    @Test("Accept — strips divider, keeps response, updates binding")
+    func acceptStripsDividerUpdatesBinding() {
+        let (_, tv, chat, getText) = Self.makeCoordinator2Stack()
+        chat.onStreamStart?("q")
+        chat.onTokenFlush?("AI response.")
+        chat.onAccept?()
 
-        let tk1 = tk1Storage(with: streamed)
-        let tk1DividerLoc = (tk1.string as NSString).range(of: divider).location
-        #expect(tk1DividerLoc != NSNotFound)
-        let tk1DeleteRange = NSRange(location: tk1DividerLoc, length: tk1.length - tk1DividerLoc)
-        tk1.beginEditing()
-        tk1.replaceCharacters(in: tk1DeleteRange, with: "")
-        tk1.endEditing()
-
-        let tk2 = tk2View(with: streamed)
-        let tk2DividerLoc = (tk2.string as NSString).range(of: divider).location
-        #expect(tk2DividerLoc != NSNotFound)
-        let tk2Len = (tk2.string as NSString).length
-        let tk2DeleteRange = NSRange(location: tk2DividerLoc, length: tk2Len - tk2DividerLoc)
-        tk2.textStorage?.replaceCharacters(in: tk2DeleteRange, with: "")
-
-        #expect(tk1.string == initialBody)
-        #expect(tk2.string == initialBody)
-        #expect(tk1.string == tk2.string)
+        #expect(!tv.string.contains("<!-- ai-response -->"))
+        #expect(tv.string.contains("AI response."))
+        #expect(tv.string.hasPrefix("Hello world."))
+        #expect(getText() == tv.string)
     }
 
-    // MARK: - Divider Format
+    // MARK: - Discard
 
-    @Test("AI divider — offset shifts identically in both stacks after pre-divider insert")
-    func dividerOffsetAfterInsert() {
-        let doc = initialBody + divider + "AI response."
-        let tk1 = tk1Storage(with: doc)
-        let tk2 = tk2View(with: doc)
+    @Test("Discard — removes everything from divider onward")
+    func discardRemovesFromDivider() {
+        let (_, tv, chat, getText) = Self.makeCoordinator2Stack()
+        chat.onStreamStart?("q")
+        chat.onTokenFlush?("Unwanted response.")
+        chat.onDiscard?()
 
-        // Insert text BEFORE the divider in both stacks
+        #expect(tv.string == "Hello world.")
+        #expect(getText() == "Hello world.")
+    }
+
+    // MARK: - isFlushingTokens Flag
+
+    @Test("isFlushingTokens — clears after each AI operation")
+    func isFlushingTokensClearsAfterEachOp() {
+        let (coord, _, chat, _) = Self.makeCoordinator2Stack()
+        #expect(!coord.isFlushingTokens)
+
+        chat.onStreamStart?("q")
+        #expect(!coord.isFlushingTokens)
+
+        chat.onTokenFlush?("tok")
+        #expect(!coord.isFlushingTokens)
+
+        chat.onAccept?()
+        #expect(!coord.isFlushingTokens)
+    }
+
+    // MARK: - Divider Offset Shift
+
+    @Test("Divider offset — shifts after pre-divider insertion")
+    func dividerOffsetShiftsAfterPreInsert() {
+        let (coord, tv, chat, _) = Self.makeCoordinator2Stack()
+        chat.onStreamStart?("q")
+        chat.onTokenFlush?("AI response.")
+
+        let originalLoc = (tv.string as NSString).range(of: "<!-- ai-response -->").location
+        #expect(originalLoc != NSNotFound)
+
         let insertion = "Extra paragraph.\n\n"
-        let insertRange = NSRange(location: 0, length: 0)
-        tk1.beginEditing()
-        tk1.replaceCharacters(in: insertRange, with: insertion)
-        tk1.endEditing()
-        tk2.textStorage?.replaceCharacters(in: insertRange, with: insertion)
+        coord.isFlushingTokens = true
+        tv.textStorage?.replaceCharacters(
+            in: NSRange(location: 0, length: 0),
+            with: insertion
+        )
+        tv.didChangeText()
+        coord.isFlushingTokens = false
 
-        // After insertion, divider should have shifted by insertion length in both
-        let tk1Loc = (tk1.string as NSString).range(of: "<!-- ai-response -->").location
-        let tk2Loc = (tk2.string as NSString).range(of: "<!-- ai-response -->").location
-        #expect(tk1Loc != NSNotFound)
-        #expect(tk2Loc != NSNotFound)
-        #expect(tk1Loc == tk2Loc)
-        // Verify the shift actually happened (not at original position)
-        let originalLoc = (doc as NSString).range(of: "<!-- ai-response -->").location
-        #expect(tk1Loc == originalLoc + insertion.utf16.count)
+        let newLoc = (tv.string as NSString).range(of: "<!-- ai-response -->").location
+        #expect(newLoc != NSNotFound)
+        #expect(newLoc == originalLoc + (insertion as NSString).length)
     }
 }
 
