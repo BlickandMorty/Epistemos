@@ -400,6 +400,7 @@ pub fn parse_structure(text: &str) -> Vec<StructureSpan> {
     let mut in_code_block = false;
     let mut code_block_lang: u8 = 0;
     let mut in_html_comment = false;
+    let mut active_callout_type: u8 = 0;
 
     for line in &lines {
         let trimmed = line.trim_start();
@@ -494,16 +495,24 @@ pub fn parse_structure(text: &str) -> Vec<StructureSpan> {
             continue;
         }
 
-        // Blockquote
+        // Blockquote (plain or callout)
         if trimmed.starts_with('>') {
             let depth = count_blockquote_depth(trimmed);
+            let callout = detect_callout_type(trimmed);
+            if callout > 0 {
+                active_callout_type = callout;
+            }
+            let metadata = (depth as u16) | ((active_callout_type as u16) << 8);
             spans.push(StructureSpan {
                 para_type: ParaType::BlockQuote as u8,
                 _pad: 0,
-                metadata: depth as u16,
+                metadata,
             });
             continue;
         }
+
+        // Reset callout tracking on any non-blockquote line
+        active_callout_type = 0;
 
         // Table (line starting with |)
         if trimmed.starts_with('|') {
@@ -596,6 +605,30 @@ fn count_blockquote_depth(trimmed: &str) -> u8 {
         }
     }
     depth
+}
+
+/// Detect callout type from a blockquote line: `> [!type]` or `> [!type] Title`.
+/// Returns 0 for plain blockquote, 1-9 for callout types.
+fn detect_callout_type(trimmed: &str) -> u8 {
+    let inner = trimmed.trim_start_matches(|c: char| c == '>' || c == ' ');
+    if !inner.starts_with("[!") { return 0; }
+    let after = &inner[2..];
+    let end = match after.find(']') {
+        Some(i) => i,
+        None => return 0,
+    };
+    match after[..end].trim() {
+        "note" | "info" => 1,
+        "tip" | "hint" | "important" => 2,
+        "warning" | "caution" | "attention" => 3,
+        "success" | "check" | "done" => 4,
+        "question" | "help" | "faq" => 5,
+        "quote" | "cite" => 6,
+        "danger" | "error" | "bug" | "fail" | "failure" => 7,
+        "example" => 8,
+        "abstract" | "summary" | "tldr" => 9,
+        _ => 1, // unknown callout defaults to "note"
+    }
 }
 
 fn detect_task_list(trimmed: &str, indent: usize) -> Option<(u8, u8)> {
@@ -1369,6 +1402,41 @@ mod tests {
         assert_eq!(count, 2); // Capped at buffer size
         assert_eq!(buffer[0].para_type, ParaType::Heading as u8);
         assert_eq!(buffer[1].para_type, ParaType::Heading as u8);
+    }
+
+    // ── Callout Detection Tests ──────────────────────────────────────────
+
+    #[test]
+    fn structure_callout_note() {
+        let spans = structure("> [!note] Important\n> Body line\n> More body");
+        assert_eq!(spans.len(), 3);
+        assert_eq!(spans[0].para_type, ParaType::BlockQuote as u8);
+        assert_eq!(spans[0].metadata & 0xFF, 1); // depth
+        assert_eq!((spans[0].metadata >> 8) & 0xFF, 1); // callout type: note
+        assert_eq!((spans[1].metadata >> 8) & 0xFF, 1); // continuation inherits
+        assert_eq!((spans[2].metadata >> 8) & 0xFF, 1);
+    }
+
+    #[test]
+    fn structure_callout_warning() {
+        let spans = structure("> [!warning]\n> Be careful");
+        assert_eq!(spans[0].para_type, ParaType::BlockQuote as u8);
+        assert_eq!((spans[0].metadata >> 8) & 0xFF, 3); // warning
+    }
+
+    #[test]
+    fn structure_callout_plain_blockquote() {
+        let spans = structure("> Just a quote\n> Second line");
+        assert_eq!(spans[0].para_type, ParaType::BlockQuote as u8);
+        assert_eq!((spans[0].metadata >> 8) & 0xFF, 0); // no callout type
+    }
+
+    #[test]
+    fn structure_callout_danger() {
+        let spans = structure("> [!danger] Watch out\n> Details here\nPlain text");
+        assert_eq!((spans[0].metadata >> 8) & 0xFF, 7); // danger
+        assert_eq!((spans[1].metadata >> 8) & 0xFF, 7); // continuation inherits
+        assert_eq!(spans[2].para_type, ParaType::Body as u8); // non-quote resets
     }
 
     // ── CodeToken / TokenType / language_id tests ─────────────────────────
