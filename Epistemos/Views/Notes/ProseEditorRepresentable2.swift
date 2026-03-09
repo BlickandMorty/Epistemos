@@ -73,6 +73,34 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         // Wire AI chat callbacks
         coord.wireNoteChatCallbacks()
 
+        // Wire page ID + interaction closures
+        tv.pageId = pageId
+        tv.onFoldToggle = { [weak coord] offset in
+            coord?.toggleFold(headingOffset: offset)
+        }
+        tv.onOpenInGraph = { pid in
+            HologramController.shared.revealPage(pid)
+        }
+
+        // Scroll-to-offset observer for TOC section navigator.
+        coord.scrollToOffsetObserver = NotificationCenter.default.addObserver(
+            forName: ProseTextView2.scrollToOffsetNotification,
+            object: nil,
+            queue: .main
+        ) { [weak tv, weak coord] notification in
+            guard let offset = notification.userInfo?["charOffset"] as? Int,
+                  let pid = notification.userInfo?["pageId"] as? String,
+                  pid == coord?.currentPageId,
+                  let tv else { return }
+            MainActor.assumeIsolated {
+                let safeOffset = min(offset, (tv.string as NSString).length)
+                tv.scrollToCharacterOffset(safeOffset)
+                let range = NSRange(location: safeOffset, length: 0)
+                let lineRange = (tv.string as NSString).lineRange(for: range)
+                tv.showFindIndicator(for: lineRange)
+            }
+        }
+
         // Focus
         if isFocused {
             DispatchQueue.main.async {
@@ -128,6 +156,9 @@ extension ProseEditorRepresentable2 {
 
         // Data detection
         private var dataDetectionTask: Task<Void, Never>?
+
+        // Scroll-to-offset observer for TOC section navigator.
+        var scrollToOffsetObserver: (any NSObjectProtocol)?
 
         // Per-page state
         struct PageState {
@@ -243,6 +274,7 @@ extension ProseEditorRepresentable2 {
             tv.didChangeText()
             isFlushingTokens = false
             lastSyncedText = newBody
+            tv.pageId = newPageId
 
             // 6. Restore state for new page
             if let state = pageStates[newPageId] {
@@ -428,6 +460,10 @@ extension ProseEditorRepresentable2 {
             directSaveTask?.cancel()
             tableAlignTask?.cancel()
             dataDetectionTask?.cancel()
+            if let obs = scrollToOffsetObserver {
+                NotificationCenter.default.removeObserver(obs)
+                scrollToOffsetObserver = nil
+            }
             saveCurrentPageState()
             // Persist to disk
             if !currentPageId.isEmpty {
