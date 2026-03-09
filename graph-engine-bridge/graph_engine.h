@@ -432,6 +432,29 @@ uint32_t markdown_parse_structure(
     uint32_t max_spans
 );
 
+/// Code token — 12 bytes. One per syntax-highlighted span in a code block.
+typedef struct {
+    uint32_t start;
+    uint32_t end;
+    uint8_t  token_type;
+    uint8_t  _pad[3];
+} CodeToken;
+
+/// Tokenize a code block for syntax highlighting.
+/// @param code        UTF-8 code string (not null-terminated required — length given).
+/// @param code_len    Length of code in bytes.
+/// @param language    Null-terminated language identifier (e.g. "swift", "rust").
+/// @param out_tokens  Pre-allocated buffer for output tokens.
+/// @param max_tokens  Capacity of the output buffer.
+/// @return Number of tokens written. 0 on null/invalid input.
+uint32_t markdown_parse_code_tokens(
+    const char* code,
+    uint32_t code_len,
+    const char* language,
+    CodeToken* out_tokens,
+    uint32_t max_tokens
+);
+
 // ── Block Transaction Kernel (BTK) ───────────────────────────────────────────
 
 /// Block FFI struct for loading existing blocks from SwiftData

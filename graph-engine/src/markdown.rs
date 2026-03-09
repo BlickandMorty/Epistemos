@@ -753,6 +753,59 @@ pub unsafe extern "C" fn markdown_free_spans(spans: *mut StyleSpan, count: u32) 
     }
 }
 
+// ── Code Tokenization (FFI contract for Swift code block rendering) ──────
+
+/// Token classification for syntax-highlighted code spans.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TokenType {
+    Keyword = 0,
+    String = 1,
+    Number = 2,
+    Comment = 3,
+    Function = 4,
+    Type = 5,
+    Operator = 6,
+    Punctuation = 7,
+    Variable = 8,
+    Property = 9,
+    Constant = 10,
+    Tag = 11,
+    Attribute = 12,
+    Plain = 255,
+}
+
+/// A single code token span — 12 bytes, C-compatible.
+/// Array of these is passed across FFI to Swift for code block rendering.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct CodeToken {
+    pub start: u32,
+    pub end: u32,
+    pub token_type: u8,
+    pub _pad: [u8; 3],
+}
+
+/// Map a language name (from fenced code block info string) to a compact ID.
+/// Case-insensitive. Returns 0 for unknown languages.
+pub fn language_id_from_str(lang: &str) -> u8 {
+    match lang.to_ascii_lowercase().as_str() {
+        "swift" => 1,
+        "rust" | "rs" => 2,
+        "python" | "py" => 3,
+        "javascript" | "js" | "jsx" => 4,
+        "typescript" | "ts" | "tsx" => 5,
+        "json" => 6,
+        "html" | "htm" => 7,
+        "css" | "scss" | "less" => 8,
+        "bash" | "sh" | "shell" | "zsh" => 9,
+        "go" | "golang" => 10,
+        "c" | "h" => 11,
+        "cpp" | "c++" | "cc" | "cxx" | "hpp" => 12,
+        _ => 0,
+    }
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1155,5 +1208,62 @@ mod tests {
         assert_eq!(count, 2); // Capped at buffer size
         assert_eq!(buffer[0].para_type, ParaType::Heading as u8);
         assert_eq!(buffer[1].para_type, ParaType::Heading as u8);
+    }
+
+    // ── CodeToken / TokenType / language_id tests ─────────────────────────
+
+    #[test]
+    fn code_token_struct_size() {
+        assert_eq!(std::mem::size_of::<CodeToken>(), 12);
+        assert_eq!(std::mem::align_of::<CodeToken>(), 4); // u32 alignment
+    }
+
+    #[test]
+    fn language_id_round_trip() {
+        // Exact matches
+        assert_eq!(language_id_from_str("swift"), 1);
+        assert_eq!(language_id_from_str("rust"), 2);
+        assert_eq!(language_id_from_str("rs"), 2);
+        assert_eq!(language_id_from_str("python"), 3);
+        assert_eq!(language_id_from_str("py"), 3);
+        assert_eq!(language_id_from_str("javascript"), 4);
+        assert_eq!(language_id_from_str("js"), 4);
+        assert_eq!(language_id_from_str("jsx"), 4);
+        assert_eq!(language_id_from_str("typescript"), 5);
+        assert_eq!(language_id_from_str("ts"), 5);
+        assert_eq!(language_id_from_str("tsx"), 5);
+        assert_eq!(language_id_from_str("json"), 6);
+        assert_eq!(language_id_from_str("html"), 7);
+        assert_eq!(language_id_from_str("htm"), 7);
+        assert_eq!(language_id_from_str("css"), 8);
+        assert_eq!(language_id_from_str("scss"), 8);
+        assert_eq!(language_id_from_str("less"), 8);
+        assert_eq!(language_id_from_str("bash"), 9);
+        assert_eq!(language_id_from_str("sh"), 9);
+        assert_eq!(language_id_from_str("shell"), 9);
+        assert_eq!(language_id_from_str("zsh"), 9);
+        assert_eq!(language_id_from_str("go"), 10);
+        assert_eq!(language_id_from_str("golang"), 10);
+        assert_eq!(language_id_from_str("c"), 11);
+        assert_eq!(language_id_from_str("h"), 11);
+        assert_eq!(language_id_from_str("cpp"), 12);
+        assert_eq!(language_id_from_str("c++"), 12);
+        assert_eq!(language_id_from_str("cc"), 12);
+        assert_eq!(language_id_from_str("cxx"), 12);
+        assert_eq!(language_id_from_str("hpp"), 12);
+
+        // Case insensitive
+        assert_eq!(language_id_from_str("Swift"), 1);
+        assert_eq!(language_id_from_str("RUST"), 2);
+        assert_eq!(language_id_from_str("Python"), 3);
+        assert_eq!(language_id_from_str("JavaScript"), 4);
+        assert_eq!(language_id_from_str("TypeScript"), 5);
+        assert_eq!(language_id_from_str("JSON"), 6);
+        assert_eq!(language_id_from_str("HTML"), 7);
+
+        // Unknown
+        assert_eq!(language_id_from_str(""), 0);
+        assert_eq!(language_id_from_str("brainfuck"), 0);
+        assert_eq!(language_id_from_str("unknown"), 0);
     }
 }
