@@ -238,17 +238,27 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 .paragraphStyle: codeParagraph,
             ], range: range)
 
-        case 5: // BlockQuote
+        case 5: // BlockQuote (plain or callout)
+            let calloutTypeId = UInt8((metadata >> 8) & 0xFF)
             let quoteParagraph = NSMutableParagraphStyle()
             quoteParagraph.lineSpacing = 4
             quoteParagraph.headIndent = 20
             quoteParagraph.firstLineHeadIndent = 20
             quoteParagraph.paragraphSpacing = 4
-            attrStr.addAttributes([
-                .font: bodyFont,
-                .foregroundColor: foreground.withAlphaComponent(0.8),
-                .paragraphStyle: quoteParagraph,
-            ], range: range)
+
+            if let callout = theme.calloutColors(typeId: calloutTypeId) {
+                attrStr.addAttributes([
+                    .font: bodyFont,
+                    .foregroundColor: theme.isDark ? callout.accent.withAlphaComponent(0.9) : callout.accent,
+                    .paragraphStyle: quoteParagraph,
+                ], range: range)
+            } else {
+                attrStr.addAttributes([
+                    .font: bodyFont,
+                    .foregroundColor: foreground.withAlphaComponent(0.8),
+                    .paragraphStyle: quoteParagraph,
+                ], range: range)
+            }
 
         case 2, 3: // OrderedList, UnorderedList
             let depth = (metadata >> 8) & 0xFF

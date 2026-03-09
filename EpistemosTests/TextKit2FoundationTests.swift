@@ -1765,6 +1765,53 @@ struct CalloutColorTests {
     }
 }
 
+// MARK: - Phase 7: Callout Blockquote Styling
+
+@Suite("TextKit 2 - Callout Styling")
+struct CalloutStylingTests {
+
+    @Test("callout blockquote gets accent foreground color")
+    func calloutBlockquoteStyling() {
+        let storage = MarkdownContentStorage()
+        // Metadata: low byte = 1 (depth), high byte = 1 (note callout)
+        let metadata: UInt16 = (1 << 8) | 1
+        let attrStr = NSMutableAttributedString(string: "> [!note] Important info")
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 5, metadata: metadata)
+
+        let fg = attrStr.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(fg != nil)
+        let srgb = fg!.usingColorSpace(.sRGB)!
+        #expect(srgb.blueComponent > 0.5, "Callout note should have blue-tinted text")
+    }
+
+    @Test("plain blockquote retains original muted styling")
+    func plainBlockquoteStyling() {
+        let storage = MarkdownContentStorage()
+        let attrStr = NSMutableAttributedString(string: "> Just a quote")
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 5, metadata: 1)
+
+        let fg = attrStr.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(fg != nil)
+        #expect(fg!.alphaComponent < 1.0, "Plain blockquote should have muted foreground")
+    }
+
+    @Test("warning callout gets warm foreground")
+    func warningCalloutStyling() {
+        let storage = MarkdownContentStorage()
+        let metadata: UInt16 = (3 << 8) | 1 // warning type
+        let attrStr = NSMutableAttributedString(string: "> [!warning] Watch out")
+        let range = NSRange(location: 0, length: attrStr.length)
+        storage.applyStructuralStyleForTest(to: attrStr, range: range, paraType: 5, metadata: metadata)
+
+        let fg = attrStr.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
+        #expect(fg != nil)
+        let srgb = fg!.usingColorSpace(.sRGB)!
+        #expect(srgb.redComponent > 0.7, "Warning callout should have warm/red tint")
+    }
+}
+
 // MARK: - Phase 7: Display Math FFI Test
 
 @Suite("TextKit 2 - Display Math FFI")
