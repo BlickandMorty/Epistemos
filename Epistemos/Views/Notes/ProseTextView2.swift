@@ -233,6 +233,7 @@ final class ProseTextView2: NSTextView {
 
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
+        drawCalloutBackgrounds(in: rect)
         drawTableFills(in: rect)
         drawTableGridLines(in: rect)
         drawFoldIndicators(in: rect)
@@ -301,6 +302,49 @@ final class ProseTextView2: NSTextView {
             if fragFrame.maxY < dirtyRect.minY { return true }
 
             return block(fragment, fragFrame)
+        }
+    }
+
+    private func drawCalloutBackgrounds(in dirtyRect: NSRect) {
+        guard let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage else { return }
+        guard (string as NSString).length > 0 else { return }
+
+        enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
+            guard let (_, nsRange) = self.paragraphInfo(
+                for: fragment, contentStorage: contentStorage
+            ) else { return true }
+
+            let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
+            guard self.markdownDelegate.paragraphType(at: lineIdx) == 5 else { return true }
+
+            guard let metadata = self.markdownDelegate.paragraphMetadata(at: lineIdx) else { return true }
+            let calloutTypeId = UInt8((metadata >> 8) & 0xFF)
+            guard let callout = self.markdownDelegate.theme.calloutColors(typeId: calloutTypeId) else {
+                return true
+            }
+
+            // Background fill
+            let bgRect = NSRect(
+                x: fragFrame.minX + 16,
+                y: fragFrame.minY,
+                width: fragFrame.width - 16,
+                height: fragFrame.height
+            )
+            callout.background.setFill()
+            bgRect.fill()
+
+            // Left accent border (3pt wide)
+            let borderRect = NSRect(
+                x: fragFrame.minX + 16,
+                y: fragFrame.minY,
+                width: 3,
+                height: fragFrame.height
+            )
+            callout.accent.setFill()
+            borderRect.fill()
+
+            return true
         }
     }
 
