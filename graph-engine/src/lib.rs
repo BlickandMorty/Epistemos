@@ -9,6 +9,7 @@ pub mod spatial;
 pub mod renderer;
 pub mod engine;
 pub mod markdown;
+pub mod code_highlight;
 pub mod cluster;
 pub mod cluster_cache;
 pub mod search;
