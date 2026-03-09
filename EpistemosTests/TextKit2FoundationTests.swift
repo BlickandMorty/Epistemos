@@ -1644,3 +1644,94 @@ struct TextKit2NestedTaskStrikethroughTests {
         #expect(strike == NSUnderlineStyle.single.rawValue)
     }
 }
+
+// MARK: - Non-Destructive Folding
+
+@Suite("TextKit 2 - Non-Destructive Folding")
+struct NonDestructiveFoldingTests {
+
+    @Test("isLineInFoldedRange returns false for heading, true for body and sub-headings")
+    func foldedRangeBasic() {
+        let delegate = MarkdownContentStorage()
+        // H1 fold hides everything until next H1 (standard org-mode)
+        let text = "# Title\nBody 1\nBody 2\n## Section\n# Next"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        defer { markdown_clear_all_folds() }
+
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false) // heading visible
+        #expect(delegate.isLineInFoldedRange(1) == true)  // body 1 hidden
+        #expect(delegate.isLineInFoldedRange(2) == true)  // body 2 hidden
+        #expect(delegate.isLineInFoldedRange(3) == true)  // H2 sub-heading hidden
+        #expect(delegate.isLineInFoldedRange(4) == false) // next H1 visible
+    }
+
+    @Test("clearAllFolds empties hiddenLines")
+    func clearAllFoldsResetsHidden() {
+        let delegate = MarkdownContentStorage()
+        let text = "# Title\nBody\n## Other"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        delegate.recomputeHiddenLines(documentText: text)
+        #expect(!delegate.hiddenLines.isEmpty)
+
+        markdown_clear_all_folds()
+        delegate.recomputeHiddenLines(documentText: text)
+        #expect(delegate.hiddenLines.isEmpty)
+    }
+
+    @Test("nested headings fold correctly — H1 hides H2 sub-content")
+    func nestedHeadingFold() {
+        let delegate = MarkdownContentStorage()
+        let text = "# H1\nPara\n## H2\nSub-para\n# H1b"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        defer { markdown_clear_all_folds() }
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false) // H1 visible
+        #expect(delegate.isLineInFoldedRange(1) == true)  // Para hidden
+        #expect(delegate.isLineInFoldedRange(2) == true)  // H2 hidden
+        #expect(delegate.isLineInFoldedRange(3) == true)  // Sub-para hidden
+        #expect(delegate.isLineInFoldedRange(4) == false) // H1b visible
+    }
+
+    @Test("folding last heading hides to end of document")
+    func foldToEnd() {
+        let delegate = MarkdownContentStorage()
+        let text = "# Only\nTrailing content\nMore trailing"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        defer { markdown_clear_all_folds() }
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false)
+        #expect(delegate.isLineInFoldedRange(1) == true)
+        #expect(delegate.isLineInFoldedRange(2) == true)
+    }
+
+    @Test("multiple independent folds")
+    func multipleFolds() {
+        let delegate = MarkdownContentStorage()
+        let text = "# A\nA body\n# B\nB body\n# C\nC body"
+        delegate.reparse(text: text)
+
+        markdown_set_fold(0, true)
+        markdown_set_fold(2, true)
+        defer { markdown_clear_all_folds() }
+        delegate.recomputeHiddenLines(documentText: text)
+
+        #expect(delegate.isLineInFoldedRange(0) == false)
+        #expect(delegate.isLineInFoldedRange(1) == true)  // A body
+        #expect(delegate.isLineInFoldedRange(2) == false)
+        #expect(delegate.isLineInFoldedRange(3) == true)  // B body
+        #expect(delegate.isLineInFoldedRange(4) == false)
+        #expect(delegate.isLineInFoldedRange(5) == false) // C body not folded
+    }
+}

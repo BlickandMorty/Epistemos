@@ -133,6 +133,48 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     var coral: Color   { Color(hex: 0xC75E5E) }   // Conflict, error (same as destructive)
     var indigo: Color  { Color(hex: 0x8B7CF6) }   // Research accent, library stats
 
+    // MARK: - Code Token Colors (syntax highlighting)
+
+    var codeKeyword: Color { accent }
+    var codeString: Color { emerald }
+    var codeNumber: Color { amber }
+    var codeComment: Color { mutedForeground }
+    var codeFunction: Color { violet }
+    var codeType: Color {
+        switch self {
+        case .light:  Color(hex: 0x2B8A8A)
+        case .sunny:  Color(hex: 0x287878)
+        case .tan:    Color(hex: 0x3A8888)
+        case .sunset: Color(hex: 0x5EC4C4)
+        case .oled:   Color(hex: 0x56B6B6)
+        case .ember:  Color(hex: 0x5AACAC)
+        }
+    }
+    var codeProperty: Color { fontAccent }
+    var codeConstant: Color { amber }
+    var codeTag: Color { accent }
+    var codeAttribute: Color { emerald }
+
+    /// Map a CodeToken token_type (UInt8) to an NSColor for syntax highlighting.
+    func nsColorForTokenType(_ tokenType: UInt8) -> NSColor {
+        switch tokenType {
+        case 0:   return NSColor(codeKeyword)    // keyword
+        case 1:   return NSColor(codeString)     // string
+        case 2:   return NSColor(codeNumber)     // number
+        case 3:   return NSColor(codeComment)    // comment
+        case 4:   return NSColor(codeFunction)   // function
+        case 5:   return NSColor(codeType)       // type
+        case 6:   return NSColor(foreground).withAlphaComponent(0.6) // operator
+        case 7:   return NSColor(foreground).withAlphaComponent(0.5) // punctuation
+        case 8:   return NSColor(foreground)     // variable
+        case 9:   return NSColor(codeProperty)   // property
+        case 10:  return NSColor(codeConstant)   // constant
+        case 11:  return NSColor(codeTag)        // tag
+        case 12:  return NSColor(codeAttribute)  // attribute
+        default:  return NSColor(foreground)     // plain
+        }
+    }
+
     // MARK: - Glass Tokens
 
     var glassBg: Color {

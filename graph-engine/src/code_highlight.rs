@@ -20,8 +20,9 @@ type FxBuildHasher = BuildHasherDefault<FxHasher>;
 static TREE_CACHE: Mutex<Option<HashMap<u64, tree_sitter::Tree, FxBuildHasher>>> =
     Mutex::new(None);
 
-fn hash_code(code: &str) -> u64 {
+fn cache_key(lang: &str, code: &str) -> u64 {
     let mut h = FxHasher::default();
+    lang.hash(&mut h);
     code.hash(&mut h);
     h.finish()
 }
@@ -306,7 +307,7 @@ pub fn tokenize(lang: &str, code: &str) -> Vec<CodeToken> {
     };
 
     let ts_lang: tree_sitter::Language = lang_fn.into();
-    let code_hash = hash_code(code);
+    let code_hash = cache_key(lang, code);
 
     // Try cache first
     let tree = if let Some(cached) = cache_get(code_hash) {
@@ -553,5 +554,25 @@ mod tests {
             assert_eq!(a.end, b.end);
             assert_eq!(a.token_type, b.token_type);
         }
+    }
+
+    #[test]
+    fn cache_key_includes_language() {
+        // Same code text, different languages — must not reuse cached tree.
+        // "let x = 1" is valid in both Swift and JavaScript but tree-sitter
+        // parses them with different grammars producing different ASTs.
+        let code = "let x = 1";
+        let swift_tokens = tokenize("swift", code);
+        let js_tokens = tokenize("javascript", code);
+        // Both should produce tokens (neither should be empty from wrong-grammar cache hit)
+        assert!(!swift_tokens.is_empty(), "Swift should produce tokens");
+        assert!(!js_tokens.is_empty(), "JavaScript should produce tokens");
+        // The token counts or types may differ because the grammars differ.
+        // At minimum, both must independently parse (no cross-contamination).
+        // Verify by checking that a second call to each still works correctly.
+        let swift_tokens_2 = tokenize("swift", code);
+        let js_tokens_2 = tokenize("javascript", code);
+        assert_eq!(swift_tokens.len(), swift_tokens_2.len());
+        assert_eq!(js_tokens.len(), js_tokens_2.len());
     }
 }

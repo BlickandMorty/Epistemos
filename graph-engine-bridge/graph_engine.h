@@ -2,6 +2,7 @@
 #define GRAPH_ENGINE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -453,6 +454,30 @@ uint32_t markdown_parse_code_tokens(
     const char* language,
     CodeToken* out_tokens,
     uint32_t max_tokens
+);
+
+// ── Non-Destructive Fold State ───────────────────────────────────────────────
+
+/// Set fold state for a heading line. folded=true to fold, false to unfold.
+void markdown_set_fold(uint32_t line_index, bool folded);
+
+/// Query whether a heading line is folded.
+bool markdown_is_folded(uint32_t line_index);
+
+/// Clear all fold state.
+void markdown_clear_all_folds(void);
+
+/// Get the line range that would be hidden when folding a heading.
+/// @param text         Null-terminated UTF-8 markdown text.
+/// @param heading_line Line index of the heading.
+/// @param out_start    Output: first hidden line (inclusive).
+/// @param out_end      Output: last hidden line (exclusive).
+/// @return true if heading_line is a heading, false otherwise.
+bool markdown_fold_range(
+    const char* text,
+    uint32_t heading_line,
+    uint32_t* out_start,
+    uint32_t* out_end
 );
 
 // ── Block Transaction Kernel (BTK) ───────────────────────────────────────────

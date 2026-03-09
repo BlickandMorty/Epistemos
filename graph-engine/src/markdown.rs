@@ -810,6 +810,163 @@ pub fn language_id_from_str(lang: &str) -> u8 {
     }
 }
 
+/// Parse a fenced code block and write syntax tokens into a caller-owned buffer.
+/// Returns the number of tokens written. 0 on unsupported language, null input, or error.
+///
+/// # Safety
+/// - `code` must point to valid UTF-8 of `code_len` bytes (NOT null-terminated).
+/// - `language` must be a valid null-terminated C string, or null.
+/// - `out_tokens` must point to a buffer of at least `max_tokens` CodeToken elements.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn markdown_parse_code_tokens(
+    code: *const c_char,
+    code_len: u32,
+    language: *const c_char,
+    out_tokens: *mut CodeToken,
+    max_tokens: u32,
+) -> u32 {
+    if code.is_null() || out_tokens.is_null() || max_tokens == 0 || code_len == 0 {
+        return 0;
+    }
+
+    // SAFETY: language is a valid null-terminated C string per FFI contract, or null.
+    let lang_str = if language.is_null() {
+        return 0;
+    } else {
+        match unsafe { CStr::from_ptr(language) }.to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    // SAFETY: code points to valid UTF-8 of code_len bytes per FFI contract.
+    let code_slice = unsafe { std::slice::from_raw_parts(code as *const u8, code_len as usize) };
+    let code_str = match std::str::from_utf8(code_slice) {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+
+    let tokens = crate::code_highlight::tokenize(lang_str, code_str);
+    let count = tokens.len().min(max_tokens as usize);
+
+    // SAFETY: out_tokens buffer has capacity for at least max_tokens elements.
+    unsafe {
+        std::ptr::copy_nonoverlapping(tokens.as_ptr(), out_tokens, count);
+    }
+
+    count as u32
+}
+
+// ── Non-Destructive Fold State ───────────────────────────────────────────
+
+use std::collections::HashSet;
+use parking_lot::Mutex as ParkingMutex;
+
+/// Global fold state — set of folded heading line indices.
+static FOLD_STATE: std::sync::LazyLock<ParkingMutex<HashSet<u32>>> =
+    std::sync::LazyLock::new(|| ParkingMutex::new(HashSet::new()));
+
+pub fn set_fold(line_index: u32, folded: bool) {
+    let mut state = FOLD_STATE.lock();
+    if folded {
+        state.insert(line_index);
+    } else {
+        state.remove(&line_index);
+    }
+}
+
+pub fn is_folded(line_index: u32) -> bool {
+    FOLD_STATE.lock().contains(&line_index)
+}
+
+pub fn clear_all_folds() {
+    FOLD_STATE.lock().clear();
+}
+
+/// Given a heading line index and structure spans, return the range of lines
+/// that would be hidden when folding. Returns (start_inclusive, end_exclusive).
+/// Returns None if the line is not a heading.
+pub fn fold_range_for_heading(
+    heading_line: u32,
+    spans: &[StructureSpan],
+) -> Option<(u32, u32)> {
+    let idx = heading_line as usize;
+    if idx >= spans.len() || spans[idx].para_type != ParaType::Heading as u8 {
+        return None;
+    }
+    let heading_level = spans[idx].metadata & 0xFF;
+    let start = heading_line + 1;
+    let mut end = spans.len() as u32;
+
+    for i in (start as usize)..spans.len() {
+        if spans[i].para_type == ParaType::Heading as u8 {
+            let level = spans[i].metadata & 0xFF;
+            if level <= heading_level {
+                end = i as u32;
+                break;
+            }
+        }
+    }
+
+    if start >= end {
+        None
+    } else {
+        Some((start, end))
+    }
+}
+
+// ── Fold FFI ─────────────────────────────────────────────────────────────
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn markdown_set_fold(line_index: u32, folded: bool) {
+    set_fold(line_index, folded);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn markdown_is_folded(line_index: u32) -> bool {
+    is_folded(line_index)
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn markdown_clear_all_folds() {
+    clear_all_folds();
+}
+
+/// Get the fold range for a heading. Returns false if not a heading.
+/// On success, writes start and end (exclusive) line indices to out pointers.
+///
+/// # Safety
+/// `text` must be valid null-terminated UTF-8. out_start/out_end must be valid pointers.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn markdown_fold_range(
+    text: *const c_char,
+    heading_line: u32,
+    out_start: *mut u32,
+    out_end: *mut u32,
+) -> bool {
+    if text.is_null() || out_start.is_null() || out_end.is_null() {
+        return false;
+    }
+    // SAFETY: text is a valid null-terminated UTF-8 string per contract.
+    let rust_str = match unsafe { CStr::from_ptr(text) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    let spans = parse_structure(rust_str);
+    match fold_range_for_heading(heading_line, &spans) {
+        Some((start, end)) => {
+            // SAFETY: out_start/out_end are valid pointers per contract.
+            unsafe {
+                *out_start = start;
+                *out_end = end;
+            }
+            true
+        }
+        None => false,
+    }
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1299,5 +1456,204 @@ mod tests {
         let text = "```rust\nfn main() {}\n```";
         let spans = parse_structure(text);
         assert_eq!(spans[1].metadata & 0xFF, 2);
+    }
+
+    // ── FFI code token round-trip tests ─────────────────────────────────
+
+    #[test]
+    fn ffi_code_tokens_round_trip() {
+        let code = "let x = 42\n";
+        let lang = "swift\0";
+        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 256];
+
+        // SAFETY: test buffer is properly sized, code is valid UTF-8, lang is null-terminated.
+        let count = unsafe {
+            markdown_parse_code_tokens(
+                code.as_ptr() as *const c_char,
+                code.len() as u32,
+                lang.as_ptr() as *const c_char,
+                buffer.as_mut_ptr(),
+                256,
+            )
+        };
+
+        assert!(count > 0, "Expected tokens from Swift code");
+        buffer.truncate(count as usize);
+        let keyword = buffer.iter().find(|t| t.token_type == TokenType::Keyword as u8);
+        assert!(keyword.is_some(), "Expected keyword token via FFI");
+    }
+
+    #[test]
+    fn ffi_code_tokens_null_language() {
+        let code = "let x = 42\n";
+        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 256];
+
+        // SAFETY: null language should return 0 safely.
+        let count = unsafe {
+            markdown_parse_code_tokens(
+                code.as_ptr() as *const c_char,
+                code.len() as u32,
+                std::ptr::null(),
+                buffer.as_mut_ptr(),
+                256,
+            )
+        };
+
+        assert_eq!(count, 0, "Null language should return 0 tokens");
+    }
+
+    #[test]
+    fn ffi_code_tokens_null_code() {
+        let lang = "swift\0";
+        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 256];
+
+        // SAFETY: null code pointer should return 0 safely.
+        let count = unsafe {
+            markdown_parse_code_tokens(
+                std::ptr::null(),
+                0,
+                lang.as_ptr() as *const c_char,
+                buffer.as_mut_ptr(),
+                256,
+            )
+        };
+
+        assert_eq!(count, 0, "Null code should return 0 tokens");
+    }
+
+    #[test]
+    fn ffi_code_tokens_buffer_overflow_protection() {
+        let code = "fn main() { let a = 1; let b = 2; let c = 3; }";
+        let lang = "rust\0";
+        // Tiny buffer — should truncate, not overflow
+        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 2];
+
+        // SAFETY: buffer of size 2, max_tokens=2.
+        let count = unsafe {
+            markdown_parse_code_tokens(
+                code.as_ptr() as *const c_char,
+                code.len() as u32,
+                lang.as_ptr() as *const c_char,
+                buffer.as_mut_ptr(),
+                2,
+            )
+        };
+
+        assert!(count <= 2, "Should not exceed max_tokens");
+    }
+
+    // ── Fold State Tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn fold_state_set_and_query() {
+        clear_all_folds();
+        set_fold(2, true);
+        assert!(is_folded(2));
+        assert!(!is_folded(0));
+        assert!(!is_folded(5));
+        set_fold(2, false);
+        assert!(!is_folded(2));
+    }
+
+    #[test]
+    fn fold_range_for_heading_basic() {
+        // # Title (H1) → fold includes ## Section (H2 is deeper) and More text
+        // Standard behavior: fold until same-or-higher level heading
+        let text = "# Title\nBody 1\nBody 2\n## Section\nMore text";
+        let spans = parse_structure(text);
+        let (start, end) = fold_range_for_heading(0, &spans).unwrap();
+        assert_eq!(start, 1);
+        assert_eq!(end, 5); // to end of document (no peer H1 to stop at)
+    }
+
+    #[test]
+    fn fold_range_at_end_of_document() {
+        let text = "## Section\nLine 1\nLine 2";
+        let spans = parse_structure(text);
+        let (start, end) = fold_range_for_heading(0, &spans).unwrap();
+        assert_eq!(start, 1);
+        assert_eq!(end, 3); // to end of document
+    }
+
+    #[test]
+    fn fold_range_non_heading_returns_none() {
+        let text = "Just body text";
+        let spans = parse_structure(text);
+        assert!(fold_range_for_heading(0, &spans).is_none());
+    }
+
+    #[test]
+    fn fold_range_nested_headings() {
+        let text = "# H1\n## H2\nBody\n### H3\nDeep\n# Another H1";
+        let spans = parse_structure(text);
+        // Folding H1 hides everything until the next H1
+        let (s, e) = fold_range_for_heading(0, &spans).unwrap();
+        assert_eq!(s, 1);
+        assert_eq!(e, 5); // stops at "# Another H1"
+        // Folding H2 hides lines 2-4 (Body, ### H3, Deep) — H3 is deeper, included
+        let (s2, e2) = fold_range_for_heading(1, &spans).unwrap();
+        assert_eq!(s2, 2);
+        assert_eq!(e2, 5); // stops at "# Another H1" (level 1 <= 2)
+    }
+
+    #[test]
+    fn fold_range_same_level_stop() {
+        // Two H2s — folding the first should stop at the second
+        let text = "## First\nBody\n## Second\nMore";
+        let spans = parse_structure(text);
+        let (s, e) = fold_range_for_heading(0, &spans).unwrap();
+        assert_eq!(s, 1);
+        assert_eq!(e, 2); // stops at ## Second (level 2 <= 2)
+    }
+
+    #[test]
+    fn fold_range_includes_deeper_subheadings() {
+        // H1 fold includes all deeper headings
+        let text = "# First\n## Sub";
+        let spans = parse_structure(text);
+        let (s, e) = fold_range_for_heading(0, &spans).unwrap();
+        assert_eq!(s, 1);
+        assert_eq!(e, 2); // includes ## Sub (level 2 > 1, not a stop)
+    }
+
+    #[test]
+    fn fold_ffi_round_trip() {
+        // SAFETY: FFI functions with valid arguments.
+        unsafe { markdown_clear_all_folds() };
+        unsafe { markdown_set_fold(5, true) };
+        assert!(unsafe { markdown_is_folded(5) });
+        assert!(!unsafe { markdown_is_folded(0) });
+        unsafe { markdown_set_fold(5, false) };
+        assert!(!unsafe { markdown_is_folded(5) });
+    }
+
+    #[test]
+    fn fold_range_ffi_round_trip() {
+        let text = "## Title\nBody 1\nBody 2\0";
+        let mut start: u32 = 0;
+        let mut end: u32 = 0;
+        // SAFETY: text is null-terminated, pointers are valid.
+        let ok = unsafe {
+            markdown_fold_range(
+                text.as_ptr() as *const c_char,
+                0,
+                &mut start,
+                &mut end,
+            )
+        };
+        assert!(ok);
+        assert_eq!(start, 1);
+        assert_eq!(end, 3); // to end of document
+
+        // Non-heading line returns false
+        let not_ok = unsafe {
+            markdown_fold_range(
+                text.as_ptr() as *const c_char,
+                1,
+                &mut start,
+                &mut end,
+            )
+        };
+        assert!(!not_ok);
     }
 }

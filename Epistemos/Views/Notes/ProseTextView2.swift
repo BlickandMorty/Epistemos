@@ -117,10 +117,39 @@ final class ProseTextView2: NSTextView {
                 as? NSTextContentStorage else { return }
 
         markdownDelegate.reparse(text: string)
+        updateVisibleLineRange()
 
         // Invalidate the full document so delegate re-provides all paragraphs.
         let fullRange = contentStorage.documentRange
         textLayoutManager?.invalidateLayout(for: fullRange)
+    }
+
+    // MARK: - Viewport Tracking (Phase 6)
+
+    func updateVisibleLineRange() {
+        guard let tlm = textLayoutManager,
+              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+        let visibleRect = enclosingScrollView?.documentVisibleRect ?? bounds
+
+        let startPoint = CGPoint(x: 0, y: max(visibleRect.minY - textContainerOrigin.y, 0))
+        let endPoint = CGPoint(x: 0, y: visibleRect.maxY - textContainerOrigin.y)
+
+        var startLine = 0
+        var endLine = markdownDelegate.lineCount
+
+        if let startFrag = tlm.textLayoutFragment(for: startPoint) {
+            let startRange = startFrag.rangeInElement
+            let offset = contentStorage.offset(from: tlm.documentRange.location, to: startRange.location)
+            startLine = markdownDelegate.lineIndex(at: offset)
+        }
+
+        if let endFrag = tlm.textLayoutFragment(for: endPoint) {
+            let endRange = endFrag.rangeInElement
+            let offset = contentStorage.offset(from: tlm.documentRange.location, to: endRange.location)
+            endLine = markdownDelegate.lineIndex(at: offset)
+        }
+
+        markdownDelegate.visibleLineRange = startLine..<(endLine + 1)
     }
 
     // MARK: - Factory
@@ -169,10 +198,31 @@ final class ProseTextView2: NSTextView {
 
         tv.applyTheme(.light)
 
-        // Wire MarkdownContentStorage delegate to the TextKit 2 content storage.
+        // Wire MarkdownContentStorage as delegate for BOTH TextKit 2 delegate roles.
+        // NSTextContentStorage overrides the `delegate` property from NSTextContentManager,
+        // creating separate slots for NSTextContentStorageDelegate (paragraph styling) and
+        // NSTextContentManagerDelegate (shouldEnumerate for fold filtering).
         if let contentStorage = tv.textLayoutManager?.textContentManager
             as? NSTextContentStorage {
+            // 1. NSTextContentStorageDelegate — paragraph styling
             contentStorage.delegate = tv.markdownDelegate
+            // 2. NSTextContentManagerDelegate — shouldEnumerate (fold hiding)
+            //    Uses ObjC objc_msgSendSuper to call NSTextContentManager's setter,
+            //    bypassing NSTextContentStorage's override. See ContentManagerDelegateHelper.m.
+            EpistemosSetContentManagerDelegate(contentStorage, tv.markdownDelegate)
+        }
+
+        // Wire layout manager delegate for custom fragment vending (code blocks).
+        tv.textLayoutManager?.delegate = tv
+
+        // Track scroll position for viewport-gated code tokenization.
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak tv] _ in
+            tv?.updateVisibleLineRange()
         }
 
         scrollView.documentView = tv
@@ -498,8 +548,7 @@ final class ProseTextView2: NSTextView {
     private func drawFoldIndicators(in dirtyRect: NSRect) {
         guard let contentStorage = textLayoutManager?.textContentManager
                 as? NSTextContentStorage else { return }
-        let str = string as NSString
-        guard str.length > 0 else { return }
+        guard (string as NSString).length > 0 else { return }
 
         let isDark = markdownDelegate.theme.isDark
         let accent = MarkdownContentStorage.accentColor(isDark: isDark)
@@ -512,16 +561,7 @@ final class ProseTextView2: NSTextView {
             let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
             guard self.markdownDelegate.paragraphType(at: lineIdx) == 1 else { return true }
 
-            let isFolded: Bool
-            let nextLineStart = NSMaxRange(nsRange)
-            if nextLineStart < str.length {
-                let nextLineRange = str.lineRange(for: NSRange(location: nextLineStart, length: 0))
-                let nextLine = str.substring(with: nextLineRange)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                isFolded = nextLine == "\u{2026}"
-            } else {
-                isFolded = false
-            }
+            let isFolded = markdown_is_folded(UInt32(lineIdx))
 
             let size: CGFloat = 10
             let x = fragFrame.minX - 20
@@ -654,5 +694,46 @@ final class ProseTextView2: NSTextView {
         let range = NSRange(location: offset, length: 0)
         scrollRangeToVisible(range)
         setSelectedRange(range)
+    }
+}
+
+// MARK: - NSTextLayoutManagerDelegate (Phase 6)
+
+extension ProseTextView2: NSTextLayoutManagerDelegate {
+
+    func textLayoutManager(
+        _ textLayoutManager: NSTextLayoutManager,
+        textLayoutFragmentFor location: NSTextLocation,
+        in textElement: NSTextElement
+    ) -> NSTextLayoutFragment {
+        guard let contentStorage = textLayoutManager.textContentManager
+                as? NSTextContentStorage else {
+            return NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
+        }
+
+        let offset = contentStorage.offset(
+            from: textLayoutManager.documentRange.location, to: location
+        )
+        let line = markdownDelegate.lineIndex(at: offset)
+
+        guard markdownDelegate.paragraphType(at: line) == 6 else {
+            return NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
+        }
+
+        let fragment = MarkdownLayoutFragment(textElement: textElement, range: textElement.elementRange)
+
+        // Configure with token data from the block-level cache.
+        if let metadata = markdownDelegate.paragraphMetadata(at: line) {
+            let languageId = UInt8(metadata & 0xFF)
+            if languageId > 0,
+               let docString = contentStorage.attributedString?.string as NSString? {
+                let tokens = markdownDelegate.codeTokensForLine(
+                    line, languageId: languageId, documentString: docString
+                )
+                fragment.configure(tokens: tokens, theme: markdownDelegate.theme, languageId: languageId)
+            }
+        }
+
+        return fragment
     }
 }

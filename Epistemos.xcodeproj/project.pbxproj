@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		MKLFRAG0000000000002 /* MarkdownLayoutFragment.swift in Sources */ = {isa = PBXBuildFile; fileRef = MKLFRAG0000000000001 /* MarkdownLayoutFragment.swift */; };
 		MCSTOR00000000000002 /* MarkdownContentStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = MCSTOR00000000000001 /* MarkdownContentStorage.swift */; };
 		PTV200000000000000002 /* ProseTextView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = PTV200000000000000001 /* ProseTextView2.swift */; };
 		TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TK2FT00000000000001 /* TextKit2FoundationTests.swift */; };
@@ -247,6 +248,7 @@
 		FC9BDD9CB6B68E2D12ABCB7C /* InferenceState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50604F1EB2DF6F05D43CD51C /* InferenceState.swift */; };
 		FCF8DDD54465CC896D4A9DC8 /* GraphStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C54E8BB45E03F11C281D01C9 /* GraphStoreTests.swift */; };
 		OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */; };
+		CMDHELP0000000000000004 /* ContentManagerDelegateHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = CMDHELP0000000000000002 /* ContentManagerDelegateHelper.m */; };
 		WIRE00000000000000000003 /* DataIntegrityEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D7EBA13712C88AE73C8D858 /* DataIntegrityEdgeCaseTests.swift */; };
 		WIRE00000000000000000004 /* MemoryStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE174D03C81BEE6EB5556066 /* MemoryStressTests.swift */; };
 		DOCTV000000000000000001 /* DocumentTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCTV000000000000000002 /* DocumentTextView.swift */; };
@@ -266,6 +268,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		MKLFRAG0000000000001 /* MarkdownLayoutFragment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownLayoutFragment.swift; sourceTree = "<group>"; };
 		MCSTOR00000000000001 /* MarkdownContentStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownContentStorage.swift; sourceTree = "<group>"; };
 		PTV200000000000000001 /* ProseTextView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseTextView2.swift; sourceTree = "<group>"; };
 		TK2FT00000000000001 /* TextKit2FoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextKit2FoundationTests.swift; sourceTree = "<group>"; };
@@ -513,6 +516,8 @@
 		FED68D56D65D46428686FE51 /* SDGraphNodeComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SDGraphNodeComprehensiveTests.swift; sourceTree = "<group>"; };
 		OBJCEXC00000000000000001 /* ObjCExceptionCatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObjCExceptionCatcher.h; sourceTree = "<group>"; };
 		OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ObjCExceptionCatcher.m; sourceTree = "<group>"; };
+		CMDHELP0000000000000001 /* ContentManagerDelegateHelper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ContentManagerDelegateHelper.h; sourceTree = "<group>"; };
+		CMDHELP0000000000000002 /* ContentManagerDelegateHelper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ContentManagerDelegateHelper.m; sourceTree = "<group>"; };
 		OBJCEXC00000000000000003 /* Epistemos-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Epistemos-Bridging-Header.h"; sourceTree = "<group>"; };
 		DOCTV000000000000000002 /* DocumentTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentTextView.swift; sourceTree = "<group>"; };
 		DOCER000000000000000002 /* DocumentEditorRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditorRepresentable.swift; sourceTree = "<group>"; };
@@ -716,6 +721,7 @@
 				8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */,
 				B980FE6E8ADB38B410D728FC /* LineDiff.swift */,
 				MCSTOR00000000000001 /* MarkdownContentStorage.swift */,
+				MKLFRAG0000000000001 /* MarkdownLayoutFragment.swift */,
 				9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */,
 				59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */,
 				3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */,
@@ -991,6 +997,8 @@
 				BDB8F0790BC798EE63145524 /* AppCoordinator.swift */,
 				OBJCEXC00000000000000001 /* ObjCExceptionCatcher.h */,
 				OBJCEXC00000000000000002 /* ObjCExceptionCatcher.m */,
+				CMDHELP0000000000000001 /* ContentManagerDelegateHelper.h */,
+				CMDHELP0000000000000002 /* ContentManagerDelegateHelper.m */,
 				957E722596BA7B2B51EBB3BD /* ChatCoordinator.swift */,
 				8FB4E3C2DAE95071B2345678 /* AppEnvironment.swift */,
 				BBF9DAAD25FDFF22798F254E /* EpistemosApp.swift */,
@@ -1215,6 +1223,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				OBJCEXC00000000000000004 /* ObjCExceptionCatcher.m in Sources */,
+				CMDHELP0000000000000004 /* ContentManagerDelegateHelper.m in Sources */,
 				NLANLYS00000000000002F2 /* NLAnalysisService.swift in Sources */,
 				DATADET00000000000002F2 /* DataDetectionService.swift in Sources */,
 				0F330C5227384BC39A376243 /* TransclusionOverlayManager.swift in Sources */,
@@ -1266,6 +1275,7 @@
 				B9459F26DD021E7EF1A16BEE /* LiquidGreeting.swift in Sources */,
 				A2D85D5B84149A478F48C4AE /* Log.swift in Sources */,
 				MCSTOR00000000000002 /* MarkdownContentStorage.swift in Sources */,
+				MKLFRAG0000000000002 /* MarkdownLayoutFragment.swift in Sources */,
 				37D25C9CC191EAB08C26594B /* MarkdownTextStorage.swift in Sources */,
 				06AD7EB8ECDC4661ACE041BD /* MarkdownTextView.swift in Sources */,
 				5EA39F523812F677F8CD543A /* MessageBubble.swift in Sources */,

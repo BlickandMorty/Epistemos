@@ -126,14 +126,6 @@ extension ProseEditorRepresentable2 {
         // Bracket auto-close
         private var isInsertingBrackets = false
 
-        // Heading fold state (ephemeral — text replaced with "…\n" marker)
-        struct FoldInfo {
-            let originalText: String
-            var markerRange: NSRange
-        }
-        var foldedSections: [Int: FoldInfo] = [:]
-        var isFolding = false
-
         // Data detection
         private var dataDetectionTask: Task<Void, Never>?
 
@@ -207,11 +199,9 @@ extension ProseEditorRepresentable2 {
             let oldPageId = currentPageId
 
             // 1. Strip ephemeral content BEFORE reading text for save.
-            //    Folds replace real content with "…\n" — must restore first.
             //    AI divider + unaccepted response must be discarded.
-            if !foldedSections.isEmpty {
-                clearAllFolds()
-            }
+            //    Folds are non-destructive (shouldEnumerate) — no storage restore needed.
+            clearAllFolds()
             stripUnacceptedAIResponse()
 
             // 2. Save old page state (in-memory + disk)
@@ -427,7 +417,7 @@ extension ProseEditorRepresentable2 {
 
         func handleDismantle() {
             // Strip ephemeral content before any save reads.
-            if !foldedSections.isEmpty { clearAllFolds() }
+            clearAllFolds()
             stripUnacceptedAIResponse()
 
             // Flush binding FIRST so ProseEditorView.flushIfNeeded() sees current text.
@@ -467,12 +457,9 @@ extension ProseEditorRepresentable2 {
             guard let tv = notification.object as? NSTextView else { return }
             guard !tv.hasMarkedText() else { return }
             guard !isFlushingTokens else { return }
-            guard !isFolding else { return }
 
             // Clear all folds on any edit — folds are purely a reading aid
-            if !foldedSections.isEmpty {
-                clearAllFolds()
-            }
+            clearAllFolds()
 
             // ── SAVE-CRITICAL ──────────────────────────────────
             let newText = tv.string
@@ -853,95 +840,40 @@ extension ProseEditorRepresentable2 {
             return false
         }
 
-        // MARK: - Heading Fold (Collapsible Sections)
-        // Ephemeral visual fold — text storage content replaced with "…\n" marker.
-        // Original text stored in foldedSections dict. All folds clear on any edit.
+        // MARK: - Heading Fold (Non-Destructive via shouldEnumerate)
+        // Fold state lives in Rust (markdown_set_fold/markdown_is_folded).
+        // MarkdownContentStorage.hiddenLines drives shouldEnumerate to skip folded paragraphs.
+        // No storage rewriting — text is never modified by folds.
 
         func toggleFold(headingOffset: Int) {
-            guard let tv = textView, let ts = tv.textStorage else { return }
-            let str = ts.string as NSString
+            guard let tv = textView else { return }
+            let delegate = tv.markdownDelegate
 
-            if foldedSections[headingOffset] != nil {
-                unfold(headingOffset: headingOffset)
-            } else {
-                let headingLineRange = str.lineRange(for: NSRange(location: headingOffset, length: 0))
-                let headingLine = str.substring(with: headingLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-                guard let level = headingLevel(headingLine) else { return }
+            let line = delegate.lineIndex(at: headingOffset)
+            let isFolded = markdown_is_folded(UInt32(line))
+            markdown_set_fold(UInt32(line), !isFolded)
 
-                // Content range: from end of heading line to next heading of equal/higher level
-                let contentStart = NSMaxRange(headingLineRange)
-                var contentEnd = str.length
-                var cursor = contentStart
-                while cursor < str.length {
-                    let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
-                    let line = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-                    if let nextLevel = headingLevel(line), nextLevel <= level {
-                        contentEnd = lineRange.location
-                        break
-                    }
-                    cursor = NSMaxRange(lineRange)
-                    if cursor == lineRange.location { break }
-                }
+            delegate.recomputeHiddenLines(documentText: tv.string)
 
-                guard contentEnd > contentStart else { return }
-                let foldRange = NSRange(location: contentStart, length: contentEnd - contentStart)
-                let originalText = str.substring(with: foldRange)
-
-                isFolding = true
-                let marker = "…\n"
-                if tv.shouldChangeText(in: foldRange, replacementString: marker) {
-                    ts.replaceCharacters(in: foldRange, with: marker)
-                    tv.didChangeText()
-                }
-                let markerRange = NSRange(location: contentStart, length: (marker as NSString).length)
-                ts.addAttributes([
-                    .foregroundColor: NSColor.secondaryLabelColor,
-                    .font: NSFont.systemFont(ofSize: 11, weight: .medium)
-                ], range: markerRange)
-                foldedSections[headingOffset] = FoldInfo(originalText: originalText, markerRange: markerRange)
-                isFolding = false
-                tv.needsDisplay = true
+            if let contentStorage = tv.textLayoutManager?.textContentManager as? NSTextContentStorage {
+                contentStorage.performEditingTransaction { }
+                tv.textLayoutManager?.ensureLayout(for: tv.textLayoutManager!.documentRange)
             }
-        }
-
-        func unfold(headingOffset: Int) {
-            guard let tv = textView, let ts = tv.textStorage else { return }
-            guard let info = foldedSections.removeValue(forKey: headingOffset) else { return }
-            isFolding = true
-            if tv.shouldChangeText(in: info.markerRange, replacementString: info.originalText) {
-                ts.replaceCharacters(in: info.markerRange, with: info.originalText)
-                tv.didChangeText()
-            }
-            isFolding = false
             tv.needsDisplay = true
         }
 
         func clearAllFolds() {
-            guard let tv = textView, let ts = tv.textStorage else {
-                foldedSections.removeAll()
+            guard let tv = textView else {
+                markdown_clear_all_folds()
                 return
             }
-            let sorted = foldedSections.sorted { $0.value.markerRange.location > $1.value.markerRange.location }
-            isFolding = true
-            for (_, info) in sorted {
-                if tv.shouldChangeText(in: info.markerRange, replacementString: info.originalText) {
-                    ts.replaceCharacters(in: info.markerRange, with: info.originalText)
-                    tv.didChangeText()
-                }
-            }
-            foldedSections.removeAll()
-            isFolding = false
-            tv.needsDisplay = true
-        }
+            markdown_clear_all_folds()
+            tv.markdownDelegate.recomputeHiddenLines(documentText: tv.string)
 
-        private func headingLevel(_ line: String) -> Int? {
-            var count = 0
-            for ch in line {
-                if ch == "#" { count += 1 }
-                else if ch == " " && count > 0 { return count <= 6 ? count : nil }
-                else { return nil }
+            if let contentStorage = tv.textLayoutManager?.textContentManager as? NSTextContentStorage {
+                contentStorage.performEditingTransaction { }
             }
-            return nil
+            tv.needsDisplay = true
         }
 
         // MARK: - Data Detection (1s debounce)

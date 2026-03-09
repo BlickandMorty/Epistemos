@@ -17,8 +17,21 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
     private var isDirty = true
     private let baseFontSize: CGFloat = 15
 
+    /// Visible line range, updated by ProseTextView2 on scroll/layout.
+    /// Code blocks outside this range + buffer skip tokenization.
+    var visibleLineRange: Range<Int> = 0..<Int.max
+    private let viewportBuffer = 50
+
+    /// Cache for tokenized code block results.
+    /// Key: hash of (line_text, theme, language_id). Value: token spans in UTF-16.
+    private var tokenCache: [UInt64: [CodeTokenBridge]] = [:]
+    private let maxCacheEntries = 256
+
     /// The line index where the cursor is. Nil = no active line (all markers hidden).
     var activeLine: Int? = nil
+
+    /// Lines currently hidden by heading folds. Recomputed on fold toggle.
+    private(set) var hiddenLines: Set<Int> = []
 
     /// Inline style kinds from the Rust parser to apply per-paragraph.
     /// Block-level styles (headings, lists, code blocks) are handled by applyStructuralStyle.
@@ -46,6 +59,12 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         return cachedTypes[lineIndex].paraType
     }
 
+    /// Paragraph metadata for a given line index. Returns nil if out of bounds.
+    func paragraphMetadata(at lineIndex: Int) -> UInt16? {
+        guard lineIndex >= 0, lineIndex < cachedTypes.count else { return nil }
+        return cachedTypes[lineIndex].metadata
+    }
+
     /// Test-only entry point for structural styling.
     func applyStructuralStyleForTest(
         to attrStr: NSMutableAttributedString, range: NSRange,
@@ -54,7 +73,17 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         applyStructuralStyle(to: attrStr, range: range, paraType: paraType, metadata: metadata)
     }
 
-    var theme: EpistemosTheme = .light
+    var theme: EpistemosTheme = .light {
+        didSet {
+            if oldValue != theme {
+                tokenCache.removeAll(keepingCapacity: true)
+            }
+        }
+    }
+
+    #if DEBUG
+    var cachedTypesForTesting: [(paraType: UInt8, metadata: UInt16)] { cachedTypes }
+    #endif
 
     // MARK: - Reparse
 
@@ -73,6 +102,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             }
         }
 
+        tokenCache.removeAll(keepingCapacity: true)
         isDirty = false
     }
 
@@ -145,7 +175,15 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
 
         // Phase 2+3: inline styles with active line awareness (skip block-level-only types)
         let isActive = (activeLine == line)
-        if entry.paraType != 6 && entry.paraType != 8 && entry.paraType != 9 {
+        if entry.paraType == 6 {
+            let languageId = UInt8(entry.metadata & 0xFF)
+            if languageId > 0 {
+                applyCodeTokenStyles(
+                    to: styled, range: fullRange, languageId: languageId, line: line,
+                    documentString: attrStr.string as NSString
+                )
+            }
+        } else if entry.paraType != 8 && entry.paraType != 9 {
             applyInlineStyles(to: styled, fullRange: fullRange, isActive: isActive)
         }
 
@@ -528,6 +566,225 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         return map
     }
 
+    // MARK: - Code Token Styling (Phase 6)
+
+    private static let languageTags: [UInt8: String] = [
+        1: "swift", 2: "rust", 3: "python", 4: "javascript",
+        5: "typescript", 6: "json", 7: "html", 8: "css",
+        9: "bash", 10: "go", 11: "c", 12: "cpp",
+    ]
+
+    /// Compute code tokens for a specific line within its fenced code block.
+    /// Uses block-level cache (tokenCache). Returns empty for fence lines
+    /// or lines outside a valid body range.
+    /// Called by both the content storage delegate (to apply colors) and
+    /// the layout manager delegate (to configure MarkdownLayoutFragment).
+    func codeTokensForLine(
+        _ line: Int,
+        languageId: UInt8,
+        documentString: NSString
+    ) -> [CodeTokenBridge] {
+        guard line < cachedTypes.count else { return [] }
+
+        // Check if this line is a fence (markdown syntax, not code)
+        guard let lr = lineRange(at: line) else { return [] }
+        let lineText = documentString.substring(with: lr)
+            .trimmingCharacters(in: .whitespaces)
+        if lineText.hasPrefix("```") || lineText.hasPrefix("~~~") { return [] }
+
+        // Find contiguous code block boundaries by walking cachedTypes
+        var blockStart = line
+        while blockStart > 0 && cachedTypes[blockStart - 1].paraType == 6 {
+            blockStart -= 1
+        }
+        var blockEnd = line
+        while blockEnd + 1 < cachedTypes.count && cachedTypes[blockEnd + 1].paraType == 6 {
+            blockEnd += 1
+        }
+
+        // Identify body range (skip fence lines at block edges)
+        var bodyStart = blockStart
+        if let firstRange = lineRange(at: blockStart) {
+            let firstText = documentString.substring(with: firstRange)
+                .trimmingCharacters(in: .whitespaces)
+            if firstText.hasPrefix("```") || firstText.hasPrefix("~~~") {
+                bodyStart = blockStart + 1
+            }
+        }
+        var bodyEnd = blockEnd
+        if blockEnd > bodyStart, let lastRange = lineRange(at: blockEnd) {
+            let lastText = documentString.substring(with: lastRange)
+                .trimmingCharacters(in: .whitespaces)
+            if lastText.hasPrefix("```") || lastText.hasPrefix("~~~") {
+                bodyEnd = blockEnd - 1
+            }
+        }
+
+        guard line >= bodyStart, line <= bodyEnd else { return [] }
+        guard bodyStart < lineStarts.count, bodyEnd < lineStarts.count else { return [] }
+
+        // Extract combined body text from the document in one shot.
+        // lineStarts are UTF-16 offsets; lineRange excludes trailing newlines.
+        // The document text between lineStarts[bodyStart] and end of lineRange(bodyEnd)
+        // naturally includes \n between lines but not after the last line.
+        let bodyStartOffset = lineStarts[bodyStart]
+        guard let lastBodyRange = lineRange(at: bodyEnd) else { return [] }
+        let bodyEndOffset = lastBodyRange.location + lastBodyRange.length
+        guard bodyEndOffset > bodyStartOffset else { return [] }
+        let bodyText = documentString.substring(
+            with: NSRange(location: bodyStartOffset, length: bodyEndOffset - bodyStartOffset)
+        )
+
+        // Block-level cache: same block body + language + theme → same tokens
+        let cacheKey = tokenCacheKey(text: bodyText, languageId: languageId)
+        let allTokens: [CodeTokenBridge]
+        if let cached = tokenCache[cacheKey] {
+            allTokens = cached
+        } else {
+            allTokens = tokenizeViaFFI(text: bodyText, languageId: languageId)
+            if tokenCache.count >= maxCacheEntries {
+                tokenCache.removeAll(keepingCapacity: true)
+            }
+            tokenCache[cacheKey] = allTokens
+        }
+        guard !allTokens.isEmpty else { return [] }
+
+        // Compute this line's UTF-16 range within the combined body text.
+        // lineStarts[line] - bodyStartOffset gives the offset of this line within the body.
+        let lineStartInBody = lineStarts[line] - bodyStartOffset
+        let lineEndInBody = lineStartInBody + (lineRange(at: line)?.length ?? 0)
+
+        // Filter to tokens overlapping this line, adjust offsets to paragraph-relative
+        var lineTokens: [CodeTokenBridge] = []
+        for token in allTokens {
+            guard token.end > lineStartInBody && token.start < lineEndInBody else { continue }
+            let localStart = max(token.start, lineStartInBody) - lineStartInBody
+            let localEnd = min(token.end, lineEndInBody) - lineStartInBody
+            guard localEnd > localStart else { continue }
+            lineTokens.append(CodeTokenBridge(
+                start: localStart, end: localEnd, tokenType: token.tokenType
+            ))
+        }
+
+        return lineTokens
+    }
+
+    /// Apply code token colors for a code block line (viewport-gated).
+    private func applyCodeTokenStyles(
+        to attrStr: NSMutableAttributedString,
+        range: NSRange,
+        languageId: UInt8,
+        line: Int,
+        documentString: NSString
+    ) {
+        let bufferedRange = max(0, visibleLineRange.lowerBound - viewportBuffer)
+            ..< (visibleLineRange.upperBound + viewportBuffer)
+        guard bufferedRange.contains(line) else { return }
+        guard !attrStr.string.isEmpty else { return }
+
+        let lineTokens = codeTokensForLine(line, languageId: languageId, documentString: documentString)
+        applyTokenColors(lineTokens, to: attrStr, range: range)
+    }
+
+    private func tokenCacheKey(text: String, languageId: UInt8) -> UInt64 {
+        var hasher = Hasher()
+        hasher.combine(text)
+        hasher.combine(theme.rawValue)
+        hasher.combine(languageId)
+        return UInt64(bitPattern: Int64(hasher.finalize()))
+    }
+
+    private func tokenizeViaFFI(text: String, languageId: UInt8) -> [CodeTokenBridge] {
+        guard let langTag = Self.languageTags[languageId] else { return [] }
+
+        let maxTokens: UInt32 = 4096
+        let buffer = UnsafeMutablePointer<CodeToken>.allocate(capacity: Int(maxTokens))
+        defer { buffer.deallocate() }
+
+        let utf8Data = Array(text.utf8)
+        let count: UInt32 = utf8Data.withUnsafeBufferPointer { utf8Buf in
+            langTag.withCString { langPtr in
+                markdown_parse_code_tokens(
+                    UnsafeRawPointer(utf8Buf.baseAddress!).assumingMemoryBound(to: CChar.self),
+                    UInt32(utf8Buf.count),
+                    langPtr,
+                    buffer,
+                    maxTokens
+                )
+            }
+        }
+
+        guard count > 0 else { return [] }
+
+        let utf8ToUtf16 = Self.buildUtf8ToUtf16Map(text)
+        var tokens: [CodeTokenBridge] = []
+        tokens.reserveCapacity(Int(count))
+
+        for i in 0..<Int(count) {
+            let raw = buffer[i]
+            let startByte = Int(raw.start)
+            let endByte = Int(raw.end)
+            guard startByte < utf8ToUtf16.count, endByte <= utf8ToUtf16.count else { continue }
+            let utf16Start = utf8ToUtf16[startByte]
+            let utf16End = endByte < utf8ToUtf16.count ? utf8ToUtf16[endByte] : utf8ToUtf16.last ?? 0
+            guard utf16End > utf16Start else { continue }
+            tokens.append(CodeTokenBridge(start: utf16Start, end: utf16End, tokenType: raw.token_type))
+        }
+
+        return tokens
+    }
+
+    private func applyTokenColors(
+        _ tokens: [CodeTokenBridge],
+        to attrStr: NSMutableAttributedString,
+        range: NSRange
+    ) {
+        for token in tokens {
+            let tokenRange = NSRange(
+                location: range.location + token.start,
+                length: token.end - token.start
+            )
+            guard NSMaxRange(tokenRange) <= NSMaxRange(range) else { continue }
+
+            let color = theme.nsColorForTokenType(token.tokenType)
+            attrStr.addAttribute(.foregroundColor, value: color, range: tokenRange)
+
+            if token.tokenType == 3 {
+                if let currentFont = attrStr.attribute(.font, at: tokenRange.location, effectiveRange: nil) as? NSFont {
+                    let italic = NSFontManager.shared.convert(currentFont, toHaveTrait: .italicFontMask)
+                    attrStr.addAttribute(.font, value: italic, range: tokenRange)
+                }
+            }
+        }
+    }
+
+    // MARK: - Non-Destructive Folding
+
+    /// Recompute hidden lines from Rust fold state.
+    /// Call after any fold toggle.
+    func recomputeHiddenLines(documentText: String) {
+        hiddenLines.removeAll()
+
+        documentText.withCString { cStr in
+            for i in 0..<cachedTypes.count {
+                guard cachedTypes[i].paraType == 1, // Heading
+                      markdown_is_folded(UInt32(i)) else { continue }
+
+                var start: UInt32 = 0
+                var end: UInt32 = 0
+                if markdown_fold_range(cStr, UInt32(i), &start, &end) {
+                    for line in Int(start)..<Int(end) {
+                        hiddenLines.insert(line)
+                    }
+                }
+            }
+        }
+    }
+
+    func isLineInFoldedRange(_ line: Int) -> Bool {
+        hiddenLines.contains(line)
+    }
+
     // MARK: - Theme Colors
 
     static func accentColor(isDark: Bool) -> NSColor {
@@ -540,5 +797,26 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         isDark
             ? .white.withAlphaComponent(0.35)
             : NSColor(white: 0.5, alpha: 1)
+    }
+}
+
+// MARK: - NSTextContentManagerDelegate (shouldEnumerate for folding)
+
+extension MarkdownContentStorage: NSTextContentManagerDelegate {
+    func textContentManager(
+        _ textContentManager: NSTextContentManager,
+        shouldEnumerate textElement: NSTextElement,
+        options: NSTextContentManager.EnumerationOptions
+    ) -> Bool {
+        guard !hiddenLines.isEmpty else { return true }
+        guard let contentStorage = textContentManager as? NSTextContentStorage,
+              let range = textElement.elementRange else { return true }
+
+        let offset = contentStorage.offset(
+            from: contentStorage.documentRange.location,
+            to: range.location
+        )
+        let line = lineIndex(at: offset)
+        return !hiddenLines.contains(line)
     }
 }
