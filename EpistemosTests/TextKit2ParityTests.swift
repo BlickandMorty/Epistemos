@@ -477,17 +477,29 @@ struct TK2ParityAIStreamingTests {
 
     // MARK: - Divider Format
 
-    @Test("AI divider — both stacks locate divider at same offset in document")
-    func dividerFormat() {
+    @Test("AI divider — offset shifts identically in both stacks after pre-divider insert")
+    func dividerOffsetAfterInsert() {
         let doc = initialBody + divider + "AI response."
         let tk1 = tk1Storage(with: doc)
         let tk2 = tk2View(with: doc)
 
+        // Insert text BEFORE the divider in both stacks
+        let insertion = "Extra paragraph.\n\n"
+        let insertRange = NSRange(location: 0, length: 0)
+        tk1.beginEditing()
+        tk1.replaceCharacters(in: insertRange, with: insertion)
+        tk1.endEditing()
+        tk2.textStorage?.replaceCharacters(in: insertRange, with: insertion)
+
+        // After insertion, divider should have shifted by insertion length in both
         let tk1Loc = (tk1.string as NSString).range(of: "<!-- ai-response -->").location
         let tk2Loc = (tk2.string as NSString).range(of: "<!-- ai-response -->").location
         #expect(tk1Loc != NSNotFound)
         #expect(tk2Loc != NSNotFound)
         #expect(tk1Loc == tk2Loc)
+        // Verify the shift actually happened (not at original position)
+        let originalLoc = (doc as NSString).range(of: "<!-- ai-response -->").location
+        #expect(tk1Loc == originalLoc + insertion.utf16.count)
     }
 }
 
