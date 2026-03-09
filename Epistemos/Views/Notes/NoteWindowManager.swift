@@ -551,20 +551,15 @@ private struct NotePageContent: View {
             }
             .overlay(alignment: .trailing) {
                 NoteOutlineOverlay(
-                    markdown: {
-                        if notesUI.useTK2Editor {
-                            // TK2: no PageStoragePool. Read from disk (body is saved
-                            // within 3s by Coordinator2's direct file save).
-                            return pages.first?.loadBody() ?? ""
-                        }
-                        // TK1: read from in-memory pre-styled storage pool.
-                        return PageStoragePool.shared.bodyText(for: pageId)
-                            ?? pages.first?.loadBody() ?? ""
-                    }(),
+                    markdown: notesUI.useTK2Editor
+                        ? ""
+                        : (PageStoragePool.shared.bodyText(for: pageId)
+                            ?? pages.first?.loadBody() ?? ""),
                     theme: ui.theme,
                     onNavigate: { charOffset in
                         scrollEditorTo(charOffset: charOffset)
-                    }
+                    },
+                    externalItems: notesUI.useTK2Editor ? tocItems : nil
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

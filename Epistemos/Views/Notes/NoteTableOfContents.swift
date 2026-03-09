@@ -104,12 +104,13 @@ struct NoteOutlineOverlay: View {
     let markdown: String
     let theme: EpistemosTheme
     let onNavigate: (Int) -> Void
+    var externalItems: [TOCItem]? = nil
 
     @State private var items: [TOCItem] = []
     @State private var isHovering = false
 
     private var headings: [TOCItem] {
-        items.filter { $0.kind == .heading }
+        (externalItems ?? items).filter { $0.kind == .heading }
     }
 
     var body: some View {
@@ -151,8 +152,12 @@ struct NoteOutlineOverlay: View {
                 .animation(.smooth(duration: 0.18), value: isHovering)
             }
         }
-        .task { items = TOCParser.parse(markdown) }
-        .onChange(of: markdown) { items = TOCParser.parse(markdown) }
+        .task {
+            if externalItems == nil { items = TOCParser.parse(markdown) }
+        }
+        .onChange(of: markdown) {
+            if externalItems == nil { items = TOCParser.parse(markdown) }
+        }
     }
 
     private var outlinePanel: some View {
