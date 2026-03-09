@@ -1034,12 +1034,14 @@ extension ProseEditorRepresentable2 {
                 guard !self.isFlushingTokens else { return }
                 self.parent.text = newText
                 self.lastSyncedText = newText
+                self.bindingSyncTask = nil
             }
         }
 
         /// Flush binding immediately — called by accept/discard to persist AI changes.
         func flushBindingSync() {
             bindingSyncTask?.cancel()
+            bindingSyncTask = nil
             guard let tv = textView else { return }
             let text = tv.string
             parent.text = text
