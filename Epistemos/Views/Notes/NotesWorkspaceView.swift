@@ -22,20 +22,19 @@ struct NotesWorkspaceView: View {
         return navigationStates[activeWorkspaceTab.id]
     }
 
-    private var currentWorkspacePageId: String? {
-        activeNavigationState?.currentPageId ?? activeWorkspaceTab?.pageId
+    private var pageById: [String: SDPage] {
+        Dictionary(uniqueKeysWithValues: allPages.map { ($0.id, $0) })
     }
 
-    private var currentWorkspacePage: SDPage? {
-        guard let pageId = currentWorkspacePageId else { return nil }
-        return allPages.first(where: { $0.id == pageId })
+    private var currentWorkspacePageId: String? {
+        activeNavigationState?.currentPageId ?? activeWorkspaceTab?.pageId
     }
 
     private var workspaceTabItems: [NotesWorkspaceTabBar.TabItem] {
         notesUI.workspaceTabs.map { tab in
             let currentPageId = navigationStates[tab.id]?.currentPageId ?? tab.pageId
             guard let currentPageId,
-                let page = allPages.first(where: { $0.id == currentPageId })
+                let page = pageById[currentPageId]
             else {
                 return NotesWorkspaceTabBar.TabItem(
                     id: tab.id,
@@ -171,7 +170,7 @@ struct NotesWorkspaceView: View {
     }
 
     private func title(for pageId: String) -> String {
-        let title = allPages.first(where: { $0.id == pageId })?.title ?? ""
+        let title = pageById[pageId]?.title ?? ""
         return title.isEmpty ? "Untitled" : title
     }
 

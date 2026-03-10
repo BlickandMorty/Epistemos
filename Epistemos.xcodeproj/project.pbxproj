@@ -23,6 +23,8 @@
 		07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A4402EB228D73EF547EC7D /* FolderEntity.swift */; };
 		08857849A064CDE0E60185F4 /* VaultChangesPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2419DAAD4074144E263DC862 /* VaultChangesPanel.swift */; };
 		09C925B05E89E8CE0FA4F249 /* ThreadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56735F8C49D2024C45FFE4F9 /* ThreadState.swift */; };
+		09F100000000000000000001 /* NotesUIStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F100000000000000000002 /* NotesUIStateTests.swift */; };
+		09F100000000000000000003 /* NoteWindowManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F100000000000000000004 /* NoteWindowManagerTests.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
 		0B1F9D777D4E480D9BA979D6 /* HologramOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBB4935958F458DA82FB985 /* HologramOverlay.swift */; };
 		0B7C126DCCBA525A8899DADE /* ResearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B7FEDB6B8DBDF1868450FA /* ResearchView.swift */; };
@@ -289,6 +291,8 @@
 		08B62DAD75E04021B7805F07 /* TransclusionOverlayManager2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransclusionOverlayManager2.swift; sourceTree = "<group>"; };
 		08BC69BA7ABB307D9819F2E8 /* QueryCompiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueryCompiler.swift; sourceTree = "<group>"; };
 		09C5088B568075B7646427EC /* SearchIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchIndexTests.swift; sourceTree = "<group>"; };
+		09F100000000000000000002 /* NotesUIStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesUIStateTests.swift; sourceTree = "<group>"; };
+		09F100000000000000000004 /* NoteWindowManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteWindowManagerTests.swift; sourceTree = "<group>"; };
 		0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EpistemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		0B18CC16F40A0517CFE19082 /* NoteEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteEntity.swift; sourceTree = "<group>"; };
@@ -959,6 +963,8 @@
 				7400E696A0043AC669C74D8A /* SOARTests.swift */,
 				C6FBA1550EB2C30DC3D0EC20 /* GraphTypesTests.swift */,
 				09C5088B568075B7646427EC /* SearchIndexTests.swift */,
+				09F100000000000000000004 /* NoteWindowManagerTests.swift */,
+				09F100000000000000000002 /* NotesUIStateTests.swift */,
 				3BEDA5DD8AB3751AE6CFAEB4 /* PipelineErrorTests.swift */,
 				239C7A708EF1EACFC7C34A8B /* PipelineServiceTests.swift */,
 				35080F1F14FCA0191BCDD6B9 /* ConcurrencyEdgeCaseTests.swift */,
@@ -1243,6 +1249,8 @@
 				036A5D4AC164253635DB8168 /* VersionPruningTests.swift in Sources */,
 				A9F0B3B745CE00F2A7D57E63 /* IncrementalFFIUpdateTests.swift in Sources */,
 				586528B080AC28C52DBA3067 /* NoteInsightServiceTests.swift in Sources */,
+				09F100000000000000000003 /* NoteWindowManagerTests.swift in Sources */,
+				09F100000000000000000001 /* NotesUIStateTests.swift in Sources */,
 				FOCUSMD00000000000000002 /* FocusModeTests.swift in Sources */,
 				DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */,
 				TK2FT00000000000002 /* TextKit2FoundationTests.swift in Sources */,
