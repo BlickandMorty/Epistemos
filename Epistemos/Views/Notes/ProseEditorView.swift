@@ -124,6 +124,15 @@ struct ProseEditorView: View {
             bodyText = fresh
             lastPersistedBody = fresh
         }
+        // Flush in-memory edits to disk when another editor is about to read our body
+        // (e.g. transclusion edit on one of our blocks from a different note).
+        .onReceive(
+            NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyWillRead)
+        ) { notification in
+            guard let requestId = notification.userInfo?["pageId"] as? String,
+                  requestId == page.id else { return }
+            flushIfNeeded()
+        }
         .onDisappear {
             flushIfNeeded()
         }

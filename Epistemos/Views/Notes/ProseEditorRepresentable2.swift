@@ -1050,6 +1050,11 @@ extension ProseEditorRepresentable2 {
             // The app's canonical note body lives in NoteFileStorage (page.loadBody / saveBody).
             // SDBlock.content alone is not read by vault export, search, or reopen.
             let sourcePageId = block.pageId
+
+            // Flush any open editor for the source page so disk is current.
+            // Synchronous — when this returns, loadBody() reflects live edits.
+            NoteFileStorage.requestFlush(pageId: sourcePageId)
+
             let pageDesc = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.id == sourcePageId }
             )

@@ -1194,6 +1194,33 @@ struct TK2BlockMoveTests {
         tv.moveBlockUp()
         #expect(tv.string.hasPrefix("line2\nline1\n"))
     }
+
+    @Test("Move block down carries nested children with parent")
+    func moveBlockDownNested() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "- parent A\n  - child A1\n  - child A2\n- parent B\n"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 2, length: 0)) // cursor in "parent A"
+        tv.moveBlockDown()
+        #expect(tv.string == "- parent B\n- parent A\n  - child A1\n  - child A2\n")
+    }
+
+    @Test("Move block up carries nested children with parent")
+    func moveBlockUpNested() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "- parent A\n- parent B\n  - child B1\n  - child B2\n"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        // cursor in "parent B"
+        tv.setSelectedRange(NSRange(location: 13, length: 0))
+        tv.moveBlockUp()
+        #expect(tv.string == "- parent B\n  - child B1\n  - child B2\n- parent A\n")
+    }
 }
 
 // MARK: - Heading Insertion

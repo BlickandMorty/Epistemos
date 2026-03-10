@@ -146,9 +146,19 @@ enum NoteFileStorage {
     /// is always "" for migrated notes and therefore useless as a change signal).
     nonisolated static let pageBodyDidChange = Notification.Name("EpistemosPageBodyDidChange")
 
+    /// Asks any open editor for the given page to flush its in-memory edits to disk NOW.
+    /// Synchronous on main thread — when this returns, disk is up to date.
+    nonisolated static let pageBodyWillRead = Notification.Name("EpistemosPageBodyWillRead")
+
     /// Post the body-changed notification on the main thread.
     /// Call after `saveBody()` completes in any external mutation path (restore, sync, etc.).
     @MainActor static func notifyBodyChanged(pageId: String) {
         NotificationCenter.default.post(name: pageBodyDidChange, object: nil, userInfo: ["pageId": pageId])
+    }
+
+    /// Ask any open editor for this page to flush pending edits to disk.
+    /// Synchronous — disk is current when this returns.
+    @MainActor static func requestFlush(pageId: String) {
+        NotificationCenter.default.post(name: pageBodyWillRead, object: nil, userInfo: ["pageId": pageId])
     }
 }

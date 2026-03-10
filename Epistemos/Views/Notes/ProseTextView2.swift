@@ -1158,22 +1158,43 @@ final class ProseTextView2: NSTextView {
         let str = string as NSString
         guard str.length > 0 else { return }
         let sel = selectedRange()
-        let lineRange = str.lineRange(for: sel)
-        guard lineRange.location > 0 else { return } // Already at top
+        let curLineRange = str.lineRange(for: sel)
+        let curBlock = semanticBlockRange(startingAt: curLineRange, in: str)
+        guard curBlock.location > 0 else { return }
 
-        let prevLineRange = str.lineRange(for: NSRange(location: lineRange.location - 1, length: 0))
-        let prevLine = str.substring(with: prevLineRange)
-        let currentLine = str.substring(with: lineRange)
+        let curIndent = indentLevel(str.substring(with: curLineRange))
 
-        let combinedRange = NSRange(location: prevLineRange.location,
-                                    length: prevLineRange.length + lineRange.length)
-        let replacement = currentLine + prevLine
+        // Walk backward to find previous sibling at same indent level
+        var prevSiblingLine: NSRange?
+        var pos = curBlock.location - 1
+        while pos >= 0 {
+            let lr = str.lineRange(for: NSRange(location: pos, length: 0))
+            let line = str.substring(with: lr)
+            if !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let indent = indentLevel(line)
+                if indent == curIndent { prevSiblingLine = lr; break }
+                if indent < curIndent { break } // First in parent, can't move up
+            }
+            pos = lr.location - 1
+        }
+        guard let prevLine = prevSiblingLine else { return }
+        let prevBlock = semanticBlockRange(startingAt: prevLine, in: str)
 
-        if shouldChangeText(in: combinedRange, replacementString: replacement) {
-            textStorage?.replaceCharacters(in: combinedRange, with: replacement)
+        let prevText = str.substring(with: prevBlock)
+        let curText = str.substring(with: curBlock)
+        let gapLoc = NSMaxRange(prevBlock)
+        let gapLen = curBlock.location - gapLoc
+        let gapText = gapLen > 0 ? str.substring(with: NSRange(location: gapLoc, length: gapLen)) : ""
+
+        let totalRange = NSRange(location: prevBlock.location,
+                                 length: NSMaxRange(curBlock) - prevBlock.location)
+        let replacement = curText + gapText + prevText
+
+        if shouldChangeText(in: totalRange, replacementString: replacement) {
+            textStorage?.replaceCharacters(in: totalRange, with: replacement)
             didChangeText()
-            let newLoc = prevLineRange.location + (sel.location - lineRange.location)
-            setSelectedRange(NSRange(location: newLoc, length: sel.length))
+            let newCursorOffset = sel.location - curBlock.location
+            setSelectedRange(NSRange(location: prevBlock.location + newCursorOffset, length: sel.length))
         }
     }
 
@@ -1181,24 +1202,67 @@ final class ProseTextView2: NSTextView {
         let str = string as NSString
         guard str.length > 0 else { return }
         let sel = selectedRange()
-        let lineRange = str.lineRange(for: sel)
-        let lineEnd = NSMaxRange(lineRange)
-        guard lineEnd < str.length else { return } // Already at bottom
+        let curLineRange = str.lineRange(for: sel)
+        let curBlock = semanticBlockRange(startingAt: curLineRange, in: str)
+        let curBlockEnd = NSMaxRange(curBlock)
+        guard curBlockEnd < str.length else { return }
 
-        let nextLineRange = str.lineRange(for: NSRange(location: lineEnd, length: 0))
-        let nextLine = str.substring(with: nextLineRange)
-        let currentLine = str.substring(with: lineRange)
+        let curIndent = indentLevel(str.substring(with: curLineRange))
 
-        let combinedRange = NSRange(location: lineRange.location,
-                                    length: lineRange.length + nextLineRange.length)
-        let replacement = nextLine + currentLine
-
-        if shouldChangeText(in: combinedRange, replacementString: replacement) {
-            textStorage?.replaceCharacters(in: combinedRange, with: replacement)
-            didChangeText()
-            let newLoc = lineRange.location + nextLineRange.length + (sel.location - lineRange.location)
-            setSelectedRange(NSRange(location: newLoc, length: sel.length))
+        // Walk forward to find next sibling at same indent level
+        var nextSiblingLine: NSRange?
+        var pos = curBlockEnd
+        while pos < str.length {
+            let lr = str.lineRange(for: NSRange(location: pos, length: 0))
+            let line = str.substring(with: lr)
+            if !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let indent = indentLevel(line)
+                if indent == curIndent { nextSiblingLine = lr; break }
+                if indent < curIndent { break } // Last in parent, can't move down
+            }
+            pos = NSMaxRange(lr)
         }
+        guard let nextLine = nextSiblingLine else { return }
+        let nextBlock = semanticBlockRange(startingAt: nextLine, in: str)
+
+        let curText = str.substring(with: curBlock)
+        let nextText = str.substring(with: nextBlock)
+        let gapLoc = curBlockEnd
+        let gapLen = nextBlock.location - gapLoc
+        let gapText = gapLen > 0 ? str.substring(with: NSRange(location: gapLoc, length: gapLen)) : ""
+
+        let totalRange = NSRange(location: curBlock.location,
+                                 length: NSMaxRange(nextBlock) - curBlock.location)
+        let replacement = nextText + gapText + curText
+
+        if shouldChangeText(in: totalRange, replacementString: replacement) {
+            textStorage?.replaceCharacters(in: totalRange, with: replacement)
+            didChangeText()
+            let newCursorOffset = sel.location - curBlock.location
+            let newBlockStart = curBlock.location + (nextText as NSString).length + (gapText as NSString).length
+            setSelectedRange(NSRange(location: newBlockStart + newCursorOffset, length: sel.length))
+        }
+    }
+
+    // MARK: - Semantic Block Helpers
+
+    /// Expands a line range to include all contiguous following lines with strictly greater indentation.
+    private func semanticBlockRange(startingAt lineRange: NSRange, in str: NSString) -> NSRange {
+        let startLine = str.substring(with: lineRange)
+        let baseIndent = indentLevel(startLine)
+        var blockEnd = NSMaxRange(lineRange)
+        while blockEnd < str.length {
+            let nextLR = str.lineRange(for: NSRange(location: blockEnd, length: 0))
+            let nextLine = str.substring(with: nextLR)
+            if nextLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { break }
+            if indentLevel(nextLine) <= baseIndent { break }
+            blockEnd = NSMaxRange(nextLR)
+        }
+        return NSRange(location: lineRange.location, length: blockEnd - lineRange.location)
+    }
+
+    private func indentLevel(_ line: String) -> Int {
+        line.prefix(while: { $0 == " " || $0 == "\t" }).count
     }
 
     private func deleteLine() {
