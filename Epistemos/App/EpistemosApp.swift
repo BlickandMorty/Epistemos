@@ -9,6 +9,8 @@ import SwiftUI
 enum WindowPresentationPolicy {
     static func applyModularZoomBehavior(to window: NSWindow) {
         window.collectionBehavior.remove(.fullScreenPrimary)
+        window.collectionBehavior.remove(.fullScreenAuxiliary)
+        window.collectionBehavior.remove(.fullScreenAllowsTiling)
         if let zoomButton = window.standardWindowButton(.zoomButton) {
             zoomButton.target = window
             zoomButton.action = #selector(NSWindow.performZoom(_:))

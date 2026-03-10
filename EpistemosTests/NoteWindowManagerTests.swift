@@ -53,17 +53,21 @@ struct NoteWindowManagerTests {
     @MainActor
     @Test("Modular window policy keeps zoom and disables desktop fullscreen")
     func modularWindowPolicyDisablesDesktopFullscreen() throws {
-        let window = NSWindow(
+        let window = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.collectionBehavior.insert(.fullScreenPrimary)
+        window.collectionBehavior.insert(.fullScreenAuxiliary)
+        window.collectionBehavior.insert(.fullScreenAllowsTiling)
 
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
 
         #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
+        #expect(!window.collectionBehavior.contains(.fullScreenAuxiliary))
+        #expect(!window.collectionBehavior.contains(.fullScreenAllowsTiling))
         let zoomButton = try #require(window.standardWindowButton(.zoomButton))
         #expect(zoomButton.target === window)
         #expect(zoomButton.action == #selector(NSWindow.performZoom(_:)))

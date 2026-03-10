@@ -45,6 +45,9 @@ struct RootView: View {
 
             // Main content — tab-switched panels
             ContentRouter(homeTab: ui.homeTab)
+
+            WindowPolicyBridge()
+                .frame(width: 0, height: 0)
         }
         // Drive preferred color scheme from the resolved theme.
         // This ensures Ember/OLED/Sunset stay dark even when system is in light mode.
@@ -184,6 +187,32 @@ struct RootView: View {
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
         }
+    }
+}
+
+private struct WindowPolicyBridge: NSViewRepresentable {
+    func makeNSView(context: Context) -> WindowPolicyBridgeView {
+        WindowPolicyBridgeView()
+    }
+
+    func updateNSView(_ nsView: WindowPolicyBridgeView, context: Context) {
+        nsView.applyWindowPolicyIfNeeded()
+    }
+}
+
+private final class WindowPolicyBridgeView: NSView {
+    private weak var appliedWindow: NSWindow?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyWindowPolicyIfNeeded()
+    }
+
+    func applyWindowPolicyIfNeeded() {
+        guard let window else { return }
+        guard appliedWindow !== window else { return }
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        appliedWindow = window
     }
 }
 
