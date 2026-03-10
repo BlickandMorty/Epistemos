@@ -6,16 +6,15 @@ No runtime blockers found. All baselines green. Code-level audit of all critical
 
 ## Post-Audit Correction
 
-Later review found that `NoteWindowManagerTests.swift` and `NotesUIStateTests.swift` existed on disk but were not added to the Xcode project at the time of the original audit. That meant the original Swift-suite count did not include the new embedded-notes/window-sizing coverage.
+Later review found that `NoteWindowManagerTests.swift` existed on disk but was not added to the Xcode project at the time of the original audit. That meant the original Swift-suite count did not include the new window-sizing coverage.
 
-That project wiring is now fixed in `Epistemos.xcodeproj`, and a targeted rerun executed those suites for real:
+That project wiring is now fixed in `Epistemos.xcodeproj`, and a targeted rerun executed the suite for real:
 
 | Follow-up suite | Result |
 |----------------|--------|
 | `NoteWindowManagerTests` | **3/3 passed** |
-| `NotesUIStateTests` | **8/8 passed** |
 
-The original “251 suites passed” line below reflects the earlier full-suite run before this project-sync correction. It should not be read as having covered these two suites until this follow-up fix.
+The original “251 suites passed” line below reflects the earlier full-suite run before this project-sync correction. It should not be read as having covered this suite until this follow-up fix.
 
 ---
 
@@ -24,7 +23,7 @@ The original “251 suites passed” line below reflects the earlier full-suite 
 | Suite | Result |
 |-------|--------|
 | Rust (graph-engine) | **2340/2340 passed**, 0 failed |
-| Swift (EpistemosTests) | **Original full-suite pass recorded in the initial audit; follow-up project sync added `NoteWindowManagerTests` + `NotesUIStateTests`, and those 11 tests now pass** |
+| Swift (EpistemosTests) | **Original full-suite pass recorded in the initial audit; follow-up project sync added `NoteWindowManagerTests`, and those 3 tests now pass** |
 | Clean Build (fresh DerivedData) | **BUILD SUCCEEDED** |
 | Runtime Launch | **No crashes**, no app-level errors |
 
@@ -52,7 +51,6 @@ The original “251 suites passed” line below reflects the earlier full-suite 
 | **AI streaming** | ✅ | Divider-based inline response. `stripUnacceptedAIResponse()` called before any save read. Accept/discard correctly flush binding. |
 | **NoteOutlineOverlay** | ✅ | TK2 uses `externalItems` parameter (populated via `tocItems` from `TOCParser`). TK1 uses `markdown` parameter from `PageStoragePool`. |
 | **Notification compatibility** | ✅ | `ProseTextView2` declares identical notification names as `ClickableTextView` (`EpistemosCreateIdeaAtLine`, `EpistemosAIOperation`, `EpistemosBlockPropertyEdit`). |
-| **Embedded Notes (workspace)** | ✅ | `NotesWorkspaceView` correctly manages workspace tabs, landing page, and navigation states. |
 | **Theme switching** | ✅ | `handleThemeChange()` calls `applyTheme()` on `ProseTextView2`. `NoteWindowManager.syncTheme()` updates all windows. |
 | **Window frame** | ✅ | `sanitizedNoteWindowFrame()` clamps to screen visible frame, resets if below minimum (960×620). |
 
@@ -90,8 +88,6 @@ The `directSaveTask` (3s) writes to disk but doesn't update `lastPersistedText`.
 1. **Vault index mismatch**: 16 pages in DB without corresponding disk files. Low priority cleanup — does not affect editor behavior or data integrity.
 2. **NL entity extraction disabled**: Intentional pre-migration product decision (documented in parity audit). Not a TK2 regression.
 3. **`directSaveTask` / `lastPersistedText` redundancy**: Benign double-write on page swap after direct save fires. No fix needed.
-4. **Embedded home Notes performance**: User-reported as slower than the modular note window path. This report did not treat that as closed; it needs a dedicated profiling pass before claiming performance parity for the embedded workspace.
-
 ## Conclusion
 
-The application is ready for release on the originally audited note/window/editor paths. The release audit’s missing Xcode-project test wiring has now been corrected, and the previously omitted `NoteWindowManagerTests` and `NotesUIStateTests` both pass. The remaining open follow-up from this review is embedded home Notes performance, which needs profiling rather than a claim of parity by inspection.
+The application is ready for release on the audited note/window/editor paths. The release audit’s missing Xcode-project test wiring has now been corrected, and the previously omitted `NoteWindowManagerTests` now pass.

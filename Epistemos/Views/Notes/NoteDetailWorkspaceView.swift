@@ -6,19 +6,6 @@ import Translation
 import UniformTypeIdentifiers
 import os
 
-enum NoteDetailWorkspaceChrome {
-    case windowed
-    case embedded
-
-    var showsToolbarActions: Bool {
-        true
-    }
-
-    var showsPrincipalToolbar: Bool {
-        self == .windowed
-    }
-}
-
 private struct EditorMetricsSnapshot: Sendable {
     let wordCount: Int
     let headings: [TOCItem]
@@ -31,7 +18,6 @@ private struct EditorMetricsSnapshot: Sendable {
 
 struct NoteDetailWorkspaceView: View {
     let pageId: String
-    let chrome: NoteDetailWorkspaceChrome
 
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
     @Environment(UIState.self) private var ui
@@ -79,9 +65,8 @@ struct NoteDetailWorkspaceView: View {
     /// Per-note AI chat state (one per open note tab).
     @State private var noteChatState: NoteChatState
 
-    init(pageId: String, chrome: NoteDetailWorkspaceChrome = .windowed) {
+    init(pageId: String) {
         self.pageId = pageId
-        self.chrome = chrome
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
         _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
     }
@@ -201,110 +186,102 @@ struct NoteDetailWorkspaceView: View {
         }
         }
         .toolbar {
-            if chrome.showsToolbarActions {
-                // Back / Forward (only when navigating wikilinks)
-                if let nav = navState, nav.hasBreadcrumb {
-                    ToolbarItem(placement: .navigation) {
-                        wikilinksNavButtons(nav: nav)
-                    }
+            // Back / Forward (only when navigating wikilinks)
+            if let nav = navState, nav.hasBreadcrumb {
+                ToolbarItem(placement: .navigation) {
+                    wikilinksNavButtons(nav: nav)
                 }
+            }
 
+            ToolbarItem {
+                Menu {
+                    Button("Bold  ⌘B") { insertMarkdown("**", "**") }
+                    Button("Italic  ⌘I") { insertMarkdown("*", "*") }
+                    Menu("Heading") {
+                        Button("H1") { insertLinePrefix("# ") }
+                        Button("H2") { insertLinePrefix("## ") }
+                        Button("H3") { insertLinePrefix("### ") }
+                    }
+                    Divider()
+                    Button("Strikethrough") { insertMarkdown("~~", "~~") }
+                    Button("Code") { insertMarkdown("`", "`") }
+                    Button("Link") { insertMarkdown("[", "](url)") }
+                } label: {
+                    Label("Format", systemImage: "textformat")
+                }
+                .help("Format")
+            }
+
+            ToolbarItem {
+                Button { togglePreviewMode() } label: {
+                    Label(
+                        showPreview ? "Editor" : "Preview",
+                        systemImage: showPreview ? "pencil" : "eye")
+                }
+                .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
+            }
+
+            if !tocItems.isEmpty {
                 ToolbarItem {
                     Menu {
-                        Button("Bold  ⌘B") { insertMarkdown("**", "**") }
-                        Button("Italic  ⌘I") { insertMarkdown("*", "*") }
-                        Menu("Heading") {
-                            Button("H1") { insertLinePrefix("# ") }
-                            Button("H2") { insertLinePrefix("## ") }
-                            Button("H3") { insertLinePrefix("### ") }
+                        ForEach(tocItems) { item in
+                            Button {
+                                scrollEditorTo(charOffset: item.charOffset)
+                            } label: {
+                                Text(String(repeating: "  ", count: max(0, item.level - 1)) + item.title)
+                            }
                         }
-                        Divider()
-                        Button("Strikethrough") { insertMarkdown("~~", "~~") }
-                        Button("Code") { insertMarkdown("`", "`") }
-                        Button("Link") { insertMarkdown("[", "](url)") }
                     } label: {
-                        Label("Format", systemImage: "textformat")
+                        Label("Sections", systemImage: "list.bullet.indent")
                     }
-                    .help("Format")
+                    .help("Sections")
                 }
+            }
 
+            ToolbarItem {
+                moreMenu
+            }
+
+            if !showPreview {
+                ToolbarItem(placement: .principal) {
+                    toolbarChatField(width: 200)
+                }
+            }
+
+            if !showPreview && !showDocumentMode {
                 ToolbarItem {
-                    Button { togglePreviewMode() } label: {
-                        Label(
-                            showPreview ? "Editor" : "Preview",
-                            systemImage: showPreview ? "pencil" : "eye")
+                    Button { showBacklinksPopover.toggle() } label: {
+                        Label("Backlinks", systemImage: "link")
                     }
-                    .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
-                }
-
-                if !tocItems.isEmpty {
-                    ToolbarItem {
-                        Menu {
-                            ForEach(tocItems) { item in
-                                Button {
-                                    scrollEditorTo(charOffset: item.charOffset)
-                                } label: {
-                                    Text(String(repeating: "  ", count: max(0, item.level - 1)) + item.title)
+                    .help("Backlinks")
+                    .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
+                        if let page = pages.first {
+                            NoteBacklinksPopover(
+                                pageTitle: page.title,
+                                onNavigate: { targetId in
+                                    showBacklinksPopover = false
+                                    navState?.push(pageId: targetId, title: "")
                                 }
-                            }
-                        } label: {
-                            Label("Sections", systemImage: "list.bullet.indent")
+                            )
                         }
-                        .help("Sections")
                     }
                 }
+            }
 
+            if !showPreview {
                 ToolbarItem {
-                    moreMenu
-                }
-
-                if !showPreview {
-                    if chrome.showsPrincipalToolbar {
-                        ToolbarItem(placement: .principal) {
-                            toolbarChatField(width: 200)
-                        }
-                    } else {
-                        ToolbarItem {
-                            toolbarChatField(width: 156)
-                        }
+                    Button {
+                        showChatSidebar.toggle()
+                    } label: {
+                        Label(
+                            showChatSidebar ? "Hide Chat" : "Chat History",
+                            systemImage: showChatSidebar ? "bubble.left.fill" : "bubble.left")
                     }
-                }
-
-                if !showPreview && !showDocumentMode {
-                    ToolbarItem {
-                        Button { showBacklinksPopover.toggle() } label: {
-                            Label("Backlinks", systemImage: "link")
-                        }
-                        .help("Backlinks")
-                        .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
-                            if let page = pages.first {
-                                NoteBacklinksPopover(
-                                    pageTitle: page.title,
-                                    onNavigate: { targetId in
-                                        showBacklinksPopover = false
-                                        navState?.push(pageId: targetId, title: "")
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if !showPreview {
-                    ToolbarItem {
-                        Button {
-                            showChatSidebar.toggle()
-                        } label: {
-                            Label(
-                                showChatSidebar ? "Hide Chat" : "Chat History",
-                                systemImage: showChatSidebar ? "bubble.left.fill" : "bubble.left")
-                        }
-                        .help("Chat History")
-                        .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
-                            NoteChatSidebar()
-                                .environment(noteChatState)
-                                .frame(width: 340, height: 380)
-                        }
+                    .help("Chat History")
+                    .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
+                        NoteChatSidebar()
+                            .environment(noteChatState)
+                            .frame(width: 340, height: 380)
                     }
                 }
             }

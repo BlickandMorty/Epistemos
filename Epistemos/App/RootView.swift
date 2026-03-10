@@ -219,12 +219,11 @@ private final class WindowPolicyBridgeView: NSView {
 // MARK: - Home Tab
 
 enum HomeTab: String, CaseIterable {
-    case home, notes, library, settings
+    case home, library, settings
 
     var label: String {
         switch self {
         case .home: "Home"
-        case .notes: "Notes"
         case .library: "Library"
         case .settings: "Settings"
         }
@@ -233,7 +232,6 @@ enum HomeTab: String, CaseIterable {
     var icon: String {
         switch self {
         case .home: "house"
-        case .notes: "doc.text"
         case .library: "books.vertical"
         case .settings: "gear"
         }
@@ -323,8 +321,6 @@ struct ContentRouter: View {
         switch homeTab {
         case .home:
             HomeRouter()
-        case .notes:
-            NotesWorkspaceView()
         case .library:
             LibraryView()
         case .settings:
