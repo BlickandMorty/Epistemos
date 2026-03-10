@@ -221,19 +221,15 @@ final class NoteWindowManager {
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
 
-        // Match system appearance and background to theme
-        if let theme = AppBootstrap.shared?.uiState.theme {
-            window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-            window.titlebarAppearsTransparent = true
-            window.backgroundColor = theme.nsBackground
-        }
+        window.titlebarAppearsTransparent = true
 
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
         let hostingView = NSHostingView(rootView: editorView)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView = hostingView
+        window.contentView = WindowThemeStyler.themedContentView(host: hostingView, theme: bootstrap.uiState.theme)
+        WindowThemeStyler.apply(to: window, theme: bootstrap.uiState.theme)
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -300,14 +296,13 @@ final class NoteWindowManager {
         )
         let windowTitle = title.isEmpty ? "Untitled" : title
         window.title = "\(windowTitle) — \(dateStr)"
-        window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
 
-        // Sync window chrome to current theme
         let theme = bootstrap.uiState.theme
-        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window.contentView = WindowThemeStyler.themedContentView(host: hostingView, theme: theme)
+        WindowThemeStyler.apply(to: window, theme: theme)
 
         // Zoom instead of fullscreen
         window.collectionBehavior.remove(.fullScreenPrimary)
@@ -343,10 +338,8 @@ final class NoteWindowManager {
 
     /// Sync appearance of all note windows to the current theme.
     func syncTheme(theme: EpistemosTheme) {
-        let appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         for w in windows.values {
-            w.appearance = appearance
-            w.backgroundColor = theme.nsBackground
+            WindowThemeStyler.apply(to: w, theme: theme)
         }
     }
 }
@@ -626,16 +619,7 @@ private struct NotePageContent: View {
                 .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
             }
 
-            // TK2 toggle (development — remove after migration)
-            ToolbarItem {
-                Button { notesUI.useTK2Editor.toggle() } label: {
-                    Label(
-                        notesUI.useTK2Editor ? "TK1" : "TK2",
-                        systemImage: notesUI.useTK2Editor ? "2.square.fill" : "2.square"
-                    )
-                }
-                .help(notesUI.useTK2Editor ? "Switch to TextKit 1" : "Switch to TextKit 2")
-            }
+            // TK2 toggle moved to "More" menu
 
             // Section navigator
             if !tocItems.isEmpty {
@@ -1588,6 +1572,17 @@ private struct NotePageContent: View {
                 } label: {
                     Label("Clear Word Target", systemImage: "xmark.circle")
                 }
+            }
+
+            Divider()
+
+            Button {
+                notesUI.useTK2Editor.toggle()
+            } label: {
+                Label(
+                    notesUI.useTK2Editor ? "Switch to Legacy Editor" : "Switch to New Editor",
+                    systemImage: notesUI.useTK2Editor ? "1.square" : "2.square"
+                )
             }
         } label: {
             Label("More", systemImage: "ellipsis.circle")
