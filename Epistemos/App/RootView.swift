@@ -190,11 +190,12 @@ struct RootView: View {
 // MARK: - Home Tab
 
 enum HomeTab: String, CaseIterable {
-    case home, library, settings
+    case home, notes, library, settings
 
     var label: String {
         switch self {
         case .home: "Home"
+        case .notes: "Notes"
         case .library: "Library"
         case .settings: "Settings"
         }
@@ -203,6 +204,7 @@ enum HomeTab: String, CaseIterable {
     var icon: String {
         switch self {
         case .home: "house"
+        case .notes: "doc.text"
         case .library: "books.vertical"
         case .settings: "gear"
         }
@@ -277,7 +279,7 @@ private struct PrincipalToolbarContent: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 108)
+            .frame(width: 144)
         }
     }
 }
@@ -292,6 +294,8 @@ struct ContentRouter: View {
         switch homeTab {
         case .home:
             HomeRouter()
+        case .notes:
+            NotesWorkspaceView()
         case .library:
             LibraryView()
         case .settings:

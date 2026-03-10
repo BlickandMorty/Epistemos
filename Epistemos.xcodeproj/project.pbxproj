@@ -209,6 +209,8 @@
 		CC2D5E6F7182930A1B2C3D4F /* VersionTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1D4E5F60718293AB0C1D2E /* VersionTimeline.swift */; };
 		CC3E6F80829304C6DE2F3041 /* ConfidenceOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2E5F70718293B5CD1E2F3F /* ConfidenceOverlay.swift */; };
 		CCB23084A08F20E597B38950 /* NotesBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */; };
+		NDWVBF2603100000000001 /* NoteDetailWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NDWV202603100000000001 /* NoteDetailWorkspaceView.swift */; };
+		NWSVBF2603100000000001 /* NotesWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NWSV202603100000000001 /* NotesWorkspaceView.swift */; };
 		CCDD340F08953CBE3838C7F3 /* EventBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9947A75806BAE2F306FAFB6C /* EventBus.swift */; };
 		CD4E9F59276F545B492CEC3F /* NotesMentionDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB211887E2C199C35268119F /* NotesMentionDropdown.swift */; };
 		CDF4G9B32E5B8C6D0F1A2B3C4 /* BlockEditTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE3F8A21D4A7B5C8E9D0F1A2 /* BlockEditTranslator.swift */; };
@@ -358,6 +360,8 @@
 		59039AE3F1F0875C28CEB61E /* ConcurrencyStressTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConcurrencyStressTests.swift; sourceTree = "<group>"; };
 		5961E85505C9D80D4BE0E3C9 /* GraphMetadataComprehensiveTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphMetadataComprehensiveTests.swift; sourceTree = "<group>"; };
 		59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesBrowserView.swift; sourceTree = "<group>"; };
+		NDWV202603100000000001 /* NoteDetailWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDetailWorkspaceView.swift; sourceTree = "<group>"; };
+		NWSV202603100000000001 /* NotesWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesWorkspaceView.swift; sourceTree = "<group>"; };
 		5A24107C307BC356C7F4E643 /* libgraph_engine.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libgraph_engine.a; path = "build-rust/libgraph_engine.a"; sourceTree = "<group>"; };
 		5A9F50EB674AE1617F813FC3 /* DailyBriefState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefState.swift; sourceTree = "<group>"; };
 		5B1A2C3D4E5F60789A0B1C2D /* SDBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDBlock.swift; sourceTree = "<group>"; };
@@ -732,6 +736,8 @@
 				MKLFRAG0000000000001 /* MarkdownLayoutFragment.swift */,
 				9C0075E6E325DBAEE23C2152 /* MarkdownTextStorage.swift */,
 				59DCD3AD8571726E4AD29519 /* NotesBrowserView.swift */,
+				NDWV202603100000000001 /* NoteDetailWorkspaceView.swift */,
+				NWSV202603100000000001 /* NotesWorkspaceView.swift */,
 				3A1C01DC4891A9C2EDE551D7 /* NotesSidebar.swift */,
 				A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */,
 				A1B2C3D4E5F60718BACKLN01 /* NoteBacklinksPanel.swift */,
@@ -1317,6 +1323,8 @@
 				4B547DF6F02B57485AE9BE59 /* NoteEntity.swift in Sources */,
 				75C700C860CDA76BB99BCFC0 /* NoteWindowManager.swift in Sources */,
 				CCB23084A08F20E597B38950 /* NotesBrowserView.swift in Sources */,
+				NDWVBF2603100000000001 /* NoteDetailWorkspaceView.swift in Sources */,
+				NWSVBF2603100000000001 /* NotesWorkspaceView.swift in Sources */,
 				CD4E9F59276F545B492CEC3F /* NotesMentionDropdown.swift in Sources */,
 				CBD58CD0923FE36FE7FFD82D /* NotesSidebar.swift in Sources */,
 				A1B2C3D4E5F60718NOTETOC2 /* NoteTableOfContents.swift in Sources */,

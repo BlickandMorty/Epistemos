@@ -7,8 +7,27 @@ import Observation
 
 @MainActor @Observable
 final class NotesUIState {
+    struct WorkspaceTab: Identifiable, Equatable {
+        let id: String
+        var pageId: String?
+        var isPinned: Bool
+
+        init(id: String = UUID().uuidString, pageId: String? = nil, isPinned: Bool = false) {
+            self.id = id
+            self.pageId = pageId
+            self.isPinned = isPinned
+        }
+    }
+
     /// Currently open page ID — points to SDPage.id
     var activePageId: String?
+
+    /// Open tabs in the embedded home Notes workspace.
+    /// A tab with `pageId == nil` is the Lucid-style landing tab.
+    var workspaceTabs: [WorkspaceTab]
+
+    /// Currently active tab in the embedded home Notes workspace.
+    var workspaceActiveTabId: String
 
     /// Changes panel visibility (shows dirty/unsaved pages)
     var isChangesPanelVisible = false
@@ -70,6 +89,18 @@ final class NotesUIState {
     /// Ideas folder expanded state
     var isIdeasExpanded = false
 
+    init() {
+        let landingTab = WorkspaceTab()
+        workspaceTabs = [landingTab]
+        workspaceActiveTabId = landingTab.id
+    }
+
+    /// Currently selected page in the embedded home Notes workspace.
+    /// Kept separate from `activePageId` so windowed note opens do not leak into Home.
+    var workspacePageId: String? {
+        workspaceTabs.first(where: { $0.id == workspaceActiveTabId })?.pageId
+    }
+
     func collapseAllFolders() {
         expandedFolderIds.removeAll()
         isJournalExpanded = false
@@ -90,6 +121,81 @@ final class NotesUIState {
         activePageId = pageId
     }
 
+    func openWorkspacePage(_ pageId: String) {
+        if let existingTab = workspaceTabs.first(where: { $0.pageId == pageId }) {
+            workspaceActiveTabId = existingTab.id
+        } else if let activeIndex = workspaceTabs.firstIndex(where: { $0.id == workspaceActiveTabId }),
+            workspaceTabs[activeIndex].pageId == nil
+        {
+            workspaceTabs[activeIndex].pageId = pageId
+        } else {
+            let tab = WorkspaceTab(pageId: pageId)
+            workspaceTabs.append(tab)
+            workspaceActiveTabId = tab.id
+        }
+        activePageId = pageId
+    }
+
+    func setWorkspaceCurrentPage(_ pageId: String) {
+        if let activeIndex = workspaceTabs.firstIndex(where: { $0.id == workspaceActiveTabId }) {
+            workspaceTabs[activeIndex].pageId = pageId
+        } else {
+            let tab = WorkspaceTab(pageId: pageId)
+            workspaceTabs.append(tab)
+            workspaceActiveTabId = tab.id
+        }
+        activePageId = pageId
+    }
+
+    func showWorkspaceLanding() {
+        if let landingTab = workspaceTabs.first(where: { $0.pageId == nil }) {
+            workspaceActiveTabId = landingTab.id
+            return
+        }
+        let tab = WorkspaceTab()
+        workspaceTabs.append(tab)
+        workspaceActiveTabId = tab.id
+    }
+
+    func addWorkspaceTab() {
+        let tab = WorkspaceTab()
+        workspaceTabs.append(tab)
+        workspaceActiveTabId = tab.id
+    }
+
+    func activateWorkspaceTab(_ tabId: String) {
+        guard let tab = workspaceTabs.first(where: { $0.id == tabId }) else { return }
+        workspaceActiveTabId = tabId
+        if let pageId = tab.pageId {
+            activePageId = pageId
+        }
+    }
+
+    func closeWorkspaceTab(_ tabId: String) {
+        guard let index = workspaceTabs.firstIndex(where: { $0.id == tabId }) else { return }
+        let closingTab = workspaceTabs[index]
+        workspaceTabs.remove(at: index)
+
+        if workspaceTabs.isEmpty {
+            let landingTab = WorkspaceTab()
+            workspaceTabs = [landingTab]
+            workspaceActiveTabId = landingTab.id
+        } else if workspaceActiveTabId == tabId {
+            let fallbackIndex = min(index, workspaceTabs.count - 1)
+            workspaceActiveTabId = workspaceTabs[fallbackIndex].id
+        }
+
+        if activePageId == closingTab.pageId {
+            activePageId = workspacePageId
+        }
+    }
+
+    func toggleWorkspaceTabPinned(_ tabId: String) {
+        guard let index = workspaceTabs.firstIndex(where: { $0.id == tabId }) else { return }
+        workspaceTabs[index].isPinned.toggle()
+        normalizeWorkspaceTabOrder()
+    }
+
     func closeTab(_ pageId: String) {
         if activePageId == pageId {
             activePageId = nil
@@ -100,10 +206,17 @@ final class NotesUIState {
         activePageId = nil
     }
 
+    func closeWorkspacePage() {
+        closeWorkspaceTab(workspaceActiveTabId)
+    }
+
     /// Full reset when switching vaults — clears all page references so
     /// stale editors from the old vault don't linger.
     func resetForVaultSwitch() {
         activePageId = nil
+        let landingTab = WorkspaceTab()
+        workspaceTabs = [landingTab]
+        workspaceActiveTabId = landingTab.id
         searchQuery = ""
         debouncedSearchQuery = ""
         expandedFolderIds = []
@@ -111,5 +224,11 @@ final class NotesUIState {
         isIdeasExpanded = false
         isFocusMode = false
         sessionWordTarget = nil
+    }
+
+    private func normalizeWorkspaceTabOrder() {
+        let pinnedTabs = workspaceTabs.filter(\.isPinned)
+        let unpinnedTabs = workspaceTabs.filter { !$0.isPinned }
+        workspaceTabs = pinnedTabs + unpinnedTabs
     }
 }

@@ -141,6 +141,12 @@ struct NotesSidebar: View {
     let allPages: [SDPage]
     let allFolders: [SDFolder]
 
+    /// Injected page-select action. When non-nil, .openPage and .openIdea use this
+    /// instead of opening a separate window. Allows the home workspace to select in-place.
+    var onSelectPage: ((String) -> Void)? = nil
+    var selectedPageId: String? = nil
+    var onClearSelection: (() -> Void)? = nil
+
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
@@ -164,6 +170,7 @@ struct NotesSidebar: View {
     @State private var rebuildTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
+    private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
 
     /// Coalesces multiple `setNeedsRebuild()` calls into a single `rebuildCache()`
     /// on the next run loop tick. Prevents 13+ redundant rebuilds per event cycle.
@@ -380,7 +387,7 @@ struct NotesSidebar: View {
             ForEach(collections) { folder in
                 FolderRow(
                     item: folder, indent: 0,
-                    folderItemById: fById, onAction: onAction
+                    folderItemById: fById, selectedPageId: currentSelectedPageId, onAction: onAction
                 )
             }
         }
@@ -391,7 +398,7 @@ struct NotesSidebar: View {
             ForEach(folders) { folder in
                 FolderRow(
                     item: folder, indent: 0,
-                    folderItemById: fById, onAction: onAction
+                    folderItemById: fById, selectedPageId: currentSelectedPageId, onAction: onAction
                 )
             }
         }
@@ -402,7 +409,9 @@ struct NotesSidebar: View {
         if !journals.isEmpty {
             JournalFolderRow(
                 journals: journals,
-                isExpanded: notesUI.isJournalExpanded, onAction: onAction
+                isExpanded: notesUI.isJournalExpanded,
+                selectedPageId: currentSelectedPageId,
+                onAction: onAction
             )
         }
 
@@ -433,6 +442,7 @@ struct NotesSidebar: View {
                 FileRow(
                     item: page,
                     indent: 0,
+                    selectedPageId: currentSelectedPageId,
                     onAction: onAction
                 )
             }
@@ -485,6 +495,7 @@ struct NotesSidebar: View {
             // All actions on one row — editor + creation consolidated.
             // EditorActionsBar is isolated (has its own @Query for dirty pages).
             EditorActionsBar(
+                activePageId: currentSelectedPageId,
                 onNewPage: {
                     Task {
                         if let pageId = await vaultSync.createPage(title: "Untitled") {
@@ -595,7 +606,11 @@ struct NotesSidebar: View {
     // editor can appear.
 
     private func openInEditor(_ pageId: String) {
-        NoteWindowManager.shared.open(pageId: pageId)
+        if let onSelectPage {
+            onSelectPage(pageId)
+        } else {
+            NoteWindowManager.shared.open(pageId: pageId)
+        }
     }
 
     // MARK: - Pre-Warming (Options A + A2)
@@ -797,7 +812,7 @@ struct NotesSidebar: View {
             withAnimation(Motion.snap) { notesUI.isIdeasExpanded.toggle() }
 
         case .openIdea(let pageId):
-            NoteWindowManager.shared.open(pageId: pageId)
+            openInEditor(pageId)
 
         case .collapseAll:
             withAnimation(Motion.snap) { notesUI.collapseAllFolders() }
@@ -847,7 +862,7 @@ struct NotesSidebar: View {
 
     private func performPageDelete() {
         guard let item = pendingDeletePage else { return }
-        if notesUI.activePageId == item.id { notesUI.closePage() }
+        clearSelectionIfNeeded(pageId: item.id)
         notesUI.closeTab(item.id)
         if let page = fetchPage(item.id) {
             vaultSync.deletePageFromDisk(filePath: page.filePath)
@@ -881,11 +896,20 @@ struct NotesSidebar: View {
 
     private func closeFolderTabs(_ folder: SDFolder) {
         for page in (folder.pages ?? []) {
-            if notesUI.activePageId == page.id { notesUI.closePage() }
+            clearSelectionIfNeeded(pageId: page.id)
             notesUI.closeTab(page.id)
         }
         for child in (folder.children ?? []) {
             closeFolderTabs(child)
+        }
+    }
+
+    private func clearSelectionIfNeeded(pageId: String) {
+        guard currentSelectedPageId == pageId else { return }
+        if let onClearSelection {
+            onClearSelection()
+        } else {
+            notesUI.closePage()
         }
     }
 
@@ -1003,6 +1027,7 @@ private struct FolderRow: View {
     let item: SidebarFolderItem
     let indent: Int
     let folderItemById: [String: SidebarFolderItem]
+    let selectedPageId: String?
     let onAction: (SidebarAction) -> Void
 
     @Environment(UIState.self) private var ui
@@ -1163,6 +1188,7 @@ private struct FolderRow: View {
                             FolderRow(
                                 item: child, indent: indent + 1,
                                 folderItemById: folderItemById,
+                                selectedPageId: selectedPageId,
                                 onAction: onAction
                             )
                         }
@@ -1172,6 +1198,7 @@ private struct FolderRow: View {
                         FileRow(
                             item: page,
                             indent: indent + 1,
+                            selectedPageId: selectedPageId,
                             onAction: onAction
                         )
                     }
@@ -1203,6 +1230,7 @@ private struct FolderRow: View {
 private struct JournalFolderRow: View {
     let journals: [SidebarPageItem]
     let isExpanded: Bool
+    let selectedPageId: String?
     let onAction: (SidebarAction) -> Void
 
     @Environment(UIState.self) private var ui
@@ -1254,6 +1282,7 @@ private struct JournalFolderRow: View {
                     FileRow(
                         item: page,
                         indent: 1,
+                        selectedPageId: selectedPageId,
                         onAction: onAction
                     )
                 }
@@ -1368,17 +1397,17 @@ private struct IdeaRow: View {
 private struct FileRow: View {
     let item: SidebarPageItem
     let indent: Int
+    let selectedPageId: String?
     let onAction: (SidebarAction) -> Void
 
     @Environment(UIState.self) private var ui
-    @Environment(NotesUIState.self) private var notesUI
     @State private var isRenaming = false
     @State private var renameValue = ""
 
     private var theme: EpistemosTheme { ui.theme }
     // Computed from @Environment — only THIS row re-evaluates when activePageId changes,
     // not the entire NotesSidebar body. This is the structural fix for the cascade.
-    private var isActive: Bool { notesUI.activePageId == item.id }
+    private var isActive: Bool { selectedPageId == item.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1586,13 +1615,13 @@ private struct EmptyTreeState: View {
 // result set changes, not on every VaultSyncService property mutation.
 
 private struct EditorActionsBar: View {
+    let activePageId: String?
     let onNewPage: () -> Void
     let onNewFolder: () -> Void
     let onNewCollection: () -> Void
     let onTodayJournal: () -> Void
     let onOrganize: () -> Void
 
-    @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(UIState.self) private var ui
     @State private var showChangesPopover = false
@@ -1624,7 +1653,7 @@ private struct EditorActionsBar: View {
                 .padding(.horizontal, 2)
 
             SidebarIconButton(icon: "square.and.arrow.down", tooltip: "Save (⌘S)") {
-                if let pageId = notesUI.activePageId {
+                if let pageId = activePageId {
                     vaultSync.savePage(pageId: pageId)
                 }
             }
