@@ -25,9 +25,16 @@ final class TransclusionOverlayManager2 {
     /// each get their own overlay.
     private var overlays: [String: EditableTransclusionView] = [:]
     private var modelContext: ModelContext?
+    private var resolvedBlocks: [String: ResolvedBlock] = [:]
+    private var missingBlockIds: Set<String> = []
+    private var resolvedPageTitles: [String: String] = [:]
+    private var missingPageIds: Set<String> = []
+    private var documentMayContainBlockRefs = false
+    private var scrollRefreshTask: Task<Void, Never>?
 
     /// Callback when a transclusion is edited. (blockId, newContent)
     var onBlockEdit: ((String, String) -> Void)?
+    var onDidRefresh: (() -> Void)?
 
     private static let maxDepth = 3
 
@@ -41,9 +48,38 @@ final class TransclusionOverlayManager2 {
 
     // MARK: - Refresh
 
+    func refreshAfterTextChange() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
+        refresh(recalculateDocumentState: true)
+    }
+
+    func refreshForScroll() {
+        guard documentMayContainBlockRefs || !overlays.isEmpty else { return }
+        guard scrollRefreshTask == nil else { return }
+
+        scrollRefreshTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.scrollRefreshTask = nil
+            self.refresh(recalculateDocumentState: false)
+        }
+    }
+
     /// Scan visible text for ((ref)) markers and position overlays.
     /// Called after text changes and on scroll.
     func refresh() {
+        refresh(recalculateDocumentState: true)
+    }
+
+    func invalidateResolvedBlock(_ blockId: String) {
+        resolvedBlocks.removeValue(forKey: blockId)
+        missingBlockIds.remove(blockId)
+    }
+
+    private func refresh(recalculateDocumentState: Bool) {
+        onDidRefresh?()
+
         guard let textView,
               let tlm = textView.textLayoutManager,
               let contentStorage = tlm.textContentManager as? NSTextContentStorage,
@@ -51,7 +87,18 @@ final class TransclusionOverlayManager2 {
         else { return }
 
         guard storage.length > 0 else {
+            documentMayContainBlockRefs = false
             removeAll()
+            return
+        }
+
+        if recalculateDocumentState {
+            documentMayContainBlockRefs = storage.string.contains("((")
+            if !documentMayContainBlockRefs {
+                removeAll()
+                return
+            }
+        } else if !documentMayContainBlockRefs && overlays.isEmpty {
             return
         }
 
@@ -250,20 +297,34 @@ final class TransclusionOverlayManager2 {
     private func resolveBlock(_ blockId: String, depth: Int = 0) -> ResolvedBlock? {
         guard depth < Self.maxDepth else { return ResolvedBlock(content: "[Circular reference]", pageId: "") }
         guard let modelContext else { return nil }
+        if let cached = resolvedBlocks[blockId] { return cached }
+        if missingBlockIds.contains(blockId) { return nil }
 
         let descriptor = FetchDescriptor<SDBlock>(
             predicate: #Predicate<SDBlock> { $0.id == blockId }
         )
-        guard let block = try? modelContext.fetch(descriptor).first else { return nil }
-        return ResolvedBlock(content: block.content, pageId: block.pageId)
+        guard let block = try? modelContext.fetch(descriptor).first else {
+            missingBlockIds.insert(blockId)
+            return nil
+        }
+        let resolved = ResolvedBlock(content: block.content, pageId: block.pageId)
+        resolvedBlocks[blockId] = resolved
+        return resolved
     }
 
     private func resolvePageTitle(_ pageId: String) -> String? {
         guard let modelContext, !pageId.isEmpty else { return nil }
+        if let cached = resolvedPageTitles[pageId] { return cached }
+        if missingPageIds.contains(pageId) { return nil }
 
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
-        return try? modelContext.fetch(descriptor).first?.title
+        guard let title = try? modelContext.fetch(descriptor).first?.title else {
+            missingPageIds.insert(pageId)
+            return nil
+        }
+        resolvedPageTitles[pageId] = title
+        return title
     }
 }

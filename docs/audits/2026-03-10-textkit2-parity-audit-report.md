@@ -18,7 +18,7 @@
 | NSViewRepresentable bridge | `ProseEditorRepresentable.swift` | `ProseEditorRepresentable2.swift` | **Copied + improved** | Same Coordinator pattern. TK2 adds `TransclusionOverlayManager2`, theme-aware styling, `requestFlush` for transclusion safety. |
 | SwiftUI container | `ProseEditorView.swift` | `ProseEditorView.swift` (shared) | **Shared** | Single view, branches on `useTK2Editor`. Same debounced save, flush, block mirror logic. |
 | Storage pool / caching | `PageStoragePool.swift` + `PageEditorCache.swift` | None (not needed) | **Intentionally removed** | TK1 pools pre-styled `MarkdownTextStorage` instances. TK2 doesn't need pooling — `NSTextContentStorage` restyles on demand via delegate. No pre-warming needed. |
-| Transclusion overlays | `TransclusionOverlayManager.swift` | `TransclusionOverlayManager2.swift` | **Redesigned** | TK2 version adds scroll coalescing, rect caching, and `requestFlush` before source reads. |
+| Transclusion overlays | `TransclusionOverlayManager.swift` | `TransclusionOverlayManager2.swift` | **Redesigned** | TK2 version adds `requestFlush` before source reads. Scroll coalescing and block resolution caching exist in local changes but are **not yet committed**. |
 | Transclusion editing | `EditableTransclusionView.swift` | `EditableTransclusionView.swift` (shared) | **Shared** | Same view, both coordinators wire it identically. |
 | Block ref autocomplete | `BlockRefAutocomplete.swift` | `BlockRefAutocomplete.swift` (shared) | **Shared** | Positioning logic uses `firstRect(forCharacterRange:)` which both TK1 and TK2 NSTextView provide. |
 
@@ -39,7 +39,7 @@
 
 ## Phase 2: Protected File Integrity Report
 
-### 1. `GraphBuilder.swift` — SIGNED OFF WITH CAVEAT
+### 1. `GraphBuilder.swift` — OPEN GAP
 
 **Current behavior:** Reads page bodies via `page.loadBody()` (line 97) which calls `NoteFileStorage.readBody()`. Scans for `((blockId))` references. NL entity extraction disabled (lines 108-111).
 
@@ -47,9 +47,9 @@
 
 **NL entity extraction — gap against parity plan:** The parity plan (Phase 2) says "Must preserve: NL entity extraction from note bodies." Lines 108-111 show NL extraction is disabled with comment: "Entities were previously tag-typed graph nodes. Tags are no longer visualized as nodes, so NL entities are skipped here too." This was disabled BEFORE the TK2 migration as a separate product decision (removing tag-typed graph nodes). It is NOT a TK2 regression — the same code was disabled on `HEAD` before any TK2 work started. However, the parity plan explicitly requires it, and this is a gap.
 
-**Resolution:** NL entity extraction was a conscious product decision to disable, not migration drift. The extraction loop body is empty in both TK1 and TK2 codepaths (same GraphBuilder is shared). If NL entities should be re-enabled, that is a separate feature ticket, not a TK2 parity blocker. The parity plan should be updated to reflect this was intentionally dropped pre-migration.
+**Resolution required:** Either (a) re-enable NL entity extraction, or (b) formally update the parity plan to remove this requirement. Until one of those actions is taken, this remains an open gap against the plan's protected-file contract. The gap is pre-existing (not a TK2 regression), but the plan has not been amended to reflect that.
 
-**Verdict:** `page.loadBody()` contract intact. NL extraction gap is pre-existing, not a TK2 regression. Acknowledged as open item for product decision.
+**Verdict:** `page.loadBody()` contract intact. NL extraction gap is pre-existing but **still open against the parity plan**. Cannot be signed off as PASS until the plan is formally updated or the feature is restored.
 
 ### 2. `NoteWindowManager.swift` — INTACT
 
@@ -144,15 +144,15 @@
 | External reload | `pageBodyDidChange` notification → reload | Same (shared view) | **Equal** |
 | Page swap | `PageStoragePool.getOrCreate()` → swap storage | `reloadTextContent()` in Coordinator2 | **Redesigned** (no pooling needed) |
 | Cached selection / scroll restore | `PageStoragePool.saveState()` / `restoreState()` | Coordinator2 internal state dict | **Redesigned** |
-| Transclusion overlays | `TransclusionOverlayManager` | `TransclusionOverlayManager2` (scroll coalescing) | **Improved** |
+| Transclusion overlays | `TransclusionOverlayManager` | `TransclusionOverlayManager2` | **Improved** (scroll coalescing in local changes, not yet committed) |
 | Autocomplete positioning | `firstRect(forCharacterRange:)` | Same API | **Equal** |
-| Fold / unfold | Not implemented in TK1 | Not implemented in TK2 | **Equal** (neither has it) |
+| Fold / unfold | `ClickableTextView` fold indicators + `ProseEditorRepresentable` storage-replacement fold | `ProseTextView2` fold indicators + `ProseEditorRepresentable2` non-destructive `shouldEnumerate` fold via Rust FFI | **Redesigned** (TK1 rewrites storage to `"…\n"`, TK2 uses `shouldEnumerate` to hide paragraphs) |
 | OCR insertion | Shared OCR pipeline → insert at cursor | Same | **Equal** |
 | QuickLook hooks | NSTextView built-in | Same | **Equal** |
 | AI context menu | `ClickableTextView` notification → `NoteWindowManager` | `ProseTextView2` same notification names → same handler | **Equal** |
 | Block move (up/down) | Flat line swap | `semanticBlockRange()` indent-aware | **Improved** |
 
-**No missing features.** 0 items at `missing` status.
+**No missing features.** 0 items at `missing` status. Fold/unfold is implemented in both stacks with different approaches (see row above).
 
 ---
 
@@ -168,12 +168,14 @@
 | Cached selection and scroll restore | Coordinator2 internal dict | **Equal** |
 | Debounce and buffering in save/AI paths | Same debounce (5s save, 60ms token buffer, 300ms binding sync) | **Equal** |
 
-**Performance fixes applied during audit:**
+**Performance fixes committed during audit:**
 1. `applyLinkAttributesToStorage()` — O(document) → O(paragraph) via `lastEditLocation` tracking
 2. Live resize deferred reflow — ported from TK1's `ClickableTextView`
-3. `TransclusionOverlayManager2` — scroll coalescing added
 
-**No remaining performance gaps.**
+**Performance fixes in local changes (not yet committed):**
+3. `TransclusionOverlayManager2` — scroll coalescing + block resolution caching
+
+**Remaining gap:** Item 3 must be committed before scroll-heavy performance parity is fully achieved.
 
 ---
 
@@ -229,19 +231,22 @@ This is a code-level comparison only. Actual manual testing requires running the
 | Gate Criterion | Status |
 |---|---|
 | 1. No critical feature is `missing` | **PASS** — 0 missing features in parity matrix |
-| 2. Protected files confirmed intact | **PASS** — all 4 signed off (GraphBuilder, NoteWindowManager, DocumentEditorRepresentable, NoteFileStorage) |
+| 2. Protected files confirmed intact | **OPEN** — 3 of 4 signed off. GraphBuilder has a pre-existing NL entity extraction gap against the parity plan (not a TK2 regression, but the plan has not been formally amended). See Phase 2 §1. |
 | 3. App-wide call sites migrated or intentionally retained | **PASS** — all TK1 references gated by feature flag |
 | 4. Large-paragraph performance at baseline or guarded | **PASS** — TK2 equal or better |
 | 5. Migration diff doesn't depend on old stack | **PASS** — TK2 is fully self-contained |
 | 6. No hidden regressions from manual comparison | **PASS (code-level)** — requires manual verification to fully confirm |
 
+### Remaining Blockers
+
+1. **GraphBuilder NL entity extraction:** The parity plan requires it, the code has it disabled. Either amend the plan or restore the feature. Pre-existing, not a TK2 regression.
+2. **TransclusionOverlayManager2 scroll coalescing:** Exists only in uncommitted local changes (see Phase 5 note). Must be committed before performance parity can be fully claimed.
+
 ### Final Conclusion
 
-**TK2 is safe for production use as the default editor.**
+**TK2 is at functional parity for editing, AI streaming, and wiring.** The two items above are procedural (plan amendment, commit) rather than architectural risks. TK1 is retained as a legacy option behind the `useTK2Editor` feature flag.
 
-TK1 is retained as a legacy option behind the `useTK2Editor` feature flag (toggled via More menu). The feature flag is persisted in UserDefaults and defaults to the user's last choice.
-
-TK1 deletion is technically safe based on this audit, but the user has decided to keep it as a fallback. This is a product decision, not a technical blocker.
+TK1 deletion gate cannot be fully closed until the remaining blockers are resolved.
 
 ---
 
@@ -252,8 +257,8 @@ TK1 deletion is technically safe based on this audit, but the user has decided t
 | Bug | Root Cause | Fix |
 |---|---|---|
 | **AI streaming O(document) link scan** | Programmatic inserts bypass `shouldChangeText`, leaving `lastEditLocation == nil`. Every `appendNoteChatTokens` → `didChangeText` → `applyLinkAttributesToStorage` does full-doc regex scan. | Added `setProgrammaticEditLocation()` to ProseTextView2. All streaming/accept/discard paths now set the insert location before `didChangeText()`, scoping the link scan to the edited paragraph. |
-| **Dismantle crash path** | `dismantleNSView` is static (non-`@MainActor`), calling `@MainActor handleDismantle()`. Also, pending `bindingSyncTask` could fire mid-teardown. | Added `MainActor.assumeIsolated` + off-main-thread defensive dispatch. Reordered dismantle to cancel tasks FIRST, flush binding sync BEFORE persist, preventing stale `@State bodyText` race with `onDisappear`. |
-| **Scroll coalescing test** | `TransclusionOverlayManager2.refreshForScroll()` early-returns when `documentMayContainBlockRefs == false`. Test set `onDidRefresh` callback after the initial `refreshAfterTextChange()` that sets the flag. 20ms sleep insufficient for Task.yield in test harness. | Extended sleep to 100ms. |
+| **Dismantle crash path** | `dismantleNSView` is static (non-`@MainActor`), calling `@MainActor handleDismantle()`. Also, pending `bindingSyncTask` could fire mid-teardown. | Added `MainActor.assumeIsolated` + off-main-thread defensive dispatch. Reordered dismantle to cancel tasks FIRST. **Note:** The original flush→persist sequence had a dead code bug: `flushBindingSync(force: true)` set `lastSyncedText`, causing `persistCurrentTextIfNeeded()` to guard out. Fixed by introducing separate `lastPersistedText` tracking for disk persistence. |
+| **Scroll coalescing test** *(uncommitted)* | `TransclusionOverlayManager2.refreshForScroll()` early-returns when `documentMayContainBlockRefs == false`. Test set `onDidRefresh` callback after the initial `refreshAfterTextChange()` that sets the flag. 20ms sleep insufficient for Task.yield in test harness. | Extended sleep to 100ms. *(This fix and the scroll coalescing feature itself are in local changes, not yet committed.)* |
 
 ### Verified No-Bug (Code Analysis)
 

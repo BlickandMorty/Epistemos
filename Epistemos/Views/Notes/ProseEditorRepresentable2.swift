@@ -66,6 +66,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.scrollView = scrollView
         coord.currentPageId = pageId
         coord.lastSyncedText = body
+        coord.lastPersistedText = body
         coord.lastTheme = theme
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
@@ -193,6 +194,7 @@ extension ProseEditorRepresentable2 {
 
         var currentPageId: String = ""
         var lastSyncedText: String = ""
+        var lastPersistedText: String = ""
         var lastTheme: EpistemosTheme = .light
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
@@ -314,6 +316,7 @@ extension ProseEditorRepresentable2 {
                 tv.didChangeText()
                 isFlushingTokens = false
                 lastSyncedText = newBody
+                lastPersistedText = newBody
                 let safeLoc = min(sel.location, (tv.string as NSString).length)
                 tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
             }
@@ -344,8 +347,13 @@ extension ProseEditorRepresentable2 {
             )
 
             // 3. Flush unsaved edits to old page
-            if currentText != lastSyncedText {
+            // Guard against lastPersistedText (disk state), NOT lastSyncedText (binding state).
+            // After 300ms binding sync, lastSyncedText == currentText even though
+            // neither the 3s direct-save nor 5s ProseEditorView save has fired yet.
+            // Both get canceled below, so onPageFlush is the only persistence path.
+            if currentText != lastPersistedText {
                 parent.onPageFlush?(oldPageId, currentText)
+                lastPersistedText = currentText
             }
 
             // 3. Cancel pending tasks + clear overlays
@@ -374,6 +382,7 @@ extension ProseEditorRepresentable2 {
             tv.didChangeText()
             isFlushingTokens = false
             lastSyncedText = newBody
+            lastPersistedText = newBody
             tv.pageId = newPageId
 
             // 6. Restore state for new page
@@ -624,10 +633,9 @@ extension ProseEditorRepresentable2 {
         private func persistCurrentTextIfNeeded() {
             guard !currentPageId.isEmpty, let tv = textView else { return }
             let text = tv.string
-            guard text != lastSyncedText else { return }
+            guard text != lastPersistedText else { return }
             parent.onPageFlush?(currentPageId, text)
-            lastSyncedText = text
-            hasPendingBindingSync = false
+            lastPersistedText = text
         }
 
         func saveCurrentPageState() {

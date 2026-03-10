@@ -1408,4 +1408,181 @@ struct TK2ScrollPerformanceTests {
     }
 }
 
+// MARK: - Suite: Page Swap Persistence
+
+@Suite("TK2 Parity - Page Swap Persistence")
+struct TK2PageSwapPersistenceTests {
+
+    /// Build a minimal Coordinator2 stack wired with onPageFlush tracking.
+    @MainActor
+    private static func makeStack(
+        pageId: String = "old-page",
+        body: String = "Hello world."
+    ) -> (
+        coord: ProseEditorRepresentable2.Coordinator2,
+        tv: ProseTextView2,
+        getFlushCalls: () -> [(String, String)],
+        setNewPage: (String, String) -> Void
+    ) {
+        var text = body
+        let binding = Binding<String>(get: { text }, set: { text = $0 })
+        var flushCalls: [(String, String)] = []
+
+        var repr = ProseEditorRepresentable2(
+            text: binding,
+            pageId: pageId,
+            pageBody: body,
+            isFocused: false,
+            theme: .light,
+            isEditable: true,
+            isFocusMode: false
+        )
+        repr.onPageFlush = { pid, txt in
+            flushCalls.append((pid, txt))
+        }
+
+        let coord = ProseEditorRepresentable2.Coordinator2(repr)
+        let (scrollView, tv) = ProseTextView2.makeTextKit2()
+
+        tv.delegate = coord
+        coord.textView = tv
+        coord.scrollView = scrollView
+        coord.currentPageId = pageId
+        coord.lastSyncedText = body
+        coord.lastPersistedText = body
+        coord.lastTheme = .light
+
+        // Load initial content
+        coord.isFlushingTokens = true
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: body)
+        ts.endEditing()
+        tv.didChangeText()
+        coord.isFlushingTokens = false
+
+        // Closure to update parent to a new page (triggers swap on next handleUpdate)
+        let setNewPage: (String, String) -> Void = { newPageId, newBody in
+            var updated = repr
+            updated = ProseEditorRepresentable2(
+                text: binding,
+                pageId: newPageId,
+                pageBody: newBody,
+                isFocused: false,
+                theme: .light,
+                isEditable: true,
+                isFocusMode: false
+            )
+            updated.onPageFlush = { pid, txt in
+                flushCalls.append((pid, txt))
+            }
+            coord.parent = updated
+            coord.textBinding = binding
+        }
+
+        return (coord, tv, { flushCalls }, setNewPage)
+    }
+
+    /// Simulate a user edit by replacing storage content without the isFlushingTokens guard.
+    @MainActor
+    private static func simulateUserEdit(_ tv: ProseTextView2, newText: String) {
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: newText)
+        ts.endEditing()
+        tv.didChangeText()
+    }
+
+    @Test("Page swap after binding sync still flushes edits to disk")
+    @MainActor
+    func pageSwapAfterBindingSyncFlushes() {
+        let (coord, tv, getFlushCalls, setNewPage) = Self.makeStack()
+
+        // 1. User edits the note
+        Self.simulateUserEdit(tv, newText: "Hello world. Extra edits")
+
+        // 2. 300ms binding sync fires — updates lastSyncedText but NOT lastPersistedText
+        coord.flushBindingSync(force: true)
+        #expect(coord.lastSyncedText == "Hello world. Extra edits")
+        #expect(coord.lastPersistedText == "Hello world.")
+
+        // 3. User switches to a different page (before 3s/5s save fires)
+        setNewPage("new-page", "New page body")
+        coord.handlePageSwap()
+
+        // 4. onPageFlush must have been called with the old page's edited text
+        let calls = getFlushCalls()
+        #expect(calls.count == 1)
+        #expect(calls[0].0 == "old-page")
+        #expect(calls[0].1 == "Hello world. Extra edits")
+
+        // 5. lastPersistedText should now reflect the flushed text
+        #expect(coord.lastPersistedText == "New page body")
+    }
+
+    @Test("Page swap with no edits since persist skips flush")
+    @MainActor
+    func pageSwapNoEditsSkipsFlush() {
+        let (coord, _, getFlushCalls, setNewPage) = Self.makeStack()
+
+        // No edits — lastPersistedText == current text
+        setNewPage("new-page", "New page body")
+        coord.handlePageSwap()
+
+        // No flush call expected — text unchanged since persist
+        let calls = getFlushCalls()
+        #expect(calls.isEmpty)
+    }
+
+    @Test("Dismantle after binding sync still persists to disk")
+    @MainActor
+    func dismantleAfterBindingSyncPersists() {
+        let (coord, tv, getFlushCalls, _) = Self.makeStack()
+
+        // 1. User edits
+        Self.simulateUserEdit(tv, newText: "Edited before teardown")
+
+        // 2. Binding sync fires
+        coord.flushBindingSync(force: true)
+        #expect(coord.lastSyncedText == "Edited before teardown")
+        #expect(coord.lastPersistedText == "Hello world.")
+
+        // 3. View dismantles (tab close, window close, etc.)
+        coord.handleDismantle()
+
+        // 4. onPageFlush must have fired during dismantle
+        let calls = getFlushCalls()
+        #expect(calls.count == 1)
+        #expect(calls[0].0 == "old-page")
+        #expect(calls[0].1 == "Edited before teardown")
+    }
+
+    @Test("Multiple rapid edits — only unpersisted delta flushed on swap")
+    @MainActor
+    func multipleEditsOnlyUnpersistedDeltaFlushed() {
+        let (coord, tv, getFlushCalls, setNewPage) = Self.makeStack()
+
+        // 1. First edit + binding sync
+        Self.simulateUserEdit(tv, newText: "First edit")
+        coord.flushBindingSync(force: true)
+
+        // 2. Swap pages — should flush "First edit"
+        setNewPage("page-2", "Page 2 body")
+        coord.handlePageSwap()
+        #expect(getFlushCalls().count == 1)
+        #expect(getFlushCalls()[0].1 == "First edit")
+
+        // 3. Edit the new page
+        Self.simulateUserEdit(tv, newText: "Page 2 edited")
+        coord.flushBindingSync(force: true)
+
+        // 4. Swap again — should flush "Page 2 edited"
+        setNewPage("page-3", "Page 3 body")
+        coord.handlePageSwap()
+        #expect(getFlushCalls().count == 2)
+        #expect(getFlushCalls()[1].0 == "page-2")
+        #expect(getFlushCalls()[1].1 == "Page 2 edited")
+    }
+}
+
 } // end TextKit2ParityTests
