@@ -129,6 +129,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
                 coord?.handleTransclusionEdit(blockId: blockId, newContent: newContent)
             }
             coord.transclusionManager = transclusionMgr
+            transclusionMgr.refreshAfterTextChange()
         }
 
         // Reposition transclusion overlays on scroll
@@ -139,7 +140,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             queue: .main
         ) { [weak coord] _ in
             MainActor.assumeIsolated {
-                coord?.transclusionManager?.refresh()
+                coord?.transclusionManager?.refreshForScroll()
             }
         }
 
@@ -159,11 +160,24 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         let coord = context.coordinator
         coord.parent = self
+        coord.textBinding = _text
         coord.handleUpdate()
     }
 
     static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator2) {
-        coordinator.handleDismantle()
+        // NSViewRepresentable guarantees main-thread dismantle for AppKit.
+        // Defensive check: if not on main, dispatch synchronously to avoid data race.
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                coordinator.handleDismantle()
+            }
+        } else {
+            DispatchQueue.main.sync {
+                MainActor.assumeIsolated {
+                    coordinator.handleDismantle()
+                }
+            }
+        }
     }
 }
 
@@ -173,6 +187,7 @@ extension ProseEditorRepresentable2 {
     @MainActor
     final class Coordinator2: NSObject, NSTextViewDelegate {
         var parent: ProseEditorRepresentable2
+        var textBinding: Binding<String>
         nonisolated(unsafe) var textView: ProseTextView2?
         var scrollView: NSScrollView?
 
@@ -185,6 +200,7 @@ extension ProseEditorRepresentable2 {
 
         // Binding sync
         var bindingSyncTask: Task<Void, Never>?
+        var hasPendingBindingSync = false
         var isFlushingTokens = false
 
         // Direct file save
@@ -223,6 +239,7 @@ extension ProseEditorRepresentable2 {
 
         init(_ parent: ProseEditorRepresentable2) {
             self.parent = parent
+            self.textBinding = parent._text
             super.init()
         }
 
@@ -472,8 +489,10 @@ extension ProseEditorRepresentable2 {
         private func startNoteChatStream() {
             guard let tv = textView, let ts = tv.textStorage else { return }
             isFlushingTokens = true
+            let insertLoc = ts.length
+            tv.setProgrammaticEditLocation(insertLoc)
             ts.replaceCharacters(
-                in: NSRange(location: ts.length, length: 0),
+                in: NSRange(location: insertLoc, length: 0),
                 with: Self.aiDivider
             )
             tv.didChangeText()
@@ -484,8 +503,10 @@ extension ProseEditorRepresentable2 {
         private func appendNoteChatTokens(_ delta: String) {
             guard let tv = textView, let ts = tv.textStorage, !delta.isEmpty else { return }
             isFlushingTokens = true
+            let insertLoc = ts.length
+            tv.setProgrammaticEditLocation(insertLoc)
             ts.replaceCharacters(
-                in: NSRange(location: ts.length, length: 0),
+                in: NSRange(location: insertLoc, length: 0),
                 with: delta
             )
             tv.didChangeText()
@@ -499,6 +520,7 @@ extension ProseEditorRepresentable2 {
             guard let range = str.range(of: Self.aiDivider, options: .backwards) else { return }
             let nsRange = NSRange(range, in: str)
             isFlushingTokens = true
+            tv.setProgrammaticEditLocation(nsRange.location)
             ts.replaceCharacters(in: nsRange, with: "\n\n")
             tv.didChangeText()
             isFlushingTokens = false
@@ -512,6 +534,7 @@ extension ProseEditorRepresentable2 {
             let nsRange = NSRange(range, in: str)
             let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
             isFlushingTokens = true
+            tv.setProgrammaticEditLocation(nsRange.location)
             ts.replaceCharacters(in: deleteRange, with: "")
             tv.didChangeText()
             isFlushingTokens = false
@@ -541,6 +564,7 @@ extension ProseEditorRepresentable2 {
             let nsRange = NSRange(range, in: str)
             let deleteRange = NSRange(location: nsRange.location, length: ts.length - nsRange.location)
             isFlushingTokens = true
+            tv.setProgrammaticEditLocation(nsRange.location)
             ts.replaceCharacters(in: deleteRange, with: "")
             tv.didChangeText()
             isFlushingTokens = false
@@ -549,16 +573,23 @@ extension ProseEditorRepresentable2 {
         // MARK: - Dismantle
 
         func handleDismantle() {
+            // Cancel pending tasks FIRST — prevents races where a debounced sync
+            // fires mid-dismantle and writes to the binding during teardown.
+            bindingSyncTask?.cancel()
+            bindingSyncTask = nil
+            directSaveTask?.cancel()
+            directSaveTask = nil
+
             // Strip ephemeral content before any save reads.
             clearAllFolds()
             stripUnacceptedAIResponse()
 
-            // Flush binding FIRST so ProseEditorView.flushIfNeeded() sees current text.
-            // Must happen before cancel — the debounce window may hold unsaved keystrokes.
-            flushBindingSync()
+            // Flush binding sync so ProseEditorView.bodyText is current.
+            // This prevents onDisappear's flushIfNeeded() from writing stale @State.
+            flushBindingSync(force: true)
 
-            bindingSyncTask?.cancel()
-            directSaveTask?.cancel()
+            // Persist through the page flush callback (disk + BlockMirror + dirty flag).
+            persistCurrentTextIfNeeded()
             tableAlignTask?.cancel()
             dataDetectionTask?.cancel()
             blockEditTranslator = nil
@@ -590,6 +621,15 @@ extension ProseEditorRepresentable2 {
             }
         }
 
+        private func persistCurrentTextIfNeeded() {
+            guard !currentPageId.isEmpty, let tv = textView else { return }
+            let text = tv.string
+            guard text != lastSyncedText else { return }
+            parent.onPageFlush?(currentPageId, text)
+            lastSyncedText = text
+            hasPendingBindingSync = false
+        }
+
         func saveCurrentPageState() {
             guard let tv = textView, !currentPageId.isEmpty else { return }
             let scrollY = scrollView?.contentView.bounds.origin.y ?? 0
@@ -613,6 +653,7 @@ extension ProseEditorRepresentable2 {
 
             // ── SAVE-CRITICAL ──────────────────────────────────
             let newText = tv.string
+            hasPendingBindingSync = true
             debouncedBindingSync(newText)
             scheduleDirectSave(newText)
 
@@ -663,7 +704,7 @@ extension ProseEditorRepresentable2 {
             blockRefAutocomplete?.checkTrigger()
 
             // Refresh transclusion overlays
-            transclusionManager?.refresh()
+            transclusionManager?.refreshAfterTextChange()
 
             scheduleTableAlignment(tv)
             scheduleDataDetection(newText)
@@ -1076,6 +1117,7 @@ extension ProseEditorRepresentable2 {
                 if let syncedBlock = try? mc.fetch(descriptor).first {
                     syncedBlock.updatedAt = .now
                 }
+                transclusionManager?.invalidateResolvedBlock(blockId)
                 page.needsVaultSync = true
                 page.updatedAt = .now
 
@@ -1186,20 +1228,25 @@ extension ProseEditorRepresentable2 {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled, let self else { return }
                 guard !self.isFlushingTokens else { return }
-                self.parent.text = newText
-                self.lastSyncedText = newText
+                self.syncBinding(to: newText)
                 self.bindingSyncTask = nil
             }
         }
 
         /// Flush binding immediately — called by accept/discard to persist AI changes.
-        func flushBindingSync() {
+        func flushBindingSync(force: Bool = false) {
             bindingSyncTask?.cancel()
             bindingSyncTask = nil
             guard let tv = textView else { return }
             let text = tv.string
-            parent.text = text
+            guard force || hasPendingBindingSync || text != lastSyncedText else { return }
+            syncBinding(to: text)
+        }
+
+        private func syncBinding(to text: String) {
+            textBinding.wrappedValue = text
             lastSyncedText = text
+            hasPendingBindingSync = false
         }
 
         // MARK: - Direct File Save (3s defense-in-depth)

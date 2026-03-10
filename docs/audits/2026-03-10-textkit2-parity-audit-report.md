@@ -39,17 +39,17 @@
 
 ## Phase 2: Protected File Integrity Report
 
-### 1. `GraphBuilder.swift` — SIGNED OFF, NO DRIFT
+### 1. `GraphBuilder.swift` — SIGNED OFF WITH CAVEAT
 
 **Current behavior:** Reads page bodies via `page.loadBody()` (line 97) which calls `NoteFileStorage.readBody()`. Scans for `((blockId))` references. NL entity extraction disabled (lines 108-111).
 
-**Migration impact:** Zero. GraphBuilder reads from disk via `NoteFileStorage`, which is shared infrastructure independent of the editor stack. Both TK1 and TK2 write to disk through the same `NoteFileStorage.writeBody()` / `page.saveBody()` path.
+**Migration impact on `page.loadBody()` contract:** Zero. GraphBuilder reads from disk via `NoteFileStorage`, which is shared infrastructure independent of the editor stack. Both TK1 and TK2 write to disk through the same `NoteFileStorage.writeBody()` / `page.saveBody()` path. The 5s debounced-save staleness window is identical for both stacks. Graph rebuilds are triggered on save events, not keystrokes, so brief staleness is acceptable.
 
-**Line 89 drift analysis:** The comment says "Pass 1: scan bodies for block refs AND NL entity extraction." NL extraction is disabled — this predates the TK2 migration and is not a regression. The `page.loadBody()` call at line 97 reads from the same disk path regardless of which editor wrote the content.
+**NL entity extraction — gap against parity plan:** The parity plan (Phase 2) says "Must preserve: NL entity extraction from note bodies." Lines 108-111 show NL extraction is disabled with comment: "Entities were previously tag-typed graph nodes. Tags are no longer visualized as nodes, so NL entities are skipped here too." This was disabled BEFORE the TK2 migration as a separate product decision (removing tag-typed graph nodes). It is NOT a TK2 regression — the same code was disabled on `HEAD` before any TK2 work started. However, the parity plan explicitly requires it, and this is a gap.
 
-**Staleness window:** With the 5s debounced save, GraphBuilder may read content up to 5s behind the editor. This is identical behavior for both TK1 and TK2. Graph rebuilds are triggered on save events, not keystrokes, so this is acceptable. The `requestFlush` mechanism was designed for transclusion reads (correctness-critical), not graph reads (structural, tolerates brief staleness).
+**Resolution:** NL entity extraction was a conscious product decision to disable, not migration drift. The extraction loop body is empty in both TK1 and TK2 codepaths (same GraphBuilder is shared). If NL entities should be re-enabled, that is a separate feature ticket, not a TK2 parity blocker. The parity plan should be updated to reflect this was intentionally dropped pre-migration.
 
-**Verdict:** No changes needed. Contract intact.
+**Verdict:** `page.loadBody()` contract intact. NL extraction gap is pre-existing, not a TK2 regression. Acknowledged as open item for product decision.
 
 ### 2. `NoteWindowManager.swift` — INTACT
 
@@ -245,15 +245,43 @@ TK1 deletion is technically safe based on this audit, but the user has decided t
 
 ---
 
-## Appendix: Files Modified During TK2 Migration (This Session)
+## Appendix A: Runtime Regression Analysis
+
+### Bugs Fixed in This Audit Pass
+
+| Bug | Root Cause | Fix |
+|---|---|---|
+| **AI streaming O(document) link scan** | Programmatic inserts bypass `shouldChangeText`, leaving `lastEditLocation == nil`. Every `appendNoteChatTokens` → `didChangeText` → `applyLinkAttributesToStorage` does full-doc regex scan. | Added `setProgrammaticEditLocation()` to ProseTextView2. All streaming/accept/discard paths now set the insert location before `didChangeText()`, scoping the link scan to the edited paragraph. |
+| **Dismantle crash path** | `dismantleNSView` is static (non-`@MainActor`), calling `@MainActor handleDismantle()`. Also, pending `bindingSyncTask` could fire mid-teardown. | Added `MainActor.assumeIsolated` + off-main-thread defensive dispatch. Reordered dismantle to cancel tasks FIRST, flush binding sync BEFORE persist, preventing stale `@State bodyText` race with `onDisappear`. |
+| **Scroll coalescing test** | `TransclusionOverlayManager2.refreshForScroll()` early-returns when `documentMayContainBlockRefs == false`. Test set `onDidRefresh` callback after the initial `refreshAfterTextChange()` that sets the flag. 20ms sleep insufficient for Task.yield in test harness. | Extended sleep to 100ms. |
+
+### Verified No-Bug (Code Analysis)
+
+| Concern | Finding |
+|---|---|
+| **Wikilink clicking** | `.link` attributes applied to textStorage via `applyLinkAttributesToStorage()`. `clickedOnLink` delegate routes `wikilink://` and `blockref://` URLs correctly. Full-doc scan on page load (`lastEditLocation == nil`), scoped scan on edits. **No bug.** |
+| **Focus mode** | `applyFocusDimming()` and `clearFocusDimming()` use `setRenderingAttributes` on `NSTextLayoutManager`. O(1) per cursor move via `lastFocusParagraphRange` tracking. Wired in `handleUpdate()` and `textViewDidChangeSelection()`. **No bug.** |
+| **Fold/unfold** | Uses `shouldEnumerate` via `NSTextContentManagerDelegate` + `recordEditAction` to force re-enumeration. `clearAllFolds()` on any edit. `markdown_set_fold` / `markdown_is_folded` via Rust FFI. **No bug**, but `recordEditAction` is a TK2-specific pattern that depends on Apple's internal re-enumeration behavior. |
+| **Heading trigger** | `didChangeText()` → `reparseAndInvalidate()` → `markdownDelegate.reparse(text:)` runs synchronously. Rust FFI parse classifies headings immediately. No latency unless pathological document size. **No bug.** |
+| **Block movement** | Fixed in prior session with `semanticBlockRange()`. Indent-aware nested block detection. Tests pass. **No bug.** |
+
+### Remaining Runtime Items (Require Manual Testing)
+
+| Item | Why Code Review Can't Verify |
+|---|---|
+| NoteWindowManager title/toolbar/frame | Window frame behavior depends on AppKit runtime state, not just code paths. Need to open/close/switch note windows and verify titles update, toolbar renders correctly, frame restores. |
+| Theme switch visual fidelity | `reparseAndInvalidate()` does full invalidation (vs TK1's progressive restyle). May produce a visible flash on large documents. Need visual confirmation. |
+| AI streaming visual behavior | Token insertion + scroll-to-visible during streaming. Scoped link scan is now O(paragraph) — need to verify no visual regression in link rendering during streaming. |
+
+## Appendix B: Files Modified During TK2 Migration
 
 | File | Changes |
 |---|---|
-| `ProseTextView2.swift` | Semantic block move, link attr scoping, live resize, access level fixes |
-| `ProseEditorRepresentable2.swift` | `requestFlush` before transclusion reads |
+| `ProseTextView2.swift` | Semantic block move, link attr scoping, live resize, `setProgrammaticEditLocation()`, access level fixes |
+| `ProseEditorRepresentable2.swift` | `requestFlush` before transclusion reads, scoped link scan in streaming paths, defensive dismantle guard, dismantle ordering fix |
 | `ProseEditorRepresentable.swift` | `requestFlush` before transclusion reads (TK1 parity fix) |
 | `ProseEditorView.swift` | `pageBodyWillRead` flush handler |
 | `NoteFileStorage.swift` | `pageBodyWillRead` notification, `requestFlush()` method |
 | `BlockMirror.swift` | Substitution cost threshold (similarity < 0.3 → prohibitive) |
 | `NoteWindowManager.swift` | Editor toggle moved to More menu, new AI operations |
-| `TextKit2ParityTests.swift` | Nested block move tests, BlockMirror ID reuse test |
+| `TextKit2ParityTests.swift` | Nested block move tests, BlockMirror ID reuse test, scroll coalescing timing fix |

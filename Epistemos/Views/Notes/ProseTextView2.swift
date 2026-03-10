@@ -136,12 +136,21 @@ final class ProseTextView2: NSTextView {
     /// delegate sees fresh data when it re-queries textParagraphWith immediately
     /// after the text storage change (before didChangeText fires).
     /// Track the pre-edit range so applyLinkAttributesToStorage can scope its scan.
-    private var lastEditLocation: Int?
+    /// Last edit location for scoping link attribute scan. `nil` → full-document scan.
+    /// Set by shouldChangeText (user edits) or setProgrammaticEditLocation (AI streaming).
+    var lastEditLocation: Int?
 
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
         markdownDelegate.markDirty()
         lastEditLocation = affectedCharRange.location
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+    }
+
+    /// Set edit location for programmatic inserts that bypass shouldChangeText.
+    /// Prevents applyLinkAttributesToStorage from doing a full-document scan.
+    func setProgrammaticEditLocation(_ location: Int) {
+        markdownDelegate.markDirty()
+        lastEditLocation = location
     }
 
     // MARK: - Live Edit Loop

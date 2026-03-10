@@ -1347,4 +1347,65 @@ struct TK2FormattingTests {
     }
 }
 
+// MARK: - Scroll Performance Guards
+
+@Suite("TK2 Parity - Scroll Performance Guards")
+struct TK2ScrollPerformanceTests {
+
+    private func makeContext() throws -> ModelContext {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: SDBlock.self, configurations: config)
+        return ModelContext(container)
+    }
+
+    @Test("Transclusion scroll refreshes are coalesced")
+    @MainActor
+    func transclusionScrollRefreshesCoalesce() async throws {
+        let context = try makeContext()
+
+        for i in 0..<6 {
+            let block = SDBlock(pageId: "", content: "Block \(i)", depth: 0, order: i * 1000)
+            block.id = "bench-block-\(i)"
+            context.insert(block)
+        }
+        try context.save()
+
+        let markdown = (0..<80).map { i in
+            "((bench-block-\(i % 6))) transclusion row \(i)"
+        }.joined(separator: "\n")
+
+        let (scrollView, tv) = ProseTextView2.makeTextKit2()
+        scrollView.frame = NSRect(x: 0, y: 0, width: 860, height: 420)
+        tv.frame = NSRect(x: 0, y: 0, width: 860, height: 3600)
+
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: markdown)
+        ts.endEditing()
+        tv.reparseAndInvalidate()
+
+        if let contentStorage = tv.textLayoutManager?.textContentManager as? NSTextContentStorage {
+            tv.textLayoutManager?.ensureLayout(for: contentStorage.documentRange)
+        }
+
+        let manager = TransclusionOverlayManager2(textView: tv)
+        manager.configure(modelContext: context)
+        manager.refreshAfterTextChange()
+
+        var refreshCount = 0
+        manager.onDidRefresh = { refreshCount += 1 }
+
+        for step in 0..<12 {
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: CGFloat(step * 24)))
+            manager.refreshForScroll()
+        }
+
+        // The coalesced task uses Task.yield(), which needs MainActor run loop
+        // iterations to complete. Give it enough time in the test environment.
+        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(refreshCount == 1)
+    }
+}
+
 } // end TextKit2ParityTests
