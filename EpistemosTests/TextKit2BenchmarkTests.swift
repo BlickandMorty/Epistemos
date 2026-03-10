@@ -62,7 +62,7 @@ private func tk2Load(_ content: String) -> Duration {
 // MARK: - Suite: TK2 Benchmarks
 
 @Suite("TK2 Benchmark — TK1 vs TK2 Performance")
-struct TK2BenchmarkTests {
+struct TextKit2BenchmarkTests {
 
     // MARK: - Initial Load 1K
 

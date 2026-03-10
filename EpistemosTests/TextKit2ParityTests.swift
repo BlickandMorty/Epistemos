@@ -1,6 +1,7 @@
 import Testing
 import AppKit
 import SwiftUI
+import SwiftData
 @testable import Epistemos
 
 // MARK: - Shared Parity Helpers
@@ -58,10 +59,15 @@ private enum ParityHelpers {
     }
 }
 
+// MARK: - Parent Suite (enables -only-testing:EpistemosTests/TextKit2ParityTests)
+
+@Suite("TextKit 2 Parity Tests")
+enum TextKit2ParityTests {
+
 // MARK: - Suite 1: Inline Styling Parity (TK1 vs TK2)
 
 @Suite("TK2 Parity - Inline Styling")
-struct TK2ParityInlineTests {
+struct InlineTests {
 
     // MARK: - Bold
 
@@ -275,7 +281,7 @@ struct TK2ParityInlineTests {
 // MARK: - Suite 2: Paragraph Classification Parity
 
 @Suite("TK2 Parity - Paragraph Classification")
-struct TK2ParityParagraphTests {
+struct ParagraphTests {
 
     // MARK: - H1
 
@@ -362,7 +368,7 @@ struct TK2ParityParagraphTests {
 // MARK: - Suite 3: AI Streaming Integration (Coordinator2 + NoteChatState)
 
 @Suite("TK2 Parity - AI Streaming")
-struct TK2ParityAIStreamingTests {
+struct AIStreamingTests {
 
     // MARK: - Helper
 
@@ -509,7 +515,7 @@ struct TK2ParityAIStreamingTests {
 // MARK: - Suite 4: Edge Cases
 
 @Suite("TK2 Parity - Edge Cases")
-struct TK2ParityEdgeCaseTests {
+struct EdgeCaseTests {
 
     // MARK: - Helpers
 
@@ -691,3 +697,417 @@ struct TK2ParityEdgeCaseTests {
         #expect(tk2String(text) == text)
     }
 }
+
+// MARK: - Suite 5: Block Reference Parity (P1 regression coverage)
+
+@Suite("TK2 Parity - Block References")
+struct BlockRefTests {
+
+    // MARK: - .link attribute with blockref:// prefix
+
+    @Test("Block ref — both stacks set .link attribute with blockref:// prefix")
+    func blockRefLinkAttributeParity() {
+        let md = "See ((my-block-id)) here"
+        let tk1 = ParityHelpers.tk1Styled(md)
+        let tk2 = ParityHelpers.tk2Styled(md)
+
+        #expect(tk1.string == tk2.string)
+
+        let range = NSRange(location: 0, length: tk1.length)
+
+        var tk1HasBlockRef = false
+        tk1.enumerateAttribute(.link, in: range) { val, _, _ in
+            if let link = val as? NSString, link.hasPrefix("blockref://") {
+                tk1HasBlockRef = true
+            }
+        }
+
+        var tk2HasBlockRef = false
+        tk2.enumerateAttribute(.link, in: range) { val, _, _ in
+            if let link = val as? NSString, link.hasPrefix("blockref://") {
+                tk2HasBlockRef = true
+            }
+        }
+
+        #expect(tk1HasBlockRef, "TK1 should set .link with blockref:// on block references")
+        #expect(tk2HasBlockRef, "TK2 should set .link with blockref:// on block references")
+    }
+
+    @Test("Block ref — extracted ID matches original")
+    func blockRefIdExtraction() {
+        let md = "((test-block-42))"
+        let tk2 = ParityHelpers.tk2Styled(md)
+
+        let range = NSRange(location: 0, length: tk2.length)
+        var extractedId: String?
+        tk2.enumerateAttribute(.link, in: range) { val, _, _ in
+            if let link = val as? NSString, link.hasPrefix("blockref://") {
+                extractedId = String(link.substring(from: "blockref://".count))
+            }
+        }
+
+        #expect(extractedId == "test-block-42")
+    }
+
+    @Test("Empty block ref (( )) — no .link attribute produced")
+    func emptyBlockRefNoLink() {
+        let md = "Before (( )) after"
+        let tk2 = ParityHelpers.tk2Styled(md)
+
+        let range = NSRange(location: 0, length: tk2.length)
+        var hasBlockRef = false
+        tk2.enumerateAttribute(.link, in: range) { val, _, _ in
+            if let link = val as? NSString, link.hasPrefix("blockref://") {
+                hasBlockRef = true
+            }
+        }
+        #expect(!hasBlockRef, "Empty (( )) should not produce a blockref link")
+    }
+
+    // MARK: - Block Ref Autocomplete Insertion Format
+
+    @Test("Block ref autocomplete — produces valid ((id)) syntax")
+    func blockRefAutocompleteFormat() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let initialText = "Some text (("
+        tv.textStorage?.setAttributedString(NSAttributedString(string: initialText))
+        tv.setSelectedRange(NSRange(location: (initialText as NSString).length, length: 0))
+
+        // Simulate the insertBlockRef logic (private method — replicate here):
+        let str = tv.textStorage!.string as NSString
+        let cursor = tv.selectedRange().location
+        guard cursor >= 2,
+              str.substring(with: NSRange(location: cursor - 2, length: 2)) == "((" else {
+            Issue.record("Precondition failed: cursor not after ((")
+            return
+        }
+
+        let blockId = "test-block-uuid"
+        let fullRef = "((" + blockId + "))"
+        let replaceRange = NSRange(location: cursor - 2, length: 2)
+        tv.textStorage?.replaceCharacters(in: replaceRange, with: fullRef)
+        tv.didChangeText()
+
+        #expect(tv.string == "Some text ((" + blockId + "))")
+    }
+
+    @Test("Block ref autocomplete — replaces partial query between (( and cursor")
+    func blockRefAutocompleteReplacesQuery() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        // Simulate user typed "((partial" then selected from popover
+        let initialText = "Note text ((partial"
+        tv.textStorage?.setAttributedString(NSAttributedString(string: initialText))
+        tv.setSelectedRange(NSRange(location: (initialText as NSString).length, length: 0))
+
+        let str = tv.textStorage!.string as NSString
+        let cursor = tv.selectedRange().location
+
+        // Scan backwards for ((
+        var openParenLoc = NSNotFound
+        var i = min(cursor, str.length) - 1
+        while i >= 1 {
+            if str.character(at: i - 1) == 0x28 && str.character(at: i) == 0x28 {
+                openParenLoc = i - 1
+                break
+            }
+            i -= 1
+        }
+        #expect(openParenLoc != NSNotFound, "Should find (( by scanning backwards")
+
+        let replaceRange = NSRange(location: openParenLoc, length: cursor - openParenLoc)
+        let blockId = "real-block-id"
+        let fullRef = "((" + blockId + "))"
+        tv.textStorage?.replaceCharacters(in: replaceRange, with: fullRef)
+        tv.didChangeText()
+
+        #expect(tv.string == "Note text ((" + blockId + "))")
+        #expect(!tv.string.contains("partial"), "Partial query text should be replaced")
+    }
+}
+
+// MARK: - Suite 6: Transclusion Body Rewrite
+
+@Suite("TK2 Parity - Transclusion Body Rewrite")
+struct TransclusionRewriteTests {
+
+    private func reconstructRaw(match: BlockParser.ParsedBlock, oldContent: String, newContent: String) -> String {
+        let rawFirstLine = match.rawContent.prefix(while: { $0 != "\n" })
+        let contentFirstLine = oldContent.prefix(while: { $0 != "\n" })
+        let prefix: String
+        if rawFirstLine.hasSuffix(contentFirstLine) {
+            prefix = String(rawFirstLine.dropLast(contentFirstLine.count))
+        } else {
+            prefix = ""
+        }
+        if prefix.isEmpty || !newContent.contains("\n") {
+            return prefix + newContent
+        }
+        let continuationIndent = String(repeating: " ", count: prefix.count)
+        let lines = newContent.split(separator: "\n", omittingEmptySubsequences: false)
+        var parts = [prefix + lines[0]]
+        for line in lines.dropFirst() {
+            parts.append(continuationIndent + line)
+        }
+        return parts.joined(separator: "\n")
+    }
+
+    private func applyRewrite(markdown: String, match: BlockParser.ParsedBlock, newRaw: String) -> String? {
+        let utf16View = markdown.utf16
+        let safeStart = min(match.utf16Range.lowerBound, utf16View.count)
+        let safeEnd = min(match.utf16Range.upperBound, utf16View.count)
+        let startIdx = utf16View.index(utf16View.startIndex, offsetBy: safeStart)
+        let endIdx = utf16View.index(utf16View.startIndex, offsetBy: safeEnd)
+        guard let strStart = startIdx.samePosition(in: markdown),
+              let strEnd = endIdx.samePosition(in: markdown) else { return nil }
+        var result = markdown
+        result.replaceSubrange(strStart..<strEnd, with: newRaw)
+        return result
+    }
+
+    // MARK: - List item preserves marker
+
+    @Test("List item edit preserves '- ' marker")
+    func listItemRewrite() {
+        let markdown = "# Heading\n- First item\n- Target item\n- Third item"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content == "Target item" }) else {
+            Issue.record("Block not found"); return
+        }
+        #expect(match.order == 2)
+
+        let newRaw = reconstructRaw(match: match, oldContent: "Target item", newContent: "Edited item")
+        #expect(newRaw == "- Edited item")
+
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "# Heading\n- First item\n- Edited item\n- Third item")
+    }
+
+    // MARK: - Indented list item preserves indent + marker
+
+    @Test("Indented list item preserves indent and marker")
+    func indentedListItemRewrite() {
+        let markdown = "- Parent\n  - Nested child\n  - Another child"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content == "Nested child" }) else {
+            Issue.record("Nested block not found"); return
+        }
+        #expect(match.depth == 1)
+
+        let newRaw = reconstructRaw(match: match, oldContent: "Nested child", newContent: "Edited child")
+        #expect(newRaw == "  - Edited child", "Indent + marker must be preserved")
+
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "- Parent\n  - Edited child\n  - Another child")
+    }
+
+    // MARK: - Ordered list preserves "1. " marker
+
+    @Test("Ordered list item preserves '1. ' marker")
+    func orderedListRewrite() {
+        let markdown = "1. First\n2. Second\n3. Third"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content == "Second" }) else {
+            Issue.record("Block not found"); return
+        }
+
+        let newRaw = reconstructRaw(match: match, oldContent: "Second", newContent: "Replaced")
+        #expect(newRaw == "2. Replaced")
+
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "1. First\n2. Replaced\n3. Third")
+    }
+
+    // MARK: - Multi-line list item with continuation
+
+    @Test("Multi-line list item — continuation indentation handled")
+    func multiLineListRewrite() {
+        let markdown = "- Item one\n    continuation line\n- Item two"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content.hasPrefix("Item one") }) else {
+            Issue.record("Multi-line block not found"); return
+        }
+        // BlockParser strips continuation indent from content but keeps it in rawContent
+        #expect(match.rawContent.contains("    continuation"))
+        #expect(!match.content.contains("    continuation"))
+
+        let newRaw = reconstructRaw(match: match, oldContent: match.content, newContent: "Replaced entirely")
+        #expect(newRaw == "- Replaced entirely", "Prefix preserved, old continuation dropped")
+
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "- Replaced entirely\n- Item two")
+    }
+
+    // MARK: - Multiline newContent gets continuation indent
+
+    @Test("Multiline newContent — continuation lines get marker-width indent")
+    func multilineNewContent() {
+        let markdown = "- Original item\n- Other item"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content == "Original item" }) else {
+            Issue.record("Block not found"); return
+        }
+
+        let newRaw = reconstructRaw(
+            match: match,
+            oldContent: "Original item",
+            newContent: "Edited line\nmore detail\nthird line"
+        )
+        // "- " is 2 chars, so continuation gets 2-space indent
+        #expect(newRaw == "- Edited line\n  more detail\n  third line")
+
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "- Edited line\n  more detail\n  third line\n- Other item")
+    }
+
+    @Test("Nested multiline newContent — deeper indent preserved")
+    func nestedMultilineNewContent() {
+        let markdown = "- Parent\n  - Child item\n  - Other"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content == "Child item" }) else {
+            Issue.record("Block not found"); return
+        }
+
+        let newRaw = reconstructRaw(
+            match: match,
+            oldContent: "Child item",
+            newContent: "Edited\nextra line"
+        )
+        // "  - " is 4 chars, so continuation gets 4-space indent
+        #expect(newRaw == "  - Edited\n    extra line")
+    }
+
+    // MARK: - Duplicate content by order
+
+    @Test("Duplicate content — order tiebreaker picks correct occurrence")
+    func duplicateContentOrder() {
+        let markdown = "- Same text\n- Different\n- Same text"
+        let parsed = BlockParser.parse(markdown)
+        #expect(parsed.filter({ $0.content == "Same text" }).count == 2)
+
+        let match = parsed.first(where: { $0.content == "Same text" && $0.order == 2 })
+        guard let match else { Issue.record("Second occurrence not found"); return }
+
+        let newRaw = reconstructRaw(match: match, oldContent: "Same text", newContent: "Replaced")
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "- Same text\n- Different\n- Replaced")
+    }
+
+    // MARK: - Heading
+
+    @Test("Heading preserves # markers through rewrite")
+    func headingRewrite() {
+        let markdown = "# Title\nParagraph text"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content.hasPrefix("#") }) else {
+            Issue.record("Heading not found"); return
+        }
+
+        // For headings, content == rawContent (no stripping), so prefix is ""
+        let newRaw = reconstructRaw(match: match, oldContent: match.content, newContent: "# New Title")
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "# New Title\nParagraph text")
+    }
+
+    // MARK: - Unicode with emoji
+
+    @Test("Unicode content with emoji survives utf16 offset mapping")
+    func unicodeRewrite() {
+        let markdown = "- First\n- Hello 🌍 world\n- Last"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content.contains("🌍") }) else {
+            Issue.record("Emoji block not found"); return
+        }
+
+        let newRaw = reconstructRaw(match: match, oldContent: match.content, newContent: "Goodbye 🌎 earth")
+        #expect(newRaw == "- Goodbye 🌎 earth")
+
+        let result = applyRewrite(markdown: markdown, match: match, newRaw: newRaw)
+        #expect(result == "- First\n- Goodbye 🌎 earth\n- Last")
+    }
+
+    // MARK: - Task item preserves "- [ ] " marker
+
+    @Test("Task item preserves checkbox marker")
+    func taskItemRewrite() {
+        let markdown = "- [ ] Unchecked task\n- [x] Done task"
+        let parsed = BlockParser.parse(markdown)
+        guard let match = parsed.first(where: { $0.content.contains("Unchecked") }) else {
+            Issue.record("Task block not found"); return
+        }
+
+        let newRaw = reconstructRaw(match: match, oldContent: match.content, newContent: "[ ] Updated task")
+        // The "- " prefix is preserved; "[ ] " is part of the content
+        #expect(newRaw == "- [ ] Updated task")
+    }
+}
+
+// MARK: - Suite 7: Block Mirror Sync
+
+@Suite("TK2 Parity - Block Mirror")
+struct BlockMirrorTests {
+
+    private func makeContext() throws -> ModelContext {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: SDBlock.self, configurations: config)
+        return ModelContext(container)
+    }
+
+    @Test("Block mirror preserves edited block ID across insertions")
+    @MainActor
+    func preservesBlockIdentityAcrossInsertions() throws {
+        let context = try makeContext()
+        let pageId = "page-1"
+
+        BlockMirror.sync(
+            pageId: pageId,
+            body: "- Alpha block\n- Beta block",
+            modelContext: context
+        )
+
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.order)]
+        )
+        let originalBlocks = try context.fetch(descriptor)
+        #expect(originalBlocks.count == 2)
+
+        let alphaId = originalBlocks[0].id
+
+        BlockMirror.sync(
+            pageId: pageId,
+            body: "- New opening\n- Alpha block expanded\n- Beta block",
+            modelContext: context
+        )
+
+        let syncedBlocks = try context.fetch(descriptor)
+        #expect(syncedBlocks.count == 3)
+        #expect(syncedBlocks[1].id == alphaId)
+        #expect(syncedBlocks[1].content == "Alpha block expanded")
+
+        let parsed = BlockParser.parse("- New opening\n- Alpha block expanded\n- Beta block")
+        #expect(syncedBlocks[1].sourceStartUTF16 == parsed[1].utf16Range.lowerBound)
+        #expect(syncedBlocks[1].sourceEndUTF16 == parsed[1].utf16Range.upperBound)
+    }
+
+    @Test("Transclusion rewrite uses stored source range instead of stale content and order")
+    @MainActor
+    func rewriteUsesStoredRange() {
+        let body = "- Current body text\n- Other block"
+        let parsed = BlockParser.parse(body)
+        let target = parsed[0]
+
+        let block = SDBlock(pageId: "page-2", content: "Old stale snapshot", depth: 0, order: 99_000)
+        block.sourceStartUTF16 = target.utf16Range.lowerBound
+        block.sourceEndUTF16 = target.utf16Range.upperBound
+
+        let rewritten = BlockMirror.rewrittenBody(
+            body: body,
+            block: block,
+            newContent: "Edited through transclusion"
+        )
+
+        #expect(rewritten == "- Edited through transclusion\n- Other block")
+    }
+}
+
+} // end TextKit2ParityTests
