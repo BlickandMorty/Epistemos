@@ -1007,13 +1007,41 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 predicate: #Predicate<SDBlock> { $0.id == blockId }
             )
             guard let block = try? mc.fetch(descriptor).first else { return }
-            block.content = newContent
-            block.updatedAt = .now
+            let sourcePageId = block.pageId
+            let pageDesc = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.id == sourcePageId }
+            )
+            // Flush any open editor for the source page so disk is current.
+            NoteFileStorage.requestFlush(pageId: sourcePageId)
+
+            if let page = try? mc.fetch(pageDesc).first {
+                let pageBody = page.loadBody()
+                if BlockMirror.parsedBlock(in: pageBody, for: block) == nil {
+                    BlockMirror.sync(pageId: sourcePageId, body: pageBody, modelContext: mc)
+                }
+
+                guard let refreshedBlock = try? mc.fetch(descriptor).first,
+                      let newBody = BlockMirror.rewrittenBody(
+                          body: pageBody,
+                          block: refreshedBlock,
+                          newContent: newContent
+                      ) else { return }
+
+                page.saveBody(newBody)
+                BlockMirror.sync(pageId: sourcePageId, body: newBody, modelContext: mc)
+                if let syncedBlock = try? mc.fetch(descriptor).first {
+                    syncedBlock.updatedAt = .now
+                }
+                page.needsVaultSync = true
+                page.updatedAt = .now
+                NoteFileStorage.notifyBodyChanged(pageId: sourcePageId)
+            }
+            try? mc.save()
 
             if let engine = parent.graphState?.engineHandle {
                 _ = BlockEditTranslator.updateBlock(
                     blockId: blockId,
-                    pageId: block.pageId,
+                    pageId: sourcePageId,
                     newContent: newContent,
                     engine: engine
                 )

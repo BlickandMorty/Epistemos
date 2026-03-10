@@ -1089,6 +1089,42 @@ struct BlockMirrorTests {
         #expect(syncedBlocks[1].sourceEndUTF16 == parsed[1].utf16Range.upperBound)
     }
 
+    @Test("Unrelated content gets new block ID instead of reusing old one")
+    @MainActor
+    func unrelatedContentGetsNewId() throws {
+        let context = try makeContext()
+        let pageId = "page-id-test"
+
+        BlockMirror.sync(
+            pageId: pageId,
+            body: "- First block about apples\n- Second block about oranges",
+            modelContext: context
+        )
+
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.order)]
+        )
+        let originalBlocks = try context.fetch(descriptor)
+        #expect(originalBlocks.count == 2)
+        let oldFirstId = originalBlocks[0].id
+        let oldSecondId = originalBlocks[1].id
+
+        // Wholesale rewrite — completely unrelated content
+        BlockMirror.sync(
+            pageId: pageId,
+            body: "- Quantum mechanics overview\n- Database schema migration",
+            modelContext: context
+        )
+
+        let newBlocks = try context.fetch(descriptor)
+        #expect(newBlocks.count == 2)
+        let newIds = Set(newBlocks.map(\.id))
+        // Old IDs must NOT be reused for unrelated content
+        #expect(!newIds.contains(oldFirstId))
+        #expect(!newIds.contains(oldSecondId))
+    }
+
     @Test("Transclusion rewrite uses stored source range instead of stale content and order")
     @MainActor
     func rewriteUsesStoredRange() {
