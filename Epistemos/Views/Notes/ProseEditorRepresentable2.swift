@@ -593,9 +593,12 @@ extension ProseEditorRepresentable2 {
             clearAllFolds()
             stripUnacceptedAIResponse()
 
-            // Flush binding sync so ProseEditorView.bodyText is current.
-            // This prevents onDisappear's flushIfNeeded() from writing stale @State.
-            flushBindingSync(force: true)
+            // DO NOT write to the @Binding here. During NSHostingView.deinit →
+            // PlatformViewChild.destroy() → dismantleNSView, SwiftUI already holds
+            // an exclusive access to the @State storage. Writing to the binding
+            // triggers swift_beginAccess on the same StoredLocation → exclusivity
+            // violation → SIGABRT. The binding sync is unnecessary anyway —
+            // persistCurrentTextIfNeeded() writes directly to disk via onPageFlush.
 
             // Persist through the page flush callback (disk + BlockMirror + dirty flag).
             persistCurrentTextIfNeeded()

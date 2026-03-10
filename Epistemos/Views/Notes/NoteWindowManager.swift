@@ -110,6 +110,8 @@ final class NoteNavigationState {
 @MainActor
 final class NoteWindowManager {
     static let shared = NoteWindowManager()
+    static let noteDefaultFrameSize = NSSize(width: 1110, height: 740)
+    static let noteMinimumFrameSize = NSSize(width: 960, height: 620)
 
     // All note windows — one per page, displayed as tabs
     private var windows: [String: NSWindow] = [:]
@@ -206,19 +208,24 @@ final class NoteWindowManager {
         let pageTitle = page.title.isEmpty ? "Untitled" : page.title
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: Self.noteDefaultFrameSize.width,
+                height: Self.noteDefaultFrameSize.height
+            ),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = pageTitle
         window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 400, height: 300)
+        window.minSize = Self.noteMinimumFrameSize
         window.setFrameAutosaveName("note-\(page.id)")
+        normalizeNoteWindowFrame(window)
         window.collectionBehavior.remove(.fullScreenPrimary)
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
@@ -236,7 +243,6 @@ final class NoteWindowManager {
         let theme = bootstrap.uiState.theme
         window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         window.backgroundColor = theme.nsBackground
-        installTitlebarBlur(in: window)
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -260,6 +266,40 @@ final class NoteWindowManager {
         Self.log.info("Opened note tab for: \(page.title, privacy: .public)")
     }
 
+    static func sanitizedNoteWindowFrame(proposedFrame: NSRect, visibleFrame: NSRect) -> NSRect {
+        let minWidth = min(noteMinimumFrameSize.width, visibleFrame.width)
+        let minHeight = min(noteMinimumFrameSize.height, visibleFrame.height)
+        let defaultWidth = min(noteDefaultFrameSize.width, visibleFrame.width)
+        let defaultHeight = min(noteDefaultFrameSize.height, visibleFrame.height)
+
+        let needsReset = proposedFrame.width < minWidth || proposedFrame.height < minHeight
+
+        var frame = needsReset
+            ? NSRect(
+                x: visibleFrame.midX - defaultWidth / 2,
+                y: visibleFrame.midY - defaultHeight / 2,
+                width: defaultWidth,
+                height: defaultHeight
+            )
+            : proposedFrame
+
+        frame.size.width = min(max(frame.width, minWidth), visibleFrame.width)
+        frame.size.height = min(max(frame.height, minHeight), visibleFrame.height)
+        frame.origin.x = min(max(frame.origin.x, visibleFrame.minX), visibleFrame.maxX - frame.width)
+        frame.origin.y = min(max(frame.origin.y, visibleFrame.minY), visibleFrame.maxY - frame.height)
+        return frame.integral
+    }
+
+    private func normalizeNoteWindowFrame(_ window: NSWindow) {
+        guard let visibleFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame else { return }
+        let sanitized = Self.sanitizedNoteWindowFrame(
+            proposedFrame: window.frame,
+            visibleFrame: visibleFrame
+        )
+        guard sanitized != window.frame else { return }
+        window.setFrame(sanitized, display: false)
+    }
+
     /// Reverse lookup: find the pageId for a given window.
     func pageId(for window: NSWindow) -> String? {
         windows.first(where: { $0.value === window })?.key
@@ -268,28 +308,6 @@ final class NoteWindowManager {
     /// Forward lookup: find the NSWindow for a given pageId.
     func window(for pageId: String) -> NSWindow? {
         windows[pageId]
-    }
-
-    private func installTitlebarBlur(in window: NSWindow) {
-        guard let titlebarContainer = window.standardWindowButton(.closeButton)?
-            .superview?.superview else { return }
-
-        titlebarContainer.subviews
-            .filter { $0 is NSVisualEffectView }
-            .forEach { $0.removeFromSuperview() }
-
-        let blur = NSVisualEffectView()
-        blur.material = .headerView
-        blur.blendingMode = .withinWindow
-        blur.state = .active
-        blur.translatesAutoresizingMaskIntoConstraints = false
-        titlebarContainer.addSubview(blur, positioned: .below, relativeTo: nil)
-        NSLayoutConstraint.activate([
-            blur.leadingAnchor.constraint(equalTo: titlebarContainer.leadingAnchor),
-            blur.trailingAnchor.constraint(equalTo: titlebarContainer.trailingAnchor),
-            blur.topAnchor.constraint(equalTo: titlebarContainer.topAnchor),
-            blur.bottomAnchor.constraint(equalTo: titlebarContainer.bottomAnchor),
-        ])
     }
 
     private func handleWindowClose(_ window: NSWindow, pageId: String) {
@@ -326,7 +344,6 @@ final class NoteWindowManager {
         let windowTitle = title.isEmpty ? "Untitled" : title
         window.title = "\(windowTitle) — \(dateStr)"
         window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.contentView = hostingView
         window.center()
@@ -374,7 +391,6 @@ final class NoteWindowManager {
         for w in windows.values {
             w.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
             w.backgroundColor = theme.nsBackground
-            installTitlebarBlur(in: w)
         }
     }
 }

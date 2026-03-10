@@ -363,6 +363,7 @@ final class ProseTextView2: NSTextView {
     }
 
     /// Get paragraph text and NSRange for a layout fragment.
+    /// Returns nil if the fragment references stale ranges (can happen during rapid edits).
     private func paragraphInfo(
         for fragment: NSTextLayoutFragment,
         contentStorage: NSTextContentStorage
@@ -372,6 +373,8 @@ final class ProseTextView2: NSTextView {
         let docStart = contentStorage.documentRange.location
         let offset = contentStorage.offset(from: docStart, to: elementRange.location)
         let length = contentStorage.offset(from: elementRange.location, to: elementRange.endLocation)
+        // Guard stale layout: fragment ranges can exceed storage after rapid edits.
+        guard offset >= 0, length >= 0, offset &+ length <= (string as NSString).length else { return nil }
         return (textParagraph.attributedString.string, NSRange(location: offset, length: length))
     }
 
@@ -507,10 +510,12 @@ final class ProseTextView2: NSTextView {
 
             let pipeIndices = Self.pipeCharIndices(in: line)
             guard let firstLineFrag = fragment.textLineFragments.first,
-                  pipeIndices.count >= 2 else { return true }
+                  pipeIndices.count >= 2,
+                  pipeIndices.last! < firstLineFrag.characterRange.length else { return true }
 
             let firstPipeX = firstLineFrag.locationForCharacter(at: pipeIndices[0]).x
             let lastPipeX = firstLineFrag.locationForCharacter(at: pipeIndices.last!).x
+            guard lastPipeX > firstPipeX else { return true }
 
             let fillRect = NSRect(
                 x: fragFrame.minX + firstPipeX - 1,
@@ -563,7 +568,8 @@ final class ProseTextView2: NSTextView {
                     var pipeXs: [CGFloat] = []
                     if let firstLineFrag = fragment.textLineFragments.first {
                         let pipeIndices = Self.pipeCharIndices(in: line)
-                        for idx in pipeIndices {
+                        let charLimit = firstLineFrag.characterRange.length
+                        for idx in pipeIndices where idx < charLimit {
                             let loc = firstLineFrag.locationForCharacter(at: idx)
                             pipeXs.append(fragFrame.minX + loc.x)
                         }
@@ -752,9 +758,9 @@ final class ProseTextView2: NSTextView {
             ) else { return true }
 
             let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
-            guard self.markdownDelegate.paragraphType(at: lineIdx) == 1 else { return true }
+            guard lineIdx >= 0, self.markdownDelegate.paragraphType(at: lineIdx) == 1 else { return true }
 
-            let isFolded = markdown_is_folded(UInt32(lineIdx))
+            let isFolded = markdown_is_folded(UInt32(clamping: lineIdx))
 
             let size: CGFloat = 10
             let x = fragFrame.minX - 20
@@ -861,6 +867,12 @@ final class ProseTextView2: NSTextView {
             let paraOffset = contentStorage.offset(from: docStart, to: elemRange.location)
             let paraLength = contentStorage.offset(from: elemRange.location, to: elemRange.endLocation)
             let str = string as NSString
+            // Guard stale layout: fragment ranges can exceed storage after rapid edits.
+            guard paraOffset >= 0, paraLength >= 0,
+                  paraOffset &+ paraLength <= str.length else {
+                super.mouseDown(with: event)
+                return
+            }
             let paraText = str.substring(with: NSRange(location: paraOffset, length: paraLength))
                 .trimmingCharacters(in: .newlines)
 
@@ -881,10 +893,11 @@ final class ProseTextView2: NSTextView {
             // Data detection click
             if let storage = textStorage,
                storage.length > 0,
-               paraOffset < storage.length {
-                let charIdx = min(paraOffset + Int(frag.textLineFragments.first?.characterIndex(for:
+               paraOffset >= 0, paraOffset < storage.length {
+                let lineCharIdx = frag.textLineFragments.first?.characterIndex(for:
                     NSPoint(x: containerPoint.x - fragFrame.minX, y: containerPoint.y - fragFrame.minY)
-                ) ?? 0), storage.length - 1)
+                ) ?? 0
+                let charIdx = min(paraOffset &+ lineCharIdx, storage.length - 1)
                 if charIdx < storage.length,
                    let item = storage.attribute(DataDetectionService.detectedDataKey, at: charIdx, effectiveRange: nil) as? DataDetectionService.DetectedItem {
                     DataDetectionService.open(item)
