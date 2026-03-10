@@ -164,6 +164,7 @@ struct NotesSidebar: View {
     // Rebuilt on structural changes only — NOT on every body evaluation.
     // This prevents 1300+ observation registrations per eval cycle.
     @State private var cachedPageItems: [SidebarPageItem] = []
+    @State private var cachedPageById: [String: SidebarPageItem] = [:]
     @State private var cachedFolderItems: [SidebarFolderItem] = []
     @State private var cachedFolderById: [String: SidebarFolderItem] = [:]
     @State private var cachedIdeaItems: [SidebarIdeaItem] = []
@@ -190,6 +191,8 @@ struct NotesSidebar: View {
             seenPageIds.insert(page.id)
             return SidebarPageItem(page)
         }
+        cachedPageById = Dictionary(
+            cachedPageItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
         cachedFolderItems = allFolders.map(SidebarFolderItem.init)
 
         // Fallback: if folder.pages returned [] (SwiftData inverse not merged yet),
@@ -554,8 +557,7 @@ struct NotesSidebar: View {
                 let pageId = hit.pageId
                 guard !seenPageIds.contains(pageId) else { continue }
                 seenPageIds.insert(pageId)
-                let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                if var item = (try? modelContext.fetch(descriptor).first).map({ SidebarPageItem($0) }) {
+                if var item = cachedPageById[pageId] {
                     let rawSnippet = hit.snippet
                         .replacingOccurrences(of: "<b>", with: "")
                         .replacingOccurrences(of: "</b>", with: "")
@@ -570,8 +572,7 @@ struct NotesSidebar: View {
                 let pageId = hit.pageId
                 guard !seenPageIds.contains(pageId) else { continue }
                 seenPageIds.insert(pageId)
-                let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                if var item = (try? modelContext.fetch(descriptor).first).map({ SidebarPageItem($0) }) {
+                if var item = cachedPageById[pageId] {
                     let rawSnippet = hit.snippet
                         .replacingOccurrences(of: "<b>", with: "")
                         .replacingOccurrences(of: "</b>", with: "")
@@ -629,7 +630,8 @@ struct NotesSidebar: View {
             guard let recentPages = try? modelContext.fetch(desc), !recentPages.isEmpty else {
                 return
             }
-            let ids = recentPages.map(\.id)
+            let ids = recentPages.map(\.id).filter { PageStoragePool.shared.bodyText(for: $0) == nil }
+            guard !ids.isEmpty else { return }
 
             // Step 2: read bodies on background actor (off MainActor)
             let noteBodies = await vaultSync.fetchNoteBodies(ids: ids)
@@ -657,7 +659,8 @@ struct NotesSidebar: View {
         guard !pageIds.isEmpty else { return }
 
         let isDark = ui.theme.isDark
-        let idArray = Array(pageIds.prefix(6))
+        let idArray = Array(pageIds.prefix(6)).filter { PageStoragePool.shared.bodyText(for: $0) == nil }
+        guard !idArray.isEmpty else { return }
         Task {
             // Read bodies on background actor (off MainActor)
             let noteBodies = await vaultSync.fetchNoteBodies(ids: idArray)

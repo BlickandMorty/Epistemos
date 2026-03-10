@@ -118,43 +118,71 @@ final class NotesUIState {
     // MARK: - Navigation
 
     func openPage(_ pageId: String) {
-        activePageId = pageId
+        setActivePageId(pageId)
     }
 
     func openWorkspacePage(_ pageId: String) {
         if let existingTab = workspaceTabs.first(where: { $0.pageId == pageId }) {
-            workspaceActiveTabId = existingTab.id
+            if workspaceActiveTabId != existingTab.id {
+                workspaceActiveTabId = existingTab.id
+            }
         } else if let activeIndex = workspaceTabs.firstIndex(where: { $0.id == workspaceActiveTabId }),
             workspaceTabs[activeIndex].pageId == nil
         {
-            workspaceTabs[activeIndex].pageId = pageId
+            if workspaceTabs[activeIndex].pageId != pageId {
+                workspaceTabs[activeIndex].pageId = pageId
+            }
         } else {
             let tab = WorkspaceTab(pageId: pageId)
             workspaceTabs.append(tab)
             workspaceActiveTabId = tab.id
         }
-        activePageId = pageId
+        setActivePageId(pageId)
     }
 
     func setWorkspaceCurrentPage(_ pageId: String) {
         if let activeIndex = workspaceTabs.firstIndex(where: { $0.id == workspaceActiveTabId }) {
+            guard workspaceTabs[activeIndex].pageId != pageId || activePageId != pageId else {
+                return
+            }
             workspaceTabs[activeIndex].pageId = pageId
         } else {
             let tab = WorkspaceTab(pageId: pageId)
             workspaceTabs.append(tab)
             workspaceActiveTabId = tab.id
         }
-        activePageId = pageId
+        setActivePageId(pageId)
     }
 
     func showWorkspaceLanding() {
+        let previousWorkspacePageId = workspacePageId
+
         if let landingTab = workspaceTabs.first(where: { $0.pageId == nil }) {
-            workspaceActiveTabId = landingTab.id
+            if workspaceActiveTabId != landingTab.id {
+                workspaceActiveTabId = landingTab.id
+            }
+            if activePageId == previousWorkspacePageId {
+                setActivePageId(nil)
+            }
             return
         }
-        let tab = WorkspaceTab()
-        workspaceTabs.append(tab)
-        workspaceActiveTabId = tab.id
+
+        if let activeIndex = workspaceTabs.firstIndex(where: { $0.id == workspaceActiveTabId }),
+            !workspaceTabs[activeIndex].isPinned
+        {
+            workspaceTabs[activeIndex].pageId = nil
+            if activePageId == previousWorkspacePageId {
+                setActivePageId(nil)
+            }
+            return
+        }
+
+        let landingTab = WorkspaceTab()
+        workspaceTabs.append(landingTab)
+        workspaceActiveTabId = landingTab.id
+        if activePageId == previousWorkspacePageId {
+            setActivePageId(nil)
+        }
     }
 
     func addWorkspaceTab() {
@@ -165,9 +193,11 @@ final class NotesUIState {
 
     func activateWorkspaceTab(_ tabId: String) {
         guard let tab = workspaceTabs.first(where: { $0.id == tabId }) else { return }
-        workspaceActiveTabId = tabId
+        if workspaceActiveTabId != tabId {
+            workspaceActiveTabId = tabId
+        }
         if let pageId = tab.pageId {
-            activePageId = pageId
+            setActivePageId(pageId)
         }
     }
 
@@ -198,12 +228,12 @@ final class NotesUIState {
 
     func closeTab(_ pageId: String) {
         if activePageId == pageId {
-            activePageId = nil
+            setActivePageId(nil)
         }
     }
 
     func closePage() {
-        activePageId = nil
+        setActivePageId(nil)
     }
 
     func closeWorkspacePage() {
@@ -227,8 +257,15 @@ final class NotesUIState {
     }
 
     private func normalizeWorkspaceTabOrder() {
-        let pinnedTabs = workspaceTabs.filter(\.isPinned)
-        let unpinnedTabs = workspaceTabs.filter { !$0.isPinned }
-        workspaceTabs = pinnedTabs + unpinnedTabs
+        let reordered = workspaceTabs.filter(\.isPinned) + workspaceTabs.filter { !$0.isPinned }
+        if reordered != workspaceTabs {
+            workspaceTabs = reordered
+        }
+    }
+
+    private func setActivePageId(_ pageId: String?) {
+        if activePageId != pageId {
+            activePageId = pageId
+        }
     }
 }

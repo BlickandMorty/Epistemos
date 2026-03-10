@@ -2,14 +2,14 @@ import SwiftUI
 
 // MARK: - Table of Contents Item
 
-struct TOCItem: Identifiable, Equatable {
+struct TOCItem: Identifiable, Equatable, Sendable {
     let id = UUID()
     let level: Int          // 1-6 for H1-H6
     let title: String
     let charOffset: Int     // Character offset in the document
     let kind: TOCKind
 
-    enum TOCKind: Equatable {
+    enum TOCKind: Equatable, Sendable {
         case heading
         case citation
         case source
@@ -21,7 +21,7 @@ struct TOCItem: Identifiable, Equatable {
 enum TOCParser {
 
     /// Extract headings (H1-H5), citations, and source links from markdown text.
-    static func parse(_ markdown: String) -> [TOCItem] {
+    nonisolated static func parse(_ markdown: String) -> [TOCItem] {
         var items: [TOCItem] = []
         var charOffset = 0
 
@@ -79,7 +79,7 @@ enum TOCParser {
         return items
     }
 
-    private static func headingLevel(_ line: String) -> Int? {
+    private nonisolated static func headingLevel(_ line: String) -> Int? {
         var count = 0
         for ch in line {
             if ch == "#" { count += 1 }
@@ -89,7 +89,7 @@ enum TOCParser {
         return nil
     }
 
-    private static func headingTitle(_ line: String, level: Int) -> String {
+    private nonisolated static func headingTitle(_ line: String, level: Int) -> String {
         let dropped = String(line.dropFirst(level + 1)) // Drop "## " etc.
         return dropped
             .replacingOccurrences(of: "\\*\\*|\\*|`|\\[|\\]", with: "", options: .regularExpression)

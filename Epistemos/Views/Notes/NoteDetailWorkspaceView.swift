@@ -19,6 +19,11 @@ enum NoteDetailWorkspaceChrome {
     }
 }
 
+private struct EditorMetricsSnapshot: Sendable {
+    let wordCount: Int
+    let headings: [TOCItem]
+}
+
 // MARK: - Note Page Content
 // Self-contained note editor for each page within a tab.
 // Resolves pageId → SDPage via @Query, shows ProseEditorView,
@@ -51,6 +56,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var wordCount: Int = 0
     @State private var tocItems: [TOCItem] = []
     @State private var wordCountDebounce: Task<Void, Never>?
+    @State private var metricsTask: Task<Void, Never>?
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
@@ -174,14 +180,15 @@ struct NoteDetailWorkspaceView: View {
                 noteChatState.loadPersistedMessages(modelContext)
                 refreshTabCount()
                 if let page = pages.first {
-                    let body = page.loadBody()
-                    wordCount = NLAnalysisService.wordCount(body)
-                    if !showDocumentMode {
-                        tocItems = TOCParser.parse(body).filter { $0.kind == .heading }
-                    }
+                    scheduleMetricsRefresh(
+                        body: page.loadBody(),
+                        includeMarkdownHeadings: !showDocumentMode
+                    )
                 }
             }
             .onDisappear {
+                wordCountDebounce?.cancel()
+                metricsTask?.cancel()
                 noteChatState.clear()
             }
             .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
@@ -417,13 +424,15 @@ struct NoteDetailWorkspaceView: View {
             NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
         ) { _ in refreshTabCount() }
         .onReceive(
-            NotificationCenter.default.publisher(for: NSText.didChangeNotification)
-        ) { _ in
+            NotificationCenter.default.publisher(for: .init("ProseEditorUserDidType"))
+        ) { notification in
+            guard (notification.userInfo as? [String: String])?["pageId"] == pageId else { return }
             wordCountDebounce?.cancel()
-            wordCountDebounce = Task {
+            metricsTask?.cancel()
+            wordCountDebounce = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
-                refreshWordCount()
+                refreshVisibleEditorMetrics()
             }
         }
         .onReceive(
@@ -511,16 +520,29 @@ struct NoteDetailWorkspaceView: View {
         hasMultipleTabs = count > 1
     }
 
-    private func refreshWordCount() {
+    private func refreshVisibleEditorMetrics() {
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        let text = tv.string
-        let count = NLAnalysisService.wordCount(text)
-        if count != wordCount { wordCount = count }
-        // In document mode, TOC comes from onTocChanged (rich text font sizes).
-        // Markdown TOC parsing would return empty since doc mode has no # markers.
-        if !showDocumentMode {
-            let headings = TOCParser.parse(text).filter { $0.kind == .heading }
-            if headings.count != tocItems.count { tocItems = headings }
+        scheduleMetricsRefresh(body: tv.string, includeMarkdownHeadings: !showDocumentMode)
+    }
+
+    private func scheduleMetricsRefresh(body: String, includeMarkdownHeadings: Bool) {
+        metricsTask?.cancel()
+        metricsTask = Task { @MainActor in
+            let snapshot = await Task.detached(priority: .utility) {
+                EditorMetricsSnapshot(
+                    wordCount: NLAnalysisService.wordCount(body),
+                    headings: includeMarkdownHeadings
+                        ? TOCParser.parse(body)
+                        : []
+                )
+            }.value
+            guard !Task.isCancelled else { return }
+            if wordCount != snapshot.wordCount {
+                wordCount = snapshot.wordCount
+            }
+            if includeMarkdownHeadings, tocItems != snapshot.headings {
+                tocItems = snapshot.headings
+            }
         }
     }
 

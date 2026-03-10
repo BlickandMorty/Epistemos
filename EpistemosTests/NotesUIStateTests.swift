@@ -32,6 +32,22 @@ struct NotesUIStateTests {
     }
 
     @MainActor
+    @Test("reopening an existing workspace note reuses its tab")
+    func reopeningExistingWorkspaceNoteReusesTab() {
+        let state = NotesUIState()
+
+        state.openWorkspacePage("first-note")
+        let firstTabId = state.workspaceActiveTabId
+        state.openWorkspacePage("second-note")
+
+        state.openWorkspacePage("first-note")
+
+        #expect(state.workspaceTabs.count == 2)
+        #expect(state.workspaceActiveTabId == firstTabId)
+        #expect(state.workspacePageId == "first-note")
+    }
+
+    @MainActor
     @Test("closing workspace selection does not clear an unrelated active window note")
     func closingWorkspaceKeepsSeparateActiveWindowNote() {
         let state = NotesUIState()
@@ -55,6 +71,20 @@ struct NotesUIStateTests {
 
         #expect(state.workspacePageId == nil)
         #expect(state.activePageId == "window-note")
+    }
+
+    @MainActor
+    @Test("showing workspace landing reuses the existing landing tab")
+    func showingWorkspaceLandingReusesExistingLandingTab() {
+        let state = NotesUIState()
+
+        let landingTabId = state.workspaceActiveTabId
+        state.openWorkspacePage("home-note")
+        state.showWorkspaceLanding()
+
+        #expect(state.workspaceTabs.count == 1)
+        #expect(state.workspaceActiveTabId == landingTabId)
+        #expect(state.workspacePageId == nil)
     }
 
     @MainActor
