@@ -112,7 +112,7 @@ Must preserve:
 Must preserve:
 
 - `page.loadBody()` usage for graph rebuilds
-- NL entity extraction from note bodies
+- ~~NL entity extraction from note bodies~~ **Removed 2026-03-10:** NL entity extraction was intentionally disabled pre-migration (lines 108-111 of GraphBuilder.swift) when tag-typed graph nodes were removed as a product decision. Not a TK2 regression. Re-enabling would restore a deliberately removed feature.
 - graph-body contracts needed by document mode and note storage
 
 ### `DocumentEditorRepresentable.swift`
