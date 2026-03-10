@@ -154,7 +154,7 @@ struct HologramNodeInspector: View {
         guard lastPersistedBody != editorText else { return }
         NoteFileStorage.writeBody(pageId: pageId, content: editorText)
         lastPersistedBody = editorText
-        markPageDirty(pageId: pageId)
+        markPageDirty(pageId: pageId, body: editorText)
         NoteFileStorage.notifyBodyChanged(pageId: pageId)
     }
 
@@ -168,16 +168,17 @@ struct HologramNodeInspector: View {
                 NoteFileStorage.writeBody(pageId: pageId, content: text)
             }.value
             lastPersistedBody = text
-            markPageDirty(pageId: pageId)
+            markPageDirty(pageId: pageId, body: text)
             NoteFileStorage.notifyBodyChanged(pageId: pageId)
         }
     }
 
-    private func markPageDirty(pageId: String) {
+    private func markPageDirty(pageId: String, body: String) {
         let desc = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
         if let page = try? modelContext.fetch(desc).first {
+            BlockMirror.sync(pageId: pageId, body: body, modelContext: modelContext)
             page.needsVaultSync = true
             try? modelContext.save()
         }

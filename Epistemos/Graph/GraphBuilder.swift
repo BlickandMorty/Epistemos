@@ -59,19 +59,8 @@ final class GraphBuilder: @unchecked Sendable {
             nodes.append(node)
             sourceIdToNodeId[page.id] = node.id
 
-            // Tags
-            for tag in page.tags {
-                let tagKey = "tag-\(tag.lowercased())"
-                if existingSourceIds.insert(tagKey).inserted {
-                    let tagNode = SDGraphNode(type: .tag, label: tag, sourceId: tagKey)
-                    tagNode.createdAt = page.createdAt
-                    nodes.append(tagNode)
-                    sourceIdToNodeId[tagKey] = tagNode.id
-                }
-                if let tagNodeId = sourceIdToNodeId[tagKey] {
-                    edges.append(SDGraphEdge(source: node.id, target: tagNodeId, type: .tagged))
-                }
-            }
+            // Tags — stored in SDPage but NOT emitted as graph nodes.
+            // Tags remain a first-class concept for filtering/search, just not visualized.
 
             // Ideas (brainDump and idea both map to .idea in the 7-type model)
             for idea in page.ideas {
@@ -116,20 +105,9 @@ final class GraphBuilder: @unchecked Sendable {
                 blockRefs.append(BlockRef(noteNodeId: noteNodeId, refId: refId))
             }
 
-            // NL entity extraction — people, places, organizations
-            let entities = NLAnalysisService.extractEntities(from: body)
-            for entity in entities {
-                let entityKey = "entity-\(entity.kind.rawValue)-\(entity.text.lowercased())"
-                if existingSourceIds.insert(entityKey).inserted {
-                    let entityNode = SDGraphNode(type: .tag, label: entity.text, sourceId: entityKey)
-                    entityNode.createdAt = page.createdAt
-                    nodes.append(entityNode)
-                    sourceIdToNodeId[entityKey] = entityNode.id
-                }
-                if let entityNodeId = sourceIdToNodeId[entityKey] {
-                    edges.append(SDGraphEdge(source: noteNodeId, target: entityNodeId, type: .mentions))
-                }
-            }
+            // NL entity extraction — people, places, organizations.
+            // Entities were previously tag-typed graph nodes. Tags are no longer
+            // visualized as nodes, so NL entities are skipped here too.
         }
 
         // Pass 2: fetch only referenced blocks and resolve edges.

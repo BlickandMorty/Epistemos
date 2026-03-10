@@ -16,6 +16,7 @@ actor BackgroundGraphActor {
         positionHints: [String: SIMD2<Float>]
     ) throws -> (nodes: [GraphNodeRecord], edges: [GraphEdgeRecord]) {
         let sdNodes = try modelContext.fetch(FetchDescriptor<SDGraphNode>())
+            .filter { $0.nodeType != .tag }
         let sdEdges = try modelContext.fetch(FetchDescriptor<SDGraphEdge>())
 
         var hints = positionHints

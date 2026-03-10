@@ -253,106 +253,60 @@ struct GraphBuilderPageNodeTests {
 @Suite("GraphBuilder - Tag Node Building")
 @MainActor
 struct GraphBuilderTagNodeTests {
-    
-    @Test("page with tags creates tag nodes")
-    func pageWithTagsCreatesTagNodes() {
+
+    @Test("page with tags does NOT create tag nodes — tags are not graph nodes")
+    func pageWithTagsNoTagNodes() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        
+
         do {
             let container = try ModelContainer(for: schema, configurations: [config])
             let context = ModelContext(container)
-            
+
             let page = GraphBuilderTestHelpers.createMockPage(
                 title: "Test Note",
                 tags: ["philosophy", "epistemology"]
             )
             context.insert(page)
             try context.save()
-            
+
             let builder = GraphBuilder()
             let result = builder.build(context: context)
-            
-            // 1 note node + 2 tag nodes
-            #expect(result.nodes.count == 3)
-            
+
+            // Only the note node — no tag nodes
+            #expect(result.nodes.count == 1)
+
             let tagNodes = result.nodes.filter { $0.nodeType == .tag }
-            #expect(tagNodes.count == 2)
+            #expect(tagNodes.count == 0)
+
+            // No tagged edges
+            #expect(result.edges.filter { $0.edgeType == .tagged }.isEmpty)
         } catch {
             Issue.record("Test failed: \(error)")
         }
     }
-    
-    @Test("tag nodes have correct labels")
-    func tagNodesHaveCorrectLabels() {
+
+    @Test("tags still stored on SDPage despite no graph nodes")
+    func tagsStillStoredOnPage() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        
+
         do {
             let container = try ModelContainer(for: schema, configurations: [config])
             let context = ModelContext(container)
-            
-            let page = GraphBuilderTestHelpers.createMockPage(tags: ["Important"])
+
+            let page = GraphBuilderTestHelpers.createMockPage(tags: ["Important", "Research"])
             context.insert(page)
             try context.save()
-            
+
+            // Tags exist on the model even though they're not graph nodes
+            #expect(page.tags.contains("Important"))
+            #expect(page.tags.contains("Research"))
+
             let builder = GraphBuilder()
             let result = builder.build(context: context)
-            
-            let tagNode = result.nodes.first { $0.nodeType == .tag }
-            #expect(tagNode?.label == "Important")
-        } catch {
-            Issue.record("Test failed: \(error)")
-        }
-    }
-    
-    @Test("tag edge connects note to tag")
-    func tagEdgeConnectsNoteToTag() {
-        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        
-        do {
-            let container = try ModelContainer(for: schema, configurations: [config])
-            let context = ModelContext(container)
-            
-            let page = GraphBuilderTestHelpers.createMockPage(tags: ["TestTag"])
-            context.insert(page)
-            try context.save()
-            
-            let builder = GraphBuilder()
-            let result = builder.build(context: context)
-            
-            #expect(result.edges.count == 1)
-            #expect(result.edges.first?.edgeType == .tagged)
-        } catch {
-            Issue.record("Test failed: \(error)")
-        }
-    }
-    
-    @Test("duplicate tags across pages create single tag node")
-    func duplicateTagsCreateSingleNode() {
-        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        
-        do {
-            let container = try ModelContainer(for: schema, configurations: [config])
-            let context = ModelContext(container)
-            
-            let page1 = GraphBuilderTestHelpers.createMockPage(tags: ["shared"])
-            let page2 = GraphBuilderTestHelpers.createMockPage(tags: ["shared"])
-            context.insert(page1)
-            context.insert(page2)
-            try context.save()
-            
-            let builder = GraphBuilder()
-            let result = builder.build(context: context)
-            
-            // 2 notes + 1 shared tag
             let tagNodes = result.nodes.filter { $0.nodeType == .tag }
-            #expect(tagNodes.count == 1)
-            
-            // 2 edges (each note to the shared tag)
-            #expect(result.edges.count == 2)
+            #expect(tagNodes.count == 0)
         } catch {
             Issue.record("Test failed: \(error)")
         }
@@ -920,26 +874,25 @@ struct GraphBuilderEdgeCaseTests {
         }
     }
     
-    @Test("page with duplicate tags in same page")
+    @Test("page with duplicate tags — no tag nodes emitted")
     func pageWithDuplicateTags() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        
+
         do {
             let container = try ModelContainer(for: schema, configurations: [config])
             let context = ModelContext(container)
-            
-            // Duplicate tags should be handled gracefully
+
             let page = GraphBuilderTestHelpers.createMockPage(tags: ["tag", "tag", "TAG"])
             context.insert(page)
             try context.save()
-            
+
             let builder = GraphBuilder()
             let result = builder.build(context: context)
-            
-            // Should handle duplicates (tag and TAG are different due to case)
+
+            // Tags are no longer graph nodes
             let tagNodes = result.nodes.filter { $0.nodeType == .tag }
-            #expect(tagNodes.count >= 1)
+            #expect(tagNodes.count == 0)
         } catch {
             Issue.record("Test failed: \(error)")
         }
@@ -1347,26 +1300,25 @@ struct GraphBuilderAdditionalEdgeCaseTests {
         }
     }
     
-    @Test("tag case insensitivity - deduplication")
+    @Test("tag case insensitivity — no tag nodes emitted regardless")
     func tagCaseInsensitivity() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        
+
         do {
             let container = try ModelContainer(for: schema, configurations: [config])
             let context = ModelContext(container)
-            
-            // Tags are lowercased for deduplication
+
             let page = GraphBuilderTestHelpers.createMockPage(tags: ["Philosophy", "philosophy", "PHILOSOPHY"])
             context.insert(page)
             try context.save()
-            
+
             let builder = GraphBuilder()
             let result = builder.build(context: context)
-            
-            // Case-insensitive: creates only 1 tag node (deduplicated via lowercase)
+
+            // Tags are no longer graph nodes
             let tagNodes = result.nodes.filter { $0.nodeType == .tag }
-            #expect(tagNodes.count == 1)
+            #expect(tagNodes.count == 0)
         } catch {
             Issue.record("Test failed: \(error)")
         }

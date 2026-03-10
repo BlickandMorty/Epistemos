@@ -212,18 +212,8 @@ final class EntityExtractor {
             linkEntityToBlock(entityNodeId: quoteNode.id, blockId: quote.blockId, type: .reference, context: context)
         }
 
-        // Tags (absorbs concepts)
-        for tag in extraction.tags {
-            let node = findOrCreateNode(type: .tag, label: tag.name, context: context)
-            if let desc = tag.description {
-                var meta = node.meta
-                meta.abstract = desc
-                node.meta = meta
-            }
-            for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: sourceId, target: node.id, type: .tagged, context: context)
-            }
-        }
+        // Tags (absorbs concepts) — tags are no longer visualized as graph nodes.
+        // Tag data is still extracted and stored on SDPage.tags for filtering/search.
 
         // Cross-note semantic links — connect notes within the batch that
         // support, contradict, expand, or question each other.

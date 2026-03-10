@@ -212,6 +212,9 @@ final class NoteWindowManager {
             defer: false
         )
         window.title = pageTitle
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
@@ -220,16 +223,20 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
-
-        window.titlebarAppearsTransparent = true
+        window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
+        window.toolbarStyle = .unified
 
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
-        let hostingView = NSHostingView(rootView: editorView)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView = WindowThemeStyler.themedContentView(host: hostingView, theme: bootstrap.uiState.theme)
-        WindowThemeStyler.apply(to: window, theme: bootstrap.uiState.theme)
+        let hostingController = NSHostingController(rootView: editorView)
+        hostingController.sceneBridgingOptions = [.all]
+        window.contentViewController = hostingController
+
+        let theme = bootstrap.uiState.theme
+        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window.backgroundColor = theme.nsBackground
+        installTitlebarBlur(in: window)
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -263,6 +270,28 @@ final class NoteWindowManager {
         windows[pageId]
     }
 
+    private func installTitlebarBlur(in window: NSWindow) {
+        guard let titlebarContainer = window.standardWindowButton(.closeButton)?
+            .superview?.superview else { return }
+
+        titlebarContainer.subviews
+            .filter { $0 is NSVisualEffectView }
+            .forEach { $0.removeFromSuperview() }
+
+        let blur = NSVisualEffectView()
+        blur.material = .headerView
+        blur.blendingMode = .withinWindow
+        blur.state = .active
+        blur.translatesAutoresizingMaskIntoConstraints = false
+        titlebarContainer.addSubview(blur, positioned: .below, relativeTo: nil)
+        NSLayoutConstraint.activate([
+            blur.leadingAnchor.constraint(equalTo: titlebarContainer.leadingAnchor),
+            blur.trailingAnchor.constraint(equalTo: titlebarContainer.trailingAnchor),
+            blur.topAnchor.constraint(equalTo: titlebarContainer.topAnchor),
+            blur.bottomAnchor.constraint(equalTo: titlebarContainer.bottomAnchor),
+        ])
+    }
+
     private func handleWindowClose(_ window: NSWindow, pageId: String) {
         if let observer = observers.removeValue(forKey: pageId) {
             NotificationCenter.default.removeObserver(observer)
@@ -290,19 +319,23 @@ final class NoteWindowManager {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         let windowTitle = title.isEmpty ? "Untitled" : title
         window.title = "\(windowTitle) — \(dateStr)"
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
 
         let theme = bootstrap.uiState.theme
-        window.contentView = WindowThemeStyler.themedContentView(host: hostingView, theme: theme)
-        WindowThemeStyler.apply(to: window, theme: theme)
+        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window.backgroundColor = theme.nsBackground
 
         // Zoom instead of fullscreen
         window.collectionBehavior.remove(.fullScreenPrimary)
@@ -339,7 +372,9 @@ final class NoteWindowManager {
     /// Sync appearance of all note windows to the current theme.
     func syncTheme(theme: EpistemosTheme) {
         for w in windows.values {
-            WindowThemeStyler.apply(to: w, theme: theme)
+            w.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+            w.backgroundColor = theme.nsBackground
+            installTitlebarBlur(in: w)
         }
     }
 }

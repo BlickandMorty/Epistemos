@@ -154,9 +154,7 @@
 		A1B2C3D4E5F60718NOTETOC2 /* NoteTableOfContents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718NOTETOC1 /* NoteTableOfContents.swift */; };
 		A1B2C3D4E5F6PHYSMOD02 /* PhysicsModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */; };
 		A1C0N500000000ASSET002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0N500000000ASSET001 /* Assets.xcassets */; };
-		A1C0N50000ICONCOOL0002 /* icon_cool.png in Resources */ = {isa = PBXBuildFile; fileRef = A1C0N50000ICONCOOL0001 /* icon_cool.png */; };
-		A1C0N50000ICONWARM0002 /* icon_warm.png in Resources */ = {isa = PBXBuildFile; fileRef = A1C0N50000ICONWARM0001 /* icon_warm.png */; };
-		A1C0N50000ICONWHTD0002 /* icon_white_dark.png in Resources */ = {isa = PBXBuildFile; fileRef = A1C0N50000ICONWHTD0001 /* icon_white_dark.png */; };
+		A1C0N500000000ICON0002 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A1C0N500000000ICON0001 /* AppIcon.icon */; };
 		A29025410BEF420590AC1E9A /* BlockRefAutocomplete.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8690305E32B44E4EA40B097C /* BlockRefAutocomplete.swift */; };
 		A2D85D5B84149A478F48C4AE /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD39ADCBE426B353E3FA283B /* Log.swift */; };
 		A3F2E1D0C9B8A7F6E5D4C3B2 /* HologramNodeInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3 /* HologramNodeInspector.swift */; };
@@ -421,10 +419,7 @@
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* NodeInspectorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeInspectorState.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsModifiers.swift; sourceTree = "<group>"; };
 		A1C0N500000000ASSET001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A1C0N500000000ICON0001 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppIcon.icon; sourceTree = "<group>"; };
-		A1C0N50000ICONCOOL0001 /* icon_cool.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon_cool.png; sourceTree = "<group>"; };
-		A1C0N50000ICONWARM0001 /* icon_warm.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon_warm.png; sourceTree = "<group>"; };
-		A1C0N50000ICONWHTD0001 /* icon_white_dark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icon_white_dark.png; sourceTree = "<group>"; };
+		A1C0N500000000ICON0001 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		A242417BA0CA869146F4EC18 /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
 		A35250427F5F701B31DF7B9B /* TriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TriageService.swift; sourceTree = "<group>"; };
 		A50B1590CC5E5BFACB7A3C31 /* SOARState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOARState.swift; sourceTree = "<group>"; };
@@ -677,9 +672,6 @@
 			children = (
 				A1C0N500000000ASSET001 /* Assets.xcassets */,
 				A1C0N500000000ICON0001 /* AppIcon.icon */,
-				A1C0N50000ICONCOOL0001 /* icon_cool.png */,
-				A1C0N50000ICONWARM0001 /* icon_warm.png */,
-				A1C0N50000ICONWHTD0001 /* icon_white_dark.png */,
 				E84F81714131A6C713425FD5 /* App */,
 				F5DB1B3EF520523DDC7B03C1 /* Engine */,
 				039065FD6B7F3B62CF954B17 /* Intents */,
@@ -1161,9 +1153,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1C0N500000000ASSET002 /* Assets.xcassets in Resources */,
-				A1C0N50000ICONCOOL0002 /* icon_cool.png in Resources */,
-				A1C0N50000ICONWARM0002 /* icon_warm.png in Resources */,
-				A1C0N50000ICONWHTD0002 /* icon_white_dark.png in Resources */,
+				A1C0N500000000ICON0002 /* AppIcon.icon in Resources */,
 				8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

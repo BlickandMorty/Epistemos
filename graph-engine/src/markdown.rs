@@ -1673,8 +1673,12 @@ mod tests {
 
     // ── Fold State Tests ─────────────────────────────────────────────────
 
+    /// Serializes tests that mutate the process-global FOLD_STATE.
+    static FOLD_STATE_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn fold_state_set_and_query() {
+        let _guard = FOLD_STATE_TEST_LOCK.lock().unwrap();
         clear_all_folds();
         set_fold(2, true);
         assert!(is_folded(2));
@@ -1747,6 +1751,7 @@ mod tests {
 
     #[test]
     fn fold_ffi_round_trip() {
+        let _guard = FOLD_STATE_TEST_LOCK.lock().unwrap();
         // SAFETY: FFI functions with valid arguments.
         unsafe { markdown_clear_all_folds() };
         unsafe { markdown_set_fold(5, true) };

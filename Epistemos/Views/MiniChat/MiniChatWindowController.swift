@@ -49,11 +49,10 @@ final class MiniChatWindowController: NSWindowController {
             .modelContainer(bootstrap.modelContainer)
             .preferredColorScheme(theme.colorScheme)
         let host = NSHostingView(rootView: view)
-        window?.contentView = host
-
-        // Sync NSPanel chrome to theme (SwiftUI preferredColorScheme only affects content)
-        window?.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        window?.backgroundColor = NSColor(theme.background)
+        window?.contentView = WindowThemeStyler.themedContentView(host: host, theme: theme)
+        if let window {
+            WindowThemeStyler.apply(to: window, theme: theme)
+        }
 
         isConfigured = true
     }
@@ -73,9 +72,8 @@ final class MiniChatWindowController: NSWindowController {
     /// Sync NSPanel appearance and background to the current theme.
     func syncTheme(isDark: Bool) {
         guard let window else { return }
-        window.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        if let bg = AppBootstrap.shared.map({ NSColor($0.uiState.theme.background) }) {
-            window.backgroundColor = bg
+        if let theme = AppBootstrap.shared?.uiState.theme {
+            WindowThemeStyler.apply(to: window, theme: theme)
         }
     }
 

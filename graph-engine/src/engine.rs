@@ -678,15 +678,9 @@ impl Engine {
             self.idle_frame_count = 0;
         }
 
-        // Edge visibility: in physics mode, hide edges unless a node is selected/hovered.
-        // In freeze mode, always show all edges.
-        if is_frozen {
-            self.renderer.edges_hidden = false;
-            self.renderer.edge_filter_node = None;
-        } else {
-            self.renderer.edges_hidden = true;
-            self.renderer.edge_filter_node = self.selected_id.or(self.hovered_id);
-        }
+        // Edge visibility: always show edges in both physics and freeze mode.
+        self.renderer.edges_hidden = false;
+        self.renderer.edge_filter_node = None;
 
         if instance_buffers_changed {
             self.renderer.update_positions(&self.world);

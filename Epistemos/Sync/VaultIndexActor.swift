@@ -559,6 +559,7 @@ actor VaultIndexActor {
                     page.needsVaultSync = true
                 } else {
                     page.saveBody(body)
+                    BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
                     // Notify editor to reload — vault replaced the body externally.
                     let changedId = page.id
                     Task { @MainActor in
@@ -625,6 +626,7 @@ actor VaultIndexActor {
             }
 
             page.saveBody(body)
+            BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
             page.filePath = filePath
             page.wordCount = parsedWordCount
             page.emoji = parsedEmoji

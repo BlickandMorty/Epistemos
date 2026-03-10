@@ -335,7 +335,6 @@ struct WallpaperView: View {
     }
 }
 
-
 // MARK: - Setup View
 // Full-screen welcome shown after a Reset Everything.
 // Minimal: logo, welcome message, "Get Started" to dismiss.

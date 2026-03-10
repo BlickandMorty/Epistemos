@@ -396,7 +396,7 @@ private struct AppearanceDetailView: View {
     @Environment(UIState.self) private var ui
     private var theme: EpistemosTheme { ui.theme }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 3)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 2)
 
     var body: some View {
         Form {
@@ -459,6 +459,7 @@ private struct ThemePairCard: View {
 
     private var pairIcons: (String, String) {
         switch pair {
+        case .magnolia: ("camera.macro", "moon.stars.fill")
         case .classic: ("sun.max", "moon.stars")
         case .warmth:  ("sun.max.fill", "sunset.fill")
         case .ember:   ("leaf", "flame")

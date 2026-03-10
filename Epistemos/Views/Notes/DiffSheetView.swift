@@ -433,6 +433,7 @@ struct DiffSheetView: View {
     @MainActor
     static func persistRestoredBody(_ body: String, to page: SDPage, modelContext: ModelContext) throws {
         page.saveBody(body)
+        BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
         page.wordCount = body.split(separator: " ").count
         page.needsVaultSync = true
         try modelContext.save()

@@ -1,35 +1,40 @@
 import SwiftUI
 
 // MARK: - Theme Definition
-// 6 themes — 3 light (White, Sunny, Tan) + 3 dark (Sunset, OLED, Ember).
+// 8 themes — 4 light (White, Sunny, Tan, Magnolia) + 4 dark (Sunset, OLED, Ember, Nocturne).
 
 enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case light = "light"
     case sunny = "sunny"
     case tan = "tan"
+    case magnolia = "magnolia"
     case sunset = "sunset"
     case oled = "oled"
     case ember = "ember"
+    case nocturne = "nocturne"
 
     var displayName: String {
         switch self {
         case .light:  "White"
         case .sunny:  "Sunny"
         case .tan:    "Tan"
+        case .magnolia: "Magnolia"
         case .sunset: "Sunset"
         case .oled:   "OLED"
         case .ember:  "Ember"
+        case .nocturne: "Nocturne"
         }
     }
 
     var isDark: Bool {
         switch self {
-        case .light, .sunny, .tan: false
-        case .sunset, .oled, .ember: true
+        case .light, .sunny, .tan, .magnolia: false
+        case .sunset, .oled, .ember, .nocturne: true
         }
     }
 
     var colorScheme: ColorScheme { isDark ? .dark : .light }
+    var usesNativeWindowBlur: Bool { self == .magnolia || self == .nocturne }
 
     // MARK: - Core Colors
 
@@ -38,9 +43,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  .white
         case .sunny:  Color(hex: 0xE8F4FB)
         case .tan:    Color(hex: 0xF5EFE6)
+        case .magnolia: Color(hex: 0xF7F2F5)
         case .sunset: Color(hex: 0x1E1220)
         case .oled:   Color(hex: 0x000000)
         case .ember:  Color(hex: 0x1C1410)
+        case .nocturne: Color(hex: 0x19141F)
         }
     }
 
@@ -49,9 +56,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x1C1C1E)
         case .sunny:  Color(hex: 0x233040)
         case .tan:    Color(hex: 0x362816)
+        case .magnolia: Color(hex: 0x342E35)
         case .sunset: Color(hex: 0xE8E0D8)
         case .oled:   Color(hex: 0xDADADE)
         case .ember:  Color(hex: 0xE0D4C8)
+        case .nocturne: Color(hex: 0xE7DEE8)
         }
     }
 
@@ -60,9 +69,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x1C1C1E)
         case .sunny:  Color(hex: 0x5B8FC7)
         case .tan:    Color(hex: 0x8B5E3C)
+        case .magnolia: Color(hex: 0x8E7282)
         case .sunset: Color(hex: 0xD4862B)
         case .oled:   Color(hex: 0xDADADE)
         case .ember:  Color(hex: 0xC8762A)
+        case .nocturne: Color(hex: 0xA8B6D9)
         }
     }
 
@@ -71,9 +82,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x1A1A1A)
         case .sunny:  Color(hex: 0xD4A843)
         case .tan:    Color(hex: 0x6B3E1C)
+        case .magnolia: Color(hex: 0x6E7E97)
         case .sunset: Color(hex: 0xF5B84A)
         case .oled:   Color(hex: 0xFFFFFF)
         case .ember:  Color(hex: 0xE8A040)
+        case .nocturne: Color(hex: 0xD7A7B6)
         }
     }
 
@@ -82,9 +95,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x1C1C1E)
         case .sunny:  Color(hex: 0x233040)
         case .tan:    Color(hex: 0x362816)
+        case .magnolia: Color(hex: 0x342E35)
         case .sunset: Color(hex: 0xE8E0D8)
         case .oled:   Color(hex: 0xDADADE)
         case .ember:  Color(hex: 0xE0D4C8)
+        case .nocturne: Color(hex: 0xE7DEE8)
         }
     }
 
@@ -95,9 +110,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0xF0F0F0)
         case .sunny:  Color(red: 210/255, green: 230/255, blue: 245/255).opacity(0.75)
         case .tan:    Color(hex: 0xEADDCC)
+        case .magnolia: Color(hex: 0xECE4E9)
         case .sunset: Color(hex: 0x322030)
         case .oled:   Color(hex: 0x141414)
         case .ember:  Color(hex: 0x2A1E14)
+        case .nocturne: Color(hex: 0x27212D)
         }
     }
 
@@ -106,9 +123,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x4A4A4A)
         case .sunny:  Color(hex: 0x5A7A94)
         case .tan:    Color(hex: 0x9A7A5A)
+        case .magnolia: Color(hex: 0x7E737C)
         case .sunset: Color(hex: 0xB09888)
         case .oled:   Color(hex: 0x8A8A8A)
         case .ember:  Color(hex: 0xA08060)
+        case .nocturne: Color(hex: 0xA89CA8)
         }
     }
 
@@ -117,9 +136,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(red: 0, green: 0, blue: 0).opacity(0.1)
         case .sunny:  Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.28)
         case .tan:    Color(hex: 0xC4A882).opacity(0.35)
+        case .magnolia: Color(hex: 0xC6BAC3).opacity(0.42)
         case .sunset: Color(hex: 0x3D2838)
         case .oled:   Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.55)
         case .ember:  Color(hex: 0x3A2818)
+        case .nocturne: Color(hex: 0x3B3243)
         }
     }
 
@@ -145,9 +166,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x2B8A8A)
         case .sunny:  Color(hex: 0x287878)
         case .tan:    Color(hex: 0x3A8888)
+        case .magnolia: Color(hex: 0x6D8CA8)
         case .sunset: Color(hex: 0x5EC4C4)
         case .oled:   Color(hex: 0x56B6B6)
         case .ember:  Color(hex: 0x5AACAC)
+        case .nocturne: Color(hex: 0x7DB3C4)
         }
     }
     var codeProperty: Color { fontAccent }
@@ -234,9 +257,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.88)
         case .sunny:  Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.75)
         case .tan:    Color(hex: 0xF0E4D0).opacity(0.85)
+        case .magnolia: Color(hex: 0xFBF7F9).opacity(0.88)
         case .sunset: Color(hex: 0x241828).opacity(0.85)
         case .oled:   Color(red: 16/255, green: 16/255, blue: 16/255).opacity(0.82)
         case .ember:  Color(hex: 0x241A10).opacity(0.88)
+        case .nocturne: Color(hex: 0x221C2A).opacity(0.86)
         }
     }
 
@@ -245,9 +270,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(red: 0, green: 0, blue: 0).opacity(0.08)
         case .sunny:  Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.22)
         case .tan:    Color(hex: 0xC4A882).opacity(0.28)
+        case .magnolia: Color(hex: 0xC6BAC3).opacity(0.30)
         case .sunset: Color(hex: 0x3A2434)
         case .oled:   Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.32)
         case .ember:  Color(hex: 0x402C1C)
+        case .nocturne: Color(hex: 0x443A4D)
         }
     }
 
@@ -256,9 +283,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.8)
         case .sunny:  Color(red: 225/255, green: 240/255, blue: 252/255).opacity(0.65)
         case .tan:    Color(hex: 0xDFCDB0).opacity(0.75)
+        case .magnolia: Color(hex: 0xE9DEE5).opacity(0.78)
         case .sunset: Color(hex: 0x342030)
         case .oled:   Color(red: 28/255, green: 28/255, blue: 28/255).opacity(0.7)
         case .ember:  Color(hex: 0x30201A).opacity(0.75)
+        case .nocturne: Color(hex: 0x342B3D).opacity(0.78)
         }
     }
 
@@ -269,9 +298,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.7)
         case .sunny:  Color(red: 215/255, green: 235/255, blue: 250/255).opacity(0.7)
         case .tan:    Color(hex: 0xE8D9C0).opacity(0.78)
+        case .magnolia: Color(hex: 0xEFE5EA).opacity(0.82)
         case .sunset: Color(hex: 0x1C1022).opacity(0.8)
         case .oled:   Color(red: 8/255, green: 8/255, blue: 8/255).opacity(0.85)
         case .ember:  Color(hex: 0x141008).opacity(0.88)
+        case .nocturne: Color(hex: 0x140F18).opacity(0.90)
         }
     }
 
@@ -282,9 +313,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(red: 0, green: 0, blue: 0).opacity(0.08)
         case .sunny:  Color(red: 180/255, green: 215/255, blue: 245/255).opacity(0.45)
         case .tan:    Color(hex: 0xC4A07A).opacity(0.30)
+        case .magnolia: Color(hex: 0xD8C7D1).opacity(0.42)
         case .sunset: Color(hex: 0x3C2434).opacity(0.75)
         case .oled:   Color(red: 20/255, green: 20/255, blue: 20/255).opacity(0.7)
         case .ember:  Color(hex: 0x3A2414).opacity(0.8)
+        case .nocturne: Color(hex: 0x3A3046).opacity(0.78)
         }
     }
 
@@ -293,9 +326,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x1C1C1E).opacity(0.88)
         case .sunny:  Color(hex: 0x233040).opacity(0.92)
         case .tan:    Color(hex: 0x362816).opacity(0.92)
+        case .magnolia: Color(hex: 0x342E35).opacity(0.92)
         case .sunset: Color(hex: 0xE8E0D8).opacity(0.92)
         case .oled:   Color(hex: 0xDADADE).opacity(0.92)
         case .ember:  Color(hex: 0xE0D4C8).opacity(0.92)
+        case .nocturne: Color(hex: 0xEEE4EC).opacity(0.94)
         }
     }
 
@@ -304,9 +339,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(hex: 0x000000).opacity(0.5)
         case .sunny:  Color(hex: 0x5A7A94).opacity(0.92)
         case .tan:    Color(hex: 0x9A7A5A).opacity(0.85)
+        case .magnolia: Color(hex: 0x7E737C).opacity(0.90)
         case .sunset: Color(hex: 0xB09888).opacity(0.92)
         case .oled:   Color(red: 180/255, green: 180/255, blue: 180/255).opacity(0.92)
         case .ember:  Color(hex: 0xA08060).opacity(0.92)
+        case .nocturne: Color(hex: 0xA89CA8).opacity(0.92)
         }
     }
 
@@ -317,9 +354,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.92)
         case .sunny:  Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.78)
         case .tan:    Color(hex: 0xEDE0CA).opacity(0.88)
+        case .magnolia: Color(hex: 0xFCF9FB).opacity(0.92)
         case .sunset: Color(hex: 0x241828).opacity(0.88)
         case .oled:   Color(red: 18/255, green: 18/255, blue: 18/255).opacity(0.92)
         case .ember:  Color(hex: 0x241A10).opacity(0.90)
+        case .nocturne: Color(hex: 0x241E2B).opacity(0.90)
         }
     }
 
@@ -328,9 +367,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  .white
         case .sunny:  Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.72)
         case .tan:    Color(hex: 0xF5EFE6)
+        case .magnolia: Color(hex: 0xFBF7F9)
         case .sunset: Color(hex: 0x1E1220)
         case .oled:   Color(hex: 0x000000)
         case .ember:  Color(hex: 0x1C1410)
+        case .nocturne: Color(hex: 0x19141F)
         }
     }
 
@@ -357,6 +398,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0x2A2A2A)
         case .ember:  Color(hex: 0x3C2010)
         case .light:  Color(hex: 0x1A1A1A)
+        case .magnolia: Color(hex: 0x6A5F70)
+        case .nocturne: Color(hex: 0x313444)
         default:      accent
         }
     }
@@ -368,6 +411,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0xDADADE).opacity(0.88)
         case .ember:  Color(hex: 0xEADED0).opacity(0.90)
         case .sunset: Color(hex: 0xE8E0D8).opacity(0.90)
+        case .magnolia: Color(hex: 0xF6F0F5).opacity(0.94)
+        case .nocturne: Color(hex: 0xF2E7EE).opacity(0.92)
         default:      foreground
         }
     }
@@ -381,9 +426,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .light:  .white
         case .sunny:  NSColor(red: 0xE8/255, green: 0xF4/255, blue: 0xFB/255, alpha: 1)
         case .tan:    NSColor(red: 0xF5/255, green: 0xEF/255, blue: 0xE6/255, alpha: 1)
+        case .magnolia: NSColor(red: 0xF7/255, green: 0xF2/255, blue: 0xF5/255, alpha: 1)
         case .sunset: NSColor(red: 0x1E/255, green: 0x12/255, blue: 0x20/255, alpha: 1)
         case .oled:   .black
         case .ember:  NSColor(red: 0x1C/255, green: 0x14/255, blue: 0x10/255, alpha: 1)
+        case .nocturne: NSColor(red: 0x19/255, green: 0x14/255, blue: 0x1F/255, alpha: 1)
         }
     }
 }
@@ -391,12 +438,14 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 // MARK: - Theme Pair
 
 enum ThemePair: String, CaseIterable, Codable, Sendable {
+    case magnolia = "magnolia"
     case classic = "classic"
     case warmth  = "warmth"
     case ember   = "ember"
 
     var displayName: String {
         switch self {
+        case .magnolia: "Magnolia"
         case .classic: "Classic"
         case .warmth:  "Warmth"
         case .ember:   "Ember"
@@ -405,6 +454,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
 
     var description: String {
         switch self {
+        case .magnolia: "Magnolia · Nocturne"
         case .classic: "White · OLED"
         case .warmth:  "Sunny · Sunset"
         case .ember:   "Tan · Ember"
@@ -413,6 +463,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
 
     var lightTheme: EpistemosTheme {
         switch self {
+        case .magnolia: .magnolia
         case .classic: .light
         case .warmth:  .sunny
         case .ember:   .tan
@@ -421,6 +472,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
 
     var darkTheme: EpistemosTheme {
         switch self {
+        case .magnolia: .nocturne
         case .classic: .oled
         case .warmth:  .sunset
         case .ember:   .ember
@@ -429,6 +481,11 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
 
     func resolved(isDark: Bool) -> EpistemosTheme {
         isDark ? darkTheme : lightTheme
+    }
+
+    /// Dock icon selection is handled by the AppIcon asset catalog variants.
+    func dockIconResourceName(isDark _: Bool) -> String? {
+        nil
     }
 }
 

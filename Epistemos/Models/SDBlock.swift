@@ -34,6 +34,9 @@ final class SDBlock {
     // MARK: - Content
     /// The markdown text for this block (one bullet/paragraph, typically 1-3 lines).
     var content: String = ""
+    /// UTF-16 source span in the owning page body for precise rewrites back to disk.
+    var sourceStartUTF16: Int = 0
+    var sourceEndUTF16: Int = 0
 
     // MARK: - State
     /// Whether children are visually collapsed in the editor.
@@ -47,13 +50,24 @@ final class SDBlock {
 
     init() {}
 
-    init(pageId: String, content: String, depth: Int, order: Int, parentBlockId: String? = nil) {
+    init(
+        pageId: String,
+        content: String,
+        depth: Int,
+        order: Int,
+        parentBlockId: String? = nil,
+        sourceRange: Range<Int>? = nil
+    ) {
         self.id = UUID().uuidString
         self.pageId = pageId
         self.content = content
         self.depth = depth
         self.order = order
         self.parentBlockId = parentBlockId
+        if let sourceRange {
+            self.sourceStartUTF16 = sourceRange.lowerBound
+            self.sourceEndUTF16 = sourceRange.upperBound
+        }
         self.createdAt = .now
         self.updatedAt = .now
     }

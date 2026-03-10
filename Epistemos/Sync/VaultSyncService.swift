@@ -862,6 +862,7 @@ final class VaultSyncService {
         // Insert into main context (we're on MainActor)
         let context = modelContainer.mainContext
         context.insert(page)
+        BlockMirror.sync(pageId: page.id, body: body, modelContext: context)
         do {
             try context.save()  // Explicit save ensures the page is persisted before background export
         } catch {

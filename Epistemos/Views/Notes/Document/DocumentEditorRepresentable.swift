@@ -409,6 +409,7 @@ struct DocumentEditorRepresentable: NSViewRepresentable {
                     let plainText = ts.string
                     page.wordCount = plainText.split(separator: " ").count
                     NoteFileStorage.writeBody(pageId: pageId, content: plainText)
+                    BlockMirror.sync(pageId: pageId, body: plainText, modelContext: modelContext)
                 }
                 try? modelContext.save()
             }

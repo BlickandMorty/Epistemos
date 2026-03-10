@@ -12,7 +12,7 @@ final class UIState {
     // MARK: - Theme
 
     /// The active theme pair. Drives both light and dark rendering.
-    var activePair: ThemePair = .classic {
+    var activePair: ThemePair = .magnolia {
         didSet {
             UserDefaults.standard.set(activePair.rawValue, forKey: "epistemos.theme.pair")
         }

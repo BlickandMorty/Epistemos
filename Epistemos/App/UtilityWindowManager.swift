@@ -6,6 +6,72 @@ import SwiftUI
 // Manages floating NSPanel windows for utility views (Notes browser).
 // Library and Settings now live in the home window via HomeTab.
 
+@MainActor
+enum WindowThemeStyler {
+    private static let backdropIdentifier = NSUserInterfaceItemIdentifier("EpistemosWindowBackdrop")
+
+    static func themedContentView(host: NSView, theme: EpistemosTheme) -> NSView {
+        let container = NSView(frame: host.frame)
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.clear.cgColor
+
+        host.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(host)
+        NSLayoutConstraint.activate([
+            host.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            host.topAnchor.constraint(equalTo: container.topAnchor),
+            host.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+
+        applyBackdrop(in: container, theme: theme)
+        return container
+    }
+
+    static func apply(to window: NSWindow, theme: EpistemosTheme) {
+        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        if theme.usesNativeWindowBlur {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+        } else {
+            window.isOpaque = true
+            window.backgroundColor = theme.nsBackground
+        }
+        applyBackdrop(in: window.contentView, theme: theme)
+    }
+
+    private static func applyBackdrop(in root: NSView?, theme: EpistemosTheme) {
+        guard let root else { return }
+
+        if theme.usesNativeWindowBlur {
+            let effectView: NSVisualEffectView
+            if let existing = backdropView(in: root) {
+                effectView = existing
+            } else {
+                let newEffect = NSVisualEffectView(frame: root.bounds)
+                newEffect.autoresizingMask = [.width, .height]
+                newEffect.identifier = backdropIdentifier
+                newEffect.state = .active
+                newEffect.blendingMode = .behindWindow
+                if let first = root.subviews.first {
+                    root.addSubview(newEffect, positioned: .below, relativeTo: first)
+                } else {
+                    root.addSubview(newEffect)
+                }
+                effectView = newEffect
+            }
+            effectView.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+            effectView.material = .underWindowBackground
+        } else {
+            backdropView(in: root)?.removeFromSuperview()
+        }
+    }
+
+    private static func backdropView(in root: NSView) -> NSVisualEffectView? {
+        root.subviews.first(where: { $0.identifier == backdropIdentifier }) as? NSVisualEffectView
+    }
+}
+
 enum UtilityPanel: String, CaseIterable {
     case notes
 
@@ -27,10 +93,8 @@ final class UtilityWindowManager {
 
     func show(_ panel: UtilityPanel) {
         let window = getOrCreateWindow(panel)
-        // Sync window chrome (titlebar, toolbar) and background to current theme
         if let theme = AppBootstrap.shared?.uiState.theme {
-            window.backgroundColor = NSColor(theme.background)
-            window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+            WindowThemeStyler.apply(to: window, theme: theme)
         }
         window.makeKeyAndOrderFront(nil)
     }
@@ -44,10 +108,8 @@ final class UtilityWindowManager {
         if window.isVisible {
             window.orderOut(nil)
         } else {
-            // Sync window chrome to current theme before showing
             if let theme = AppBootstrap.shared?.uiState.theme {
-                window.backgroundColor = NSColor(theme.background)
-                window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+                WindowThemeStyler.apply(to: window, theme: theme)
             }
             window.makeKeyAndOrderFront(nil)
         }
@@ -60,15 +122,12 @@ final class UtilityWindowManager {
     /// Sync appearance of all open utility windows to the current theme.
     /// Call this whenever the theme changes so live windows update immediately.
     func syncTheme(isDark: Bool) {
-        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        let background = AppBootstrap.shared.map { NSColor($0.uiState.theme.background) }
-        for panel in panels.values {
-            panel.appearance = appearance
-            if let bg = background { panel.backgroundColor = bg }
-        }
-        // Also sync note editor windows and command palette
         if let theme = AppBootstrap.shared?.uiState.theme {
+            for panel in panels.values {
+                WindowThemeStyler.apply(to: panel, theme: theme)
+            }
             NoteWindowManager.shared.syncTheme(theme: theme)
+            MiniChatWindowController.shared.syncTheme(isDark: isDark)
         }
         CommandPaletteWindowController.shared.syncTheme(isDark: isDark)
     }
@@ -108,7 +167,8 @@ final class UtilityWindowManager {
         if let bootstrap = AppBootstrap.shared {
             let view = contentView(for: kind, bootstrap: bootstrap)
             let host = NSHostingView(rootView: view)
-            panel.contentView = host
+            panel.contentView = WindowThemeStyler.themedContentView(host: host, theme: bootstrap.uiState.theme)
+            WindowThemeStyler.apply(to: panel, theme: bootstrap.uiState.theme)
         }
 
         panels[kind] = panel

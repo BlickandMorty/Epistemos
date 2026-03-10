@@ -197,6 +197,7 @@ final class AppCoordinator {
                 page.folder = folder
                 page.tags = ["daily-brief"]
                 context.insert(page)
+                BlockMirror.sync(pageId: page.id, body: content, modelContext: context)
                 do {
                     try context.save()
                 } catch {

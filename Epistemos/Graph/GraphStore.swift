@@ -264,7 +264,9 @@ final class GraphStore {
         clear()
 
         let nodeDescriptor = FetchDescriptor<SDGraphNode>()
-        let sdNodes = try context.fetch(nodeDescriptor)
+        let allNodes = try context.fetch(nodeDescriptor)
+        // Tags are not visualized as graph nodes — filter them out at load time.
+        let sdNodes = allNodes.filter { $0.nodeType != .tag }
 
         let golden = Float.pi * (3.0 - sqrt(5.0))
         for (index, sdNode) in sdNodes.enumerated() {

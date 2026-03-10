@@ -119,6 +119,7 @@ struct CreateJournalIntent: AppIntent {
         if let page = (try? context.fetch(descriptor))?.first {
             page.isJournal = true
             page.saveBody(bodyText)
+            BlockMirror.sync(pageId: pageId, body: bodyText, modelContext: context)
             page.needsVaultSync = true
             do {
                 try context.save()

@@ -33,7 +33,7 @@ enum BlockParser {
     // MARK: - Parse
 
     /// Parse markdown into a flat, ordered list of blocks.
-    static func parse(_ markdown: String) -> [ParsedBlock] {
+    nonisolated static func parse(_ markdown: String) -> [ParsedBlock] {
         guard !markdown.isEmpty else { return [] }
 
         let lines = markdown.split(separator: "\n", omittingEmptySubsequences: false)
@@ -166,7 +166,7 @@ enum BlockParser {
 
     /// Serialize a list of parsed blocks back to markdown.
     /// Inverse of parse() — each block's depth determines indentation.
-    static func serialize(_ blocks: [ParsedBlock]) -> String {
+    nonisolated static func serialize(_ blocks: [ParsedBlock]) -> String {
         var result = ""
         for (i, block) in blocks.enumerated() {
             if i > 0 { result += "\n" }
@@ -179,7 +179,7 @@ enum BlockParser {
 
     /// Measure indent depth: each tab = +1, each 2 spaces = +1.
     /// Returns (depth, string with leading whitespace removed).
-    private static func measureIndent(_ line: String) -> (Int, String) {
+    nonisolated private static func measureIndent(_ line: String) -> (Int, String) {
         var depth = 0
         var idx = line.startIndex
         var spaceCount = 0
@@ -206,7 +206,7 @@ enum BlockParser {
 
     /// Strip list item marker (`- `, `* `, `1. `, etc.) from the start of a string.
     /// Returns (isListItem, contentAfterMarker).
-    private static func stripListMarker(_ s: String) -> (Bool, String) {
+    nonisolated private static func stripListMarker(_ s: String) -> (Bool, String) {
         // Unordered: "- " or "* "
         if s.hasPrefix("- ") { return (true, String(s.dropFirst(2))) }
         if s.hasPrefix("* ") { return (true, String(s.dropFirst(2))) }
