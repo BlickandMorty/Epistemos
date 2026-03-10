@@ -156,6 +156,7 @@ final class UtilityWindowManager {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.minSize = NSSize(width: 400, height: 300)
+        WindowPresentationPolicy.applyModularZoomBehavior(to: panel)
 
         let toolbar = NSToolbar(identifier: "Utility-\(kind.rawValue)")
         panel.toolbar = toolbar

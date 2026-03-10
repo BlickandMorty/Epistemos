@@ -5,6 +5,17 @@ import SwiftUI
 
 // MARK: - App Entry Point
 
+@MainActor
+enum WindowPresentationPolicy {
+    static func applyModularZoomBehavior(to window: NSWindow) {
+        window.collectionBehavior.remove(.fullScreenPrimary)
+        if let zoomButton = window.standardWindowButton(.zoomButton) {
+            zoomButton.target = window
+            zoomButton.action = #selector(NSWindow.performZoom(_:))
+        }
+    }
+}
+
 @main
 struct EpistemosApp: App {
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
@@ -66,7 +77,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
         // Graph overlay is the only fullscreen-capable surface.
         Task { @MainActor in
             for window in NSApp.windows where window.title == "Epistemos" {
-                window.collectionBehavior.remove(.fullScreenPrimary)
+                WindowPresentationPolicy.applyModularZoomBehavior(to: window)
             }
         }
     }

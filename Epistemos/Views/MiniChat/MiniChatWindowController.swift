@@ -29,6 +29,7 @@ final class MiniChatWindowController: NSWindowController {
         panel.isReleasedWhenClosed = false
         panel.minSize = NSSize(width: 320, height: 400)
         panel.maxSize = NSSize(width: 700, height: 900)
+        WindowPresentationPolicy.applyModularZoomBehavior(to: panel)
 
         // Unified toolbar gives rounded corners matching the main window
         let toolbar = NSToolbar(identifier: "MiniChatToolbar")

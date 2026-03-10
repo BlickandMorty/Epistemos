@@ -226,7 +226,7 @@ final class NoteWindowManager {
         window.minSize = Self.noteMinimumFrameSize
         window.setFrameAutosaveName("note-\(page.id)")
         normalizeNoteWindowFrame(window)
-        window.collectionBehavior.remove(.fullScreenPrimary)
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
@@ -355,7 +355,7 @@ final class NoteWindowManager {
         window.backgroundColor = theme.nsBackground
 
         // Zoom instead of fullscreen
-        window.collectionBehavior.remove(.fullScreenPrimary)
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
 
         // Join the note tab group
         window.tabbingMode = .preferred

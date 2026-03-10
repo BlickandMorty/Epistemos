@@ -49,4 +49,23 @@ struct NoteWindowManagerTests {
         #expect(frame.minY >= visible.minY)
         #expect(frame.maxY <= visible.maxY)
     }
+
+    @MainActor
+    @Test("Modular window policy keeps zoom and disables desktop fullscreen")
+    func modularWindowPolicyDisablesDesktopFullscreen() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.collectionBehavior.insert(.fullScreenPrimary)
+
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+
+        #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
+        let zoomButton = try #require(window.standardWindowButton(.zoomButton))
+        #expect(zoomButton.target === window)
+        #expect(zoomButton.action == #selector(NSWindow.performZoom(_:)))
+    }
 }
