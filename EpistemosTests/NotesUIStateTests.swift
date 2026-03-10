@@ -133,6 +133,37 @@ struct NotesUIStateTests {
     }
 
     @MainActor
+    @Test("pinned workspace tabs ignore normal close requests")
+    func pinnedWorkspaceTabsIgnoreNormalCloseRequests() {
+        let state = NotesUIState()
+
+        state.openWorkspacePage("first-note")
+        let pinnedTabId = state.workspaceActiveTabId
+        state.toggleWorkspaceTabPinned(pinnedTabId)
+
+        state.closeWorkspaceTab(pinnedTabId)
+
+        #expect(state.workspaceTabs.count == 1)
+        #expect(state.workspaceActiveTabId == pinnedTabId)
+        #expect(state.workspacePageId == "first-note")
+    }
+
+    @MainActor
+    @Test("pinned workspace tabs can still be force-closed")
+    func pinnedWorkspaceTabsCanBeForceClosed() {
+        let state = NotesUIState()
+
+        state.openWorkspacePage("first-note")
+        let pinnedTabId = state.workspaceActiveTabId
+        state.toggleWorkspaceTabPinned(pinnedTabId)
+
+        state.closeWorkspaceTab(pinnedTabId, allowPinned: true)
+
+        #expect(state.workspaceTabs.count == 1)
+        #expect(state.workspacePageId == nil)
+    }
+
+    @MainActor
     @Test("updating the embedded current page keeps workspace selection in sync")
     func updatingEmbeddedCurrentPageSyncsWorkspaceSelection() {
         let state = NotesUIState()

@@ -38,6 +38,7 @@ struct NotesWorkspaceView: View {
             else {
                 return NotesWorkspaceTabBar.TabItem(
                     id: tab.id,
+                    pageId: nil,
                     title: "Landing",
                     icon: "house",
                     isActive: tab.id == notesUI.workspaceActiveTabId,
@@ -47,6 +48,7 @@ struct NotesWorkspaceView: View {
             }
             return NotesWorkspaceTabBar.TabItem(
                 id: tab.id,
+                pageId: currentPageId,
                 title: page.title.isEmpty ? "Untitled" : page.title,
                 icon: page.isJournal ? "calendar" : "doc.text",
                 isActive: tab.id == notesUI.workspaceActiveTabId,
@@ -123,6 +125,7 @@ struct NotesWorkspaceView: View {
                 },
                 onTogglePinned: notesUI.toggleWorkspaceTabPinned,
                 onCloseTab: closeWorkspaceTab,
+                onOpenInNewTab: moveWorkspaceTabToNoteWindow,
                 onShowLanding: showWorkspaceLanding,
                 onAddTab: notesUI.addWorkspaceTab
             )
@@ -148,6 +151,14 @@ struct NotesWorkspaceView: View {
         navigationStates.removeValue(forKey: tabId)
         notesUI.closeWorkspaceTab(tabId)
         syncActiveTabNavigation()
+    }
+
+    private func moveWorkspaceTabToNoteWindow(_ tabId: String) {
+        guard let pageId = workspaceTabItems.first(where: { $0.id == tabId })?.pageId else { return }
+        navigationStates.removeValue(forKey: tabId)
+        notesUI.closeWorkspaceTab(tabId, allowPinned: true)
+        syncActiveTabNavigation()
+        NoteWindowManager.shared.open(pageId: pageId)
     }
 
     private func syncActiveTabNavigation(forceReset: Bool = false, explicitPageId: String? = nil) {
@@ -445,6 +456,7 @@ private struct NotesWorkspaceRecentPageCard: View {
 private struct NotesWorkspaceTabBar: View {
     struct TabItem: Identifiable {
         let id: String
+        let pageId: String?
         let title: String
         let icon: String
         let isActive: Bool
@@ -456,6 +468,7 @@ private struct NotesWorkspaceTabBar: View {
     let onSelectTab: (String) -> Void
     let onTogglePinned: (String) -> Void
     let onCloseTab: (String) -> Void
+    let onOpenInNewTab: (String) -> Void
     let onShowLanding: () -> Void
     let onAddTab: () -> Void
 
@@ -512,16 +525,18 @@ private struct NotesWorkspaceTabBar: View {
                                 .help(tab.isPinned ? "Unpin Tab" : "Pin Tab")
                             }
 
-                            Button {
-                                onCloseTab(tab.id)
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(theme.textTertiary)
-                                    .frame(width: 16, height: 16)
+                            if !tab.isPinned {
+                                Button {
+                                    onCloseTab(tab.id)
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(theme.textTertiary)
+                                        .frame(width: 16, height: 16)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Close Tab")
                             }
-                            .buttonStyle(.plain)
-                            .help("Close Tab")
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -536,6 +551,13 @@ private struct NotesWorkspaceTabBar: View {
                                     lineWidth: 0.5
                                 )
                         )
+                        .contextMenu {
+                            if !tab.isLanding, tab.pageId != nil {
+                                Button("Open in New Tab") {
+                                    onOpenInNewTab(tab.id)
+                                }
+                            }
+                        }
                     }
                 }
                 .padding(.vertical, 2)

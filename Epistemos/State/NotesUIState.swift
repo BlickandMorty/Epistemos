@@ -201,8 +201,9 @@ final class NotesUIState {
         }
     }
 
-    func closeWorkspaceTab(_ tabId: String) {
+    func closeWorkspaceTab(_ tabId: String, allowPinned: Bool = false) {
         guard let index = workspaceTabs.firstIndex(where: { $0.id == tabId }) else { return }
+        guard allowPinned || !workspaceTabs[index].isPinned else { return }
         let closingTab = workspaceTabs[index]
         workspaceTabs.remove(at: index)
 
