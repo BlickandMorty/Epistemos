@@ -988,43 +988,82 @@ private struct NotePageContent: View {
     }
 
     private func handleAIContextMenuOperation(_ op: String, selectedText: String?) {
+        // If selectedText wasn't in the notification (e.g. from EditorToolRail),
+        // grab the current selection from the first responder text view.
+        let text: String = selectedText ?? {
+            guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return "" }
+            let sel = tv.selectedRange()
+            guard sel.length > 0 else { return "" }
+            return (tv.string as NSString).substring(with: sel)
+        }()
+
         let mapping: (operation: NotesOperation, systemPrompt: String, userPrompt: String) = {
             switch op {
             case "rewrite":
                 return (
                     .rewrite,
                     "You are a writing assistant. Rewrite the selected text to improve clarity and flow. Output ONLY the rewritten text.",
-                    "Rewrite this:\n\n\(selectedText ?? "")"
+                    "Rewrite this:\n\n\(text)"
+                )
+            case "proofread":
+                return (
+                    .rewrite,
+                    "You are a proofreading assistant. Fix grammar, spelling, and punctuation errors. Preserve the original meaning and tone. Output ONLY the corrected text.",
+                    "Proofread and correct this:\n\n\(text)"
+                )
+            case "rewrite_friendly":
+                return (
+                    .rewrite,
+                    "You are a writing assistant. Rewrite the text in a warm, friendly, conversational tone. Output ONLY the rewritten text.",
+                    "Rewrite in a friendly tone:\n\n\(text)"
+                )
+            case "rewrite_professional":
+                return (
+                    .rewrite,
+                    "You are a writing assistant. Rewrite the text in a polished, professional tone. Output ONLY the rewritten text.",
+                    "Rewrite in a professional tone:\n\n\(text)"
+                )
+            case "rewrite_concise":
+                return (
+                    .rewrite,
+                    "You are a writing assistant. Rewrite the text to be as concise as possible while preserving the key meaning. Output ONLY the rewritten text.",
+                    "Rewrite concisely:\n\n\(text)"
                 )
             case "summarize":
                 return (
                     .summarize,
                     "You are a summarization assistant. Summarize the selected text concisely. Output ONLY the summary.",
-                    "Summarize this:\n\n\(selectedText ?? "")"
+                    "Summarize this:\n\n\(text)"
+                )
+            case "keyPoints":
+                return (
+                    .summarize,
+                    "You are an analysis assistant. Extract the key points from the text as a concise markdown bullet list. Output ONLY the bullet list.",
+                    "Extract key points:\n\n\(text)"
                 )
             case "expand":
                 return (
                     .expand,
                     "You are a writing assistant. Expand the selected text with more detail and depth. Maintain the same tone.",
-                    "Expand on this:\n\n\(selectedText ?? "")"
+                    "Expand on this:\n\n\(text)"
                 )
             case "simplify":
                 return (
                     .rewrite,
                     "You are a writing assistant. Simplify the text to be easier to understand. Use shorter sentences. Output ONLY the simplified text.",
-                    "Simplify this:\n\n\(selectedText ?? "")"
+                    "Simplify this:\n\n\(text)"
                 )
             case "toList":
                 return (
                     .outline,
                     "You are a formatting assistant. Convert the text into a clean markdown bullet list. Output ONLY the list.",
-                    "Convert to a bullet list:\n\n\(selectedText ?? "")"
+                    "Convert to a bullet list:\n\n\(text)"
                 )
             case "toTable":
                 return (
                     .outline,
                     "You are a formatting assistant. Convert the text into a markdown table. Output ONLY the table.",
-                    "Convert to a markdown table:\n\n\(selectedText ?? "")"
+                    "Convert to a markdown table:\n\n\(text)"
                 )
             case "continue":
                 return (
@@ -1052,9 +1091,9 @@ private struct NotePageContent: View {
                 )
             default:
                 return (
-                    .ask(query: selectedText ?? "Help me with this note."),
+                    .ask(query: text.isEmpty ? "Help me with this note." : text),
                     "You are a helpful note assistant. Answer concisely based on the note content.",
-                    selectedText ?? "Help me with this note."
+                    text.isEmpty ? "Help me with this note." : text
                 )
             }
         }()
@@ -1115,8 +1154,10 @@ private struct NotePageContent: View {
         }
         if fullText != page.loadBody() {
             page.saveBody(fullText)
+            BlockMirror.sync(pageId: page.id, body: fullText, modelContext: modelContext)
             page.needsVaultSync = true
             page.updatedAt = .now
+            try? modelContext.save()
             AppBootstrap.shared?.graphState.needsRefresh = true
         }
     }
@@ -1587,6 +1628,7 @@ private struct NotePageContent: View {
             // Write plain-text mirror so loadBody(), search, and vault sync stay current
             let plainText = content.string
             NoteFileStorage.writeBody(pageId: page.id, content: plainText)
+            BlockMirror.sync(pageId: page.id, body: plainText, modelContext: modelContext)
             page.format = "richtext"
             page.needsVaultSync = true
             page.updatedAt = .now

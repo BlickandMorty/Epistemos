@@ -113,24 +113,25 @@ final class ProseTextView2: NSTextView {
         textLayoutManager?.invalidateLayout(for: textRange)
     }
 
+    // MARK: - Pre-Edit Hook
+
+    /// Mark structure dirty BEFORE the edit lands so that the content storage
+    /// delegate sees fresh data when it re-queries textParagraphWith immediately
+    /// after the text storage change (before didChangeText fires).
+    override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
+        markdownDelegate.markDirty()
+        return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+    }
+
     // MARK: - Live Edit Loop
 
     override func didChangeText() {
         super.didChangeText()
-        markdownDelegate.markDirty()
-        scheduleDebouncedReparse()
+        // Synchronous reparse — no debounce. Rust FFI is fast enough for per-keystroke.
+        reparseAndInvalidate()
     }
 
-    private func scheduleDebouncedReparse() {
-        reparseTask?.cancel()
-        reparseTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(50))
-            guard !Task.isCancelled, let self else { return }
-            self.reparseAndInvalidate()
-        }
-    }
-
-    /// Reparse structure and invalidate layout so paragraphs restyle.
+    /// Reparse structure, apply link attributes to storage, invalidate layout.
     func reparseAndInvalidate() {
         guard let contentStorage = textLayoutManager?.textContentManager
                 as? NSTextContentStorage else { return }
@@ -138,9 +139,50 @@ final class ProseTextView2: NSTextView {
         markdownDelegate.reparse(text: string)
         updateVisibleLineRange()
 
+        // Apply .link attributes directly to textStorage for wikilinks and block refs.
+        // The delegate-provided NSTextParagraph attributes don't flow back to storage,
+        // so NSTextView's clickedOnLink delegate never fires without this.
+        applyLinkAttributesToStorage()
+
         // Invalidate the full document so delegate re-provides all paragraphs.
         let fullRange = contentStorage.documentRange
         textLayoutManager?.invalidateLayout(for: fullRange)
+    }
+
+    /// Scan textStorage for wikilinks ([[...]]) and block refs (((...))) and apply
+    /// .link attributes directly. This is what makes clickedOnLink fire in TK2.
+    private func applyLinkAttributesToStorage() {
+        guard let storage = textStorage else { return }
+        let str = storage.string as NSString
+        guard str.length > 0 else { return }
+        let fullRange = NSRange(location: 0, length: str.length)
+
+        // Clear old wikilink/blockref links from storage
+        storage.enumerateAttribute(.link, in: fullRange, options: []) { val, range, _ in
+            guard let linkStr = val as? String,
+                  linkStr.hasPrefix("wikilink://") || linkStr.hasPrefix("blockref://") else { return }
+            storage.removeAttribute(.link, range: range)
+        }
+
+        // Wikilinks: [[title]]
+        if let wikilinkRegex = try? NSRegularExpression(pattern: "\\[\\[([^\\]]+)\\]\\]") {
+            for match in wikilinkRegex.matches(in: str as String, range: fullRange) {
+                guard match.numberOfRanges >= 2 else { continue }
+                let innerRange = match.range(at: 1)
+                let title = str.substring(with: innerRange)
+                storage.addAttribute(.link, value: "wikilink://\(title)" as NSString, range: innerRange)
+            }
+        }
+
+        // Block refs: ((blockId))
+        if let blockRefRegex = try? NSRegularExpression(pattern: "\\(\\(([^)]+)\\)\\)") {
+            for match in blockRefRegex.matches(in: str as String, range: fullRange) {
+                guard match.numberOfRanges >= 2 else { continue }
+                let innerRange = match.range(at: 1)
+                let blockId = str.substring(with: innerRange)
+                storage.addAttribute(.link, value: "blockref://\(blockId)" as NSString, range: innerRange)
+            }
+        }
     }
 
     // MARK: - Viewport Tracking (Phase 6)
@@ -586,7 +628,12 @@ final class ProseTextView2: NSTextView {
 
     // MARK: - Focus Dimming (Phase 4)
 
-    /// Dim non-active paragraphs via rendering attributes.
+    /// NSRange of the last paragraph that was bright (un-dimmed) during focus mode.
+    private var lastFocusParagraphRange: NSRange?
+
+    /// Apply or update focus dimming. On first call, dims entire document then restores
+    /// active paragraph. On subsequent calls, only dims the old active paragraph and
+    /// restores the new one — O(1) per cursor move instead of O(document).
     func applyFocusDimming() {
         guard isFocusMode, let tlm = textLayoutManager,
               let contentStorage = tlm.textContentManager as? NSTextContentStorage else {
@@ -594,19 +641,34 @@ final class ProseTextView2: NSTextView {
             return
         }
 
-        let fullDocRange = tlm.documentRange
         let str = string as NSString
         guard str.length > 0 else { return }
 
         let cursorRange = selectedRange()
         let activeParagraphNSRange = str.paragraphRange(for: cursorRange)
 
+        // Skip if cursor is still in the same paragraph
+        if let lastRange = lastFocusParagraphRange, NSEqualRanges(lastRange, activeParagraphNSRange) {
+            return
+        }
+
         let dimColor = NSColor.textColor.withAlphaComponent(0.25)
+        let fullDocRange = tlm.documentRange
 
-        // Dim entire document
-        tlm.setRenderingAttributes([.foregroundColor: dimColor], for: fullDocRange)
+        if lastFocusParagraphRange == nil {
+            // First time: dim entire document
+            tlm.setRenderingAttributes([.foregroundColor: dimColor], for: fullDocRange)
+        } else if let oldRange = lastFocusParagraphRange {
+            // Dim the previous active paragraph
+            if oldRange.length > 0, oldRange.location + oldRange.length <= str.length,
+               let oldStart = contentStorage.location(fullDocRange.location, offsetBy: oldRange.location),
+               let oldEnd = contentStorage.location(oldStart, offsetBy: oldRange.length),
+               let oldTextRange = NSTextRange(location: oldStart, end: oldEnd) {
+                tlm.setRenderingAttributes([.foregroundColor: dimColor], for: oldTextRange)
+            }
+        }
 
-        // Restore active paragraph
+        // Restore new active paragraph
         if activeParagraphNSRange.length > 0,
            let startLoc = contentStorage.location(
                fullDocRange.location, offsetBy: activeParagraphNSRange.location),
@@ -615,12 +677,15 @@ final class ProseTextView2: NSTextView {
            let activeRange = NSTextRange(location: startLoc, end: endLoc) {
             tlm.setRenderingAttributes([:], for: activeRange)
         }
+
+        lastFocusParagraphRange = activeParagraphNSRange
     }
 
     /// Clear all focus dimming.
     func clearFocusDimming() {
         guard let tlm = textLayoutManager else { return }
         tlm.setRenderingAttributes([:], for: tlm.documentRange)
+        lastFocusParagraphRange = nil
     }
 
     private func drawFoldIndicators(in dirtyRect: NSRect) {
@@ -936,7 +1001,7 @@ final class ProseTextView2: NSTextView {
         NotificationCenter.default.post(name: Self.blockPropertyNotification, object: nil, userInfo: userInfo)
     }
 
-    @objc private func insertMarkdownTable(_ sender: NSMenuItem) {
+    @objc func insertMarkdownTable(_ sender: NSMenuItem) {
         let table = "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n|  |  |  |\n"
         let loc = selectedRange().location
         if shouldChangeText(in: NSRange(location: loc, length: 0), replacementString: table) {
@@ -1036,6 +1101,213 @@ final class ProseTextView2: NSTextView {
         let range = NSRange(location: offset, length: 0)
         scrollRangeToVisible(range)
         setSelectedRange(range)
+    }
+
+    // MARK: - Block Move Up/Down (Opt+Arrow)
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+        // Opt+Up: move block up
+        if event.keyCode == 126 && flags == .option {
+            moveBlockUp()
+            return true
+        }
+        // Opt+Down: move block down
+        if event.keyCode == 125 && flags == .option {
+            moveBlockDown()
+            return true
+        }
+
+        // Cmd+Shift+K: delete line
+        if event.keyCode == 40 && flags == [.command, .shift] {
+            deleteLine()
+            return true
+        }
+
+        // Formatting shortcuts
+        if flags == .command {
+            switch event.keyCode {
+            case 18: insertHeading(level: 1); return true // Cmd+1
+            case 19: insertHeading(level: 2); return true // Cmd+2
+            case 20: insertHeading(level: 3); return true // Cmd+3
+            case 21: insertHeading(level: 4); return true // Cmd+4
+            default: break
+            }
+        }
+        if flags == [.command, .shift] {
+            switch event.keyCode {
+            case 37: toggleLinePrefix("- "); return true          // Cmd+Shift+L (bullet)
+            case 24: toggleLinePrefix("1. "); return true         // Cmd+Shift+= (numbered)
+            case 46: toggleLinePrefix("- [ ] "); return true      // Cmd+Shift+M (task)
+            case 39: toggleLinePrefix("> "); return true          // Cmd+Shift+' (quote)
+            case 34: wrapSelection("`", "`"); return true         // Cmd+Shift+I (inline code)
+            default: break
+            }
+        }
+        // Cmd+Shift+Enter: insert divider
+        if event.keyCode == 36 && flags == [.command, .shift] {
+            insertDivider()
+            return true
+        }
+
+        return super.performKeyEquivalent(with: event)
+    }
+
+    func moveBlockUp() {
+        let str = string as NSString
+        guard str.length > 0 else { return }
+        let sel = selectedRange()
+        let lineRange = str.lineRange(for: sel)
+        guard lineRange.location > 0 else { return } // Already at top
+
+        let prevLineRange = str.lineRange(for: NSRange(location: lineRange.location - 1, length: 0))
+        let prevLine = str.substring(with: prevLineRange)
+        let currentLine = str.substring(with: lineRange)
+
+        let combinedRange = NSRange(location: prevLineRange.location,
+                                    length: prevLineRange.length + lineRange.length)
+        let replacement = currentLine + prevLine
+
+        if shouldChangeText(in: combinedRange, replacementString: replacement) {
+            textStorage?.replaceCharacters(in: combinedRange, with: replacement)
+            didChangeText()
+            let newLoc = prevLineRange.location + (sel.location - lineRange.location)
+            setSelectedRange(NSRange(location: newLoc, length: sel.length))
+        }
+    }
+
+    func moveBlockDown() {
+        let str = string as NSString
+        guard str.length > 0 else { return }
+        let sel = selectedRange()
+        let lineRange = str.lineRange(for: sel)
+        let lineEnd = NSMaxRange(lineRange)
+        guard lineEnd < str.length else { return } // Already at bottom
+
+        let nextLineRange = str.lineRange(for: NSRange(location: lineEnd, length: 0))
+        let nextLine = str.substring(with: nextLineRange)
+        let currentLine = str.substring(with: lineRange)
+
+        let combinedRange = NSRange(location: lineRange.location,
+                                    length: lineRange.length + nextLineRange.length)
+        let replacement = nextLine + currentLine
+
+        if shouldChangeText(in: combinedRange, replacementString: replacement) {
+            textStorage?.replaceCharacters(in: combinedRange, with: replacement)
+            didChangeText()
+            let newLoc = lineRange.location + nextLineRange.length + (sel.location - lineRange.location)
+            setSelectedRange(NSRange(location: newLoc, length: sel.length))
+        }
+    }
+
+    private func deleteLine() {
+        let str = string as NSString
+        guard str.length > 0 else { return }
+        let sel = selectedRange()
+        let lineRange = str.lineRange(for: sel)
+        if shouldChangeText(in: lineRange, replacementString: "") {
+            textStorage?.replaceCharacters(in: lineRange, with: "")
+            didChangeText()
+            setSelectedRange(NSRange(location: min(lineRange.location, (string as NSString).length), length: 0))
+        }
+    }
+
+    // MARK: - Formatting Actions
+
+    func insertHeading(level: Int) {
+        let prefix = String(repeating: "#", count: level) + " "
+        let str = string as NSString
+        let sel = selectedRange()
+        let lineRange = str.lineRange(for: NSRange(location: sel.location, length: 0))
+        let lineText = str.substring(with: lineRange)
+
+        // Strip existing heading prefix
+        var stripped = lineText
+        var existingHashes = 0
+        for ch in stripped {
+            if ch == "#" { existingHashes += 1 } else { break }
+        }
+        if existingHashes > 0 {
+            stripped = String(stripped.dropFirst(existingHashes))
+            if stripped.hasPrefix(" ") { stripped = String(stripped.dropFirst()) }
+        }
+
+        let newLine = prefix + stripped
+        if shouldChangeText(in: lineRange, replacementString: newLine) {
+            textStorage?.replaceCharacters(in: lineRange, with: newLine)
+            didChangeText()
+            let newCursor = lineRange.location + prefix.utf16.count
+            setSelectedRange(NSRange(location: min(newCursor, (string as NSString).length), length: 0))
+        }
+    }
+
+    func toggleLinePrefix(_ prefix: String) {
+        let str = string as NSString
+        let sel = selectedRange()
+        let lineRange = str.lineRange(for: NSRange(location: sel.location, length: 0))
+        let lineText = str.substring(with: lineRange)
+        let trimmed = lineText.trimmingCharacters(in: .newlines)
+
+        let newLine: String
+        let hasSuffix = lineText.hasSuffix("\n")
+        if trimmed.hasPrefix(prefix) {
+            // Remove prefix
+            newLine = String(trimmed.dropFirst(prefix.count)) + (hasSuffix ? "\n" : "")
+        } else {
+            // Add prefix (strip any existing list/quote prefix first)
+            var clean = trimmed
+            for pfx in ["- [ ] ", "- [x] ", "- ", "* ", "+ ", "> ", "1. ", "2. ", "3. "] {
+                if clean.hasPrefix(pfx) { clean = String(clean.dropFirst(pfx.count)); break }
+            }
+            newLine = prefix + clean + (hasSuffix ? "\n" : "")
+        }
+
+        if shouldChangeText(in: lineRange, replacementString: newLine) {
+            textStorage?.replaceCharacters(in: lineRange, with: newLine)
+            didChangeText()
+        }
+    }
+
+    func wrapSelection(_ before: String, _ after: String) {
+        let sel = selectedRange()
+        if sel.length > 0 {
+            let str = (string as NSString).substring(with: sel)
+            let wrapped = before + str + after
+            if shouldChangeText(in: sel, replacementString: wrapped) {
+                textStorage?.replaceCharacters(in: sel, with: wrapped)
+                didChangeText()
+                setSelectedRange(NSRange(location: sel.location + before.utf16.count, length: sel.length))
+            }
+        } else {
+            let wrapped = before + after
+            if shouldChangeText(in: sel, replacementString: wrapped) {
+                textStorage?.replaceCharacters(in: sel, with: wrapped)
+                didChangeText()
+                setSelectedRange(NSRange(location: sel.location + before.utf16.count, length: 0))
+            }
+        }
+    }
+
+    func insertDivider() {
+        let sel = selectedRange()
+        let divider = "\n---\n"
+        if shouldChangeText(in: NSRange(location: sel.location, length: 0), replacementString: divider) {
+            textStorage?.replaceCharacters(in: NSRange(location: sel.location, length: 0), with: divider)
+            didChangeText()
+            setSelectedRange(NSRange(location: sel.location + divider.utf16.count, length: 0))
+        }
+    }
+
+    /// Insert a code fence at the cursor.
+    func insertCodeFence() {
+        let sel = selectedRange()
+        let fence = "```\n\n```"
+        if shouldChangeText(in: NSRange(location: sel.location, length: 0), replacementString: fence) {
+            textStorage?.replaceCharacters(in: NSRange(location: sel.location, length: 0), with: fence)
+            didChangeText()
+            setSelectedRange(NSRange(location: sel.location + 4, length: 0))
+        }
     }
 }
 

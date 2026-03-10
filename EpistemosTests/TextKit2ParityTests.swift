@@ -1110,4 +1110,178 @@ struct BlockMirrorTests {
     }
 }
 
+// MARK: - Wikilink Storage Attributes
+
+@Suite("TK2 Parity - Wikilink Click Navigation")
+struct TK2WikilinkStorageTests {
+
+    @Test("Wikilink .link attribute applied to textStorage after reparse")
+    func wikilinkLinkInStorage() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.applyTheme(.sunny)
+        let md = "see [[MyPage]] here"
+        let ts = tv.textStorage!
+        tv.markdownDelegate.reparse(text: "")
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.didChangeText()
+
+        // After didChangeText, applyLinkAttributesToStorage should have run
+        let innerOffset = (md as NSString).range(of: "MyPage").location
+        guard innerOffset < ts.length else {
+            #expect(Bool(false), "MyPage not found in storage")
+            return
+        }
+        let linkAttr = ts.attribute(.link, at: innerOffset, effectiveRange: nil)
+        #expect(linkAttr != nil, "Expected .link attribute on wikilink inner text")
+        if let linkStr = linkAttr as? String {
+            #expect(linkStr == "wikilink://MyPage")
+        }
+    }
+
+    @Test("Block ref .link attribute applied to textStorage after reparse")
+    func blockRefLinkInStorage() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        tv.applyTheme(.sunny)
+        let md = "see ((block-123)) here"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.didChangeText()
+
+        let innerOffset = (md as NSString).range(of: "block-123").location
+        guard innerOffset < ts.length else {
+            #expect(Bool(false), "block-123 not found in storage")
+            return
+        }
+        let linkAttr = ts.attribute(.link, at: innerOffset, effectiveRange: nil)
+        #expect(linkAttr != nil, "Expected .link attribute on block ref inner text")
+        if let linkStr = linkAttr as? String {
+            #expect(linkStr == "blockref://block-123")
+        }
+    }
+}
+
+// MARK: - Block Move
+
+@Suite("TK2 Parity - Block Move")
+struct TK2BlockMoveTests {
+
+    @Test("Move block down swaps current and next line")
+    func moveBlockDown() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "line1\nline2\nline3\n"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 2, length: 0)) // cursor in "line1"
+        tv.moveBlockDown()
+        #expect(tv.string.hasPrefix("line2\nline1\n"))
+    }
+
+    @Test("Move block up swaps current and previous line")
+    func moveBlockUp() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "line1\nline2\nline3\n"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 8, length: 0)) // cursor in "line2"
+        tv.moveBlockUp()
+        #expect(tv.string.hasPrefix("line2\nline1\n"))
+    }
+}
+
+// MARK: - Heading Insertion
+
+@Suite("TK2 Parity - Heading Insertion")
+struct TK2HeadingInsertionTests {
+
+    @Test("insertHeading replaces existing heading prefix")
+    func insertHeadingReplace() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "## Old Heading\n"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 5, length: 0))
+        tv.insertHeading(level: 1)
+        #expect(tv.string.hasPrefix("# Old Heading"))
+    }
+
+    @Test("insertHeading adds prefix to plain line")
+    func insertHeadingPlain() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let md = "Plain text\n"
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: md)
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 3, length: 0))
+        tv.insertHeading(level: 3)
+        #expect(tv.string.hasPrefix("### Plain text"))
+    }
+}
+
+// MARK: - Formatting Actions
+
+@Suite("TK2 Parity - Formatting Actions")
+struct TK2FormattingTests {
+
+    @Test("toggleLinePrefix adds bullet prefix to plain line")
+    func toggleBulletAdd() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: "Some text\n")
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 3, length: 0))
+        tv.toggleLinePrefix("- ")
+        #expect(tv.string.hasPrefix("- Some text"))
+    }
+
+    @Test("toggleLinePrefix removes existing bullet prefix")
+    func toggleBulletRemove() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: "- Some text\n")
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 5, length: 0))
+        tv.toggleLinePrefix("- ")
+        #expect(tv.string.hasPrefix("Some text"))
+    }
+
+    @Test("wrapSelection wraps selected text with markers")
+    func wrapBold() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: "Hello world")
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 6, length: 5)) // "world"
+        tv.wrapSelection("**", "**")
+        #expect(tv.string == "Hello **world**")
+    }
+
+    @Test("Table insertion creates valid markdown table")
+    func insertTable() {
+        let (_, tv) = ProseTextView2.makeTextKit2()
+        let ts = tv.textStorage!
+        ts.beginEditing()
+        ts.replaceCharacters(in: NSRange(location: 0, length: ts.length), with: "")
+        ts.endEditing()
+        tv.setSelectedRange(NSRange(location: 0, length: 0))
+        tv.insertMarkdownTable(NSMenuItem())
+        let result = tv.string
+        #expect(result.contains("| Column 1 |"))
+        #expect(result.contains("| --- |"))
+    }
+}
+
 } // end TextKit2ParityTests

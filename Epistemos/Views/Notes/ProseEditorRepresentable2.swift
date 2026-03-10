@@ -101,6 +101,48 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             }
         }
 
+        // Tool rail actions (formatting shortcuts from EditorToolRail SwiftUI overlay)
+        coord.toolRailObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name("EpistemosEditorToolRailAction"),
+            object: nil,
+            queue: .main
+        ) { [weak tv, weak coord] notification in
+            guard let op = notification.userInfo?["operation"] as? String,
+                  let pid = notification.userInfo?["pageId"] as? String,
+                  pid == coord?.currentPageId,
+                  let tv else { return }
+            MainActor.assumeIsolated {
+                tv.window?.makeFirstResponder(tv)
+                coord?.executeToolRailAction(op, on: tv)
+            }
+        }
+
+        // Overlay subsystems (Phase 9)
+        if let mc = modelContext {
+            let autocomplete = BlockRefAutocomplete2()
+            autocomplete.configure(textView: tv, modelContext: mc)
+            coord.blockRefAutocomplete = autocomplete
+
+            let transclusionMgr = TransclusionOverlayManager2(textView: tv)
+            transclusionMgr.configure(modelContext: mc)
+            transclusionMgr.onBlockEdit = { [weak coord] blockId, newContent in
+                coord?.handleTransclusionEdit(blockId: blockId, newContent: newContent)
+            }
+            coord.transclusionManager = transclusionMgr
+        }
+
+        // Reposition transclusion overlays on scroll
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        coord.scrollObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak coord] _ in
+            MainActor.assumeIsolated {
+                coord?.transclusionManager?.refresh()
+            }
+        }
+
         // Focus
         if isFocused {
             DispatchQueue.main.async {
@@ -162,6 +204,14 @@ extension ProseEditorRepresentable2 {
 
         // Scroll-to-offset observer for TOC section navigator.
         var scrollToOffsetObserver: (any NSObjectProtocol)?
+
+        // Tool rail observer
+        var toolRailObserver: (any NSObjectProtocol)?
+
+        // Overlay subsystems (Phase 9)
+        var blockRefAutocomplete: BlockRefAutocomplete2?
+        var transclusionManager: TransclusionOverlayManager2?
+        var scrollObserver: (any NSObjectProtocol)?
 
         // Per-page state
         struct PageState {
@@ -281,11 +331,13 @@ extension ProseEditorRepresentable2 {
                 parent.onPageFlush?(oldPageId, currentText)
             }
 
-            // 3. Cancel pending tasks
+            // 3. Cancel pending tasks + clear overlays
             bindingSyncTask?.cancel()
             directSaveTask?.cancel()
             tableAlignTask?.cancel()
             dataDetectionTask?.cancel()
+            transclusionManager?.removeAll()
+            blockRefAutocomplete?.dismiss()
 
             // 4. Load new page
             let newPageId = parent.pageId
@@ -510,9 +562,21 @@ extension ProseEditorRepresentable2 {
             tableAlignTask?.cancel()
             dataDetectionTask?.cancel()
             blockEditTranslator = nil
+            transclusionManager?.removeAll()
+            transclusionManager = nil
+            blockRefAutocomplete?.dismiss()
+            blockRefAutocomplete = nil
+            if let obs = scrollObserver {
+                NotificationCenter.default.removeObserver(obs)
+                scrollObserver = nil
+            }
             if let obs = scrollToOffsetObserver {
                 NotificationCenter.default.removeObserver(obs)
                 scrollToOffsetObserver = nil
+            }
+            if let obs = toolRailObserver {
+                NotificationCenter.default.removeObserver(obs)
+                toolRailObserver = nil
             }
             saveCurrentPageState()
             // Persist to disk
@@ -594,6 +658,12 @@ extension ProseEditorRepresentable2 {
                     translator.translateEdit(offset: editedRange.location, oldLength: oldLength, newText: newText)
                 }
             }
+
+            // Block ref autocomplete trigger
+            blockRefAutocomplete?.checkTrigger()
+
+            // Refresh transclusion overlays
+            transclusionManager?.refresh()
 
             scheduleTableAlignment(tv)
             scheduleDataDetection(newText)
@@ -964,6 +1034,61 @@ extension ProseEditorRepresentable2 {
             return false
         }
 
+        // MARK: - Transclusion Edit
+
+        /// Handle edits from an EditableTransclusionView overlay.
+        /// Updates the source SDBlock in SwiftData and syncs to BTK.
+        func handleTransclusionEdit(blockId: String, newContent: String) {
+            guard let mc = parent.modelContext else { return }
+
+            let descriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.id == blockId }
+            )
+            guard let block = try? mc.fetch(descriptor).first else { return }
+
+            // Rewrite the source page's body file on disk.
+            // The app's canonical note body lives in NoteFileStorage (page.loadBody / saveBody).
+            // SDBlock.content alone is not read by vault export, search, or reopen.
+            let sourcePageId = block.pageId
+            let pageDesc = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.id == sourcePageId }
+            )
+            if let page = try? mc.fetch(pageDesc).first {
+                let pageBody = page.loadBody()
+                if BlockMirror.parsedBlock(in: pageBody, for: block) == nil {
+                    BlockMirror.sync(pageId: sourcePageId, body: pageBody, modelContext: mc)
+                }
+
+                guard let refreshedBlock = try? mc.fetch(descriptor).first,
+                      let newBody = BlockMirror.rewrittenBody(
+                          body: pageBody,
+                          block: refreshedBlock,
+                          newContent: newContent
+                      ) else { return }
+
+                page.saveBody(newBody)
+                BlockMirror.sync(pageId: sourcePageId, body: newBody, modelContext: mc)
+                if let syncedBlock = try? mc.fetch(descriptor).first {
+                    syncedBlock.updatedAt = .now
+                }
+                page.needsVaultSync = true
+                page.updatedAt = .now
+
+                // Notify open editors for the source page so they reload from disk.
+                NoteFileStorage.notifyBodyChanged(pageId: sourcePageId)
+            }
+            try? mc.save()
+
+            if let engine = parent.graphState?.engineHandle {
+                _ = BlockEditTranslator.updateBlock(
+                    blockId: blockId,
+                    pageId: block.pageId,
+                    newContent: newContent,
+                    engine: engine
+                )
+            }
+        }
+
         // MARK: - Heading Fold (Non-Destructive via shouldEnumerate)
         // Fold state lives in Rust (markdown_set_fold/markdown_is_folded).
         // MarkdownContentStorage.hiddenLines drives shouldEnumerate to skip folded paragraphs.
@@ -978,12 +1103,7 @@ extension ProseEditorRepresentable2 {
             markdown_set_fold(UInt32(line), !isFolded)
 
             delegate.recomputeHiddenLines(documentText: tv.string)
-
-            if let contentStorage = tv.textLayoutManager?.textContentManager as? NSTextContentStorage {
-                contentStorage.performEditingTransaction { }
-                tv.textLayoutManager?.ensureLayout(for: tv.textLayoutManager!.documentRange)
-            }
-            tv.needsDisplay = true
+            forceContentReEnumeration(tv)
         }
 
         func clearAllFolds() {
@@ -993,11 +1113,40 @@ extension ProseEditorRepresentable2 {
             }
             markdown_clear_all_folds()
             tv.markdownDelegate.recomputeHiddenLines(documentText: tv.string)
+            forceContentReEnumeration(tv)
+        }
 
-            if let contentStorage = tv.textLayoutManager?.textContentManager as? NSTextContentStorage {
-                contentStorage.performEditingTransaction { }
+        /// Force the content manager to re-enumerate all elements (triggers shouldEnumerate).
+        /// An empty performEditingTransaction is not reliable — recordEditAction tells the
+        /// content manager that the content range actually changed, forcing re-enumeration.
+        private func forceContentReEnumeration(_ tv: ProseTextView2) {
+            guard let contentStorage = tv.textLayoutManager?.textContentManager
+                    as? NSTextContentStorage else { return }
+            let docRange = contentStorage.documentRange
+            contentStorage.performEditingTransaction {
+                contentStorage.recordEditAction(in: docRange, newTextRange: docRange)
             }
+            tv.textLayoutManager?.ensureLayout(for: docRange)
             tv.needsDisplay = true
+        }
+
+        // MARK: - Tool Rail Actions
+
+        func executeToolRailAction(_ op: String, on tv: ProseTextView2) {
+            switch op {
+            case "heading":    tv.insertHeading(level: 2)
+            case "taskList":   tv.toggleLinePrefix("- [ ] ")
+            case "bulletList": tv.toggleLinePrefix("- ")
+            case "numberedList": tv.toggleLinePrefix("1. ")
+            case "bold":       tv.wrapSelection("**", "**")
+            case "italic":     tv.wrapSelection("*", "*")
+            case "inlineCode": tv.wrapSelection("`", "`")
+            case "quote":      tv.toggleLinePrefix("> ")
+            case "table":      tv.insertMarkdownTable(NSMenuItem())
+            case "codeBlock":  tv.insertCodeFence()
+            case "divider":    tv.insertDivider()
+            default: break
+            }
         }
 
         // MARK: - Data Detection (1s debounce)

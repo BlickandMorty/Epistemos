@@ -45,6 +45,7 @@ struct ProseEditorView: View {
             )
             if let oldPage = try? modelContext.fetch(desc).first {
                 oldPage.saveBody(currentText)
+                BlockMirror.sync(pageId: oldPageId, body: currentText, modelContext: modelContext)
                 oldPage.needsVaultSync = true
                 try? modelContext.save()
             }
@@ -67,6 +68,13 @@ struct ProseEditorView: View {
                     onPageFlush: flush,
                     graphState: graphState
                 )
+                .overlay(alignment: .topTrailing) {
+                    if isEditable {
+                        EditorToolRail(pageId: page.id)
+                            .padding(.top, 60)
+                            .padding(.trailing, 8)
+                    }
+                }
             } else {
                 ProseEditorRepresentable(
                     text: $bodyText,
@@ -89,8 +97,7 @@ struct ProseEditorView: View {
             let body = page.loadBody()
             bodyText = body
             lastPersistedBody = body
-            // Lazy block migration: create SDBlocks for pages that predate block outlining.
-            lazyMigrateBlocks(body: body)
+            syncBlocks(body: body)
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in
@@ -98,6 +105,7 @@ struct ProseEditorView: View {
             let body = page.loadBody()
             bodyText = body
             lastPersistedBody = body
+            syncBlocks(body: body)
         }
         .onChange(of: bodyText) { _, newValue in
             guard newValue != lastPersistedBody else { return }
@@ -130,6 +138,7 @@ struct ProseEditorView: View {
         saveTask?.cancel()
         if lastPersistedBody != bodyText {
             page.saveBody(bodyText)
+            BlockMirror.sync(pageId: page.id, body: bodyText, modelContext: modelContext)
             lastPersistedBody = bodyText
             page.needsVaultSync = true
             try? modelContext.save()
@@ -162,6 +171,7 @@ struct ProseEditorView: View {
             await Task.detached(priority: .utility) {
                 NoteFileStorage.writeBody(pageId: pageId, content: newValue)
             }.value
+            BlockMirror.sync(pageId: pageId, body: newValue, modelContext: modelContext)
             lastPersistedBody = newValue
             // Persist dirty flag AFTER file write. This ensures loadBody() returns
             // the new content if @Query refetch triggers view re-evaluation.
@@ -170,40 +180,12 @@ struct ProseEditorView: View {
         }
     }
 
-    // MARK: - Block Migration
+    // MARK: - Block Mirror
 
-    /// Create SDBlock entities for pages that predate block outlining.
-    /// Called once per page open — if blocks already exist, this is a no-op (fetchCount only).
-    private func lazyMigrateBlocks(body: String) {
-        guard !body.isEmpty else { return }
-        let pageId = page.id
-        let descriptor = FetchDescriptor<SDBlock>(
-            predicate: #Predicate<SDBlock> { $0.pageId == pageId }
-        )
-        let count = (try? modelContext.fetchCount(descriptor)) ?? 0
-        if count == 0 {
-            let parsed = BlockParser.parse(body)
-            guard !parsed.isEmpty else { return }
-            // Build parent chain: for each block at depth > 0, parent is closest preceding block at depth - 1.
-            var depthStack: [(depth: Int, block: SDBlock)] = []
-            for p in parsed {
-                let block = SDBlock(
-                    pageId: pageId,
-                    content: p.content,
-                    depth: p.depth,
-                    order: p.order * 1000
-                )
-                while let last = depthStack.last, last.depth >= p.depth {
-                    depthStack.removeLast()
-                }
-                if p.depth > 0, let parent = depthStack.last {
-                    block.parentBlockId = parent.block.id
-                }
-                depthStack.append((p.depth, block))
-                modelContext.insert(block)
-            }
-            try? modelContext.save()
-        }
+    /// Keep SwiftData blocks aligned with the current markdown body.
+    private func syncBlocks(body: String) {
+        BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
+        try? modelContext.save()
     }
 
     // MARK: - Wikilink Navigation
