@@ -113,13 +113,34 @@ final class ProseTextView2: NSTextView {
         textLayoutManager?.invalidateLayout(for: textRange)
     }
 
+    // MARK: - Deferred Reflow (Pitfall #9 — ported from TK1)
+    // During live resize, freeze the text container width so the layout manager
+    // doesn't reflow O(document) on every frame. Reflow once on mouse-up.
+
+    override func viewWillStartLiveResize() {
+        super.viewWillStartLiveResize()
+        textContainer?.widthTracksTextView = false
+    }
+
+    override func viewDidEndLiveResize() {
+        super.viewDidEndLiveResize()
+        textContainer?.widthTracksTextView = true
+        let newWidth = bounds.width - (textContainerInset.width * 2)
+        textContainer?.size = NSSize(width: max(newWidth, 0),
+                                     height: CGFloat.greatestFiniteMagnitude)
+    }
+
     // MARK: - Pre-Edit Hook
 
     /// Mark structure dirty BEFORE the edit lands so that the content storage
     /// delegate sees fresh data when it re-queries textParagraphWith immediately
     /// after the text storage change (before didChangeText fires).
+    /// Track the pre-edit range so applyLinkAttributesToStorage can scope its scan.
+    private var lastEditLocation: Int?
+
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
         markdownDelegate.markDirty()
+        lastEditLocation = affectedCharRange.location
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
     }
 
@@ -151,14 +172,34 @@ final class ProseTextView2: NSTextView {
 
     /// Scan textStorage for wikilinks ([[...]]) and block refs (((...))) and apply
     /// .link attributes directly. This is what makes clickedOnLink fire in TK2.
-    private func applyLinkAttributesToStorage() {
+    ///
+    /// Scoped to the edited paragraph + neighbors on per-keystroke calls.
+    /// Full-document scan only on initial load (lastEditLocation == nil).
+    func applyLinkAttributesToStorage() {
         guard let storage = textStorage else { return }
         let str = storage.string as NSString
         guard str.length > 0 else { return }
-        let fullRange = NSRange(location: 0, length: str.length)
 
-        // Clear old wikilink/blockref links from storage
-        storage.enumerateAttribute(.link, in: fullRange, options: []) { val, range, _ in
+        // Scope: on edits, scan only the edited paragraph ± 1 line.
+        // On initial load / reparse-all (lastEditLocation == nil), scan full doc.
+        let scanRange: NSRange
+        if let editLoc = lastEditLocation, editLoc < str.length {
+            let paraRange = str.paragraphRange(for: NSRange(location: editLoc, length: 0))
+            let start = paraRange.location > 0
+                ? str.paragraphRange(for: NSRange(location: paraRange.location - 1, length: 0)).location
+                : 0
+            let paraEnd = NSMaxRange(paraRange)
+            let end = paraEnd < str.length
+                ? NSMaxRange(str.paragraphRange(for: NSRange(location: paraEnd, length: 0)))
+                : str.length
+            scanRange = NSRange(location: start, length: end - start)
+        } else {
+            scanRange = NSRange(location: 0, length: str.length)
+        }
+        lastEditLocation = nil
+
+        // Clear old wikilink/blockref links in scan range
+        storage.enumerateAttribute(.link, in: scanRange, options: []) { val, range, _ in
             guard let linkStr = val as? String,
                   linkStr.hasPrefix("wikilink://") || linkStr.hasPrefix("blockref://") else { return }
             storage.removeAttribute(.link, range: range)
@@ -166,7 +207,7 @@ final class ProseTextView2: NSTextView {
 
         // Wikilinks: [[title]]
         if let wikilinkRegex = try? NSRegularExpression(pattern: "\\[\\[([^\\]]+)\\]\\]") {
-            for match in wikilinkRegex.matches(in: str as String, range: fullRange) {
+            for match in wikilinkRegex.matches(in: str as String, range: scanRange) {
                 guard match.numberOfRanges >= 2 else { continue }
                 let innerRange = match.range(at: 1)
                 let title = str.substring(with: innerRange)
@@ -176,7 +217,7 @@ final class ProseTextView2: NSTextView {
 
         // Block refs: ((blockId))
         if let blockRefRegex = try? NSRegularExpression(pattern: "\\(\\(([^)]+)\\)\\)") {
-            for match in blockRefRegex.matches(in: str as String, range: fullRange) {
+            for match in blockRefRegex.matches(in: str as String, range: scanRange) {
                 guard match.numberOfRanges >= 2 else { continue }
                 let innerRange = match.range(at: 1)
                 let blockId = str.substring(with: innerRange)
