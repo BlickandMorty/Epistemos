@@ -68,13 +68,6 @@ struct ProseEditorView: View {
                     onPageFlush: flush,
                     graphState: graphState
                 )
-                .overlay(alignment: .topTrailing) {
-                    if isEditable {
-                        EditorToolRail(pageId: page.id)
-                            .padding(.top, 60)
-                            .padding(.trailing, 8)
-                    }
-                }
             } else {
                 ProseEditorRepresentable(
                     text: $bodyText,

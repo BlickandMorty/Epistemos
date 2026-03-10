@@ -1065,12 +1065,15 @@ final class ProseTextView2: NSTextView {
     }
 
     @objc func insertMarkdownTable(_ sender: NSMenuItem) {
-        let table = "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n|  |  |  |\n"
+        let table = MarkdownEditorCommands.markdownTableTemplate.trimmingCharacters(in: .newlines) + "\n"
         let loc = selectedRange().location
         if shouldChangeText(in: NSRange(location: loc, length: 0), replacementString: table) {
             textStorage?.replaceCharacters(in: NSRange(location: loc, length: 0), with: table)
             didChangeText()
-            setSelectedRange(NSRange(location: loc + "| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| ".count, length: 0))
+            if let cellRange = table.range(of: "cell") {
+                let offset = table.distance(from: table.startIndex, to: cellRange.lowerBound)
+                setSelectedRange(NSRange(location: loc + offset, length: 4))
+            }
         }
     }
 
@@ -1382,17 +1385,23 @@ final class ProseTextView2: NSTextView {
             // Remove prefix
             newLine = String(trimmed.dropFirst(prefix.count)) + (hasSuffix ? "\n" : "")
         } else {
-            // Add prefix (strip any existing list/quote prefix first)
-            var clean = trimmed
-            for pfx in ["- [ ] ", "- [x] ", "- ", "* ", "+ ", "> ", "1. ", "2. ", "3. "] {
-                if clean.hasPrefix(pfx) { clean = String(clean.dropFirst(pfx.count)); break }
-            }
+            let clean = MarkdownEditorCommands.strippedLineMarker(from: trimmed)
             newLine = prefix + clean + (hasSuffix ? "\n" : "")
         }
 
         if shouldChangeText(in: lineRange, replacementString: newLine) {
             textStorage?.replaceCharacters(in: lineRange, with: newLine)
             didChangeText()
+        }
+    }
+
+    func insertCallout(_ kind: NoteCalloutKind) {
+        let sel = selectedRange()
+        let template = MarkdownEditorCommands.calloutTemplate(for: kind)
+        if shouldChangeText(in: NSRange(location: sel.location, length: 0), replacementString: template) {
+            textStorage?.replaceCharacters(in: NSRange(location: sel.location, length: 0), with: template)
+            didChangeText()
+            setSelectedRange(NSRange(location: sel.location + template.utf16.count, length: 0))
         }
     }
 

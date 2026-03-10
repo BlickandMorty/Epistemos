@@ -782,6 +782,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
                 return indentLines(textView: textView, indent: false)
             }
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                return MarkdownEditorCommands.handleContinuationNewline(in: textView)
+            }
             return false
         }
 

@@ -594,7 +594,7 @@ final class ClickableTextView: NSTextView {
     // MARK: - Insert Table
 
     @objc func insertMarkdownTable(_ sender: Any?) {
-        let table = "\n| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| cell     | cell     | cell     |\n"
+        let table = MarkdownEditorCommands.markdownTableTemplate
         let insertLoc = selectedRange().location
         let insertRange = NSRange(location: insertLoc, length: 0)
         if shouldChangeText(in: insertRange, replacementString: table) {

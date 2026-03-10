@@ -309,11 +309,14 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             }
 
         case 7: // Table
-            let tableFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+            let tableFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+            let tableParagraph = NSMutableParagraphStyle()
+            tableParagraph.lineSpacing = 5
+            tableParagraph.paragraphSpacing = 3
             attrStr.addAttributes([
                 .font: tableFont,
                 .foregroundColor: foreground,
-                .paragraphStyle: bodyParagraph,
+                .paragraphStyle: tableParagraph,
             ], range: range)
 
         case 8: // HorizontalRule

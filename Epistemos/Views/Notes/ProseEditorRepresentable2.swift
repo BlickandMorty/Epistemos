@@ -102,22 +102,6 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
             }
         }
 
-        // Tool rail actions (formatting shortcuts from EditorToolRail SwiftUI overlay)
-        coord.toolRailObserver = NotificationCenter.default.addObserver(
-            forName: Notification.Name("EpistemosEditorToolRailAction"),
-            object: nil,
-            queue: .main
-        ) { [weak tv, weak coord] notification in
-            guard let op = notification.userInfo?["operation"] as? String,
-                  let pid = notification.userInfo?["pageId"] as? String,
-                  pid == coord?.currentPageId,
-                  let tv else { return }
-            MainActor.assumeIsolated {
-                tv.window?.makeFirstResponder(tv)
-                coord?.executeToolRailAction(op, on: tv)
-            }
-        }
-
         // Overlay subsystems (Phase 9)
         if let mc = modelContext {
             let autocomplete = BlockRefAutocomplete2()
@@ -222,9 +206,6 @@ extension ProseEditorRepresentable2 {
 
         // Scroll-to-offset observer for TOC section navigator.
         var scrollToOffsetObserver: (any NSObjectProtocol)?
-
-        // Tool rail observer
-        var toolRailObserver: (any NSObjectProtocol)?
 
         // Overlay subsystems (Phase 9)
         var blockRefAutocomplete: BlockRefAutocomplete2?
@@ -617,10 +598,6 @@ extension ProseEditorRepresentable2 {
                 NotificationCenter.default.removeObserver(obs)
                 scrollToOffsetObserver = nil
             }
-            if let obs = toolRailObserver {
-                NotificationCenter.default.removeObserver(obs)
-                toolRailObserver = nil
-            }
             saveCurrentPageState()
             // Persist to disk
             if !currentPageId.isEmpty {
@@ -768,6 +745,9 @@ extension ProseEditorRepresentable2 {
             }
             if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
                 return indentLines(textView: textView, indent: false)
+            }
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                return MarkdownEditorCommands.handleContinuationNewline(in: textView)
             }
             return false
         }
@@ -1186,25 +1166,6 @@ extension ProseEditorRepresentable2 {
             }
             tv.textLayoutManager?.ensureLayout(for: docRange)
             tv.needsDisplay = true
-        }
-
-        // MARK: - Tool Rail Actions
-
-        func executeToolRailAction(_ op: String, on tv: ProseTextView2) {
-            switch op {
-            case "heading":    tv.insertHeading(level: 2)
-            case "taskList":   tv.toggleLinePrefix("- [ ] ")
-            case "bulletList": tv.toggleLinePrefix("- ")
-            case "numberedList": tv.toggleLinePrefix("1. ")
-            case "bold":       tv.wrapSelection("**", "**")
-            case "italic":     tv.wrapSelection("*", "*")
-            case "inlineCode": tv.wrapSelection("`", "`")
-            case "quote":      tv.toggleLinePrefix("> ")
-            case "table":      tv.insertMarkdownTable(NSMenuItem())
-            case "codeBlock":  tv.insertCodeFence()
-            case "divider":    tv.insertDivider()
-            default: break
-            }
         }
 
         // MARK: - Data Detection (1s debounce)

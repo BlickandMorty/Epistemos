@@ -27,6 +27,7 @@ struct NoteDetailWorkspaceView: View {
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
     @Environment(LLMService.self) private var llmService
+    @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
@@ -38,6 +39,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
     @State private var showBacklinksPopover = false
+    @State private var showWritingTools = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
     @State private var tocItems: [TOCItem] = []
@@ -193,23 +195,16 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
 
-            ToolbarItem {
-                Menu {
-                    Button("Bold  ⌘B") { insertMarkdown("**", "**") }
-                    Button("Italic  ⌘I") { insertMarkdown("*", "*") }
-                    Menu("Heading") {
-                        Button("H1") { insertLinePrefix("# ") }
-                        Button("H2") { insertLinePrefix("## ") }
-                        Button("H3") { insertLinePrefix("### ") }
+            if !showPreview && !showDocumentMode {
+                ToolbarItem {
+                    Menu {
+                        formatMenuContent
+                    } label: {
+                        Text("Aa")
+                            .font(.system(size: 13, weight: .semibold))
                     }
-                    Divider()
-                    Button("Strikethrough") { insertMarkdown("~~", "~~") }
-                    Button("Code") { insertMarkdown("`", "`") }
-                    Button("Link") { insertMarkdown("[", "](url)") }
-                } label: {
-                    Label("Format", systemImage: "textformat")
+                    .help("Format")
                 }
-                .help("Format")
             }
 
             ToolbarItem {
@@ -436,7 +431,8 @@ struct NoteDetailWorkspaceView: View {
                 info["pageId"] == pageId
             else { return }
             let selected = info["selectedText"]
-            handleAIContextMenuOperation(op, selectedText: selected)
+            let instruction = info["instruction"]
+            handleAIContextMenuOperation(op, selectedText: selected, instruction: instruction)
         }
         .onReceive(
             NotificationCenter.default.publisher(for: ClickableTextView.blockPropertyNotification)
@@ -580,8 +576,12 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
-    private func handleAIContextMenuOperation(_ op: String, selectedText: String?) {
-        // If selectedText wasn't in the notification (e.g. from EditorToolRail),
+    private func handleAIContextMenuOperation(
+        _ op: String,
+        selectedText: String?,
+        instruction: String? = nil
+    ) {
+        // If selectedText wasn't in the notification,
         // grab the current selection from the first responder text view.
         let text: String = selectedText ?? {
             guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return "" }
@@ -589,6 +589,8 @@ struct NoteDetailWorkspaceView: View {
             guard sel.length > 0 else { return "" }
             return (tv.string as NSString).substring(with: sel)
         }()
+        let trimmedInstruction = instruction?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let instructionSuffix = trimmedInstruction.isEmpty ? "" : "\n\nAdditional instruction: \(trimmedInstruction)"
 
         let mapping: (operation: NotesOperation, systemPrompt: String, userPrompt: String) = {
             switch op {
@@ -596,97 +598,97 @@ struct NoteDetailWorkspaceView: View {
                 return (
                     .rewrite,
                     "You are a writing assistant. Rewrite the selected text to improve clarity and flow. Output ONLY the rewritten text.",
-                    "Rewrite this:\n\n\(text)"
+                    "Rewrite this:\n\n\(text)\(instructionSuffix)"
                 )
             case "proofread":
                 return (
                     .rewrite,
                     "You are a proofreading assistant. Fix grammar, spelling, and punctuation errors. Preserve the original meaning and tone. Output ONLY the corrected text.",
-                    "Proofread and correct this:\n\n\(text)"
+                    "Proofread and correct this:\n\n\(text)\(instructionSuffix)"
                 )
             case "rewrite_friendly":
                 return (
                     .rewrite,
                     "You are a writing assistant. Rewrite the text in a warm, friendly, conversational tone. Output ONLY the rewritten text.",
-                    "Rewrite in a friendly tone:\n\n\(text)"
+                    "Rewrite in a friendly tone:\n\n\(text)\(instructionSuffix)"
                 )
             case "rewrite_professional":
                 return (
                     .rewrite,
                     "You are a writing assistant. Rewrite the text in a polished, professional tone. Output ONLY the rewritten text.",
-                    "Rewrite in a professional tone:\n\n\(text)"
+                    "Rewrite in a professional tone:\n\n\(text)\(instructionSuffix)"
                 )
             case "rewrite_concise":
                 return (
                     .rewrite,
                     "You are a writing assistant. Rewrite the text to be as concise as possible while preserving the key meaning. Output ONLY the rewritten text.",
-                    "Rewrite concisely:\n\n\(text)"
+                    "Rewrite concisely:\n\n\(text)\(instructionSuffix)"
                 )
             case "summarize":
                 return (
                     .summarize,
                     "You are a summarization assistant. Summarize the selected text concisely. Output ONLY the summary.",
-                    "Summarize this:\n\n\(text)"
+                    "Summarize this:\n\n\(text)\(instructionSuffix)"
                 )
             case "keyPoints":
                 return (
                     .summarize,
                     "You are an analysis assistant. Extract the key points from the text as a concise markdown bullet list. Output ONLY the bullet list.",
-                    "Extract key points:\n\n\(text)"
+                    "Extract key points:\n\n\(text)\(instructionSuffix)"
                 )
             case "expand":
                 return (
                     .expand,
                     "You are a writing assistant. Expand the selected text with more detail and depth. Maintain the same tone.",
-                    "Expand on this:\n\n\(text)"
+                    "Expand on this:\n\n\(text)\(instructionSuffix)"
                 )
             case "simplify":
                 return (
                     .rewrite,
                     "You are a writing assistant. Simplify the text to be easier to understand. Use shorter sentences. Output ONLY the simplified text.",
-                    "Simplify this:\n\n\(text)"
+                    "Simplify this:\n\n\(text)\(instructionSuffix)"
                 )
             case "toList":
                 return (
                     .outline,
                     "You are a formatting assistant. Convert the text into a clean markdown bullet list. Output ONLY the list.",
-                    "Convert to a bullet list:\n\n\(text)"
+                    "Convert to a bullet list:\n\n\(text)\(instructionSuffix)"
                 )
             case "toTable":
                 return (
                     .outline,
                     "You are a formatting assistant. Convert the text into a markdown table. Output ONLY the table.",
-                    "Convert to a markdown table:\n\n\(text)"
+                    "Convert to a markdown table:\n\n\(text)\(instructionSuffix)"
                 )
             case "continue":
                 return (
                     .continueWriting,
                     "You are a writing assistant. Continue writing from where the note left off. Match the tone and style. Output ONLY the continuation.",
-                    "Continue writing from where this note ends."
+                    "Continue writing from where this note ends.\(instructionSuffix)"
                 )
             case "outline":
                 return (
                     .outline,
                     "You are a structural analysis assistant. Generate a structured outline using markdown headers and bullet points. Output ONLY the outline.",
-                    "Generate a structured outline for this note."
+                    "Generate a structured outline for this note.\(instructionSuffix)"
                 )
             case "structure":
                 return (
                     .analyze,
                     "You are a note organization assistant. Suggest a better structure for this note. Output a reorganized version.",
-                    "Suggest a better structure for this note."
+                    "Suggest a better structure for this note.\(instructionSuffix)"
                 )
             case "restructure":
                 return (
                     .analyze,
                     "You are a note restructuring assistant. Completely reorganize the entire note for better clarity, flow, and logical progression. Preserve ALL content. Use proper markdown formatting. Output the COMPLETE restructured note.",
-                    "Restructure this entire note for better organization and flow."
+                    "Restructure this entire note for better organization and flow.\(instructionSuffix)"
                 )
             default:
                 return (
                     .ask(query: text.isEmpty ? "Help me with this note." : text),
                     "You are a helpful note assistant. Answer concisely based on the note content.",
-                    text.isEmpty ? "Help me with this note." : text
+                    text.isEmpty ? "Help me with this note.\(instructionSuffix)" : "\(text)\(instructionSuffix)"
                 )
             }
         }()
@@ -968,6 +970,57 @@ struct NoteDetailWorkspaceView: View {
     private func toolbarChatField(width: CGFloat) -> some View {
         HStack(spacing: 6) {
             @Bindable var chat = noteChatState
+            Button {
+                showWritingTools.toggle()
+            } label: {
+                Image(systemName: "apple.intelligence")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .help("Writing Tools")
+            .popover(isPresented: $showWritingTools, arrowEdge: .bottom) {
+                NoteWritingToolsMenu(pageId: pageId) {
+                    showWritingTools = false
+                }
+            }
+
+            Menu {
+                Button {
+                    noteChatState.chatMode = .auto
+                    noteChatState.overrideProvider = nil
+                } label: {
+                    Label("Auto (Apple AI + Cloud)", systemImage: "apple.intelligence")
+                }
+
+                Button {
+                    noteChatState.chatMode = .cloudOnly
+                } label: {
+                    Label(
+                        "Cloud (\(inference.apiProvider.displayName))",
+                        systemImage: inference.apiProvider.iconName
+                    )
+                }
+
+                Divider()
+
+                Menu("Manual Provider") {
+                    ForEach([LLMProviderType.anthropic, .openai, .google, .kimi, .ollama], id: \.self) { provider in
+                        Button {
+                            noteChatState.chatMode = .provider
+                            noteChatState.overrideProvider = provider
+                        } label: {
+                            Label(provider.displayName, systemImage: provider.iconName)
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: noteChatRoutingIcon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+            .menuStyle(.borderlessButton)
+            .help(noteChatRoutingLabel)
+
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
@@ -1012,26 +1065,6 @@ struct NoteDetailWorkspaceView: View {
 
     private var moreMenu: some View {
         Menu {
-            // Format
-            Menu {
-                Button("Bold  \u{2318}B") { insertMarkdown("**", "**") }
-                Button("Italic  \u{2318}I") { insertMarkdown("*", "*") }
-                Menu("Heading") {
-                    Button("Heading 1") { insertLinePrefix("# ") }
-                    Button("Heading 2") { insertLinePrefix("## ") }
-                    Button("Heading 3") { insertLinePrefix("### ") }
-                    Button("Heading 4") { insertLinePrefix("#### ") }
-                }
-                Divider()
-                Button("Strikethrough") { insertMarkdown("~~", "~~") }
-                Button("Code") { insertMarkdown("`", "`") }
-                Button("Link") { insertMarkdown("[", "](url)") }
-            } label: {
-                Label("Format", systemImage: "textformat")
-            }
-
-            Divider()
-
             // Note actions
             if let page = pages.first {
                 Button {
@@ -1199,6 +1232,45 @@ struct NoteDetailWorkspaceView: View {
         .help("More")
     }
 
+    @ViewBuilder
+    private var formatMenuContent: some View {
+        Button("Bold  \u{2318}B") { insertMarkdown("**", "**") }
+        Button("Italic  \u{2318}I") { insertMarkdown("*", "*") }
+        Button("Strikethrough") { insertMarkdown("~~", "~~") }
+        Button("Inline Code") { insertMarkdown("`", "`") }
+        Button("Link") { insertMarkdown("[", "](url)") }
+
+        Divider()
+
+        Menu("Heading") {
+            Button("Heading 1") { insertLinePrefix("# ") }
+            Button("Heading 2") { insertLinePrefix("## ") }
+            Button("Heading 3") { insertLinePrefix("### ") }
+            Button("Heading 4") { insertLinePrefix("#### ") }
+        }
+
+        Menu("Lists") {
+            Button("Checklist") { toggleMarkdownPrefix("- [ ] ") }
+            Button("Bullet List") { toggleMarkdownPrefix("- ") }
+            Button("Numbered List") { toggleMarkdownPrefix("1. ") }
+        }
+
+        Menu("Quotes & Callouts") {
+            Button("Quote") { toggleMarkdownPrefix("> ") }
+            Divider()
+            Button("Note Callout") { insertCallout(.note) }
+            Button("Tip Callout") { insertCallout(.tip) }
+            Button("Warning Callout") { insertCallout(.warning) }
+            Button("Quote Callout") { insertCallout(.quote) }
+        }
+
+        Divider()
+
+        Button("Table") { insertMarkdownTable() }
+        Button("Code Block") { insertCodeFence() }
+        Button("Divider") { insertDivider() }
+    }
+
     /// Wraps the current selection (or inserts at cursor) with markdown syntax.
     private func insertMarkdown(_ prefix: String, _ suffix: String) {
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
@@ -1214,6 +1286,84 @@ struct NoteDetailWorkspaceView: View {
         let cursor = tv.selectedRange().location
         let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
         tv.insertText(prefix, replacementRange: NSRange(location: lineRange.location, length: 0))
+    }
+
+    private func toggleMarkdownPrefix(_ prefix: String) {
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        if let tk2 = tv as? ProseTextView2 {
+            tk2.toggleLinePrefix(prefix)
+            return
+        }
+
+        let str = tv.string as NSString
+        let lineRange = str.lineRange(for: NSRange(location: tv.selectedRange().location, length: 0))
+        let lineText = str.substring(with: lineRange)
+        let trimmed = lineText.trimmingCharacters(in: .newlines)
+        let hasNewline = lineText.hasSuffix("\n")
+        let replacement: String
+        if trimmed.hasPrefix(prefix) {
+            replacement = String(trimmed.dropFirst(prefix.count)) + (hasNewline ? "\n" : "")
+        } else {
+            replacement = prefix + MarkdownEditorCommands.strippedLineMarker(from: trimmed) + (hasNewline ? "\n" : "")
+        }
+        tv.insertText(replacement, replacementRange: lineRange)
+    }
+
+    private func insertCallout(_ kind: NoteCalloutKind) {
+        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
+            tk2.insertCallout(kind)
+            return
+        }
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        let template = MarkdownEditorCommands.calloutTemplate(for: kind)
+        tv.insertText(template, replacementRange: tv.selectedRange())
+    }
+
+    private func insertMarkdownTable() {
+        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
+            tk2.insertMarkdownTable(NSMenuItem())
+            return
+        }
+        if let legacy = NSApp.keyWindow?.firstResponder as? ClickableTextView {
+            legacy.insertMarkdownTable(nil)
+            return
+        }
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        tv.insertText(MarkdownEditorCommands.markdownTableTemplate, replacementRange: tv.selectedRange())
+    }
+
+    private func insertCodeFence() {
+        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
+            tk2.insertCodeFence()
+            return
+        }
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        tv.insertText("```\n\n```", replacementRange: tv.selectedRange())
+    }
+
+    private func insertDivider() {
+        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
+            tk2.insertDivider()
+            return
+        }
+        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        tv.insertText("\n---\n", replacementRange: tv.selectedRange())
+    }
+
+    private var noteChatRoutingIcon: String {
+        switch noteChatState.chatMode {
+        case .auto: "apple.intelligence"
+        case .cloudOnly: inference.apiProvider.iconName
+        case .provider: (noteChatState.overrideProvider ?? .openai).iconName
+        }
+    }
+
+    private var noteChatRoutingLabel: String {
+        switch noteChatState.chatMode {
+        case .auto: "Auto routing"
+        case .cloudOnly: "Cloud routing"
+        case .provider: (noteChatState.overrideProvider ?? .openai).displayName
+        }
     }
 
     // MARK: - Document Import/Export
