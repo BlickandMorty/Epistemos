@@ -101,6 +101,18 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
                 tv.showFindIndicator(for: lineRange)
             }
         }
+        coord.writingToolsObserver = NotificationCenter.default.addObserver(
+            forName: WritingToolsBridge.showNotification,
+            object: nil,
+            queue: .main
+        ) { [weak tv, weak coord] note in
+            guard let tv,
+                  let pid = note.userInfo?["pageId"] as? String,
+                  pid == coord?.currentPageId else { return }
+            MainActor.assumeIsolated {
+                WritingToolsBridge.present(in: tv)
+            }
+        }
 
         // Overlay subsystems (Phase 9)
         if let mc = modelContext {
@@ -206,6 +218,9 @@ extension ProseEditorRepresentable2 {
 
         // Scroll-to-offset observer for TOC section navigator.
         var scrollToOffsetObserver: (any NSObjectProtocol)?
+
+        // Ask-bar bridge for native Apple Writing Tools.
+        var writingToolsObserver: (any NSObjectProtocol)?
 
         // Overlay subsystems (Phase 9)
         var blockRefAutocomplete: BlockRefAutocomplete2?
@@ -597,6 +612,10 @@ extension ProseEditorRepresentable2 {
             if let obs = scrollToOffsetObserver {
                 NotificationCenter.default.removeObserver(obs)
                 scrollToOffsetObserver = nil
+            }
+            if let obs = writingToolsObserver {
+                NotificationCenter.default.removeObserver(obs)
+                writingToolsObserver = nil
             }
             saveCurrentPageState()
             // Persist to disk

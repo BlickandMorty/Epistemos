@@ -720,6 +720,7 @@ final class ClickableTextView: NSTextView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = super.menu(for: event) ?? NSMenu()
+        WritingToolsBridge.appendStandardItems(to: menu, hasSelection: selectedRange().length > 0)
 
         // Reveal in Graph
         if let pid = pageId {

@@ -242,6 +242,18 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 tv.showFindIndicator(for: lineRange)
             }
         }
+        coord.writingToolsObserver = NotificationCenter.default.addObserver(
+            forName: WritingToolsBridge.showNotification,
+            object: nil,
+            queue: .main
+        ) { [weak tv, weak coord] note in
+            guard let tv,
+                  let pid = note.userInfo?["pageId"] as? String,
+                  pid == coord?.lastPageId else { return }
+            MainActor.assumeIsolated {
+                WritingToolsBridge.present(in: tv)
+            }
+        }
 
         // Set lastPageId to nil so updateNSView will perform the initial page swap
         coord.lastPageId = nil
@@ -573,6 +585,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Scroll-to-offset observer for TOC section navigator.
         nonisolated(unsafe) var scrollToOffsetObserver: (any NSObjectProtocol)?
 
+        // Ask-bar bridge for native Apple Writing Tools.
+        nonisolated(unsafe) var writingToolsObserver: (any NSObjectProtocol)?
+
 
         /// Block Transaction Kernel translator — tracks edits as block ops.
         var blockEditTranslator: BlockEditTranslator?
@@ -606,6 +621,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 NotificationCenter.default.removeObserver(observer)
             }
             if let observer = scrollToOffsetObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            if let observer = writingToolsObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
         }
