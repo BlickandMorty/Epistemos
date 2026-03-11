@@ -1,6 +1,5 @@
 import SwiftData
 import SwiftUI
-import AppKit
 
 // MARK: - Root View
 // Top-level container with system toolbar navigation.
@@ -21,6 +20,24 @@ struct RootView: View {
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
 
+    /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
+    /// Only delays the *reveal*; hiding is always immediate.
+    @State private var homeChatToolbarReady = false
+
+    /// True when Home tab is showing an active chat (not landing).
+    private var activeHomeChat: Bool {
+        ui.homeTab == .home && !chat.showLanding && !chat.messages.isEmpty
+    }
+
+    /// Canonical toolbar glass visibility — deterministic from app state.
+    /// For non-Home tabs: always visible.
+    /// For Home landing: always hidden.
+    /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
+    private var toolbarGlassVisible: Bool {
+        if ui.homeTab != .home { return true }
+        return activeHomeChat && homeChatToolbarReady
+    }
+
     var body: some View {
         ZStack {
             // Background wallpaper (theme-dependent)
@@ -28,9 +45,6 @@ struct RootView: View {
 
             // Main content — tab-switched panels
             ContentRouter(homeTab: ui.homeTab)
-
-            WindowPolicyBridge()
-                .frame(width: 0, height: 0)
         }
         // Drive preferred color scheme from the resolved theme.
         // This ensures Ember/OLED/Sunset stay dark even when system is in light mode.
@@ -92,7 +106,25 @@ struct RootView: View {
             }
         }
         .navigationTitle("")
-        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        // Toolbar glass: hidden on home landing, visible for chat/library/settings.
+        // Canonical rule is derived from app state (deterministic).
+        // `homeChatToolbarReady` only gates the Home landing→chat reveal to avoid flash.
+        .toolbarBackgroundVisibility(
+            toolbarGlassVisible ? .automatic : .hidden,
+            for: .windowToolbar
+        )
+        .onChange(of: activeHomeChat) { _, isActive in
+            if isActive {
+                // Delay reveal until HomeRouter's landing→chat animation settles.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(350))
+                    homeChatToolbarReady = true
+                }
+            } else {
+                // Hide immediately when returning to landing.
+                homeChatToolbarReady = false
+            }
+        }
         // Chat sidebar is now a popover on the toolbar button (above)
         .overlay(alignment: .bottom) {
             if let message = ui.toastMessage {
@@ -152,39 +184,6 @@ struct RootView: View {
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
         }
-    }
-}
-
-private struct WindowPolicyBridge: NSViewRepresentable {
-    func makeNSView(context: Context) -> WindowPolicyBridgeView {
-        WindowPolicyBridgeView()
-    }
-
-    func updateNSView(_ nsView: WindowPolicyBridgeView, context: Context) {
-        nsView.applyWindowPolicyIfNeeded()
-    }
-}
-
-private final class WindowPolicyBridgeView: NSView {
-    private weak var appliedWindow: NSWindow?
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        applyWindowPolicyIfNeeded()
-    }
-
-    func applyWindowPolicyIfNeeded() {
-        guard let window else { return }
-        if appliedWindow !== window {
-            WindowPresentationPolicy.applyModularZoomBehavior(to: window)
-            appliedWindow = window
-        }
-        window.title = ""
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.toolbarStyle = .unifiedCompact
-        window.toolbar?.showsBaselineSeparator = false
-        window.isMovableByWindowBackground = true
     }
 }
 
@@ -271,54 +270,14 @@ private struct PrincipalToolbarContent: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
         } else {
-            NativeHomeTabPicker(selection: ui.homeTab) { ui.homeTab = $0 }
-                .frame(width: 152, height: 30)
-        }
-    }
-}
-
-private struct NativeHomeTabPicker: NSViewRepresentable {
-    let selection: HomeTab
-    let onSelect: (HomeTab) -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onSelect: onSelect)
-    }
-
-    func makeNSView(context: Context) -> NSSegmentedControl {
-        let control = NSSegmentedControl()
-        control.segmentCount = HomeTab.allCases.count
-        control.trackingMode = .selectOne
-        control.segmentStyle = .capsule
-        control.controlSize = .large
-        control.target = context.coordinator
-        control.action = #selector(Coordinator.selectionChanged(_:))
-
-        for (index, tab) in HomeTab.allCases.enumerated() {
-            control.setImage(NSImage(systemSymbolName: tab.icon, accessibilityDescription: tab.label), forSegment: index)
-            control.setWidth(44, forSegment: index)
-            control.setToolTip(tab.label, forSegment: index)
-        }
-
-        control.selectedSegment = HomeTab.allCases.firstIndex(of: selection) ?? 0
-        return control
-    }
-
-    func updateNSView(_ nsView: NSSegmentedControl, context: Context) {
-        context.coordinator.onSelect = onSelect
-        nsView.selectedSegment = HomeTab.allCases.firstIndex(of: selection) ?? 0
-    }
-
-    final class Coordinator: NSObject {
-        var onSelect: (HomeTab) -> Void
-
-        init(onSelect: @escaping (HomeTab) -> Void) {
-            self.onSelect = onSelect
-        }
-
-        @objc func selectionChanged(_ sender: NSSegmentedControl) {
-            guard HomeTab.allCases.indices.contains(sender.selectedSegment) else { return }
-            onSelect(HomeTab.allCases[sender.selectedSegment])
+            @Bindable var uiBindable = ui
+            Picker("", selection: $uiBindable.homeTab) {
+                ForEach(HomeTab.allCases, id: \.self) { tab in
+                    Label(tab.label, systemImage: tab.icon).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 108)
         }
     }
 }

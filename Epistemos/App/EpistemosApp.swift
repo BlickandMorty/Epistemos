@@ -18,6 +18,26 @@ enum WindowPresentationPolicy {
     }
 }
 
+@MainActor
+final class ModularZoomWindowObserverView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+    }
+}
+
+struct ModularZoomWindowObserver: NSViewRepresentable {
+    func makeNSView(context: Context) -> ModularZoomWindowObserverView {
+        ModularZoomWindowObserverView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: ModularZoomWindowObserverView, context: Context) {
+        guard let window = nsView.window else { return }
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+    }
+}
+
 @main
 struct EpistemosApp: App {
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
@@ -30,6 +50,7 @@ struct EpistemosApp: App {
                 onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
             )
                 .withAppEnvironment(bootstrap)
+                .background(ModularZoomWindowObserver().allowsHitTesting(false))
                 .onAppear {
                     StatusBar.shared.setup()
                     HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
@@ -73,15 +94,38 @@ struct EpistemosApp: App {
 // MARK: - App Delegate (Dock Menu + Native Hooks)
 
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
+    private var mainWindowObservers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Main window: zoom instead of fullscreen (green button fills screen, no separate Space).
-        // Graph overlay is the only fullscreen-capable surface.
-        Task { @MainActor in
-            for window in NSApp.windows where window.title == "Epistemos" {
-                WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        let center = NotificationCenter.default
+        let names: [Notification.Name] = [
+            NSWindow.didBecomeMainNotification,
+            NSWindow.didBecomeKeyNotification,
+            NSWindow.didDeminiaturizeNotification,
+        ]
+
+        mainWindowObservers = names.map { name in
+            center.addObserver(forName: name, object: nil, queue: .main) { note in
+                guard let window = note.object as? NSWindow else { return }
+                Self.applyMainWindowPolicyIfNeeded(to: window)
             }
         }
+
+        Task { @MainActor in
+            NSApp.windows.forEach(Self.applyMainWindowPolicyIfNeeded(to:))
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        let center = NotificationCenter.default
+        mainWindowObservers.forEach(center.removeObserver)
+        mainWindowObservers.removeAll()
+    }
+
+    @MainActor
+    private static func applyMainWindowPolicyIfNeeded(to window: NSWindow) {
+        guard window.title == "Epistemos" else { return }
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
     }
 
     /// Native macOS dock menu — right-click the dock icon for quick actions.

@@ -72,4 +72,58 @@ struct NoteWindowManagerTests {
         #expect(zoomButton.target === window)
         #expect(zoomButton.action == #selector(NSWindow.performZoom(_:)))
     }
+
+    @MainActor
+    @Test("Main window observer reapplies modular zoom policy on window attachment")
+    func modularZoomObserverAppliesPolicyWhenAttachedToWindow() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.collectionBehavior.insert(.fullScreenPrimary)
+        window.collectionBehavior.insert(.fullScreenAllowsTiling)
+
+        let root = NSView(frame: window.frame)
+        let observer = ModularZoomWindowObserverView(frame: .zero)
+        window.contentView = root
+        root.addSubview(observer)
+        observer.viewDidMoveToWindow()
+
+        #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
+        #expect(!window.collectionBehavior.contains(.fullScreenAllowsTiling))
+        let zoomButton = try #require(window.standardWindowButton(.zoomButton))
+        #expect(zoomButton.target === window)
+        #expect(zoomButton.action == #selector(NSWindow.performZoom(_:)))
+    }
+
+    @MainActor
+    @Test("App delegate reapplies modular zoom policy when the main window becomes active")
+    func appDelegateReappliesMainWindowZoomPolicy() throws {
+        let delegate = EpistemosAppDelegate()
+        delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Epistemos"
+        window.collectionBehavior.insert(.fullScreenPrimary)
+        window.collectionBehavior.insert(.fullScreenAuxiliary)
+        window.collectionBehavior.insert(.fullScreenAllowsTiling)
+
+        NotificationCenter.default.post(name: NSWindow.didBecomeMainNotification, object: window)
+
+        #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
+        #expect(!window.collectionBehavior.contains(.fullScreenAuxiliary))
+        #expect(!window.collectionBehavior.contains(.fullScreenAllowsTiling))
+        let zoomButton = try #require(window.standardWindowButton(.zoomButton))
+        #expect(zoomButton.target === window)
+        #expect(zoomButton.action == #selector(NSWindow.performZoom(_:)))
+
+        delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+    }
 }
