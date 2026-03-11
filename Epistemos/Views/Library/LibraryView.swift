@@ -945,8 +945,8 @@ private struct DOIImportSheet: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             Text("Import Paper by DOI")
-                .font(.epHeading)
-                .foregroundStyle(theme.foreground)
+                .font(AppHeadingRole.h2.font)
+                .foregroundStyle(theme.fontAccent)
 
             TextField("Enter DOI (e.g., 10.1000/xyz123)", text: $doiInput)
                 .font(.epBody)
@@ -1009,6 +1009,5 @@ private struct ExtractedAuthor: Identifiable {
     var paperCount: Int
     var years: [Int]
 }
-
 
 

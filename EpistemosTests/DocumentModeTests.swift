@@ -49,6 +49,42 @@ struct DocumentModeStorageTests {
         #expect(updatedColor == NSColor(EpistemosTheme.ember.foreground))
     }
 
+    @Test("Document mode rethemes heading content to the theme accent")
+    func documentThemeRethemesHeadings() {
+        EpistemosFont.registerFonts()
+        let (_, textView) = DocumentTextView.makeTextKit2()
+        let content = NSAttributedString(string: "Heading", attributes: [
+            .font: DocumentHeadingStyle.font(level: 1),
+            .foregroundColor: NSColor(EpistemosTheme.light.foreground)
+        ])
+
+        textView.textStorage?.setAttributedString(content)
+        textView.rethemeContent(to: .magnolia)
+
+        let updatedColor = textView.textStorage?.attribute(
+            .foregroundColor,
+            at: 0,
+            effectiveRange: nil
+        ) as? NSColor
+        #expect(updatedColor == NSColor(EpistemosTheme.magnolia.fontAccent))
+    }
+
+    @Test("Document heading styles use the shared RetroGaming scale")
+    func documentHeadingStylesUseDisplayTypography() {
+        EpistemosFont.registerFonts()
+
+        let h1 = DocumentHeadingStyle.font(level: 1)
+        let h2 = DocumentHeadingStyle.font(level: 2)
+        let h3 = DocumentHeadingStyle.font(level: 3)
+
+        #expect(h1.pointSize == 28)
+        #expect(h2.pointSize == 22)
+        #expect(h3.pointSize == 18)
+        #expect(h1.fontName.contains("RetroGaming"))
+        #expect(h2.fontName.contains("RetroGaming"))
+        #expect(h3.fontName.contains("RetroGaming"))
+    }
+
     @Test("Document toolbar table insert writes content directly")
     func documentToolbarTableInsert() {
         let (_, textView) = DocumentTextView.makeTextKit2()

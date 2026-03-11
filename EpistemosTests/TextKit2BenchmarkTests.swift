@@ -141,10 +141,10 @@ struct TextKit2BenchmarkTests {
         let tk1Time = clock.measure {
             for _ in 0..<20 {
                 _ = PageStoragePool.shared.getOrCreate(
-                    pageId: "bench-p1", bodyText: page1, isDark: false
+                    pageId: "bench-p1", bodyText: page1, theme: .light
                 )
                 _ = PageStoragePool.shared.getOrCreate(
-                    pageId: "bench-p2", bodyText: page2, isDark: false
+                    pageId: "bench-p2", bodyText: page2, theme: .light
                 )
             }
         }

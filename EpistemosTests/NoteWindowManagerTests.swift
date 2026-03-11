@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+
 @testable import Epistemos
 
 @Suite("NoteWindowManager")
@@ -48,6 +49,12 @@ struct NoteWindowManagerTests {
         #expect(frame.maxX <= visible.maxX)
         #expect(frame.minY >= visible.minY)
         #expect(frame.maxY <= visible.maxY)
+    }
+
+    @Test("Note titles resolve an untitled fallback for native window labels")
+    func noteTitleResolvesUntitledFallback() {
+        #expect(NoteTitleDisplay.resolvedTitle("Research Plan") == "Research Plan")
+        #expect(NoteTitleDisplay.resolvedTitle("   ") == "Untitled")
     }
 
     @MainActor
@@ -102,7 +109,8 @@ struct NoteWindowManagerTests {
     @Test("App delegate reapplies modular zoom policy when the main window becomes active")
     func appDelegateReappliesMainWindowZoomPolicy() throws {
         let delegate = EpistemosAppDelegate()
-        delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+        delegate.applicationDidFinishLaunching(
+            Notification(name: NSApplication.didFinishLaunchingNotification))
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
@@ -124,6 +132,49 @@ struct NoteWindowManagerTests {
         #expect(zoomButton.target === window)
         #expect(zoomButton.action == #selector(NSWindow.performZoom(_:)))
 
-        delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+        delegate.applicationWillTerminate(
+            Notification(name: NSApplication.willTerminateNotification))
+    }
+
+    @MainActor
+    @Test("Note editor windows hide the native title and use unified toolbar chrome")
+    func noteEditorWindowUsesCustomChrome() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1110, height: 740),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+
+        NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
+
+        #expect(window.titleVisibility == .hidden)
+        #expect(window.titlebarAppearsTransparent)
+        #expect(window.isMovableByWindowBackground)
+        let toolbar = try #require(window.toolbar)
+        #expect(toolbar.identifier == "TestNoteToolbar")
+        #expect(!toolbar.showsBaselineSeparator)
+        #expect(window.toolbarStyle == .unified)
+    }
+
+    @MainActor
+    @Test("Notes utility window uses full-size unified chrome for the custom sidebar header")
+    func notesUtilityWindowUsesCustomChrome() throws {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 600),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+
+        UtilityPanelChrome.applySidebarChrome(to: panel)
+
+        #expect(panel.styleMask.contains(.fullSizeContentView))
+        #expect(panel.titleVisibility == .hidden)
+        #expect(panel.titlebarAppearsTransparent)
+        let toolbar = try #require(panel.toolbar)
+        #expect(toolbar.identifier == "NotesSidebarToolbar")
+        #expect(!toolbar.showsBaselineSeparator)
+        #expect(panel.toolbarStyle == .unified)
     }
 }

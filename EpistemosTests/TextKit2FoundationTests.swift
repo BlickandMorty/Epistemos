@@ -1,5 +1,6 @@
 import Testing
 import AppKit
+import SwiftUI
 @testable import Epistemos
 
 // MARK: - Phase 1: TextKit 2 Foundation Tests
@@ -151,6 +152,31 @@ struct MarkdownContentStorageTests {
         #expect(storage.theme == .ember)
         storage.theme = .light
         #expect(storage.theme == .light)
+    }
+}
+
+@Suite("Inline Markdown Styling")
+struct InlineMarkdownStylerTests {
+
+    @Test("Strong inline markdown gets an explicit RetroGaming font override")
+    func strongMarkdownUsesDisplayFont() throws {
+        let attributed = try #require(
+            InlineMarkdownStyler.attributedString("Alpha **bold** omega", strongFontSize: 15)
+        )
+
+        let strongRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
+            })
+        )
+        let plainRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent == nil && String(attributed[$0.range].characters).contains("Alpha")
+            })
+        )
+
+        #expect(strongRun.font != nil)
+        #expect(plainRun.font == nil)
     }
 }
 
@@ -510,6 +536,24 @@ struct TextKit2InlineStyleTests {
             }
         }
         #expect(foundLink)
+    }
+
+    @Test("Wikilink content uses the RetroGaming display font")
+    func wikilinkUsesDisplayFont() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        let text = "See [[My Note]] here"
+        let attrStr = NSMutableAttributedString(string: text)
+        let range = NSRange(location: 0, length: attrStr.length)
+        attrStr.addAttributes([
+            .font: NSFont.systemFont(ofSize: 15),
+            .foregroundColor: NSColor(EpistemosTheme.light.foreground),
+        ], range: range)
+
+        storage.applyInlineStyles(to: attrStr, fullRange: range)
+
+        let linkFont = attrStr.attribute(.font, at: 6, effectiveRange: nil) as? NSFont
+        #expect(linkFont?.fontName.contains("RetroGaming") == true)
     }
 
     @Test("Wikilink brackets are ghosted")

@@ -10,9 +10,11 @@ private enum ParityHelpers {
 
     /// Style text through TK1 (MarkdownTextStorage).
     /// Returns the styled NSAttributedString after full restyle.
-    static func tk1Styled(_ markdown: String, isDark: Bool = false) -> NSAttributedString {
+    static func tk1Styled(_ markdown: String, theme: EpistemosTheme = .light) -> NSAttributedString {
+        EpistemosFont.registerFonts()
         let storage = MarkdownTextStorage()
-        storage.isDark = isDark
+        storage.isDark = theme.isDark
+        storage.theme = theme
         guard !markdown.isEmpty else { return storage }
         storage.beginEditing()
         storage.replaceCharacters(in: NSRange(location: 0, length: 0), with: markdown)
@@ -24,6 +26,7 @@ private enum ParityHelpers {
     /// Style text through TK2 (MarkdownContentStorage delegate).
     /// Applies per-line structural styles, then inline styles over the full range.
     static func tk2Styled(_ markdown: String, theme: EpistemosTheme = .sunny) -> NSMutableAttributedString {
+        EpistemosFont.registerFonts()
         let delegate = MarkdownContentStorage()
         delegate.theme = theme
         delegate.reparse(text: markdown)
@@ -57,6 +60,66 @@ private enum ParityHelpers {
         delegate.applyInlineStyles(to: attrStr, fullRange: fullRange)
         return attrStr
     }
+
+    @MainActor
+    static func tk2DisplayParagraphs(
+        _ markdown: String,
+        theme: EpistemosTheme = .sunny
+    ) -> [NSAttributedString] {
+        EpistemosFont.registerFonts()
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        textView.applyTheme(theme)
+        textView.textStorage?.setAttributedString(NSAttributedString(string: markdown))
+        textView.reparseAndInvalidate()
+
+        guard let textLayoutManager = textView.textLayoutManager,
+              let contentStorage = textLayoutManager.textContentManager as? NSTextContentStorage else {
+            return []
+        }
+
+        textLayoutManager.ensureLayout(for: contentStorage.documentRange)
+
+        var paragraphs: [NSAttributedString] = []
+        contentStorage.enumerateTextElements(from: contentStorage.documentRange.location) { element in
+            if let paragraph = element as? NSTextParagraph {
+                paragraphs.append(paragraph.attributedString)
+            }
+            return true
+        }
+        return paragraphs
+    }
+
+    static func colorsMatch(_ lhs: NSColor?, _ rhs: NSColor?) -> Bool {
+        guard let lhsChannels = colorChannels(lhs), let rhsChannels = colorChannels(rhs) else {
+            return false
+        }
+        let lhsValues = [lhsChannels.0, lhsChannels.1, lhsChannels.2, lhsChannels.3]
+        let rhsValues = [rhsChannels.0, rhsChannels.1, rhsChannels.2, rhsChannels.3]
+        return zip(lhsValues, rhsValues).allSatisfy { abs($0 - $1) <= 2 }
+    }
+
+    private static func colorChannels(_ color: NSColor?) -> (Int, Int, Int, Int)? {
+        guard
+            let cgColor = color?.cgColor,
+            let components = cgColor.components
+        else { return nil }
+        func channel(_ value: CGFloat) -> Int { Int((value * 255).rounded()) }
+        switch components.count {
+        case 4...:
+            return (
+                channel(components[0]),
+                channel(components[1]),
+                channel(components[2]),
+                channel(components[3])
+            )
+        case 2:
+            let gray = channel(components[0])
+            let alpha = channel(components[1])
+            return (gray, gray, gray, alpha)
+        default:
+            return nil
+        }
+    }
 }
 
 // MARK: - Parent Suite (enables -only-testing:EpistemosTests/TextKit2ParityTests)
@@ -71,7 +134,7 @@ struct InlineTests {
 
     // MARK: - Bold
 
-    @Test("Bold text — both stacks apply bold font trait")
+    @Test("Bold text in notes uses the RetroGaming display font in both stacks")
     func boldParity() {
         let md = "Hello **bold** world"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -84,11 +147,8 @@ struct InlineTests {
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         #expect(tk1Font != nil)
         #expect(tk2Font != nil)
-
-        let tk1Traits = tk1Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        let tk2Traits = tk2Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        #expect(tk1Traits.contains(.boldFontMask))
-        #expect(tk2Traits.contains(.boldFontMask))
+        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
     }
 
     @Test("Bold markers — both stacks ghost the ** delimiters")
@@ -299,6 +359,88 @@ struct ParagraphTests {
         #expect((tk2Font?.pointSize ?? 0) > 15)
     }
 
+    @Test("H1 heading in notes uses RetroGaming display font in both stacks")
+    func h1UsesDisplayFont() {
+        let md = "# Big Heading"
+        let tk1 = ParityHelpers.tk1Styled(md, theme: .magnolia)
+        let tk2 = ParityHelpers.tk2Styled(md, theme: .magnolia)
+
+        let tk1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
+
+        let expectedColor = NSColor(EpistemosTheme.magnolia.fontAccent)
+        let tk1Color = tk1.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+        let tk2Color = tk2.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+        #expect(ParityHelpers.colorsMatch(tk1Color, expectedColor))
+        #expect(ParityHelpers.colorsMatch(tk2Color, expectedColor))
+    }
+
+    @MainActor
+    @Test("TK2 display H1 matches the legacy note heading size")
+    func tk2DisplayH1MatchesLegacySize() {
+        let markdown = "# Big Heading"
+        let tk1 = ParityHelpers.tk1Styled(markdown)
+        let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
+        let tk2 = try! #require(paragraphs.first)
+
+        let tk1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        #expect(tk1Font?.pointSize == tk2Font?.pointSize)
+    }
+
+    @MainActor
+    @Test("TK2 display headings are uppercase while note storage text stays unchanged")
+    func tk2DisplayHeadingsUppercase() {
+        let markdown = "# Big Heading\n## Sub Heading\n### Third Level"
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        textView.textStorage?.setAttributedString(NSAttributedString(string: markdown))
+        textView.reparseAndInvalidate()
+
+        #expect(textView.string == markdown)
+
+        let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
+        #expect(paragraphs.count >= 3)
+        #expect(paragraphs[0].string == "# BIG HEADING\n")
+        #expect(paragraphs[1].string == "## SUB HEADING\n")
+        #expect(paragraphs[2].string == "### THIRD LEVEL")
+    }
+
+    @Test("TK2 structural styling indents body content while H1 stays flush")
+    func tk2IndentMatchesNoteColumn() {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+
+        let heading = NSMutableAttributedString(string: "# Title")
+        storage.applyStructuralStyleForTest(
+            to: heading,
+            range: NSRange(location: 0, length: heading.length),
+            paraType: 1,
+            metadata: 1
+        )
+
+        let body = NSMutableAttributedString(string: "Body text")
+        storage.applyStructuralStyleForTest(
+            to: body,
+            range: NSRange(location: 0, length: body.length),
+            paraType: 0,
+            metadata: 0
+        )
+
+        let headingStyle = try! #require(
+            heading.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        )
+        let bodyStyle = try! #require(
+            body.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        )
+
+        #expect(headingStyle.firstLineHeadIndent == 0)
+        #expect(headingStyle.headIndent == 0)
+        #expect(bodyStyle.firstLineHeadIndent == MarkdownTextStorage.bodyIndent)
+        #expect(bodyStyle.headIndent == MarkdownTextStorage.bodyIndent)
+    }
+
     // MARK: - H2
 
     @Test("H2 heading — both stacks preserve text and apply font larger than body")
@@ -313,6 +455,21 @@ struct ParagraphTests {
         let tk2Font = tk2.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
         #expect((tk1Font?.pointSize ?? 0) > 15)
         #expect((tk2Font?.pointSize ?? 0) > 15)
+    }
+
+    @MainActor
+    @Test("TK2 display heading scale uses enlarged H2 and H3 sizes")
+    func tk2DisplayHeadingScale() {
+        let paragraphs = ParityHelpers.tk2DisplayParagraphs("# Title\n## Sub Heading\n### Third Level")
+        #expect(paragraphs.count >= 3)
+
+        let h1Font = paragraphs[0].attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        let h2Font = paragraphs[1].attribute(.font, at: 3, effectiveRange: nil) as? NSFont
+        let h3Font = paragraphs[2].attribute(.font, at: 4, effectiveRange: nil) as? NSFont
+
+        #expect(h1Font?.pointSize == 46)
+        #expect(h2Font?.pointSize == 24)
+        #expect(h3Font?.pointSize == 20)
     }
 
     // MARK: - Blockquote

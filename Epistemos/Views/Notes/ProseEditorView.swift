@@ -74,7 +74,7 @@ struct ProseEditorView: View {
                     pageId: page.id,
                     pageBody: bodyText,
                     isFocused: isFocused,
-                    isDark: ui.theme.isDark,
+                    theme: ui.theme,
                     isEditable: isEditable,
                     isFocusMode: notesUI.isFocusMode,
                     modelContext: modelContext,

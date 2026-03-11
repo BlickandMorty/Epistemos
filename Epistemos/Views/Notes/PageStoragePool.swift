@@ -21,7 +21,7 @@ final class PageStoragePool {
         let undoManager: UndoManager
         var scrollY: CGFloat
         var selectionRange: NSRange
-        var isDark: Bool
+        var theme: EpistemosTheme
         var lastAccessedAt: Date
     }
 
@@ -40,14 +40,17 @@ final class PageStoragePool {
     func getOrCreate(
         pageId: String,
         bodyText: String,
-        isDark: Bool
+        theme: EpistemosTheme
     ) -> PageSlot {
         if var existing = slots[pageId] {
-            // Invalidate if theme changed since last access
-            if existing.isDark != isDark {
-                slots.removeValue(forKey: pageId)
-                // Fall through to create new
-            } else if existing.storage.string != bodyText {
+            let contentChanged = existing.storage.string != bodyText
+            let themeChanged = existing.theme != theme
+            if themeChanged {
+                existing.storage.isDark = theme.isDark
+                existing.storage.theme = theme
+                existing.theme = theme
+            }
+            if contentChanged {
                 // Content differs — update storage in-place so pre-styled
                 // line-level attributes (headings, lists) are preserved.
                 let oldLen = existing.storage.length
@@ -61,20 +64,21 @@ final class PageStoragePool {
                 Self.chunkedInlineStyle(
                     storage: existing.storage, offset: 0, totalLength: existing.storage.length
                 )
-                existing.lastAccessedAt = .now
-                slots[pageId] = existing
-                log.info("PageStoragePool: updated slot for \(pageId.prefix(8)) (\(oldLen) → \(existing.storage.length) chars)")
-                return existing
-            } else {
-                existing.lastAccessedAt = .now
-                slots[pageId] = existing
-                return existing
+            } else if themeChanged {
+                existing.storage.reapplyAllStyles()
             }
+            existing.lastAccessedAt = .now
+            slots[pageId] = existing
+            if contentChanged {
+                log.info("PageStoragePool: updated slot for \(pageId.prefix(8)) (\(bodyText.count) chars)")
+            }
+            return existing
         }
 
         // Create fresh storage
         let storage = MarkdownTextStorage()
-        storage.isDark = isDark
+        storage.isDark = theme.isDark
+        storage.theme = theme
 
         // Progressive styling: line-level first, inline deferred
         storage.skipInlineStyles = true
@@ -106,7 +110,7 @@ final class PageStoragePool {
             undoManager: UndoManager(),
             scrollY: scrollY,
             selectionRange: selection,
-            isDark: isDark,
+            theme: theme,
             lastAccessedAt: .now
         )
         slots[pageId] = slot
@@ -168,7 +172,7 @@ final class PageStoragePool {
     /// are skipped — a 435K char page was being pre-warmed which is wasteful.
     private static let maxPreWarmBodySize = 50_000
 
-    func preWarm(pages: [(id: String, body: String)], isDark: Bool) {
+    func preWarm(pages: [(id: String, body: String)], theme: EpistemosTheme) {
         // Filter to pages not already in the pool and skip oversized pages
         let uncached = pages.filter { slots[$0.id] == nil && $0.body.count <= Self.maxPreWarmBodySize }
         guard !uncached.isEmpty else { return }
@@ -180,15 +184,15 @@ final class PageStoragePool {
             // Stagger across frames — one page per dispatch to avoid blocking
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.016) { [weak self] in
                 guard let self, self.slots[page.id] == nil else { return }
-                _ = self.getOrCreate(pageId: page.id, bodyText: page.body, isDark: isDark)
+                _ = self.getOrCreate(pageId: page.id, bodyText: page.body, theme: theme)
             }
         }
     }
 
     /// Pre-warms the N most recently updated pages. Called once at app launch.
-    func preWarmRecent(pages: [(id: String, body: String)], isDark: Bool) {
+    func preWarmRecent(pages: [(id: String, body: String)], theme: EpistemosTheme) {
         let capped = Array(pages.prefix(Self.maxPreWarmOnLaunch))
-        preWarm(pages: capped, isDark: isDark)
+        preWarm(pages: capped, theme: theme)
     }
 
     // MARK: - Removal

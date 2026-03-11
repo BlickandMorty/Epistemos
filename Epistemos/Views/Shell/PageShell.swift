@@ -31,9 +31,11 @@ struct PageShell<Content: View>: View {
                         .foregroundStyle(theme.accent)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(title)
-                            .font(.epTitle)
-                            .foregroundStyle(theme.foreground)
+                        TypewriterHeading(
+                            text: title,
+                            role: .pageTitle,
+                            color: theme.fontAccent
+                        )
 
                         if let subtitle {
                             Text(subtitle)
@@ -54,6 +56,120 @@ struct PageShell<Content: View>: View {
     }
 }
 
+struct TypewriterHeading: View {
+    let text: String
+    let role: AppHeadingRole
+    let color: Color
+    var animateOnAppear: Bool? = nil
+    var animationKey: String? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var displayText = ""
+    @State private var cursorVisible = false
+    @State private var animationRun = 0
+
+    private var taskID: String {
+        "\(animationKey ?? text)|\(reduceMotion)|\(animationRun)"
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 2) {
+            Text(displayText)
+                .font(role.font)
+                .foregroundStyle(color)
+
+            if cursorVisible {
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(color.opacity(0.85))
+                    .frame(width: 3, height: max(12, role.fontSize * 0.82))
+                    .transition(.opacity)
+            }
+        }
+        .onAppear {
+            animationRun += 1
+        }
+        .onChange(of: text) { _, newText in
+            guard animationKey != nil else { return }
+            displayText = newText
+        }
+        .task(id: taskID) {
+            await animateIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func animateIfNeeded() async {
+        let shouldAnimate = animateOnAppear ?? role.animatesOnFirstAppearance
+        guard shouldAnimate, !reduceMotion else {
+            displayText = text
+            cursorVisible = false
+            return
+        }
+
+        displayText = ""
+        cursorVisible = true
+        try? await Task.sleep(for: .milliseconds(50))
+
+        for character in text {
+            guard !Task.isCancelled else { return }
+            displayText.append(character)
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+
+        guard !Task.isCancelled else { return }
+        try? await Task.sleep(for: .milliseconds(500))
+        cursorVisible = false
+    }
+}
+
+struct AccentTitleBar: View {
+    let title: String
+    let icon: String?
+    var role: AppHeadingRole = .pageTitle
+    var animateOnAppear = true
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: role == .pageTitle ? 16 : 14, weight: .medium))
+                    .foregroundStyle(theme.fontAccent.opacity(0.88))
+            }
+
+            TypewriterHeading(
+                text: title,
+                role: role,
+                color: theme.fontAccent,
+                animateOnAppear: animateOnAppear
+            )
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+        .background(
+            LinearGradient(
+                colors: [
+                    theme.fontAccent.opacity(theme.isDark ? 0.20 : 0.14),
+                    theme.fontAccent.opacity(theme.isDark ? 0.08 : 0.05),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(theme.fontAccent.opacity(theme.isDark ? 0.30 : 0.24))
+                .frame(height: 1)
+        }
+    }
+}
+
 // MARK: - Glass Section
 // Titled section with glass background. Used across Analytics, Research, Library.
 
@@ -67,10 +183,10 @@ struct GlassSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(theme.mutedForeground)
+                .font(AppHeadingRole.section.font)
+                .foregroundStyle(theme.fontAccent)
                 .textCase(.uppercase)
-                .tracking(0.6)
+                .tracking(AppHeadingRole.section.tracking)
 
             content
         }

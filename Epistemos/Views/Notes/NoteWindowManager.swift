@@ -11,11 +11,32 @@ import os
 // Manages note editor windows as a native macOS tab group.
 // Every note opens as a tab using NoteTabShell (navigation) + NoteDetailWorkspaceView (editor).
 // Single entry point: open(pageId:) — fetches page, highlights sidebar, opens tab.
+// Uses themed glass toolbar (ToolbarGlass.swift) for frosted glass effect with theme tinting.
 
 /// A single item in the wikilink navigation breadcrumb trail.
 struct BreadcrumbItem: Identifiable {
     let id: String  // pageId
     var title: String
+}
+
+enum NoteTitleDisplay {
+    static func resolvedTitle(_ title: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+}
+
+@MainActor
+enum NoteWindowChrome {
+    static func apply(to window: NSWindow, toolbarIdentifier: String) {
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        let toolbar = window.toolbar ?? NSToolbar(identifier: toolbarIdentifier)
+        toolbar.showsBaselineSeparator = false
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
+    }
 }
 
 // MARK: - NoteNavigationState
@@ -205,7 +226,7 @@ final class NoteWindowManager {
             return
         }
 
-        let pageTitle = page.title.isEmpty ? "Untitled" : page.title
+        let pageTitle = NoteTitleDisplay.resolvedTitle(page.title)
 
         let window = NSWindow(
             contentRect: NSRect(
@@ -219,8 +240,6 @@ final class NoteWindowManager {
             defer: false
         )
         window.title = pageTitle
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = Self.noteMinimumFrameSize
@@ -230,8 +249,6 @@ final class NoteWindowManager {
         window.tabbingMode = .preferred
         window.tabbingIdentifier = "epistemos-note-tabs"
         window.delegate = tabDelegate
-        window.toolbar = NSToolbar(identifier: "NoteEditor-\(page.id)")
-        window.toolbarStyle = .unified
 
         let editorView = NoteTabShell(pageId: page.id, pageTitle: pageTitle)
             .withAppEnvironment(bootstrap)
@@ -239,6 +256,8 @@ final class NoteWindowManager {
         let hostingController = NSHostingController(rootView: editorView)
         hostingController.sceneBridgingOptions = [.all]
         window.contentViewController = hostingController
+        
+        NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
 
         let theme = bootstrap.uiState.theme
         window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
@@ -337,19 +356,18 @@ final class NoteWindowManager {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
-        let windowTitle = title.isEmpty ? "Untitled" : title
+        let windowTitle = NoteTitleDisplay.resolvedTitle(title)
         window.title = "\(windowTitle) — \(dateStr)"
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
         window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)
-
+        
+        NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
         let theme = bootstrap.uiState.theme
         window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
         window.backgroundColor = theme.nsBackground
@@ -446,7 +464,7 @@ private struct NoteTabShell: View {
                 )
                 if let page = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(desc).first
                 {
-                    window.title = page.title.isEmpty ? "Untitled" : page.title
+                    window.title = NoteTitleDisplay.resolvedTitle(page.title)
                 }
             }
             AppBootstrap.shared?.notesUI.openPage(newPageId)

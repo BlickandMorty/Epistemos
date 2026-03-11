@@ -86,6 +86,7 @@
 		4B547DF6F02B57485AE9BE59 /* NoteEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B18CC16F40A0517CFE19082 /* NoteEntity.swift */; };
 		4B8BB7B145E90FBE379CD619 /* PipelineProgressPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41E0418B49EC6B5741FE8DE8 /* PipelineProgressPopover.swift */; };
 		4DD31A1E409EFB92392BC50F /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED8EB883CA519394AC49A9DB /* GlassModifiers.swift */; };
+		98995751F2464ACE84A0CC2E /* ToolbarGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA758680BC6142E1A1841F4D /* ToolbarGlass.swift */; };
 		4E53BCE586C3B12ABAFF9EA5 /* HologramSearchSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCC166E44353FD62C8CC98C4 /* HologramSearchSidebar.swift */; };
 		4F29DE7F8D3D6F4416BD2A31 /* LineDiffTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 867AD4732275B3BB472FB1A3 /* LineDiffTests.swift */; };
 		4F43C84E0CCF87BCBE4E94DF /* SOARTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7400E696A0043AC669C74D8A /* SOARTests.swift */; };
@@ -233,11 +234,8 @@
 		DD2E6F70829304B5CD1E2F30 /* EmbeddingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1E5F60718293A4BC0D1E2F /* EmbeddingService.swift */; };
 		DEEA0FE3C9E4934D46173D24 /* SpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7C2939147CC8D7AA0B0C1F /* SpotlightIndexer.swift */; };
 		DF71D454567820AD17BB5E5B /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD9F8FAF8C937C445D7C2152 /* Keychain.swift */; };
-		DOCER000000000000000001 /* DocumentEditorRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCER000000000000000002 /* DocumentEditorRepresentable.swift */; };
-		DOCFB000000000000000001 /* DocumentFormatBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCFB000000000000000002 /* DocumentFormatBar.swift */; };
 		DOCIE000000000000000001 /* DocumentImportExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCIE000000000000000002 /* DocumentImportExport.swift */; };
 		DOCMOD00000000000000002 /* DocumentModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCMOD00000000000000001 /* DocumentModeTests.swift */; };
-		DOCTV000000000000000001 /* DocumentTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DOCTV000000000000000002 /* DocumentTextView.swift */; };
 		E03E8477BE5D37BBAE944FAC /* AppBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB5E38C97E34992A850B56C /* AppBootstrap.swift */; };
 		E16E0654FCDC29BAFDEEE708 /* NavigationIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B39B3AA6F3003107096F4E6C /* NavigationIntents.swift */; };
 		E1AA6C3399E169EF56475AAB /* GraphModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8222061E754EB69684B019E8 /* GraphModelTests.swift */; };
@@ -508,11 +506,8 @@
 		DD1E5F60718293A4BC0D1E2F /* EmbeddingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingService.swift; sourceTree = "<group>"; };
 		DECB8EC602A265B661A663E1 /* EpistemosSchema.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EpistemosSchema.swift; sourceTree = "<group>"; };
 		DFC91FBEA74E7DC016F2D66B /* StructuralGraphBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructuralGraphBuilderTests.swift; sourceTree = "<group>"; };
-		DOCER000000000000000002 /* DocumentEditorRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentEditorRepresentable.swift; sourceTree = "<group>"; };
-		DOCFB000000000000000002 /* DocumentFormatBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentFormatBar.swift; sourceTree = "<group>"; };
 		DOCIE000000000000000002 /* DocumentImportExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentImportExport.swift; sourceTree = "<group>"; };
 		DOCMOD00000000000000001 /* DocumentModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentModeTests.swift; sourceTree = "<group>"; };
-		DOCTV000000000000000002 /* DocumentTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentTextView.swift; sourceTree = "<group>"; };
 		E3260DBD123A55AE26999EC3 /* PromptComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptComposer.swift; sourceTree = "<group>"; };
 		E3260DBE123A55AF26999EC4 /* PromptComposer+Consolidated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PromptComposer+Consolidated.swift"; sourceTree = "<group>"; };
 		E64D10826C3EEBEEF05EF56B /* MarkdownTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTextView.swift; sourceTree = "<group>"; };
@@ -521,6 +516,7 @@
 		EAE49C9D831DD01285BBB974 /* FFISafetyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FFISafetyTests.swift; sourceTree = "<group>"; };
 		EBD84760F9ECD2E997B4FAAD /* SDPage+Queries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SDPage+Queries.swift"; sourceTree = "<group>"; };
 		ED8EB883CA519394AC49A9DB /* GlassModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassModifiers.swift; sourceTree = "<group>"; };
+		CA758680BC6142E1A1841F4D /* ToolbarGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarGlass.swift; sourceTree = "<group>"; };
 		EFA2B6DA618AC656F9587C8C /* SearchPerformanceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchPerformanceTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30001 /* CollectionRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionRegistryTests.swift; sourceTree = "<group>"; };
 		F101A3F40D1E4A21B2C30002 /* MappedNoteBodyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MappedNoteBodyTests.swift; sourceTree = "<group>"; };
@@ -934,6 +930,7 @@
 				26CF41AB894F163E4CA4A064 /* EpistemosFont.swift */,
 				5880D446901522D47FA88B2C /* EpistemosTheme.swift */,
 				ED8EB883CA519394AC49A9DB /* GlassModifiers.swift */,
+				CA758680BC6142E1A1841F4D /* ToolbarGlass.swift */,
 				2AF572694A5CFADE574D4F2B /* NativeButtonStyles.swift */,
 				A1B2C3D4E5F6PHYSMOD01 /* PhysicsModifiers.swift */,
 			);
@@ -1021,9 +1018,6 @@
 		DOCGRP000000000000000001 /* Document */ = {
 			isa = PBXGroup;
 			children = (
-				DOCTV000000000000000002 /* DocumentTextView.swift */,
-				DOCER000000000000000002 /* DocumentEditorRepresentable.swift */,
-				DOCFB000000000000000002 /* DocumentFormatBar.swift */,
 				DOCIE000000000000000002 /* DocumentImportExport.swift */,
 			);
 			path = Document;
@@ -1312,6 +1306,7 @@
 				B4C3794F9AE4C4827F2CA192 /* Extensions.swift in Sources */,
 				07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */,
 				4DD31A1E409EFB92392BC50F /* GlassModifiers.swift in Sources */,
+				98995751F2464ACE84A0CC2E /* ToolbarGlass.swift in Sources */,
 				FC9BDD9CB6B68E2D12ABCB7C /* InferenceState.swift in Sources */,
 				B6CD5A5B77290070D8B396A8 /* JournalIntents.swift in Sources */,
 				DF71D454567820AD17BB5E5B /* Keychain.swift in Sources */,
@@ -1451,9 +1446,6 @@
 				A1B2C3D4E5F60001NCSBLD01 /* NoteChatSidebar.swift in Sources */,
 				733979844FBEEC29CDF209A7 /* SDNoteInsight.swift in Sources */,
 				720A6BE44672A02E5A4A7611 /* NoteInsightService.swift in Sources */,
-				DOCTV000000000000000001 /* DocumentTextView.swift in Sources */,
-				DOCER000000000000000001 /* DocumentEditorRepresentable.swift in Sources */,
-				DOCFB000000000000000001 /* DocumentFormatBar.swift in Sources */,
 				DOCIE000000000000000001 /* DocumentImportExport.swift in Sources */,
 				MDCMD000000000000000001 /* MarkdownEditorCommands.swift in Sources */,
 				WRTBRG00000000000000001 /* WritingToolsBridge.swift in Sources */,

@@ -51,6 +51,22 @@ struct ThemePairTests {
         #expect(uiState.activePair == .magnolia)
     }
 
+    @Test("Magnolia uses a rose display accent for app titles and headings")
+    func magnoliaUsesRoseDisplayAccent() {
+        #expect(EpistemosTheme.magnolia.headingAccentHex == 0xB86F8D)
+    }
+
+    @Test("App heading roles use the shared RetroGaming display scale")
+    func appHeadingRolesUseSharedDisplayScale() {
+        #expect(AppHeadingRole.pageTitle.fontName == "RetroGaming")
+        #expect(AppHeadingRole.pageTitle.fontSize == 28)
+        #expect(AppHeadingRole.pageTitle.animatesOnFirstAppearance)
+        #expect(AppHeadingRole.h1.fontSize == 26)
+        #expect(AppHeadingRole.h2.fontSize == 20)
+        #expect(AppHeadingRole.h3.fontSize == 16)
+        #expect(AppHeadingRole.section.fontSize == 12)
+    }
+
     @Test("Icon composer package carries dark and tinted variants")
     func iconComposerSupportsDarkAndTinted() throws {
         let json = try loadIconComposerJSON()

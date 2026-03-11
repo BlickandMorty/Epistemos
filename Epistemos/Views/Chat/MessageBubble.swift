@@ -237,8 +237,8 @@ struct MessageBubble: View {
             // Response heading — auto-extracted topic
             if let heading = extractHeading(from: message.content) {
                 Text(heading)
-                    .font(.epBodyMedium)
-                    .foregroundStyle(theme.foreground)
+                    .font(AppHeadingRole.h2.font)
+                    .foregroundStyle(theme.fontAccent)
             }
 
             // Answer text — rendered instantly because streaming already provided
@@ -323,8 +323,8 @@ struct MessageBubble: View {
             // Response heading — auto-extracted topic
             if let heading = extractHeading(from: message.content) {
                 Text(heading)
-                    .font(.epBodyMedium)
-                    .foregroundStyle(theme.foreground)
+                    .font(AppHeadingRole.h2.font)
+                    .foregroundStyle(theme.fontAccent)
             }
 
             // Response content — regular mode display.

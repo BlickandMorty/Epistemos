@@ -220,15 +220,16 @@ struct NotesSidebar: View {
         var ideaItems: [SidebarIdeaItem] = []
         for page in allPages {
             for idea in page.ideas {
-                ideaItems.append(SidebarIdeaItem(
-                    id: idea.id,
-                    title: idea.title,
-                    type: idea.type,
-                    pageId: page.id,
-                    pageTitle: page.title,
-                    pageEmoji: page.emoji,
-                    createdAt: idea.createdAt
-                ))
+                ideaItems.append(
+                    SidebarIdeaItem(
+                        id: idea.id,
+                        title: idea.title,
+                        type: idea.type,
+                        pageId: page.id,
+                        pageTitle: page.title,
+                        pageEmoji: page.emoji,
+                        createdAt: idea.createdAt
+                    ))
             }
         }
         cachedIdeaItems = ideaItems.sorted { $0.createdAt > $1.createdAt }
@@ -257,11 +258,29 @@ struct NotesSidebar: View {
         let onAct: (SidebarAction) -> Void = { handleAction($0) }
 
         VStack(spacing: 0) {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "book.pages")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(theme.fontAccent.opacity(0.88))
+                TypewriterHeading(
+                    text: "Notes",
+                    role: .pageTitle,
+                    color: theme.fontAccent,
+                    animateOnAppear: true
+                )
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 38)
+            .padding(.bottom, 6)
+            .background(theme.background)
+            .ignoresSafeArea(.container, edges: .top)
             searchBar
             fileTree(folderItemById: fById, onAction: onAct)
             Divider().opacity(0.2)
             bottomBar
         }
+        .background(theme.background)
         .onAppear {
             rebuildCache()
             preWarmRecentPages()
@@ -342,7 +361,7 @@ struct NotesSidebar: View {
                 )
         )
         .padding(.horizontal, 12)
-        .padding(.top, 8)
+        .padding(.top, 6)
         .padding(.bottom, 4)
     }
 
@@ -379,7 +398,8 @@ struct NotesSidebar: View {
         if let url = vaultSync.vaultURL {
             VaultHeader(
                 name: url.lastPathComponent,
-                hasExpandedFolders: !notesUI.expandedFolderIds.isEmpty || notesUI.isJournalExpanded || notesUI.isIdeasExpanded,
+                hasExpandedFolders: !notesUI.expandedFolderIds.isEmpty || notesUI.isJournalExpanded
+                    || notesUI.isIdeasExpanded,
                 onAction: onAction
             )
         }
@@ -432,10 +452,10 @@ struct NotesSidebar: View {
         VStack(alignment: .leading, spacing: 0) {
             if !loose.isEmpty || !folders.isEmpty {
                 Text("Files")
-                    .font(.epSmall).fontWeight(.semibold)
-                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
+                    .font(AppHeadingRole.section.font)
+                    .foregroundStyle(theme.fontAccent)
                     .textCase(.uppercase)
-                    .tracking(0.6)
+                    .tracking(AppHeadingRole.section.tracking)
                     .padding(.horizontal, 14)
                     .padding(.top, folders.isEmpty && journals.isEmpty ? 6 : 12)
                     .padding(.bottom, 2)
@@ -620,7 +640,7 @@ struct NotesSidebar: View {
     /// These are the notes the user is most likely to revisit.
     /// Body reads happen on VaultIndexActor (background) to avoid blocking MainActor.
     private func preWarmRecentPages() {
-        let isDark = ui.theme.isDark
+        let theme = ui.theme
         Task {
             // Step 1: fetch IDs only on main thread (no .body access = no disk I/O)
             var desc = FetchDescriptor<SDPage>(
@@ -630,7 +650,9 @@ struct NotesSidebar: View {
             guard let recentPages = try? modelContext.fetch(desc), !recentPages.isEmpty else {
                 return
             }
-            let ids = recentPages.map(\.id).filter { PageStoragePool.shared.bodyText(for: $0) == nil }
+            let ids = recentPages.map(\.id).filter {
+                PageStoragePool.shared.bodyText(for: $0) == nil
+            }
             guard !ids.isEmpty else { return }
 
             // Step 2: read bodies on background actor (off MainActor)
@@ -639,7 +661,7 @@ struct NotesSidebar: View {
 
             // Step 3: feed to pool on MainActor
             let pages = noteBodies.map { (id: $0.pageId, body: $0.body) }
-            PageStoragePool.shared.preWarmRecent(pages: pages, isDark: isDark)
+            PageStoragePool.shared.preWarmRecent(pages: pages, theme: theme)
         }
     }
 
@@ -658,8 +680,10 @@ struct NotesSidebar: View {
         }
         guard !pageIds.isEmpty else { return }
 
-        let isDark = ui.theme.isDark
-        let idArray = Array(pageIds.prefix(6)).filter { PageStoragePool.shared.bodyText(for: $0) == nil }
+        let theme = ui.theme
+        let idArray = Array(pageIds.prefix(6)).filter {
+            PageStoragePool.shared.bodyText(for: $0) == nil
+        }
         guard !idArray.isEmpty else { return }
         Task {
             // Read bodies on background actor (off MainActor)
@@ -667,7 +691,7 @@ struct NotesSidebar: View {
             guard !noteBodies.isEmpty else { return }
 
             let pages = noteBodies.map { (id: $0.pageId, body: $0.body) }
-            PageStoragePool.shared.preWarm(pages: pages, isDark: isDark)
+            PageStoragePool.shared.preWarm(pages: pages, theme: theme)
         }
     }
 
@@ -822,11 +846,15 @@ struct NotesSidebar: View {
 
         case .summarize(let id, let title):
             chatState.loadedNoteIds.insert(id)
-            chatState.submitQuery("Summarize @[\(title)] — give me a concise overview of the key points, themes, and structure.")
+            chatState.submitQuery(
+                "Summarize @[\(title)] — give me a concise overview of the key points, themes, and structure."
+            )
 
         case .deepDive(let id, let title):
             chatState.loadedNoteIds.insert(id)
-            chatState.submitQuery("Deep dive into @[\(title)] — perform a thorough analysis: identify the core arguments, evaluate the evidence, surface contradictions or gaps, and suggest areas for further exploration.")
+            chatState.submitQuery(
+                "Deep dive into @[\(title)] — perform a thorough analysis: identify the core arguments, evaluate the evidence, surface contradictions or gaps, and suggest areas for further exploration."
+            )
 
         case .openInGraph(let id):
             HologramController.shared.revealPage(id)
@@ -872,7 +900,8 @@ struct NotesSidebar: View {
             SpotlightIndexer.deindex(page.id)
             // Clean up orphaned SDNoteInsight before deleting the page
             let pageId = page.id
-            let insightDesc = FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == pageId })
+            let insightDesc = FetchDescriptor<SDNoteInsight>(
+                predicate: #Predicate { $0.pageId == pageId })
             if let insight = try? modelContext.fetch(insightDesc).first {
                 modelContext.delete(insight)
             }
@@ -993,10 +1022,10 @@ private struct VaultHeader: View {
                 .font(.epSmall)
                 .foregroundStyle(theme.accent.opacity(0.7))
             Text(name)
-                .font(.epSmall).fontWeight(.semibold)
-                .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                .font(AppHeadingRole.section.font)
+                .foregroundStyle(theme.fontAccent.opacity(0.78))
                 .textCase(.uppercase)
-                .tracking(0.4)
+                .tracking(AppHeadingRole.section.tracking)
                 .lineLimit(1)
             Spacer()
             if hasExpandedFolders {
@@ -1375,7 +1404,9 @@ private struct IdeaRow: View {
                         .foregroundStyle(theme.foreground.opacity(0.8))
                         .lineLimit(1)
 
-                    let source = item.pageEmoji.isEmpty ? item.pageTitle : "\(item.pageEmoji) \(item.pageTitle)"
+                    let source =
+                        item.pageEmoji.isEmpty
+                        ? item.pageTitle : "\(item.pageEmoji) \(item.pageTitle)"
                     Text(source)
                         .font(.system(size: 10))
                         .foregroundStyle(theme.textTertiary)
@@ -1545,9 +1576,12 @@ private struct SearchResultRow: View {
                         Text(item.emoji)
                             .font(.epSmall)
                     } else {
-                        Image(systemName: item.matchCategory == "Block Match" ? "cube.transparent" : "doc.text")
-                            .font(.epSmall)
-                            .foregroundStyle(theme.accent.opacity(0.6))
+                        Image(
+                            systemName: item.matchCategory == "Block Match"
+                                ? "cube.transparent" : "doc.text"
+                        )
+                        .font(.epSmall)
+                        .foregroundStyle(theme.accent.opacity(0.6))
                     }
                     Text(item.title.isEmpty ? "Untitled" : item.title)
                         .font(.epBody).fontWeight(.medium)
@@ -1560,7 +1594,9 @@ private struct SearchResultRow: View {
                             .foregroundStyle(theme.textTertiary.opacity(0.6))
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
-                            .background(theme.muted.opacity(0.5), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+                            .background(
+                                theme.muted.opacity(0.5),
+                                in: RoundedRectangle(cornerRadius: 3, style: .continuous))
                     }
                 }
                 if let snippet = item.snippet {

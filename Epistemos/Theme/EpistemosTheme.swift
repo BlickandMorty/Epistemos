@@ -51,18 +51,20 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    var foreground: Color {
+    nonisolated var foregroundHex: UInt32 {
         switch self {
-        case .light:  Color(hex: 0x1C1C1E)
-        case .sunny:  Color(hex: 0x233040)
-        case .tan:    Color(hex: 0x362816)
-        case .magnolia: Color(hex: 0x342E35)
-        case .sunset: Color(hex: 0xE8E0D8)
-        case .oled:   Color(hex: 0xDADADE)
-        case .ember:  Color(hex: 0xE0D4C8)
-        case .nocturne: Color(hex: 0xE7DEE8)
+        case .light:  0x1C1C1E
+        case .sunny:  0x233040
+        case .tan:    0x362816
+        case .magnolia: 0x342E35
+        case .sunset: 0xE8E0D8
+        case .oled:   0xDADADE
+        case .ember:  0xE0D4C8
+        case .nocturne: 0xE7DEE8
         }
     }
+
+    var foreground: Color { Color(hex: foregroundHex) }
 
     var accent: Color {
         switch self {
@@ -77,17 +79,21 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    var fontAccent: Color {
+    nonisolated var headingAccentHex: UInt32 {
         switch self {
-        case .light:  Color(hex: 0x1A1A1A)
-        case .sunny:  Color(hex: 0xD4A843)
-        case .tan:    Color(hex: 0x6B3E1C)
-        case .magnolia: Color(hex: 0x6E7E97)
-        case .sunset: Color(hex: 0xF5B84A)
-        case .oled:   Color(hex: 0xFFFFFF)
-        case .ember:  Color(hex: 0xE8A040)
-        case .nocturne: Color(hex: 0xD7A7B6)
+        case .light:  0x1A1A1A
+        case .sunny:  0xD4A843
+        case .tan:    0x6B3E1C
+        case .magnolia: 0xB86F8D
+        case .sunset: 0xF5B84A
+        case .oled:   0xFFFFFF
+        case .ember:  0xE8A040
+        case .nocturne: 0xD7A7B6
         }
+    }
+
+    var fontAccent: Color {
+        Color(hex: headingAccentHex)
     }
 
     var uiAccent: Color {
@@ -118,18 +124,20 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    var mutedForeground: Color {
+    nonisolated var mutedForegroundHex: UInt32 {
         switch self {
-        case .light:  Color(hex: 0x4A4A4A)
-        case .sunny:  Color(hex: 0x5A7A94)
-        case .tan:    Color(hex: 0x9A7A5A)
-        case .magnolia: Color(hex: 0x7E737C)
-        case .sunset: Color(hex: 0xB09888)
-        case .oled:   Color(hex: 0x8A8A8A)
-        case .ember:  Color(hex: 0xA08060)
-        case .nocturne: Color(hex: 0xA89CA8)
+        case .light:  0x4A4A4A
+        case .sunny:  0x5A7A94
+        case .tan:    0x9A7A5A
+        case .magnolia: 0x7E737C
+        case .sunset: 0xB09888
+        case .oled:   0x8A8A8A
+        case .ember:  0xA08060
+        case .nocturne: 0xA89CA8
         }
     }
+
+    var mutedForeground: Color { Color(hex: mutedForegroundHex) }
 
     var border: Color {
         switch self {
@@ -513,6 +521,124 @@ enum Spacing {
 }
 
 // MARK: - Typography (7 tokens)
+
+enum AppHeadingRole: Sendable {
+    case pageTitle
+    case h1
+    case h2
+    case h3
+    case section
+
+    nonisolated var fontName: String { AppDisplayTypography.fontName }
+
+    var fontSize: CGFloat {
+        switch self {
+        case .pageTitle: 28
+        case .h1: 26
+        case .h2: 20
+        case .h3: 16
+        case .section: 12
+        }
+    }
+
+    var topPadding: CGFloat {
+        switch self {
+        case .pageTitle, .section: 0
+        case .h1: 16
+        case .h2: 12
+        case .h3: 8
+        }
+    }
+
+    var tracking: CGFloat {
+        switch self {
+        case .section: 0.8
+        default: 0
+        }
+    }
+
+    var animatesOnFirstAppearance: Bool {
+        switch self {
+        case .pageTitle: true
+        default: false
+        }
+    }
+
+    var font: Font { AppDisplayTypography.font(size: fontSize) }
+
+    nonisolated static func markdownRole(level: Int) -> AppHeadingRole? {
+        switch level {
+        case 1: .h1
+        case 2: .h2
+        case 3: .h3
+        default: nil
+        }
+    }
+}
+
+enum AppDisplayTypography: Sendable {
+    nonisolated static let fontName = "RetroGaming"
+
+    static func font(size: CGFloat) -> Font {
+        .custom(fontName, size: size)
+    }
+
+    nonisolated static func nsFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        NSFont(name: fontName, size: size)
+            ?? NSFont.systemFont(ofSize: size, weight: weight)
+    }
+}
+
+enum InlineMarkdownStyler {
+    private static let orphanBracketRegex = try! NSRegularExpression(
+        pattern: "\\[[A-Z][A-Z ]+\\](?!\\()"
+    )
+
+    static func cleanedText(_ text: String) -> String {
+        orphanBracketRegex.stringByReplacingMatches(
+            in: text,
+            range: NSRange(location: 0, length: (text as NSString).length),
+            withTemplate: ""
+        )
+    }
+
+    static func text(_ text: String, strongFontSize: CGFloat? = nil) -> Text {
+        if let attributed = attributedString(text, strongFontSize: strongFontSize) {
+            return Text(attributed)
+        }
+        return Text(cleanedText(text))
+    }
+
+    static func attributedString(_ text: String, strongFontSize: CGFloat? = nil) -> AttributedString? {
+        let cleaned = cleanedText(text)
+        guard var attributed = try? AttributedString(
+            markdown: cleaned,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) else {
+            return nil
+        }
+        guard let strongFontSize else { return attributed }
+        applyDisplayStrongEmphasis(to: &attributed, fontSize: strongFontSize)
+        return attributed
+    }
+
+    static func applyDisplayStrongEmphasis(to attributed: inout AttributedString, fontSize: CGFloat) {
+        let strongRuns = attributed.runs.compactMap { run -> (Range<AttributedString.Index>, InlinePresentationIntent)? in
+            guard let intent = run.inlinePresentationIntent, intent.contains(.stronglyEmphasized) else {
+                return nil
+            }
+            return (run.range, intent)
+        }
+
+        for (range, intent) in strongRuns {
+            var font = AppDisplayTypography.font(size: fontSize)
+            if intent.contains(.emphasized) {
+                font = font.italic()
+            }
+            attributed[range].font = font
+        }
+    }
+}
 
 extension Font {
     static let epTitle: Font = .system(size: 22, weight: .semibold, design: .default)

@@ -51,8 +51,10 @@ final class ProseTextView2: NSTextView {
 
         let bodyFont = NSFont(name: "New York", size: 15) ?? .systemFont(ofSize: 15)
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 4
-        paragraph.paragraphSpacing = 6
+        paragraph.lineSpacing = 5
+        paragraph.paragraphSpacing = 8
+        paragraph.firstLineHeadIndent = 0
+        paragraph.headIndent = 0
 
         defaultParagraphStyle = paragraph
         typingAttributes = [
@@ -96,38 +98,39 @@ final class ProseTextView2: NSTextView {
 
     private func invalidateParagraphLayout(line: Int?) {
         guard let line,
-              let contentStorage = textLayoutManager?.textContentManager
-                  as? NSTextContentStorage,
-              let lineRange = markdownDelegate.lineRange(at: line) else { return }
+            let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage,
+            let lineRange = markdownDelegate.lineRange(at: line)
+        else { return }
 
-        guard let startLoc = contentStorage.location(
-                  contentStorage.documentRange.location,
-                  offsetBy: lineRange.location
-              ),
-              let endLoc = contentStorage.location(
-                  startLoc,
-                  offsetBy: lineRange.length
-              ) else { return }
+        guard
+            let startLoc = contentStorage.location(
+                contentStorage.documentRange.location,
+                offsetBy: lineRange.location
+            ),
+            let endLoc = contentStorage.location(
+                startLoc,
+                offsetBy: lineRange.length
+            )
+        else { return }
 
         guard let textRange = NSTextRange(location: startLoc, end: endLoc) else { return }
         textLayoutManager?.invalidateLayout(for: textRange)
     }
 
-    // MARK: - Deferred Reflow (Pitfall #9 — ported from TK1)
-    // During live resize, freeze the text container width so the layout manager
-    // doesn't reflow O(document) on every frame. Reflow once on mouse-up.
-
-    override func viewWillStartLiveResize() {
-        super.viewWillStartLiveResize()
-        textContainer?.widthTracksTextView = false
-    }
+    // MARK: - Live Resize Centering (match TK1 behavior)
+    // TK1 keeps widthTracksTextView = true at all times, so text reflows live.
+    // We do the same here and recalculate centering insets when resize ends.
 
     override func viewDidEndLiveResize() {
         super.viewDidEndLiveResize()
-        textContainer?.widthTracksTextView = true
-        let newWidth = bounds.width - (textContainerInset.width * 2)
-        textContainer?.size = NSSize(width: max(newWidth, 0),
-                                     height: CGFloat.greatestFiniteMagnitude)
+        // Recalculate centering insets for the new width.
+        // The Coordinator2.updateCentering() call in updateNSView handles this,
+        // but we also post a notification so the coordinator picks it up promptly.
+        NotificationCenter.default.post(
+            name: NSView.frameDidChangeNotification,
+            object: enclosingScrollView
+        )
     }
 
     // MARK: - Pre-Edit Hook
@@ -140,7 +143,9 @@ final class ProseTextView2: NSTextView {
     /// Set by shouldChangeText (user edits) or setProgrammaticEditLocation (AI streaming).
     var lastEditLocation: Int?
 
-    override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
+    override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?)
+        -> Bool
+    {
         markdownDelegate.markDirty()
         lastEditLocation = affectedCharRange.location
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
@@ -163,8 +168,10 @@ final class ProseTextView2: NSTextView {
 
     /// Reparse structure, apply link attributes to storage, invalidate layout.
     func reparseAndInvalidate() {
-        guard let contentStorage = textLayoutManager?.textContentManager
-                as? NSTextContentStorage else { return }
+        guard
+            let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage
+        else { return }
 
         markdownDelegate.reparse(text: string)
         updateVisibleLineRange()
@@ -194,11 +201,14 @@ final class ProseTextView2: NSTextView {
         let scanRange: NSRange
         if let editLoc = lastEditLocation, editLoc < str.length {
             let paraRange = str.paragraphRange(for: NSRange(location: editLoc, length: 0))
-            let start = paraRange.location > 0
-                ? str.paragraphRange(for: NSRange(location: paraRange.location - 1, length: 0)).location
+            let start =
+                paraRange.location > 0
+                ? str.paragraphRange(for: NSRange(location: paraRange.location - 1, length: 0))
+                    .location
                 : 0
             let paraEnd = NSMaxRange(paraRange)
-            let end = paraEnd < str.length
+            let end =
+                paraEnd < str.length
                 ? NSMaxRange(str.paragraphRange(for: NSRange(location: paraEnd, length: 0)))
                 : str.length
             scanRange = NSRange(location: start, length: end - start)
@@ -210,7 +220,8 @@ final class ProseTextView2: NSTextView {
         // Clear old wikilink/blockref links in scan range
         storage.enumerateAttribute(.link, in: scanRange, options: []) { val, range, _ in
             guard let linkStr = val as? String,
-                  linkStr.hasPrefix("wikilink://") || linkStr.hasPrefix("blockref://") else { return }
+                linkStr.hasPrefix("wikilink://") || linkStr.hasPrefix("blockref://")
+            else { return }
             storage.removeAttribute(.link, range: range)
         }
 
@@ -220,7 +231,8 @@ final class ProseTextView2: NSTextView {
                 guard match.numberOfRanges >= 2 else { continue }
                 let innerRange = match.range(at: 1)
                 let title = str.substring(with: innerRange)
-                storage.addAttribute(.link, value: "wikilink://\(title)" as NSString, range: innerRange)
+                storage.addAttribute(
+                    .link, value: "wikilink://\(title)" as NSString, range: innerRange)
             }
         }
 
@@ -230,7 +242,8 @@ final class ProseTextView2: NSTextView {
                 guard match.numberOfRanges >= 2 else { continue }
                 let innerRange = match.range(at: 1)
                 let blockId = str.substring(with: innerRange)
-                storage.addAttribute(.link, value: "blockref://\(blockId)" as NSString, range: innerRange)
+                storage.addAttribute(
+                    .link, value: "blockref://\(blockId)" as NSString, range: innerRange)
             }
         }
     }
@@ -239,7 +252,8 @@ final class ProseTextView2: NSTextView {
 
     func updateVisibleLineRange() {
         guard let tlm = textLayoutManager,
-              let contentStorage = tlm.textContentManager as? NSTextContentStorage else { return }
+            let contentStorage = tlm.textContentManager as? NSTextContentStorage
+        else { return }
         let visibleRect = enclosingScrollView?.documentVisibleRect ?? bounds
 
         let startPoint = CGPoint(x: 0, y: max(visibleRect.minY - textContainerOrigin.y, 0))
@@ -250,13 +264,15 @@ final class ProseTextView2: NSTextView {
 
         if let startFrag = tlm.textLayoutFragment(for: startPoint) {
             let startRange = startFrag.rangeInElement
-            let offset = contentStorage.offset(from: tlm.documentRange.location, to: startRange.location)
+            let offset = contentStorage.offset(
+                from: tlm.documentRange.location, to: startRange.location)
             startLine = markdownDelegate.lineIndex(at: offset)
         }
 
         if let endFrag = tlm.textLayoutFragment(for: endPoint) {
             let endRange = endFrag.rangeInElement
-            let offset = contentStorage.offset(from: tlm.documentRange.location, to: endRange.location)
+            let offset = contentStorage.offset(
+                from: tlm.documentRange.location, to: endRange.location)
             endLine = markdownDelegate.lineIndex(at: offset)
         }
 
@@ -314,7 +330,8 @@ final class ProseTextView2: NSTextView {
         // creating separate slots for NSTextContentStorageDelegate (paragraph styling) and
         // NSTextContentManagerDelegate (shouldEnumerate for fold filtering).
         if let contentStorage = tv.textLayoutManager?.textContentManager
-            as? NSTextContentStorage {
+            as? NSTextContentStorage
+        {
             // 1. NSTextContentStorageDelegate — paragraph styling
             contentStorage.delegate = tv.markdownDelegate
             // 2. NSTextContentManagerDelegate — shouldEnumerate (fold hiding)
@@ -358,8 +375,8 @@ final class ProseTextView2: NSTextView {
         var columnXs: [CGFloat]
         var rowYs: [CGFloat]
         var headerBottomY: CGFloat?
-        var firstNSRange: NSRange   // first fragment's NSRange (for boundary check)
-        var lastNSRange: NSRange    // last fragment's NSRange (for boundary check)
+        var firstNSRange: NSRange  // first fragment's NSRange (for boundary check)
+        var lastNSRange: NSRange  // last fragment's NSRange (for boundary check)
     }
 
     /// Get paragraph text and NSRange for a layout fragment.
@@ -369,12 +386,16 @@ final class ProseTextView2: NSTextView {
         contentStorage: NSTextContentStorage
     ) -> (text: String, nsRange: NSRange)? {
         guard let textParagraph = fragment.textElement as? NSTextParagraph,
-              let elementRange = textParagraph.elementRange else { return nil }
+            let elementRange = textParagraph.elementRange
+        else { return nil }
         let docStart = contentStorage.documentRange.location
         let offset = contentStorage.offset(from: docStart, to: elementRange.location)
-        let length = contentStorage.offset(from: elementRange.location, to: elementRange.endLocation)
+        let length = contentStorage.offset(
+            from: elementRange.location, to: elementRange.endLocation)
         // Guard stale layout: fragment ranges can exceed storage after rapid edits.
-        guard offset >= 0, length >= 0, offset &+ length <= (string as NSString).length else { return nil }
+        guard offset >= 0, length >= 0, offset &+ length <= (string as NSString).length else {
+            return nil
+        }
         return (textParagraph.attributedString.string, NSRange(location: offset, length: length))
     }
 
@@ -397,7 +418,8 @@ final class ProseTextView2: NSTextView {
         // O(log n) lookup for the fragment at the top of the dirty rect
         let startLocation: NSTextLocation
         if let frag = tlm.textLayoutFragment(for: startPoint),
-           let elemRange = frag.textElement?.elementRange {
+            let elemRange = frag.textElement?.elementRange
+        {
             startLocation = elemRange.location
         } else {
             startLocation = tlm.documentRange.location
@@ -420,21 +442,28 @@ final class ProseTextView2: NSTextView {
     }
 
     private func drawCalloutBackgrounds(in dirtyRect: NSRect) {
-        guard let contentStorage = textLayoutManager?.textContentManager
-                as? NSTextContentStorage else { return }
+        guard
+            let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage
+        else { return }
         guard (string as NSString).length > 0 else { return }
 
         enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
-            guard let (_, nsRange) = self.paragraphInfo(
-                for: fragment, contentStorage: contentStorage
-            ) else { return true }
+            guard
+                let (_, nsRange) = self.paragraphInfo(
+                    for: fragment, contentStorage: contentStorage
+                )
+            else { return true }
 
             let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
             guard self.markdownDelegate.paragraphType(at: lineIdx) == 5 else { return true }
 
-            guard let metadata = self.markdownDelegate.paragraphMetadata(at: lineIdx) else { return true }
+            guard let metadata = self.markdownDelegate.paragraphMetadata(at: lineIdx) else {
+                return true
+            }
             let calloutTypeId = UInt8((metadata >> 8) & 0xFF)
-            guard let callout = self.markdownDelegate.theme.calloutColors(typeId: calloutTypeId) else {
+            guard let callout = self.markdownDelegate.theme.calloutColors(typeId: calloutTypeId)
+            else {
                 return true
             }
 
@@ -459,7 +488,9 @@ final class ProseTextView2: NSTextView {
             borderRect.fill()
 
             // Callout icon (SF Symbol in gutter, top-left of first line)
-            if let iconImage = NSImage(systemSymbolName: callout.icon, accessibilityDescription: nil) {
+            if let iconImage = NSImage(
+                systemSymbolName: callout.icon, accessibilityDescription: nil)
+            {
                 let iconSize: CGFloat = 14
                 let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .medium)
                 let configured = iconImage.withSymbolConfiguration(config) ?? iconImage
@@ -478,20 +509,25 @@ final class ProseTextView2: NSTextView {
     }
 
     private func drawTableFills(in dirtyRect: NSRect) {
-        guard let contentStorage = textLayoutManager?.textContentManager
-                as? NSTextContentStorage else { return }
+        guard
+            let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage
+        else { return }
         let str = string as NSString
         guard str.length > 0 else { return }
 
         let isDark = markdownDelegate.theme.isDark
-        let headerFill = isDark
+        let headerFill =
+            isDark
             ? NSColor.white.withAlphaComponent(0.04)
             : NSColor.black.withAlphaComponent(0.03)
 
         enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
-            guard let (lineText, nsRange) = self.paragraphInfo(
-                for: fragment, contentStorage: contentStorage
-            ) else { return true }
+            guard
+                let (lineText, nsRange) = self.paragraphInfo(
+                    for: fragment, contentStorage: contentStorage
+                )
+            else { return true }
             let line = lineText.trimmingCharacters(in: .newlines)
 
             guard Self.isTableLine(line), !Self.isSeparatorLine(line) else { return true }
@@ -499,7 +535,8 @@ final class ProseTextView2: NSTextView {
             // Header = first data row of a table (previous line is NOT a table line).
             let isHeader: Bool
             if nsRange.location > 0 {
-                let prevRange = str.lineRange(for: NSRange(location: nsRange.location - 1, length: 0))
+                let prevRange = str.lineRange(
+                    for: NSRange(location: nsRange.location - 1, length: 0))
                 let prevLine = str.substring(with: prevRange)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 isHeader = !Self.isTableLine(prevLine)
@@ -510,8 +547,9 @@ final class ProseTextView2: NSTextView {
 
             let pipeIndices = Self.pipeCharIndices(in: line)
             guard let firstLineFrag = fragment.textLineFragments.first,
-                  pipeIndices.count >= 2,
-                  pipeIndices.last! < firstLineFrag.characterRange.length else { return true }
+                pipeIndices.count >= 2,
+                pipeIndices.last! < firstLineFrag.characterRange.length
+            else { return true }
 
             let firstPipeX = firstLineFrag.locationForCharacter(at: pipeIndices[0]).x
             let lastPipeX = firstLineFrag.locationForCharacter(at: pipeIndices.last!).x
@@ -531,8 +569,10 @@ final class ProseTextView2: NSTextView {
     }
 
     private func drawTableGridLines(in dirtyRect: NSRect) {
-        guard let contentStorage = textLayoutManager?.textContentManager
-                as? NSTextContentStorage else { return }
+        guard
+            let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage
+        else { return }
         let str = string as NSString
         guard str.length > 0 else { return }
 
@@ -543,10 +583,15 @@ final class ProseTextView2: NSTextView {
         var current: TableRegion?
 
         enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
-            guard let (lineText, nsRange) = self.paragraphInfo(
-                for: fragment, contentStorage: contentStorage
-            ) else {
-                if let t = current { tables.append(t); current = nil }
+            guard
+                let (lineText, nsRange) = self.paragraphInfo(
+                    for: fragment, contentStorage: contentStorage
+                )
+            else {
+                if let t = current {
+                    tables.append(t)
+                    current = nil
+                }
                 return true
             }
             let line = lineText.trimmingCharacters(in: .newlines)
@@ -559,9 +604,10 @@ final class ProseTextView2: NSTextView {
 
                 if isSep {
                     if current != nil {
-                        current!.headerBottomY = current!.rowYs.last.map {
-                            $0 + (fragFrame.minY - $0)
-                        } ?? fragFrame.minY
+                        current!.headerBottomY =
+                            current!.rowYs.last.map {
+                                $0 + (fragFrame.minY - $0)
+                            } ?? fragFrame.minY
                         current!.bottom = fragFrame.maxY
                     }
                 } else {
@@ -591,13 +637,17 @@ final class ProseTextView2: NSTextView {
                         current!.rowYs.append(fragFrame.minY)
                         if pipeXs.count == current!.columnXs.count {
                             for i in current!.columnXs.indices {
-                                current!.columnXs[i] = (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
+                                current!.columnXs[i] =
+                                    (current!.columnXs[i] * 0.7) + (pipeXs[i] * 0.3)
                             }
                         }
                     }
                 }
             } else {
-                if let t = current { tables.append(t); current = nil }
+                if let t = current {
+                    tables.append(t)
+                    current = nil
+                }
             }
 
             return true
@@ -692,7 +742,8 @@ final class ProseTextView2: NSTextView {
     /// restores the new one — O(1) per cursor move instead of O(document).
     func applyFocusDimming() {
         guard isFocusMode, let tlm = textLayoutManager,
-              let contentStorage = tlm.textContentManager as? NSTextContentStorage else {
+            let contentStorage = tlm.textContentManager as? NSTextContentStorage
+        else {
             clearFocusDimming()
             return
         }
@@ -704,7 +755,8 @@ final class ProseTextView2: NSTextView {
         let activeParagraphNSRange = str.paragraphRange(for: cursorRange)
 
         // Skip if cursor is still in the same paragraph
-        if let lastRange = lastFocusParagraphRange, NSEqualRanges(lastRange, activeParagraphNSRange) {
+        if let lastRange = lastFocusParagraphRange, NSEqualRanges(lastRange, activeParagraphNSRange)
+        {
             return
         }
 
@@ -717,20 +769,23 @@ final class ProseTextView2: NSTextView {
         } else if let oldRange = lastFocusParagraphRange {
             // Dim the previous active paragraph
             if oldRange.length > 0, oldRange.location + oldRange.length <= str.length,
-               let oldStart = contentStorage.location(fullDocRange.location, offsetBy: oldRange.location),
-               let oldEnd = contentStorage.location(oldStart, offsetBy: oldRange.length),
-               let oldTextRange = NSTextRange(location: oldStart, end: oldEnd) {
+                let oldStart = contentStorage.location(
+                    fullDocRange.location, offsetBy: oldRange.location),
+                let oldEnd = contentStorage.location(oldStart, offsetBy: oldRange.length),
+                let oldTextRange = NSTextRange(location: oldStart, end: oldEnd)
+            {
                 tlm.setRenderingAttributes([.foregroundColor: dimColor], for: oldTextRange)
             }
         }
 
         // Restore new active paragraph
         if activeParagraphNSRange.length > 0,
-           let startLoc = contentStorage.location(
-               fullDocRange.location, offsetBy: activeParagraphNSRange.location),
-           let endLoc = contentStorage.location(
-               startLoc, offsetBy: activeParagraphNSRange.length),
-           let activeRange = NSTextRange(location: startLoc, end: endLoc) {
+            let startLoc = contentStorage.location(
+                fullDocRange.location, offsetBy: activeParagraphNSRange.location),
+            let endLoc = contentStorage.location(
+                startLoc, offsetBy: activeParagraphNSRange.length),
+            let activeRange = NSTextRange(location: startLoc, end: endLoc)
+        {
             tlm.setRenderingAttributes([:], for: activeRange)
         }
 
@@ -745,20 +800,26 @@ final class ProseTextView2: NSTextView {
     }
 
     private func drawFoldIndicators(in dirtyRect: NSRect) {
-        guard let contentStorage = textLayoutManager?.textContentManager
-                as? NSTextContentStorage else { return }
+        guard
+            let contentStorage = textLayoutManager?.textContentManager
+                as? NSTextContentStorage
+        else { return }
         guard (string as NSString).length > 0 else { return }
 
         let isDark = markdownDelegate.theme.isDark
         let accent = MarkdownContentStorage.accentColor(isDark: isDark)
 
         enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
-            guard let (_, nsRange) = self.paragraphInfo(
-                for: fragment, contentStorage: contentStorage
-            ) else { return true }
+            guard
+                let (_, nsRange) = self.paragraphInfo(
+                    for: fragment, contentStorage: contentStorage
+                )
+            else { return true }
 
             let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
-            guard lineIdx >= 0, self.markdownDelegate.paragraphType(at: lineIdx) == 1 else { return true }
+            guard lineIdx >= 0, self.markdownDelegate.paragraphType(at: lineIdx) == 1 else {
+                return true
+            }
 
             let isFolded = markdown_is_folded(UInt32(clamping: lineIdx))
 
@@ -770,7 +831,7 @@ final class ProseTextView2: NSTextView {
             let alpha: CGFloat = isFolded ? 0.7 : 0.35
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 9, weight: .medium),
-                .foregroundColor: accent.withAlphaComponent(alpha)
+                .foregroundColor: accent.withAlphaComponent(alpha),
             ]
             (glyph as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
 
@@ -788,7 +849,9 @@ final class ProseTextView2: NSTextView {
         guard isTableLine(line) else { return false }
         return line.dropFirst().dropLast()
             .split(separator: "|", omittingEmptySubsequences: false)
-            .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+            .allSatisfy {
+                $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" }
+            }
     }
 
     static func pipeCharIndices(in line: String) -> [Int] {
@@ -851,7 +914,8 @@ final class ProseTextView2: NSTextView {
         let clickPoint = convert(event.locationInWindow, from: nil)
 
         guard let tlm = textLayoutManager,
-              let contentStorage = tlm.textContentManager as? NSTextContentStorage else {
+            let contentStorage = tlm.textContentManager as? NSTextContentStorage
+        else {
             super.mouseDown(with: event)
             return
         }
@@ -862,14 +926,17 @@ final class ProseTextView2: NSTextView {
         )
 
         if let frag = tlm.textLayoutFragment(for: containerPoint),
-           let elemRange = frag.textElement?.elementRange {
+            let elemRange = frag.textElement?.elementRange
+        {
             let docStart = contentStorage.documentRange.location
             let paraOffset = contentStorage.offset(from: docStart, to: elemRange.location)
-            let paraLength = contentStorage.offset(from: elemRange.location, to: elemRange.endLocation)
+            let paraLength = contentStorage.offset(
+                from: elemRange.location, to: elemRange.endLocation)
             let str = string as NSString
             // Guard stale layout: fragment ranges can exceed storage after rapid edits.
             guard paraOffset >= 0, paraLength >= 0,
-                  paraOffset &+ paraLength <= str.length else {
+                paraOffset &+ paraLength <= str.length
+            else {
                 super.mouseDown(with: event)
                 return
             }
@@ -892,14 +959,22 @@ final class ProseTextView2: NSTextView {
 
             // Data detection click
             if let storage = textStorage,
-               storage.length > 0,
-               paraOffset >= 0, paraOffset < storage.length {
-                let lineCharIdx = frag.textLineFragments.first?.characterIndex(for:
-                    NSPoint(x: containerPoint.x - fragFrame.minX, y: containerPoint.y - fragFrame.minY)
-                ) ?? 0
+                storage.length > 0,
+                paraOffset >= 0, paraOffset < storage.length
+            {
+                let lineCharIdx =
+                    frag.textLineFragments.first?.characterIndex(
+                        for:
+                            NSPoint(
+                                x: containerPoint.x - fragFrame.minX,
+                                y: containerPoint.y - fragFrame.minY)
+                    ) ?? 0
                 let charIdx = min(paraOffset &+ lineCharIdx, storage.length - 1)
                 if charIdx < storage.length,
-                   let item = storage.attribute(DataDetectionService.detectedDataKey, at: charIdx, effectiveRange: nil) as? DataDetectionService.DetectedItem {
+                    let item = storage.attribute(
+                        DataDetectionService.detectedDataKey, at: charIdx, effectiveRange: nil)
+                        as? DataDetectionService.DetectedItem
+                {
                     DataDetectionService.open(item)
                     return
                 }
@@ -916,7 +991,8 @@ final class ProseTextView2: NSTextView {
                 if let toggled = Self.toggleCheckbox(in: paraText, at: charIdx) {
                     let lineRange = NSRange(location: paraOffset, length: paraText.utf16.count)
                     if shouldChangeText(in: lineRange, replacementString: toggled) {
-                        (textStorage as? NSTextStorage)?.replaceCharacters(in: lineRange, with: toggled)
+                        (textStorage as? NSTextStorage)?.replaceCharacters(
+                            in: lineRange, with: toggled)
                         didChangeText()
                     }
                     return
@@ -936,15 +1012,21 @@ final class ProseTextView2: NSTextView {
         // Reveal in Graph
         if let pid = pageId {
             menu.addItem(NSMenuItem.separator())
-            let graphItem = NSMenuItem(title: "Reveal in Graph", action: #selector(contextRevealInGraph(_:)), keyEquivalent: "")
-            graphItem.image = NSImage(systemSymbolName: "point.3.connected.trianglepath.dotted", accessibilityDescription: "Graph")
+            let graphItem = NSMenuItem(
+                title: "Reveal in Graph", action: #selector(contextRevealInGraph(_:)),
+                keyEquivalent: "")
+            graphItem.image = NSImage(
+                systemSymbolName: "point.3.connected.trianglepath.dotted",
+                accessibilityDescription: "Graph")
             graphItem.target = self
             graphItem.representedObject = pid
             menu.addItem(graphItem)
         }
 
         // Set Property
-        let propItem = NSMenuItem(title: "Set Property\u{2026}", action: #selector(openBlockPropertySheet), keyEquivalent: "")
+        let propItem = NSMenuItem(
+            title: "Set Property\u{2026}", action: #selector(openBlockPropertySheet),
+            keyEquivalent: "")
         propItem.image = NSImage(systemSymbolName: "tag", accessibilityDescription: "Property")
         propItem.target = self
         menu.addItem(propItem)
@@ -952,34 +1034,43 @@ final class ProseTextView2: NSTextView {
         // Insert submenu
         menu.addItem(NSMenuItem.separator())
         let insertMenu = NSMenu(title: "Insert")
-        let tableItem = NSMenuItem(title: "Table", action: #selector(insertMarkdownTable(_:)), keyEquivalent: "")
+        let tableItem = NSMenuItem(
+            title: "Table", action: #selector(insertMarkdownTable(_:)), keyEquivalent: "")
         tableItem.image = NSImage(systemSymbolName: "tablecells", accessibilityDescription: "Table")
         tableItem.target = self
         insertMenu.addItem(tableItem)
 
-        let imageItem = NSMenuItem(title: "Image\u{2026}", action: #selector(insertImage(_:)), keyEquivalent: "")
+        let imageItem = NSMenuItem(
+            title: "Image\u{2026}", action: #selector(insertImage(_:)), keyEquivalent: "")
         imageItem.image = NSImage(systemSymbolName: "photo", accessibilityDescription: "Image")
         imageItem.target = self
         insertMenu.addItem(imageItem)
 
-        let ocrItem = NSMenuItem(title: "Extract Text from Image\u{2026}", action: #selector(extractTextFromImage(_:)), keyEquivalent: "")
-        ocrItem.image = NSImage(systemSymbolName: "text.viewfinder", accessibilityDescription: "OCR")
+        let ocrItem = NSMenuItem(
+            title: "Extract Text from Image\u{2026}", action: #selector(extractTextFromImage(_:)),
+            keyEquivalent: "")
+        ocrItem.image = NSImage(
+            systemSymbolName: "text.viewfinder", accessibilityDescription: "OCR")
         ocrItem.target = self
         insertMenu.addItem(ocrItem)
 
         let insertSubmenuItem = NSMenuItem(title: "Insert", action: nil, keyEquivalent: "")
         insertSubmenuItem.submenu = insertMenu
-        insertSubmenuItem.image = NSImage(systemSymbolName: "plus.circle", accessibilityDescription: "Insert")
+        insertSubmenuItem.image = NSImage(
+            systemSymbolName: "plus.circle", accessibilityDescription: "Insert")
         menu.addItem(insertSubmenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let ideaItem = NSMenuItem(title: "New Idea at This Line", action: #selector(createIdeaAtLine), keyEquivalent: "")
+        let ideaItem = NSMenuItem(
+            title: "New Idea at This Line", action: #selector(createIdeaAtLine), keyEquivalent: "")
         ideaItem.image = NSImage(systemSymbolName: "lightbulb", accessibilityDescription: "Idea")
         ideaItem.target = self
         menu.addItem(ideaItem)
 
-        let dumpItem = NSMenuItem(title: "New Brain Dump at This Line", action: #selector(createBrainDumpAtLine), keyEquivalent: "")
+        let dumpItem = NSMenuItem(
+            title: "New Brain Dump at This Line", action: #selector(createBrainDumpAtLine),
+            keyEquivalent: "")
         dumpItem.image = NSImage(systemSymbolName: "brain", accessibilityDescription: "Brain Dump")
         dumpItem.target = self
         menu.addItem(dumpItem)
@@ -989,9 +1080,11 @@ final class ProseTextView2: NSTextView {
         let aiMenu = NSMenu(title: "AI Assistant")
         let hasSelection = selectedRange().length > 0
         if hasSelection {
-            aiMenu.addItem(makeAIItem("Rewrite", icon: "arrow.triangle.2.circlepath", op: "rewrite"))
+            aiMenu.addItem(
+                makeAIItem("Rewrite", icon: "arrow.triangle.2.circlepath", op: "rewrite"))
             aiMenu.addItem(makeAIItem("Summarize", icon: "text.quote", op: "summarize"))
-            aiMenu.addItem(makeAIItem("Expand", icon: "arrow.up.left.and.arrow.down.right", op: "expand"))
+            aiMenu.addItem(
+                makeAIItem("Expand", icon: "arrow.up.left.and.arrow.down.right", op: "expand"))
             aiMenu.addItem(makeAIItem("Simplify", icon: "text.redaction", op: "simplify"))
             aiMenu.addItem(NSMenuItem.separator())
             aiMenu.addItem(makeAIItem("Convert to List", icon: "list.bullet", op: "toList"))
@@ -1001,9 +1094,11 @@ final class ProseTextView2: NSTextView {
         } else {
             aiMenu.addItem(makeAIItem("Continue Writing", icon: "text.append", op: "continue"))
             aiMenu.addItem(makeAIItem("Generate Outline", icon: "list.number", op: "outline"))
-            aiMenu.addItem(makeAIItem("Suggest Structure", icon: "rectangle.3.group", op: "structure"))
+            aiMenu.addItem(
+                makeAIItem("Suggest Structure", icon: "rectangle.3.group", op: "structure"))
             aiMenu.addItem(NSMenuItem.separator())
-            aiMenu.addItem(makeAIItem("Restructure Note", icon: "arrow.triangle.branch", op: "restructure"))
+            aiMenu.addItem(
+                makeAIItem("Restructure Note", icon: "arrow.triangle.branch", op: "restructure"))
         }
         let aiSubmenuItem = NSMenuItem(title: "AI Assistant", action: nil, keyEquivalent: "")
         aiSubmenuItem.submenu = aiMenu
@@ -1014,7 +1109,8 @@ final class ProseTextView2: NSTextView {
     }
 
     private func makeAIItem(_ title: String, icon: String, op: String) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: #selector(handleAIOperation(_:)), keyEquivalent: "")
+        let item = NSMenuItem(
+            title: title, action: #selector(handleAIOperation(_:)), keyEquivalent: "")
         item.image = NSImage(systemSymbolName: icon, accessibilityDescription: title)
         item.target = self
         item.representedObject = op
@@ -1049,10 +1145,12 @@ final class ProseTextView2: NSTextView {
             userInfo["selectedText"] = str.substring(with: sel)
         }
         if op == "translate" {
-            NotificationCenter.default.post(name: Self.translateNotification, object: nil, userInfo: userInfo)
+            NotificationCenter.default.post(
+                name: Self.translateNotification, object: nil, userInfo: userInfo)
             return
         }
-        NotificationCenter.default.post(name: Self.aiOperationNotification, object: nil, userInfo: userInfo)
+        NotificationCenter.default.post(
+            name: Self.aiOperationNotification, object: nil, userInfo: userInfo)
     }
 
     @objc private func openBlockPropertySheet() {
@@ -1062,11 +1160,13 @@ final class ProseTextView2: NSTextView {
         let lineText = nsStr.substring(with: lineRange).trimmingCharacters(in: .newlines)
         var userInfo: [String: Any] = ["lineText": lineText, "lineRange": lineRange]
         if let pageId { userInfo["pageId"] = pageId }
-        NotificationCenter.default.post(name: Self.blockPropertyNotification, object: nil, userInfo: userInfo)
+        NotificationCenter.default.post(
+            name: Self.blockPropertyNotification, object: nil, userInfo: userInfo)
     }
 
     @objc func insertMarkdownTable(_ sender: NSMenuItem) {
-        let table = MarkdownEditorCommands.markdownTableTemplate.trimmingCharacters(in: .newlines) + "\n"
+        let table =
+            MarkdownEditorCommands.markdownTableTemplate.trimmingCharacters(in: .newlines) + "\n"
         let loc = selectedRange().location
         if shouldChangeText(in: NSRange(location: loc, length: 0), replacementString: table) {
             textStorage?.replaceCharacters(in: NSRange(location: loc, length: 0), with: table)
@@ -1107,9 +1207,10 @@ final class ProseTextView2: NSTextView {
         attachment.image = image
 
         let attrStr = NSMutableAttributedString(attachment: attachment)
-        attrStr.addAttribute(NSAttributedString.Key("EpistemosImagePath"),
-                             value: url.path,
-                             range: NSRange(location: 0, length: attrStr.length))
+        attrStr.addAttribute(
+            NSAttributedString.Key("EpistemosImagePath"),
+            value: url.path,
+            range: NSRange(location: 0, length: attrStr.length))
 
         let insertLoc = selectedRange().location
         let insertRange = NSRange(location: insertLoc, length: 0)
@@ -1131,20 +1232,26 @@ final class ProseTextView2: NSTextView {
     }
 
     private func performOCR(on url: URL) {
-        guard let cgImage = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        guard
+            let cgImage = NSImage(contentsOf: url)?.cgImage(
+                forProposedRect: nil, context: nil, hints: nil)
+        else { return }
 
         let request = VNRecognizeTextRequest { [weak self] request, error in
             guard let self, error == nil,
-                  let observations = request.results as? [VNRecognizedTextObservation] else { return }
+                let observations = request.results as? [VNRecognizedTextObservation]
+            else { return }
 
-            let extractedText = observations
+            let extractedText =
+                observations
                 .compactMap { $0.topCandidates(1).first?.string }
                 .joined(separator: "\n")
 
             guard !extractedText.isEmpty else { return }
 
             Task { @MainActor in
-                let text = "\n\n> **Extracted Text:**\n> \(extractedText.replacingOccurrences(of: "\n", with: "\n> "))\n"
+                let text =
+                    "\n\n> **Extracted Text:**\n> \(extractedText.replacingOccurrences(of: "\n", with: "\n> "))\n"
                 let insertLoc = self.selectedRange().location
                 let insertRange = NSRange(location: insertLoc, length: 0)
                 if self.shouldChangeText(in: insertRange, replacementString: text) {
@@ -1195,20 +1302,38 @@ final class ProseTextView2: NSTextView {
         // Formatting shortcuts
         if flags == .command {
             switch event.keyCode {
-            case 18: insertHeading(level: 1); return true // Cmd+1
-            case 19: insertHeading(level: 2); return true // Cmd+2
-            case 20: insertHeading(level: 3); return true // Cmd+3
-            case 21: insertHeading(level: 4); return true // Cmd+4
+            case 18:
+                insertHeading(level: 1)
+                return true  // Cmd+1
+            case 19:
+                insertHeading(level: 2)
+                return true  // Cmd+2
+            case 20:
+                insertHeading(level: 3)
+                return true  // Cmd+3
+            case 21:
+                insertHeading(level: 4)
+                return true  // Cmd+4
             default: break
             }
         }
         if flags == [.command, .shift] {
             switch event.keyCode {
-            case 37: toggleLinePrefix("- "); return true          // Cmd+Shift+L (bullet)
-            case 24: toggleLinePrefix("1. "); return true         // Cmd+Shift+= (numbered)
-            case 46: toggleLinePrefix("- [ ] "); return true      // Cmd+Shift+M (task)
-            case 39: toggleLinePrefix("> "); return true          // Cmd+Shift+' (quote)
-            case 34: wrapSelection("`", "`"); return true         // Cmd+Shift+I (inline code)
+            case 37:
+                toggleLinePrefix("- ")
+                return true  // Cmd+Shift+L (bullet)
+            case 24:
+                toggleLinePrefix("1. ")
+                return true  // Cmd+Shift+= (numbered)
+            case 46:
+                toggleLinePrefix("- [ ] ")
+                return true  // Cmd+Shift+M (task)
+            case 39:
+                toggleLinePrefix("> ")
+                return true  // Cmd+Shift+' (quote)
+            case 34:
+                wrapSelection("`", "`")
+                return true  // Cmd+Shift+I (inline code)
             default: break
             }
         }
@@ -1239,8 +1364,11 @@ final class ProseTextView2: NSTextView {
             let line = str.substring(with: lr)
             if !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 let indent = indentLevel(line)
-                if indent == curIndent { prevSiblingLine = lr; break }
-                if indent < curIndent { break } // First in parent, can't move up
+                if indent == curIndent {
+                    prevSiblingLine = lr
+                    break
+                }
+                if indent < curIndent { break }  // First in parent, can't move up
             }
             pos = lr.location - 1
         }
@@ -1251,17 +1379,20 @@ final class ProseTextView2: NSTextView {
         let curText = str.substring(with: curBlock)
         let gapLoc = NSMaxRange(prevBlock)
         let gapLen = curBlock.location - gapLoc
-        let gapText = gapLen > 0 ? str.substring(with: NSRange(location: gapLoc, length: gapLen)) : ""
+        let gapText =
+            gapLen > 0 ? str.substring(with: NSRange(location: gapLoc, length: gapLen)) : ""
 
-        let totalRange = NSRange(location: prevBlock.location,
-                                 length: NSMaxRange(curBlock) - prevBlock.location)
+        let totalRange = NSRange(
+            location: prevBlock.location,
+            length: NSMaxRange(curBlock) - prevBlock.location)
         let replacement = curText + gapText + prevText
 
         if shouldChangeText(in: totalRange, replacementString: replacement) {
             textStorage?.replaceCharacters(in: totalRange, with: replacement)
             didChangeText()
             let newCursorOffset = sel.location - curBlock.location
-            setSelectedRange(NSRange(location: prevBlock.location + newCursorOffset, length: sel.length))
+            setSelectedRange(
+                NSRange(location: prevBlock.location + newCursorOffset, length: sel.length))
         }
     }
 
@@ -1284,8 +1415,11 @@ final class ProseTextView2: NSTextView {
             let line = str.substring(with: lr)
             if !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 let indent = indentLevel(line)
-                if indent == curIndent { nextSiblingLine = lr; break }
-                if indent < curIndent { break } // Last in parent, can't move down
+                if indent == curIndent {
+                    nextSiblingLine = lr
+                    break
+                }
+                if indent < curIndent { break }  // Last in parent, can't move down
             }
             pos = NSMaxRange(lr)
         }
@@ -1296,17 +1430,20 @@ final class ProseTextView2: NSTextView {
         let nextText = str.substring(with: nextBlock)
         let gapLoc = curBlockEnd
         let gapLen = nextBlock.location - gapLoc
-        let gapText = gapLen > 0 ? str.substring(with: NSRange(location: gapLoc, length: gapLen)) : ""
+        let gapText =
+            gapLen > 0 ? str.substring(with: NSRange(location: gapLoc, length: gapLen)) : ""
 
-        let totalRange = NSRange(location: curBlock.location,
-                                 length: NSMaxRange(nextBlock) - curBlock.location)
+        let totalRange = NSRange(
+            location: curBlock.location,
+            length: NSMaxRange(nextBlock) - curBlock.location)
         let replacement = nextText + gapText + curText
 
         if shouldChangeText(in: totalRange, replacementString: replacement) {
             textStorage?.replaceCharacters(in: totalRange, with: replacement)
             didChangeText()
             let newCursorOffset = sel.location - curBlock.location
-            let newBlockStart = curBlock.location + (nextText as NSString).length + (gapText as NSString).length
+            let newBlockStart =
+                curBlock.location + (nextText as NSString).length + (gapText as NSString).length
             setSelectedRange(NSRange(location: newBlockStart + newCursorOffset, length: sel.length))
         }
     }
@@ -1340,7 +1477,8 @@ final class ProseTextView2: NSTextView {
         if shouldChangeText(in: lineRange, replacementString: "") {
             textStorage?.replaceCharacters(in: lineRange, with: "")
             didChangeText()
-            setSelectedRange(NSRange(location: min(lineRange.location, (string as NSString).length), length: 0))
+            setSelectedRange(
+                NSRange(location: min(lineRange.location, (string as NSString).length), length: 0))
         }
     }
 
@@ -1369,7 +1507,8 @@ final class ProseTextView2: NSTextView {
             textStorage?.replaceCharacters(in: lineRange, with: newLine)
             didChangeText()
             let newCursor = lineRange.location + prefix.utf16.count
-            setSelectedRange(NSRange(location: min(newCursor, (string as NSString).length), length: 0))
+            setSelectedRange(
+                NSRange(location: min(newCursor, (string as NSString).length), length: 0))
         }
     }
 
@@ -1399,8 +1538,11 @@ final class ProseTextView2: NSTextView {
     func insertCallout(_ kind: NoteCalloutKind) {
         let sel = selectedRange()
         let template = MarkdownEditorCommands.calloutTemplate(for: kind)
-        if shouldChangeText(in: NSRange(location: sel.location, length: 0), replacementString: template) {
-            textStorage?.replaceCharacters(in: NSRange(location: sel.location, length: 0), with: template)
+        if shouldChangeText(
+            in: NSRange(location: sel.location, length: 0), replacementString: template)
+        {
+            textStorage?.replaceCharacters(
+                in: NSRange(location: sel.location, length: 0), with: template)
             didChangeText()
             setSelectedRange(NSRange(location: sel.location + template.utf16.count, length: 0))
         }
@@ -1414,7 +1556,8 @@ final class ProseTextView2: NSTextView {
             if shouldChangeText(in: sel, replacementString: wrapped) {
                 textStorage?.replaceCharacters(in: sel, with: wrapped)
                 didChangeText()
-                setSelectedRange(NSRange(location: sel.location + before.utf16.count, length: sel.length))
+                setSelectedRange(
+                    NSRange(location: sel.location + before.utf16.count, length: sel.length))
             }
         } else {
             let wrapped = before + after
@@ -1429,8 +1572,11 @@ final class ProseTextView2: NSTextView {
     func insertDivider() {
         let sel = selectedRange()
         let divider = "\n---\n"
-        if shouldChangeText(in: NSRange(location: sel.location, length: 0), replacementString: divider) {
-            textStorage?.replaceCharacters(in: NSRange(location: sel.location, length: 0), with: divider)
+        if shouldChangeText(
+            in: NSRange(location: sel.location, length: 0), replacementString: divider)
+        {
+            textStorage?.replaceCharacters(
+                in: NSRange(location: sel.location, length: 0), with: divider)
             didChangeText()
             setSelectedRange(NSRange(location: sel.location + divider.utf16.count, length: 0))
         }
@@ -1440,8 +1586,11 @@ final class ProseTextView2: NSTextView {
     func insertCodeFence() {
         let sel = selectedRange()
         let fence = "```\n\n```"
-        if shouldChangeText(in: NSRange(location: sel.location, length: 0), replacementString: fence) {
-            textStorage?.replaceCharacters(in: NSRange(location: sel.location, length: 0), with: fence)
+        if shouldChangeText(
+            in: NSRange(location: sel.location, length: 0), replacementString: fence)
+        {
+            textStorage?.replaceCharacters(
+                in: NSRange(location: sel.location, length: 0), with: fence)
             didChangeText()
             setSelectedRange(NSRange(location: sel.location + 4, length: 0))
         }
@@ -1457,8 +1606,10 @@ extension ProseTextView2: NSTextLayoutManagerDelegate {
         textLayoutFragmentFor location: NSTextLocation,
         in textElement: NSTextElement
     ) -> NSTextLayoutFragment {
-        guard let contentStorage = textLayoutManager.textContentManager
-                as? NSTextContentStorage else {
+        guard
+            let contentStorage = textLayoutManager.textContentManager
+                as? NSTextContentStorage
+        else {
             return NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
         }
 
@@ -1471,17 +1622,20 @@ extension ProseTextView2: NSTextLayoutManagerDelegate {
             return NSTextLayoutFragment(textElement: textElement, range: textElement.elementRange)
         }
 
-        let fragment = MarkdownLayoutFragment(textElement: textElement, range: textElement.elementRange)
+        let fragment = MarkdownLayoutFragment(
+            textElement: textElement, range: textElement.elementRange)
 
         // Configure with token data from the block-level cache.
         if let metadata = markdownDelegate.paragraphMetadata(at: line) {
             let languageId = UInt8(metadata & 0xFF)
             if languageId > 0,
-               let docString = contentStorage.attributedString?.string as NSString? {
+                let docString = contentStorage.attributedString?.string as NSString?
+            {
                 let tokens = markdownDelegate.codeTokensForLine(
                     line, languageId: languageId, documentString: docString
                 )
-                fragment.configure(tokens: tokens, theme: markdownDelegate.theme, languageId: languageId)
+                fragment.configure(
+                    tokens: tokens, theme: markdownDelegate.theme, languageId: languageId)
             }
         }
 

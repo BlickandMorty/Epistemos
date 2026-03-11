@@ -21,13 +21,13 @@ struct SettingsView: View {
 
         var icon: String {
             switch self {
-            case .inference:  "cpu"
-            case .soar:       "brain"
+            case .inference: "cpu"
+            case .soar: "brain"
             case .appearance: "paintpalette"
-            case .vault:      "folder"
-            case .security:   "lock.shield"
-            case .export:     "square.and.arrow.up"
-            case .reset:      "trash"
+            case .vault: "folder"
+            case .security: "lock.shield"
+            case .export: "square.and.arrow.up"
+            case .reset: "trash"
             }
         }
     }
@@ -38,18 +38,19 @@ struct SettingsView: View {
                 Label(section.rawValue, systemImage: section.icon)
                     .tag(section)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
             Group {
                 switch selection {
-                case .inference:  InferenceDetailView()
-                case .soar:       SOARDetailView()
+                case .inference: InferenceDetailView()
+                case .soar: SOARDetailView()
                 case .appearance: AppearanceDetailView()
-                case .vault:      VaultDetailView()
-                case .security:   SecurityDetailView()
-                case .export:     ExportDetailView()
-                case .reset:      ResetDetailView()
-                case nil:         InferenceDetailView()
+                case .vault: VaultDetailView()
+                case .security: SecurityDetailView()
+                case .export: ExportDetailView()
+                case .reset: ResetDetailView()
+                case nil: InferenceDetailView()
                 }
             }
         }
@@ -80,15 +81,21 @@ private struct InferenceDetailView: View {
             Section("Provider") {
                 // Apple Intelligence status
                 if inference.appleIntelligenceAvailable {
-                    Label("Apple Intelligence active — simple queries run on-device automatically", systemImage: "cpu")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.success)
+                    Label(
+                        "Apple Intelligence active — simple queries run on-device automatically",
+                        systemImage: "cpu"
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.success)
                 }
 
-                Picker("Provider", selection: Binding(
-                    get: { inference.apiProvider },
-                    set: { inference.setApiProvider($0) }
-                )) {
+                Picker(
+                    "Provider",
+                    selection: Binding(
+                        get: { inference.apiProvider },
+                        set: { inference.setApiProvider($0) }
+                    )
+                ) {
                     Text("Anthropic").tag(LLMProviderType.anthropic)
                     Text("OpenAI").tag(LLMProviderType.openai)
                     Text("Google").tag(LLMProviderType.google)
@@ -152,7 +159,10 @@ private struct InferenceDetailView: View {
                         if let status = connectionStatus {
                             Text(status)
                                 .font(.system(size: 11))
-                                .foregroundStyle(status == "Connected" || status == "Saved" ? theme.success : theme.error)
+                                .foregroundStyle(
+                                    status == "Connected" || status == "Saved"
+                                        ? theme.success : theme.error
+                                )
                                 .lineLimit(1)
                         }
                     }
@@ -162,47 +172,62 @@ private struct InferenceDetailView: View {
             Section("Model") {
                 switch inference.apiProvider {
                 case .anthropic:
-                    Picker("Model", selection: Binding(
-                        get: { inference.anthropicModel },
-                        set: { inference.setAnthropicModel($0) }
-                    )) {
+                    Picker(
+                        "Model",
+                        selection: Binding(
+                            get: { inference.anthropicModel },
+                            set: { inference.setAnthropicModel($0) }
+                        )
+                    ) {
                         ForEach(InferenceState.anthropicModels, id: \.id) { m in
                             Text(m.name).tag(m.id)
                         }
                     }
                 case .openai:
-                    Picker("Model", selection: Binding(
-                        get: { inference.openaiModel },
-                        set: { inference.setOpenAIModel($0) }
-                    )) {
+                    Picker(
+                        "Model",
+                        selection: Binding(
+                            get: { inference.openaiModel },
+                            set: { inference.setOpenAIModel($0) }
+                        )
+                    ) {
                         ForEach(InferenceState.openaiModels, id: \.id) { m in
                             Text(m.name).tag(m.id)
                         }
                     }
                 case .google:
-                    Picker("Model", selection: Binding(
-                        get: { inference.googleModel },
-                        set: { inference.setGoogleModel($0) }
-                    )) {
+                    Picker(
+                        "Model",
+                        selection: Binding(
+                            get: { inference.googleModel },
+                            set: { inference.setGoogleModel($0) }
+                        )
+                    ) {
                         ForEach(InferenceState.googleModels, id: \.id) { m in
                             Text(m.name).tag(m.id)
                         }
                     }
                 case .kimi:
-                    Picker("Model", selection: Binding(
-                        get: { inference.kimiModel },
-                        set: { inference.setKimiModel($0) }
-                    )) {
+                    Picker(
+                        "Model",
+                        selection: Binding(
+                            get: { inference.kimiModel },
+                            set: { inference.setKimiModel($0) }
+                        )
+                    ) {
                         ForEach(InferenceState.kimiModels, id: \.id) { m in
                             Text(m.name).tag(m.id)
                         }
                     }
                 case .ollama:
                     LabeledContent("Base URL") {
-                        TextField("http://localhost:11434", text: Binding(
-                            get: { inference.ollamaBaseUrl },
-                            set: { inference.setOllamaBaseUrl($0) }
-                        ))
+                        TextField(
+                            "http://localhost:11434",
+                            text: Binding(
+                                get: { inference.ollamaBaseUrl },
+                                set: { inference.setOllamaBaseUrl($0) }
+                            )
+                        )
                         .font(.system(size: 13, design: .monospaced))
                         .frame(maxWidth: 220)
                     }
@@ -211,10 +236,13 @@ private struct InferenceDetailView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(theme.textTertiary)
                     } else {
-                        Picker("Model", selection: Binding(
-                            get: { inference.ollamaModel },
-                            set: { inference.setOllamaModel($0) }
-                        )) {
+                        Picker(
+                            "Model",
+                            selection: Binding(
+                                get: { inference.ollamaModel },
+                                set: { inference.setOllamaModel($0) }
+                            )
+                        ) {
                             ForEach(inference.ollamaModels, id: \.self) { m in
                                 Text(m).tag(m)
                             }
@@ -230,9 +258,11 @@ private struct InferenceDetailView: View {
                 case .appleIntelligence:
                     // Apple Intelligence is the always-on triage layer, not a standalone provider.
                     // If somehow selected (stale UserDefaults), show status + redirect.
-                    Text("Apple Intelligence runs automatically alongside your cloud provider. Select a cloud provider above.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textSecondary)
+                    Text(
+                        "Apple Intelligence runs automatically alongside your cloud provider. Select a cloud provider above."
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
                 }
             }
 
@@ -293,12 +323,18 @@ private struct InferenceDetailView: View {
                 }
 
                 if !cost.providerBreakdown.isEmpty {
-                    ForEach(Array(cost.providerBreakdown.keys.sorted(by: { $0.rawValue < $1.rawValue })), id: \.self) { provider in
+                    ForEach(
+                        Array(
+                            cost.providerBreakdown.keys.sorted(by: { $0.rawValue < $1.rawValue })),
+                        id: \.self
+                    ) { provider in
                         if let usage = cost.providerBreakdown[provider], usage.callCount > 0 {
                             LabeledContent(provider.rawValue.capitalized) {
-                                Text("\(usage.callCount) calls · $\(String(format: "%.4f", usage.estimatedCostUSD))")
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.secondary)
+                                Text(
+                                    "\(usage.callCount) calls · $\(String(format: "%.4f", usage.estimatedCostUSD))"
+                                )
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -321,9 +357,12 @@ private struct InferenceDetailView: View {
 
                 HStack {
                     if cost.budgetExceeded {
-                        Label("Budget exceeded — API calls paused", systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                        Label(
+                            "Budget exceeded — API calls paused",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.red)
                     }
                     Spacer()
                     Button("Reset") { cost.resetToday() }
@@ -371,16 +410,21 @@ private struct SOARDetailView: View {
 
             Section("Detection") {
                 Toggle("Auto-detect Edge of Learnability", isOn: $soar.soarConfig.autoDetect)
-                Toggle("OOLONG Contradiction Detection", isOn: $soar.soarConfig.contradictionDetection)
+                Toggle(
+                    "OOLONG Contradiction Detection", isOn: $soar.soarConfig.contradictionDetection)
                 Toggle("Verbose Logging", isOn: $soar.soarConfig.verbose)
             }
 
             Section("Limits") {
                 LabeledContent("Max Iterations") {
-                    Stepper("\(soar.soarConfig.maxIterations)", value: $soar.soarConfig.maxIterations, in: 1...5)
+                    Stepper(
+                        "\(soar.soarConfig.maxIterations)", value: $soar.soarConfig.maxIterations,
+                        in: 1...5)
                 }
                 LabeledContent("Stones per Curriculum") {
-                    Stepper("\(soar.soarConfig.stonesPerCurriculum)", value: $soar.soarConfig.stonesPerCurriculum, in: 2...5)
+                    Stepper(
+                        "\(soar.soarConfig.stonesPerCurriculum)",
+                        value: $soar.soarConfig.stonesPerCurriculum, in: 2...5)
                 }
             }
         }
@@ -411,8 +455,10 @@ private struct AppearanceDetailView: View {
             } header: {
                 Text("Theme")
             } footer: {
-                Text("Each theme has a light and dark side. macOS automatically switches between them when you toggle system appearance.")
-                    .font(.caption)
+                Text(
+                    "Each theme has a light and dark side. macOS automatically switches between them when you toggle system appearance."
+                )
+                .font(.caption)
             }
 
             Section {
@@ -425,7 +471,9 @@ private struct AppearanceDetailView: View {
                     HStack(spacing: 4) {
                         Image(systemName: ui.isSystemDark ? "moon.fill" : "sun.max.fill")
                             .font(.system(size: 10))
-                        Text(ui.isSystemDark ? "Dark — \(theme.displayName)" : "Light — \(theme.displayName)")
+                        Text(
+                            ui.isSystemDark
+                                ? "Dark — \(theme.displayName)" : "Light — \(theme.displayName)")
                     }
                     .foregroundStyle(theme.mutedForeground)
                 }
@@ -460,8 +508,8 @@ private struct ThemePairCard: View {
         switch pair {
         case .magnolia: ("camera.macro", "moon.stars.fill")
         case .classic: ("sun.max", "moon.stars")
-        case .warmth:  ("sun.max.fill", "sunset.fill")
-        case .ember:   ("leaf", "flame")
+        case .warmth: ("sun.max.fill", "sunset.fill")
+        case .ember: ("leaf", "flame")
         }
     }
 
@@ -471,13 +519,15 @@ private struct ThemePairCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: pairIcons.0)
                         .font(.system(size: 14))
-                        .foregroundStyle(isActive ? current.accent : current.mutedForeground.opacity(0.5))
+                        .foregroundStyle(
+                            isActive ? current.accent : current.mutedForeground.opacity(0.5))
                     Image(systemName: "arrow.left.arrow.right")
                         .font(.system(size: 9))
                         .foregroundStyle(current.textTertiary.opacity(0.6))
                     Image(systemName: pairIcons.1)
                         .font(.system(size: 14))
-                        .foregroundStyle(isActive ? current.accent : current.mutedForeground.opacity(0.5))
+                        .foregroundStyle(
+                            isActive ? current.accent : current.mutedForeground.opacity(0.5))
                 }
 
                 Text(pair.displayName)
@@ -577,16 +627,21 @@ private struct VaultDetailView: View {
                         }
                     }
 
-                    Text("The search index is kept in sync automatically. Use Rebuild if search results seem stale.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textSecondary)
+                    Text(
+                        "The search index is kept in sync automatically. Use Rebuild if search results seem stale."
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
                 }
 
                 Section("Vault Sync") {
-                    Picker("Auto-save to vault", selection: Binding(
-                        get: { autoSaveOption(from: vaultSync.autoSaveInterval) },
-                        set: { vaultSync.autoSaveInterval = autoSaveSeconds(from: $0) }
-                    )) {
+                    Picker(
+                        "Auto-save to vault",
+                        selection: Binding(
+                            get: { autoSaveOption(from: vaultSync.autoSaveInterval) },
+                            set: { vaultSync.autoSaveInterval = autoSaveSeconds(from: $0) }
+                        )
+                    ) {
                         Text("Off").tag(0)
                         Text("Every 5 seconds").tag(5)
                         Text("Every 15 seconds").tag(1)
@@ -596,9 +651,11 @@ private struct VaultDetailView: View {
                     }
                     .pickerStyle(.menu)
 
-                    Text("When enabled, unsaved note changes are automatically written to vault .md files at the chosen interval. When off, use ⌘S or the Save button.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textSecondary)
+                    Text(
+                        "When enabled, unsaved note changes are automatically written to vault .md files at the chosen interval. When off, use ⌘S or the Save button."
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textSecondary)
                 }
             }
         }
@@ -615,7 +672,9 @@ private struct VaultDetailView: View {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        if let bookmark = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+        if let bookmark = try? url.bookmarkData(
+            options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+        {
             UserDefaults.standard.set(bookmark, forKey: "epistemos.vaultBookmark")
         }
 
@@ -731,8 +790,10 @@ private struct ResetDetailView: View {
     var body: some View {
         Form {
             Section {
-                Text("Clear all saved data, conversations, API keys, and settings. Your vault files on disk will not be deleted.")
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Clear all saved data, conversations, API keys, and settings. Your vault files on disk will not be deleted."
+                )
+                .foregroundStyle(.secondary)
 
                 Button("Reset Everything", role: .destructive) {
                     showAlert = true
@@ -749,7 +810,9 @@ private struct ResetDetailView: View {
                 AppBootstrap.shared?.resetAllData()
             }
         } message: {
-            Text("This will delete all conversations, notes data, API keys, and preferences. Your vault files on disk are preserved. This cannot be undone.")
+            Text(
+                "This will delete all conversations, notes data, API keys, and preferences. Your vault files on disk are preserved. This cannot be undone."
+            )
         }
     }
 }

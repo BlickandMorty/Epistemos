@@ -16,6 +16,7 @@ import AppKit
 nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private let backing = NSMutableAttributedString()
     var isDark: Bool = true
+    var theme: EpistemosTheme?
 
     /// Base font size for the editor (15pt).
     /// All element sizes (headings, code, etc.) scale relative to this.
@@ -41,6 +42,18 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     /// Derived sizes — computed from baseFontSize for consistent scaling.
     private var codeSize: CGFloat { max(baseFontSize - 2, 9) }
     private var smallSize: CGFloat { max(baseFontSize - 1, 9) }
+    private var resolvedForegroundColor: NSColor {
+        if let theme { return Self.nsColor(hex: theme.foregroundHex) }
+        return isDark ? .white.withAlphaComponent(0.88) : NSColor(white: 0.1, alpha: 1)
+    }
+    private var resolvedAccentColor: NSColor {
+        if let theme { return Self.nsColor(hex: theme.headingAccentHex) }
+        return Self.accentColor(isDark: isDark)
+    }
+    private var resolvedMutedColor: NSColor {
+        if let theme { return Self.nsColor(hex: theme.mutedForegroundHex) }
+        return Self.mutedColor(isDark: isDark)
+    }
 
     /// Leading document title spacing.
     static let leadingH1SpacingBefore: CGFloat = 36
@@ -207,10 +220,9 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     func applyBaseStyle(range: NSRange) {
         guard range.location + range.length <= backing.length else { return }
         let baseFont = NSFont.systemFont(ofSize: baseFontSize)
-        let baseColor: NSColor = isDark ? .white.withAlphaComponent(0.88) : NSColor(white: 0.1, alpha: 1)
         backing.setAttributes([
             .font: baseFont,
-            .foregroundColor: baseColor,
+            .foregroundColor: resolvedForegroundColor,
             .paragraphStyle: Self.bodyStyle
         ], range: range)
     }
@@ -253,7 +265,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                     let codeColor: NSColor = isDark
                         ? NSColor.white.withAlphaComponent(0.72)
                         : NSColor(white: 0.2, alpha: 1)
-                    let accent = Self.accentColor(isDark: isDark)
+                    let accent = resolvedAccentColor
                     let codeBg: NSColor = isDark
                         ? accent.withAlphaComponent(0.05)
                         : accent.withAlphaComponent(0.04)
@@ -305,13 +317,14 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private func applyLineStyle(line: String, range: NSRange) {
         guard range.location + range.length <= backing.length else { return }
         let t = line.trimmingCharacters(in: .whitespaces)
-        let accentColor = Self.accentColor(isDark: isDark)
-        let mutedColor = Self.mutedColor(isDark: isDark)
+        let accentColor = resolvedAccentColor
+        let mutedColor = resolvedMutedColor
+        let foregroundColor = resolvedForegroundColor
 
         if t.hasPrefix("# ") && !t.hasPrefix("## ") {
             backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: baseFontSize + 31, weight: .bold),
-                .foregroundColor: isDark ? NSColor.white : NSColor(white: 0.05, alpha: 1),
+                .font: displayFont(size: baseFontSize + 31, weight: .bold),
+                .foregroundColor: accentColor,
                 .paragraphStyle: leadingDocumentContentIsEmpty(before: range.location)
                     ? Self.leadingH1Style
                     : Self.h1Style
@@ -321,8 +334,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("## ") && !t.hasPrefix("### ") {
             backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: baseFontSize + 5, weight: .bold),
-                .foregroundColor: isDark ? NSColor.white : NSColor(white: 0.08, alpha: 1),
+                .font: displayFont(size: baseFontSize + 5, weight: .bold),
+                .foregroundColor: accentColor,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .underlineColor: accentColor.withAlphaComponent(0.18),
                 .paragraphStyle: Self.h2Style
@@ -331,8 +344,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("### ") && !t.hasPrefix("#### ") {
             backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: baseFontSize + 1, weight: .semibold),
-                .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.95) : NSColor(white: 0.1, alpha: 1),
+                .font: displayFont(size: baseFontSize + 1, weight: .semibold),
+                .foregroundColor: accentColor,
                 .paragraphStyle: Self.h3Style
             ], range: range)
             dimPrefix(in: line, prefix: "### ", lineStart: range.location, color: accentColor.withAlphaComponent(0.45))
@@ -340,7 +353,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         } else if t.hasPrefix("#### ") && !t.hasPrefix("##### ") {
             backing.addAttributes([
                 .font: NSFont.systemFont(ofSize: baseFontSize, weight: .semibold),
-                .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.92) : NSColor(white: 0.12, alpha: 1),
+                .foregroundColor: foregroundColor.withAlphaComponent(isDark ? 0.92 : 0.95),
                 .paragraphStyle: Self.h4Style
             ], range: range)
             dimPrefix(in: line, prefix: "#### ", lineStart: range.location, color: accentColor.withAlphaComponent(0.40))
@@ -348,7 +361,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         } else if t.hasPrefix("##### ") {
             backing.addAttributes([
                 .font: NSFont.systemFont(ofSize: smallSize, weight: .medium),
-                .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.9) : NSColor(white: 0.15, alpha: 1),
+                .foregroundColor: foregroundColor.withAlphaComponent(isDark ? 0.9 : 0.92),
                 .paragraphStyle: Self.h5Style
             ], range: range)
             dimPrefix(in: line, prefix: "##### ", lineStart: range.location, color: accentColor.withAlphaComponent(0.35))
@@ -363,7 +376,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             let checked = t.hasPrefix("- [x] ")
             var attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: baseFontSize),
-                .foregroundColor: checked ? mutedColor : (isDark ? NSColor.white.withAlphaComponent(0.88) : NSColor(white: 0.1, alpha: 1))
+                .foregroundColor: checked ? mutedColor : foregroundColor
             ]
             if checked { attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
             backing.addAttributes(attrs, range: range)
@@ -431,7 +444,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                     : accentColor.withAlphaComponent(0.03)
                 backing.addAttributes([
                     .font: NSFont.systemFont(ofSize: baseFontSize).italic,
-                    .foregroundColor: isDark ? NSColor.white.withAlphaComponent(0.60) : NSColor(white: 0.35, alpha: 1),
+                    .foregroundColor: foregroundColor.withAlphaComponent(isDark ? 0.60 : 0.72),
                     .backgroundColor: quoteBg
                 ], range: range)
                 dimPrefix(in: line, prefix: "> ", lineStart: range.location, color: accentColor.withAlphaComponent(0.40))
@@ -610,8 +623,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         // Build UTF-8 byte → UTF-16 code unit offset map (O(paragraph)).
         let utf8ToUtf16 = Self.buildUtf8ToUtf16Map(substring)
 
-        let accentColor = Self.accentColor(isDark: isDark)
-        let mutedColor = Self.mutedColor(isDark: isDark)
+        let accentColor = resolvedAccentColor
+        let mutedColor = resolvedMutedColor
         let ghostMarker: [NSAttributedString.Key: Any] = [
             .foregroundColor: isDark
                 ? NSColor.white.withAlphaComponent(0.15)
@@ -654,13 +667,17 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ghost: [NSAttributedString.Key: Any],
         accent: NSColor, muted: NSColor
     ) {
+        let existingFont = backing.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont
+            ?? NSFont.systemFont(ofSize: baseFontSize)
+        let size = existingFont.pointSize
+
         switch style {
         case 4: // Bold — ghost markers, bold content
             backing.addAttributes(ghost, range: range)
             if range.length > 4 {
                 let content = NSRange(location: range.location + 2, length: range.length - 4)
                 backing.addAttributes([
-                    .font: NSFont.systemFont(ofSize: baseFontSize, weight: .bold)
+                    .font: displayFont(size: size, weight: .bold)
                 ], range: content)
             }
 
@@ -669,7 +686,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             if range.length > 2 {
                 let content = NSRange(location: range.location + 1, length: range.length - 2)
                 backing.addAttributes([
-                    .font: NSFont.systemFont(ofSize: baseFontSize).italic
+                    .font: NSFontManager.shared.convert(existingFont, toHaveTrait: .italicFontMask)
                 ], range: content)
             }
 
@@ -871,9 +888,20 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         let dimRange = NSRange(location: lineStart + leadingSpaces, length: 2) // "# "
         guard dimRange.location + dimRange.length <= backing.length else { return }
         backing.addAttributes([
-            .foregroundColor: Self.accentColor(isDark: isDark).withAlphaComponent(0.55),
+            .foregroundColor: resolvedAccentColor.withAlphaComponent(0.55),
             .font: NSFont.systemFont(ofSize: max(baseFontSize - 5, 9), weight: .regular)
         ], range: dimRange)
+    }
+
+    private func displayFont(size: CGFloat, weight: NSFont.Weight) -> NSFont {
+        AppDisplayTypography.nsFont(size: size, weight: weight)
+    }
+
+    private static func nsColor(hex: UInt32) -> NSColor {
+        let red = CGFloat((hex >> 16) & 0xFF) / 255
+        let green = CGFloat((hex >> 8) & 0xFF) / 255
+        let blue = CGFloat(hex & 0xFF) / 255
+        return NSColor(calibratedRed: red, green: green, blue: blue, alpha: 1)
     }
 
     private func leadingDocumentContentIsEmpty(before location: Int) -> Bool {

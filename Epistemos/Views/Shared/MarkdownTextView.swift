@@ -172,7 +172,7 @@ struct MarkdownTextView: View {
         case .heading(let level, let text):
             renderHeading(level: level, text: text)
         case .paragraph(let text):
-            inlineMarkdown(text)
+            inlineMarkdown(text, baseFontSize: 15)
                 .font(.system(size: 15))
                 .foregroundStyle(theme.foreground)
                 .padding(.vertical, 2)
@@ -180,7 +180,7 @@ struct MarkdownTextView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\u{2022}")
                     .foregroundStyle(theme.accent)
-                inlineMarkdown(text)
+                inlineMarkdown(text, baseFontSize: 15)
                     .font(.system(size: 15))
                     .foregroundStyle(theme.foreground)
             }
@@ -191,7 +191,7 @@ struct MarkdownTextView: View {
                 Text(number)
                     .font(.system(size: 15).monospacedDigit())
                     .foregroundStyle(theme.accent)
-                inlineMarkdown(text)
+                inlineMarkdown(text, baseFontSize: 15)
                     .font(.system(size: 15))
                     .foregroundStyle(theme.foreground)
             }
@@ -202,7 +202,7 @@ struct MarkdownTextView: View {
                 Image(systemName: checked ? "checkmark.square.fill" : "square")
                     .font(.system(size: 13))
                     .foregroundStyle(checked ? theme.accent : theme.textTertiary)
-                inlineMarkdown(text)
+                inlineMarkdown(text, baseFontSize: 15)
                     .font(.system(size: 15))
                     .foregroundStyle(checked ? theme.textTertiary : theme.foreground)
                     .strikethrough(checked)
@@ -214,7 +214,7 @@ struct MarkdownTextView: View {
                 RoundedRectangle(cornerRadius: 1)
                     .fill(theme.accent.opacity(0.5))
                     .frame(width: 3)
-                inlineMarkdown(text)
+                inlineMarkdown(text, baseFontSize: 15)
                     .font(.system(size: 15))
                     .italic()
                     .foregroundStyle(theme.textSecondary)
@@ -262,23 +262,20 @@ struct MarkdownTextView: View {
 
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
-        let font: Font = switch level {
-        case 1: .system(size: 26, weight: .semibold)
-        case 2: .system(size: 20, weight: .semibold)
-        case 3: .system(size: 16, weight: .medium)
-        case 4: .system(size: 15, weight: .medium)
-        default: .system(size: 14, weight: .medium)
-        }
-        let topPad: CGFloat = switch level {
-        case 1: 16
-        case 2: 12
-        case 3: 8
-        default: 6
-        }
+        let retroRole = AppHeadingRole.markdownRole(level: level)
+        let font: Font = retroRole?.font ?? {
+            switch level {
+            case 4: .system(size: 15, weight: .medium)
+            default: .system(size: 14, weight: .medium)
+            }
+        }()
+        let fontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
+        let topPad = retroRole?.topPadding ?? 6
+        let color = retroRole == nil ? theme.foreground : theme.fontAccent
 
-        inlineMarkdown(text)
+        inlineMarkdown(text, baseFontSize: fontSize)
             .font(font)
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(color)
             .padding(.top, topPad)
             .padding(.bottom, 2)
     }
@@ -297,7 +294,7 @@ struct MarkdownTextView: View {
                 HStack(spacing: 0) {
                     ForEach(0..<colCount, id: \.self) { colIdx in
                         let cell = colIdx < cells.count ? cells[colIdx] : ""
-                        inlineMarkdown(cell)
+                        inlineMarkdown(cell, baseFontSize: 13)
                             .font(.system(size: 13))
                             .foregroundStyle(theme.foreground.opacity(rowIdx < headerCount ? 1.0 : 0.85))
                             .fontWeight(rowIdx < headerCount ? .semibold : .regular)
@@ -333,27 +330,7 @@ struct MarkdownTextView: View {
 
     // MARK: - Inline Markdown -> SwiftUI Text
 
-    /// Regex to strip orphan bracketed uppercase terms (e.g. [CAUSAL INFERENCE]) that
-    /// `AttributedString(markdown:)` misinterprets as markdown link references.
-    /// Only matches [UPPERCASE WORDS] NOT followed by `(url)` to preserve real links.
-    // SAFETY: Hardcoded literal pattern — `try!` only fails on invalid regex syntax.
-    private static let orphanBracketRegex = try! NSRegularExpression(
-        pattern: "\\[[A-Z][A-Z ]+\\](?!\\()"
-    )
-
-    private func inlineMarkdown(_ text: String) -> Text {
-        // Strip orphan [UPPERCASE] brackets before markdown parsing to prevent
-        // them from rendering as blue link-reference text.
-        let cleaned = Self.orphanBracketRegex.stringByReplacingMatches(
-            in: text,
-            range: NSRange(location: 0, length: (text as NSString).length),
-            withTemplate: ""
-        )
-        if let attributed = try? AttributedString(markdown: cleaned,
-                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-            return Text(attributed)
-        } else {
-            return Text(cleaned)
-        }
+    private func inlineMarkdown(_ text: String, baseFontSize: CGFloat) -> Text {
+        InlineMarkdownStyler.text(text, strongFontSize: baseFontSize)
     }
 }

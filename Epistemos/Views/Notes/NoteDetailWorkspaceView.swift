@@ -58,8 +58,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
-    @State private var showDocumentMode = false
-    @State private var documentTextView: DocumentTextView?
+
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
@@ -99,141 +98,134 @@ struct NoteDetailWorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Allow content to extend under toolbar for glass effect
             HStack(spacing: 0) {
-            ZStack {
-                if let page = pages.first {
-                    if showDocumentMode {
-                        VStack(spacing: 0) {
-                            DocumentFormatBar(textView: documentTextView, theme: ui.theme)
-                            DocumentEditorRepresentable(
-                                pageId: page.id,
-                                pageFormat: page.format,
-                                theme: ui.theme,
-                                isEditable: !page.isLocked,
-                                modelContext: modelContext,
-                                noteChatState: noteChatState,
-                                onWikilinkClick: { title in
-                                    navigateToWikilink(title: title)
-                                },
-                                onTocChanged: { items in
-                                    tocItems = items
-                                },
-                                onTextViewCreated: { tv in
-                                    documentTextView = tv
-                                }
-                            )
-                        }
-                        .frame(minWidth: 400, minHeight: 300)
-                    } else if showPreview {
-                        NotePreviewView(body: page.loadBody(), isDark: ui.theme.isDark)
-                            .frame(minWidth: 400, minHeight: 300)
-                    } else {
-                        ProseEditorView(page: page, isEditable: !page.isLocked)
-                            .frame(minWidth: 400, minHeight: 300)
-                    }
-                } else {
-                    ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
-                        .frame(minWidth: 400, minHeight: 300)
-                }
-
-                // Greeting overlay — always in the view tree (no insertion delay).
-                // Opacity is flipped instantly to 1 before the mode swap, then
-                // animated back to 0 after the new view has settled.
-                TransitionGreetingView(
-                    message: transitionGreeting,
-                    theme: ui.theme
-                )
-                .opacity(transitionOpacity)
-                .ignoresSafeArea()
-                .allowsHitTesting(transitionOpacity > 0)
-            }
-            .overlay(alignment: .bottom) {
                 ZStack {
-                    HStack(spacing: 8) {
-                        Text("\(wordCount) words")
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(ui.theme.foreground.opacity(0.55))
-                        if let target = notesUI.sessionWordTarget, target > 0 {
-                            let delta = max(0, wordCount - notesUI.sessionStartWordCount)
-                            let progress = min(1.0, Double(delta) / Double(target))
-                            HStack(spacing: 4) {
-                                ProgressView(value: progress)
-                                    .frame(width: 60)
-                                    .tint(progress >= 1.0 ? .green : .accentColor)
-                                Text("\(delta)/\(target)")
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.secondary)
+                    if let page = pages.first {
+                        VStack(spacing: 0) {
+                            if showPreview {
+                                NotePreviewView(body: page.loadBody(), theme: ui.theme)
+                            } else {
+                                ProseEditorView(page: page, isEditable: !page.isLocked)
                             }
                         }
+                        .frame(minWidth: 400, minHeight: 300)
+                    } else {
+                        ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
+                            .frame(minWidth: 400, minHeight: 300)
                     }
-                    HStack(spacing: 3) {
-                        Spacer()
-                        Image(systemName: "command")
-                            .font(.system(size: 10, weight: .medium))
-                        Text("2")
-                            .font(.custom("RetroGaming", size: 10))
-                        Text("Note Sidebar")
-                            .font(.custom("RetroGaming", size: 10))
-                            .padding(.leading, 2)
-                    }
-                    .foregroundStyle(ui.theme.foreground.opacity(0.35))
-                    .padding(.trailing, 16)
+
+                    // Greeting overlay — always in the view tree (no insertion delay).
+                    // Opacity is flipped instantly to 1 before the mode swap, then
+                    // animated back to 0 after the new view has settled.
+                    TransitionGreetingView(
+                        message: transitionGreeting,
+                        theme: ui.theme
+                    )
+                    .opacity(transitionOpacity)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(transitionOpacity > 0)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .glassEffect(.regular, in: Capsule())
-                .padding(8)
-            }
-            .overlay(alignment: .trailing) {
-                NoteOutlineOverlay(
-                    markdown: notesUI.useTK2Editor
-                        ? ""
-                        : (PageStoragePool.shared.bodyText(for: pageId)
-                            ?? pages.first?.loadBody() ?? ""),
-                    theme: ui.theme,
-                    onNavigate: { charOffset in
-                        scrollEditorTo(charOffset: charOffset)
-                    },
-                    externalItems: notesUI.useTK2Editor ? tocItems : nil
-                )
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(ui.theme.background)
-            .environment(noteChatState)
-            .onAppear {
-                noteChatState.loadPersistedMessages(modelContext)
-                refreshTabCount()
-                if let page = pages.first {
-                    scheduleMetricsRefresh(
-                        body: page.loadBody(),
-                        includeMarkdownHeadings: !showDocumentMode
+                .overlay(alignment: .bottom) {
+                    VStack(spacing: 0) {
+                        // Soft transparent fade from clear → background
+                        LinearGradient(
+                            colors: [
+                                ui.theme.background.opacity(0),
+                                ui.theme.background.opacity(0.7),
+                                ui.theme.background.opacity(0.95),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 44)
+                        .allowsHitTesting(false)
+
+                        ZStack {
+                            HStack(spacing: 8) {
+                                Text("\(wordCount) words")
+                                    .font(AppDisplayTypography.font(size: 13))
+                                    .monospacedDigit()
+                                    .foregroundStyle(ui.theme.foreground.opacity(0.55))
+                                if let target = notesUI.sessionWordTarget, target > 0 {
+                                    let delta = max(0, wordCount - notesUI.sessionStartWordCount)
+                                    let progress = min(1.0, Double(delta) / Double(target))
+                                    HStack(spacing: 4) {
+                                        ProgressView(value: progress)
+                                            .frame(width: 60)
+                                            .tint(progress >= 1.0 ? .green : .accentColor)
+                                        Text("\(delta)/\(target)")
+                                            .font(AppDisplayTypography.font(size: 11))
+                                            .foregroundStyle(ui.theme.foreground.opacity(0.55))
+                                    }
+                                }
+                            }
+
+                            HStack(spacing: 3) {
+                                Spacer()
+                                Image(systemName: "command")
+                                    .font(.system(size: 10, weight: .medium))
+                                Text("2")
+                                    .font(.custom("RetroGaming", size: 10))
+                                Text("Note Sidebar")
+                                    .font(.custom("RetroGaming", size: 10))
+                                    .padding(.leading, 2)
+                            }
+                            .foregroundStyle(ui.theme.foreground.opacity(0.35))
+                            .padding(.trailing, 16)
+                        }
+                        .padding(.bottom, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(ui.theme.background.opacity(0.95))
+                    }
+                    .allowsHitTesting(false)
+                }
+                .overlay(alignment: .trailing) {
+                    NoteOutlineOverlay(
+                        markdown: notesUI.useTK2Editor
+                            ? ""
+                            : (PageStoragePool.shared.bodyText(for: pageId)
+                                ?? pages.first?.loadBody() ?? ""),
+                        theme: ui.theme,
+                        onNavigate: { charOffset in
+                            scrollEditorTo(charOffset: charOffset)
+                        },
+                        externalItems: notesUI.useTK2Editor ? tocItems : nil
                     )
                 }
-            }
-            .onDisappear {
-                wordCountDebounce?.cancel()
-                metricsTask?.cancel()
-                noteChatState.clear()
-            }
-            .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
-                if wasStreaming && !isNowStreaming, let page = pages.first {
-                    noteChatState.persistMessages(modelContext, noteTitle: page.title)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(ui.theme.background)
+                .environment(noteChatState)
+                .onAppear {
+                    noteChatState.loadPersistedMessages(modelContext)
+                    refreshTabCount()
+                    if let page = pages.first {
+                        scheduleMetricsRefresh(
+                            body: page.loadBody(),
+                            includeMarkdownHeadings: true
+                        )
+                    }
                 }
+                .onDisappear {
+                    wordCountDebounce?.cancel()
+                    metricsTask?.cancel()
+                    noteChatState.clear()
+                }
+                .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
+                    if wasStreaming && !isNowStreaming, let page = pages.first {
+                        noteChatState.persistMessages(modelContext, noteTitle: page.title)
+                    }
+                }
+
             }
-
-
-        }
         }
         .toolbar {
-            // Back / Forward (only when navigating wikilinks)
             if let nav = navState, nav.hasBreadcrumb {
                 ToolbarItem(placement: .navigation) {
                     wikilinksNavButtons(nav: nav)
                 }
             }
-
-            if !showPreview && !showDocumentMode {
+            if !showPreview {
                 ToolbarItem {
                     Menu {
                         formatMenuContent
@@ -246,7 +238,9 @@ struct NoteDetailWorkspaceView: View {
             }
 
             ToolbarItem {
-                Button { togglePreviewMode() } label: {
+                Button {
+                    togglePreviewMode()
+                } label: {
                     Label(
                         showPreview ? "Editor" : "Preview",
                         systemImage: showPreview ? "pencil" : "eye")
@@ -266,13 +260,15 @@ struct NoteDetailWorkspaceView: View {
 
             if !showPreview {
                 ToolbarItem(placement: .principal) {
-                    toolbarChatField(width: 200)
+                    toolbarChatField(width: 180)
                 }
             }
 
-            if !showPreview && !showDocumentMode {
+            if !showPreview {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { showBacklinksPopover.toggle() } label: {
+                    Button {
+                        showBacklinksPopover.toggle()
+                    } label: {
                         Label("Backlinks", systemImage: "link")
                     }
                     .help("Backlinks")
@@ -332,9 +328,7 @@ struct NoteDetailWorkspaceView: View {
             Button("") { togglePreviewMode() }
                 .keyboardShortcut("e", modifiers: .command)
                 .hidden()
-            Button("") { toggleDocumentMode() }
-                .keyboardShortcut("r", modifiers: .command)
-                .hidden()
+
             Button("") { insertMarkdown("**", "**") }
                 .keyboardShortcut("b", modifiers: .command)
                 .hidden()
@@ -417,6 +411,7 @@ struct NoteDetailWorkspaceView: View {
             if let window = NSApp.keyWindow {
                 window.appearance = NSAppearance(named: newTheme.isDark ? .darkAqua : .aqua)
                 window.backgroundColor = newTheme.nsBackground
+                window.updateGlassToolbarTheme(newTheme)
             }
         }
         .onReceive(
@@ -494,17 +489,21 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    // MARK: - Wikilink Navigation (Native Toolbar Items)
+    // MARK: - Wikilink Navigation
 
     @ViewBuilder
     private func wikilinksNavButtons(nav: NoteNavigationState) -> some View {
         HStack(spacing: 2) {
-            Button { nav.back() } label: {
+            Button {
+                nav.back()
+            } label: {
                 Image(systemName: "chevron.left")
             }
             .disabled(!nav.canGoBack)
 
-            Button { nav.forward() } label: {
+            Button {
+                nav.forward()
+            } label: {
                 Image(systemName: "chevron.right")
             }
             .disabled(!nav.canGoForward)
@@ -522,7 +521,7 @@ struct NoteDetailWorkspaceView: View {
 
     private func refreshVisibleEditorMetrics() {
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        scheduleMetricsRefresh(body: tv.string, includeMarkdownHeadings: !showDocumentMode)
+        scheduleMetricsRefresh(body: tv.string, includeMarkdownHeadings: true)
     }
 
     private func scheduleMetricsRefresh(body: String, includeMarkdownHeadings: Bool) {
@@ -610,14 +609,17 @@ struct NoteDetailWorkspaceView: View {
     ) {
         // If selectedText wasn't in the notification,
         // grab the current selection from the first responder text view.
-        let text: String = selectedText ?? {
-            guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return "" }
-            let sel = tv.selectedRange()
-            guard sel.length > 0 else { return "" }
-            return (tv.string as NSString).substring(with: sel)
-        }()
+        let text: String =
+            selectedText
+            ?? {
+                guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return "" }
+                let sel = tv.selectedRange()
+                guard sel.length > 0 else { return "" }
+                return (tv.string as NSString).substring(with: sel)
+            }()
         let trimmedInstruction = instruction?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let instructionSuffix = trimmedInstruction.isEmpty ? "" : "\n\nAdditional instruction: \(trimmedInstruction)"
+        let instructionSuffix =
+            trimmedInstruction.isEmpty ? "" : "\n\nAdditional instruction: \(trimmedInstruction)"
 
         let mapping: (operation: NotesOperation, systemPrompt: String, userPrompt: String) = {
             switch op {
@@ -715,7 +717,9 @@ struct NoteDetailWorkspaceView: View {
                 return (
                     .ask(query: text.isEmpty ? "Help me with this note." : text),
                     "You are a helpful note assistant. Answer concisely based on the note content.",
-                    text.isEmpty ? "Help me with this note.\(instructionSuffix)" : "\(text)\(instructionSuffix)"
+                    text.isEmpty
+                        ? "Help me with this note.\(instructionSuffix)"
+                        : "\(text)\(instructionSuffix)"
                 )
             }
         }()
@@ -764,7 +768,8 @@ struct NoteDetailWorkspaceView: View {
         guard let page = pages.first else { return }
         let fullText: String
         if !notesUI.useTK2Editor,
-           let poolText = PageStoragePool.shared.bodyText(for: pageId) {
+            let poolText = PageStoragePool.shared.bodyText(for: pageId)
+        {
             // TK1: read from PageStoragePool (reliable, pre-styled storage).
             fullText = poolText
         } else if let responder = NSApp.keyWindow?.firstResponder as? NSTextView {
@@ -809,24 +814,10 @@ struct NoteDetailWorkspaceView: View {
 
     private func togglePreviewMode() {
         guard !isTransitioning else { return }
-        guard !showDocumentMode else { return }
         flushCurrentEditor()
         performGreetingTransition {
             invalidateEditorCache()
             showPreview.toggle()
-        }
-    }
-
-    private func toggleDocumentMode() {
-        guard !isTransitioning else { return }
-        guard !showPreview else { return }
-        flushCurrentEditor()
-        performGreetingTransition {
-            invalidateEditorCache()
-            showDocumentMode.toggle()
-            if !showDocumentMode {
-                documentTextView = nil
-            }
         }
     }
 
@@ -838,11 +829,13 @@ struct NoteDetailWorkspaceView: View {
             predicate: #Predicate<SDPage> { $0.title == trimmed }
         )
         let lowered = trimmed.lowercased()
-        let existing: SDPage? = (try? modelContext.fetch(exactDesc))?.first ?? {
-            let allDesc = FetchDescriptor<SDPage>()
-            guard let pages = try? modelContext.fetch(allDesc) else { return nil }
-            return pages.first(where: { $0.title.lowercased() == lowered })
-        }()
+        let existing: SDPage? =
+            (try? modelContext.fetch(exactDesc))?.first
+            ?? {
+                let allDesc = FetchDescriptor<SDPage>()
+                guard let pages = try? modelContext.fetch(allDesc) else { return nil }
+                return pages.first(where: { $0.title.lowercased() == lowered })
+            }()
 
         if let existing {
             if let navState {
@@ -935,13 +928,15 @@ struct NoteDetailWorkspaceView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
                 } else {
-                    Text(noteChatState.responseText
-                         + (noteChatState.isStreaming ? " \u{258D}" : ""))
-                        .font(.system(size: 13))
-                        .foregroundStyle(.primary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
+                    Text(
+                        noteChatState.responseText
+                            + (noteChatState.isStreaming ? " \u{258D}" : "")
+                    )
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
                 }
             }
             .frame(height: 260)
@@ -964,21 +959,27 @@ struct NoteDetailWorkspaceView: View {
                     .disabled(noteChatState.isStreaming)
 
                 if noteChatState.isStreaming {
-                    Button { noteChatState.stopStreaming() } label: {
+                    Button {
+                        noteChatState.stopStreaming()
+                    } label: {
                         Image(systemName: "stop.fill")
                             .font(.system(size: 9))
                             .foregroundStyle(ui.theme.error)
                     }
                     .buttonStyle(.plain)
                 } else if !noteChatState.responseText.isEmpty {
-                    Button { noteChatState.acceptResponse() } label: {
+                    Button {
+                        noteChatState.acceptResponse()
+                    } label: {
                         Label("Insert", systemImage: "text.insert")
                             .font(.system(size: 11, weight: .medium))
                     }
                     .buttonStyle(.bordered)
                     .tint(ui.theme.accent)
 
-                    Button { noteChatState.discardResponse() } label: {
+                    Button {
+                        noteChatState.discardResponse()
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 11))
                     }
@@ -1032,7 +1033,9 @@ struct NoteDetailWorkspaceView: View {
                 Divider()
 
                 Menu("Manual Provider") {
-                    ForEach([LLMProviderType.anthropic, .openai, .google, .kimi, .ollama], id: \.self) { provider in
+                    ForEach(
+                        [LLMProviderType.anthropic, .openai, .google, .kimi, .ollama], id: \.self
+                    ) { provider in
                         Button {
                             noteChatState.chatMode = .provider
                             noteChatState.overrideProvider = provider
@@ -1144,33 +1147,6 @@ struct NoteDetailWorkspaceView: View {
             }
 
             Button {
-                toggleDocumentMode()
-            } label: {
-                Label(
-                    showDocumentMode ? "Editor (\u{2318}R)" : "Document Mode (\u{2318}R)",
-                    systemImage: showDocumentMode ? "pencil" : "doc.richtext")
-            }
-
-            if showDocumentMode {
-                Divider()
-
-                Button {
-                    importDocument()
-                } label: {
-                    Label("Import Document...", systemImage: "square.and.arrow.down")
-                }
-
-                Menu("Export") {
-                    Button("Word Document (.docx)") {
-                        exportDOCX()
-                    }
-                    Button("PDF") {
-                        exportPDF()
-                    }
-                }
-            }
-
-            Button {
                 withAnimation { showChatSidebar.toggle() }
             } label: {
                 Label(
@@ -1250,10 +1226,15 @@ struct NoteDetailWorkspaceView: View {
                 notesUI.useTK2Editor.toggle()
             } label: {
                 Label(
-                    notesUI.useTK2Editor ? "Switch to Legacy Editor" : "Switch to New Editor",
+                    notesUI.useTK2Editor ? "Switch to Classic Editor" : "Long-Form Editor (Beta)",
                     systemImage: notesUI.useTK2Editor ? "1.square" : "2.square"
                 )
             }
+            .help(
+                notesUI.useTK2Editor
+                    ? "Switch back to the classic editor"
+                    : "Optimised for long documents — smoother scrolling and rendering for 5,000+ word notes"
+            )
         } label: {
             Label("More", systemImage: "ellipsis.circle")
         }
@@ -1333,7 +1314,8 @@ struct NoteDetailWorkspaceView: View {
         }
 
         let str = tv.string as NSString
-        let lineRange = str.lineRange(for: NSRange(location: tv.selectedRange().location, length: 0))
+        let lineRange = str.lineRange(
+            for: NSRange(location: tv.selectedRange().location, length: 0))
         let lineText = str.substring(with: lineRange)
         let trimmed = lineText.trimmingCharacters(in: .newlines)
         let hasNewline = lineText.hasSuffix("\n")
@@ -1341,7 +1323,9 @@ struct NoteDetailWorkspaceView: View {
         if trimmed.hasPrefix(prefix) {
             replacement = String(trimmed.dropFirst(prefix.count)) + (hasNewline ? "\n" : "")
         } else {
-            replacement = prefix + MarkdownEditorCommands.strippedLineMarker(from: trimmed) + (hasNewline ? "\n" : "")
+            replacement =
+                prefix + MarkdownEditorCommands.strippedLineMarker(from: trimmed)
+                + (hasNewline ? "\n" : "")
         }
         tv.insertText(replacement, replacementRange: lineRange)
     }
@@ -1366,7 +1350,8 @@ struct NoteDetailWorkspaceView: View {
             return
         }
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        tv.insertText(MarkdownEditorCommands.markdownTableTemplate, replacementRange: tv.selectedRange())
+        tv.insertText(
+            MarkdownEditorCommands.markdownTableTemplate, replacementRange: tv.selectedRange())
     }
 
     private func insertTableRowBelow() {
@@ -1376,19 +1361,25 @@ struct NoteDetailWorkspaceView: View {
 
     private func insertTableColumnRight() {
         guard let tv = NoteEditorViewFinder.findEditorTextView(),
-              let edit = MarkdownEditorCommands.insertTableColumnRight(in: tv.string, selection: tv.selectedRange()) else { return }
+            let edit = MarkdownEditorCommands.insertTableColumnRight(
+                in: tv.string, selection: tv.selectedRange())
+        else { return }
         _ = MarkdownEditorCommands.apply(edit, to: tv)
     }
 
     private func deleteTableRow() {
         guard let tv = NoteEditorViewFinder.findEditorTextView(),
-              let edit = MarkdownEditorCommands.deleteTableRow(in: tv.string, selection: tv.selectedRange()) else { return }
+            let edit = MarkdownEditorCommands.deleteTableRow(
+                in: tv.string, selection: tv.selectedRange())
+        else { return }
         _ = MarkdownEditorCommands.apply(edit, to: tv)
     }
 
     private func deleteTableColumn() {
         guard let tv = NoteEditorViewFinder.findEditorTextView(),
-              let edit = MarkdownEditorCommands.deleteTableColumn(in: tv.string, selection: tv.selectedRange()) else { return }
+            let edit = MarkdownEditorCommands.deleteTableColumn(
+                in: tv.string, selection: tv.selectedRange())
+        else { return }
         _ = MarkdownEditorCommands.apply(edit, to: tv)
     }
 
@@ -1431,69 +1422,6 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    // MARK: - Document Import/Export
-
-    private func importDocument() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.rtf, .rtfd, .plainText]
-        if let docxType = UTType("org.openxmlformats.wordprocessingml.document") {
-            panel.allowedContentTypes.append(docxType)
-        }
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            guard let content = try? DocumentImportExport.importDocument(from: url) else { return }
-            guard let page = pages.first else { return }
-            NoteFileStorage.writeRichText(pageId: page.id, content: content)
-            // Write plain-text mirror so loadBody(), search, and vault sync stay current
-            let plainText = content.string
-            NoteFileStorage.writeBody(pageId: page.id, content: plainText)
-            BlockMirror.sync(pageId: page.id, body: plainText, modelContext: modelContext)
-            page.format = "richtext"
-            page.needsVaultSync = true
-            page.updatedAt = .now
-            page.wordCount = plainText.split(separator: " ").count
-            try? modelContext.save()
-            NoteFileStorage.notifyBodyChanged(pageId: page.id)
-            if !showDocumentMode {
-                toggleDocumentMode()
-            } else {
-                showDocumentMode = false
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(100))
-                    showDocumentMode = true
-                }
-            }
-        }
-    }
-
-    private func exportDOCX() {
-        guard let page = pages.first else { return }
-        guard let content = NoteFileStorage.readRichText(pageId: page.id) else { return }
-        guard let data = try? DocumentImportExport.exportDOCX(content) else { return }
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [UTType("org.openxmlformats.wordprocessingml.document") ?? .data]
-        panel.nameFieldStringValue = "\(page.title.isEmpty ? "Untitled" : page.title).docx"
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            try? data.write(to: url)
-        }
-    }
-
-    private func exportPDF() {
-        guard let page = pages.first else { return }
-        guard let content = NoteFileStorage.readRichText(pageId: page.id) else { return }
-        guard let data = DocumentImportExport.exportPDF(content) else { return }
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.pdf]
-        panel.nameFieldStringValue = "\(page.title.isEmpty ? "Untitled" : page.title).pdf"
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            try? data.write(to: url)
-        }
-    }
-
     // MARK: - Info Panel
 
     private func noteInfoPanel(page: SDPage) -> some View {
@@ -1503,7 +1431,9 @@ struct NoteDetailWorkspaceView: View {
         let readingTime = max(1, wordCount / 200)
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Note Info").font(.headline)
+            Text("Note Info")
+                .font(AppHeadingRole.h3.font)
+                .foregroundStyle(ui.theme.fontAccent)
             Divider()
             infoRow("Words", "\(wordCount)")
             infoRow("Characters", "\(charCount)")
@@ -1630,8 +1560,8 @@ private struct IdeasPanel: View {
             // Header
             HStack {
                 Text("Ideas & Brain Dumps")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(theme.foreground)
+                    .font(AppHeadingRole.h3.font)
+                    .foregroundStyle(theme.fontAccent)
                 Spacer()
                 Text("\(readIdeas().count)")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -2337,7 +2267,7 @@ private struct IdeaRow: View {
 
 private struct NotePreviewView: NSViewRepresentable {
     let body: String
-    let isDark: Bool
+    let theme: EpistemosTheme
 
     private static let maxReadableWidth: CGFloat = 720
     private static let minHorizontalInset: CGFloat = 60
@@ -2345,7 +2275,8 @@ private struct NotePreviewView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let storage = MarkdownTextStorage()
-        storage.isDark = isDark
+        storage.isDark = theme.isDark
+        storage.theme = theme
 
         let layoutManager = NSLayoutManager()
         layoutManager.allowsNonContiguousLayout = true
@@ -2366,6 +2297,7 @@ private struct NotePreviewView: NSViewRepresentable {
         tv.usesRuler = false
         tv.drawsBackground = false
         tv.backgroundColor = .clear
+        tv.textColor = NSColor(theme.foreground)
         tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
         tv.textContainer?.lineFragmentPadding = 0
         tv.isVerticallyResizable = true
@@ -2403,6 +2335,7 @@ private struct NotePreviewView: NSViewRepresentable {
             }
         }
         context.coordinator.storage = storage
+        context.coordinator.lastTheme = theme
 
         DispatchQueue.main.async {
             Self.updateCenteringInsets(for: tv)
@@ -2414,22 +2347,23 @@ private struct NotePreviewView: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let storage = context.coordinator.storage else { return }
 
-        // Update theme
-        if context.coordinator.lastIsDark != isDark {
-            context.coordinator.lastIsDark = isDark
-            storage.isDark = isDark
+        var needsRestyle = false
+        if context.coordinator.lastTheme != theme {
+            context.coordinator.lastTheme = theme
+            storage.isDark = theme.isDark
+            storage.theme = theme
             if let tv = scrollView.documentView as? NSTextView {
-                let baseColor: NSColor =
-                    isDark ? .white.withAlphaComponent(0.88) : NSColor(white: 0.1, alpha: 1)
-                tv.textColor = baseColor
+                tv.textColor = NSColor(theme.foreground)
             }
-            storage.reapplyAllStyles()
+            needsRestyle = true
         }
 
         // Update content if changed
         if storage.string != body {
             let fullRange = NSRange(location: 0, length: storage.length)
             storage.replaceCharacters(in: fullRange, with: body)
+        } else if needsRestyle {
+            storage.reapplyAllStyles()
         }
 
         // Update centering
@@ -2442,7 +2376,7 @@ private struct NotePreviewView: NSViewRepresentable {
 
     final class Coordinator {
         var storage: MarkdownTextStorage?
-        var lastIsDark = true
+        var lastTheme: EpistemosTheme?
         nonisolated(unsafe) var frameObserver: (any NSObjectProtocol)?
 
         deinit {

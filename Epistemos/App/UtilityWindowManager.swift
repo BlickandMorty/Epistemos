@@ -81,6 +81,19 @@ enum UtilityPanel: String, CaseIterable {
     var usesFullWindow: Bool { false }
 }
 
+enum UtilityPanelChrome {
+    @MainActor
+    static func applySidebarChrome(to panel: NSPanel) {
+        panel.styleMask.insert(.fullSizeContentView)
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        let toolbar = panel.toolbar ?? NSToolbar(identifier: "NotesSidebarToolbar")
+        toolbar.showsBaselineSeparator = false
+        panel.toolbar = toolbar
+        panel.toolbarStyle = .unified
+    }
+}
+
 @MainActor
 final class UtilityWindowManager {
     static let shared = UtilityWindowManager()
@@ -146,22 +159,17 @@ final class UtilityWindowManager {
         let size = kind.defaultSize
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
-            styleMask: [.titled, .closable, .resizable],
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         panel.title = kind.title
         panel.isMovableByWindowBackground = true
         panel.level = .normal
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.collectionBehavior = [.canJoinAllSpaces]
         panel.isReleasedWhenClosed = false
         panel.minSize = NSSize(width: 400, height: 300)
-        WindowPresentationPolicy.applyModularZoomBehavior(to: panel)
-
-        let toolbar = NSToolbar(identifier: "Utility-\(kind.rawValue)")
-        panel.toolbar = toolbar
-        panel.toolbarStyle = .unifiedCompact
-        panel.titleVisibility = .hidden
+        UtilityPanelChrome.applySidebarChrome(to: panel)
 
         panel.center()
 

@@ -32,7 +32,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     /// Used for page swap and initial load so the editor never shows stale content.
     let pageBody: String
     let isFocused: Bool
-    let isDark: Bool
+    let theme: EpistemosTheme
     let isEditable: Bool
     let isFocusMode: Bool
     var modelContext: ModelContext?
@@ -69,7 +69,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Build text stack manually so MarkdownTextStorage is the original storage.
         // This preserves NSTextView's native undo manager wiring.
         let storage = MarkdownTextStorage()
-        storage.isDark = isDark
+        storage.isDark = theme.isDark
+        storage.theme = theme
 
         let layoutManager = NSLayoutManager()
         // Only lay out visible text — skip everything below the fold.
@@ -102,6 +103,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         tv.importsGraphics = false
         tv.drawsBackground = false
         tv.backgroundColor = .clear
+        tv.textColor = NSColor(theme.foreground)
 
         // Initial insets — will be recalculated by frame observer for centering.
         tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
@@ -147,7 +149,6 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         scrollView.wantsLayer = true
         scrollView.contentView.wantsLayer = true
         scrollView.contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
-        // No system toolbar — custom glass bar is a SwiftUI view above the scroll view.
         scrollView.automaticallyAdjustsContentInsets = false
         scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
 
@@ -324,7 +325,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 let slot = PageStoragePool.shared.getOrCreate(
                     pageId: pageId,
                     bodyText: pageBody,
-                    isDark: isDark
+                    theme: theme
                 )
 
                 // Swap storage — detach old, attach new
@@ -380,15 +381,15 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         // === GUARD ALL WORK WITH COORDINATOR CACHE (Pitfall #6) ===
 
-        // Theme change — only when isDark actually changed.
+        // Theme change — restyle when the actual theme changes, not just dark/light mode.
         // Progressive restyle: line-level styles synchronous (headings/lists/quotes —
         // correct colors immediately), inline styles deferred one frame (7 regex passes).
         // Prevents multi-second freeze on theme toggle with large documents.
-        if coord.lastIsDark != isDark {
-            coord.lastIsDark = isDark
-            coord.storage?.isDark = isDark
-            let baseColor: NSColor =
-                isDark ? .white.withAlphaComponent(0.88) : NSColor(white: 0.1, alpha: 1)
+        if coord.lastTheme != theme {
+            coord.lastTheme = theme
+            coord.storage?.isDark = theme.isDark
+            coord.storage?.theme = theme
+            let baseColor = NSColor(theme.foreground)
             tv.textColor = baseColor
             tv.typingAttributes[.foregroundColor] = baseColor
             Self.progressiveRestyle(coord.storage)
@@ -553,7 +554,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         // Cache guards (Pitfall #6) — skip work in updateNSView if nothing changed
         var lastIsFocused = false
-        var lastIsDark = false
+        var lastTheme: EpistemosTheme?
         var lastAvailableWidth: CGFloat = -1
         var isUserEditing = false
         /// Suppresses `textDidChange` binding sync during programmatic content changes
@@ -609,7 +610,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         init(_ parent: ProseEditorRepresentable) {
             self.parent = parent
-            self.lastIsDark = parent.isDark
+            self.lastTheme = parent.theme
             // lastPageId intentionally left nil — updateNSView will do the initial swap
         }
 

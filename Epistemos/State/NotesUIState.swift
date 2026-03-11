@@ -41,9 +41,9 @@ final class NotesUIState {
     // MARK: - TextKit 2 Editor
 
     /// When true, uses ProseEditorRepresentable2 (TextKit 2 stack).
-    /// Persisted via UserDefaults for cross-session stickiness.
-    var useTK2Editor: Bool = UserDefaults.standard.bool(forKey: "epistemos.editor.useTK2") {
-        didSet { UserDefaults.standard.set(useTK2Editor, forKey: "epistemos.editor.useTK2") }
+    /// Defaults to false (legacy TK1 editor). TK2 is optimised for long-form content.
+    var useTK2Editor: Bool = UserDefaults.standard.bool(forKey: "epistemos.editor.useTK2.v2") {
+        didSet { UserDefaults.standard.set(useTK2Editor, forKey: "epistemos.editor.useTK2.v2") }
     }
 
     // MARK: - Focus Mode

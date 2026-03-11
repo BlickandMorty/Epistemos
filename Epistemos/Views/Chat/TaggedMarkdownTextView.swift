@@ -239,7 +239,7 @@ struct TaggedMarkdownTextView: View {
                 HStack(spacing: 0) {
                     ForEach(0..<colCount, id: \.self) { colIdx in
                         let cell = colIdx < cells.count ? cells[colIdx] : ""
-                        taggedInlineMarkdown(cell)
+                        taggedInlineMarkdown(cell, baseFontSize: 13)
                             .font(.system(size: 13))
                             .foregroundStyle(theme.foreground.opacity(rowIdx < headerCount ? 1.0 : 0.85))
                             .fontWeight(rowIdx < headerCount ? .semibold : .regular)
@@ -281,7 +281,7 @@ struct TaggedMarkdownTextView: View {
         case .heading(let level, let text):
             renderHeading(level: level, text: text)
         case .paragraph(let text):
-            taggedInlineMarkdown(text)
+            taggedInlineMarkdown(text, baseFontSize: 15)
                 .font(.system(size: 15))
                 .foregroundStyle(theme.foreground)
                 .padding(.vertical, 5)
@@ -289,7 +289,7 @@ struct TaggedMarkdownTextView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\u{2022}")
                     .foregroundStyle(theme.accent)
-                taggedInlineMarkdown(text)
+                taggedInlineMarkdown(text, baseFontSize: 15)
                     .font(.system(size: 15))
                     .foregroundStyle(theme.foreground)
             }
@@ -300,7 +300,7 @@ struct TaggedMarkdownTextView: View {
                 Text(number)
                     .font(.system(size: 15).monospacedDigit())
                     .foregroundStyle(theme.accent)
-                taggedInlineMarkdown(text)
+                taggedInlineMarkdown(text, baseFontSize: 15)
                     .font(.system(size: 15))
                     .foregroundStyle(theme.foreground)
             }
@@ -311,7 +311,7 @@ struct TaggedMarkdownTextView: View {
                 RoundedRectangle(cornerRadius: 1)
                     .fill(theme.accent.opacity(0.5))
                     .frame(width: 3)
-                taggedInlineMarkdown(text)
+                taggedInlineMarkdown(text, baseFontSize: 15)
                     .font(.system(size: 15))
                     .italic()
                     .foregroundStyle(theme.textSecondary)
@@ -359,23 +359,20 @@ struct TaggedMarkdownTextView: View {
 
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
-        let font: Font = switch level {
-        case 1: .system(size: 26, weight: .semibold)
-        case 2: .system(size: 20, weight: .semibold)
-        case 3: .system(size: 16, weight: .medium)
-        case 4: .system(size: 15, weight: .medium)
-        default: .system(size: 14, weight: .medium)
-        }
-        let topPad: CGFloat = switch level {
-        case 1: 16
-        case 2: 12
-        case 3: 8
-        default: 6
-        }
+        let retroRole = AppHeadingRole.markdownRole(level: level)
+        let font: Font = retroRole?.font ?? {
+            switch level {
+            case 4: .system(size: 15, weight: .medium)
+            default: .system(size: 14, weight: .medium)
+            }
+        }()
+        let fontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
+        let topPad = retroRole?.topPadding ?? 6
+        let color = retroRole == nil ? theme.foreground : theme.fontAccent
 
-        taggedInlineMarkdown(text)
+        taggedInlineMarkdown(text, baseFontSize: fontSize)
             .font(font)
-            .foregroundStyle(theme.foreground)
+            .foregroundStyle(color)
             .padding(.top, topPad)
             .padding(.bottom, 2)
     }
@@ -394,7 +391,7 @@ struct TaggedMarkdownTextView: View {
 
     /// Splits text on epistemic tag boundaries — both primary ([DATA], [CONFLICT - Tier 2])
     /// and secondary ([Tier 3]) — rendering each as a colored bold monospaced marker.
-    private func taggedInlineMarkdown(_ text: String) -> Text {
+    private func taggedInlineMarkdown(_ text: String, baseFontSize: CGFloat) -> Text {
         let nsText = text as NSString
         let fullRange = NSRange(location: 0, length: nsText.length)
 
@@ -431,7 +428,7 @@ struct TaggedMarkdownTextView: View {
 
         // No tags → fast-path standard markdown
         guard !tagMatches.isEmpty else {
-            return inlineMarkdown(text)
+            return inlineMarkdown(text, baseFontSize: baseFontSize)
         }
 
         var result = Text("")
@@ -443,7 +440,7 @@ struct TaggedMarkdownTextView: View {
                 let before = nsText.substring(
                     with: NSRange(location: cursor, length: tagMatch.range.location - cursor)
                 )
-                result = result + inlineMarkdown(before)
+                result = result + inlineMarkdown(before, baseFontSize: baseFontSize)
             }
 
             // The colored tag badge
@@ -461,32 +458,15 @@ struct TaggedMarkdownTextView: View {
         // Remaining text after the last tag
         if cursor < nsText.length {
             let remaining = nsText.substring(from: cursor)
-            result = result + inlineMarkdown(remaining)
+            result = result + inlineMarkdown(remaining, baseFontSize: baseFontSize)
         }
 
         return result
     }
 
-    /// Regex to strip orphan [UPPERCASE] brackets that AttributedString misinterprets as links.
-    // SAFETY: Hardcoded literal pattern — `try!` only fails on invalid regex syntax.
-    private static let orphanBracketRegex = try! NSRegularExpression(
-        pattern: "\\[[A-Z][A-Z ]+\\](?!\\()"
-    )
-
     /// Standard inline markdown parsing (bold, italic, code, links).
-    private func inlineMarkdown(_ text: String) -> Text {
-        let cleaned = Self.orphanBracketRegex.stringByReplacingMatches(
-            in: text,
-            range: NSRange(location: 0, length: (text as NSString).length),
-            withTemplate: ""
-        )
-        if let attributed = try? AttributedString(
-            markdown: cleaned,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        ) {
-            return Text(attributed)
-        }
-        return Text(cleaned)
+    private func inlineMarkdown(_ text: String, baseFontSize: CGFloat) -> Text {
+        InlineMarkdownStyler.text(text, strongFontSize: baseFontSize)
     }
 }
 
