@@ -50,4 +50,68 @@ struct MarkdownEditorCommandsTests {
     func calloutTemplate() {
         #expect(MarkdownEditorCommands.calloutTemplate(for: .warning) == "> [!warning] Warning\n> ")
     }
+
+    @Test("Table row insertion adds a new editable row below the current row")
+    func insertTableRowBelow() {
+        let text = """
+        | Name | Score |
+        | ---- | ----- |
+        | Ada  | 10    |
+        """
+        let selection = NSRange(location: (text as NSString).range(of: "Ada").location, length: 0)
+
+        let edit = MarkdownEditorCommands.insertTableRowBelow(in: text, selection: selection)
+
+        #expect(edit != nil)
+        #expect(edit?.replacementText.contains("|        |        |") == true)
+        #expect(edit?.replacementText.components(separatedBy: "\n").count == 4)
+    }
+
+    @Test("Table column insertion adds a new header and data column to the right")
+    func insertTableColumnRight() {
+        let text = """
+        | Name | Score |
+        | ---- | ----- |
+        | Ada  | 10    |
+        """
+        let selection = NSRange(location: (text as NSString).range(of: "Name").location, length: 0)
+
+        let edit = MarkdownEditorCommands.insertTableColumnRight(in: text, selection: selection)
+
+        #expect(edit != nil)
+        #expect(edit?.replacementText.contains("Column 2") == true)
+        #expect(edit?.replacementText.components(separatedBy: "|").count == 13)
+    }
+
+    @Test("Table column deletion removes the selected column across the table")
+    func deleteTableColumn() {
+        let text = """
+        | Name | Score | Status |
+        | ---- | ----- | ------ |
+        | Ada  | 10    | Done   |
+        """
+        let selection = NSRange(location: (text as NSString).range(of: "Score").location, length: 0)
+
+        let edit = MarkdownEditorCommands.deleteTableColumn(in: text, selection: selection)
+
+        #expect(edit != nil)
+        #expect(edit?.replacementText.contains("Score") == false)
+        #expect(edit?.replacementText.contains("Status") == true)
+    }
+
+    @Test("Table alignment expands cramped markdown into a readable grid")
+    func alignTable() {
+        let text = """
+        | A | BBB |
+        | - | --- |
+        | xx | y |
+        """
+        let selection = NSRange(location: (text as NSString).range(of: "xx").location, length: 0)
+
+        let edit = MarkdownEditorCommands.alignTable(in: text, selection: selection)
+
+        #expect(edit != nil)
+        #expect(edit?.replacementText.contains("| A      | BBB") == true)
+        #expect(edit?.replacementText.contains("| xx     | y") == true)
+    }
 }

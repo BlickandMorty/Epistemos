@@ -31,3 +31,4 @@ build-rust/
 
 # Reference repos
 logseq/
+.superpowers/

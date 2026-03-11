@@ -753,7 +753,7 @@ extension ProseEditorRepresentable2 {
                         return moveToTableCell(textView: textView, forward: false)
                     }
                     if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                        return handleTableNewline(textView: textView)
+                        return MarkdownEditorCommands.handleTableNewline(in: textView)
                     }
                 }
             }
@@ -923,39 +923,6 @@ extension ProseEditorRepresentable2 {
             return true
         }
 
-        // MARK: - Table New Row
-
-        private func handleTableNewline(textView: NSTextView) -> Bool {
-            let str = textView.string as NSString
-            let cursorLoc = textView.selectedRange().location
-            let lineRange = str.lineRange(for: NSRange(location: min(cursorLoc, max(0, str.length - 1)), length: 0))
-            let lineStr = str.substring(with: lineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard lineStr.hasPrefix("|") && lineStr.hasSuffix("|") else { return false }
-
-            let cells = lineStr.dropFirst().dropLast()
-                .split(separator: "|", omittingEmptySubsequences: false)
-            let colCount = cells.count
-            guard colCount > 0 else { return false }
-
-            let emptyCells = [String](repeating: "   ", count: colCount)
-            let newRow = "\n| " + emptyCells.joined(separator: " | ") + " |"
-
-            let lineEnd = lineRange.location + lineRange.length
-            var actualEnd = lineEnd
-            if actualEnd > 0, str.character(at: actualEnd - 1) == 0x0A {
-                actualEnd -= 1
-            }
-
-            let insertRange = NSRange(location: actualEnd, length: 0)
-            if textView.shouldChangeText(in: insertRange, replacementString: newRow) {
-                textView.textStorage?.replaceCharacters(in: insertRange, with: newRow)
-                textView.didChangeText()
-                let newCursorPos = actualEnd + 3
-                textView.setSelectedRange(NSRange(location: min(newCursorPos, (textView.string as NSString).length), length: 0))
-            }
-            return true
-        }
-
         // MARK: - Table Auto-Alignment (500ms debounce)
 
         private func scheduleTableAlignment(_ tv: NSTextView) {
@@ -973,99 +940,8 @@ extension ProseEditorRepresentable2 {
             tableAlignTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(500))
                 guard let self, !Task.isCancelled else { return }
-                self.alignTableAtCursor(tv)
+                _ = MarkdownEditorCommands.realignTable(in: tv)
             }
-        }
-
-        private func alignTableAtCursor(_ tv: NSTextView) {
-            let str = tv.string as NSString
-            let cursorLoc = tv.selectedRange().location
-            guard cursorLoc <= str.length else { return }
-            let cursorLineRange = str.lineRange(for: NSRange(location: min(cursorLoc, str.length - 1), length: 0))
-
-            // Expand upward to find table start
-            var tableStart = cursorLineRange.location
-            while tableStart > 0 {
-                let prevEnd = tableStart - 1
-                let prevLineRange = str.lineRange(for: NSRange(location: prevEnd, length: 0))
-                let prevLine = str.substring(with: prevLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-                guard prevLine.hasPrefix("|") && prevLine.hasSuffix("|") else { break }
-                tableStart = prevLineRange.location
-            }
-
-            // Expand downward to find table end
-            var tableEnd = NSMaxRange(cursorLineRange)
-            while tableEnd < str.length {
-                let nextLineRange = str.lineRange(for: NSRange(location: tableEnd, length: 0))
-                let nextLine = str.substring(with: nextLineRange).trimmingCharacters(in: .whitespacesAndNewlines)
-                guard nextLine.hasPrefix("|") && nextLine.hasSuffix("|") else { break }
-                tableEnd = NSMaxRange(nextLineRange)
-            }
-
-            let tableRange = NSRange(location: tableStart, length: tableEnd - tableStart)
-            let tableText = str.substring(with: tableRange)
-            let lines = tableText.components(separatedBy: "\n").filter { !$0.isEmpty }
-            guard lines.count >= 2 else { return }
-
-            var parsed: [[String]] = []
-            var separatorIndices: Set<Int> = []
-            for (i, line) in lines.enumerated() {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard trimmed.hasPrefix("|") && trimmed.hasSuffix("|") else {
-                    parsed.append([trimmed])
-                    continue
-                }
-                let cells = trimmed.dropFirst().dropLast()
-                    .split(separator: "|", omittingEmptySubsequences: false)
-                    .map { $0.trimmingCharacters(in: .whitespaces) }
-                parsed.append(cells)
-                let isSep = cells.allSatisfy { $0.allSatisfy { $0 == "-" || $0 == ":" } }
-                if isSep { separatorIndices.insert(i) }
-            }
-
-            let colCount = parsed.map(\.count).max() ?? 0
-            guard colCount > 0 else { return }
-            var maxWidths = [Int](repeating: 3, count: colCount)
-            for (i, cells) in parsed.enumerated() {
-                if separatorIndices.contains(i) { continue }
-                for (j, cell) in cells.enumerated() where j < colCount {
-                    maxWidths[j] = max(maxWidths[j], cell.count)
-                }
-            }
-
-            var aligned: [String] = []
-            for (i, cells) in parsed.enumerated() {
-                var paddedCells: [String] = []
-                for j in 0..<colCount {
-                    let cell = j < cells.count ? cells[j] : ""
-                    let width = maxWidths[j]
-                    if separatorIndices.contains(i) {
-                        let leftColon = cell.hasPrefix(":")
-                        let rightColon = cell.hasSuffix(":")
-                        let dashCount = max(width - (leftColon ? 1 : 0) - (rightColon ? 1 : 0), 1)
-                        let sep = (leftColon ? ":" : "") + String(repeating: "-", count: dashCount) + (rightColon ? ":" : "")
-                        paddedCells.append(sep)
-                    } else {
-                        paddedCells.append(cell.padding(toLength: width, withPad: " ", startingAt: 0))
-                    }
-                }
-                aligned.append("| " + paddedCells.joined(separator: " | ") + " |")
-            }
-
-            let newText = aligned.joined(separator: "\n")
-            let trailing = tableText.hasSuffix("\n") ? "\n" : ""
-            let finalText = newText + trailing
-            guard finalText != tableText else { return }
-
-            let cursorOffsetInTable = cursorLoc - tableStart
-            isFlushingTokens = true
-            if tv.shouldChangeText(in: tableRange, replacementString: finalText) {
-                tv.textStorage?.replaceCharacters(in: tableRange, with: finalText)
-                tv.didChangeText()
-                let newCursor = min(tableStart + cursorOffsetInTable, tableStart + (finalText as NSString).length)
-                tv.setSelectedRange(NSRange(location: min(newCursor, (tv.string as NSString).length), length: 0))
-            }
-            isFlushingTokens = false
         }
 
         // MARK: - Link Click Handling

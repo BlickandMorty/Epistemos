@@ -11,6 +11,31 @@ private struct EditorMetricsSnapshot: Sendable {
     let headings: [TOCItem]
 }
 
+private enum NoteEditorViewFinder {
+    static func findEditorTextView() -> NSTextView? {
+        if let tv = NSApp.keyWindow?.firstResponder as? NSTextView, tv.isEditable {
+            return tv
+        }
+        for window in NSApp.windows where window.tabbingIdentifier == "epistemos-note-tabs" {
+            if let tv = findTextView(in: window.contentView) {
+                return tv
+            }
+        }
+        return nil
+    }
+
+    private static func findTextView(in view: NSView?) -> NSTextView? {
+        guard let view else { return nil }
+        if let tv = view as? NSTextView, tv.isEditable { return tv }
+        for subview in view.subviews {
+            if let tv = findTextView(in: subview) {
+                return tv
+            }
+        }
+        return nil
+    }
+}
+
 // MARK: - Note Page Content
 // Self-contained note editor for each page within a tab.
 // Resolves pageId → SDPage via @Query, shows ProseEditorView,
@@ -1279,7 +1304,16 @@ struct NoteDetailWorkspaceView: View {
 
         Divider()
 
-        Button("Table") { insertMarkdownTable() }
+        Menu("Table") {
+            Button("Insert Table") { insertMarkdownTable() }
+            Divider()
+            Button("Add Row Below") { insertTableRowBelow() }
+            Button("Add Column Right") { insertTableColumnRight() }
+            Button("Delete Row") { deleteTableRow() }
+            Button("Delete Column") { deleteTableColumn() }
+            Divider()
+            Button("Realign Table") { realignTable() }
+        }
         Button("Code Block") { insertCodeFence() }
         Button("Divider") { insertDivider() }
     }
@@ -1343,6 +1377,34 @@ struct NoteDetailWorkspaceView: View {
         }
         guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
         tv.insertText(MarkdownEditorCommands.markdownTableTemplate, replacementRange: tv.selectedRange())
+    }
+
+    private func insertTableRowBelow() {
+        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return }
+        _ = MarkdownEditorCommands.handleTableNewline(in: tv)
+    }
+
+    private func insertTableColumnRight() {
+        guard let tv = NoteEditorViewFinder.findEditorTextView(),
+              let edit = MarkdownEditorCommands.insertTableColumnRight(in: tv.string, selection: tv.selectedRange()) else { return }
+        _ = MarkdownEditorCommands.apply(edit, to: tv)
+    }
+
+    private func deleteTableRow() {
+        guard let tv = NoteEditorViewFinder.findEditorTextView(),
+              let edit = MarkdownEditorCommands.deleteTableRow(in: tv.string, selection: tv.selectedRange()) else { return }
+        _ = MarkdownEditorCommands.apply(edit, to: tv)
+    }
+
+    private func deleteTableColumn() {
+        guard let tv = NoteEditorViewFinder.findEditorTextView(),
+              let edit = MarkdownEditorCommands.deleteTableColumn(in: tv.string, selection: tv.selectedRange()) else { return }
+        _ = MarkdownEditorCommands.apply(edit, to: tv)
+    }
+
+    private func realignTable() {
+        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return }
+        _ = MarkdownEditorCommands.realignTable(in: tv)
     }
 
     private func insertCodeFence() {
@@ -1774,7 +1836,7 @@ private struct IdeasPanel: View {
     /// Get the current cursor line number (1-based) and the line's text content.
     static func currentCursorLine() -> (line: Int, context: String?)? {
         // Walk the window list to find an NSTextView (editor might not be key when popover is open)
-        guard let tv = findEditorTextView() else { return nil }
+        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return nil }
         let str = tv.string as NSString
         guard str.length > 0 else { return (1, nil) }
         let cursor = min(tv.selectedRange().location, str.length)
@@ -1791,33 +1853,6 @@ private struct IdeasPanel: View {
 
         let snippet = lineText.isEmpty ? nil : String(lineText.prefix(80))
         return (lineNum, snippet)
-    }
-
-    /// Find the editor NSTextView — searches the note window's view hierarchy
-    /// because the popover steals key focus from the editor.
-    private static func findEditorTextView() -> NSTextView? {
-        // First try the direct responder chain
-        if let tv = NSApp.keyWindow?.firstResponder as? NSTextView,
-            tv.isEditable
-        {
-            return tv
-        }
-        // Search all windows in the note tab group
-        for window in NSApp.windows where window.tabbingIdentifier == "epistemos-note-tabs" {
-            if let tv = findTextView(in: window.contentView) {
-                return tv
-            }
-        }
-        return nil
-    }
-
-    private static func findTextView(in view: NSView?) -> NSTextView? {
-        guard let view else { return nil }
-        if let tv = view as? NSTextView, tv.isEditable { return tv }
-        for sub in view.subviews {
-            if let tv = findTextView(in: sub) { return tv }
-        }
-        return nil
     }
 
     // MARK: - Actions
@@ -1855,7 +1890,7 @@ private struct IdeasPanel: View {
 
     /// Navigate the editor to the anchor line of an idea.
     private func goToLine(_ line: Int?) {
-        guard let line, let tv = Self.findEditorTextView() else { return }
+        guard let line, let tv = NoteEditorViewFinder.findEditorTextView() else { return }
         let str = tv.string as NSString
         var currentLine = 1
         var targetRange = NSRange(location: 0, length: 0)
@@ -1878,7 +1913,7 @@ private struct IdeasPanel: View {
 
     /// Insert the idea's body text at the anchor line.
     private func insertIdea(_ item: NoteIdea) {
-        guard let tv = Self.findEditorTextView() else { return }
+        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return }
         let textToInsert = item.formattedBody ?? item.body
         guard !textToInsert.isEmpty else { return }
 
@@ -2021,7 +2056,7 @@ private struct IdeasPanel: View {
                     return
                 }
 
-                guard let tv = Self.findEditorTextView() else {
+                guard let tv = NoteEditorViewFinder.findEditorTextView() else {
                     busyItemId = nil
                     return
                 }
