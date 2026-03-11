@@ -64,7 +64,6 @@ struct NoteDetailWorkspaceView: View {
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
     @State private var showBacklinksPopover = false
-    @State private var showEpistemosWritingTools = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
     @State private var tocItems: [TOCItem] = []
@@ -260,6 +259,12 @@ struct NoteDetailWorkspaceView: View {
 
             ToolbarItem {
                 moreMenu
+            }
+
+            if !showPreview {
+                ToolbarItem {
+                    appleWritingToolsButton
+                }
             }
 
             if !showPreview {
@@ -990,38 +995,26 @@ struct NoteDetailWorkspaceView: View {
         .frame(width: 420)
     }
 
+    private var appleWritingToolsButton: some View {
+        Button {
+            NotificationCenter.default.post(
+                name: WritingToolsBridge.showNotification,
+                object: nil,
+                userInfo: ["pageId": pageId]
+            )
+        } label: {
+            Image(systemName: "apple.intelligence")
+                .font(.system(size: 11, weight: .medium))
+        }
+        .buttonStyle(.plain)
+        .help("Apple Writing Tools")
+    }
+
     // MARK: - Toolbar Chat Field
 
     private func toolbarChatField(width: CGFloat) -> some View {
         HStack(spacing: 6) {
             @Bindable var chat = noteChatState
-            Button {
-                NotificationCenter.default.post(
-                    name: WritingToolsBridge.showNotification,
-                    object: nil,
-                    userInfo: ["pageId": pageId]
-                )
-            } label: {
-                Image(systemName: "apple.intelligence")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .buttonStyle(.plain)
-            .help("Apple Writing Tools")
-
-            Button {
-                showEpistemosWritingTools.toggle()
-            } label: {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .buttonStyle(.plain)
-            .help("Epistemos Writing Tools")
-            .popover(isPresented: $showEpistemosWritingTools, arrowEdge: .bottom) {
-                NoteWritingToolsMenu(pageId: pageId) {
-                    showEpistemosWritingTools = false
-                }
-            }
-
             Menu {
                 Button {
                     noteChatState.chatMode = .auto
