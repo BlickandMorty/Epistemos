@@ -239,7 +239,11 @@ struct TaggedMarkdownTextView: View {
                 HStack(spacing: 0) {
                     ForEach(0..<colCount, id: \.self) { colIdx in
                         let cell = colIdx < cells.count ? cells[colIdx] : ""
-                        taggedInlineMarkdown(cell, baseFontSize: 13)
+                        taggedInlineMarkdown(
+                            cell,
+                            baseFontSize: 13,
+                            strongForegroundColor: theme.chatStrongForeground
+                        )
                             .font(.system(size: 13))
                             .foregroundStyle(theme.foreground.opacity(rowIdx < headerCount ? 1.0 : 0.85))
                             .fontWeight(rowIdx < headerCount ? .semibold : .regular)
@@ -281,7 +285,11 @@ struct TaggedMarkdownTextView: View {
         case .heading(let level, let text):
             renderHeading(level: level, text: text)
         case .paragraph(let text):
-            taggedInlineMarkdown(text, baseFontSize: 15)
+            taggedInlineMarkdown(
+                text,
+                baseFontSize: 15,
+                strongForegroundColor: theme.chatStrongForeground
+            )
                 .font(.system(size: 15))
                 .foregroundStyle(theme.foreground)
                 .padding(.vertical, 5)
@@ -289,7 +297,11 @@ struct TaggedMarkdownTextView: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\u{2022}")
                     .foregroundStyle(theme.accent)
-                taggedInlineMarkdown(text, baseFontSize: 15)
+                taggedInlineMarkdown(
+                    text,
+                    baseFontSize: 15,
+                    strongForegroundColor: theme.chatStrongForeground
+                )
                     .font(.system(size: 15))
                     .foregroundStyle(theme.foreground)
             }
@@ -300,7 +312,11 @@ struct TaggedMarkdownTextView: View {
                 Text(number)
                     .font(.system(size: 15).monospacedDigit())
                     .foregroundStyle(theme.accent)
-                taggedInlineMarkdown(text, baseFontSize: 15)
+                taggedInlineMarkdown(
+                    text,
+                    baseFontSize: 15,
+                    strongForegroundColor: theme.chatStrongForeground
+                )
                     .font(.system(size: 15))
                     .foregroundStyle(theme.foreground)
             }
@@ -311,7 +327,11 @@ struct TaggedMarkdownTextView: View {
                 RoundedRectangle(cornerRadius: 1)
                     .fill(theme.accent.opacity(0.5))
                     .frame(width: 3)
-                taggedInlineMarkdown(text, baseFontSize: 15)
+                taggedInlineMarkdown(
+                    text,
+                    baseFontSize: 15,
+                    strongForegroundColor: theme.chatStrongForeground
+                )
                     .font(.system(size: 15))
                     .italic()
                     .foregroundStyle(theme.textSecondary)
@@ -391,7 +411,11 @@ struct TaggedMarkdownTextView: View {
 
     /// Splits text on epistemic tag boundaries — both primary ([DATA], [CONFLICT - Tier 2])
     /// and secondary ([Tier 3]) — rendering each as a colored bold monospaced marker.
-    private func taggedInlineMarkdown(_ text: String, baseFontSize: CGFloat) -> Text {
+    private func taggedInlineMarkdown(
+        _ text: String,
+        baseFontSize: CGFloat,
+        strongForegroundColor: Color? = nil
+    ) -> Text {
         let nsText = text as NSString
         let fullRange = NSRange(location: 0, length: nsText.length)
 
@@ -428,7 +452,11 @@ struct TaggedMarkdownTextView: View {
 
         // No tags → fast-path standard markdown
         guard !tagMatches.isEmpty else {
-            return inlineMarkdown(text, baseFontSize: baseFontSize)
+            return inlineMarkdown(
+                text,
+                baseFontSize: baseFontSize,
+                strongForegroundColor: strongForegroundColor
+            )
         }
 
         var result = Text("")
@@ -440,7 +468,11 @@ struct TaggedMarkdownTextView: View {
                 let before = nsText.substring(
                     with: NSRange(location: cursor, length: tagMatch.range.location - cursor)
                 )
-                result = result + inlineMarkdown(before, baseFontSize: baseFontSize)
+                result = result + inlineMarkdown(
+                    before,
+                    baseFontSize: baseFontSize,
+                    strongForegroundColor: strongForegroundColor
+                )
             }
 
             // The colored tag badge
@@ -458,15 +490,27 @@ struct TaggedMarkdownTextView: View {
         // Remaining text after the last tag
         if cursor < nsText.length {
             let remaining = nsText.substring(from: cursor)
-            result = result + inlineMarkdown(remaining, baseFontSize: baseFontSize)
+            result = result + inlineMarkdown(
+                remaining,
+                baseFontSize: baseFontSize,
+                strongForegroundColor: strongForegroundColor
+            )
         }
 
         return result
     }
 
     /// Standard inline markdown parsing (bold, italic, code, links).
-    private func inlineMarkdown(_ text: String, baseFontSize: CGFloat) -> Text {
-        InlineMarkdownStyler.text(text, strongFontSize: baseFontSize)
+    private func inlineMarkdown(
+        _ text: String,
+        baseFontSize: CGFloat,
+        strongForegroundColor: Color? = nil
+    ) -> Text {
+        InlineMarkdownStyler.text(
+            text,
+            strongFontSize: baseFontSize,
+            strongForegroundColor: strongForegroundColor
+        )
     }
 }
 

@@ -8,22 +8,15 @@ import AppKit
 // Phase 2: inline styling via Rust markdown_parse() FFI (bold, italic, code, wikilinks).
 
 final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
-    private enum NoteDisplayMetrics {
-        static let bodyIndent = MarkdownTextStorage.bodyIndent
-        static let leadingH1Spacing = MarkdownTextStorage.leadingH1SpacingBefore
-        static let sectionH1Spacing = MarkdownTextStorage.sectionH1SpacingBefore
-        static let h1Size: CGFloat = 46
-        static let h2Size: CGFloat = 24
-        static let h3Size: CGFloat = 20
-    }
-
     // Cached structure: one entry per line, indexed by line number.
     private var cachedTypes: [(paraType: UInt8, metadata: UInt16)] = []
     // UTF-16 offset of each line start, for O(log n) line index lookup.
     private var lineStarts: [Int] = [0]
     private var documentLength: Int = 0
     private var isDirty = true
-    private let baseFontSize: CGFloat = 15
+    private let baseFontSize: CGFloat = MarkdownTextStorage.noteBaseFontSize
+
+    private static let numberedListRegex = try! NSRegularExpression(pattern: #"^\d+\.\s"#)
 
     /// Visible line range, updated by ProseTextView2 on scroll/layout.
     /// Code blocks outside this range + buffer skip tokenization.
@@ -229,55 +222,29 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         metadata: UInt16,
         isLeadingDocumentHeading: Bool = false
     ) {
+        let line = attrStr.string
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
         let foreground = NSColor(theme.foreground)
-        let bodyFont = NSFont(name: "New York", size: 15) ?? .systemFont(ofSize: 15)
-
-        let bodyParagraph = NSMutableParagraphStyle()
-        bodyParagraph.lineSpacing = 5
-        bodyParagraph.paragraphSpacing = 8
-        bodyParagraph.firstLineHeadIndent = 0
-        bodyParagraph.headIndent = 0
+        let bodyFont = NSFont.systemFont(ofSize: baseFontSize)
+        let accent = NSColor(theme.fontAccent)
+        let muted = Self.mutedColor(isDark: theme.isDark)
+        let bodyParagraph = MarkdownTextStorage.bodyParagraphStyle()
 
         switch paraType {
         case 1:  // Heading
-            let level = metadata & 0xFF
+            let level = Int(metadata & 0xFF)
             let (fontSize, weight): (CGFloat, NSFont.Weight) =
                 switch level {
-                case 1: (NoteDisplayMetrics.h1Size, .bold)
-                case 2: (NoteDisplayMetrics.h2Size, .bold)
-                case 3: (NoteDisplayMetrics.h3Size, .semibold)
-                case 4: (16, .medium)
-                case 5: (15, .medium)
-                default: (15, .medium)
+                case 1: (baseFontSize + 31, .bold)
+                case 2: (baseFontSize + 5, .bold)
+                case 3: (baseFontSize + 1, .semibold)
+                case 4: (baseFontSize, .semibold)
+                default: (max(baseFontSize - 1, 9), .medium)
                 }
-            let headingParagraph = NSMutableParagraphStyle()
-            switch level {
-            case 1:
-                headingParagraph.lineSpacing = 0
-                headingParagraph.paragraphSpacingBefore =
-                    isLeadingDocumentHeading
-                    ? NoteDisplayMetrics.leadingH1Spacing
-                    : NoteDisplayMetrics.sectionH1Spacing
-                headingParagraph.paragraphSpacing = 6
-            case 2:
-                headingParagraph.lineSpacing = 2
-                headingParagraph.paragraphSpacingBefore = 12
-                headingParagraph.paragraphSpacing = 2
-                headingParagraph.firstLineHeadIndent = 0
-                headingParagraph.headIndent = 0
-            case 3:
-                headingParagraph.lineSpacing = 2
-                headingParagraph.paragraphSpacingBefore = 8
-                headingParagraph.paragraphSpacing = 2
-                headingParagraph.firstLineHeadIndent = 0
-                headingParagraph.headIndent = 0
-            default:
-                headingParagraph.lineSpacing = 2
-                headingParagraph.paragraphSpacingBefore = 6
-                headingParagraph.paragraphSpacing = 2
-                headingParagraph.firstLineHeadIndent = 0
-                headingParagraph.headIndent = 0
-            }
+            let headingParagraph = MarkdownTextStorage.headingParagraphStyle(
+                level: level,
+                isLeadingDocumentHeading: isLeadingDocumentHeading
+            )
             let usesDisplayFont = (1...3).contains(level)
             let headingFont =
                 if usesDisplayFont {
@@ -285,156 +252,174 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 } else {
                     NSFont.systemFont(ofSize: fontSize, weight: weight)
                 }
-            let headingColor = usesDisplayFont ? NSColor(theme.fontAccent) : foreground
-            attrStr.addAttributes(
-                [
-                    .font: headingFont,
-                    .foregroundColor: headingColor,
-                    .paragraphStyle: headingParagraph,
-                ], range: range)
+            let headingColor = usesDisplayFont ? accent : foreground
+            var headingAttributes: [NSAttributedString.Key: Any] = [
+                .font: headingFont,
+                .foregroundColor: headingColor,
+                .paragraphStyle: headingParagraph,
+            ]
+            if level == 2 {
+                headingAttributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+                headingAttributes[.underlineColor] = accent.withAlphaComponent(0.18)
+            }
+            if level == 4 {
+                headingAttributes[.foregroundColor] = foreground.withAlphaComponent(
+                    theme.isDark ? 0.92 : 0.95)
+            } else if level >= 5 {
+                headingAttributes[.foregroundColor] = foreground.withAlphaComponent(
+                    theme.isDark ? 0.9 : 0.92)
+            }
+            attrStr.addAttributes(headingAttributes, range: range)
 
-            // Dim the # symbols so they're visually separated from heading text
-            let headingStr = attrStr.string as NSString
-            var prefixLen = 0
-            while prefixLen < headingStr.length
-                && headingStr.character(at: range.location + prefixLen) == 0x23
-            {  // '#'
-                prefixLen += 1
-            }
-            // Include trailing space after #s
-            if prefixLen > 0 && prefixLen < headingStr.length
-                && headingStr.character(at: range.location + prefixLen) == 0x20
-            {
-                prefixLen += 1
-            }
-            if prefixLen > 0 {
-                let symbolRange = NSRange(location: range.location, length: prefixLen)
-                let dimColor = headingColor.withAlphaComponent(theme.isDark ? 0.25 : 0.30)
-                attrStr.addAttribute(.foregroundColor, value: dimColor, range: symbolRange)
+            switch level {
+            case 1:
+                applyH1PrefixStyle(to: attrStr, line: line, color: accent.withAlphaComponent(0.55))
+            case 2:
+                applyPrefixColor(to: attrStr, line: line, prefix: "## ", color: accent.withAlphaComponent(0.50))
+            case 3:
+                applyPrefixColor(to: attrStr, line: line, prefix: "### ", color: accent.withAlphaComponent(0.45))
+            case 4:
+                applyPrefixColor(to: attrStr, line: line, prefix: "#### ", color: accent.withAlphaComponent(0.40))
+            default:
+                applyPrefixColor(to: attrStr, line: line, prefix: "##### ", color: accent.withAlphaComponent(0.35))
             }
 
         case 6:  // CodeBlock
-            let codeFont = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-            let codeParagraph = NSMutableParagraphStyle()
-            codeParagraph.lineSpacing = 3
-            codeParagraph.paragraphSpacing = 0
-            codeParagraph.paragraphSpacingBefore = 0
-            codeParagraph.headIndent = 16
-            codeParagraph.firstLineHeadIndent = 16
+            let codeColor: NSColor = theme.isDark
+                ? NSColor.white.withAlphaComponent(0.72)
+                : NSColor(white: 0.2, alpha: 1)
+            let codeBackground: NSColor = theme.isDark
+                ? accent.withAlphaComponent(0.05)
+                : accent.withAlphaComponent(0.04)
             attrStr.addAttributes(
                 [
-                    .font: codeFont,
-                    .foregroundColor: foreground,
-                    .paragraphStyle: codeParagraph,
+                    .font: bodyFont,
+                    .foregroundColor: codeColor,
+                    .backgroundColor: codeBackground,
+                    .paragraphStyle: MarkdownTextStorage.codeBlockParagraphStyle(),
                 ], range: range)
 
         case 5:  // BlockQuote (plain or callout)
             let calloutTypeId = UInt8((metadata >> 8) & 0xFF)
-            let quoteParagraph = NSMutableParagraphStyle()
-            quoteParagraph.lineSpacing = 3
-            quoteParagraph.paragraphSpacing = 1
-            quoteParagraph.paragraphSpacingBefore = 1
-            quoteParagraph.headIndent = 20
-            quoteParagraph.firstLineHeadIndent = 20
-
             if let callout = theme.calloutColors(typeId: calloutTypeId) {
                 attrStr.addAttributes(
                     [
-                        .font: bodyFont,
+                        .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium),
                         .foregroundColor: theme.isDark
                             ? callout.accent.withAlphaComponent(0.9) : callout.accent,
-                        .paragraphStyle: quoteParagraph,
+                        .backgroundColor: callout.background,
+                        .paragraphStyle: MarkdownTextStorage.calloutParagraphStyle(),
                     ], range: range)
+                let calloutPrefix: String
+                if let bracketEnd = trimmed.range(of: "] ") {
+                    calloutPrefix = String(trimmed[trimmed.startIndex..<bracketEnd.upperBound])
+                } else if let bracketEnd = trimmed.range(of: "]") {
+                    calloutPrefix = String(trimmed[trimmed.startIndex..<bracketEnd.upperBound])
+                } else {
+                    calloutPrefix = "> "
+                }
+                applyPrefixColor(
+                    to: attrStr,
+                    line: line,
+                    prefix: calloutPrefix,
+                    color: callout.accent.withAlphaComponent(0.5)
+                )
             } else {
+                let quoteBackground: NSColor = theme.isDark
+                    ? accent.withAlphaComponent(0.04)
+                    : accent.withAlphaComponent(0.03)
                 attrStr.addAttributes(
                     [
-                        .font: bodyFont,
-                        .foregroundColor: foreground.withAlphaComponent(0.8),
-                        .paragraphStyle: quoteParagraph,
+                        .font: bodyFont.italic,
+                        .foregroundColor: foreground.withAlphaComponent(theme.isDark ? 0.60 : 0.72),
+                        .backgroundColor: quoteBackground,
+                        .paragraphStyle: bodyParagraph,
                     ], range: range)
+                applyPrefixColor(
+                    to: attrStr,
+                    line: line,
+                    prefix: "> ",
+                    color: accent.withAlphaComponent(0.40)
+                )
             }
 
         case 2, 3:  // OrderedList, UnorderedList
-            let depth = (metadata >> 8) & 0xFF
-            let indent = CGFloat(depth) * 20
-            let listParagraph = NSMutableParagraphStyle()
-            listParagraph.lineSpacing = 3
-            listParagraph.headIndent = indent + 16
-            listParagraph.firstLineHeadIndent = indent
-            listParagraph.paragraphSpacing = 1
             attrStr.addAttributes(
                 [
                     .font: bodyFont,
                     .foregroundColor: foreground,
-                    .paragraphStyle: listParagraph,
+                    .paragraphStyle: MarkdownTextStorage.listParagraphStyle(),
                 ], range: range)
+            if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
+                applyPrefixColor(
+                    to: attrStr,
+                    line: line,
+                    prefix: trimmed.hasPrefix("- ") ? "- " : "* ",
+                    color: accent
+                )
+            } else if let match = Self.numberedListRegex.firstMatch(
+                in: trimmed,
+                range: NSRange(trimmed.startIndex..., in: trimmed)
+            ) {
+                let offset = match.range.length
+                let prefixOffset = line.distance(
+                    from: line.startIndex,
+                    to: line.firstIndex(where: { !$0.isWhitespace }) ?? line.startIndex
+                )
+                let dimRange = NSRange(location: prefixOffset, length: offset)
+                guard dimRange.location + dimRange.length <= attrStr.length else { return }
+                attrStr.addAttributes([.foregroundColor: accent], range: dimRange)
+            }
 
         case 4:  // TaskList
-            let depth = (metadata >> 8) & 0xFF
             let checked = (metadata & 0xFF) != 0
-            let indent = CGFloat(depth) * 20
-            let listParagraph = NSMutableParagraphStyle()
-            listParagraph.lineSpacing = 3
-            listParagraph.headIndent = indent + 16
-            listParagraph.firstLineHeadIndent = indent
-            listParagraph.paragraphSpacing = 1
+            let prefix = checked ? "- [x] " : "- [ ] "
+            let taskAttributes: [NSAttributedString.Key: Any] = [
+                .font: bodyFont,
+                .foregroundColor: checked ? muted : foreground,
+                .paragraphStyle: bodyParagraph,
+            ]
             attrStr.addAttributes(
-                [
-                    .font: bodyFont,
-                    .foregroundColor: foreground,
-                    .paragraphStyle: listParagraph,
-                ], range: range)
-
-            if checked {
-                let text = attrStr.string
-                if let closeBracket = text.range(of: "] ") {
-                    let contentStart = text.distance(
-                        from: text.startIndex, to: closeBracket.upperBound)
-                    if range.length > contentStart {
-                        let contentRange = NSRange(
-                            location: range.location + contentStart,
-                            length: range.length - contentStart
-                        )
-                        let muted = Self.mutedColor(isDark: theme.isDark)
-                        attrStr.addAttributes(
-                            [
-                                .foregroundColor: muted,
-                                .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                            ], range: contentRange)
-                    }
+                taskAttributes,
+                range: range
+            )
+            applyPrefixColor(to: attrStr, line: line, prefix: prefix, color: accent)
+            if checked, let prefixRange = line.range(of: prefix) {
+                let contentStart = line.distance(from: line.startIndex, to: prefixRange.upperBound)
+                let contentRange = NSRange(location: contentStart, length: max(attrStr.length - contentStart, 0))
+                if contentRange.length > 0 {
+                    attrStr.addAttribute(
+                        .strikethroughStyle,
+                        value: NSUnderlineStyle.single.rawValue,
+                        range: contentRange
+                    )
                 }
             }
 
         case 7:  // Table
-            let tableFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
-            let tableParagraph = NSMutableParagraphStyle()
-            tableParagraph.lineSpacing = 5
-            tableParagraph.paragraphSpacing = 1
-            tableParagraph.paragraphSpacingBefore = 1
-            tableParagraph.firstLineHeadIndent = 0
-            tableParagraph.headIndent = 0
             attrStr.addAttributes(
                 [
-                    .font: tableFont,
+                    .font: NSFont.systemFont(ofSize: baseFontSize - 1, weight: .regular),
                     .foregroundColor: foreground,
-                    .paragraphStyle: tableParagraph,
+                    .paragraphStyle: MarkdownTextStorage.tableParagraphStyle(),
                 ], range: range)
 
         case 8:  // HorizontalRule
             attrStr.addAttributes(
                 [
-                    .font: bodyFont,
-                    .foregroundColor: NSColor.tertiaryLabelColor,
-                    .paragraphStyle: bodyParagraph,
+                    .font: NSFont.systemFont(ofSize: max(baseFontSize - 2, 9)),
+                    .foregroundColor: accent.withAlphaComponent(0.25),
+                    .paragraphStyle: bodyParagraph
                 ], range: range)
 
         case 9:  // HtmlComment
-            let commentFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
             attrStr.addAttributes(
                 [
-                    .font: commentFont,
-                    .foregroundColor: foreground.withAlphaComponent(0.3),
-                    .paragraphStyle: bodyParagraph,
+                    .font: NSFont.systemFont(ofSize: max(baseFontSize - 2, 9)),
+                    .foregroundColor: theme.isDark
+                        ? NSColor.white.withAlphaComponent(0.15)
+                        : NSColor(white: 0.7, alpha: 1),
+                    .paragraphStyle: bodyParagraph
                 ], range: range)
 
         default:  // Body
@@ -749,10 +734,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
 
     private func displayText(for paragraphText: String, paraType: UInt8, metadata: UInt16) -> String
     {
-        guard paraType == 1 else { return paragraphText }
-        let level = Int(metadata & 0xFF)
-        guard (1...3).contains(level) else { return paragraphText }
-        return Self.uppercasedHeadingText(paragraphText)
+        paragraphText
     }
 
     private func leadingDocumentContentIsEmpty(before location: Int, in documentString: NSString)
@@ -764,27 +746,33 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         return prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private static func uppercasedHeadingText(_ text: String) -> String {
-        var scalars = Array(text.unicodeScalars)
-        var contentStart = 0
+    private func applyPrefixColor(
+        to attrStr: NSMutableAttributedString,
+        line: String,
+        prefix: String,
+        color: NSColor
+    ) {
+        let leadingSpaces = line.prefix(while: { $0 == " " }).count
+        let dimRange = NSRange(location: leadingSpaces, length: prefix.utf16.count)
+        guard dimRange.location + dimRange.length <= attrStr.length else { return }
+        attrStr.addAttributes([.foregroundColor: color], range: dimRange)
+    }
 
-        while contentStart < scalars.count, scalars[contentStart] == "#" {
-            contentStart += 1
-        }
-        while contentStart < scalars.count, CharacterSet.whitespaces.contains(scalars[contentStart])
-        {
-            contentStart += 1
-        }
-
-        guard contentStart < scalars.count else { return text }
-
-        for index in contentStart..<scalars.count {
-            let scalar = scalars[index]
-            guard scalar.value >= 0x61, scalar.value <= 0x7A else { continue }
-            scalars[index] = UnicodeScalar(scalar.value - 32)!
-        }
-
-        return String(String.UnicodeScalarView(scalars))
+    private func applyH1PrefixStyle(
+        to attrStr: NSMutableAttributedString,
+        line: String,
+        color: NSColor
+    ) {
+        let leadingSpaces = line.prefix(while: { $0 == " " }).count
+        let dimRange = NSRange(location: leadingSpaces, length: 2)
+        guard dimRange.location + dimRange.length <= attrStr.length else { return }
+        attrStr.addAttributes(
+            [
+                .foregroundColor: color,
+                .font: NSFont.systemFont(ofSize: max(baseFontSize - 5, 9), weight: .regular),
+            ],
+            range: dimRange
+        )
     }
 
     // MARK: - Code Token Styling (Phase 6)

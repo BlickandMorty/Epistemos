@@ -132,6 +132,10 @@ private enum SidebarAction {
     case openInGraph(id: String)
 }
 
+private enum SidebarSpecialFolders {
+    static let dailyNotes = "Daily Notes"
+}
+
 // MARK: - Notes Sidebar
 // Obsidian-style file tree: vault → folders (SDFolder) → pages.
 // Loose pages (not in any folder) appear at root level alongside folders.
@@ -271,10 +275,9 @@ struct NotesSidebar: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 38)
-            .padding(.bottom, 6)
+            .padding(.top, 18)
+            .padding(.bottom, 2)
             .background(theme.background)
-            .ignoresSafeArea(.container, edges: .top)
             searchBar
             fileTree(folderItemById: fById, onAction: onAct)
             Divider().opacity(0.2)
@@ -361,8 +364,8 @@ struct NotesSidebar: View {
                 )
         )
         .padding(.horizontal, 12)
-        .padding(.top, 6)
-        .padding(.bottom, 4)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
     }
 
     // MARK: - File Tree / Search Results
@@ -394,6 +397,29 @@ struct NotesSidebar: View {
         folderItemById fById: [String: SidebarFolderItem],
         onAction: @escaping (SidebarAction) -> Void
     ) -> some View {
+        let pinned = cachedPageItems.filter { $0.isPinned && !$0.isArchived }
+        if !pinned.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Pinned")
+                    .font(AppHeadingRole.section.font)
+                    .foregroundStyle(theme.fontAccent)
+                    .textCase(.uppercase)
+                    .tracking(AppHeadingRole.section.tracking)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
+
+                ForEach(pinned) { page in
+                    FileRow(
+                        item: page,
+                        indent: 0,
+                        selectedPageId: currentSelectedPageId,
+                        onAction: onAction
+                    )
+                }
+            }
+        }
+
         // Vault header
         if let url = vaultSync.vaultURL {
             VaultHeader(
@@ -416,7 +442,14 @@ struct NotesSidebar: View {
         }
 
         // ── FOLDERS ── top-level folders (no parent, non-collection)
-        let folders = cachedFolderItems.filter { $0.parentId == nil && !$0.isCollection }
+        let dailyNotesFolder = cachedFolderItems.first {
+            $0.parentId == nil && $0.relativePath == SidebarSpecialFolders.dailyNotes
+        }
+        let folders = cachedFolderItems.filter {
+            $0.parentId == nil
+                && !$0.isCollection
+                && $0.id != dailyNotesFolder?.id
+        }
         if !folders.isEmpty {
             ForEach(folders) { folder in
                 FolderRow(
@@ -426,10 +459,10 @@ struct NotesSidebar: View {
             }
         }
 
-        // Journal folder — always after notebooks.
-        // Only show root-level journals (not inside folders) to avoid duplicates.
-        let journals = cachedPageItems.filter { $0.isJournal && $0.folderId == nil }
-        if !journals.isEmpty {
+        let journals =
+            dailyNotesFolder?.childPages.filter(\.isJournal)
+            ?? cachedPageItems.filter { $0.isJournal && $0.folderId == nil }
+        if !journals.isEmpty || dailyNotesFolder != nil {
             JournalFolderRow(
                 journals: journals,
                 isExpanded: notesUI.isJournalExpanded,
@@ -618,6 +651,59 @@ struct NotesSidebar: View {
         return try? modelContext.fetch(descriptor).first
     }
 
+    private func saveSidebarChanges(rebuild: Bool = true) {
+        try? modelContext.save()
+        if rebuild {
+            setNeedsRebuild()
+        }
+    }
+
+    private func rootFolder(named name: String) -> SDFolder? {
+        allFolders.first { $0.parent == nil && $0.relativePath == name }
+    }
+
+    private func ensureRootFolder(named name: String, isCollection: Bool = false) -> SDFolder {
+        if let existing = rootFolder(named: name) {
+            if isCollection && !existing.isCollection {
+                existing.isCollection = true
+                CollectionRegistry.shared.setCollection(existing.name, true)
+                saveSidebarChanges()
+            }
+            return existing
+        }
+
+        let folder = SDFolder(name: name)
+        folder.isCollection = isCollection
+        modelContext.insert(folder)
+        saveSidebarChanges()
+        vaultSync.createDirectory(relativePath: folder.relativePath)
+        if isCollection {
+            CollectionRegistry.shared.setCollection(folder.name, true)
+        }
+        return folder
+    }
+
+    private func syncPagePaths(in folder: SDFolder, oldPath: String) {
+        let newPath = folder.relativePath
+        for page in (folder.pages ?? []) {
+            page.subfolder = newPath.isEmpty ? nil : newPath
+            if let vaultURL = vaultSync.vaultURL,
+                let existingPath = page.filePath
+            {
+                let filename = URL(fileURLWithPath: existingPath).lastPathComponent
+                let newParentURL =
+                    page.subfolder.map { vaultURL.appendingPathComponent($0, isDirectory: true) }
+                    ?? vaultURL
+                page.filePath = newParentURL.appendingPathComponent(filename).path
+            }
+        }
+
+        for child in (folder.children ?? []) {
+            let childOldPath = oldPath.isEmpty ? child.name : "\(oldPath)/\(child.name)"
+            syncPagePaths(in: child, oldPath: childOldPath)
+        }
+    }
+
     // MARK: - Open in Editor
     // KEY PATTERN: Open the editor window FIRST (instant), then defer the sidebar
     // highlight update to the next run loop tick. This mirrors the smooth pop-out
@@ -725,22 +811,23 @@ struct NotesSidebar: View {
         case .toggleFavorite(let id):
             if let page = fetchPage(id) {
                 page.isFavorite.toggle()
-                setNeedsRebuild()
+                saveSidebarChanges()
             }
 
         case .togglePin(let id):
             if let page = fetchPage(id) {
                 page.isPinned.toggle()
-                setNeedsRebuild()
+                saveSidebarChanges()
             }
 
         case .renameFolder(let id, let newName):
             if let folder = fetchFolder(id) {
                 let oldPath = folder.relativePath
                 folder.name = newName
+                syncPagePaths(in: folder, oldPath: oldPath)
                 let newPath = folder.relativePath
+                saveSidebarChanges()
                 vaultSync.renameDirectory(from: oldPath, to: newPath)
-                setNeedsRebuild()
             }
 
         case .requestDeleteFolder(let item):
@@ -748,11 +835,16 @@ struct NotesSidebar: View {
 
         case .newPageInFolder(let folderId):
             Task {
-                if let pageId = await vaultSync.createPage(title: "Untitled") {
+                guard let folder = fetchFolder(folderId) else { return }
+                let subfolder = folder.relativePath
+                if let pageId = await vaultSync.createPage(title: "Untitled", subfolder: subfolder)
+                {
                     if let page = fetchPage(pageId),
                         let folder = fetchFolder(folderId)
                     {
                         page.folder = folder
+                        page.subfolder = subfolder
+                        saveSidebarChanges()
                     }
                     openInEditor(pageId)
                 }
@@ -763,6 +855,7 @@ struct NotesSidebar: View {
                 let child = SDFolder(name: "Untitled Folder")
                 child.parent = parent
                 modelContext.insert(child)
+                saveSidebarChanges()
                 vaultSync.createDirectory(relativePath: child.relativePath)
             }
 
@@ -770,7 +863,7 @@ struct NotesSidebar: View {
             if let folder = fetchFolder(folderId) {
                 folder.isCollection.toggle()
                 CollectionRegistry.shared.setCollection(folder.name, folder.isCollection)
-                setNeedsRebuild()
+                saveSidebarChanges()
             }
 
         case .movePageToFolder(let pageId, let folderId):
@@ -778,27 +871,37 @@ struct NotesSidebar: View {
                 let folder = fetchFolder(folderId)
             {
                 page.folder = folder
-                setNeedsRebuild()
+                page.subfolder = folder.relativePath
+                saveSidebarChanges()
+                vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)
             }
 
         case .moveFolderInto(let childId, let parentId):
             if let child = fetchFolder(childId),
                 let parent = fetchFolder(parentId)
             {
+                let oldPath = child.relativePath
                 child.parent = parent
-                setNeedsRebuild()
+                syncPagePaths(in: child, oldPath: oldPath)
+                saveSidebarChanges()
+                vaultSync.renameDirectory(from: oldPath, to: child.relativePath)
             }
 
         case .movePageToRoot(let pageId):
             if let page = fetchPage(pageId) {
                 page.folder = nil
-                setNeedsRebuild()
+                page.subfolder = nil
+                saveSidebarChanges()
+                vaultSync.movePage(pageId: pageId, toSubfolder: nil)
             }
 
         case .moveFolderToRoot(let folderId):
             if let folder = fetchFolder(folderId) {
+                let oldPath = folder.relativePath
                 folder.parent = nil
-                setNeedsRebuild()
+                syncPagePaths(in: folder, oldPath: oldPath)
+                saveSidebarChanges()
+                vaultSync.renameDirectory(from: oldPath, to: folder.relativePath)
             }
 
         case .createNewPage:
@@ -810,18 +913,7 @@ struct NotesSidebar: View {
 
         case .newJournalEntry:
             Task {
-                let today = Date.now
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                let dateString = formatter.string(from: today)
-                let title = today.formatted(date: .complete, time: .omitted)
-                if let pageId = await vaultSync.createPage(title: title, emoji: "📓") {
-                    if let page = fetchPage(pageId) {
-                        page.isJournal = true
-                        page.journalDate = dateString
-                    }
-                    openInEditor(pageId)
-                }
+                await getOrCreateTodayJournal()
             }
 
         case .toggleFolder(let id):
@@ -908,7 +1000,7 @@ struct NotesSidebar: View {
             modelContext.delete(page)
         }
         pendingDeletePage = nil
-        setNeedsRebuild()
+        saveSidebarChanges()
     }
 
     private func performFolderDelete() {
@@ -923,7 +1015,7 @@ struct NotesSidebar: View {
         vaultSync.deleteDirectory(relativePath: folder.relativePath)
         modelContext.delete(folder)
         pendingDeleteFolder = nil
-        setNeedsRebuild()
+        saveSidebarChanges()
     }
 
     private func closeFolderTabs(_ folder: SDFolder) {
@@ -973,15 +1065,12 @@ struct NotesSidebar: View {
     private func createFolder(title: String) {
         let folder = SDFolder(name: title)
         modelContext.insert(folder)
+        saveSidebarChanges()
         vaultSync.createDirectory(relativePath: folder.relativePath)
     }
 
     private func createCollection(title: String) {
-        let folder = SDFolder(name: title, emoji: "📁")
-        folder.isCollection = true
-        modelContext.insert(folder)
-        vaultSync.createDirectory(relativePath: folder.relativePath)
-        CollectionRegistry.shared.setCollection(title, true)
+        _ = ensureRootFolder(named: title, isCollection: true)
     }
 
     private func getOrCreateTodayJournal() async {
@@ -989,17 +1078,31 @@ struct NotesSidebar: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let dateString = formatter.string(from: today)
+        let dailyFolder = ensureRootFolder(named: SidebarSpecialFolders.dailyNotes)
 
         if let existing = allPages.first(where: { $0.isJournal && $0.journalDate == dateString }) {
+            if existing.subfolder != dailyFolder.relativePath {
+                existing.folder = dailyFolder
+                existing.subfolder = dailyFolder.relativePath
+                saveSidebarChanges()
+                vaultSync.movePage(pageId: existing.id, toSubfolder: dailyFolder.relativePath)
+            }
             openInEditor(existing.id)
             return
         }
 
         let title = today.formatted(date: .complete, time: .omitted)
-        if let pageId = await vaultSync.createPage(title: title, emoji: "📓") {
+        if let pageId = await vaultSync.createPage(
+            title: title,
+            emoji: "📓",
+            subfolder: dailyFolder.relativePath
+        ) {
             if let page = fetchPage(pageId) {
                 page.isJournal = true
                 page.journalDate = dateString
+                page.folder = dailyFolder
+                page.subfolder = dailyFolder.relativePath
+                saveSidebarChanges()
             }
             openInEditor(pageId)
         }
@@ -1286,7 +1389,7 @@ private struct JournalFolderRow: View {
                         .foregroundStyle(theme.accent.opacity(0.65))
                         .frame(width: 14)
 
-                    Text("Journal")
+                    Text("Daily Notes")
                         .font(.epBody).fontWeight(.medium)
                         .foregroundStyle(theme.foreground.opacity(0.9))
 
@@ -1304,7 +1407,7 @@ private struct JournalFolderRow: View {
             .buttonStyle(.plain)
             .padding(.horizontal, 4)
             .contextMenu {
-                Button("New Journal Entry") {
+                Button("New Daily Note") {
                     onAction(.newJournalEntry)
                 }
             }
@@ -1442,6 +1545,7 @@ private struct FileRow: View {
     // Computed from @Environment — only THIS row re-evaluates when activePageId changes,
     // not the entire NotesSidebar body. This is the structural fix for the cascade.
     private var isActive: Bool { selectedPageId == item.id }
+    private var favoriteHighlight: Color { theme.fontAccent }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1475,12 +1579,28 @@ private struct FileRow: View {
                         Text(item.title.isEmpty ? "Untitled" : item.title)
                             .font(.epBody).fontWeight(isActive ? .semibold : .regular)
                             .foregroundStyle(
-                                isActive ? theme.foreground : theme.foreground.opacity(0.8)
+                                isActive
+                                    ? theme.foreground
+                                    : (item.isFavorite
+                                        ? favoriteHighlight
+                                        : theme.foreground.opacity(0.8))
                             )
                             .lineLimit(1)
                     }
 
                     Spacer()
+
+                    if item.isFavorite {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(favoriteHighlight)
+                    }
+
+                    if item.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(theme.accent.opacity(0.8))
+                    }
 
                     if isActive {
                         Circle()
@@ -1495,6 +1615,9 @@ private struct FileRow: View {
                     if isActive {
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
                             .fill(theme.accent.opacity(0.1))
+                    } else if item.isFavorite {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(favoriteHighlight.opacity(theme.isDark ? 0.10 : 0.08))
                     }
                 }
                 .contentShape(Rectangle())
@@ -1662,8 +1785,6 @@ private struct EditorActionsBar: View {
     let onOrganize: () -> Void
 
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(UIState.self) private var ui
-    @State private var showChangesPopover = false
 
     // PERF: Filtered @Query — SwiftData only notifies when this result set changes.
     // Replaces vaultSync.dirtyPageCount which fetched ALL pages every evaluation.
@@ -1681,7 +1802,7 @@ private struct EditorActionsBar: View {
             SidebarIconButton(icon: "tray.full", tooltip: "New Collection") {
                 onNewCollection()
             }
-            SidebarIconButton(icon: "calendar.badge.plus", tooltip: "Today") {
+            SidebarIconButton(icon: "calendar.badge.plus", tooltip: "New Daily Note") {
                 onTodayJournal()
             }
 
@@ -1712,17 +1833,7 @@ private struct EditorActionsBar: View {
                 }
             }
 
-            SidebarIconButton(
-                icon: showChangesPopover ? "doc.badge.clock.fill" : "doc.badge.clock",
-                tooltip: "Vault Changes"
-            ) {
-                showChangesPopover.toggle()
-            }
-            .popover(isPresented: $showChangesPopover) {
-                VaultChangesPanel(dirtyPages: dirtyPages)
-                    .frame(width: 320, height: 400)
-                    .preferredColorScheme(ui.theme.colorScheme)
-            }
+            VaultConnectionButton()
 
             Divider()
                 .frame(height: 14)
@@ -1738,6 +1849,42 @@ private struct EditorActionsBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
+    }
+}
+
+private struct VaultConnectionButton: View {
+    @Environment(NotesUIState.self) private var notesUI
+    @Environment(VaultSyncService.self) private var vaultSync
+
+    var body: some View {
+        Menu {
+            if let vaultURL = vaultSync.vaultURL {
+                Text(vaultURL.lastPathComponent)
+                Divider()
+                Button("Change Vault") {
+                    VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+                }
+                Button("Sync from Vault") {
+                    Task { _ = await vaultSync.syncFromVault() }
+                }
+                Divider()
+                Button("Disconnect Vault", role: .destructive) {
+                    VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
+                }
+            } else {
+                Button("Select Vault Folder") {
+                    VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+                }
+            }
+        } label: {
+            Image(systemName: vaultSync.vaultURL == nil ? "externaldrive.badge.plus" : "externaldrive")
+                .font(.epBody)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(NativeToolbarButtonStyle())
+        .help(vaultSync.vaultURL == nil ? "Select Vault" : "Vault Connection")
+        .accessibilityLabel(vaultSync.vaultURL == nil ? "Select Vault" : "Vault Connection")
     }
 }
 

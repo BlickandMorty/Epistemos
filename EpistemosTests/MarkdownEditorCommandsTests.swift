@@ -51,6 +51,62 @@ struct MarkdownEditorCommandsTests {
         #expect(MarkdownEditorCommands.calloutTemplate(for: .warning) == "> [!warning] Warning\n> ")
     }
 
+    @Test("Wrap selection keeps the original text selected inside markdown markers")
+    func wrapSelectionKeepsSelectionInsideMarkers() {
+        let text = "Alpha Beta"
+        let selection = NSRange(location: 6, length: 4)
+
+        let edit = MarkdownEditorCommands.wrapSelection(
+            in: text,
+            selection: selection,
+            prefix: "**",
+            suffix: "**"
+        )
+
+        #expect(edit.replacementText == "**Beta**")
+        #expect(edit.selectedRange == NSRange(location: 8, length: 4))
+    }
+
+    @Test("Wrap selection inserts paired markers and leaves the cursor inside when nothing is selected")
+    func wrapSelectionLeavesCursorInsideMarkers() {
+        let text = "Alpha"
+        let selection = NSRange(location: 2, length: 0)
+
+        let edit = MarkdownEditorCommands.wrapSelection(
+            in: text,
+            selection: selection,
+            prefix: "`",
+            suffix: "`"
+        )
+
+        #expect(edit.replacementText == "``")
+        #expect(edit.selectedRange == NSRange(location: 3, length: 0))
+    }
+
+    @Test("Setting a heading replaces the existing heading marker instead of stacking hashes")
+    func setHeadingReplacesExistingMarker() {
+        let text = "## Existing Heading\n"
+        let selection = NSRange(location: 4, length: 0)
+
+        let edit = MarkdownEditorCommands.setHeading(in: text, selection: selection, level: 1)
+
+        #expect(edit?.replacementText == "# Existing Heading\n")
+    }
+
+    @Test("Toggling a markdown prefix swaps the existing line marker instead of stacking markers")
+    func togglePrefixSwapsExistingMarker() {
+        let text = "- task item\n"
+        let selection = NSRange(location: 3, length: 0)
+
+        let edit = MarkdownEditorCommands.toggleLinePrefix(
+            in: text,
+            selection: selection,
+            prefix: "- [ ] "
+        )
+
+        #expect(edit?.replacementText == "- [ ] task item\n")
+    }
+
     @Test("Table row insertion adds a new editable row below the current row")
     func insertTableRowBelow() {
         let text = """
@@ -113,5 +169,79 @@ struct MarkdownEditorCommandsTests {
         #expect(edit != nil)
         #expect(edit?.replacementText.contains("| A      | BBB") == true)
         #expect(edit?.replacementText.contains("| xx     | y") == true)
+    }
+
+    @Test("Callout insertion preserves the selected text instead of replacing it with an empty template")
+    func insertCalloutWrapsSelectedText() {
+        let text = "Alpha\nBeta"
+        let selection = NSRange(location: 0, length: (text as NSString).length)
+
+        let edit = MarkdownEditorCommands.insertCallout(
+            in: text,
+            selection: selection,
+            kind: .note
+        )
+
+        #expect(edit.replacementText == "> [!note] Note\n> Alpha\n> Beta")
+    }
+
+    @Test("Code fence insertion wraps the current selection instead of deleting it")
+    func insertCodeFenceWrapsSelectedText() {
+        let text = "let value = 1"
+        let selection = NSRange(location: 0, length: (text as NSString).length)
+
+        let edit = MarkdownEditorCommands.insertCodeFence(in: text, selection: selection)
+
+        #expect(edit.replacementText == "```\nlet value = 1\n```")
+        #expect(edit.selectedRange == NSRange(location: 4, length: (text as NSString).length))
+    }
+
+    @Test("Divider insertion does not delete the selected text")
+    func insertDividerKeepsSelectedText() {
+        let text = "Alpha Beta"
+        let selection = NSRange(location: 0, length: 5)
+
+        let edit = MarkdownEditorCommands.insertDivider(in: text, selection: selection)
+
+        #expect(edit.replacementRange == NSRange(location: 0, length: 0))
+        #expect(edit.replacementText == "\n---\n")
+    }
+
+    @Test("Table insertion does not replace the selected text block")
+    func insertTableKeepsSelectedText() {
+        let text = "Alpha Beta"
+        let selection = NSRange(location: 0, length: 5)
+
+        let edit = MarkdownEditorCommands.insertMarkdownTable(in: text, selection: selection)
+
+        #expect(edit.replacementRange == NSRange(location: 0, length: 0))
+        #expect(edit.replacementText.contains("| Column 1 | Column 2 | Column 3 |"))
+    }
+
+    @Test("Quote and list toggles apply to every selected line")
+    func togglePrefixAppliesAcrossSelectedLines() {
+        let text = "Alpha\nBeta\nGamma"
+        let selection = NSRange(location: 0, length: (text as NSString).length)
+
+        let edit = MarkdownEditorCommands.toggleLinePrefix(
+            in: text,
+            selection: selection,
+            prefix: "> "
+        )
+
+        #expect(edit?.replacementText == "> Alpha\n> Beta\n> Gamma")
+    }
+
+    @Test("Replace helper clamps ranges and leaves the cursor after the replacement")
+    func replaceHelperBuildsEdit() {
+        let edit = MarkdownEditorCommands.replace(
+            in: "Alpha",
+            range: NSRange(location: 1, length: 2),
+            replacement: "Z"
+        )
+
+        #expect(edit?.replacementRange == NSRange(location: 1, length: 2))
+        #expect(edit?.replacementText == "Z")
+        #expect(edit?.selectedRange == NSRange(location: 2, length: 0))
     }
 }

@@ -587,7 +587,10 @@ private struct VaultDetailView: View {
                     }
                     HStack(spacing: Spacing.md) {
                         Button("Change Vault") {
-                            selectVaultFolder()
+                            VaultConnectionActions.selectVaultFolder(
+                                notesUI: notesUI,
+                                vaultSync: vaultSync
+                            )
                         }
                         Button("Sync from Vault") {
                             Task {
@@ -595,7 +598,10 @@ private struct VaultDetailView: View {
                             }
                         }
                         Button("Disconnect", role: .destructive) {
-                            disconnectVault()
+                            VaultConnectionActions.disconnect(
+                                notesUI: notesUI,
+                                vaultSync: vaultSync
+                            )
                         }
                     }
                 } else {
@@ -603,7 +609,10 @@ private struct VaultDetailView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(theme.textSecondary)
                     Button("Select Vault Folder") {
-                        selectVaultFolder()
+                        VaultConnectionActions.selectVaultFolder(
+                            notesUI: notesUI,
+                            vaultSync: vaultSync
+                        )
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(theme.accent)
@@ -661,32 +670,6 @@ private struct VaultDetailView: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
-    }
-
-    private func selectVaultFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Choose a folder for your Epistemos vault"
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-
-        if let bookmark = try? url.bookmarkData(
-            options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
-        {
-            UserDefaults.standard.set(bookmark, forKey: "epistemos.vaultBookmark")
-        }
-
-        notesUI.resetForVaultSwitch()
-        vaultSync.startWatching(vaultURL: url)
-    }
-
-    private func disconnectVault() {
-        notesUI.resetForVaultSwitch()
-        vaultSync.stopWatching()
-        UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
-        AppBootstrap.shared?.ambientManifest = nil
     }
 
     private func autoSaveOption(from interval: TimeInterval) -> Int {

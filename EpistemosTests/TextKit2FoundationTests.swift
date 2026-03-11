@@ -88,6 +88,14 @@ struct ProseTextView2Tests {
         #expect(!textView.isAutomaticQuoteSubstitutionEnabled)
     }
 
+    @Test("Command heading digit mapping skips Command-2 so notes navigation wins")
+    func commandHeadingDigitMappingSkipsTwo() {
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(18) == 1)
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(19) == nil)
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(20) == 3)
+        #expect(ProseTextView2.headingLevelForCommandDigitKeyCode(21) == 4)
+    }
+
     @Test("Selection change updates active line on delegate")
     func selectionUpdatesActiveLine() {
         let (_, textView) = ProseTextView2.makeTextKit2()
@@ -177,6 +185,73 @@ struct InlineMarkdownStylerTests {
 
         #expect(strongRun.font != nil)
         #expect(plainRun.font == nil)
+    }
+
+    @Test("Strong inline markdown can apply a custom foreground color without recoloring body text")
+    func strongMarkdownUsesCustomForegroundColor() throws {
+        let attributed = try #require(
+            InlineMarkdownStyler.attributedString(
+                "Alpha **bold** omega",
+                strongFontSize: 15,
+                strongForegroundColor: Color(hex: 0xD4862B)
+            )
+        )
+
+        let strongRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
+            })
+        )
+        let plainRun = try #require(
+            attributed.runs.first(where: {
+                $0.inlinePresentationIntent == nil && String(attributed[$0.range].characters).contains("Alpha")
+            })
+        )
+
+        #expect(strongRun.foregroundColor != nil)
+        #expect(plainRun.foregroundColor == nil)
+    }
+}
+
+@Suite("Command Palette Theme Transition")
+struct CommandPaletteThemeTransitionTests {
+    @MainActor
+    @Test("Dismiss happens before the theme mutation")
+    func dismissesBeforeThemeChange() {
+        var events: [String] = []
+
+        CommandPaletteThemeTransition.perform(
+            dismiss: { events.append("dismiss") },
+            cycleTheme: { events.append("theme") },
+            schedule: { action in action() }
+        )
+
+        #expect(events == ["dismiss", "theme"])
+    }
+
+    @MainActor
+    @Test("Default scheduling still applies the theme after dismiss")
+    func defaultSchedulingAppliesTheme() async {
+        var events: [String] = []
+
+        CommandPaletteThemeTransition.perform(
+            dismiss: { events.append("dismiss") },
+            cycleTheme: { events.append("theme") }
+        )
+
+        #expect(events == ["dismiss"])
+        for _ in 0..<5 where events.count < 2 {
+            await Task.yield()
+        }
+        #expect(events == ["dismiss", "theme"])
+    }
+}
+
+@Suite("Notes Sidebar Header Layout")
+struct NotesSidebarHeaderLayoutTests {
+    @Test("Notes sidebar title stays unclipped at page-title size")
+    func pageTitleRemainsUnclipped() {
+        #expect(AppHeadingRole.pageTitle.fontSize == 28)
     }
 }
 

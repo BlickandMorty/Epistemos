@@ -90,7 +90,7 @@ enum UtilityPanelChrome {
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "NotesSidebarToolbar")
         toolbar.showsBaselineSeparator = false
         panel.toolbar = toolbar
-        panel.toolbarStyle = .unified
+        panel.toolbarStyle = .unifiedCompact
     }
 }
 

@@ -14,13 +14,15 @@ import AppKit
 // but is always accessed on the main thread via NSLayoutManager / NSTextView.
 // All mutable state (isDark, skipInlineStyles, etc.) is only mutated from MainActor contexts.
 nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
+    static let noteBaseFontSize: CGFloat = 15
+
     private let backing = NSMutableAttributedString()
     var isDark: Bool = true
     var theme: EpistemosTheme?
 
     /// Base font size for the editor (15pt).
     /// All element sizes (headings, code, etc.) scale relative to this.
-    let baseFontSize: CGFloat = 15
+    let baseFontSize: CGFloat = MarkdownTextStorage.noteBaseFontSize
 
     /// When true, processEditing skips inline styles (7 regex passes).
     /// Used during bulk text replacement — line-level styles render first,
@@ -1130,6 +1132,33 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         ps.paragraphSpacingBefore = 0
         return ps.copy() as! NSParagraphStyle
     }()
+
+    static func bodyParagraphStyle() -> NSParagraphStyle { bodyStyle }
+
+    static func headingParagraphStyle(level: Int, isLeadingDocumentHeading: Bool) -> NSParagraphStyle {
+        switch level {
+        case 1:
+            return isLeadingDocumentHeading ? leadingH1Style : h1Style
+        case 2:
+            return h2Style
+        case 3:
+            return h3Style
+        case 4:
+            return h4Style
+        default:
+            return h5Style
+        }
+    }
+
+    static func calloutParagraphStyle() -> NSParagraphStyle { calloutStyle }
+
+    static func codeBlockParagraphStyle() -> NSParagraphStyle { codeBlockStyle }
+
+    static func listParagraphStyle() -> NSParagraphStyle { listStyle }
+
+    static func tableParagraphStyle() -> NSParagraphStyle { tableStyle }
+
+    static func tableSeparatorParagraphStyle() -> NSParagraphStyle { tableSepStyle }
 
 }
 

@@ -93,4 +93,38 @@ struct VaultSyncServiceAuditTests {
         #expect(savedFailure.lastSyncedAt == oldDate)
         #expect(savedFailure.lastSyncedBodyHash == "old-failed-hash")
     }
+
+    @Test("movePage relocates the markdown file into the target vault subfolder")
+    func movePageRelocatesFileIntoTargetSubfolder() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        let page = SDPage(title: "Daily Note")
+        page.saveBody("Body")
+        let originalURL = vaultURL.appendingPathComponent("Daily Note.md")
+        try "Body".write(to: originalURL, atomically: true, encoding: .utf8)
+        page.filePath = originalURL.path
+        context.insert(page)
+        try context.save()
+
+        service.movePage(pageId: page.id, toSubfolder: "Daily Notes")
+
+        let movedURL = vaultURL
+            .appendingPathComponent("Daily Notes", isDirectory: true)
+            .appendingPathComponent("Daily Note.md")
+
+        let refreshed = try context.fetch(
+            FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == page.id })
+        ).first
+
+        #expect(FileManager.default.fileExists(atPath: movedURL.path))
+        #expect(!FileManager.default.fileExists(atPath: originalURL.path))
+        #expect(refreshed?.subfolder == "Daily Notes")
+        #expect(refreshed?.filePath == movedURL.path)
+    }
 }

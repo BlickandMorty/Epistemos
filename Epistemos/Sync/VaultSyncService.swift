@@ -1,5 +1,6 @@
-import Foundation
+import AppKit
 import CryptoKit
+import Foundation
 import Observation
 import SwiftData
 import os
@@ -34,7 +35,7 @@ final class VaultSyncService {
     private(set) var isWatching = false
 
     /// Whether the vault is being imported/indexed. Starts true if a vault
-    /// bookmark exists so the landing page shows "wait...indexing" on the
+    /// bookmark exists so the landing page shows a vault sync message on the
     /// very first frame, before the import Task even begins.
     var isIndexing: Bool = UserDefaults.standard.data(forKey: "epistemos.vaultBookmark") != nil
 
@@ -990,4 +991,103 @@ final class VaultSyncService {
         }
     }
 
+    /// Move a page's markdown file into a different vault subfolder and keep SwiftData in sync.
+    func movePage(pageId: String, toSubfolder subfolder: String?) {
+        guard let vaultURL else {
+            log.warning("Cannot move page: no vault URL")
+            return
+        }
+
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = try? context.fetch(descriptor).first else { return }
+
+        let normalizedSubfolder: String? = {
+            guard let subfolder else { return nil }
+            let trimmed = subfolder.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }()
+
+        let targetParentURL =
+            normalizedSubfolder.map { vaultURL.appendingPathComponent($0, isDirectory: true) }
+            ?? vaultURL
+
+        do {
+            try FileManager.default.createDirectory(
+                at: targetParentURL,
+                withIntermediateDirectories: true
+            )
+
+            if let existingPath = page.filePath,
+                FileManager.default.fileExists(atPath: existingPath)
+            {
+                let oldURL = URL(fileURLWithPath: existingPath)
+                var newURL = targetParentURL.appendingPathComponent(oldURL.lastPathComponent)
+
+                if newURL.path != oldURL.path {
+                    let baseName = oldURL.deletingPathExtension().lastPathComponent
+                    let ext = oldURL.pathExtension
+                    var suffix = 1
+                    while FileManager.default.fileExists(atPath: newURL.path) {
+                        let candidateName =
+                            suffix > 100
+                            ? "\(baseName)-\(UUID().uuidString.prefix(8))"
+                            : "\(baseName)-\(suffix)"
+                        newURL = targetParentURL.appendingPathComponent(candidateName)
+                            .appendingPathExtension(ext)
+                        suffix += 1
+                    }
+
+                    try FileManager.default.moveItem(at: oldURL, to: newURL)
+                }
+
+                page.filePath = newURL.path
+            } else {
+                page.filePath = nil
+            }
+
+            page.subfolder = normalizedSubfolder
+            page.updatedAt = .now
+            try context.save()
+
+            if page.filePath == nil {
+                savePage(pageId: pageId)
+            }
+            eventBus?.emit(.vaultChanged)
+        } catch {
+            log.error("Failed to move page: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+}
+
+@MainActor
+enum VaultConnectionActions {
+    static func selectVaultFolder(notesUI: NotesUIState, vaultSync: VaultSyncService) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a folder for your Epistemos vault"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        if let bookmark = try? url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        ) {
+            UserDefaults.standard.set(bookmark, forKey: "epistemos.vaultBookmark")
+        }
+
+        notesUI.resetForVaultSwitch()
+        vaultSync.startWatching(vaultURL: url)
+    }
+
+    static func disconnect(notesUI: NotesUIState, vaultSync: VaultSyncService) {
+        notesUI.resetForVaultSwitch()
+        vaultSync.stopWatching()
+        UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
+        AppBootstrap.shared?.ambientManifest = nil
+    }
 }

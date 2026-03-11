@@ -255,6 +255,31 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 WritingToolsBridge.present(in: tv)
             }
         }
+        coord.replaceRangeObserver = NotificationCenter.default.addObserver(
+            forName: NoteEditorNotifications.replaceRange,
+            object: nil,
+            queue: .main
+        ) { [weak tv, weak coord] note in
+            let userInfo = note.userInfo
+            let pid = userInfo?["pageId"] as? String
+            let replacementRange = (userInfo?["range"] as? NSValue)?.rangeValue
+            let replacement = userInfo?["replacement"] as? String
+            MainActor.assumeIsolated {
+                guard let tv,
+                      let coord,
+                      let pid,
+                      pid == coord.lastPageId,
+                      let replacementRange,
+                      let replacement,
+                      let edit = MarkdownEditorCommands.replace(
+                        in: tv.string,
+                        range: replacementRange,
+                        replacement: replacement
+                      ) else { return }
+                _ = MarkdownEditorCommands.apply(edit, to: tv)
+                tv.window?.makeFirstResponder(tv)
+            }
+        }
 
         // Set lastPageId to nil so updateNSView will perform the initial page swap
         coord.lastPageId = nil
@@ -589,6 +614,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Ask-bar bridge for native Apple Writing Tools.
         nonisolated(unsafe) var writingToolsObserver: (any NSObjectProtocol)?
 
+        // External range replacement bridge (block properties, future editor mutations).
+        nonisolated(unsafe) var replaceRangeObserver: (any NSObjectProtocol)?
+
 
         /// Block Transaction Kernel translator — tracks edits as block ops.
         var blockEditTranslator: BlockEditTranslator?
@@ -625,6 +653,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 NotificationCenter.default.removeObserver(observer)
             }
             if let observer = writingToolsObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            if let observer = replaceRangeObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
         }

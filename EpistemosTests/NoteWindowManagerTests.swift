@@ -158,7 +158,7 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Notes utility window uses full-size unified chrome for the custom sidebar header")
+    @Test("Notes utility window uses full-size compact chrome for the custom sidebar header")
     func notesUtilityWindowUsesCustomChrome() throws {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 600),
@@ -175,6 +175,6 @@ struct NoteWindowManagerTests {
         let toolbar = try #require(panel.toolbar)
         #expect(toolbar.identifier == "NotesSidebarToolbar")
         #expect(!toolbar.showsBaselineSeparator)
-        #expect(panel.toolbarStyle == .unified)
+        #expect(panel.toolbarStyle == .unifiedCompact)
     }
 }

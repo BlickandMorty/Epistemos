@@ -13,6 +13,23 @@ private enum PaletteMode: Equatable {
     case chat
 }
 
+enum CommandPaletteThemeTransition {
+    @MainActor
+    static func perform(
+        dismiss: @escaping @MainActor () -> Void,
+        cycleTheme: @escaping @MainActor () -> Void,
+        schedule: (@escaping @MainActor () -> Void) -> Void = { action in
+            Task { @MainActor in
+                await Task.yield()
+                action()
+            }
+        }
+    ) {
+        dismiss()
+        schedule(cycleTheme)
+    }
+}
+
 struct CommandPaletteOverlay: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
@@ -151,7 +168,6 @@ struct CommandPaletteOverlay: View {
         .shadow(color: .black.opacity(theme.isDark ? 0.35 : 0.10), radius: 30, y: 10)
         .offset(y: appeared ? 0 : -15)
         .opacity(appeared ? 1.0 : 0.0)
-        .preferredColorScheme(theme.isDark ? .dark : .light)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showResults)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: appeared)
         .onAppear {
@@ -273,7 +289,10 @@ struct CommandPaletteOverlay: View {
                                 HologramController.shared.show()
                             }
                             paletteChip(label: "Theme", icon: "circle.lefthalf.filled") {
-                                ui.cycleTheme()
+                                CommandPaletteThemeTransition.perform(
+                                    dismiss: { dismiss() },
+                                    cycleTheme: { ui.cycleTheme() }
+                                )
                             }
                         }
                         .padding(.top, 8)
@@ -1306,7 +1325,10 @@ struct CommandPaletteOverlay: View {
                 }
             },
             LandingCommandItem(id: "toggle-theme", label: "Toggle Theme", icon: "paintpalette", category: "Tools") {
-                ui.cycleTheme(); dismiss()
+                CommandPaletteThemeTransition.perform(
+                    dismiss: { dismiss() },
+                    cycleTheme: { ui.cycleTheme() }
+                )
             },
         ]
     }

@@ -123,7 +123,9 @@ struct LandingView: View {
                     .frame(width: 3, height: 3)
 
                 CommandHint(modIcon: "option", key: "Space", label: "Palette", theme: theme) {
-                    NotificationCenter.default.post(name: .init("ToggleCommandPalette"), object: nil)
+                    Task { @MainActor in
+                        CommandPaletteWindowController.shared.show()
+                    }
                 }
                 .springEntrance(index: 2, stagger: 0.08)
 
@@ -714,27 +716,29 @@ private struct CommandHint: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 3) {
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
+        Button(action: action) {
+            HStack(spacing: 3) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                if let modIcon {
+                    Image(systemName: modIcon)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                if let key {
+                    Text(key).font(.custom("RetroGaming", size: 12))
+                }
+                Text(label)
+                    .font(.custom("RetroGaming", size: 12))
+                    .padding(.leading, (key != nil || icon != nil) ? 2 : 0)
             }
-            if let modIcon {
-                Image(systemName: modIcon)
-                    .font(.system(size: 11, weight: .medium))
-            }
-            if let key {
-                Text(key).font(.custom("RetroGaming", size: 12))
-            }
-            Text(label)
-                .font(.custom("RetroGaming", size: 12))
-                .padding(.leading, (key != nil || icon != nil) ? 2 : 0)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .foregroundStyle(isHovered ? theme.fontAccent : theme.textTertiary.opacity(0.5))
-        .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
         }
-        .onTapGesture { action() }
     }
 }

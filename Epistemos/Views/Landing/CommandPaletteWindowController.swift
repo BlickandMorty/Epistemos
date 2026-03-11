@@ -116,7 +116,17 @@ final class CommandPaletteWindowController {
     // MARK: - Theme
 
     func syncTheme(isDark: Bool) {
-        panel?.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        panel?.appearance = appearance
+        panel?.isOpaque = false
+        panel?.backgroundColor = .clear
+        panel?.contentView?.wantsLayer = true
+        panel?.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+        hostView?.appearance = appearance
+        hostView?.wantsLayer = true
+        hostView?.layer?.backgroundColor = NSColor.clear.cgColor
+        panel?.displayIfNeeded()
+        panel?.invalidateShadow()
     }
 
     // MARK: - Teardown

@@ -289,13 +289,15 @@ struct ContentRouter: View {
     var homeTab: HomeTab
 
     var body: some View {
-        switch homeTab {
-        case .home:
-            HomeRouter()
-        case .library:
-            LibraryView()
-        case .settings:
-            SettingsView()
+        Group {
+            switch homeTab {
+            case .home:
+                HomeRouter()
+            case .library:
+                LibraryView()
+            case .settings:
+                SettingsView()
+            }
         }
     }
 }

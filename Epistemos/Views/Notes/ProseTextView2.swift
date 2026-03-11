@@ -49,12 +49,10 @@ final class ProseTextView2: NSTextView {
         insertionPointColor = foreground
         textColor = foreground
 
-        let bodyFont = NSFont(name: "New York", size: 15) ?? .systemFont(ofSize: 15)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 5
-        paragraph.paragraphSpacing = 8
-        paragraph.firstLineHeadIndent = 0
-        paragraph.headIndent = 0
+        let bodyFont = NSFont.systemFont(ofSize: MarkdownTextStorage.noteBaseFontSize)
+        let paragraph =
+            (MarkdownTextStorage.bodyParagraphStyle().mutableCopy() as? NSMutableParagraphStyle)
+            ?? NSMutableParagraphStyle()
 
         defaultParagraphStyle = paragraph
         typingAttributes = [
@@ -1280,6 +1278,15 @@ final class ProseTextView2: NSTextView {
 
     // MARK: - Block Move Up/Down (Opt+Arrow)
 
+    static func headingLevelForCommandDigitKeyCode(_ keyCode: UInt16) -> Int? {
+        switch keyCode {
+        case 18: 1
+        case 20: 3
+        case 21: 4
+        default: nil
+        }
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
@@ -1302,20 +1309,13 @@ final class ProseTextView2: NSTextView {
 
         // Formatting shortcuts
         if flags == .command {
-            switch event.keyCode {
-            case 18:
-                insertHeading(level: 1)
-                return true  // Cmd+1
-            case 19:
-                insertHeading(level: 2)
+            if event.keyCode == 19 {
+                UtilityWindowManager.shared.show(.notes)
                 return true  // Cmd+2
-            case 20:
-                insertHeading(level: 3)
-                return true  // Cmd+3
-            case 21:
-                insertHeading(level: 4)
-                return true  // Cmd+4
-            default: break
+            }
+            if let headingLevel = Self.headingLevelForCommandDigitKeyCode(event.keyCode) {
+                insertHeading(level: headingLevel)
+                return true
             }
         }
         if flags == [.command, .shift] {

@@ -98,6 +98,25 @@ private enum ParityHelpers {
         return zip(lhsValues, rhsValues).allSatisfy { abs($0 - $1) <= 2 }
     }
 
+    static func paragraphStylesMatch(_ lhs: NSParagraphStyle?, _ rhs: NSParagraphStyle?) -> Bool {
+        guard let lhs, let rhs else { return false }
+        let deltas = [
+            abs(lhs.firstLineHeadIndent - rhs.firstLineHeadIndent),
+            abs(lhs.headIndent - rhs.headIndent),
+            abs(lhs.paragraphSpacing - rhs.paragraphSpacing),
+            abs(lhs.paragraphSpacingBefore - rhs.paragraphSpacingBefore),
+            abs(lhs.lineSpacing - rhs.lineSpacing),
+            abs(lhs.minimumLineHeight - rhs.minimumLineHeight),
+            abs(lhs.maximumLineHeight - rhs.maximumLineHeight),
+        ]
+        return deltas.allSatisfy { $0 <= 0.01 } && lhs.alignment == rhs.alignment
+    }
+
+    static func fontsMatch(_ lhs: NSFont?, _ rhs: NSFont?) -> Bool {
+        guard let lhs, let rhs else { return false }
+        return lhs.fontName == rhs.fontName && abs(lhs.pointSize - rhs.pointSize) <= 0.01
+    }
+
     private static func colorChannels(_ color: NSColor?) -> (Int, Int, Int, Int)? {
         guard
             let cgColor = color?.cgColor,
@@ -389,8 +408,8 @@ struct ParagraphTests {
     }
 
     @MainActor
-    @Test("TK2 display headings are uppercase while note storage text stays unchanged")
-    func tk2DisplayHeadingsUppercase() {
+    @Test("TK2 display headings preserve the same text casing as TK1")
+    func tk2DisplayHeadingsPreserveLegacyTextCase() {
         let markdown = "# Big Heading\n## Sub Heading\n### Third Level"
         let (_, textView) = ProseTextView2.makeTextKit2()
         textView.textStorage?.setAttributedString(NSAttributedString(string: markdown))
@@ -400,43 +419,71 @@ struct ParagraphTests {
 
         let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
         #expect(paragraphs.count >= 3)
-        #expect(paragraphs[0].string == "# BIG HEADING\n")
-        #expect(paragraphs[1].string == "## SUB HEADING\n")
-        #expect(paragraphs[2].string == "### THIRD LEVEL")
+        #expect(paragraphs[0].string == "# Big Heading\n")
+        #expect(paragraphs[1].string == "## Sub Heading\n")
+        #expect(paragraphs[2].string == "### Third Level")
     }
 
-    @Test("TK2 structural styling indents body content while H1 stays flush")
-    func tk2IndentMatchesNoteColumn() {
-        let storage = MarkdownContentStorage()
-        storage.theme = .light
+    @MainActor
+    @Test("TK2 display paragraph styles inherit TK1 heading and body margins")
+    func tk2ParagraphStylesMatchLegacy() {
+        let headingMarkdown = "# Title"
+        let tk1Heading = ParityHelpers.tk1Styled(headingMarkdown)
+        let tk2Heading = try! #require(ParityHelpers.tk2DisplayParagraphs(headingMarkdown).first)
 
-        let heading = NSMutableAttributedString(string: "# Title")
-        storage.applyStructuralStyleForTest(
-            to: heading,
-            range: NSRange(location: 0, length: heading.length),
-            paraType: 1,
-            metadata: 1
+        let tk1HeadingStyle = try! #require(
+            tk1Heading.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         )
+        let tk2HeadingStyle = try! #require(
+            tk2Heading.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        )
+        #expect(ParityHelpers.paragraphStylesMatch(tk1HeadingStyle, tk2HeadingStyle))
 
-        let body = NSMutableAttributedString(string: "Body text")
-        storage.applyStructuralStyleForTest(
-            to: body,
-            range: NSRange(location: 0, length: body.length),
-            paraType: 0,
-            metadata: 0
-        )
+        let bodyMarkdown = "Body text"
+        let tk1Body = ParityHelpers.tk1Styled(bodyMarkdown)
+        let tk2Body = try! #require(ParityHelpers.tk2DisplayParagraphs(bodyMarkdown).first)
 
-        let headingStyle = try! #require(
-            heading.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        let tk1BodyStyle = try! #require(
+            tk1Body.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         )
-        let bodyStyle = try! #require(
-            body.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        let tk2BodyStyle = try! #require(
+            tk2Body.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         )
+        #expect(ParityHelpers.paragraphStylesMatch(tk1BodyStyle, tk2BodyStyle))
+    }
 
-        #expect(headingStyle.firstLineHeadIndent == 0)
-        #expect(headingStyle.headIndent == 0)
-        #expect(bodyStyle.firstLineHeadIndent == 0)
-        #expect(bodyStyle.headIndent == 0)
+    @MainActor
+    @Test("TK2 display heading markers inherit TK1 font and color treatment")
+    func tk2HeadingMarkerStyleMatchesLegacy() {
+        let markdown = "# Big Heading"
+        let tk1 = ParityHelpers.tk1Styled(markdown, theme: .magnolia)
+        let tk2 = try! #require(ParityHelpers.tk2DisplayParagraphs(markdown, theme: .magnolia).first)
+
+        let tk1Font = tk1.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: 0, effectiveRange: nil) as? NSFont
+        #expect(ParityHelpers.fontsMatch(tk1Font, tk2Font))
+
+        let tk1Color = tk1.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        let tk2Color = tk2.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(ParityHelpers.colorsMatch(tk1Color, tk2Color))
+    }
+
+    @MainActor
+    @Test("TK2 display list and quote markers inherit TK1 syntax colors")
+    func tk2DisplaySyntaxMarkerColorsMatchLegacy() {
+        let listMarkdown = "- list item"
+        let tk1List = ParityHelpers.tk1Styled(listMarkdown, theme: .magnolia)
+        let tk2List = try! #require(ParityHelpers.tk2DisplayParagraphs(listMarkdown, theme: .magnolia).first)
+        let tk1ListColor = tk1List.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        let tk2ListColor = tk2List.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(ParityHelpers.colorsMatch(tk1ListColor, tk2ListColor))
+
+        let quoteMarkdown = "> quoted text"
+        let tk1Quote = ParityHelpers.tk1Styled(quoteMarkdown, theme: .magnolia)
+        let tk2Quote = try! #require(ParityHelpers.tk2DisplayParagraphs(quoteMarkdown, theme: .magnolia).first)
+        let tk1QuoteColor = tk1Quote.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        let tk2QuoteColor = tk2Quote.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(ParityHelpers.colorsMatch(tk1QuoteColor, tk2QuoteColor))
     }
 
     // MARK: - H2
@@ -456,18 +503,23 @@ struct ParagraphTests {
     }
 
     @MainActor
-    @Test("TK2 display heading scale uses enlarged H2 and H3 sizes")
+    @Test("TK2 display heading scale matches TK1 sizing")
     func tk2DisplayHeadingScale() {
-        let paragraphs = ParityHelpers.tk2DisplayParagraphs("# Title\n## Sub Heading\n### Third Level")
+        let markdown = "# Title\n## Sub Heading\n### Third Level"
+        let tk1 = ParityHelpers.tk1Styled(markdown)
+        let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
         #expect(paragraphs.count >= 3)
 
+        let tk1H1Font = tk1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
+        let tk1H2Font = tk1.attribute(.font, at: 11, effectiveRange: nil) as? NSFont
+        let tk1H3Font = tk1.attribute(.font, at: 27, effectiveRange: nil) as? NSFont
         let h1Font = paragraphs[0].attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         let h2Font = paragraphs[1].attribute(.font, at: 3, effectiveRange: nil) as? NSFont
         let h3Font = paragraphs[2].attribute(.font, at: 4, effectiveRange: nil) as? NSFont
 
-        #expect(h1Font?.pointSize == 46)
-        #expect(h2Font?.pointSize == 24)
-        #expect(h3Font?.pointSize == 20)
+        #expect(ParityHelpers.fontsMatch(tk1H1Font, h1Font))
+        #expect(ParityHelpers.fontsMatch(tk1H2Font, h2Font))
+        #expect(ParityHelpers.fontsMatch(tk1H3Font, h3Font))
     }
 
     // MARK: - Blockquote
@@ -501,9 +553,9 @@ struct ParagraphTests {
         #expect(tk1Fg != nil)
         #expect(tk2Fg != nil)
 
+        let tk1Font = tk1.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
-        let tk2IsMono = tk2Font?.isFixedPitch == true || tk2Font?.fontName.lowercased().contains("mono") == true
-        #expect(tk2IsMono)
+        #expect(ParityHelpers.fontsMatch(tk1Font, tk2Font))
     }
 
     // MARK: - Text Preservation
@@ -1743,9 +1795,9 @@ struct TK2CenteringTests {
 
     @Test("TK2 horizontal inset relaxes on narrower note windows")
     func horizontalInsetCompactsForNarrowWindows() {
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 900) == 28)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000) == 60)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200) == 160)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 900) == 90)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000) == 140)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200) == 240)
     }
 }
 

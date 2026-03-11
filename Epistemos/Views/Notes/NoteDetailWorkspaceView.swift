@@ -11,29 +11,91 @@ private struct EditorMetricsSnapshot: Sendable {
     let headings: [TOCItem]
 }
 
-private enum NoteEditorViewFinder {
-    static func findEditorTextView() -> NSTextView? {
-        if let tv = NSApp.keyWindow?.firstResponder as? NSTextView, tv.isEditable {
+enum NoteEditorViewFinder {
+    static func findEditorTextView(for pageId: String? = nil) -> NSTextView? {
+        if let tv = noteEditorTextView(
+            from: NSApp.keyWindow?.firstResponder as AnyObject?,
+            matchingPageId: pageId
+        ) {
             return tv
         }
-        for window in NSApp.windows where window.tabbingIdentifier == "epistemos-note-tabs" {
-            if let tv = findTextView(in: window.contentView) {
+        if let tv = noteEditorTextView(in: NSApp.keyWindow, matchingPageId: pageId) {
+            return tv
+        }
+        if let tv = noteEditorTextView(in: NSApp.mainWindow, matchingPageId: pageId) {
+            return tv
+        }
+        for window in noteWindows() {
+            if let tv = noteEditorTextView(in: window, matchingPageId: pageId) {
+                return tv
+            }
+        }
+        if pageId != nil {
+            return findEditorTextView()
+        }
+        return nil
+    }
+
+    static func findTextView(in view: NSView?, matchingPageId pageId: String? = nil) -> NSTextView?
+    {
+        guard let view else { return nil }
+        if let tv = noteEditorTextView(from: view, matchingPageId: pageId) {
+            return tv
+        }
+        for subview in view.subviews {
+            if let tv = findTextView(in: subview, matchingPageId: pageId) {
                 return tv
             }
         }
         return nil
     }
 
-    private static func findTextView(in view: NSView?) -> NSTextView? {
-        guard let view else { return nil }
-        if let tv = view as? NSTextView, tv.isEditable { return tv }
-        for subview in view.subviews {
-            if let tv = findTextView(in: subview) {
-                return tv
-            }
-        }
-        return nil
+    private static func noteWindows() -> [NSWindow] {
+        NSApp.windows.filter { $0.tabbingIdentifier == "epistemos-note-tabs" && $0.isVisible }
     }
+
+    private static func noteEditorTextView(in window: NSWindow?, matchingPageId pageId: String?)
+        -> NSTextView?
+    {
+        guard let window else { return nil }
+        if let tv = noteEditorTextView(
+            from: window.firstResponder as AnyObject?,
+            matchingPageId: pageId
+        ) {
+            return tv
+        }
+        return findTextView(in: window.contentView, matchingPageId: pageId)
+    }
+
+    private static func noteEditorTextView(from object: AnyObject?, matchingPageId pageId: String?)
+        -> NSTextView?
+    {
+        switch object {
+        case let tv as ClickableTextView where matches(tv, pageId: pageId):
+            return tv
+        case let tv as ProseTextView2 where matches(tv, pageId: pageId):
+            return tv
+        default:
+            return nil
+        }
+    }
+
+    private static func matches(_ textView: NSTextView, pageId: String?) -> Bool {
+        guard textView.isEditable else { return false }
+        guard let pageId else { return true }
+        switch textView {
+        case let tv as ClickableTextView:
+            return tv.pageId == pageId
+        case let tv as ProseTextView2:
+            return tv.pageId == pageId
+        default:
+            return false
+        }
+    }
+}
+
+enum NoteEditorNotifications {
+    static let replaceRange = Notification.Name("EpistemosReplaceRange")
 }
 
 // MARK: - Note Page Content
@@ -106,7 +168,7 @@ struct NoteDetailWorkspaceView: View {
                             if showPreview {
                                 NotePreviewView(body: page.loadBody(), theme: ui.theme)
                             } else {
-                                ProseEditorView(page: page, isEditable: !page.isLocked)
+                                ProseEditorView(page: page, isEditable: true)
                             }
                         }
                         .frame(minWidth: 400, minHeight: 300)
@@ -150,6 +212,13 @@ struct NoteDetailWorkspaceView: View {
                             }
 
                             HStack(spacing: 3) {
+                                Image(systemName: "command")
+                                    .font(.system(size: 10, weight: .medium))
+                                Text("S")
+                                    .font(.custom("RetroGaming", size: 10))
+                                Text("Save to Disk")
+                                    .font(.custom("RetroGaming", size: 10))
+                                    .padding(.leading, 2)
                                 Spacer()
                                 Image(systemName: "command")
                                     .font(.system(size: 10, weight: .medium))
@@ -160,7 +229,7 @@ struct NoteDetailWorkspaceView: View {
                                     .padding(.leading, 2)
                             }
                             .foregroundStyle(ui.theme.foreground.opacity(0.35))
-                            .padding(.trailing, 16)
+                            .padding(.horizontal, 16)
                         }
                         .padding(.bottom, 8)
                         .frame(maxWidth: .infinity)
@@ -335,18 +404,6 @@ struct NoteDetailWorkspaceView: View {
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
             .hidden()
-            Button("") {
-                if let page = pages.first {
-                    page.isLocked.toggle()
-                    do { try modelContext.save() } catch {
-                        Log.notes.error(
-                            "Save failed (lock shortcut): \(error.localizedDescription, privacy: .private)"
-                        )
-                    }
-                }
-            }
-            .keyboardShortcut("l", modifiers: [.command, .shift])
-            .hidden()
             Button("") { navState?.back() }
                 .keyboardShortcut("[", modifiers: .command)
                 .hidden()
@@ -507,7 +564,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func refreshVisibleEditorMetrics() {
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return }
         scheduleMetricsRefresh(body: tv.string, includeMarkdownHeadings: true)
     }
 
@@ -533,7 +590,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func snapshotEditorSelection() {
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else {
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else {
             capturedSelection = nil
             capturedSelectionText = nil
             return
@@ -579,7 +636,7 @@ struct NoteDetailWorkspaceView: View {
 
         // Post notification to update the editor text
         NotificationCenter.default.post(
-            name: NSNotification.Name("EpistemosReplaceRange"),
+            name: NoteEditorNotifications.replaceRange,
             object: nil,
             userInfo: [
                 "pageId": pageId,
@@ -599,7 +656,9 @@ struct NoteDetailWorkspaceView: View {
         let text: String =
             selectedText
             ?? {
-                guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return "" }
+                guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else {
+                    return ""
+                }
                 let sel = tv.selectedRange()
                 guard sel.length > 0 else { return "" }
                 return (tv.string as NSString).substring(with: sel)
@@ -723,12 +782,7 @@ struct NoteDetailWorkspaceView: View {
 
     private func scrollEditorTo(charOffset: Int) {
         // Find the active NSTextView and scroll to the character offset.
-        guard let window = NSApp.keyWindow else { return }
-        // Walk the responder chain to find the text view, or search subviews.
-        let textView: NSTextView? =
-            window.firstResponder as? NSTextView
-            ?? window.contentView?.findFirstTextView()
-        guard let tv = textView else { return }
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return }
 
         let safeOffset = min(charOffset, tv.string.count)
         let range = NSRange(location: safeOffset, length: 0)
@@ -740,10 +794,10 @@ struct NoteDetailWorkspaceView: View {
     }
 
     // MARK: - Editor Flush & Pool Reset (Mode Switching)
-    // Flushes unsaved text from the current editor (ProseEditor or Writer) to page.body
-    // before switching modes, preventing stale data in the new editor.
+    // Flushes unsaved text from the current editor to page.body before switching modes,
+    // preventing stale data in the new editor.
     // Also invalidates the PageStoragePool entry so the regular editor gets a fresh
-    // MarkdownTextStorage with correct formatting when switching back from Writer/Preview.
+    // MarkdownTextStorage with correct formatting when switching back from Preview.
 
     private func invalidateEditorCache() {
         guard !notesUI.useTK2Editor else { return }
@@ -759,8 +813,8 @@ struct NoteDetailWorkspaceView: View {
         {
             // TK1: read from PageStoragePool (reliable, pre-styled storage).
             fullText = poolText
-        } else if let responder = NSApp.keyWindow?.firstResponder as? NSTextView {
-            // TK2 (or TK1 fallback for Writer Mode): read NSTextView.string directly.
+        } else if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
+            // TK2 (or TK1 fallback): read NSTextView.string directly.
             // Works for both ProseTextView2 (TK2) and ClickableTextView (TK1).
             fullText = responder.string
         } else {
@@ -777,32 +831,14 @@ struct NoteDetailWorkspaceView: View {
     }
 
     // MARK: - Mode Transition Helpers
-    // Shows a solid greeting card that fully covers the view swap glitch.
+    // Shows a solid label card that fully covers the view swap glitch.
     // Timing: appear instantly → mode swaps behind it → fade out after settling.
-
-    private static let greetings = [
-        "hey there...",
-        "working hard?",
-        "shhhhh....",
-        "i love you",
-        "giving yourself grace today?",
-        "take a breath...",
-        "you're doing great",
-        "one step at a time",
-        "be gentle with yourself",
-        "deep breaths...",
-        "almost there...",
-        "you got this",
-        "stay curious",
-        "keep going...",
-        "thoughts becoming words...",
-        "words becoming worlds...",
-    ]
 
     private func togglePreviewMode() {
         guard !isTransitioning else { return }
         flushCurrentEditor()
-        performGreetingTransition {
+        let destinationLabel = showPreview ? "Editor" : "Preview"
+        performGreetingTransition(message: destinationLabel) {
             invalidateEditorCache()
             showPreview.toggle()
         }
@@ -843,9 +879,11 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
-    private func performGreetingTransition(_ modeSwap: @escaping () -> Void) {
-        // Pick a random greeting
-        transitionGreeting = Self.greetings.randomElement() ?? "hey there..."
+    private func performGreetingTransition(
+        message: String,
+        _ modeSwap: @escaping () -> Void
+    ) {
+        transitionGreeting = message
         isTransitioning = true
 
         // Scale hold time for larger documents — more text = more layout work.
@@ -1098,18 +1136,6 @@ struct NoteDetailWorkspaceView: View {
                         systemImage: page.isPinned ? "pin.fill" : "pin")
                 }
                 Button {
-                    page.isLocked.toggle()
-                    do { try modelContext.save() } catch {
-                        Log.notes.error(
-                            "Save failed (lock toggle): \(error.localizedDescription, privacy: .private)"
-                        )
-                    }
-                } label: {
-                    Label(
-                        page.isLocked ? "Unlock" : "Lock",
-                        systemImage: page.isLocked ? "lock.fill" : "lock.open")
-                }
-                Button {
                     page.isFavorite.toggle()
                     do { try modelContext.save() } catch {
                         Log.notes.error(
@@ -1259,78 +1285,87 @@ struct NoteDetailWorkspaceView: View {
         Button("Divider") { insertDivider() }
     }
 
-    /// Wraps the current selection (or inserts at cursor) with markdown syntax.
-    private func insertMarkdown(_ prefix: String, _ suffix: String) {
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        let range = tv.selectedRange()
-        let selected = (tv.string as NSString).substring(with: range)
-        tv.insertText("\(prefix)\(selected)\(suffix)", replacementRange: range)
+    private func commandTarget() -> NSTextView? {
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: pageId) else { return nil }
+        tv.window?.makeFirstResponder(tv)
+        return tv
     }
 
-    /// Inserts a prefix at the start of the current line (for headings).
+    private func applyEditorEdit(_ edit: MarkdownEditorCommands.TextEdit?) {
+        guard let edit, let tv = commandTarget() else {
+            return
+        }
+        _ = MarkdownEditorCommands.apply(edit, to: tv)
+    }
+
+    /// Wraps the current selection (or inserts at cursor) with markdown syntax.
+    private func insertMarkdown(_ prefix: String, _ suffix: String) {
+        guard let tv = commandTarget() else { return }
+        applyEditorEdit(
+            MarkdownEditorCommands.wrapSelection(
+                in: tv.string,
+                selection: tv.selectedRange(),
+                prefix: prefix,
+                suffix: suffix
+            )
+        )
+    }
+
+    /// Sets the current line to the requested heading level.
     private func insertLinePrefix(_ prefix: String) {
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        let str = tv.string as NSString
-        let cursor = tv.selectedRange().location
-        let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
-        tv.insertText(prefix, replacementRange: NSRange(location: lineRange.location, length: 0))
+        guard let level = prefix.firstIndex(of: " ").map({
+            prefix.distance(from: prefix.startIndex, to: $0)
+        }),
+        let tv = commandTarget()
+        else { return }
+        applyEditorEdit(
+            MarkdownEditorCommands.setHeading(
+                in: tv.string,
+                selection: tv.selectedRange(),
+                level: level
+            )
+        )
     }
 
     private func toggleMarkdownPrefix(_ prefix: String) {
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        if let tk2 = tv as? ProseTextView2 {
-            tk2.toggleLinePrefix(prefix)
-            return
-        }
-
-        let str = tv.string as NSString
-        let lineRange = str.lineRange(
-            for: NSRange(location: tv.selectedRange().location, length: 0))
-        let lineText = str.substring(with: lineRange)
-        let trimmed = lineText.trimmingCharacters(in: .newlines)
-        let hasNewline = lineText.hasSuffix("\n")
-        let replacement: String
-        if trimmed.hasPrefix(prefix) {
-            replacement = String(trimmed.dropFirst(prefix.count)) + (hasNewline ? "\n" : "")
-        } else {
-            replacement =
-                prefix + MarkdownEditorCommands.strippedLineMarker(from: trimmed)
-                + (hasNewline ? "\n" : "")
-        }
-        tv.insertText(replacement, replacementRange: lineRange)
+        guard let tv = commandTarget() else { return }
+        applyEditorEdit(
+            MarkdownEditorCommands.toggleLinePrefix(
+                in: tv.string,
+                selection: tv.selectedRange(),
+                prefix: prefix
+            )
+        )
     }
 
     private func insertCallout(_ kind: NoteCalloutKind) {
-        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
-            tk2.insertCallout(kind)
-            return
-        }
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        let template = MarkdownEditorCommands.calloutTemplate(for: kind)
-        tv.insertText(template, replacementRange: tv.selectedRange())
+        guard let tv = commandTarget() else { return }
+        applyEditorEdit(
+            MarkdownEditorCommands.insertCallout(
+                in: tv.string,
+                selection: tv.selectedRange(),
+                kind: kind
+            )
+        )
     }
 
     private func insertMarkdownTable() {
-        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
-            tk2.insertMarkdownTable(NSMenuItem())
-            return
-        }
-        if let legacy = NSApp.keyWindow?.firstResponder as? ClickableTextView {
-            legacy.insertMarkdownTable(nil)
-            return
-        }
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        tv.insertText(
-            MarkdownEditorCommands.markdownTableTemplate, replacementRange: tv.selectedRange())
+        guard let tv = commandTarget() else { return }
+        applyEditorEdit(
+            MarkdownEditorCommands.insertMarkdownTable(
+                in: tv.string,
+                selection: tv.selectedRange()
+            )
+        )
     }
 
     private func insertTableRowBelow() {
-        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return }
+        guard let tv = commandTarget() else { return }
         _ = MarkdownEditorCommands.handleTableNewline(in: tv)
     }
 
     private func insertTableColumnRight() {
-        guard let tv = NoteEditorViewFinder.findEditorTextView(),
+        guard let tv = commandTarget(),
             let edit = MarkdownEditorCommands.insertTableColumnRight(
                 in: tv.string, selection: tv.selectedRange())
         else { return }
@@ -1338,7 +1373,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func deleteTableRow() {
-        guard let tv = NoteEditorViewFinder.findEditorTextView(),
+        guard let tv = commandTarget(),
             let edit = MarkdownEditorCommands.deleteTableRow(
                 in: tv.string, selection: tv.selectedRange())
         else { return }
@@ -1346,7 +1381,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func deleteTableColumn() {
-        guard let tv = NoteEditorViewFinder.findEditorTextView(),
+        guard let tv = commandTarget(),
             let edit = MarkdownEditorCommands.deleteTableColumn(
                 in: tv.string, selection: tv.selectedRange())
         else { return }
@@ -1354,26 +1389,28 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func realignTable() {
-        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return }
+        guard let tv = commandTarget() else { return }
         _ = MarkdownEditorCommands.realignTable(in: tv)
     }
 
     private func insertCodeFence() {
-        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
-            tk2.insertCodeFence()
-            return
-        }
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        tv.insertText("```\n\n```", replacementRange: tv.selectedRange())
+        guard let tv = commandTarget() else { return }
+        applyEditorEdit(
+            MarkdownEditorCommands.insertCodeFence(
+                in: tv.string,
+                selection: tv.selectedRange()
+            )
+        )
     }
 
     private func insertDivider() {
-        if let tk2 = NSApp.keyWindow?.firstResponder as? ProseTextView2 {
-            tk2.insertDivider()
-            return
-        }
-        guard let tv = NSApp.keyWindow?.firstResponder as? NSTextView else { return }
-        tv.insertText("\n---\n", replacementRange: tv.selectedRange())
+        guard let tv = commandTarget() else { return }
+        applyEditorEdit(
+            MarkdownEditorCommands.insertDivider(
+                in: tv.string,
+                selection: tv.selectedRange()
+            )
+        )
     }
 
     private var noteChatRoutingIcon: String {
@@ -1671,7 +1708,7 @@ private struct IdeasPanel: View {
     private var newItemForm: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Show current anchor line context
-            let anchor = Self.currentCursorLine()
+            let anchor = currentCursorLine()
             if let anchor {
                 HStack(spacing: 4) {
                     Image(systemName: "mappin")
@@ -1724,21 +1761,27 @@ private struct IdeasPanel: View {
     // MARK: - Cursor / Line Helpers
 
     /// Get the current cursor line number (1-based) and the line's text content.
-    static func currentCursorLine() -> (line: Int, context: String?)? {
+    @MainActor
+    private func currentCursorLine() -> (line: Int, context: String?)? {
         // Walk the window list to find an NSTextView (editor might not be key when popover is open)
-        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return nil }
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: self.page.id) else {
+            return nil
+        }
         let str = tv.string as NSString
         guard str.length > 0 else { return (1, nil) }
         let cursor = min(tv.selectedRange().location, str.length)
         let lineRange = str.lineRange(for: NSRange(location: cursor, length: 0))
         let lineText = str.substring(with: lineRange)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
         // Count line number (1-based)
         var lineNum = 1
         str.enumerateSubstrings(
             in: NSRange(location: 0, length: min(cursor, str.length)),
-            options: [.byLines, .substringNotRequired]
+            options: [
+                NSString.EnumerationOptions.byLines,
+                NSString.EnumerationOptions.substringNotRequired,
+            ]
         ) { _, _, _, _ in lineNum += 1 }
 
         let snippet = lineText.isEmpty ? nil : String(lineText.prefix(80))
@@ -1752,7 +1795,7 @@ private struct IdeasPanel: View {
         let trimmedBody = newBody.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty || !trimmedBody.isEmpty else { return }
 
-        let anchor = Self.currentCursorLine()
+        let anchor = currentCursorLine()
 
         let idea = NoteIdea(
             type: activeTab == .ideas ? .idea : .brainDump,
@@ -1780,7 +1823,9 @@ private struct IdeasPanel: View {
 
     /// Navigate the editor to the anchor line of an idea.
     private func goToLine(_ line: Int?) {
-        guard let line, let tv = NoteEditorViewFinder.findEditorTextView() else { return }
+        guard let line, let tv = NoteEditorViewFinder.findEditorTextView(for: page.id) else {
+            return
+        }
         let str = tv.string as NSString
         var currentLine = 1
         var targetRange = NSRange(location: 0, length: 0)
@@ -1803,7 +1848,7 @@ private struct IdeasPanel: View {
 
     /// Insert the idea's body text at the anchor line.
     private func insertIdea(_ item: NoteIdea) {
-        guard let tv = NoteEditorViewFinder.findEditorTextView() else { return }
+        guard let tv = NoteEditorViewFinder.findEditorTextView(for: page.id) else { return }
         let textToInsert = item.formattedBody ?? item.body
         guard !textToInsert.isEmpty else { return }
 
@@ -1946,7 +1991,7 @@ private struct IdeasPanel: View {
                     return
                 }
 
-                guard let tv = NoteEditorViewFinder.findEditorTextView() else {
+                guard let tv = NoteEditorViewFinder.findEditorTextView(for: page.id) else {
                     busyItemId = nil
                     return
                 }
@@ -2370,7 +2415,7 @@ private struct NotePreviewView: NSViewRepresentable {
 }
 
 // MARK: - Transition Greeting View
-// A solid full-screen overlay with a gentle centered message.
+// A solid full-screen overlay with a centered mode label.
 // Fully opaque to mask the SwiftUI view-swap glitch during mode transitions.
 // Background and text colors match the current theme.
 
@@ -2382,23 +2427,11 @@ private struct TransitionGreetingView: View {
         ZStack {
             theme.background.ignoresSafeArea()
             Text(message)
-                .font(.system(size: 18, weight: .regular, design: .serif))
-                .foregroundStyle(theme.mutedForeground)
+                .font(.custom("RetroGaming", size: 44))
+                .foregroundStyle(theme.fontAccent)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+                .shadow(color: theme.fontAccent.opacity(theme.isDark ? 0.18 : 0.10), radius: 8)
         }
-    }
-}
-
-// MARK: - NSView Helper
-
-extension NSView {
-    /// Recursively find the first NSTextView in the subview hierarchy.
-    func findFirstTextView() -> NSTextView? {
-        for subview in subviews {
-            if let tv = subview as? NSTextView { return tv }
-            if let found = subview.findFirstTextView() { return found }
-        }
-        return nil
     }
 }

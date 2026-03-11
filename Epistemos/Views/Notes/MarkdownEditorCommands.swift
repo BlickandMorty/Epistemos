@@ -17,6 +17,12 @@ enum NoteCalloutKind: String, CaseIterable, Sendable {
 }
 
 enum MarkdownEditorCommands {
+    struct TextEdit: Equatable, Sendable {
+        let replacementRange: NSRange
+        let replacementText: String
+        let selectedRange: NSRange
+    }
+
     struct Continuation: Equatable, Sendable {
         let insertedText: String
     }
@@ -29,6 +35,184 @@ enum MarkdownEditorCommands {
 
     static let markdownTableTemplate =
         "\n| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| cell     | cell     | cell     |\n"
+
+    static func wrapSelection(
+        in text: String,
+        selection: NSRange,
+        prefix: String,
+        suffix: String
+    ) -> TextEdit {
+        let safeSelection = clampedSelection(selection, textLength: (text as NSString).length)
+        let selected = (text as NSString).substring(with: safeSelection)
+        let replacementText = prefix + selected + suffix
+        return TextEdit(
+            replacementRange: safeSelection,
+            replacementText: replacementText,
+            selectedRange: NSRange(
+                location: safeSelection.location + prefix.utf16.count,
+                length: safeSelection.length
+            )
+        )
+    }
+
+    static func setHeading(in text: String, selection: NSRange, level: Int) -> TextEdit? {
+        let nsText = text as NSString
+        let safeSelection = clampedSelection(selection, textLength: nsText.length)
+        guard safeSelection.location <= nsText.length else { return nil }
+
+        let lineRange = nsText.lineRange(for: NSRange(location: safeSelection.location, length: 0))
+        let lineText = nsText.substring(with: lineRange)
+        let hasTrailingNewline = lineText.hasSuffix("\n")
+        let lineBody = hasTrailingNewline ? String(lineText.dropLast()) : lineText
+
+        var stripped = lineBody
+        var hashCount = 0
+        for character in stripped {
+            if character == "#" {
+                hashCount += 1
+            } else {
+                break
+            }
+        }
+        if hashCount > 0 {
+            stripped = String(stripped.dropFirst(hashCount))
+            if stripped.hasPrefix(" ") {
+                stripped = String(stripped.dropFirst())
+            }
+        }
+
+        let clampedLevel = min(max(level, 1), 6)
+        let prefix = String(repeating: "#", count: clampedLevel) + " "
+        let replacementText = prefix + stripped + (hasTrailingNewline ? "\n" : "")
+        return TextEdit(
+            replacementRange: lineRange,
+            replacementText: replacementText,
+            selectedRange: NSRange(location: lineRange.location + prefix.utf16.count, length: 0)
+        )
+    }
+
+    static func toggleLinePrefix(in text: String, selection: NSRange, prefix: String) -> TextEdit? {
+        let nsText = text as NSString
+        let safeSelection = clampedSelection(selection, textLength: nsText.length)
+        guard safeSelection.location <= nsText.length else { return nil }
+
+        let lineRange = expandedLineRange(for: safeSelection, in: nsText)
+        let lineText = nsText.substring(with: lineRange)
+        let replacementText = transformedLineBlock(lineText) { line in
+            if line.hasPrefix(prefix) {
+                return String(line.dropFirst(prefix.count))
+            }
+            return prefix + strippedLineMarker(from: line)
+        }
+
+        return TextEdit(
+            replacementRange: lineRange,
+            replacementText: replacementText,
+            selectedRange:
+                safeSelection.length == 0
+                ? NSRange(location: lineRange.location + prefix.utf16.count, length: 0)
+                : NSRange(location: lineRange.location, length: replacementText.utf16.count)
+        )
+    }
+
+    static func insertCallout(
+        in text: String,
+        selection: NSRange,
+        kind: NoteCalloutKind
+    ) -> TextEdit {
+        let safeSelection = clampedSelection(selection, textLength: (text as NSString).length)
+        if safeSelection.length > 0 {
+            let selected = (text as NSString).substring(with: safeSelection)
+            let header = "> [!\(kind.rawValue)] \(kind.title)\n"
+            let quotedBody = transformedLineBlock(selected) { line in
+                line.isEmpty ? ">" : "> \(line)"
+            }
+            return TextEdit(
+                replacementRange: safeSelection,
+                replacementText: header + quotedBody,
+                selectedRange: NSRange(
+                    location: safeSelection.location + header.utf16.count,
+                    length: quotedBody.utf16.count
+                )
+            )
+        }
+        return insertionEdit(
+            text: text,
+            selection: selection,
+            insertedText: calloutTemplate(for: kind),
+            cursorOffset: calloutTemplate(for: kind).utf16.count
+        )
+    }
+
+    static func insertMarkdownTable(in text: String, selection: NSRange) -> TextEdit {
+        let safeSelection = clampedSelection(selection, textLength: (text as NSString).length)
+        let table = markdownTableTemplate
+        let cursorOffset: Int
+        let selectedLength: Int
+        if let offset = table.range(of: "| cell") {
+            cursorOffset = table.distance(from: table.startIndex, to: offset.lowerBound) + 2
+            selectedLength = 4
+        } else {
+            cursorOffset = table.utf16.count
+            selectedLength = 0
+        }
+        return TextEdit(
+            replacementRange: NSRange(location: safeSelection.location, length: 0),
+            replacementText: table,
+            selectedRange: NSRange(
+                location: safeSelection.location + cursorOffset,
+                length: selectedLength
+            )
+        )
+    }
+
+    static func insertDivider(in text: String, selection: NSRange) -> TextEdit {
+        let safeSelection = clampedSelection(selection, textLength: (text as NSString).length)
+        return TextEdit(
+            replacementRange: NSRange(location: safeSelection.location, length: 0),
+            replacementText: "\n---\n",
+            selectedRange: NSRange(
+                location: safeSelection.location + "\n---\n".utf16.count,
+                length: 0
+            )
+        )
+    }
+
+    static func insertCodeFence(in text: String, selection: NSRange) -> TextEdit {
+        let safeSelection = clampedSelection(selection, textLength: (text as NSString).length)
+        if safeSelection.length > 0 {
+            let selected = (text as NSString).substring(with: safeSelection)
+            let replacement = "```\n\(selected)\n```"
+            return TextEdit(
+                replacementRange: safeSelection,
+                replacementText: replacement,
+                selectedRange: NSRange(location: safeSelection.location + 4, length: safeSelection.length)
+            )
+        }
+        return insertionEdit(
+            text: text,
+            selection: selection,
+            insertedText: "```\n\n```",
+            cursorOffset: 4
+        )
+    }
+
+    static func replace(
+        in text: String,
+        range: NSRange,
+        replacement: String,
+        selectedRange: NSRange? = nil
+    ) -> TextEdit? {
+        let nsText = text as NSString
+        guard range.location <= nsText.length else { return nil }
+        let safeRange = clampedSelection(range, textLength: nsText.length)
+        return TextEdit(
+            replacementRange: safeRange,
+            replacementText: replacement,
+            selectedRange: selectedRange
+                ?? NSRange(location: safeRange.location + replacement.utf16.count, length: 0)
+        )
+    }
 
     static func continuedInsertion(for line: String) -> Continuation? {
         let trimmedLine = line.replacingOccurrences(of: "\r", with: "")
@@ -145,14 +329,32 @@ enum MarkdownEditorCommands {
     }
 
     @MainActor
-    static func apply(_ edit: TableEdit, to textView: NSTextView) -> Bool {
-        guard textView.shouldChangeText(in: edit.replacementRange, replacementString: edit.replacementText) else {
+    static func apply(_ edit: TextEdit, to textView: NSTextView) -> Bool {
+        guard textView.shouldChangeText(
+            in: edit.replacementRange,
+            replacementString: edit.replacementText
+        ) else {
             return false
         }
-        textView.textStorage?.replaceCharacters(in: edit.replacementRange, with: edit.replacementText)
+        textView.textStorage?.replaceCharacters(
+            in: edit.replacementRange,
+            with: edit.replacementText
+        )
         textView.didChangeText()
         textView.setSelectedRange(edit.selectedRange)
         return true
+    }
+
+    @MainActor
+    static func apply(_ edit: TableEdit, to textView: NSTextView) -> Bool {
+        apply(
+            TextEdit(
+                replacementRange: edit.replacementRange,
+                replacementText: edit.replacementText,
+                selectedRange: edit.selectedRange
+            ),
+            to: textView
+        )
     }
 
     @MainActor
@@ -278,6 +480,58 @@ enum MarkdownEditorCommands {
             cursorColumn: cursorColumn,
             columnCount: columnCount,
             hasTrailingNewline: hasTrailingNewline
+        )
+    }
+
+    private static func clampedSelection(_ selection: NSRange, textLength: Int) -> NSRange {
+        let safeLocation = min(max(selection.location, 0), textLength)
+        let maxLength = max(textLength - safeLocation, 0)
+        let safeLength = min(max(selection.length, 0), maxLength)
+        return NSRange(location: safeLocation, length: safeLength)
+    }
+
+    private static func expandedLineRange(for selection: NSRange, in text: NSString) -> NSRange {
+        guard text.length > 0 else { return NSRange(location: 0, length: 0) }
+        let safeSelection = clampedSelection(selection, textLength: text.length)
+        let startLine = text.lineRange(for: NSRange(location: min(safeSelection.location, text.length - 1), length: 0))
+        guard safeSelection.length > 0 else { return startLine }
+        let selectionEnd = min(NSMaxRange(safeSelection), text.length)
+        let endLocation = max(startLine.location, selectionEnd - 1)
+        let endLine = text.lineRange(for: NSRange(location: min(endLocation, text.length - 1), length: 0))
+        return NSRange(location: startLine.location, length: NSMaxRange(endLine) - startLine.location)
+    }
+
+    private static func transformedLineBlock(
+        _ block: String,
+        transform: (String) -> String
+    ) -> String {
+        let lines = block.components(separatedBy: "\n")
+        return lines
+            .enumerated()
+            .map { index, line in
+                if index == lines.count - 1, block.hasSuffix("\n"), line.isEmpty {
+                    return line
+                }
+                return transform(line)
+            }
+            .joined(separator: "\n")
+    }
+
+    private static func insertionEdit(
+        text: String,
+        selection: NSRange,
+        insertedText: String,
+        cursorOffset: Int,
+        selectedLength: Int = 0
+    ) -> TextEdit {
+        let safeSelection = clampedSelection(selection, textLength: (text as NSString).length)
+        return TextEdit(
+            replacementRange: safeSelection,
+            replacementText: insertedText,
+            selectedRange: NSRange(
+                location: safeSelection.location + cursorOffset,
+                length: selectedLength
+            )
         )
     }
 

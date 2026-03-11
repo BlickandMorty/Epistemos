@@ -395,6 +395,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     var textPrimary: Color { foreground }
     var textSecondary: Color { mutedForeground }
     var textTertiary: Color { mutedForeground.opacity(0.7) }
+    var chatStrongForeground: Color { isDark ? mutedForeground : accent }
     var hoverOverlay: Color { isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.04) }
     var glassTint: Color { glassBg }
     var pressedOverlay: Color { isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.08) }
@@ -603,13 +604,33 @@ enum InlineMarkdownStyler {
     }
 
     static func text(_ text: String, strongFontSize: CGFloat? = nil) -> Text {
-        if let attributed = attributedString(text, strongFontSize: strongFontSize) {
+        Self.text(text, strongFontSize: strongFontSize, strongForegroundColor: nil)
+    }
+
+    static func text(
+        _ text: String,
+        strongFontSize: CGFloat? = nil,
+        strongForegroundColor: Color?
+    ) -> Text {
+        if let attributed = attributedString(
+            text,
+            strongFontSize: strongFontSize,
+            strongForegroundColor: strongForegroundColor
+        ) {
             return Text(attributed)
         }
         return Text(cleanedText(text))
     }
 
     static func attributedString(_ text: String, strongFontSize: CGFloat? = nil) -> AttributedString? {
+        Self.attributedString(text, strongFontSize: strongFontSize, strongForegroundColor: nil)
+    }
+
+    static func attributedString(
+        _ text: String,
+        strongFontSize: CGFloat? = nil,
+        strongForegroundColor: Color?
+    ) -> AttributedString? {
         let cleaned = cleanedText(text)
         guard var attributed = try? AttributedString(
             markdown: cleaned,
@@ -618,11 +639,19 @@ enum InlineMarkdownStyler {
             return nil
         }
         guard let strongFontSize else { return attributed }
-        applyDisplayStrongEmphasis(to: &attributed, fontSize: strongFontSize)
+        applyDisplayStrongEmphasis(
+            to: &attributed,
+            fontSize: strongFontSize,
+            foregroundColor: strongForegroundColor
+        )
         return attributed
     }
 
-    static func applyDisplayStrongEmphasis(to attributed: inout AttributedString, fontSize: CGFloat) {
+    static func applyDisplayStrongEmphasis(
+        to attributed: inout AttributedString,
+        fontSize: CGFloat,
+        foregroundColor: Color? = nil
+    ) {
         let strongRuns = attributed.runs.compactMap { run -> (Range<AttributedString.Index>, InlinePresentationIntent)? in
             guard let intent = run.inlinePresentationIntent, intent.contains(.stronglyEmphasized) else {
                 return nil
@@ -636,6 +665,9 @@ enum InlineMarkdownStyler {
                 font = font.italic()
             }
             attributed[range].font = font
+            if let foregroundColor {
+                attributed[range].foregroundColor = foregroundColor
+            }
         }
     }
 }

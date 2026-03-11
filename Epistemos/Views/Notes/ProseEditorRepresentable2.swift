@@ -30,18 +30,12 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var onPageFlush: ((String, String) -> Void)?
     var graphState: GraphState?
 
-    static let maxReadableWidth: CGFloat = 880
-    static let minHorizontalInset: CGFloat = 28
-    static let regularHorizontalInset: CGFloat = 60
-    static let compactWidthThreshold: CGFloat = 1000
+    static let maxReadableWidth: CGFloat = 720
+    static let minHorizontalInset: CGFloat = 60
     static let verticalInset: CGFloat = 40
 
     static func horizontalInset(for availableWidth: CGFloat) -> CGFloat {
-        let minimumInset =
-            availableWidth < compactWidthThreshold
-            ? minHorizontalInset
-            : regularHorizontalInset
-        return max(minimumInset, (availableWidth - maxReadableWidth) / 2)
+        max(minHorizontalInset, (availableWidth - maxReadableWidth) / 2)
     }
 
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }
@@ -118,6 +112,31 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
                   pid == coord?.currentPageId else { return }
             MainActor.assumeIsolated {
                 WritingToolsBridge.present(in: tv)
+            }
+        }
+        coord.replaceRangeObserver = NotificationCenter.default.addObserver(
+            forName: NoteEditorNotifications.replaceRange,
+            object: nil,
+            queue: .main
+        ) { [weak tv, weak coord] note in
+            let userInfo = note.userInfo
+            let pid = userInfo?["pageId"] as? String
+            let replacementRange = (userInfo?["range"] as? NSValue)?.rangeValue
+            let replacement = userInfo?["replacement"] as? String
+            MainActor.assumeIsolated {
+                guard let tv,
+                      let coord,
+                      let pid,
+                      pid == coord.currentPageId,
+                      let replacementRange,
+                      let replacement,
+                      let edit = MarkdownEditorCommands.replace(
+                        in: tv.string,
+                        range: replacementRange,
+                        replacement: replacement
+                      ) else { return }
+                _ = MarkdownEditorCommands.apply(edit, to: tv)
+                tv.window?.makeFirstResponder(tv)
             }
         }
 
@@ -228,6 +247,9 @@ extension ProseEditorRepresentable2 {
 
         // Ask-bar bridge for native Apple Writing Tools.
         var writingToolsObserver: (any NSObjectProtocol)?
+
+        // External range replacement bridge (block properties, future editor mutations).
+        var replaceRangeObserver: (any NSObjectProtocol)?
 
         // Overlay subsystems (Phase 9)
         var blockRefAutocomplete: BlockRefAutocomplete2?
@@ -620,6 +642,10 @@ extension ProseEditorRepresentable2 {
             if let obs = writingToolsObserver {
                 NotificationCenter.default.removeObserver(obs)
                 writingToolsObserver = nil
+            }
+            if let obs = replaceRangeObserver {
+                NotificationCenter.default.removeObserver(obs)
+                replaceRangeObserver = nil
             }
             saveCurrentPageState()
             // Persist to disk
