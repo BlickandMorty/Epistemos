@@ -137,8 +137,6 @@ const FLUID_GRID_SIZE: usize = 64;
 const FLUID_CELLS: usize = FLUID_GRID_SIZE * FLUID_GRID_SIZE;
 /// Fraction of grid velocity applied to nodes each tick.
 const FLUID_K: f32 = 0.2;
-/// Per-tick velocity decay (grid settles over time).
-const FLUID_DECAY: f32 = 0.95;
 /// Diffusion blend factor (0 = no spread, 1 = full neighbor average).
 const FLUID_DIFFUSION: f32 = 0.25;
 
@@ -1510,7 +1508,7 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.alpha = 0.0;
-        let x_before = sim.x[0];
+        let _x_before = sim.x[0];
         sim.tick();
         assert!(sim.is_settled);
     }
@@ -1542,7 +1540,7 @@ mod tests {
         let graph = make_test_graph(3, true);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
-        let result = sim.tick();
+        let _result = sim.tick();
     }
 
     #[test]
@@ -2034,7 +2032,7 @@ mod tests {
         sim.vx[0] = 10.0;
         sim.vy[0] = 5.0;
         let x_before = sim.x[0];
-        let y_before = sim.y[0];
+        let _y_before = sim.y[0];
         sim.tick();
         let decay = sim.params.velocity_decay;
         let expected_x = x_before + 10.0 * decay;
@@ -2957,7 +2955,7 @@ mod tests {
         sim.load_from_graph(&graph);
         sim.params.center_strength = 0.01;
         sim.anchor_center = Some([1000.0, 0.0]);
-        let x_before = sim.x[0];
+        let _x_before = sim.x[0];
         for _ in 0..10 {
             sim.tick();
         }

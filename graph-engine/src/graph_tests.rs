@@ -916,11 +916,6 @@ mod tests {
         let mut vx = vec![0.0f32];
         let mut vy = vec![0.0f32];
 
-        // With center mode off, no force should be applied
-        let mut params = ForceParams::default();
-        params.center_mode = CenterMode::Off;
-        params.center_strength = 1.0; // Would be strong if not off
-
         force_center(&x, &y, &mut vx, &mut vy, 0.0, 0.0, 0.0, 1.0);
 
         assert_eq!(vx[0], 0.0);

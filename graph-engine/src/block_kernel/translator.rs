@@ -107,7 +107,7 @@ pub fn translate_edit(
         let first_idx = affected[0];
         let last_idx = *affected.last().unwrap();
         let (first_id, first_start, _) = block_ranges[first_idx];
-        let (_, _, last_end) = block_ranges[last_idx];
+        let (_, _, _last_end) = block_ranges[last_idx];
         let first_block = blocks[first_idx];
 
         // Keep the beginning of the first block + new_text + end of last block
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn enter_key_splits_block() {
-        let (tree, ids) = make_tree(&["Hello World"]);
+        let (tree, _ids) = make_tree(&["Hello World"]);
         // Insert newline at offset 5: "Hello\nWorld"
         let ops = translate_edit(&tree, 5, 0, "\n");
         assert_eq!(ops.len(), 2);

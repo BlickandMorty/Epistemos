@@ -2448,7 +2448,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -2505,7 +2505,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -2526,7 +2526,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -2550,7 +2550,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -2607,7 +2607,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -2628,7 +2628,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -2652,7 +2652,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -2709,7 +2709,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -2730,7 +2730,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -2754,7 +2754,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -2811,7 +2811,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -2832,7 +2832,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -2856,7 +2856,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -2913,7 +2913,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -2934,7 +2934,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -2958,7 +2958,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3015,7 +3015,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3036,7 +3036,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3060,7 +3060,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3117,7 +3117,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3138,7 +3138,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3162,7 +3162,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3219,7 +3219,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3240,7 +3240,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3264,7 +3264,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3321,7 +3321,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3342,7 +3342,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3363,7 +3363,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3433,7 +3433,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3454,7 +3454,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3505,7 +3505,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3523,7 +3523,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3544,7 +3544,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3595,7 +3595,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3613,7 +3613,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3634,7 +3634,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3685,7 +3685,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3703,7 +3703,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3724,7 +3724,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3775,7 +3775,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3793,7 +3793,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3814,7 +3814,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3865,7 +3865,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3883,7 +3883,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3904,7 +3904,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -3955,7 +3955,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -3973,7 +3973,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -3994,7 +3994,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4045,7 +4045,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4063,7 +4063,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4084,7 +4084,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4135,7 +4135,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4153,7 +4153,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4174,7 +4174,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4225,7 +4225,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4243,7 +4243,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4264,7 +4264,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4315,7 +4315,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4333,7 +4333,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4354,7 +4354,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4405,7 +4405,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4423,7 +4423,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4444,7 +4444,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4495,7 +4495,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4513,7 +4513,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4534,7 +4534,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4585,7 +4585,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4603,7 +4603,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4624,7 +4624,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4675,7 +4675,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4693,7 +4693,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4714,7 +4714,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4765,7 +4765,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4783,7 +4783,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4804,7 +4804,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4855,7 +4855,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4873,7 +4873,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4894,7 +4894,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -4945,7 +4945,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -4963,7 +4963,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -4984,7 +4984,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5035,7 +5035,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5053,7 +5053,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5074,7 +5074,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5125,7 +5125,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5143,7 +5143,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5164,7 +5164,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5215,7 +5215,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5233,7 +5233,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5254,7 +5254,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5305,7 +5305,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5323,7 +5323,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5344,7 +5344,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5395,7 +5395,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5413,7 +5413,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5434,7 +5434,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5485,7 +5485,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5503,7 +5503,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5524,7 +5524,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5575,7 +5575,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5593,7 +5593,7 @@ mod tests {
         let expected_len = 1;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5614,7 +5614,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5665,7 +5665,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5683,7 +5683,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5704,7 +5704,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5755,7 +5755,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5773,7 +5773,7 @@ mod tests {
         let expected_len = (0..1).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5797,7 +5797,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5854,7 +5854,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5875,7 +5875,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -5899,7 +5899,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -5956,7 +5956,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -5977,7 +5977,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6001,7 +6001,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6058,7 +6058,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6079,7 +6079,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6103,7 +6103,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6160,7 +6160,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6181,7 +6181,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6205,7 +6205,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6262,7 +6262,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6283,7 +6283,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6307,7 +6307,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6364,7 +6364,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6385,7 +6385,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6409,7 +6409,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6466,7 +6466,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6487,7 +6487,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6511,7 +6511,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6568,7 +6568,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6589,7 +6589,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6613,7 +6613,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6670,7 +6670,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6691,7 +6691,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6712,7 +6712,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6782,7 +6782,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6803,7 +6803,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6854,7 +6854,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6872,7 +6872,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6893,7 +6893,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -6944,7 +6944,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -6962,7 +6962,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -6983,7 +6983,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7034,7 +7034,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7052,7 +7052,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7073,7 +7073,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7124,7 +7124,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7142,7 +7142,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7163,7 +7163,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7214,7 +7214,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7232,7 +7232,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7253,7 +7253,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7304,7 +7304,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7322,7 +7322,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7343,7 +7343,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7394,7 +7394,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7412,7 +7412,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7433,7 +7433,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7484,7 +7484,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7502,7 +7502,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7523,7 +7523,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7574,7 +7574,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7592,7 +7592,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7613,7 +7613,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7664,7 +7664,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7682,7 +7682,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7703,7 +7703,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7754,7 +7754,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7772,7 +7772,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7793,7 +7793,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7844,7 +7844,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7862,7 +7862,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7883,7 +7883,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -7934,7 +7934,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -7952,7 +7952,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -7973,7 +7973,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8024,7 +8024,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8042,7 +8042,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8063,7 +8063,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8114,7 +8114,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8132,7 +8132,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8153,7 +8153,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8204,7 +8204,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8222,7 +8222,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8243,7 +8243,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8294,7 +8294,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8312,7 +8312,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8333,7 +8333,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8384,7 +8384,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8402,7 +8402,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8423,7 +8423,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8474,7 +8474,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8492,7 +8492,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8513,7 +8513,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8564,7 +8564,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8582,7 +8582,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8603,7 +8603,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8654,7 +8654,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8672,7 +8672,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8693,7 +8693,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8744,7 +8744,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8762,7 +8762,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8783,7 +8783,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8834,7 +8834,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8852,7 +8852,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8873,7 +8873,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -8924,7 +8924,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -8942,7 +8942,7 @@ mod tests {
         let expected_len = 10;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -8963,7 +8963,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9014,7 +9014,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9032,7 +9032,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9053,7 +9053,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9104,7 +9104,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9122,7 +9122,7 @@ mod tests {
         let expected_len = (0..10).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9146,7 +9146,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9203,7 +9203,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9224,7 +9224,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9248,7 +9248,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9305,7 +9305,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9326,7 +9326,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9350,7 +9350,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9407,7 +9407,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9428,7 +9428,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9452,7 +9452,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9509,7 +9509,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9530,7 +9530,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9554,7 +9554,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9611,7 +9611,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9632,7 +9632,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9656,7 +9656,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9713,7 +9713,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9734,7 +9734,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9758,7 +9758,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9815,7 +9815,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9836,7 +9836,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9860,7 +9860,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -9917,7 +9917,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -9938,7 +9938,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -9962,7 +9962,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10019,7 +10019,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10040,7 +10040,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10061,7 +10061,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10131,7 +10131,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10152,7 +10152,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10203,7 +10203,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10221,7 +10221,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10242,7 +10242,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10293,7 +10293,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10311,7 +10311,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10332,7 +10332,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10383,7 +10383,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10401,7 +10401,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10422,7 +10422,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10473,7 +10473,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10491,7 +10491,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10512,7 +10512,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10563,7 +10563,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10581,7 +10581,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10602,7 +10602,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10653,7 +10653,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10671,7 +10671,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10692,7 +10692,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10743,7 +10743,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10761,7 +10761,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10782,7 +10782,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10833,7 +10833,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10851,7 +10851,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10872,7 +10872,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -10923,7 +10923,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -10941,7 +10941,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -10962,7 +10962,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11013,7 +11013,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11031,7 +11031,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11052,7 +11052,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11103,7 +11103,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11121,7 +11121,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11142,7 +11142,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11193,7 +11193,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11211,7 +11211,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11232,7 +11232,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11283,7 +11283,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11301,7 +11301,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11322,7 +11322,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11373,7 +11373,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11391,7 +11391,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11412,7 +11412,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11463,7 +11463,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11481,7 +11481,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11502,7 +11502,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11553,7 +11553,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11571,7 +11571,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11592,7 +11592,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11643,7 +11643,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11661,7 +11661,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11682,7 +11682,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11733,7 +11733,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11751,7 +11751,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11772,7 +11772,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11823,7 +11823,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11841,7 +11841,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11862,7 +11862,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -11913,7 +11913,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -11931,7 +11931,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -11952,7 +11952,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12003,7 +12003,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12021,7 +12021,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12042,7 +12042,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12093,7 +12093,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12111,7 +12111,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12132,7 +12132,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12183,7 +12183,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12201,7 +12201,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12222,7 +12222,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12273,7 +12273,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12291,7 +12291,7 @@ mod tests {
         let expected_len = 100;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12312,7 +12312,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12363,7 +12363,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12381,7 +12381,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12402,7 +12402,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12453,7 +12453,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12471,7 +12471,7 @@ mod tests {
         let expected_len = (0..100).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12495,7 +12495,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12552,7 +12552,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12573,7 +12573,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12597,7 +12597,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12654,7 +12654,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12675,7 +12675,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12699,7 +12699,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12756,7 +12756,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12777,7 +12777,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12801,7 +12801,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12858,7 +12858,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12879,7 +12879,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -12903,7 +12903,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -12960,7 +12960,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -12981,7 +12981,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13005,7 +13005,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13062,7 +13062,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13083,7 +13083,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13107,7 +13107,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13164,7 +13164,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13185,7 +13185,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13209,7 +13209,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13266,7 +13266,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13287,7 +13287,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13311,7 +13311,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13368,7 +13368,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13389,7 +13389,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13410,7 +13410,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13480,7 +13480,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13501,7 +13501,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13552,7 +13552,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13570,7 +13570,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13591,7 +13591,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13642,7 +13642,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13660,7 +13660,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13681,7 +13681,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13732,7 +13732,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13750,7 +13750,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13771,7 +13771,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13822,7 +13822,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13840,7 +13840,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13861,7 +13861,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -13912,7 +13912,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -13930,7 +13930,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -13951,7 +13951,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14002,7 +14002,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14020,7 +14020,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14041,7 +14041,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14092,7 +14092,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14110,7 +14110,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14131,7 +14131,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14182,7 +14182,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14200,7 +14200,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14221,7 +14221,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14272,7 +14272,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14290,7 +14290,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14311,7 +14311,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14362,7 +14362,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14380,7 +14380,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14401,7 +14401,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14452,7 +14452,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14470,7 +14470,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14491,7 +14491,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14542,7 +14542,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14560,7 +14560,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14581,7 +14581,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14632,7 +14632,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14650,7 +14650,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14671,7 +14671,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14722,7 +14722,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14740,7 +14740,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14761,7 +14761,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14812,7 +14812,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14830,7 +14830,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14851,7 +14851,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14902,7 +14902,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -14920,7 +14920,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -14941,7 +14941,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -14992,7 +14992,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15010,7 +15010,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15031,7 +15031,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15082,7 +15082,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15100,7 +15100,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15121,7 +15121,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15172,7 +15172,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15190,7 +15190,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15211,7 +15211,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15262,7 +15262,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15280,7 +15280,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15301,7 +15301,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15352,7 +15352,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15370,7 +15370,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15391,7 +15391,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15442,7 +15442,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15460,7 +15460,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15481,7 +15481,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15532,7 +15532,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15550,7 +15550,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15571,7 +15571,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15622,7 +15622,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15640,7 +15640,7 @@ mod tests {
         let expected_len = 500;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15661,7 +15661,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15712,7 +15712,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15730,7 +15730,7 @@ mod tests {
         let expected_len = 0;
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
@@ -15751,7 +15751,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let res = idx.query_point(target_node.x, target_node.y);
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
@@ -15802,7 +15802,7 @@ mod tests {
         let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         let qx = target_node.x + hit_pad + 10.0;
         let qy = target_node.y;
-        let res = idx.query_point(qx, qy);
+        let _res = idx.query_point(qx, qy);
     }
 
     #[test]
@@ -15820,7 +15820,7 @@ mod tests {
         let expected_len = (0..500).filter(|i| i % 2 == 0).count();
         assert_eq!(idx.len(), expected_len, "Index length mismatch");
         let target_node = &nodes[0];
-        let hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
+        let _hit_pad = target_node.radius * 1.5; // HIT_PADDING is 1.5 in spatial.rs
         for j in 0..100 {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }

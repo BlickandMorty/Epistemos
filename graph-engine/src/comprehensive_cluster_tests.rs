@@ -6,7 +6,7 @@ mod tests {
     #[test]
     fn test_cluster_0_n10_empty_ordered_unique() {
         let n = 10;
-        let mut edges = Vec::new();
+        let edges = Vec::new();
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 10, "Output length should match node count");
         for &c in &result {
@@ -566,7 +566,7 @@ mod tests {
     #[test]
     fn test_cluster_32_n50_empty_ordered_unique() {
         let n = 50;
-        let mut edges = Vec::new();
+        let edges = Vec::new();
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 50, "Output length should match node count");
         for &c in &result {
@@ -1138,7 +1138,7 @@ mod tests {
     #[test]
     fn test_cluster_64_n200_empty_ordered_unique() {
         let n = 200;
-        let mut edges = Vec::new();
+        let edges = Vec::new();
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 200, "Output length should match node count");
         for &c in &result {
@@ -1710,7 +1710,7 @@ mod tests {
     #[test]
     fn test_cluster_96_n1000_empty_ordered_unique() {
         let n = 1000;
-        let mut edges = Vec::new();
+        let edges = Vec::new();
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 1000, "Output length should match node count");
         for &c in &result {

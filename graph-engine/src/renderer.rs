@@ -98,9 +98,6 @@ struct DialogueBoxGeometry {
     right: f32,
     top: f32,
     bottom: f32,
-    tail_base_center_x: f32,
-    tail_tip_x: f32,
-    tail_tip_y: f32,
     screen_rect: [f32; 4],
     node_screen_pos: [f32; 2],
 }
@@ -349,6 +346,7 @@ fn string_edge_control_points(
     (c0, c1)
 }
 
+#[cfg(test)]
 fn cubic_bezier_point(
     p0: [f32; 2],
     c0: [f32; 2],
@@ -484,10 +482,6 @@ const BASE_NODE_ALPHA: f32 = 0.72;
 /// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
 #[allow(dead_code)]
 const DIM_ALPHA: f32 = 0.04;
-/// Dimmed edge alpha when highlight is active.
-const EDGE_DIM_ALPHA: f32 = 0.02;
-
-
 // ── Glow constants (shared between upload_graph and update_positions) ─────
 const HUB_GLOW_Z_OFFSET: f32 = -0.12;
 const HUB_GLOW_ALPHA: f32 = 0.08;
@@ -497,6 +491,7 @@ const CONF_GLOW_RADIUS_BASE: f32 = 1.5;
 const CONF_GLOW_RADIUS_SCALE: f32 = 1.0;
 const CONF_GLOW_ALPHA_BASE: f32 = 0.03;
 const CONF_GLOW_ALPHA_SCALE: f32 = 0.08;
+#[cfg(test)]
 const GLOW_INSTANCE_ALPHA_CUTOFF: f32 = 0.15;
 const CURVE_EDGE_STRIP_SEGMENTS: usize = 20;
 
@@ -1831,8 +1826,8 @@ impl Renderer {
         edge: &crate::ecs::EdgeComponent,
         src_index: usize,
         tgt_index: usize,
-        p0: [f32; 2],
-        p1: [f32; 2],
+        _p0: [f32; 2],
+        _p1: [f32; 2],
     ) -> [f32; 4] {
         let base_edge = self.edge_color(edge.edge_type);
         if self.highlight.active {
@@ -1951,7 +1946,7 @@ impl Renderer {
                     let radius = node_instance.radius;
                     let confidence = world.graph_node[node_index].confidence;
                     let link_count = world.hierarchy[node_index].link_count;
-                    let node_type = world.hierarchy[node_index].node_type;
+                    let _node_type = world.hierarchy[node_index].node_type;
                     if link_count >= 9 {
                         self.classic_node_scratch.push(NodeInstance {
                             position: pos,
@@ -2716,8 +2711,6 @@ impl Renderer {
             self.last_viewport_width,
             box_w_world,
         );
-        let tail_half_w = if layout.compact { 10.0 } else { 12.0 } / zoom;
-        let tail_base_center_x = node_x.clamp(box_left + tail_half_w, box_left + box_w_world - tail_half_w);
         let vw = self.last_viewport_width;
         let vh = self.last_viewport_height;
         let (preferred_box_bottom_y, tail_tip_y) = dialogue_box_vertical_layout(node_y, node_radius, zoom);
@@ -2745,9 +2738,6 @@ impl Renderer {
             right: box_left + box_w_world,
             top: box_top_y,
             bottom: box_bottom_y,
-            tail_base_center_x,
-            tail_tip_x: node_x,
-            tail_tip_y,
             screen_rect: [screen_box_x, screen_box_y, screen_box_w, screen_box_h],
             node_screen_pos: [node_screen_x, node_screen_y],
         })
@@ -2786,15 +2776,6 @@ impl Renderer {
         // No Metal-drawn box — the SwiftUI overlay (DialogueOverlayView) handles all visuals.
         // Geometry is still computed above for box_screen_rect positioning.
         let _ = (left, right, box_top, box_bottom, border_w, nameplate_h);
-    }
-
-    fn push_border_quad(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, color: [f32; 4]) {
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x0, y0], color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x1, y0], color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x0, y1], color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x1, y0], color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x1, y1], color });
-        self.dialogue_vertex_scratch.push(DialogueVertex { position: [x0, y1], color });
     }
 
     /// Prepare dialogue box GPU data. Call before the render pass.

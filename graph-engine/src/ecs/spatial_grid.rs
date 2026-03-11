@@ -8,7 +8,6 @@ use rustc_hash::FxHashMap;
 use super::TransformComponent;
 
 pub struct SpatialGrid {
-    cell_size: f32,
     inv_cell_size: f32,
     cells: FxHashMap<(i32, i32), Vec<u32>>,
 }
@@ -17,7 +16,6 @@ impl SpatialGrid {
     pub fn new(cell_size: f32) -> Self {
         debug_assert!(cell_size > 0.0, "cell_size must be positive");
         Self {
-            cell_size,
             inv_cell_size: 1.0 / cell_size,
             cells: FxHashMap::default(),
         }

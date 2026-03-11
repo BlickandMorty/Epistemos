@@ -128,7 +128,7 @@ pub fn force_many_body_with_scratch(
     distance_min: f32,
     alpha: f32,
     bodies: &mut Vec<Body>,
-    degrees: &[u32],
+    _degrees: &[u32],
 ) {
     let n = x.len();
     if n < 2 {
@@ -1315,7 +1315,7 @@ mod tests {
 
         // After multiple iterations, should be well separated
         let dist1 = (x[1] - x[0]).abs();
-        let dist2 = (x[2] - x[1]).abs();
+        let _dist2 = (x[2] - x[1]).abs();
         assert!(dist1 >= 51.0 || dist1 < 10.0);
     }
 

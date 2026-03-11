@@ -449,7 +449,7 @@ mod tests {
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // All clusters have at least one node
         assert_eq!(unique.len(), 2);
-        for (i, &c) in result.iter().enumerate() {
+        for (_i, &c) in result.iter().enumerate() {
             assert!(unique.contains(&c));
         }
     }

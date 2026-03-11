@@ -29,8 +29,7 @@ mod theme_ecs_tests {
 
     #[test]
     fn theme_switch_classic_to_dialogue() {
-        let mut theme = VisualTheme::Classic;
-        theme = VisualTheme::from_u8(0);
+        let theme = VisualTheme::from_u8(0);
         assert_eq!(theme, VisualTheme::Dialogue);
     }
 

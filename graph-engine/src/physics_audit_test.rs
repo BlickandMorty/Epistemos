@@ -1,5 +1,4 @@
-use super::*;
-use crate::simulation::{Simulation, ForceParams, CenterMode};
+use crate::simulation::Simulation;
 use crate::types::Graph;
 
 #[cfg(test)]
@@ -162,7 +161,7 @@ mod physics_audit_tests {
         // Let's test the execution time of 1200 ticks for 1900 nodes.
         let mut sim = setup_sim_with_nodes(1900);
         
-        let mut start_positions = vec![(0.0, 0.0); 1900];
+        let _start_positions = vec![(0.0, 0.0); 1900];
         for i in 0..1900 {
             // Distribute them in a spiral like engine.rs does
             let golden_angle: f32 = std::f32::consts::PI * (3.0 - 5.0_f32.sqrt());

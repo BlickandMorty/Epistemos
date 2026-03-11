@@ -605,7 +605,7 @@ impl Engine {
         let viewport_changed = self.renderer.set_viewport_size(width, height);
 
         // Single lock to read all simulation state — avoids per-field mutex contention.
-        let (sim_active, haptic_event, is_frozen) = {
+        let (sim_active, haptic_event, _is_frozen) = {
             let mut sim = self.sim.lock();
             // Pass viewport bounds for scoped physics (Phase 4 optimization).
             // At low zoom or when frozen, simulate all nodes (viewport covers everything).
@@ -888,49 +888,6 @@ impl Engine {
             }
         }
         self.pan_active = false;
-    }
-
-    /// Isolate a node: highlight it + neighbors, zoom camera to fit the cluster.
-    fn isolate_node(&mut self, node_id: u32) {
-        // Track selection for FFI query.
-        self.selected_id = Some(node_id);
-
-        // Collect the node + all direct neighbors from ECS topology.
-        let ids = self.neighbor_ids(node_id);
-
-        // Activate highlight (dims everything else).
-        self.renderer.highlight.highlighted_ids = ids.clone();
-        self.renderer.highlight.active = true;
-        self.idle_frame_count = 0;
-
-        // Compute bounding box of the highlighted cluster.
-        let (mut min_x, mut min_y) = (f32::MAX, f32::MAX);
-        let (mut max_x, mut max_y) = (f32::MIN, f32::MIN);
-        for &nid in &ids {
-            if let Some(index) = self.world.index_of_node_id(nid) {
-                let pos = &self.world.transform[index];
-                let radius = self.world.graph_node[index].radius;
-                min_x = min_x.min(pos.x - radius);
-                min_y = min_y.min(pos.y - radius);
-                max_x = max_x.max(pos.x + radius);
-                max_y = max_y.max(pos.y + radius);
-            }
-        }
-
-        if min_x < f32::MAX {
-            let cx = (min_x + max_x) * 0.5;
-            let cy = (min_y + max_y) * 0.5;
-            let graph_w = (max_x - min_x).max(1.0);
-            let graph_h = (max_y - min_y).max(1.0);
-            let w = self.viewport_width as f32;
-            let h = self.viewport_height as f32;
-            let padding = 0.65; // Tighter than global zoom-to-fit for focus feel.
-            let zoom = (w / graph_w).min(h / graph_h) * padding;
-
-            self.renderer.target_offset = [cx, cy];
-            self.renderer.target_zoom = zoom.clamp(0.05, 10.0);
-            self.renderer.is_animating = true;
-        }
     }
 
     /// Two-finger scroll: pan the camera by screen-space delta.
@@ -1611,7 +1568,7 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
         while !stop.load(Ordering::Relaxed) {
             let start = Instant::now();
 
-            let (settled, alpha, node_count) = {
+            let (settled, _alpha, node_count) = {
                 let mut sim = sim.lock();
                 sim.tick();
                 (sim.is_settled, sim.params.alpha, sim.x.len())

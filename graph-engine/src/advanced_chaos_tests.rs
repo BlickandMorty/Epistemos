@@ -1,7 +1,7 @@
 //! Automatically generated advanced chaos engineering tests.
 #[cfg(test)]
 mod tests {
-    use crate::simulation::{Simulation, ForceParams, CenterMode};
+    use crate::simulation::{Simulation, CenterMode};
     use crate::types::Graph;
 
     #[test]

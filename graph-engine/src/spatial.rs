@@ -513,7 +513,7 @@ mod tests {
         let nodes = vec![make_node(1, 0.0, 0.0, 10.0)];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
-        let hit_radius = 10.0 * 1.5; // 15
+        let _hit_radius = 10.0 * 1.5; // 15
         // Query at distance less than hit_radius from center
         // At (10, 0), distance = 10 < 15, should hit
         assert_eq!(idx.query_point(10.0, 0.0), Some(1));
