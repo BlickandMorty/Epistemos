@@ -163,6 +163,30 @@ struct MarkdownContentStorageTests {
     }
 }
 
+@Suite("Data Detection Service")
+struct DataDetectionServiceTests {
+
+    @Test("async detection matches synchronous detection for mixed content")
+    func asyncDetectionMatchesSynchronousDetection() async {
+        let text = """
+        Meet me at 1 Infinite Loop on March 11, 2026.
+        Call +1 (312) 555-0199 or visit https://example.com/details.
+        """
+
+        let syncItems = DataDetectionService.detect(in: text)
+        let asyncItems = await DataDetectionService.detectAsync(in: text)
+
+        #expect(asyncItems.count == syncItems.count)
+        #expect(asyncItems.map { $0.text } == syncItems.map { $0.text })
+    }
+
+    @Test("async detection returns no items for empty text")
+    func asyncDetectionReturnsEmptyForEmptyText() async {
+        let items = await DataDetectionService.detectAsync(in: "")
+        #expect(items.isEmpty)
+    }
+}
+
 @Suite("Inline Markdown Styling")
 struct InlineMarkdownStylerTests {
 

@@ -67,6 +67,18 @@ enum DataDetectionService {
         return items
     }
 
+    /// Runs data detection off the caller's actor so editor debounce paths do not
+    /// spend their full scan time on the main actor.
+    nonisolated static func detectAsync(
+        in text: String,
+        priority: TaskPriority = .utility
+    ) async -> [DetectedItem] {
+        let snapshot = text
+        return await Task.detached(priority: priority) {
+            detect(in: snapshot)
+        }.value
+    }
+
     /// Opens the appropriate system app for a detected item.
     nonisolated static func open(_ item: DetectedItem) {
         switch item.kind {

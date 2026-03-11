@@ -1088,7 +1088,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 guard let storage = tv.textStorage else { return }
                 let text = storage.string
                 let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                let items = DataDetectionService.detect(in: text)
+                let items = await DataDetectionService.detectAsync(in: text)
+                guard !Task.isCancelled else { return }
+                guard storage.string == text else { return }
                 // Clear old detection attributes (only ranges that had them).
                 let fullRange = NSRange(location: 0, length: storage.length)
                 storage.enumerateAttribute(DataDetectionService.detectedDataKey, in: fullRange) { val, range, _ in

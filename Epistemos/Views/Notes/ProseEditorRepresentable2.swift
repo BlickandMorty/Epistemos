@@ -1097,12 +1097,13 @@ extension ProseEditorRepresentable2 {
 
         private func scheduleDataDetection(_ text: String) {
             dataDetectionTask?.cancel()
-            let pageId = currentPageId
             dataDetectionTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(1))
                 guard let self, !Task.isCancelled else { return }
+                let items = await DataDetectionService.detectAsync(in: text)
+                guard !Task.isCancelled else { return }
                 guard let tv = self.textView, let storage = tv.textStorage else { return }
-                let items = DataDetectionService.detect(in: text)
+                guard storage.string == text else { return }
                 let fullRange = NSRange(location: 0, length: storage.length)
                 storage.enumerateAttribute(DataDetectionService.detectedDataKey, in: fullRange) { val, range, _ in
                     guard val != nil else { return }
