@@ -30,9 +30,19 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var onPageFlush: ((String, String) -> Void)?
     var graphState: GraphState?
 
-    static let maxReadableWidth: CGFloat = 720
-    static let minHorizontalInset: CGFloat = 60
+    static let maxReadableWidth: CGFloat = 880
+    static let minHorizontalInset: CGFloat = 28
+    static let regularHorizontalInset: CGFloat = 60
+    static let compactWidthThreshold: CGFloat = 1000
     static let verticalInset: CGFloat = 40
+
+    static func horizontalInset(for availableWidth: CGFloat) -> CGFloat {
+        let minimumInset =
+            availableWidth < compactWidthThreshold
+            ? minHorizontalInset
+            : regularHorizontalInset
+        return max(minimumInset, (availableWidth - maxReadableWidth) / 2)
+    }
 
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }
 
@@ -44,10 +54,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
         tv.isEditable = isEditable
         tv.delegate = coord
-        tv.textContainerInset = NSSize(
-            width: Self.minHorizontalInset,
-            height: Self.verticalInset
-        )
+        tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
 
         tv.applyTheme(theme)
 
@@ -442,10 +449,7 @@ extension ProseEditorRepresentable2 {
         func updateCentering() {
             guard let tv = textView, let sv = scrollView else { return }
             let viewWidth = sv.contentSize.width
-            let finalInset = max(
-                ProseEditorRepresentable2.minHorizontalInset,
-                (viewWidth - ProseEditorRepresentable2.maxReadableWidth) / 2
-            )
+            let finalInset = ProseEditorRepresentable2.horizontalInset(for: viewWidth)
             let newInset = NSSize(
                 width: finalInset,
                 height: ProseEditorRepresentable2.verticalInset

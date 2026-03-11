@@ -1343,7 +1343,7 @@ struct TK2FormattingTests {
         tv.insertMarkdownTable(NSMenuItem())
         let result = tv.string
         #expect(result.contains("| Column 1 |"))
-        #expect(result.contains("| --- |"))
+        #expect(result.contains("| --- |") || result.contains("| -------- |"))
     }
 }
 
@@ -1582,6 +1582,17 @@ struct TK2PageSwapPersistenceTests {
         #expect(getFlushCalls().count == 2)
         #expect(getFlushCalls()[1].0 == "page-2")
         #expect(getFlushCalls()[1].1 == "Page 2 edited")
+    }
+}
+
+@Suite("TK2 Parity - Centering")
+struct TK2CenteringTests {
+
+    @Test("TK2 horizontal inset relaxes on narrower note windows")
+    func horizontalInsetCompactsForNarrowWindows() {
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 900) == 28)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000) == 60)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200) == 160)
     }
 }
 

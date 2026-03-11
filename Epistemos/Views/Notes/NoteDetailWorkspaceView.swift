@@ -1004,9 +1004,9 @@ struct NoteDetailWorkspaceView: View {
             )
         } label: {
             Image(systemName: "apple.intelligence")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 22, height: 22)
         }
-        .buttonStyle(.plain)
         .help("Apple Writing Tools")
     }
 
