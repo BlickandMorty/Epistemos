@@ -20,24 +20,6 @@ struct RootView: View {
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
 
-    /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
-    /// Only delays the *reveal*; hiding is always immediate.
-    @State private var homeChatToolbarReady = false
-
-    /// True when Home tab is showing an active chat (not landing).
-    private var activeHomeChat: Bool {
-        ui.homeTab == .home && !chat.showLanding && !chat.messages.isEmpty
-    }
-
-    /// Canonical toolbar glass visibility — deterministic from app state.
-    /// For non-Home tabs: always visible.
-    /// For Home landing: always hidden.
-    /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
-    private var toolbarGlassVisible: Bool {
-        if ui.homeTab != .home { return true }
-        return activeHomeChat && homeChatToolbarReady
-    }
-
     var body: some View {
         ZStack {
             // Background wallpaper (theme-dependent)
@@ -109,25 +91,7 @@ struct RootView: View {
             }
         }
         .navigationTitle("")
-        // Toolbar glass: hidden on home landing, visible for chat/library/settings.
-        // Canonical rule is derived from app state (deterministic).
-        // `homeChatToolbarReady` only gates the Home landing→chat reveal to avoid flash.
-        .toolbarBackgroundVisibility(
-            toolbarGlassVisible ? .automatic : .hidden,
-            for: .windowToolbar
-        )
-        .onChange(of: activeHomeChat) { _, isActive in
-            if isActive {
-                // Delay reveal until HomeRouter's landing→chat animation settles.
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(350))
-                    homeChatToolbarReady = true
-                }
-            } else {
-                // Hide immediately when returning to landing.
-                homeChatToolbarReady = false
-            }
-        }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         // Chat sidebar is now a popover on the toolbar button (above)
         .overlay(alignment: .bottom) {
             if let message = ui.toastMessage {
@@ -212,6 +176,11 @@ private final class WindowPolicyBridgeView: NSView {
         guard let window else { return }
         guard appliedWindow !== window else { return }
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.toolbarStyle = .unifiedCompact
+        window.toolbar?.showsBaselineSeparator = false
+        window.isMovableByWindowBackground = true
         appliedWindow = window
     }
 }
@@ -302,11 +271,14 @@ private struct PrincipalToolbarContent: View {
             @Bindable var uiBindable = ui
             Picker("", selection: $uiBindable.homeTab) {
                 ForEach(HomeTab.allCases, id: \.self) { tab in
-                    Label(tab.label, systemImage: tab.icon).tag(tab)
+                    Image(systemName: tab.icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 20, height: 20)
+                        .tag(tab)
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 144)
+            .frame(width: 170)
         }
     }
 }

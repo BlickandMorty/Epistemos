@@ -52,7 +52,6 @@ struct SettingsView: View {
                 case nil:         InferenceDetailView()
                 }
             }
-            .navigationTitle(selection?.rawValue ?? "Settings")
         }
         .navigationSplitViewStyle(.prominentDetail)
     }
