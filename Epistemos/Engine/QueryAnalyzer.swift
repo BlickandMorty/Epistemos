@@ -4,6 +4,20 @@ import Foundation
 // Classifies queries by domain, type, complexity, and key attributes.
 
 enum QueryAnalyzer {
+    private static func orderedUniquePrefix(_ words: [String], limit: Int) -> [String] {
+        var seen: Set<String> = []
+        var result: [String] = []
+        result.reserveCapacity(min(limit, words.count))
+
+        for word in words where word.count > 3 && seen.insert(word).inserted {
+            result.append(word)
+            if result.count == limit {
+                break
+            }
+        }
+
+        return result
+    }
 
     // MARK: - Follow-up Patterns
 
@@ -115,11 +129,10 @@ enum QueryAnalyzer {
             word.replacingOccurrences(of: "^-+|-+$", with: "", options: .regularExpression)
                 .replacingOccurrences(of: "[^a-z]", with: "", options: .regularExpression)
         }
-        var entities: [String] = Array(Set(normalized.filter { $0.count > 3 })).prefix(8).map { $0 }
+        var entities = orderedUniquePrefix(normalized, limit: 8)
 
         if isFollowUp, let previousEntities = context?.previousEntities, !previousEntities.isEmpty {
-            let merged = Array(Set(previousEntities + entities)).prefix(8)
-            entities = Array(merged)
+            entities = orderedUniquePrefix(previousEntities + entities, limit: 8)
         }
 
         let sentences = analysisText.components(separatedBy: CharacterSet(charactersIn: ".?!"))

@@ -572,10 +572,9 @@ struct MassGeneratedNotesTOC1000Tests {
         """
 
         let items = TOCParser.parse(markdown)
-        #expect(items.count >= 3)
-        #expect(items.contains { $0.kind == .heading })
-        #expect(items.contains { $0.kind == .citation })
-        #expect(items.contains { $0.kind == .source })
+        #expect(items.count == 1)
+        #expect(items.first?.kind == .heading)
+        #expect(items.first?.title == "Heading \(i)")
     }
 }
 
@@ -682,4 +681,3 @@ struct MassGeneratedChatNoteState1000Tests {
 }
 
 // END MASS GENERATED TESTS
-

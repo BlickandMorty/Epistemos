@@ -124,7 +124,7 @@ struct BackgroundGraphLoadingTests {
 
         // Seed graph data
         let node1 = SDGraphNode(type: .note, label: "Alpha", sourceId: "p1")
-        let node2 = SDGraphNode(type: .tag, label: "Beta", sourceId: nil)
+        let node2 = SDGraphNode(type: .source, label: "Beta", sourceId: "s1")
         context.insert(node1)
         context.insert(node2)
         context.insert(SDGraphEdge(source: node1.id, target: node2.id, type: .reference))
@@ -183,10 +183,10 @@ struct BackgroundGraphLoadingTests {
 
         // Seed some nodes and edges
         let n1 = SDGraphNode(type: .note, label: "Page One", sourceId: "p1")
-        let n2 = SDGraphNode(type: .tag, label: "swift", sourceId: "tag-swift")
+        let n2 = SDGraphNode(type: .source, label: "Swift Source", sourceId: "src-swift")
         context.insert(n1)
         context.insert(n2)
-        context.insert(SDGraphEdge(source: n1.id, target: n2.id, type: .tagged))
+        context.insert(SDGraphEdge(source: n1.id, target: n2.id, type: .reference))
         try context.save()
 
         let graphState = GraphState()
@@ -208,7 +208,7 @@ struct BackgroundGraphLoadingTests {
         let emoji = SDGraphNode(type: .note, label: "🧠 Brain Dump 🔥", sourceId: nil)
         let cjk = SDGraphNode(type: .note, label: "知識グラフ", sourceId: nil)
         let rtl = SDGraphNode(type: .note, label: "مخطط المعرفة", sourceId: nil)
-        let zwj = SDGraphNode(type: .tag, label: "👨‍👩‍👧‍👦 Family", sourceId: nil)
+        let zwj = SDGraphNode(type: .source, label: "👨‍👩‍👧‍👦 Family", sourceId: nil)
         context.insert(emoji)
         context.insert(cjk)
         context.insert(rtl)

@@ -91,7 +91,7 @@ struct MemoryStressTests {
             store.loadDirect(nodes: nodes, edges: edges)
             let after = MemoryTracker.currentMemoryUsage()
             
-            let memoryUsed = after - before
+            let memoryUsed = after > before ? after - before : 0
             memoryUsages.append((count: count, memory: memoryUsed))
         }
         

@@ -360,6 +360,7 @@ final class ProseTextView2: NSTextView {
     // MARK: - Custom Drawing (Phase 4)
 
     override func drawBackground(in rect: NSRect) {
+        guard NSGraphicsContext.current?.cgContext != nil else { return }
         super.drawBackground(in: rect)
         drawCalloutBackgrounds(in: rect)
         drawTableFills(in: rect)

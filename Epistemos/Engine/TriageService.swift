@@ -226,12 +226,9 @@ final class TriageService {
     /// Apple Intelligence is always-on: if available and the operation is simple enough,
     /// it runs on-device. The user's selected cloud provider handles everything else.
     func triage(operation: NotesOperation, contentLength: Int, query: String? = nil) -> TriageDecision {
-        // Force on-device when cloud API has no key but Apple Intelligence is available,
-        // BUT only for simple operations Apple Intelligence can actually handle.
-        // Complex operations (ask, expand, analyze, etc.) need cloud — sending them to
-        // Apple Intelligence just produces generic summaries instead of real answers.
-        if inference.apiKey.isEmpty && inference.appleIntelligenceAvailable
-            && operation.baseComplexity <= complexityThreshold {
+        // If the selected provider has no key, prefer on-device over a guaranteed
+        // cloud failure whenever Apple Intelligence is available.
+        if inference.apiKey.isEmpty && inference.appleIntelligenceAvailable {
             return .appleIntelligence
         }
 
@@ -324,10 +321,9 @@ final class TriageService {
     /// but Apple Intelligence IS available, force-route to on-device regardless of
     /// complexity. This prevents 401 errors for users who haven't entered a key yet.
     func triageGeneral(operation: GeneralOperation, contentLength: Int) -> TriageDecision {
-        // Force on-device when cloud API has no key but Apple Intelligence is available,
-        // BUT only for simple operations it can handle. Complex operations need cloud.
-        if inference.apiKey.isEmpty && inference.appleIntelligenceAvailable
-            && operation.baseComplexity <= complexityThreshold {
+        // If the selected provider has no key, prefer on-device over a guaranteed
+        // cloud failure whenever Apple Intelligence is available.
+        if inference.apiKey.isEmpty && inference.appleIntelligenceAvailable {
             return .appleIntelligence
         }
 

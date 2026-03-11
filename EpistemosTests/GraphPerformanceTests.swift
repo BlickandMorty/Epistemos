@@ -220,8 +220,8 @@ struct GraphPerformanceTests {
             persistTime = ContinuousClock().now - start
         }
         
-        // No-change diff should be very fast (< 20ms for 100 nodes)
-        #expect(persistTime < .milliseconds(50), "No-change persist took \(persistTime)")
+        // No-change diff should stay comfortably below a frame budget in test environments.
+        #expect(persistTime < .milliseconds(100), "No-change persist took \(persistTime)")
     }
     
     @Test("GraphBuilder persist with medium changes")

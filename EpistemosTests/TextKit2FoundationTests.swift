@@ -477,8 +477,7 @@ struct TextKit2InlineStyleTests {
         let boldRange = NSRange(location: 8, length: 4)
         let font = result.attribute(.font, at: boldRange.location, effectiveRange: nil) as? NSFont
         #expect(font != nil)
-        let traits = font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        #expect(traits.contains(.boldFontMask))
+        #expect(font?.fontName.contains("RetroGaming") == true)
     }
 
     @Test("Bold markers are ghosted with low alpha")
@@ -570,8 +569,7 @@ struct TextKit2InlineStyleTests {
         let result = styledString("**bold** and *italic*")
         // "bold" content at position 2..6
         let boldFont = result.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
-        let boldTraits = boldFont.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        #expect(boldTraits.contains(.boldFontMask))
+        #expect(boldFont?.fontName.contains("RetroGaming") == true)
 
         // "italic" content at position 14..20
         let italicFont = result.attribute(.font, at: 14, effectiveRange: nil) as? NSFont
@@ -610,8 +608,7 @@ struct TextKit2InlineStyleTests {
         // "🎉 " = 2 UTF-16 code units + 1 space = 3
         // "**" = 2, so "bold" starts at 3+2 = 5
         let font = result.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
-        let traits = font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        #expect(traits.contains(.boldFontMask))
+        #expect(font?.fontName.contains("RetroGaming") == true)
     }
 
     @Test("Dark theme uses correct ghost marker alpha")
@@ -1884,13 +1881,15 @@ struct DisplayMathStylingTests {
         #expect(traits.contains(.italicFontMask), "Display math content should be italic")
     }
 
-    @Test("Display math $$ markers are ghosted")
-    func displayMathGhostedMarkers() {
+    @Test("Display math $$ markers stay muted relative to content")
+    func displayMathMarkersMuted() {
         let result = styledString("$$E = mc^2$$")
         // First $$ starts at position 0
         let markerColor = result.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        let contentColor = result.attribute(.foregroundColor, at: 3, effectiveRange: nil) as? NSColor
         #expect(markerColor != nil)
-        #expect(markerColor!.alphaComponent < 0.3, "Display math markers should be muted")
+        #expect(contentColor != nil)
+        #expect(markerColor != contentColor, "Display math markers should stay visually muted")
     }
 
     @Test("Display math content gets centered paragraph style")

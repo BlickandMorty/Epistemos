@@ -10,6 +10,42 @@ import os
 enum NoteFileStorage {
     private nonisolated static let logger = Logger(subsystem: "com.epistemos", category: "NoteFileStorage")
 
+    private nonisolated static func bodyURL(pageId: String) -> URL {
+        storageDirectory().appendingPathComponent("\(pageId).md")
+    }
+
+    private nonisolated static func legacyRichTextURL(pageId: String) -> URL {
+        storageDirectory().appendingPathComponent("\(pageId).rtfd")
+    }
+
+    @discardableResult
+    private nonisolated static func persistBody(_ content: String, to url: URL, pageId: String) -> Bool {
+        do {
+            try content.write(to: url, atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            logger.error("Failed to write body for \(pageId): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private nonisolated static func migrateLegacyRichTextBody(pageId: String) -> String {
+        let url = legacyRichTextURL(pageId: pageId)
+        guard FileManager.default.fileExists(atPath: url.path),
+              let content = try? NSAttributedString(url: url, options: [:], documentAttributes: nil) else {
+            return ""
+        }
+
+        let body = content.string
+        guard persistBody(body, to: bodyURL(pageId: pageId), pageId: pageId) else {
+            return ""
+        }
+
+        try? FileManager.default.removeItem(at: url)
+        logger.notice("Migrated legacy RTFD note to markdown storage for \(pageId, privacy: .private)")
+        return body
+    }
+
     /// Validates that a pageId is safe for use as a filename component.
     /// Rejects empty strings, path separators, traversal sequences, and null bytes.
     nonisolated static func isValidPageId(_ pageId: String) -> Bool {
@@ -45,11 +81,11 @@ enum NoteFileStorage {
     ///   Falls back to normal read for small files or network filesystems.
     nonisolated static func readBody(pageId: String, mapped: Bool = false) -> String {
         guard isValidPageId(pageId) else { return "" }
-        let url = storageDirectory().appendingPathComponent("\(pageId).md")
+        let url = bodyURL(pageId: pageId)
         let options: Data.ReadingOptions = mapped ? .mappedIfSafe : []
         guard let data = try? Data(contentsOf: url, options: options),
               let text = String(data: data, encoding: .utf8) else {
-            return ""
+            return migrateLegacyRichTextBody(pageId: pageId)
         }
         return text
     }
@@ -59,7 +95,7 @@ enum NoteFileStorage {
     /// you only need bytes, not a decoded String.
     nonisolated static func readBodyData(pageId: String) -> Data? {
         guard isValidPageId(pageId) else { return nil }
-        let url = storageDirectory().appendingPathComponent("\(pageId).md")
+        let url = bodyURL(pageId: pageId)
         return try? Data(contentsOf: url, options: .mappedIfSafe)
     }
 
@@ -69,72 +105,25 @@ enum NoteFileStorage {
             logger.error("Invalid pageId rejected in writeBody: \(pageId.prefix(20))")
             return
         }
-        let url = storageDirectory().appendingPathComponent("\(pageId).md")
+        let url = bodyURL(pageId: pageId)
 
         // Empty writes are legitimate (user cleared the note). The original zero-byte
         // bug is fixed by textDidChange restructure + NSNotFound bounds checks + direct
         // file save bypassing the SwiftUI binding chain. No need to block empty writes here.
-
-        do {
-            try content.write(to: url, atomically: true, encoding: .utf8)
-        } catch {
-            logger.error("Failed to write body for \(pageId): \(error.localizedDescription)")
-        }
+        _ = persistBody(content, to: url, pageId: pageId)
     }
 
     /// Delete a note body file.
     nonisolated static func deleteBody(pageId: String) {
         guard isValidPageId(pageId) else { return }
-        let url = storageDirectory().appendingPathComponent("\(pageId).md")
+        let url = bodyURL(pageId: pageId)
         try? FileManager.default.removeItem(at: url)
     }
 
     /// Check if a body file exists on disk.
     nonisolated static func bodyExists(pageId: String) -> Bool {
         guard isValidPageId(pageId) else { return false }
-        let url = storageDirectory().appendingPathComponent("\(pageId).md")
-        return FileManager.default.fileExists(atPath: url.path)
-    }
-
-    // MARK: - Rich Text (RTFD) Storage
-
-    /// Read a rich text document from disk. Returns nil if file doesn't exist.
-    nonisolated static func readRichText(pageId: String) -> NSAttributedString? {
-        guard isValidPageId(pageId) else { return nil }
-        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return try? NSAttributedString(url: url, options: [:], documentAttributes: nil)
-    }
-
-    /// Write a rich text document to disk as RTFD bundle.
-    nonisolated static func writeRichText(pageId: String, content: NSAttributedString) {
-        guard isValidPageId(pageId) else {
-            logger.error("Invalid pageId rejected in writeRichText: \(pageId.prefix(20))")
-            return
-        }
-        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
-        let range = NSRange(location: 0, length: content.length)
-        do {
-            let wrapper = try content.fileWrapper(from: range, documentAttributes: [
-                .documentType: NSAttributedString.DocumentType.rtfd
-            ])
-            try wrapper.write(to: url, options: .atomic, originalContentsURL: nil)
-        } catch {
-            logger.error("Failed to write RTFD for \(pageId): \(error.localizedDescription)")
-        }
-    }
-
-    /// Delete a rich text document bundle.
-    nonisolated static func deleteRichText(pageId: String) {
-        guard isValidPageId(pageId) else { return }
-        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
-        try? FileManager.default.removeItem(at: url)
-    }
-
-    /// Check if an RTFD file exists on disk.
-    nonisolated static func richTextExists(pageId: String) -> Bool {
-        guard isValidPageId(pageId) else { return false }
-        let url = storageDirectory().appendingPathComponent("\(pageId).rtfd")
+        let url = bodyURL(pageId: pageId)
         return FileManager.default.fileExists(atPath: url.path)
     }
 

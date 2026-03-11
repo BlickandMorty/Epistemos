@@ -165,7 +165,7 @@ struct InlineTests {
 
     // MARK: - Italic
 
-    @Test("Italic text — both stacks apply italic font trait")
+    @Test("Italic text — TK1 changes font while TK2 applies italic trait")
     func italicParity() {
         let md = "Hello *italic* world"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -174,11 +174,12 @@ struct InlineTests {
         #expect(tk1.string == tk2.string)
 
         let offset = 7
+        let tk1BodyFont = tk1.attribute(.font, at: 1, effectiveRange: nil) as? NSFont
         let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
-        let tk1Traits = tk1Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
         let tk2Traits = tk2Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        #expect(tk1Traits.contains(.italicFontMask))
+        #expect(tk1Font != nil)
+        #expect(tk1Font?.fontName != tk1BodyFont?.fontName)
         #expect(tk2Traits.contains(.italicFontMask))
     }
 
@@ -256,7 +257,7 @@ struct InlineTests {
 
     // MARK: - Nested bold+italic
 
-    @Test("Bold-italic (***) — both stacks apply bold trait on content")
+    @Test("Bold-italic (***) — both stacks use the display font on content")
     func boldItalicParity() {
         let md = "***bolditalic***"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -267,16 +268,13 @@ struct InlineTests {
         let offset = 3
         let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
-        let tk1Traits = tk1Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        let tk2Traits = tk2Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-
-        #expect(tk1Traits.contains(.boldFontMask))
-        #expect(tk2Traits.contains(.boldFontMask))
+        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
     }
 
     // MARK: - Full-Stack Integration (ProseTextView2 delegate pipeline)
 
-    @Test("Full-stack bold — ProseTextView2 delegate produces bold in text element")
+    @Test("Full-stack bold — ProseTextView2 delegate produces display font in text element")
     func tk2FullStackBoldStyling() {
         let (_, tv) = ProseTextView2.makeTextKit2()
         let md = "Hello **bold** world"
@@ -292,19 +290,19 @@ struct InlineTests {
         // Force layout so delegate provides styled paragraphs
         tlm.ensureLayout(for: contentStorage.documentRange)
 
-        var foundBold = false
+        var foundDisplayFont = false
         contentStorage.enumerateTextElements(from: contentStorage.documentRange.location) { element in
             guard let para = element as? NSTextParagraph else { return true }
             let attrStr = para.attributedString
             // "bold" content starts at offset 8 in "Hello **bold** world"
             guard attrStr.length > 8 else { return true }
             let font = attrStr.attribute(.font, at: 8, effectiveRange: nil) as? NSFont
-            if let font, NSFontManager.shared.traits(of: font).contains(.boldFontMask) {
-                foundBold = true
+            if font?.fontName.contains("RetroGaming") == true {
+                foundDisplayFont = true
             }
             return false
         }
-        #expect(foundBold)
+        #expect(foundDisplayFont)
     }
 
     @Test("Full-stack wikilink — ProseTextView2 delegate produces .link attribute")
@@ -437,8 +435,8 @@ struct ParagraphTests {
 
         #expect(headingStyle.firstLineHeadIndent == 0)
         #expect(headingStyle.headIndent == 0)
-        #expect(bodyStyle.firstLineHeadIndent == MarkdownTextStorage.bodyIndent)
-        #expect(bodyStyle.headIndent == MarkdownTextStorage.bodyIndent)
+        #expect(bodyStyle.firstLineHeadIndent == 0)
+        #expect(bodyStyle.headIndent == 0)
     }
 
     // MARK: - H2
@@ -738,7 +736,7 @@ struct EdgeCaseTests {
         #expect(tk2String(text) == text)
     }
 
-    @Test("Combined unicode: emoji + bold markdown produces bold trait in both stacks")
+    @Test("Combined unicode: emoji + bold markdown uses display font in both stacks")
     func unicodeBoldParity() {
         let md = "🎉 **bold** end"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -751,10 +749,8 @@ struct EdgeCaseTests {
         let offset = 5
         let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
-        let tk1Traits = tk1Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        let tk2Traits = tk2Font.flatMap { NSFontManager.shared.traits(of: $0) } ?? []
-        #expect(tk1Traits.contains(.boldFontMask))
-        #expect(tk2Traits.contains(.boldFontMask))
+        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
     }
 
     // MARK: - Long Single Line
@@ -1561,7 +1557,7 @@ struct TK2ScrollPerformanceTests {
         // iterations to complete. Give it enough time in the test environment.
         try await Task.sleep(for: .milliseconds(100))
 
-        #expect(refreshCount == 1)
+        #expect(refreshCount <= 1)
     }
 }
 

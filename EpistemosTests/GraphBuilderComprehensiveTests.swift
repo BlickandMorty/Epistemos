@@ -621,19 +621,16 @@ struct GraphBuilderComplexScenarioTests {
             let builder = GraphBuilder()
             let result = builder.build(context: context)
             
-            // Count expected nodes:
-            // 1 folder + 2 pages + 2 unique tags + 1 idea + 1 chat = 7 nodes
-            #expect(result.nodes.count == 7)
-            
-            // Should have edges for:
+            // Tags are metadata-only now and are not emitted as visual graph nodes.
+            // 1 folder + 2 pages + 1 idea + 1 chat = 5 nodes
+            #expect(result.nodes.count == 5)
+
+            // Only structural edges remain:
             // - folder->page1 (contains)
             // - folder->page2 (contains)
-            // - page1->philosophy (tagged)
-            // - page2->philosophy (tagged)
-            // - page2->science (tagged)
             // - idea->page1 (contains)
-            // = 6 edges
-            #expect(result.edges.count == 6)
+            // = 3 edges
+            #expect(result.edges.count == 3)
             
         } catch {
             Issue.record("Test failed: \(error)")
@@ -1119,8 +1116,8 @@ struct GraphBuilderSourceIdTests {
         }
     }
     
-    @Test("tag node sourceId uses tag key format")
-    func tagNodeSourceIdFormat() {
+    @Test("tags do not emit graph nodes")
+    func tagsDoNotCreateGraphNodes() {
         let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         
@@ -1136,8 +1133,7 @@ struct GraphBuilderSourceIdTests {
             let result = builder.build(context: context)
             
             let tagNode = result.nodes.first { $0.nodeType == .tag }
-            #expect(tagNode?.sourceId != nil)
-            #expect(tagNode?.sourceId?.contains("tag-") == true)
+            #expect(tagNode == nil)
         } catch {
             Issue.record("Test failed: \(error)")
         }

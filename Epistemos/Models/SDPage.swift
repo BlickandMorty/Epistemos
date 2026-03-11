@@ -32,11 +32,8 @@ final class SDPage {
     var researchStage: Int = 0  // 0-5, maps to pipeline stage
     var tags: [String] = []  // Native array — SwiftData encodes Codable arrays
     var wordCount: Int = 0
-    /// Page format: "markdown" (default) or "richtext" (TextKit 2 document mode).
+    /// Legacy compatibility field. Current notes always use markdown storage.
     var format: String = "markdown"
-
-    /// True if this page uses rich text (TextKit 2 document mode).
-    var isRichText: Bool { format == "richtext" }
 
     var isJournal: Bool = false  // Journal entries (JournalIntents)
     var journalDate: String?  // ISO date string for journal entries

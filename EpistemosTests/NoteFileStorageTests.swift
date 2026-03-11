@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import Epistemos
@@ -105,6 +106,34 @@ struct NoteFileStorageTests {
         #expect(NoteFileStorage.readBody(pageId: pageId).isEmpty)
     }
 
+    @Test("readBody migrates legacy rtfd bundle to markdown")
+    func readBodyMigratesLegacyRTFD() throws {
+        let pageId = makePageId()
+        let bodyURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).md")
+        let richTextURL = NoteFileStorage.storageDirectory().appendingPathComponent("\(pageId).rtfd")
+        defer {
+            NoteFileStorage.deleteBody(pageId: pageId)
+            try? FileManager.default.removeItem(at: richTextURL)
+        }
+
+        let legacyContent = NSAttributedString(string: "Legacy rich text\n\nEmoji 🚀")
+        let wrapper = try legacyContent.fileWrapper(
+            from: NSRange(location: 0, length: legacyContent.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd]
+        )
+        try wrapper.write(to: richTextURL, options: .atomic, originalContentsURL: nil)
+
+        #expect(!NoteFileStorage.bodyExists(pageId: pageId))
+        #expect(FileManager.default.fileExists(atPath: richTextURL.path))
+
+        let migrated = NoteFileStorage.readBody(pageId: pageId)
+
+        #expect(migrated == legacyContent.string)
+        #expect(NoteFileStorage.bodyExists(pageId: pageId))
+        #expect(!FileManager.default.fileExists(atPath: richTextURL.path))
+        #expect(try String(contentsOf: bodyURL, encoding: .utf8) == legacyContent.string)
+    }
+
     @Test("invalid page IDs do not create files")
     func invalidWriteDoesNotCreateFile() {
         let invalidId = "../bad"
@@ -113,4 +142,3 @@ struct NoteFileStorageTests {
         #expect(NoteFileStorage.readBody(pageId: invalidId).isEmpty)
     }
 }
-
