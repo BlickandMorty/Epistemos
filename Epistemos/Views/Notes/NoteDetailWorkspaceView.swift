@@ -147,18 +147,6 @@ struct NoteDetailWorkspaceView: View {
                                     .font(AppDisplayTypography.font(size: 13))
                                     .monospacedDigit()
                                     .foregroundStyle(ui.theme.foreground.opacity(0.55))
-                                if let target = notesUI.sessionWordTarget, target > 0 {
-                                    let delta = max(0, wordCount - notesUI.sessionStartWordCount)
-                                    let progress = min(1.0, Double(delta) / Double(target))
-                                    HStack(spacing: 4) {
-                                        ProgressView(value: progress)
-                                            .frame(width: 60)
-                                            .tint(progress >= 1.0 ? .green : .accentColor)
-                                        Text("\(delta)/\(target)")
-                                            .font(AppDisplayTypography.font(size: 11))
-                                            .foregroundStyle(ui.theme.foreground.opacity(0.55))
-                                    }
-                                }
                             }
 
                             HStack(spacing: 3) {
@@ -411,7 +399,6 @@ struct NoteDetailWorkspaceView: View {
             if let window = NSApp.keyWindow {
                 window.appearance = NSAppearance(named: newTheme.isDark ? .darkAqua : .aqua)
                 window.backgroundColor = newTheme.nsBackground
-                window.updateGlassToolbarTheme(newTheme)
             }
         }
         .onReceive(
@@ -1201,23 +1188,6 @@ struct NoteDetailWorkspaceView: View {
                 UtilityWindowManager.shared.show(.notes)
             } label: {
                 Label("Notes Sidebar", systemImage: "sidebar.leading")
-            }
-
-            Divider()
-
-            Button {
-                notesUI.sessionStartWordCount = wordCount
-                notesUI.sessionWordTarget = 500
-            } label: {
-                Label("Set Word Target (500)", systemImage: "target")
-            }
-
-            if notesUI.sessionWordTarget != nil {
-                Button {
-                    notesUI.sessionWordTarget = nil
-                } label: {
-                    Label("Clear Word Target", systemImage: "xmark.circle")
-                }
             }
 
             Divider()

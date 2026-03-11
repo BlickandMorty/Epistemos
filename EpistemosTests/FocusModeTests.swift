@@ -27,20 +27,6 @@ struct FocusModeTests {
         #expect(nsText.substring(with: range).hasPrefix("Second"))
     }
 
-    @Test("Session word target tracks delta")
-    @MainActor func sessionWordTarget() {
-        let state = NotesUIState()
-        state.sessionStartWordCount = 100
-        state.sessionWordTarget = 500
-        let current = 300
-        let delta = current - state.sessionStartWordCount
-        #expect(delta == 200)
-        if let target = state.sessionWordTarget {
-            let progress = Double(delta) / Double(target)
-            #expect(progress > 0.39 && progress < 0.41)
-        }
-    }
-
     @Test("TOC parser extracts headings with correct offsets")
     func tocParserHeadings() {
         let md = "# Title\n\nSome text\n\n## Section A\n\nMore text\n\n### Subsection\n\n## Section B"

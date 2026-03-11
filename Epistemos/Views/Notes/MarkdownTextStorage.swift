@@ -681,12 +681,16 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 ], range: content)
             }
 
-        case 5: // Italic — ghost markers, italic content
+        case 5: // Italic — ghost markers, RetroGaming italic content
             backing.addAttributes(ghost, range: range)
             if range.length > 2 {
                 let content = NSRange(location: range.location + 1, length: range.length - 2)
+                let retroItalic = NSFontManager.shared.convert(
+                    displayFont(size: size, weight: .regular),
+                    toHaveTrait: .italicFontMask
+                )
                 backing.addAttributes([
-                    .font: NSFontManager.shared.convert(existingFont, toHaveTrait: .italicFontMask)
+                    .font: retroItalic
                 ], range: content)
             }
 
