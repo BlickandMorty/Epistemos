@@ -136,6 +136,35 @@ private enum SidebarSpecialFolders {
     static let dailyNotes = "Daily Notes"
 }
 
+enum NotesSidebarMetrics {
+    static let headerTopPadding: CGFloat = 14
+    static let headerBottomPadding: CGFloat = 2
+    static let searchBarTopPadding: CGFloat = 0
+    static let overlapsTitlebar = false
+    static let showsBottomCollectionButton = false
+    static let showsBottomMiniChatButton = false
+    static let changesPanelWidth: CGFloat = 320
+    static let changesPanelHeight: CGFloat = 400
+}
+
+enum NotesSidebarGlyph: Sendable {
+    case vaultChanges
+
+    var symbolName: String {
+        switch self {
+        case .vaultChanges:
+            "doc.badge.clock"
+        }
+    }
+
+    var activeSymbolName: String {
+        switch self {
+        case .vaultChanges:
+            "doc.badge.clock.fill"
+        }
+    }
+}
+
 // MARK: - Notes Sidebar
 // Obsidian-style file tree: vault → folders (SDFolder) → pages.
 // Loose pages (not in any folder) appear at root level alongside folders.
@@ -275,9 +304,13 @@ struct NotesSidebar: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 2)
+            .padding(.top, NotesSidebarMetrics.headerTopPadding)
+            .padding(.bottom, NotesSidebarMetrics.headerBottomPadding)
             .background(theme.background)
+            .ignoresSafeArea(
+                NotesSidebarMetrics.overlapsTitlebar ? .container : [],
+                edges: .top
+            )
             searchBar
             fileTree(folderItemById: fById, onAction: onAct)
             Divider().opacity(0.2)
@@ -364,7 +397,7 @@ struct NotesSidebar: View {
                 )
         )
         .padding(.horizontal, 12)
-        .padding(.top, 2)
+        .padding(.top, NotesSidebarMetrics.searchBarTopPadding)
         .padding(.bottom, 6)
     }
 
@@ -1785,6 +1818,8 @@ private struct EditorActionsBar: View {
     let onOrganize: () -> Void
 
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(UIState.self) private var ui
+    @State private var showChangesPopover = false
 
     // PERF: Filtered @Query — SwiftData only notifies when this result set changes.
     // Replaces vaultSync.dirtyPageCount which fetched ALL pages every evaluation.
@@ -1799,8 +1834,10 @@ private struct EditorActionsBar: View {
             SidebarIconButton(icon: "folder.badge.plus", tooltip: "New Folder") {
                 onNewFolder()
             }
-            SidebarIconButton(icon: "tray.full", tooltip: "New Collection") {
-                onNewCollection()
+            if NotesSidebarMetrics.showsBottomCollectionButton {
+                SidebarIconButton(icon: "tray.full", tooltip: "New Collection") {
+                    onNewCollection()
+                }
             }
             SidebarIconButton(icon: "calendar.badge.plus", tooltip: "New Daily Note") {
                 onTodayJournal()
@@ -1833,6 +1870,23 @@ private struct EditorActionsBar: View {
                 }
             }
 
+            SidebarIconButton(
+                icon: showChangesPopover
+                    ? NotesSidebarGlyph.vaultChanges.activeSymbolName
+                    : NotesSidebarGlyph.vaultChanges.symbolName,
+                tooltip: "Vault Changes"
+            ) {
+                showChangesPopover.toggle()
+            }
+            .popover(isPresented: $showChangesPopover) {
+                VaultChangesPanel(dirtyPages: dirtyPages)
+                    .frame(
+                        width: NotesSidebarMetrics.changesPanelWidth,
+                        height: NotesSidebarMetrics.changesPanelHeight
+                    )
+                    .preferredColorScheme(ui.theme.colorScheme)
+            }
+
             VaultConnectionButton()
 
             Divider()
@@ -1843,8 +1897,10 @@ private struct EditorActionsBar: View {
                 onOrganize()
             }
 
-            SidebarIconButton(icon: "bubble.left.and.bubble.right", tooltip: "Mini Chat") {
-                MiniChatWindowController.shared.toggle()
+            if NotesSidebarMetrics.showsBottomMiniChatButton {
+                SidebarIconButton(icon: "bubble.left.and.bubble.right", tooltip: "Mini Chat") {
+                    CommandPaletteWindowController.shared.toggleChatMode()
+                }
             }
         }
         .padding(.horizontal, 8)

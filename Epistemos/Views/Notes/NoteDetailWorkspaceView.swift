@@ -98,6 +98,145 @@ enum NoteEditorNotifications {
     static let replaceRange = Notification.Name("EpistemosReplaceRange")
 }
 
+enum NoteToolbarMetrics {
+    static let iconSide: CGFloat = 14
+    static let buttonSide: CGFloat = 28
+    static let spacing: CGFloat = 6
+    static let chatFieldWidth: CGFloat = 180
+}
+
+enum NoteToolbarGlyph: Sendable {
+    case format
+    case preview
+    case edit
+    case writingTools
+    case more
+    case backlinks
+    case history
+
+    var symbolName: String? {
+        switch self {
+        case .format:
+            "textformat"
+        case .preview:
+            "eye"
+        case .edit:
+            "pencil"
+        case .writingTools:
+            "apple.intelligence"
+        case .more:
+            "ellipsis.circle"
+        case .backlinks:
+            "link"
+        case .history:
+            "bubble.left"
+        }
+    }
+
+    var activeSymbolName: String? {
+        switch self {
+        case .history:
+            "bubble.left.fill"
+        default:
+            symbolName
+        }
+    }
+}
+
+private struct NoteToolbarIcon: View {
+    let glyph: NoteToolbarGlyph
+    let theme: EpistemosTheme
+    var isActive: Bool = false
+
+    private var color: Color {
+        if isActive {
+            return theme.fontAccent
+        }
+        return theme.foreground.opacity(theme.isDark ? 0.82 : 0.72)
+    }
+
+    var body: some View {
+        Group {
+            if let symbolName = isActive ? glyph.activeSymbolName : glyph.symbolName {
+                Image(systemName: symbolName)
+                    .font(.system(size: 13, weight: .medium))
+            } else {
+                EmptyView()
+            }
+        }
+        .foregroundStyle(color)
+        .frame(width: NoteToolbarMetrics.iconSide, height: NoteToolbarMetrics.iconSide)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct NoteToolbarControlCluster<Content: View>: View {
+    let content: Content
+
+    @State private var isHovered = false
+    @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    private var scale: CGFloat {
+        if isPressed { return 0.985 }
+        if isHovered { return 1.012 }
+        return 1
+    }
+
+    private var shadowOpacity: Double {
+        if isPressed { return 0.10 }
+        if isHovered { return 0.08 }
+        return 0
+    }
+
+    var body: some View {
+        ControlGroup {
+            content
+        }
+            .controlGroupStyle(.automatic)
+            .contentShape(Rectangle())
+            .scaleEffect(scale)
+            .shadow(color: .black.opacity(shadowOpacity), radius: isHovered ? 10 : 4, y: isHovered ? 3 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+            .onHover { hovering in
+                if reduceMotion {
+                    isHovered = hovering
+                } else {
+                    withAnimation(Motion.micro) {
+                        isHovered = hovering
+                    }
+                }
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !isPressed else { return }
+                        if reduceMotion {
+                            isPressed = true
+                        } else {
+                            withAnimation(Motion.micro) {
+                                isPressed = true
+                            }
+                        }
+                    }
+                    .onEnded { _ in
+                        if reduceMotion {
+                            isPressed = false
+                        } else {
+                            withAnimation(Motion.sharp) {
+                                isPressed = false
+                            }
+                        }
+                    }
+            )
+    }
+}
+
 // MARK: - Note Page Content
 // Self-contained note editor for each page within a tab.
 // Resolves pageId → SDPage via @Query, shows ProseEditorView,
@@ -282,83 +421,8 @@ struct NoteDetailWorkspaceView: View {
                     wikilinksNavButtons(nav: nav)
                 }
             }
-            if !showPreview {
-                ToolbarItem {
-                    Menu {
-                        formatMenuContent
-                    } label: {
-                        Text("Aa")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .help("Format")
-                }
-            }
-
-            ToolbarItem {
-                Button {
-                    togglePreviewMode()
-                } label: {
-                    Label(
-                        showPreview ? "Editor" : "Preview",
-                        systemImage: showPreview ? "pencil" : "eye")
-                }
-                .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
-            }
-
-            ToolbarItem {
-                moreMenu
-            }
-
-            if !showPreview {
-                ToolbarItem {
-                    appleWritingToolsButton
-                }
-            }
-
-            if !showPreview {
-                ToolbarItem(placement: .principal) {
-                    toolbarChatField(width: 180)
-                }
-            }
-
-            if !showPreview {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showBacklinksPopover.toggle()
-                    } label: {
-                        Label("Backlinks", systemImage: "link")
-                    }
-                    .help("Backlinks")
-                    .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
-                        if let page = pages.first {
-                            NoteBacklinksPopover(
-                                pageTitle: page.title,
-                                onNavigate: { targetId in
-                                    showBacklinksPopover = false
-                                    navState?.push(pageId: targetId, title: "")
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            if !showPreview {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showChatSidebar.toggle()
-                    } label: {
-                        Label(
-                            showChatSidebar ? "Hide Chat" : "Chat History",
-                            systemImage: showChatSidebar ? "bubble.left.fill" : "bubble.left")
-                    }
-                    .help("Chat History")
-                    .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
-                        NoteChatSidebar()
-                            .environment(noteChatState)
-                            .frame(width: 340, height: 380)
-                    }
-                }
+            ToolbarItem(placement: .principal) {
+                noteToolbarStrip
             }
         }
         .preferredColorScheme(ui.theme.colorScheme)
@@ -531,6 +595,93 @@ struct NoteDetailWorkspaceView: View {
                 capturedSelectionText = nil
             }
         }
+    }
+
+    private var noteToolbarStrip: some View {
+        HStack(spacing: NoteToolbarMetrics.spacing) {
+            if !showPreview {
+                toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
+            }
+
+            noteToolbarControls
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    @ViewBuilder
+    private var noteToolbarControls: some View {
+        NoteToolbarControlCluster {
+            if !showPreview {
+                formatToolbarMenu
+            }
+
+            toolbarIconButton(
+                glyph: showPreview ? .edit : .preview,
+                isActive: showPreview,
+                help: showPreview ? "Editor (⌘E)" : "Preview (⌘E)"
+            ) {
+                togglePreviewMode()
+            }
+
+            moreMenu
+
+            if !showPreview {
+                appleWritingToolsButton
+
+                toolbarIconButton(
+                    glyph: .backlinks,
+                    isActive: showBacklinksPopover,
+                    help: "Backlinks"
+                ) {
+                    showBacklinksPopover.toggle()
+                }
+                .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
+                    if let page = pages.first {
+                        NoteBacklinksPopover(
+                            pageTitle: page.title,
+                            onNavigate: { targetId in
+                                showBacklinksPopover = false
+                                navState?.push(pageId: targetId, title: "")
+                            }
+                        )
+                    }
+                }
+
+                toolbarIconButton(
+                    glyph: .history,
+                    isActive: showChatSidebar,
+                    help: "Chat History"
+                ) {
+                    showChatSidebar.toggle()
+                }
+                .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
+                    NoteChatSidebar()
+                        .environment(noteChatState)
+                        .frame(width: 340, height: 380)
+                }
+            }
+        }
+    }
+
+    private var formatToolbarMenu: some View {
+        Menu {
+            formatMenuContent
+        } label: {
+            NoteToolbarIcon(glyph: .format, theme: ui.theme)
+        }
+        .help("Format")
+    }
+
+    private func toolbarIconButton(
+        glyph: NoteToolbarGlyph,
+        isActive: Bool = false,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            NoteToolbarIcon(glyph: glyph, theme: ui.theme, isActive: isActive)
+        }
+        .help(help)
     }
 
     // MARK: - Wikilink Navigation
@@ -1019,18 +1170,13 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var appleWritingToolsButton: some View {
-        Button {
+        toolbarIconButton(glyph: .writingTools, help: "Apple Writing Tools") {
             NotificationCenter.default.post(
                 name: WritingToolsBridge.showNotification,
                 object: nil,
                 userInfo: ["pageId": pageId]
             )
-        } label: {
-            Image(systemName: "apple.intelligence")
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: 22, height: 22)
         }
-        .help("Apple Writing Tools")
     }
 
     // MARK: - Toolbar Chat Field
@@ -1105,7 +1251,6 @@ struct NoteDetailWorkspaceView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .background(.clear, in: RoundedRectangle(cornerRadius: 6))
         .popover(
             isPresented: Binding(
                 get: { noteChatState.hasResponse && noteChatState.useResponsePanel },
@@ -1232,7 +1377,7 @@ struct NoteDetailWorkspaceView: View {
                     : "Optimised for long documents — smoother scrolling and rendering for 5,000+ word notes"
             )
         } label: {
-            Label("More", systemImage: "ellipsis.circle")
+            NoteToolbarIcon(glyph: .more, theme: ui.theme)
         }
         .help("More")
     }

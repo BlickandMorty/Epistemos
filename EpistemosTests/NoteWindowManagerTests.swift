@@ -177,4 +177,33 @@ struct NoteWindowManagerTests {
         #expect(!toolbar.showsBaselineSeparator)
         #expect(panel.toolbarStyle == .unifiedCompact)
     }
+
+    @Test("Note toolbar uses native symbol mappings inside the unified strip")
+    func noteToolbarUsesNativeSymbolMappings() {
+        #expect(NoteToolbarGlyph.format.symbolName == "textformat")
+        #expect(NoteToolbarGlyph.preview.symbolName == "eye")
+        #expect(NoteToolbarGlyph.edit.symbolName == "pencil")
+        #expect(NoteToolbarGlyph.more.symbolName == "ellipsis.circle")
+        #expect(NoteToolbarGlyph.writingTools.symbolName == "apple.intelligence")
+        #expect(NoteToolbarGlyph.backlinks.symbolName == "link")
+        #expect(NoteToolbarGlyph.history.symbolName == "bubble.left")
+        #expect(NoteToolbarMetrics.iconSide == 14)
+        #expect(NoteToolbarMetrics.buttonSide == 28)
+        #expect(NoteToolbarMetrics.buttonSide == NoteToolbarMetrics.iconSide * 2)
+        #expect(NoteToolbarMetrics.chatFieldWidth == 180)
+    }
+
+    @Test("Notes sidebar keeps compact header spacing and restores the vault changes control")
+    func notesSidebarKeepsCompactHeaderSpacing() {
+        #expect(NotesSidebarMetrics.headerTopPadding == 14)
+        #expect(NotesSidebarMetrics.headerBottomPadding == 2)
+        #expect(NotesSidebarMetrics.searchBarTopPadding == 0)
+        #expect(!NotesSidebarMetrics.overlapsTitlebar)
+        #expect(!NotesSidebarMetrics.showsBottomCollectionButton)
+        #expect(!NotesSidebarMetrics.showsBottomMiniChatButton)
+        #expect(NotesSidebarMetrics.changesPanelWidth == 320)
+        #expect(NotesSidebarMetrics.changesPanelHeight == 400)
+        #expect(NotesSidebarGlyph.vaultChanges.symbolName == "doc.badge.clock")
+        #expect(NotesSidebarGlyph.vaultChanges.activeSymbolName == "doc.badge.clock.fill")
+    }
 }
