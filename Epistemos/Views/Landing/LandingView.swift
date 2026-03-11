@@ -104,11 +104,8 @@ struct LandingView: View {
 
             // Shortcut hints
             HStack(spacing: 16) {
-                // Click to search
-                HStack(spacing: 3) {
-                    Image(systemName: "magnifyingglass")
-                    Text("Click to search")
-                        .padding(.leading, 2)
+                CommandHint(icon: "magnifyingglass", label: "Click to search", theme: theme) {
+                    activateLandingSearch()
                 }
                 .springEntrance(index: 0, stagger: 0.08)
 
@@ -116,60 +113,38 @@ struct LandingView: View {
                     .fill(theme.textTertiary.opacity(0.3))
                     .frame(width: 3, height: 3)
 
-                // ⌘N new note
-                HStack(spacing: 3) {
-                    Image(systemName: "command")
-                    Text("N")
-                    Text("New Note")
-                        .padding(.leading, 2)
+                CommandHint(modIcon: "command", key: "N", label: "New Note", theme: theme) {
+                    createAndOpenNote()
                 }
-                .onTapGesture { createAndOpenNote() }
                 .springEntrance(index: 1, stagger: 0.08)
 
                 Circle()
                     .fill(theme.textTertiary.opacity(0.3))
                     .frame(width: 3, height: 3)
 
-                // ⌘I Quick Idea
-                HStack(spacing: 3) {
-                    Image(systemName: "command")
-                    Text("I")
-                    Text("Idea")
-                        .padding(.leading, 2)
+                CommandHint(modIcon: "option", key: "Space", label: "Palette", theme: theme) {
+                    NotificationCenter.default.post(name: .init("ToggleCommandPalette"), object: nil)
                 }
-                .onTapGesture { captureQuickIdea() }
                 .springEntrance(index: 2, stagger: 0.08)
 
                 Circle()
                     .fill(theme.textTertiary.opacity(0.3))
                     .frame(width: 3, height: 3)
 
-                // ⌘2 Notes
-                HStack(spacing: 3) {
-                    Image(systemName: "command")
-                    Text("2")
-                    Text("Notes")
-                        .padding(.leading, 2)
+                CommandHint(modIcon: "command", key: "2", label: "Notes", theme: theme) {
+                    UtilityWindowManager.shared.show(.notes)
                 }
-                .onTapGesture { UtilityWindowManager.shared.show(.notes) }
                 .springEntrance(index: 3, stagger: 0.08)
 
                 Circle()
                     .fill(theme.textTertiary.opacity(0.3))
                     .frame(width: 3, height: 3)
 
-                // ⌘G Semantic Graph
-                HStack(spacing: 3) {
-                    Image(systemName: "command")
-                    Text("G")
-                    Text("Graph")
-                        .padding(.leading, 2)
+                CommandHint(modIcon: "command", key: "G", label: "Graph", theme: theme) {
+                    HologramController.shared.toggle()
                 }
-                .onTapGesture { HologramController.shared.toggle() }
                 .springEntrance(index: 4, stagger: 0.08)
             }
-            .font(.system(size: 14, weight: .medium))
-            .foregroundStyle(theme.textTertiary.opacity(0.5))
             .padding(.bottom, 28)
         }
         .contentShape(Rectangle())
@@ -723,5 +698,43 @@ struct LandingCommandRow: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Command Hint (Landing Shortcuts)
+
+private struct CommandHint: View {
+    var modIcon: String? = nil
+    var icon: String? = nil
+    var key: String? = nil
+    let label: String
+    let theme: EpistemosTheme
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 3) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            if let modIcon {
+                Image(systemName: modIcon)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            if let key {
+                Text(key).font(.custom("RetroGaming", size: 12))
+            }
+            Text(label)
+                .font(.custom("RetroGaming", size: 12))
+                .padding(.leading, (key != nil || icon != nil) ? 2 : 0)
+        }
+        .foregroundStyle(isHovered ? theme.fontAccent : theme.textTertiary.opacity(0.5))
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
+        }
+        .onTapGesture { action() }
     }
 }

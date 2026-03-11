@@ -148,23 +148,37 @@ struct NoteDetailWorkspaceView: View {
                 .allowsHitTesting(transitionOpacity > 0)
             }
             .overlay(alignment: .bottom) {
-                HStack(spacing: 8) {
-                    Text("\(wordCount) words")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                    if let target = notesUI.sessionWordTarget, target > 0 {
-                        let delta = max(0, wordCount - notesUI.sessionStartWordCount)
-                        let progress = min(1.0, Double(delta) / Double(target))
-                        HStack(spacing: 4) {
-                            ProgressView(value: progress)
-                                .frame(width: 60)
-                                .tint(progress >= 1.0 ? .green : .accentColor)
-                            Text("\(delta)/\(target)")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                ZStack {
+                    HStack(spacing: 8) {
+                        Text("\(wordCount) words")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(ui.theme.foreground.opacity(0.55))
+                        if let target = notesUI.sessionWordTarget, target > 0 {
+                            let delta = max(0, wordCount - notesUI.sessionStartWordCount)
+                            let progress = min(1.0, Double(delta) / Double(target))
+                            HStack(spacing: 4) {
+                                ProgressView(value: progress)
+                                    .frame(width: 60)
+                                    .tint(progress >= 1.0 ? .green : .accentColor)
+                                Text("\(delta)/\(target)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
+                    HStack(spacing: 3) {
+                        Spacer()
+                        Image(systemName: "command")
+                            .font(.system(size: 10, weight: .medium))
+                        Text("2")
+                            .font(.custom("RetroGaming", size: 10))
+                        Text("Note Sidebar")
+                            .font(.custom("RetroGaming", size: 10))
+                            .padding(.leading, 2)
+                    }
+                    .foregroundStyle(ui.theme.foreground.opacity(0.35))
+                    .padding(.trailing, 16)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -240,23 +254,6 @@ struct NoteDetailWorkspaceView: View {
                 .help(showPreview ? "Editor (⌘E)" : "Preview (⌘E)")
             }
 
-            if !tocItems.isEmpty {
-                ToolbarItem {
-                    Menu {
-                        ForEach(tocItems) { item in
-                            Button {
-                                scrollEditorTo(charOffset: item.charOffset)
-                            } label: {
-                                Text(String(repeating: "  ", count: max(0, item.level - 1)) + item.title)
-                            }
-                        }
-                    } label: {
-                        Label("Sections", systemImage: "list.bullet.indent")
-                    }
-                    .help("Sections")
-                }
-            }
-
             ToolbarItem {
                 moreMenu
             }
@@ -274,7 +271,7 @@ struct NoteDetailWorkspaceView: View {
             }
 
             if !showPreview && !showDocumentMode {
-                ToolbarItem {
+                ToolbarItem(placement: .primaryAction) {
                     Button { showBacklinksPopover.toggle() } label: {
                         Label("Backlinks", systemImage: "link")
                     }
@@ -294,7 +291,7 @@ struct NoteDetailWorkspaceView: View {
             }
 
             if !showPreview {
-                ToolbarItem {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
                         showChatSidebar.toggle()
                     } label: {
