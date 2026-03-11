@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import AppKit
 
 // MARK: - Root View
 // Top-level container with system toolbar navigation.
@@ -270,16 +271,54 @@ private struct PrincipalToolbarContent: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
         } else {
-            @Bindable var uiBindable = ui
-            Picker("", selection: $uiBindable.homeTab) {
-                ForEach(HomeTab.allCases, id: \.self) { tab in
-                    Label(tab.label, systemImage: tab.icon)
-                        .labelStyle(.iconOnly)
-                        .tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 144)
+            NativeHomeTabPicker(selection: ui.homeTab) { ui.homeTab = $0 }
+                .frame(width: 152, height: 30)
+        }
+    }
+}
+
+private struct NativeHomeTabPicker: NSViewRepresentable {
+    let selection: HomeTab
+    let onSelect: (HomeTab) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onSelect: onSelect)
+    }
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl()
+        control.segmentCount = HomeTab.allCases.count
+        control.trackingMode = .selectOne
+        control.segmentStyle = .capsule
+        control.controlSize = .large
+        control.target = context.coordinator
+        control.action = #selector(Coordinator.selectionChanged(_:))
+
+        for (index, tab) in HomeTab.allCases.enumerated() {
+            control.setImage(NSImage(systemSymbolName: tab.icon, accessibilityDescription: tab.label), forSegment: index)
+            control.setWidth(44, forSegment: index)
+            control.setToolTip(tab.label, forSegment: index)
+        }
+
+        control.selectedSegment = HomeTab.allCases.firstIndex(of: selection) ?? 0
+        return control
+    }
+
+    func updateNSView(_ nsView: NSSegmentedControl, context: Context) {
+        context.coordinator.onSelect = onSelect
+        nsView.selectedSegment = HomeTab.allCases.firstIndex(of: selection) ?? 0
+    }
+
+    final class Coordinator: NSObject {
+        var onSelect: (HomeTab) -> Void
+
+        init(onSelect: @escaping (HomeTab) -> Void) {
+            self.onSelect = onSelect
+        }
+
+        @objc func selectionChanged(_ sender: NSSegmentedControl) {
+            guard HomeTab.allCases.indices.contains(sender.selectedSegment) else { return }
+            onSelect(HomeTab.allCases[sender.selectedSegment])
         }
     }
 }
