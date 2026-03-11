@@ -174,14 +174,16 @@ private final class WindowPolicyBridgeView: NSView {
 
     func applyWindowPolicyIfNeeded() {
         guard let window else { return }
-        guard appliedWindow !== window else { return }
-        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        if appliedWindow !== window {
+            WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+            appliedWindow = window
+        }
+        window.title = ""
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.toolbarStyle = .unifiedCompact
         window.toolbar?.showsBaselineSeparator = false
         window.isMovableByWindowBackground = true
-        appliedWindow = window
     }
 }
 
@@ -271,14 +273,13 @@ private struct PrincipalToolbarContent: View {
             @Bindable var uiBindable = ui
             Picker("", selection: $uiBindable.homeTab) {
                 ForEach(HomeTab.allCases, id: \.self) { tab in
-                    Image(systemName: tab.icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 20, height: 20)
+                    Label(tab.label, systemImage: tab.icon)
+                        .labelStyle(.iconOnly)
                         .tag(tab)
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 170)
+            .frame(width: 144)
         }
     }
 }
