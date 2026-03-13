@@ -384,6 +384,7 @@ struct ASCIIRippleText: View {
     var configuration = ASCIIRippleConfiguration()
     var manualTrigger = 0
     var interactive = true
+    var fixedHorizontal = true
 
     @State private var measuredWidth: CGFloat = 1
     @State private var waves: [ASCIIRippleWave] = []
@@ -464,7 +465,7 @@ struct ASCIIRippleText: View {
             .font(font)
             .foregroundStyle(color)
             .shadow(color: shadowColor, radius: shadowRadius)
-            .fixedSize(horizontal: true, vertical: true)
+            .fixedSize(horizontal: fixedHorizontal, vertical: true)
     }
 
     private func startWave(at index: Int) {
@@ -499,6 +500,67 @@ struct ASCIIRippleText: View {
                 try? await Task.sleep(for: .milliseconds(50))
             }
         }
+    }
+}
+
+private struct ASCIIRippleOverlayModifier: ViewModifier {
+    let text: String
+    let font: Font
+    let color: Color
+    let shadowColor: Color
+    let shadowRadius: CGFloat
+    let lineSpacing: CGFloat
+    let opacity: Double
+    let enabled: Bool
+    let fixedHorizontal: Bool
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .topLeading) {
+            if enabled, !text.isEmpty {
+                ASCIIRippleText(
+                    text: text,
+                    font: font,
+                    color: color.opacity(opacity),
+                    shadowColor: shadowColor.opacity(opacity),
+                    shadowRadius: shadowRadius,
+                    interactive: true,
+                    fixedHorizontal: fixedHorizontal
+                )
+                .lineSpacing(lineSpacing)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
+extension View {
+    func asciiRippleOverlay(
+        text: String,
+        font: Font,
+        color: Color,
+        shadowColor: Color = .clear,
+        shadowRadius: CGFloat = 0,
+        lineSpacing: CGFloat = 0,
+        opacity: Double = 0.32,
+        fixedHorizontal: Bool = false,
+        enabled: Bool = true
+    ) -> some View {
+        modifier(
+            ASCIIRippleOverlayModifier(
+                text: text,
+                font: font,
+                color: color,
+                shadowColor: shadowColor,
+                shadowRadius: shadowRadius,
+                lineSpacing: lineSpacing,
+                opacity: opacity,
+                enabled: enabled,
+                fixedHorizontal: fixedHorizontal
+            )
+        )
     }
 }
 

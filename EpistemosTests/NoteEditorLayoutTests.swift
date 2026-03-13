@@ -183,4 +183,22 @@ struct NoteEditorLayoutTests {
             ) == "[>]"
         )
     }
+
+    @Test("markdown ripple style scopes headings and body separately")
+    func markdownRippleStyleScopesHeadingsAndBodySeparately() {
+        #expect(MarkdownRippleStyle.headings123.ripplesHeading(level: 1))
+        #expect(MarkdownRippleStyle.headings123.ripplesHeading(level: 3))
+        #expect(!MarkdownRippleStyle.headings123.ripplesHeading(level: 4))
+        #expect(!MarkdownRippleStyle.headings123.includesBodyBlocks)
+        #expect(MarkdownRippleStyle.headings123AndBody.includesBodyBlocks)
+    }
+
+    @Test("markdown ripple text extractor preserves visible inline markdown text")
+    func markdownRippleTextExtractorPreservesVisibleInlineMarkdownText() {
+        let visible = MarkdownRippleTextExtractor.displayText(
+            from: "**Bold** and [Link](https://example.com) with `Code`"
+        )
+
+        #expect(visible == "Bold and Link with Code")
+    }
 }

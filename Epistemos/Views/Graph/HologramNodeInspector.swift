@@ -232,36 +232,56 @@ struct HologramNodeInspector: View {
     private func formattedLine(_ line: String) -> some View {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.hasPrefix("#### ") {
-            Text(inlineMarkdown(String(trimmed.dropFirst(5))))
-                .font(.system(size: 14, weight: .semibold))
+            previewMarkdownText(
+                markdown: String(trimmed.dropFirst(5)),
+                font: .system(size: 14, weight: .semibold),
+                color: .primary
+            )
                 .padding(.top, 4)
         } else if trimmed.hasPrefix("### ") {
-            Text(inlineMarkdown(String(trimmed.dropFirst(4))))
-                .font(.system(size: 15, weight: .semibold))
+            previewMarkdownText(
+                markdown: String(trimmed.dropFirst(4)),
+                font: .system(size: 15, weight: .semibold),
+                color: .primary
+            )
                 .padding(.top, 6)
         } else if trimmed.hasPrefix("## ") {
-            Text(inlineMarkdown(String(trimmed.dropFirst(3))))
-                .font(.system(size: 17, weight: .bold))
+            previewMarkdownText(
+                markdown: String(trimmed.dropFirst(3)),
+                font: .system(size: 17, weight: .bold),
+                color: .primary
+            )
                 .padding(.top, 8)
         } else if trimmed.hasPrefix("# ") {
-            Text(inlineMarkdown(String(trimmed.dropFirst(2))))
-                .font(.system(size: 20, weight: .bold))
+            previewMarkdownText(
+                markdown: String(trimmed.dropFirst(2)),
+                font: .system(size: 20, weight: .bold),
+                color: .primary
+            )
                 .padding(.top, 10)
         } else if trimmed.hasPrefix("- [ ] ") {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "square")
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
-                Text(inlineMarkdown(String(trimmed.dropFirst(6))))
-                    .font(.system(size: 13))
+                previewMarkdownText(
+                    markdown: String(trimmed.dropFirst(6)),
+                    font: .system(size: 13),
+                    color: .primary,
+                    rippleEnabled: true
+                )
             }
         } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "checkmark.square.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                Text(inlineMarkdown(String(trimmed.dropFirst(6))))
-                    .font(.system(size: 13))
+                previewMarkdownText(
+                    markdown: String(trimmed.dropFirst(6)),
+                    font: .system(size: 13),
+                    color: .primary,
+                    rippleEnabled: true
+                )
                     .strikethrough(true, color: .secondary)
             }
         } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
@@ -269,8 +289,12 @@ struct HologramNodeInspector: View {
                 Text("•")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
-                Text(inlineMarkdown(String(trimmed.dropFirst(2))))
-                    .font(.system(size: 13))
+                previewMarkdownText(
+                    markdown: String(trimmed.dropFirst(2)),
+                    font: .system(size: 13),
+                    color: .primary,
+                    rippleEnabled: true
+                )
             }
         } else if let match = trimmed.wholeMatch(of: /^(\d+)\.\s+(.+)$/) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -278,13 +302,20 @@ struct HologramNodeInspector: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .frame(width: 20, alignment: .trailing)
-                Text(inlineMarkdown(String(match.2)))
-                    .font(.system(size: 13))
+                previewMarkdownText(
+                    markdown: String(match.2),
+                    font: .system(size: 13),
+                    color: .primary,
+                    rippleEnabled: true
+                )
             }
         } else if trimmed.hasPrefix("> ") {
-            Text(inlineMarkdown(String(trimmed.dropFirst(2))))
-                .font(.system(size: 13).italic())
-                .foregroundStyle(.secondary)
+            previewMarkdownText(
+                markdown: String(trimmed.dropFirst(2)),
+                font: .system(size: 13).italic(),
+                color: .secondary,
+                rippleEnabled: true
+            )
                 .padding(.leading, 12)
                 .overlay(alignment: .leading) {
                     Rectangle()
@@ -300,9 +331,30 @@ struct HologramNodeInspector: View {
         } else if trimmed.isEmpty {
             Spacer().frame(height: 4)
         } else {
-            Text(inlineMarkdown(trimmed))
-                .font(.system(size: 13))
+            previewMarkdownText(
+                markdown: trimmed,
+                font: .system(size: 13),
+                color: .primary,
+                rippleEnabled: true
+            )
         }
+    }
+
+    private func previewMarkdownText(
+        markdown: String,
+        font: Font,
+        color: Color,
+        rippleEnabled: Bool = true
+    ) -> some View {
+        Text(inlineMarkdown(markdown))
+            .font(font)
+            .foregroundStyle(color)
+            .asciiRippleOverlay(
+                text: MarkdownRippleTextExtractor.displayText(from: markdown),
+                font: font,
+                color: color,
+                enabled: rippleEnabled
+            )
     }
 
     private func inlineMarkdown(_ text: String) -> AttributedString {

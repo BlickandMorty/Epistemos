@@ -68,6 +68,8 @@ enum EpistemicTag: String, CaseIterable {
 struct TaggedMarkdownTextView: View {
     let content: String
     let theme: EpistemosTheme
+    var rippleStyle: MarkdownRippleStyle = .none
+    var foregroundOverride: Color? = nil
 
     /// Matches epistemic tags with optional qualifiers:
     /// [DATA], [DATA - Tier 2], [CONFLICT], [MODEL - Framework], [UNCERTAIN - High], etc.
@@ -91,6 +93,10 @@ struct TaggedMarkdownTextView: View {
             }
         }
         .textSelection(.enabled)
+    }
+
+    private var bodyForeground: Color {
+        foregroundOverride ?? theme.assistantBubbleForeground
     }
 
     // MARK: - Block Types
@@ -229,7 +235,6 @@ struct TaggedMarkdownTextView: View {
 
     @ViewBuilder
     private func renderTable(rows: [[String]], headerCount: Int) -> some View {
-        let bodyForeground = theme.assistantBubbleForeground
         MarkdownTableSurfaceView(
             table: MarkdownTableModel(rows: rows, headerCount: headerCount),
             theme: theme
@@ -249,7 +254,6 @@ struct TaggedMarkdownTextView: View {
 
     @ViewBuilder
     private func renderBlock(_ block: MarkdownBlock) -> some View {
-        let bodyForeground = theme.assistantBubbleForeground
         switch block {
         case .heading(let level, let text):
             renderHeading(level: level, text: text)
@@ -262,6 +266,12 @@ struct TaggedMarkdownTextView: View {
                 .font(.system(size: 15))
                 .foregroundStyle(bodyForeground)
                 .padding(.vertical, 5)
+                .asciiRippleOverlay(
+                    text: MarkdownRippleTextExtractor.displayText(from: text),
+                    font: .system(size: 15),
+                    color: bodyForeground,
+                    enabled: rippleStyle.includesBodyBlocks
+                )
         case .bulletItem(let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\u{2022}")
@@ -273,6 +283,12 @@ struct TaggedMarkdownTextView: View {
                 )
                     .font(.system(size: 15))
                     .foregroundStyle(bodyForeground)
+                    .asciiRippleOverlay(
+                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        font: .system(size: 15),
+                        color: bodyForeground,
+                        enabled: rippleStyle.includesBodyBlocks
+                    )
             }
             .padding(.leading, 16)
             .padding(.vertical, 3)
@@ -288,6 +304,12 @@ struct TaggedMarkdownTextView: View {
                 )
                     .font(.system(size: 15))
                     .foregroundStyle(bodyForeground)
+                    .asciiRippleOverlay(
+                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        font: .system(size: 15),
+                        color: bodyForeground,
+                        enabled: rippleStyle.includesBodyBlocks
+                    )
             }
             .padding(.leading, 16)
             .padding(.vertical, 3)
@@ -305,6 +327,12 @@ struct TaggedMarkdownTextView: View {
                     .italic()
                     .foregroundStyle(theme.textSecondary)
                     .padding(.leading, 12)
+                    .asciiRippleOverlay(
+                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        font: .system(size: 15),
+                        color: theme.textSecondary,
+                        enabled: rippleStyle.includesBodyBlocks
+                    )
             }
             .padding(.vertical, 6)
         case .codeBlock(let language, let code):
@@ -374,6 +402,14 @@ struct TaggedMarkdownTextView: View {
             .shadow(
                 color: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
                 radius: MarkdownHeadingDisplay.glowRadius(for: level)
+            )
+            .asciiRippleOverlay(
+                text: MarkdownRippleTextExtractor.displayText(from: displayText),
+                font: font,
+                color: color,
+                shadowColor: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
+                shadowRadius: MarkdownHeadingDisplay.glowRadius(for: level),
+                enabled: rippleStyle.ripplesHeading(level: level)
             )
             .padding(.top, topPad)
             .padding(.bottom, 2)

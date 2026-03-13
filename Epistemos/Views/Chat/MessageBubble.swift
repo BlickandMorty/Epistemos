@@ -169,10 +169,12 @@ struct MessageBubble: View {
 
     private var userBubble: some View {
         VStack(alignment: .trailing, spacing: Spacing.xs) {
-            Text(userDisplayContent)
-                .font(.epBody)
-                .foregroundStyle(theme.userBubbleText)
-                .textSelection(.enabled)
+            TaggedMarkdownTextView(
+                content: userDisplayContent,
+                theme: theme,
+                rippleStyle: .headings123AndBody,
+                foregroundOverride: theme.userBubbleText
+            )
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, 12)
                 .background(theme.userBubbleBg, in: UserBubbleShape())

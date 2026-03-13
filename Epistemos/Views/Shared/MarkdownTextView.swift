@@ -100,6 +100,43 @@ enum MarkdownHeadingDisplay {
     }
 }
 
+struct MarkdownRippleStyle: Equatable {
+    var maximumHeadingLevel = 0
+    var includesBodyBlocks = false
+
+    static let none = MarkdownRippleStyle()
+    static let headings123 = MarkdownRippleStyle(maximumHeadingLevel: 3)
+    static let headings123AndBody = MarkdownRippleStyle(
+        maximumHeadingLevel: 3,
+        includesBodyBlocks: true
+    )
+
+    func ripplesHeading(level: Int) -> Bool {
+        guard maximumHeadingLevel > 0 else { return false }
+        return (1...maximumHeadingLevel).contains(level)
+    }
+}
+
+enum MarkdownRippleTextExtractor {
+    static func displayText(from inlineMarkdown: String) -> String {
+        guard
+            let attributed = try? AttributedString(
+                markdown: inlineMarkdown,
+                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+            )
+        else {
+            return inlineMarkdown
+        }
+
+        var plainText = String()
+        plainText.reserveCapacity(inlineMarkdown.count)
+        for character in attributed.characters {
+            plainText.append(character)
+        }
+        return plainText
+    }
+}
+
 struct MarkdownTableModel: Equatable {
     let rows: [[String]]
     let headerCount: Int
@@ -339,6 +376,8 @@ struct NoteEditorRenderedTableView: View {
 struct MarkdownTextView: View {
     let content: String
     let theme: EpistemosTheme
+    var rippleStyle: MarkdownRippleStyle = .none
+    var foregroundOverride: Color? = nil
 
     private enum PreviewTypography {
         static let bodyFontSize: CGFloat = 16
@@ -371,6 +410,10 @@ struct MarkdownTextView: View {
         case horizontalRule
         case tableLine(text: String)
         case table(rows: [[String]], headerCount: Int)
+    }
+
+    private var bodyForeground: Color {
+        foregroundOverride ?? theme.foreground
     }
 
     // MARK: - Block Parsing
@@ -542,9 +585,16 @@ struct MarkdownTextView: View {
             inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
                 .font(.system(size: PreviewTypography.bodyFontSize))
                 .lineSpacing(PreviewTypography.bodyLineSpacing)
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(bodyForeground)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .asciiRippleOverlay(
+                    text: MarkdownRippleTextExtractor.displayText(from: text),
+                    font: .system(size: PreviewTypography.bodyFontSize),
+                    color: bodyForeground,
+                    lineSpacing: PreviewTypography.bodyLineSpacing,
+                    enabled: rippleStyle.includesBodyBlocks
+                )
         case .bulletItem(let text):
             HStack(alignment: .top, spacing: 10) {
                 Text("\u{2022}")
@@ -553,9 +603,16 @@ struct MarkdownTextView: View {
                 inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
                     .font(.system(size: PreviewTypography.bodyFontSize))
                     .lineSpacing(PreviewTypography.bodyLineSpacing)
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(bodyForeground)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+                    .asciiRippleOverlay(
+                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        font: .system(size: PreviewTypography.bodyFontSize),
+                        color: bodyForeground,
+                        lineSpacing: PreviewTypography.bodyLineSpacing,
+                        enabled: rippleStyle.includesBodyBlocks
+                    )
             }
             .padding(.leading, PreviewTypography.listIndent)
         case .numberedItem(let number, let text):
@@ -567,9 +624,16 @@ struct MarkdownTextView: View {
                 inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
                     .font(.system(size: PreviewTypography.bodyFontSize))
                     .lineSpacing(PreviewTypography.bodyLineSpacing)
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(bodyForeground)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+                    .asciiRippleOverlay(
+                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        font: .system(size: PreviewTypography.bodyFontSize),
+                        color: bodyForeground,
+                        lineSpacing: PreviewTypography.bodyLineSpacing,
+                        enabled: rippleStyle.includesBodyBlocks
+                    )
             }
             .padding(.leading, PreviewTypography.listIndent)
         case .checkItem(let checked, let text):
@@ -581,10 +645,17 @@ struct MarkdownTextView: View {
                 inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
                     .font(.system(size: PreviewTypography.bodyFontSize))
                     .lineSpacing(PreviewTypography.bodyLineSpacing)
-                    .foregroundStyle(checked ? theme.textTertiary : theme.foreground)
+                    .foregroundStyle(checked ? theme.textTertiary : bodyForeground)
                     .strikethrough(checked)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+                    .asciiRippleOverlay(
+                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        font: .system(size: PreviewTypography.bodyFontSize),
+                        color: checked ? theme.textTertiary : bodyForeground,
+                        lineSpacing: PreviewTypography.bodyLineSpacing,
+                        enabled: rippleStyle.includesBodyBlocks
+                    )
             }
             .padding(.leading, PreviewTypography.listIndent)
         case .blockquote(let text):
@@ -599,6 +670,13 @@ struct MarkdownTextView: View {
                     .foregroundStyle(theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+                    .asciiRippleOverlay(
+                        text: MarkdownRippleTextExtractor.displayText(from: text),
+                        font: .system(size: PreviewTypography.bodyFontSize),
+                        color: theme.textSecondary,
+                        lineSpacing: PreviewTypography.bodyLineSpacing,
+                        enabled: rippleStyle.includesBodyBlocks
+                    )
             }
             .padding(.vertical, 2)
         case .codeBlock(let language, let code):
@@ -668,6 +746,15 @@ struct MarkdownTextView: View {
             .shadow(
                 color: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
                 radius: MarkdownHeadingDisplay.glowRadius(for: level)
+            )
+            .asciiRippleOverlay(
+                text: MarkdownRippleTextExtractor.displayText(from: displayText),
+                font: font,
+                color: color,
+                shadowColor: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
+                shadowRadius: MarkdownHeadingDisplay.glowRadius(for: level),
+                lineSpacing: level == 1 ? 4 : 2,
+                enabled: rippleStyle.ripplesHeading(level: level)
             )
             .padding(.top, topPad)
             .padding(.bottom, level == 1 ? 8 : 4)

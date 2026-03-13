@@ -3103,7 +3103,11 @@ private struct NoteBookPreviewPage: View {
     let theme: EpistemosTheme
 
     var body: some View {
-        MarkdownTextView(content: markdown, theme: theme)
+        MarkdownTextView(
+            content: markdown,
+            theme: theme,
+            rippleStyle: .headings123
+        )
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(NoteDualPreviewLayout.pagePadding)
             .background(
