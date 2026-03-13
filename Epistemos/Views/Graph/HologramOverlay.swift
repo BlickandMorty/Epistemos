@@ -65,6 +65,7 @@ enum GraphOverlayThemeStyle {
 // - Search:   HologramSearchSidebar floating panel on the left
 // - Animation: Scale + fade from center on show, reverse on hide
 
+@MainActor
 final class HologramOverlay {
 
     private var window: NSWindow?
@@ -196,10 +197,12 @@ final class HologramOverlay {
 
     /// Observe note window move/resize to dynamically update the anchor rect.
     private func observeNoteWindow(_ noteWindow: NSWindow) {
-        let updateBlock: (Notification) -> Void = { [weak self, weak noteWindow] _ in
-            guard let self, let noteWindow, let metalView = self.metalView else { return }
-            self.noteWindowFrame = noteWindow.frame
-            metalView.setAnchorRect(noteWindow.frame)
+        let updateBlock: @Sendable (Notification) -> Void = { [weak self, weak noteWindow] _ in
+            MainActor.assumeIsolated {
+                guard let self, let noteWindow, let metalView = self.metalView else { return }
+                self.noteWindowFrame = noteWindow.frame
+                metalView.setAnchorRect(noteWindow.frame)
+            }
         }
         noteWindowMoveObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didMoveNotification,
@@ -225,7 +228,9 @@ final class HologramOverlay {
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
                 miniPanel.animator().alphaValue = 0
             }, completionHandler: { [weak self] in
-                self?.teardown()
+                MainActor.assumeIsolated {
+                    self?.teardown()
+                }
             })
             return
         }
@@ -238,8 +243,10 @@ final class HologramOverlay {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             window.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
-            window.orderOut(nil)
-            self?.metalView?.pauseEngine()
+            MainActor.assumeIsolated {
+                window.orderOut(nil)
+                self?.metalView?.pauseEngine()
+            }
         })
     }
 
@@ -386,8 +393,10 @@ final class HologramOverlay {
                 ctx.duration = 0.2
                 inspector.animator().alphaValue = 0
             }, completionHandler: { [weak self] in
-                self?.miniInspectorPanel?.orderOut(nil as NSWindow?)
-                self?.miniInspectorPanel = nil
+                MainActor.assumeIsolated {
+                    self?.miniInspectorPanel?.orderOut(nil as NSWindow?)
+                    self?.miniInspectorPanel = nil
+                }
             })
         }
     }
@@ -455,7 +464,7 @@ final class HologramOverlay {
         }
 
         // Commit graph data after the panel is laid out.
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             guard let self, self.graphState.isLoaded else { return }
             graphView.setGraphMode(0) // global mode
             graphView.commitGraphData()
@@ -465,7 +474,9 @@ final class HologramOverlay {
         // Observe system appearance changes.
         if appearanceObserver == nil {
             appearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
-                DispatchQueue.main.async { self?.syncTheme() }
+                MainActor.assumeIsolated {
+                    self?.syncTheme()
+                }
             }
         }
 
@@ -739,8 +750,10 @@ final class HologramOverlay {
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
-            self?.miniInspectorPanel?.orderOut(nil)
-            self?.miniInspectorPanel = nil
+            MainActor.assumeIsolated {
+                self?.miniInspectorPanel?.orderOut(nil)
+                self?.miniInspectorPanel = nil
+            }
         })
     }
 
@@ -750,24 +763,32 @@ final class HologramOverlay {
         minimizeObserver = NotificationCenter.default.addObserver(
             forName: .graphMinimizeRequested, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.minimize()
+            MainActor.assumeIsolated {
+                self?.minimize()
+            }
         }
         resetObserver = NotificationCenter.default.addObserver(
             forName: .graphResetRequested, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.graphState.startOverlayPhysicsCycle()
-            self?.metalView?.zoomToFit()
+            MainActor.assumeIsolated {
+                self?.graphState.startOverlayPhysicsCycle()
+                self?.metalView?.zoomToFit()
+            }
         }
         restoreObserver = NotificationCenter.default.addObserver(
             forName: .graphRestoreRequested, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.restore()
+            MainActor.assumeIsolated {
+                self?.restore()
+            }
         }
         closeObserver = NotificationCenter.default.addObserver(
             forName: .graphCloseRequested, object: nil, queue: .main
         ) { [weak self] _ in
-            guard self != nil else { return }
-            HologramController.shared.hide()
+            MainActor.assumeIsolated {
+                guard self != nil else { return }
+                HologramController.shared.hide()
+            }
         }
     }
 
@@ -779,10 +800,12 @@ final class HologramOverlay {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            // Hide overlay during fullscreen animation to prevent flash.
-            self?.window?.orderOut(nil)
-            self?.miniPanel?.orderOut(nil as NSWindow?)
-            self?.miniInspectorPanel?.orderOut(nil)
+            MainActor.assumeIsolated {
+                // Hide overlay during fullscreen animation to prevent flash.
+                self?.window?.orderOut(nil)
+                self?.miniPanel?.orderOut(nil as NSWindow?)
+                self?.miniInspectorPanel?.orderOut(nil)
+            }
         }
 
         fullscreenExitObserver = NotificationCenter.default.addObserver(
@@ -790,12 +813,14 @@ final class HologramOverlay {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
-            // Re-show if the overlay was visible before fullscreen.
-            if self.isMinimized {
-                self.miniPanel?.orderFront(nil as NSWindow?)
-            } else if self.window != nil {
-                // Only re-show if it was previously visible (not hidden).
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // Re-show if the overlay was visible before fullscreen.
+                if self.isMinimized {
+                    self.miniPanel?.orderFront(nil as NSWindow?)
+                } else if self.window != nil {
+                    // Only re-show if it was previously visible (not hidden).
+                }
             }
         }
 
@@ -805,16 +830,19 @@ final class HologramOverlay {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self, self.isVisible else { return }
-            // Re-attach as child of the now-fullscreen window.
-            if let fsWindow = notification.object as? NSWindow {
-                if let w = self.window, !self.isMinimized {
-                    fsWindow.addChildWindow(w, ordered: .above)
-                    w.orderFront(nil)
-                }
-                if let mp = self.miniPanel, self.isMinimized {
-                    fsWindow.addChildWindow(mp, ordered: .above)
-                    mp.orderFront(nil)
+            let fullscreenWindow = notification.object as? NSWindow
+            MainActor.assumeIsolated {
+                guard let self, self.isVisible else { return }
+                // Re-attach as child of the now-fullscreen window.
+                if let fsWindow = fullscreenWindow {
+                    if let w = self.window, !self.isMinimized {
+                        fsWindow.addChildWindow(w, ordered: .above)
+                        w.orderFront(nil)
+                    }
+                    if let mp = self.miniPanel, self.isMinimized {
+                        fsWindow.addChildWindow(mp, ordered: .above)
+                        mp.orderFront(nil)
+                    }
                 }
             }
         }
@@ -828,10 +856,12 @@ final class HologramOverlay {
             object: mainWindow,
             queue: .main
         ) { [weak self] _ in
-            // Hide overlay when parent minimizes to Dock.
-            self?.window?.orderOut(nil)
-            self?.miniPanel?.orderOut(nil as NSWindow?)
-            self?.miniInspectorPanel?.orderOut(nil)
+            MainActor.assumeIsolated {
+                // Hide overlay when parent minimizes to Dock.
+                self?.window?.orderOut(nil)
+                self?.miniPanel?.orderOut(nil as NSWindow?)
+                self?.miniInspectorPanel?.orderOut(nil)
+            }
         }
 
         parentDeminiaturizeObserver = NotificationCenter.default.addObserver(
@@ -839,12 +869,14 @@ final class HologramOverlay {
             object: mainWindow,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
-            // Re-show overlay after parent restores from Dock.
-            if self.isMinimized {
-                self.miniPanel?.orderFront(nil as NSWindow?)
-            } else if self.window != nil, self.isVisible {
-                self.window?.orderFront(nil)
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // Re-show overlay after parent restores from Dock.
+                if self.isMinimized {
+                    self.miniPanel?.orderFront(nil as NSWindow?)
+                } else if self.window != nil, self.isVisible {
+                    self.window?.orderFront(nil)
+                }
             }
         }
     }
@@ -1092,7 +1124,7 @@ final class HologramOverlay {
 
         // Observe system appearance changes so the graph reacts to light/dark mode switches.
         self.appearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
-            DispatchQueue.main.async {
+            MainActor.assumeIsolated {
                 self?.syncTheme()
             }
         }
