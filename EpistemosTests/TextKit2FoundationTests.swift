@@ -118,6 +118,20 @@ struct ProseTextView2Tests {
         let (_, textView) = ProseTextView2.makeTextKit2()
         #expect(textView.markdownDelegate.activeLine == nil)
     }
+
+    @Test("Paragraph neighborhood range scopes to adjacent paragraphs")
+    func paragraphNeighborhoodRangeScopesToAdjacentParagraphs() {
+        let text = "alpha\nbeta\ngamma\ndelta" as NSString
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: text, around: 7)
+        #expect(text.substring(with: range) == "alpha\nbeta\ngamma\n")
+    }
+
+    @Test("Paragraph neighborhood range falls back to the full document")
+    func paragraphNeighborhoodRangeFallsBackToFullDocument() {
+        let text = "alpha\nbeta\ngamma" as NSString
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: text, around: nil)
+        #expect(range == NSRange(location: 0, length: text.length))
+    }
 }
 
 @Suite("TextKit 2 - MarkdownContentStorage")
@@ -190,8 +204,8 @@ struct DataDetectionServiceTests {
 @Suite("Inline Markdown Styling")
 struct InlineMarkdownStylerTests {
 
-    @Test("Strong inline markdown gets an explicit RetroGaming font override")
-    func strongMarkdownUsesDisplayFont() throws {
+    @Test("Strong inline markdown keeps the surrounding body font family")
+    func strongMarkdownDoesNotUseDisplayFontOverride() throws {
         let attributed = try #require(
             InlineMarkdownStyler.attributedString("Alpha **bold** omega", strongFontSize: 15)
         )
@@ -207,7 +221,7 @@ struct InlineMarkdownStylerTests {
             })
         )
 
-        #expect(strongRun.font != nil)
+        #expect(strongRun.font == nil)
         #expect(plainRun.font == nil)
     }
 
@@ -233,6 +247,31 @@ struct InlineMarkdownStylerTests {
         )
 
         #expect(strongRun.foregroundColor != nil)
+        #expect(plainRun.foregroundColor == nil)
+    }
+
+    @Test("Inline markdown links can apply a custom foreground color without recoloring body text")
+    func inlineMarkdownLinksUseCustomForegroundColor() throws {
+        let attributed = try #require(
+            InlineMarkdownStyler.attributedString(
+                "Alpha [link](https://example.com) omega",
+                strongFontSize: 15,
+                linkForegroundColor: Color(hex: 0x00007B)
+            )
+        )
+
+        let linkRun = try #require(
+            attributed.runs.first(where: {
+                $0.link != nil && String(attributed[$0.range].characters).contains("link")
+            })
+        )
+        let plainRun = try #require(
+            attributed.runs.first(where: {
+                $0.link == nil && String(attributed[$0.range].characters).contains("Alpha")
+            })
+        )
+
+        #expect(linkRun.foregroundColor != nil)
         #expect(plainRun.foregroundColor == nil)
     }
 }
@@ -569,14 +608,14 @@ struct TextKit2InlineStyleTests {
         return attrStr
     }
 
-    @Test("Bold text gets bold font on content")
+    @Test("Bold text keeps body font family on content")
     func boldContent() {
         let result = styledString("Hello **bold** world")
         // "bold" is at UTF-16 positions 8..12 (after "Hello **")
         let boldRange = NSRange(location: 8, length: 4)
         let font = result.attribute(.font, at: boldRange.location, effectiveRange: nil) as? NSFont
         #expect(font != nil)
-        #expect(font?.fontName.contains("RetroGaming") == true)
+        #expect(font?.fontName.contains("RetroGaming") == false)
     }
 
     @Test("Bold markers are ghosted with low alpha")
@@ -636,8 +675,8 @@ struct TextKit2InlineStyleTests {
         #expect(foundLink)
     }
 
-    @Test("Wikilink content uses the RetroGaming display font")
-    func wikilinkUsesDisplayFont() {
+    @Test("Wikilink content keeps the surrounding body font family")
+    func wikilinkKeepsBodyFontFamily() {
         let storage = MarkdownContentStorage()
         storage.theme = .light
         let text = "See [[My Note]] here"
@@ -651,7 +690,7 @@ struct TextKit2InlineStyleTests {
         storage.applyInlineStyles(to: attrStr, fullRange: range)
 
         let linkFont = attrStr.attribute(.font, at: 6, effectiveRange: nil) as? NSFont
-        #expect(linkFont?.fontName.contains("RetroGaming") == true)
+        #expect(linkFont?.fontName.contains("RetroGaming") == false)
     }
 
     @Test("Wikilink brackets are ghosted")
@@ -668,7 +707,7 @@ struct TextKit2InlineStyleTests {
         let result = styledString("**bold** and *italic*")
         // "bold" content at position 2..6
         let boldFont = result.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
-        #expect(boldFont?.fontName.contains("RetroGaming") == true)
+        #expect(boldFont?.fontName.contains("RetroGaming") == false)
 
         // "italic" content at position 14..20
         let italicFont = result.attribute(.font, at: 14, effectiveRange: nil) as? NSFont
@@ -707,7 +746,7 @@ struct TextKit2InlineStyleTests {
         // "🎉 " = 2 UTF-16 code units + 1 space = 3
         // "**" = 2, so "bold" starts at 3+2 = 5
         let font = result.attribute(.font, at: 5, effectiveRange: nil) as? NSFont
-        #expect(font?.fontName.contains("RetroGaming") == true)
+        #expect(font?.fontName.contains("RetroGaming") == false)
     }
 
     @Test("Dark theme uses correct ghost marker alpha")

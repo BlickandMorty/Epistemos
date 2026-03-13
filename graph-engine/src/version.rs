@@ -127,9 +127,7 @@ impl VersionStore {
 
     /// Get the version count for a node.
     pub fn version_count(&self, node_uuid: &str) -> u32 {
-        self.chains
-            .get(node_uuid)
-            .map_or(0, |chain| chain.count())
+        self.chains.get(node_uuid).map_or(0, |chain| chain.count())
     }
 
     /// Get the version chain for a node (if any).
@@ -152,9 +150,9 @@ mod tests {
     #[test]
     fn version_chain_linear() {
         let mut chain = VersionChain::new();
-        assert!(chain.add(100, 0, 1000.0));     // root
-        assert!(chain.add(200, 100, 2000.0));   // child of root
-        assert!(chain.add(300, 200, 3000.0));   // child of 200
+        assert!(chain.add(100, 0, 1000.0)); // root
+        assert!(chain.add(200, 100, 2000.0)); // child of root
+        assert!(chain.add(300, 200, 3000.0)); // child of 200
 
         assert_eq!(chain.count(), 3);
         let history = chain.history();

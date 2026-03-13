@@ -2,8 +2,13 @@ import SwiftUI
 
 // MARK: - GraphFloatingControls
 // Minimal floating pill bar at the bottom of the hologram overlay.
-// Contains: 7 type filter pills, Global/Page toggle, forces gear icon.
-// Liquid Glass styling via .glassEffect().
+// Overlay stays global-only for now; page-mode logic remains elsewhere for
+// embedded-graph work later.
+
+enum GraphOverlayControlsDisplay {
+    static let filterTypes: [GraphNodeType] = GraphNodeType.visibleCases.filter { $0 != .tag }
+    static let showsPageModeToggle = GraphOverlayModePolicy.pageModeEnabled
+}
 
 struct GraphFloatingControls: View {
     @Environment(GraphState.self) private var graphState
@@ -13,12 +18,6 @@ struct GraphFloatingControls: View {
     var body: some View {
         HStack(spacing: 12) {
             typeFilterPills
-
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
-
-            modeToggle
 
             Divider()
                 .frame(height: 20)
@@ -64,7 +63,7 @@ struct GraphFloatingControls: View {
 
     private var typeFilterPills: some View {
         HStack(spacing: 6) {
-            ForEach(GraphNodeType.visibleCases, id: \.rawValue) { type in
+            ForEach(GraphOverlayControlsDisplay.filterTypes, id: \.rawValue) { type in
                 FilterPill(
                     type: type,
                     isActive: graphState.filter.activeNodeTypes.contains(type),
@@ -75,47 +74,6 @@ struct GraphFloatingControls: View {
                 )
             }
         }
-    }
-
-    // MARK: - Mode Toggle
-
-    private var modeToggle: some View {
-        HStack(spacing: 4) {
-            modeButton(label: "Global", icon: "globe", isSelected: isGlobalMode) {
-                graphState.cleanupEphemeralNodes()
-                graphState.clearFocus()
-                graphState.mode = .global
-                graphState.requestRecommit()
-            }
-            modeButton(label: "Page", icon: "doc", isSelected: !isGlobalMode) {
-                if let selected = graphState.selectedNodeId {
-                    graphState.mode = .page(nodeId: selected)
-                    graphState.focusOnNode(selected, depth: 2)
-                    graphState.requestRecommit()
-                }
-            }
-        }
-    }
-
-    private var isGlobalMode: Bool {
-        if case .global = graphState.mode { return true }
-        return false
-    }
-
-    private func modeButton(label: String, icon: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(isSelected ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.primary.opacity(isSelected ? 1.0 : 0.5))
     }
 
     // MARK: - Semantic Clustering Toggle
@@ -198,7 +156,7 @@ struct GraphFloatingControls: View {
 
     private var minimizeButton: some View {
         Button {
-            graphState.pendingMinimize = true
+            NotificationCenter.default.post(name: .graphMinimizeRequested, object: nil)
         } label: {
             Image(systemName: "rectangle.compress.vertical")
                 .font(.system(size: 12, weight: .medium))
@@ -215,7 +173,7 @@ struct GraphFloatingControls: View {
 
     private var resetViewButton: some View {
         Button {
-            graphState.pendingResetView = true
+            NotificationCenter.default.post(name: .graphResetRequested, object: nil)
         } label: {
             Image(systemName: "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 12, weight: .medium))
@@ -249,7 +207,7 @@ struct GraphFloatingControls: View {
 
     private var closeButton: some View {
         Button {
-            graphState.pendingClose = true
+            NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "xmark")

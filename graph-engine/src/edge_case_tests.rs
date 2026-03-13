@@ -5,9 +5,9 @@
 
 #[cfg(test)]
 mod edge_case_tests {
+    use crate::ecs::World;
     use crate::ecs::components::*;
     use crate::ecs::spatial_grid::SpatialGrid;
-    use crate::ecs::World;
     use crate::types::VisualTheme;
 
     // ── Empty World Operations ──────────────────────────────────────────────
@@ -41,7 +41,11 @@ mod edge_case_tests {
     #[test]
     fn single_entity_spawn_and_despawn() {
         let mut world = World::new();
-        let e = world.spawn(TransformComponent { x: 1.0, y: 2.0, scale: 3.0 });
+        let e = world.spawn(TransformComponent {
+            x: 1.0,
+            y: 2.0,
+            scale: 3.0,
+        });
         assert_eq!(world.len(), 1);
         assert!(!world.is_empty());
         assert_eq!(world.index_of(e), Some(0));
@@ -55,7 +59,11 @@ mod edge_case_tests {
     #[test]
     fn single_entity_double_despawn() {
         let mut world = World::new();
-        let e = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+        let e = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
         world.despawn(e);
         // Second despawn of same entity should be a no-op.
         world.despawn(e);
@@ -65,7 +73,11 @@ mod edge_case_tests {
     #[test]
     fn single_entity_components_correct() {
         let mut world = World::new();
-        let e = world.spawn(TransformComponent { x: -999.0, y: 999.0, scale: 0.5 });
+        let e = world.spawn(TransformComponent {
+            x: -999.0,
+            y: 999.0,
+            scale: 0.5,
+        });
         let idx = world.index_of(e).unwrap();
 
         assert_eq!(world.transform[idx].x, -999.0);
@@ -147,9 +159,11 @@ mod edge_case_tests {
         grid.insert(99, 500.0, 500.0);
 
         let entities = vec![0u32];
-        let transforms = vec![
-            TransformComponent { x: 0.0, y: 0.0, scale: 1.0 },
-        ];
+        let transforms = vec![TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        }];
         grid.rebuild(&entities, &transforms);
 
         // Old entity 99 at (500,500) should be gone
@@ -208,14 +222,22 @@ mod edge_case_tests {
         let mut world = World::new();
 
         for _ in 0..500 {
-            let e = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+            let e = world.spawn(TransformComponent {
+                x: 0.0,
+                y: 0.0,
+                scale: 1.0,
+            });
             assert_eq!(world.len(), 1);
             world.despawn(e);
             assert!(world.is_empty());
         }
 
         // Entity IDs should have incremented, not reused
-        let e = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+        let e = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
         assert_eq!(e, 500);
     }
 
@@ -223,9 +245,21 @@ mod edge_case_tests {
     fn swap_remove_preserves_all_arrays() {
         let mut world = World::new();
 
-        let e0 = world.spawn(TransformComponent { x: 10.0, y: 20.0, scale: 1.0 });
-        let e1 = world.spawn(TransformComponent { x: 30.0, y: 40.0, scale: 2.0 });
-        let e2 = world.spawn(TransformComponent { x: 50.0, y: 60.0, scale: 3.0 });
+        let e0 = world.spawn(TransformComponent {
+            x: 10.0,
+            y: 20.0,
+            scale: 1.0,
+        });
+        let e1 = world.spawn(TransformComponent {
+            x: 30.0,
+            y: 40.0,
+            scale: 2.0,
+        });
+        let e2 = world.spawn(TransformComponent {
+            x: 50.0,
+            y: 60.0,
+            scale: 3.0,
+        });
 
         // Set velocity on e2
         let idx2 = world.index_of(e2).unwrap();
@@ -299,7 +333,11 @@ mod edge_case_tests {
     fn physics_arrays_grow_with_spawn() {
         let mut world = World::new();
         for _ in 0..10 {
-            world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+            world.spawn(TransformComponent {
+                x: 0.0,
+                y: 0.0,
+                scale: 1.0,
+            });
         }
         assert_eq!(world.px.len(), 10);
         assert_eq!(world.py.len(), 10);
@@ -314,7 +352,11 @@ mod edge_case_tests {
         let mut world = World::new();
         let mut entities = Vec::with_capacity(10);
         for _ in 0..10 {
-            entities.push(world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 }));
+            entities.push(world.spawn(TransformComponent {
+                x: 0.0,
+                y: 0.0,
+                scale: 1.0,
+            }));
         }
         for e in entities {
             world.despawn(e);
@@ -330,7 +372,11 @@ mod edge_case_tests {
     #[test]
     fn physics_arrays_spawn_stores_position() {
         let mut world = World::new();
-        world.spawn(TransformComponent { x: 42.0, y: -17.5, scale: 1.0 });
+        world.spawn(TransformComponent {
+            x: 42.0,
+            y: -17.5,
+            scale: 1.0,
+        });
         assert_eq!(world.px[0], 42.0);
         assert_eq!(world.py[0], -17.5);
         assert_eq!(world.pvx[0], 0.0);
@@ -344,8 +390,16 @@ mod edge_case_tests {
     #[test]
     fn despawn_cleans_node_id_to_entity() {
         let mut world = World::new();
-        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
-        let e1 = world.spawn(TransformComponent { x: 1.0, y: 1.0, scale: 1.0 });
+        let e0 = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        let e1 = world.spawn(TransformComponent {
+            x: 1.0,
+            y: 1.0,
+            scale: 1.0,
+        });
 
         // Simulate bridge population
         world.node_id_to_entity.insert(100, e0);
@@ -367,19 +421,39 @@ mod edge_case_tests {
     #[test]
     fn grid_rebuild_uses_entity_ids_after_swap_remove() {
         let mut world = World::new();
-        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
-        let _e1 = world.spawn(TransformComponent { x: 100.0, y: 100.0, scale: 1.0 });
-        let e2 = world.spawn(TransformComponent { x: 200.0, y: 200.0, scale: 1.0 });
+        let e0 = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        let _e1 = world.spawn(TransformComponent {
+            x: 100.0,
+            y: 100.0,
+            scale: 1.0,
+        });
+        let e2 = world.spawn(TransformComponent {
+            x: 200.0,
+            y: 200.0,
+            scale: 1.0,
+        });
 
         // After despawning e0, e2 swaps into index 0.
         // entities = [e2, e1], transforms = [(200,200), (100,100)]
         world.despawn(e0);
 
-        world.spatial_grid.rebuild(&world.entities, &world.transform);
+        world
+            .spatial_grid
+            .rebuild(&world.entities, &world.transform);
 
         // Grid should contain e2 (not 0) near (200,200)
         let near_200 = world.spatial_grid.query_candidates(200.0, 200.0, 10.0);
-        assert!(near_200.contains(&e2), "grid should store entity ID {e2}, not array index 0");
-        assert!(!near_200.contains(&e0), "despawned entity should not be in grid");
+        assert!(
+            near_200.contains(&e2),
+            "grid should store entity ID {e2}, not array index 0"
+        );
+        assert!(
+            !near_200.contains(&e0),
+            "despawned entity should not be in grid"
+        );
     }
 }

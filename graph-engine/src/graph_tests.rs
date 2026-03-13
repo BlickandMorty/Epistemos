@@ -9,11 +9,11 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::types::*;
-    use crate::simulation::*;
     use crate::forces::*;
     use crate::quadtree::*;
     use crate::search::*;
+    use crate::simulation::*;
+    use crate::types::*;
 
     // =========================================================================
     // PHYSICS CORRECTNESS TESTS (50 tests)
@@ -23,7 +23,14 @@ mod tests {
     fn physics_energy_conservation() {
         let mut g = Graph::new();
         for i in 0..5 {
-            g.add_node(format!("n{}", i), i as f32 * 100.0, 0.0, 0, 2, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                i as f32 * 100.0,
+                0.0,
+                0,
+                2,
+                format!("Node {}", i),
+            );
         }
         for i in 0..4 {
             g.add_edge(&format!("n{}", i), &format!("n{}", i + 1), 1.0, 0);
@@ -51,15 +58,26 @@ mod tests {
         }
 
         // Energy can decrease (damping) but shouldn't increase by more than 50%
-        assert!(new_energy < total_energy * 1.5 || total_energy == 0.0,
-            "Energy exploded: {} -> {}", total_energy, new_energy);
+        assert!(
+            new_energy < total_energy * 1.5 || total_energy == 0.0,
+            "Energy exploded: {} -> {}",
+            total_energy,
+            new_energy
+        );
     }
 
     #[test]
     fn physics_no_nan_positions() {
         let mut g = Graph::new();
         for i in 0..10 {
-            g.add_node(format!("n{}", i), i as f32 * 50.0, i as f32 * 50.0, 0, 3, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                i as f32 * 50.0,
+                i as f32 * 50.0,
+                0,
+                3,
+                format!("Node {}", i),
+            );
         }
         for i in 0..9 {
             g.add_edge(&format!("n{}", i), &format!("n{}", i + 1), 1.0, 0);
@@ -108,16 +126,36 @@ mod tests {
 
         // Nodes at distance 40, within charge_range (400) and closer than link_distance (80).
         // Both charge repulsion and spring repulsion push them apart.
-        assert!(vx0 < 0.0, "Left node should move left (repelled), got vx0={}", vx0);
-        assert!(vx1 > 0.0, "Right node should move right (repelled), got vx1={}", vx1);
-        assert!((vx0 + vx1).abs() < 0.01, "Forces should be symmetric: {} vs {}", vx0, vx1);
+        assert!(
+            vx0 < 0.0,
+            "Left node should move left (repelled), got vx0={}",
+            vx0
+        );
+        assert!(
+            vx1 > 0.0,
+            "Right node should move right (repelled), got vx1={}",
+            vx1
+        );
+        assert!(
+            (vx0 + vx1).abs() < 0.01,
+            "Forces should be symmetric: {} vs {}",
+            vx0,
+            vx1
+        );
     }
 
     #[test]
     fn physics_settling_convergence() {
         let mut g = Graph::new();
         for i in 0..20 {
-            g.add_node(format!("n{}", i), (i * 10) as f32, (i * 10) as f32, 0, 2, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                (i * 10) as f32,
+                (i * 10) as f32,
+                0,
+                2,
+                format!("Node {}", i),
+            );
         }
         for i in 0..19 {
             g.add_edge(&format!("n{}", i), &format!("n{}", i + 1), 1.0, 0);
@@ -135,7 +173,11 @@ mod tests {
             iterations += 1;
         }
 
-        assert!(sim.is_settled, "Simulation should settle within {} iterations", max_iterations);
+        assert!(
+            sim.is_settled,
+            "Simulation should settle within {} iterations",
+            max_iterations
+        );
     }
 
     #[test]
@@ -174,10 +216,10 @@ mod tests {
         // Use stronger link force for faster convergence in test
         sim.params.charge_strength = 0.0; // No repulsion
         sim.params.center_strength = 0.0; // No center pull
-        sim.params.link_strength = 1.0;   // Strong link force
-        sim.params.velocity_decay = 0.1;  // Low friction for movement
-        sim.params.alpha = 0.3;           // High alpha for faster initial movement
-        
+        sim.params.link_strength = 1.0; // Strong link force
+        sim.params.velocity_decay = 0.1; // Low friction for movement
+        sim.params.alpha = 0.3; // High alpha for faster initial movement
+
         let target_distance = sim.params.link_distance;
         let initial_distance = 500.0;
 
@@ -192,16 +234,24 @@ mod tests {
 
         // With strong link force, should get reasonably close to target
         // Allow wider tolerance since other physics factors affect convergence
-        assert!(final_distance < initial_distance * 0.9,
-            "Link should pull nodes closer: initial={}, final={}, target={}", 
-            initial_distance, final_distance, target_distance);
-        
+        assert!(
+            final_distance < initial_distance * 0.9,
+            "Link should pull nodes closer: initial={}, final={}, target={}",
+            initial_distance,
+            final_distance,
+            target_distance
+        );
+
         // Should be significantly closer to target than initial position
         let initial_error = (initial_distance - target_distance).abs();
         let final_error = (final_distance - target_distance).abs();
-        assert!(final_error < initial_error * 0.8,
-            "Should converge toward target {}: initial_error={}, final_error={}", 
-            target_distance, initial_error, final_error);
+        assert!(
+            final_error < initial_error * 0.8,
+            "Should converge toward target {}: initial_error={}, final_error={}",
+            target_distance,
+            initial_error,
+            final_error
+        );
     }
 
     #[test]
@@ -215,7 +265,11 @@ mod tests {
         force_collide(&mut x, &mut y, &radii, &fx, &fy, 3);
 
         let dist = ((x[1] - x[0]).powi(2) + (y[1] - y[0]).powi(2)).sqrt();
-        assert!(dist >= 40.0, "Nodes should be separated to at least 40, got {}", dist);
+        assert!(
+            dist >= 40.0,
+            "Nodes should be separated to at least 40, got {}",
+            dist
+        );
     }
 
     #[test]
@@ -364,7 +418,7 @@ mod tests {
         // is_settled remains false as no simulation has occurred
         // but it shouldn't panic
         sim.tick();
-        
+
         // Empty simulation - x is empty, not necessarily "settled" but shouldn't crash
         assert!(sim.x.is_empty());
     }
@@ -373,7 +427,14 @@ mod tests {
     fn boundary_empty_edge_list() {
         let mut g = Graph::new();
         for i in 0..5 {
-            g.add_node(format!("n{}", i), i as f32 * 50.0, 0.0, 0, 1, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                i as f32 * 50.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
 
         let mut sim = Simulation::new();
@@ -409,14 +470,28 @@ mod tests {
         let mut g = Graph::new();
         // Component 1
         for i in 0..3 {
-            g.add_node(format!("a{}", i), i as f32 * 50.0, 0.0, 0, 1, format!("A{}", i));
+            g.add_node(
+                format!("a{}", i),
+                i as f32 * 50.0,
+                0.0,
+                0,
+                1,
+                format!("A{}", i),
+            );
         }
         g.add_edge("a0", "a1", 1.0, 0);
         g.add_edge("a1", "a2", 1.0, 0);
 
         // Component 2 (disconnected)
         for i in 0..3 {
-            g.add_node(format!("b{}", i), 500.0 + i as f32 * 50.0, 500.0, 0, 1, format!("B{}", i));
+            g.add_node(
+                format!("b{}", i),
+                500.0 + i as f32 * 50.0,
+                500.0,
+                0,
+                1,
+                format!("B{}", i),
+            );
         }
         g.add_edge("b0", "b1", 1.0, 0);
         g.add_edge("b1", "b2", 1.0, 0);
@@ -469,7 +544,14 @@ mod tests {
     fn stress_100_nodes() {
         let mut g = Graph::new();
         for i in 0..100 {
-            g.add_node(format!("n{}", i), (i % 10) as f32 * 50.0, (i / 10) as f32 * 50.0, 0, 3, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                (i % 10) as f32 * 50.0,
+                (i / 10) as f32 * 50.0,
+                0,
+                3,
+                format!("Node {}", i),
+            );
         }
         for i in 0..99 {
             g.add_edge(&format!("n{}", i), &format!("n{}", i + 1), 1.0, 0);
@@ -489,7 +571,14 @@ mod tests {
     fn stress_500_nodes() {
         let mut g = Graph::new();
         for i in 0..500 {
-            g.add_node(format!("n{}", i), (i % 50) as f32 * 20.0, (i / 50) as f32 * 20.0, 0, 3, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                (i % 50) as f32 * 20.0,
+                (i / 50) as f32 * 20.0,
+                0,
+                3,
+                format!("Node {}", i),
+            );
         }
         // Create a grid of edges
         for i in 0..50 {
@@ -517,7 +606,14 @@ mod tests {
         let n = 20; // Fully connected grows as O(n²)
 
         for i in 0..n {
-            g.add_node(format!("n{}", i), i as f32 * 10.0, 0.0, 0, (n - 1) as u32, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                i as f32 * 10.0,
+                0.0,
+                0,
+                (n - 1) as u32,
+                format!("Node {}", i),
+            );
         }
 
         // Create fully connected graph
@@ -544,7 +640,14 @@ mod tests {
         g.add_node(hub.into(), 0.0, 0.0, 0, 100, "Hub".into());
 
         for i in 0..100 {
-            g.add_node(format!("leaf{}", i), (i as f32) * 10.0, 100.0, 0, 1, format!("Leaf {}", i));
+            g.add_node(
+                format!("leaf{}", i),
+                (i as f32) * 10.0,
+                100.0,
+                0,
+                1,
+                format!("Leaf {}", i),
+            );
             g.add_edge(hub, &format!("leaf{}", i), 1.0, 0);
         }
 
@@ -565,7 +668,14 @@ mod tests {
 
         for i in 0..n {
             let angle = 2.0 * std::f32::consts::PI * (i as f32) / (n as f32);
-            g.add_node(format!("n{}", i), angle.cos() * 100.0, angle.sin() * 100.0, 0, 2, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                angle.cos() * 100.0,
+                angle.sin() * 100.0,
+                0,
+                2,
+                format!("Node {}", i),
+            );
         }
 
         for i in 0..n {
@@ -602,7 +712,14 @@ mod tests {
 
         // Build binary tree
         for i in 0..((1 << depth) - 1) {
-            g.add_node(format!("n{}", i), (i as f32) * 10.0, ((i / 2) as f32) * 50.0, 0, 3, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                (i as f32) * 10.0,
+                ((i / 2) as f32) * 50.0,
+                0,
+                3,
+                format!("Node {}", i),
+            );
             if i > 0 {
                 let parent = (i - 1) / 2;
                 g.add_edge(&format!("n{}", parent), &format!("n{}", i), 1.0, 0);
@@ -660,7 +777,14 @@ mod tests {
     fn stress_rapid_reheat() {
         let mut g = Graph::new();
         for i in 0..20 {
-            g.add_node(format!("n{}", i), i as f32 * 50.0, 0.0, 0, 2, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                i as f32 * 50.0,
+                0.0,
+                0,
+                2,
+                format!("Node {}", i),
+            );
         }
         for i in 0..19 {
             g.add_edge(&format!("n{}", i), &format!("n{}", i + 1), 1.0, 0);
@@ -701,9 +825,7 @@ mod tests {
     #[test]
     fn search_prefix_match() {
         let mut idx = SearchIndex::new();
-        let nodes = vec![
-            make_node("a", "Quantum Computing", 0),
-        ];
+        let nodes = vec![make_node("a", "Quantum Computing", 0)];
         idx.build(&nodes);
 
         let results = idx.search("quant", 10);
@@ -714,9 +836,7 @@ mod tests {
     #[test]
     fn search_case_insensitive() {
         let mut idx = SearchIndex::new();
-        let nodes = vec![
-            make_node("a", "Machine Learning", 0),
-        ];
+        let nodes = vec![make_node("a", "Machine Learning", 0)];
         idx.build(&nodes);
 
         let results1 = idx.search("MACHINE LEARNING", 10);
@@ -762,9 +882,7 @@ mod tests {
     #[test]
     fn search_typo_tolerance() {
         let mut idx = SearchIndex::new();
-        let nodes = vec![
-            make_node("a", "Quantum Computing", 0),
-        ];
+        let nodes = vec![make_node("a", "Quantum Computing", 0)];
         idx.build(&nodes);
 
         let results = idx.search("quantm", 10); // Typo: missing 'u'
@@ -787,9 +905,7 @@ mod tests {
     #[test]
     fn search_subsequence_match() {
         let mut idx = SearchIndex::new();
-        let nodes = vec![
-            make_node("a", "Machine Learning", 0),
-        ];
+        let nodes = vec![make_node("a", "Machine Learning", 0)];
         idx.build(&nodes);
 
         let results = idx.search("mchn", 10); // Subsequence of "machine"
@@ -827,7 +943,12 @@ mod tests {
 
     #[test]
     fn quadtree_single_body() {
-        let bodies = vec![Body { index: 0, x: 0.0, y: 0.0, strength: 1.0 }];
+        let bodies = vec![Body {
+            index: 0,
+            x: 0.0,
+            y: 0.0,
+            strength: 1.0,
+        }];
         let tree = build_tree(&bodies).unwrap();
         assert_eq!(tree.count(), 1);
     }
@@ -835,7 +956,12 @@ mod tests {
     #[test]
     fn quadtree_many_bodies() {
         let bodies: Vec<Body> = (0..1000)
-            .map(|i| Body { index: i, x: i as f32, y: (i * 2) as f32, strength: 1.0 })
+            .map(|i| Body {
+                index: i,
+                x: i as f32,
+                y: (i * 2) as f32,
+                strength: 1.0,
+            })
             .collect();
         let tree = build_tree(&bodies).unwrap();
         assert_eq!(tree.count(), 1000);
@@ -843,7 +969,12 @@ mod tests {
 
     #[test]
     fn quadtree_self_force_zero() {
-        let bodies = vec![Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 }];
+        let bodies = vec![Body {
+            index: 0,
+            x: 0.0,
+            y: 0.0,
+            strength: -600.0,
+        }];
         let tree = build_tree(&bodies).unwrap();
 
         let mut dvx = 0.0;
@@ -857,8 +988,18 @@ mod tests {
     #[test]
     fn quadtree_force_symmetry() {
         let bodies = vec![
-            Body { index: 0, x: 0.0, y: 0.0, strength: -600.0 },
-            Body { index: 1, x: 100.0, y: 0.0, strength: -600.0 },
+            Body {
+                index: 0,
+                x: 0.0,
+                y: 0.0,
+                strength: -600.0,
+            },
+            Body {
+                index: 1,
+                x: 100.0,
+                y: 0.0,
+                strength: -600.0,
+            },
         ];
         let tree = build_tree(&bodies).unwrap();
 
@@ -936,7 +1077,11 @@ mod tests {
         force_center(&x, &y, &mut vx, &mut vy, 0.0, 0.0, -0.1, 1.0);
 
         // Repel pushes node at +10 further + (away from center at 0)
-        assert!(vx[0] > 0.0, "Repel should push node further from center, got vx={}", vx[0]);
+        assert!(
+            vx[0] > 0.0,
+            "Repel should push node further from center, got vx={}",
+            vx[0]
+        );
     }
 
     #[test]
@@ -985,7 +1130,14 @@ mod tests {
     fn simulation_clear_resets_all() {
         let mut g = Graph::new();
         for i in 0..10 {
-            g.add_node(format!("n{}", i), i as f32 * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                i as f32 * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
 
         let mut sim = Simulation::new();
@@ -1027,7 +1179,14 @@ mod tests {
         let mut g = Graph::new();
         // Add more than 9000 nodes to trigger static layout
         for i in 0..9500 {
-            g.add_node(format!("n{}", i), i as f32, 0.0, 0, 1, format!("Node {}", i));
+            g.add_node(
+                format!("n{}", i),
+                i as f32,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
 
         let mut sim = Simulation::new();
@@ -1082,12 +1241,17 @@ mod tests {
         let colors: Vec<_> = (0..=11u8).map(edge_type_color).collect();
 
         // Check that at least some colors are different
-        let unique: std::collections::HashSet<_> = colors.iter().map(|c| [
-            c[0].to_bits(),
-            c[1].to_bits(),
-            c[2].to_bits(),
-            c[3].to_bits(),
-        ]).collect();
+        let unique: std::collections::HashSet<_> = colors
+            .iter()
+            .map(|c| {
+                [
+                    c[0].to_bits(),
+                    c[1].to_bits(),
+                    c[2].to_bits(),
+                    c[3].to_bits(),
+                ]
+            })
+            .collect();
         assert!(unique.len() > 5, "Should have variety in edge colors");
     }
 

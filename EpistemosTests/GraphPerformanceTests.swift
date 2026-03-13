@@ -96,6 +96,77 @@ enum GraphTestDataGenerator {
     }
 }
 
+@MainActor
+private enum GraphFFIBatchFixture {
+    static func makeStoreAndFilter() -> (
+        store: GraphStore,
+        filter: FilterEngine,
+        nodes: [GraphNodeRecord],
+        edges: [GraphEdgeRecord]
+    ) {
+        let createdAt = Date(timeIntervalSince1970: 0)
+        let nodes = [
+            GraphNodeRecord(
+                id: "note-a",
+                type: .note,
+                label: "Note A",
+                sourceId: nil,
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: createdAt,
+                position: SIMD2<Float>(10, 20)
+            ),
+            GraphNodeRecord(
+                id: "chat-b",
+                type: .chat,
+                label: "Chat B",
+                sourceId: nil,
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: createdAt,
+                position: SIMD2<Float>(30, 40)
+            ),
+            GraphNodeRecord(
+                id: "note-c",
+                type: .note,
+                label: "Note C",
+                sourceId: nil,
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: createdAt,
+                position: SIMD2<Float>(50, 60)
+            ),
+        ]
+
+        let edges = [
+            GraphEdgeRecord(
+                id: "edge-ab",
+                sourceNodeId: "note-a",
+                targetNodeId: "chat-b",
+                type: .reference,
+                weight: 1.0,
+                createdAt: createdAt
+            ),
+            GraphEdgeRecord(
+                id: "edge-ac",
+                sourceNodeId: "note-a",
+                targetNodeId: "note-c",
+                type: .contains,
+                weight: 2.0,
+                createdAt: createdAt
+            ),
+        ]
+
+        let store = GraphStore()
+        nodes.forEach(store.addNode)
+        edges.forEach(store.addEdge)
+
+        let filter = FilterEngine()
+        filter.toggleType(.chat)
+        return (store, filter, nodes, edges)
+    }
+}
+
 // MARK: - Graph Performance Tests
 
 @Suite("Graph Performance")
@@ -570,5 +641,39 @@ struct GraphPerformanceTests {
         
         // Combined operations should be fast
         #expect(totalTime < .milliseconds(100), "Combined operations took \(totalTime)")
+    }
+
+    @Test("FFI node batch respects filters and preserves link counts")
+    func ffiNodeBatchRespectsFilters() async throws {
+        let fixture = GraphFFIBatchFixture.makeStoreAndFilter()
+
+        let payload = makeVisibleNodeBatchPayload(
+            from: fixture.nodes,
+            store: fixture.store,
+            filter: fixture.filter
+        )
+
+        #expect(payload.ids == ["note-a", "note-c"])
+        #expect(payload.labels == ["Note A", "Note C"])
+        #expect(payload.xs == [10, 50])
+        #expect(payload.ys == [20, 60])
+        #expect(payload.linkCounts == [2, 1])
+        #expect(payload.types == [GraphNodeType.note.rustIndex, GraphNodeType.note.rustIndex])
+    }
+
+    @Test("FFI edge batch drops edges with hidden endpoints")
+    func ffiEdgeBatchDropsHiddenEndpoints() async throws {
+        let fixture = GraphFFIBatchFixture.makeStoreAndFilter()
+
+        let payload = makeVisibleEdgeBatchPayload(
+            from: fixture.edges,
+            store: fixture.store,
+            filter: fixture.filter
+        )
+
+        #expect(payload.sourceIds == ["note-a"])
+        #expect(payload.targetIds == ["note-c"])
+        #expect(payload.weights == [2.0])
+        #expect(payload.types == [GraphEdgeType.contains.rustIndex])
     }
 }

@@ -29,10 +29,30 @@ impl Aabb {
     fn quadrant(&self, idx: usize) -> Aabb {
         let (mx, my) = self.midpoint();
         match idx {
-            0 => Aabb { min_x: self.min_x, min_y: self.min_y, max_x: mx, max_y: my },
-            1 => Aabb { min_x: mx, min_y: self.min_y, max_x: self.max_x, max_y: my },
-            2 => Aabb { min_x: self.min_x, min_y: my, max_x: mx, max_y: self.max_y },
-            _ => Aabb { min_x: mx, min_y: my, max_x: self.max_x, max_y: self.max_y },
+            0 => Aabb {
+                min_x: self.min_x,
+                min_y: self.min_y,
+                max_x: mx,
+                max_y: my,
+            },
+            1 => Aabb {
+                min_x: mx,
+                min_y: self.min_y,
+                max_x: self.max_x,
+                max_y: my,
+            },
+            2 => Aabb {
+                min_x: self.min_x,
+                min_y: my,
+                max_x: mx,
+                max_y: self.max_y,
+            },
+            _ => Aabb {
+                min_x: mx,
+                min_y: my,
+                max_x: self.max_x,
+                max_y: self.max_y,
+            },
         }
     }
 
@@ -119,7 +139,9 @@ impl QTNode {
     }
 
     fn query_nearest(&self, qx: f32, qy: f32, best: &mut Option<(u32, f32)>) {
-        if let Some((_, best_dist)) = best && !self.bounds.intersects_circle(qx, qy, *best_dist) {
+        if let Some((_, best_dist)) = best
+            && !self.bounds.intersects_circle(qx, qy, *best_dist)
+        {
             return;
         }
 
@@ -294,10 +316,7 @@ mod tests {
 
     #[test]
     fn closest_node_wins() {
-        let nodes = vec![
-            make_node(1, 0.0, 0.0, 20.0),
-            make_node(2, 25.0, 0.0, 20.0),
-        ];
+        let nodes = vec![make_node(1, 0.0, 0.0, 20.0), make_node(2, 25.0, 0.0, 20.0)];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
         assert_eq!(idx.query_point(10.0, 0.0), Some(1));
@@ -337,10 +356,7 @@ mod tests {
 
     #[test]
     fn coincident_nodes_dont_stack_overflow() {
-        let nodes = vec![
-            make_node(1, 50.0, 50.0, 8.0),
-            make_node(2, 50.0, 50.0, 8.0),
-        ];
+        let nodes = vec![make_node(1, 50.0, 50.0, 8.0), make_node(2, 50.0, 50.0, 8.0)];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
         assert_eq!(idx.len(), 2);
@@ -375,7 +391,9 @@ mod tests {
 
     #[test]
     fn spatial_index_build_many() {
-        let nodes: Vec<Node> = (0..100).map(|i| make_node(i as u32, (i as f32) * 10.0, 0.0, 5.0)).collect();
+        let nodes: Vec<Node> = (0..100)
+            .map(|i| make_node(i as u32, (i as f32) * 10.0, 0.0, 5.0))
+            .collect();
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
         assert_eq!(idx.len(), 100);
@@ -392,7 +410,10 @@ mod tests {
     #[test]
     fn spatial_index_rebuild_replaces() {
         let nodes1 = vec![make_node(1, 0.0, 0.0, 10.0)];
-        let nodes2 = vec![make_node(2, 100.0, 100.0, 10.0), make_node(3, 200.0, 200.0, 10.0)];
+        let nodes2 = vec![
+            make_node(2, 100.0, 100.0, 10.0),
+            make_node(3, 200.0, 200.0, 10.0),
+        ];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes1);
         assert_eq!(idx.len(), 1);
@@ -413,10 +434,7 @@ mod tests {
 
     #[test]
     fn spatial_index_build_large_positions() {
-        let nodes = vec![
-            make_node(1, 1e6, 1e6, 10.0),
-            make_node(2, -1e6, -1e6, 10.0),
-        ];
+        let nodes = vec![make_node(1, 1e6, 1e6, 10.0), make_node(2, -1e6, -1e6, 10.0)];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
         assert_eq!(idx.len(), 2);
@@ -523,10 +541,7 @@ mod tests {
 
     #[test]
     fn query_point_overlapping_nodes() {
-        let nodes = vec![
-            make_node(1, 0.0, 0.0, 20.0),
-            make_node(2, 5.0, 0.0, 20.0),
-        ];
+        let nodes = vec![make_node(1, 0.0, 0.0, 20.0), make_node(2, 5.0, 0.0, 20.0)];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
         let result = idx.query_point(0.0, 0.0);
@@ -536,10 +551,7 @@ mod tests {
 
     #[test]
     fn query_point_multiple_calls() {
-        let nodes = vec![
-            make_node(1, 0.0, 0.0, 10.0),
-            make_node(2, 100.0, 0.0, 10.0),
-        ];
+        let nodes = vec![make_node(1, 0.0, 0.0, 10.0), make_node(2, 100.0, 0.0, 10.0)];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
         assert_eq!(idx.query_point(0.0, 0.0), Some(1));
@@ -565,13 +577,23 @@ mod tests {
 
     #[test]
     fn aabb_size() {
-        let aabb = Aabb { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 50.0 };
+        let aabb = Aabb {
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 100.0,
+            max_y: 50.0,
+        };
         assert_eq!(aabb.size(), 100.0);
     }
 
     #[test]
     fn aabb_midpoint() {
-        let aabb = Aabb { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 200.0 };
+        let aabb = Aabb {
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 100.0,
+            max_y: 200.0,
+        };
         let (mx, my) = aabb.midpoint();
         assert_eq!(mx, 50.0);
         assert_eq!(my, 100.0);
@@ -579,19 +601,34 @@ mod tests {
 
     #[test]
     fn aabb_intersects_circle_inside() {
-        let aabb = Aabb { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        let aabb = Aabb {
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 100.0,
+            max_y: 100.0,
+        };
         assert!(aabb.intersects_circle(50.0, 50.0, 10.0));
     }
 
     #[test]
     fn aabb_intersects_circle_outside() {
-        let aabb = Aabb { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        let aabb = Aabb {
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 100.0,
+            max_y: 100.0,
+        };
         assert!(!aabb.intersects_circle(200.0, 200.0, 10.0));
     }
 
     #[test]
     fn aabb_intersects_circle_near_edge() {
-        let aabb = Aabb { min_x: 0.0, min_y: 0.0, max_x: 100.0, max_y: 100.0 };
+        let aabb = Aabb {
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 100.0,
+            max_y: 100.0,
+        };
         // Circle center outside but radius overlaps
         assert!(aabb.intersects_circle(105.0, 50.0, 10.0));
     }
@@ -641,7 +678,7 @@ mod tests {
         let mut idx = SpatialIndex::new();
         idx.build(&vec![node.clone()]);
         assert_eq!(idx.len(), 1);
-        
+
         node.visible = false;
         idx.build(&vec![node]);
         assert!(idx.is_empty());
@@ -674,10 +711,7 @@ mod tests {
 
     #[test]
     fn hit_radius_proportional_to_node_radius() {
-        let nodes = vec![
-            make_node(1, 0.0, 0.0, 10.0),
-            make_node(2, 100.0, 0.0, 20.0),
-        ];
+        let nodes = vec![make_node(1, 0.0, 0.0, 10.0), make_node(2, 100.0, 0.0, 20.0)];
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
         // Larger node should have larger hit radius
@@ -726,7 +760,14 @@ mod tests {
     #[test]
     fn many_nodes_performance() {
         let nodes: Vec<Node> = (0..1000)
-            .map(|i| make_node(i as u32, (i % 100) as f32 * 10.0, (i / 100) as f32 * 10.0, 5.0))
+            .map(|i| {
+                make_node(
+                    i as u32,
+                    (i % 100) as f32 * 10.0,
+                    (i / 100) as f32 * 10.0,
+                    5.0,
+                )
+            })
             .collect();
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);
@@ -755,8 +796,12 @@ mod tests {
 
     #[test]
     fn rebuild_clears_old() {
-        let nodes1: Vec<Node> = (0..50).map(|i| make_node(i as u32, 0.0, 0.0, 5.0)).collect();
-        let nodes2: Vec<Node> = (0..30).map(|i| make_node((i + 100) as u32, 100.0, 100.0, 5.0)).collect();
+        let nodes1: Vec<Node> = (0..50)
+            .map(|i| make_node(i as u32, 0.0, 0.0, 5.0))
+            .collect();
+        let nodes2: Vec<Node> = (0..30)
+            .map(|i| make_node((i + 100) as u32, 100.0, 100.0, 5.0))
+            .collect();
         let mut idx = SpatialIndex::new();
         idx.build(&nodes1);
         assert_eq!(idx.len(), 50);
@@ -781,11 +826,21 @@ mod tests {
         let mut nodes = vec![];
         // Cluster 1
         for i in 0..25 {
-            nodes.push(make_node(i as u32, (i % 5) as f32 * 2.0, (i / 5) as f32 * 2.0, 3.0));
+            nodes.push(make_node(
+                i as u32,
+                (i % 5) as f32 * 2.0,
+                (i / 5) as f32 * 2.0,
+                3.0,
+            ));
         }
         // Cluster 2 (far away)
         for i in 25..50 {
-            nodes.push(make_node(i as u32, 1000.0 + (i % 5) as f32 * 2.0, (i / 5) as f32 * 2.0, 3.0));
+            nodes.push(make_node(
+                i as u32,
+                1000.0 + (i % 5) as f32 * 2.0,
+                (i / 5) as f32 * 2.0,
+                3.0,
+            ));
         }
         let mut idx = SpatialIndex::new();
         idx.build(&nodes);

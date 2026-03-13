@@ -24,16 +24,16 @@ struct NodeInstance {
     z: f32,             // offset 12 — depth for perspective/parallax
     color: [f32; 4],    // offset 16
     face_type: f32,     // offset 32 — 0=none, 1=note..8=block, -1=face feature
-    _pad: [f32; 3],     // offset 36 — alignment padding to 48 bytes (Metal float4 → 16-byte struct stride)
+    _pad: [f32; 3], // offset 36 — alignment padding to 48 bytes (Metal float4 → 16-byte struct stride)
 }
 
 /// Per-instance data for straight-line edge rendering.
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct LineEdgeInstance {
-    p0: [f32; 2],     // offset 0
-    p1: [f32; 2],     // offset 8
-    color: [f32; 4],  // offset 16
+    p0: [f32; 2],    // offset 0
+    p1: [f32; 2],    // offset 8
+    color: [f32; 4], // offset 16
 }
 
 /// Per-instance data for cubic graph-edge rendering.
@@ -152,10 +152,10 @@ struct Uniforms {
     viewport_size: [f32; 2],
     camera_offset: [f32; 2],
     camera_zoom: f32,
-    time: f32,               // elapsed seconds — drives breathing animation
-    pulse_origin: [f32; 2],  // world-space origin of click pulse wave
-    pulse_time: f32,         // time of pulse start (0 = no active pulse)
-    focal_length: f32,       // perspective focal distance (2.0 default)
+    time: f32,                 // elapsed seconds — drives breathing animation
+    pulse_origin: [f32; 2],    // world-space origin of click pulse wave
+    pulse_time: f32,           // time of pulse start (0 = no active pulse)
+    focal_length: f32,         // perspective focal distance (2.0 default)
     camera_velocity: [f32; 2], // camera offset delta (world units/frame)
     zoom_velocity: f32,        // zoom delta per frame (for motion blur)
     lite_mode: f32,            // 0.0 = cinematic, 1.0 = balanced, 2.0 = performance
@@ -206,6 +206,12 @@ pub(crate) fn viewport_bounds(
         max_x: camera_offset[0] + half_w,
         max_y: camera_offset[1] + half_h,
     }
+}
+
+#[inline]
+fn sort_and_dedup_indices(indices: &mut Vec<usize>) {
+    indices.sort_unstable();
+    indices.dedup();
 }
 
 fn clamp_dialogue_box_left(
@@ -281,13 +287,12 @@ fn dialogue_box_vertical_layout(node_y: f32, node_radius: f32, zoom: f32) -> (f3
     let layout = dialogue_layout_metrics(zoom);
     let tail_h_world = layout.tail_screen_height / zoom;
     let base_gap_world = layout.gap_screen / zoom;
-    let face_clearance_world = (node_radius * 1.12).max(if layout.compact { 58.0 } else { 76.0 } / zoom);
+    let face_clearance_world =
+        (node_radius * 1.12).max(if layout.compact { 58.0 } else { 76.0 } / zoom);
     let tail_tip_y = node_y - node_radius - base_gap_world - face_clearance_world;
     let box_bottom_y = tail_tip_y - tail_h_world;
     (box_bottom_y, tail_tip_y)
 }
-
-
 
 fn dialogue_node_radius(
     visual_theme: VisualTheme,
@@ -325,9 +330,9 @@ fn string_edge_control_points(
     let slack = ((ideal - length) / ideal).clamp(0.0, 0.75);
     let tension = ((length - ideal) / ideal).clamp(0.0, 1.25);
     let relative_velocity = [v1[0] - v0[0], v1[1] - v0[1]];
-    let normal_motion =
-        (relative_velocity[0] * normal[0] + relative_velocity[1] * normal[1]).clamp(-180.0, 180.0)
-            / 180.0;
+    let normal_motion = (relative_velocity[0] * normal[0] + relative_velocity[1] * normal[1])
+        .clamp(-180.0, 180.0)
+        / 180.0;
 
     let handle = length * (0.20 + curvature * 0.26 + slack * 0.12);
     let velocity_gain = (0.08 + slack * 0.14) * (1.0 - tension * 0.45).max(0.35);
@@ -347,13 +352,7 @@ fn string_edge_control_points(
 }
 
 #[cfg(test)]
-fn cubic_bezier_point(
-    p0: [f32; 2],
-    c0: [f32; 2],
-    c1: [f32; 2],
-    p1: [f32; 2],
-    t: f32,
-) -> [f32; 2] {
+fn cubic_bezier_point(p0: [f32; 2], c0: [f32; 2], c1: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
     let one_minus_t = 1.0 - t;
     let a = one_minus_t * one_minus_t * one_minus_t;
     let b = 3.0 * one_minus_t * one_minus_t * t;
@@ -420,6 +419,44 @@ pub(crate) fn bounds_intersects_circle(bounds: ViewBounds, center: [f32; 2], rad
         && center[1] - radius <= bounds.max_y
 }
 
+#[inline]
+fn edge_intersects_view(
+    bounds: Option<ViewBounds>,
+    p0: [f32; 2],
+    p1: [f32; 2],
+    c0: [f32; 2],
+    c1: [f32; 2],
+) -> bool {
+    bounds.is_none_or(|view| {
+        segment_intersects_bounds(view, p0, p1) || curve_intersects_bounds(view, p0, c0, c1, p1)
+    })
+}
+
+#[inline]
+fn display_velocity(vx: f32, vy: f32) -> [f32; 2] {
+    const MIN_SPEED_SQ: f32 = 36.0;
+    const MAX_DISPLAY_SPEED: f32 = 72.0;
+    const DISPLAY_SCALE: f32 = 0.25;
+
+    let speed_sq = vx * vx + vy * vy;
+    if speed_sq <= MIN_SPEED_SQ {
+        return [0.0, 0.0];
+    }
+
+    let speed = speed_sq.sqrt();
+    let scale = DISPLAY_SCALE * (MAX_DISPLAY_SPEED / speed).min(1.0);
+    [vx * scale, vy * scale]
+}
+
+#[inline]
+fn render_velocity(vx: f32, vy: f32, suppress_motion: bool) -> [f32; 2] {
+    if suppress_motion {
+        [0.0, 0.0]
+    } else {
+        display_velocity(vx, vy)
+    }
+}
+
 pub(crate) fn segment_intersects_bounds(bounds: ViewBounds, p0: [f32; 2], p1: [f32; 2]) -> bool {
     let dx = p1[0] - p0[0];
     let dy = p1[1] - p0[1];
@@ -468,10 +505,10 @@ pub(crate) fn segment_intersects_bounds(bounds: ViewBounds, p0: [f32; 2], p1: [f
 /// Quantized tiers produce clean parallax layers like a star chart diorama.
 fn z_for_link_count(link_count: u32) -> f32 {
     match link_count {
-        0..=2 => -0.40,   // Background: leaf nodes recede deeper
-        3..=5 => -0.10,   // Lower-mid: slightly behind
-        6..=8 => 0.12,    // Upper-mid: slightly forward
-        _ => 0.50,         // Foreground: hub nodes closest to viewer
+        0..=2 => -0.40, // Background: leaf nodes recede deeper
+        3..=5 => -0.10, // Lower-mid: slightly behind
+        6..=8 => 0.12,  // Upper-mid: slightly forward
+        _ => 0.50,      // Foreground: hub nodes closest to viewer
     }
 }
 
@@ -503,7 +540,6 @@ fn bezier_point(p0: [f32; 2], cp: [f32; 2], p1: [f32; 2], t: f32) -> [f32; 2] {
         s * s * p0[1] + 2.0 * s * t * cp[1] + t * t * p1[1],
     ]
 }
-
 
 // ── Metal Shader Source ─────────────────────────────────────────────────────
 
@@ -1324,7 +1360,11 @@ impl Renderer {
 
     #[inline]
     fn node_color(&self, node_type: &crate::types::NodeType) -> [f32; 4] {
-        if self.light_mode { node_type.color_light() } else { node_type.color() }
+        if self.light_mode {
+            node_type.color_light()
+        } else {
+            node_type.color()
+        }
     }
 
     #[inline]
@@ -1334,7 +1374,11 @@ impl Renderer {
 
     #[inline]
     fn edge_color(&self, edge_type: u8) -> [f32; 4] {
-        if self.light_mode { edge_type_color_light(edge_type) } else { edge_type_color(edge_type) }
+        if self.light_mode {
+            edge_type_color_light(edge_type)
+        } else {
+            edge_type_color(edge_type)
+        }
     }
 
     pub fn new(device_ptr: *mut c_void, layer_ptr: *mut c_void) -> Option<Self> {
@@ -1371,20 +1415,19 @@ impl Renderer {
 
         // Helper to create a pipeline with alpha blending.
         // Returns None if pipeline creation fails (e.g. incompatible GPU).
-        let make_pipeline =
-            |vert: &Function, frag: &Function| -> Option<RenderPipelineState> {
-                let desc = RenderPipelineDescriptor::new();
-                desc.set_vertex_function(Some(vert));
-                desc.set_fragment_function(Some(frag));
-                let color_attach = desc.color_attachments().object_at(0)?;
-                color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
-                color_attach.set_blending_enabled(true);
-                color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
-                color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
-                color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
-                color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
-                device.new_render_pipeline_state(&desc).ok()
-            };
+        let make_pipeline = |vert: &Function, frag: &Function| -> Option<RenderPipelineState> {
+            let desc = RenderPipelineDescriptor::new();
+            desc.set_vertex_function(Some(vert));
+            desc.set_fragment_function(Some(frag));
+            let color_attach = desc.color_attachments().object_at(0)?;
+            color_attach.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+            color_attach.set_blending_enabled(true);
+            color_attach.set_source_rgb_blend_factor(MTLBlendFactor::SourceAlpha);
+            color_attach.set_destination_rgb_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+            color_attach.set_source_alpha_blend_factor(MTLBlendFactor::One);
+            color_attach.set_destination_alpha_blend_factor(MTLBlendFactor::OneMinusSourceAlpha);
+            device.new_render_pipeline_state(&desc).ok()
+        };
 
         let node_pipeline = make_pipeline(&node_vert, &node_frag)?;
         let edge_pipeline = make_pipeline(&edge_vert, &edge_frag)?;
@@ -1445,7 +1488,7 @@ impl Renderer {
             classic_velocity_scratch: Vec::new(),
             light_mode: false,
             clear_color: [0.07, 0.07, 0.09, 1.0],
-            quality_level: 0,  // Cinematic by default
+            quality_level: 0, // Cinematic by default
             start_time: std::time::Instant::now(),
             prev_camera_zoom: 1.0,
             prev_camera_offset: [0.0, 0.0],
@@ -1555,11 +1598,31 @@ impl Renderer {
         let distance_max_sq = distance_max * distance_max;
         let distance_min_sq = distance_min * distance_min;
 
-        encoder.set_bytes(2, std::mem::size_of::<u32>() as u64, &node_count as *const u32 as *const c_void);
-        encoder.set_bytes(3, std::mem::size_of::<f32>() as u64, &charge_strength as *const f32 as *const c_void);
-        encoder.set_bytes(4, std::mem::size_of::<f32>() as u64, &alpha as *const f32 as *const c_void);
-        encoder.set_bytes(5, std::mem::size_of::<f32>() as u64, &distance_max_sq as *const f32 as *const c_void);
-        encoder.set_bytes(6, std::mem::size_of::<f32>() as u64, &distance_min_sq as *const f32 as *const c_void);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &node_count as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            3,
+            std::mem::size_of::<f32>() as u64,
+            &charge_strength as *const f32 as *const c_void,
+        );
+        encoder.set_bytes(
+            4,
+            std::mem::size_of::<f32>() as u64,
+            &alpha as *const f32 as *const c_void,
+        );
+        encoder.set_bytes(
+            5,
+            std::mem::size_of::<f32>() as u64,
+            &distance_max_sq as *const f32 as *const c_void,
+        );
+        encoder.set_bytes(
+            6,
+            std::mem::size_of::<f32>() as u64,
+            &distance_min_sq as *const f32 as *const c_void,
+        );
 
         let threads_per_group = 256;
         let thread_groups = (n + threads_per_group - 1) / threads_per_group;
@@ -1609,12 +1672,7 @@ impl Renderer {
     }
 
     #[inline]
-    fn node_in_view(
-        &self,
-        bounds: Option<ViewBounds>,
-        center: [f32; 2],
-        radius: f32,
-    ) -> bool {
+    fn node_in_view(&self, bounds: Option<ViewBounds>, center: [f32; 2], radius: f32) -> bool {
         bounds.is_none_or(|view| bounds_intersects_circle(view, center, radius))
     }
 
@@ -1649,14 +1707,12 @@ impl Renderer {
                     self.rendered_node_indices.push(index);
                 }
             }
-            self.rendered_node_indices.sort_unstable();
-            self.rendered_node_indices.dedup();
+            sort_and_dedup_indices(&mut self.rendered_node_indices);
             return;
         }
 
-        self.rendered_node_indices.extend(
-            (0..world.len()).filter(|&index| world.graph_node[index].visible != 0),
-        );
+        self.rendered_node_indices
+            .extend((0..world.len()).filter(|&index| world.graph_node[index].visible != 0));
     }
 
     fn collect_candidate_edges(&mut self, world: &World) {
@@ -1751,7 +1807,11 @@ impl Renderer {
     }
 
     fn edge_curvature(&self) -> f32 {
-        let dialogue_bias = if self.visual_theme == VisualTheme::Dialogue { 0.20 } else { 0.12 };
+        let dialogue_bias = if self.visual_theme == VisualTheme::Dialogue {
+            0.20
+        } else {
+            0.12
+        };
         let elastic_bias = if self.enable_elastic_edges {
             0.06 + self.edge_elasticity.clamp(0.0, 1.0) * 0.20
         } else {
@@ -1778,7 +1838,13 @@ impl Renderer {
         }
 
         let (c0, c1) = string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
-        scratch.push(CurveEdgeInstance { p0, c0, c1, p1, color });
+        scratch.push(CurveEdgeInstance {
+            p0,
+            c0,
+            c1,
+            p1,
+            color,
+        });
     }
 
     #[inline]
@@ -1831,8 +1897,14 @@ impl Renderer {
     ) -> [f32; 4] {
         let base_edge = self.edge_color(edge.edge_type);
         if self.highlight.active {
-            let src_lit = self.highlight.highlighted_ids.contains(&world.graph_node[src_index].node_id);
-            let tgt_lit = self.highlight.highlighted_ids.contains(&world.graph_node[tgt_index].node_id);
+            let src_lit = self
+                .highlight
+                .highlighted_ids
+                .contains(&world.graph_node[src_index].node_id);
+            let tgt_lit = self
+                .highlight
+                .highlighted_ids
+                .contains(&world.graph_node[tgt_index].node_id);
             if src_lit && tgt_lit {
                 EDGE_HIGHLIGHT_COLOR
             } else {
@@ -1851,6 +1923,7 @@ impl Renderer {
         let view_bounds = self.current_view_bounds(Self::CLASSIC_CULL_PADDING_PIXELS);
         let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
         let visual_theme = self.visual_theme;
+        let suppress_motion = self.is_animating;
         self.collect_visible_node_indices(world, view_bounds, |world, index| {
             dialogue_node_radius(
                 visual_theme,
@@ -1867,7 +1940,8 @@ impl Renderer {
         self.rendered_node_indices.sort_unstable_by(|&a, &b| {
             let za = z_for_link_count(world.hierarchy[a].link_count);
             let zb = z_for_link_count(world.hierarchy[b].link_count);
-            za.partial_cmp(&zb).unwrap_or(std::cmp::Ordering::Equal)
+            za.partial_cmp(&zb)
+                .unwrap_or(std::cmp::Ordering::Equal)
                 .then(a.cmp(&b))
         });
 
@@ -1903,7 +1977,9 @@ impl Renderer {
                 for (sum, channel) in cluster.sum_color.iter_mut().zip(color) {
                     *sum += channel;
                 }
-                cluster.max_link_count = cluster.max_link_count.max(world.hierarchy[node_index].link_count);
+                cluster.max_link_count = cluster
+                    .max_link_count
+                    .max(world.hierarchy[node_index].link_count);
                 cluster.count += 1;
                 debug_assert!(graph_node.visible != 0);
             }
@@ -1913,7 +1989,8 @@ impl Renderer {
 
             for cluster in self.density_clusters.values() {
                 let inv_count = 1.0 / cluster.count as f32;
-                let proxy_radius = density_proxy_screen_radius(cluster.count) / self.camera_zoom.max(0.05);
+                let proxy_radius =
+                    density_proxy_screen_radius(cluster.count) / self.camera_zoom.max(0.05);
                 let mut color = [0.0; 4];
                 for (channel, sum) in color.iter_mut().zip(cluster.sum_color) {
                     *channel = sum * inv_count;
@@ -1928,10 +2005,11 @@ impl Renderer {
                     face_type: 0.0,
                     _pad: [0.0; 3],
                 });
-                self.classic_velocity_scratch.push([
+                self.classic_velocity_scratch.push(render_velocity(
                     cluster.sum_vx * inv_count,
                     cluster.sum_vy * inv_count,
-                ]);
+                    suppress_motion,
+                ));
             }
 
             self.node_count = self.classic_node_scratch.len();
@@ -1961,7 +2039,8 @@ impl Renderer {
 
                     if confidence > 0.0 {
                         let conf = confidence.clamp(0.0, 1.0);
-                        let glow_radius = radius * (CONF_GLOW_RADIUS_BASE + conf * CONF_GLOW_RADIUS_SCALE);
+                        let glow_radius =
+                            radius * (CONF_GLOW_RADIUS_BASE + conf * CONF_GLOW_RADIUS_SCALE);
                         let glow_alpha = CONF_GLOW_ALPHA_BASE + conf * CONF_GLOW_ALPHA_SCALE;
                         self.classic_node_scratch.push(NodeInstance {
                             position: pos,
@@ -1977,7 +2056,10 @@ impl Renderer {
             }
 
             if draw_glow && self.last_viewport_width > 0.0 && self.last_viewport_height > 0.0 {
-                self.update_wind_particles([self.last_viewport_width, self.last_viewport_height], self.camera_zoom);
+                self.update_wind_particles(
+                    [self.last_viewport_width, self.last_viewport_height],
+                    self.camera_zoom,
+                );
             } else {
                 self.wind_particle_count = 0;
             }
@@ -2002,8 +2084,13 @@ impl Renderer {
             self.glow_count = self.classic_node_scratch.len();
 
             for &node_index in &self.rendered_node_indices {
-                self.classic_node_scratch.push(self.classic_node_instance(world, node_index));
-                self.classic_velocity_scratch.push([world.velocity[node_index].vx, world.velocity[node_index].vy]);
+                self.classic_node_scratch
+                    .push(self.classic_node_instance(world, node_index));
+                self.classic_velocity_scratch.push(render_velocity(
+                    world.velocity[node_index].vx,
+                    world.velocity[node_index].vy,
+                    suppress_motion,
+                ));
             }
 
             self.node_count = self.rendered_node_indices.len();
@@ -2022,7 +2109,13 @@ impl Renderer {
                     let r = self.classic_node_radius(world, node_idx);
                     let time = self.start_time.elapsed().as_secs_f32();
                     let node_seed = world.graph_node[node_idx].node_id as f32 * 0.173;
-                    let bob_y = (time * (if self.dialogue.is_streaming { 2.8 } else { 1.45 }) + node_seed)
+                    let bob_y = (time
+                        * (if self.dialogue.is_streaming {
+                            2.8
+                        } else {
+                            1.45
+                        })
+                        + node_seed)
                         .sin()
                         * r
                         * 0.018;
@@ -2033,20 +2126,36 @@ impl Renderer {
                     let eye_y = ny - r * 0.10 + bob_y;
                     let brow_y = eye_y - r * 0.12;
                     let mouth_y = ny + r * 0.24 + bob_y * 0.32;
-                    let blink_open = face_blink_openness(time, node_seed, self.dialogue.is_streaming);
-                    let pupil_offset =
-                        face_pupil_offset([nx, ny], self.dialogue.look_target_world, eye_white_r * 0.22);
+                    let blink_open =
+                        face_blink_openness(time, node_seed, self.dialogue.is_streaming);
+                    let pupil_offset = face_pupil_offset(
+                        [nx, ny],
+                        self.dialogue.look_target_world,
+                        eye_white_r * 0.22,
+                    );
 
-                    self.push_face_node([nx - eye_spacing, brow_y], eye_white_r * 0.34, [0.14, 0.18, 0.26, 0.82]);
-                    self.push_face_node([nx + eye_spacing, brow_y], eye_white_r * 0.34, [0.14, 0.18, 0.26, 0.82]);
+                    self.push_face_node(
+                        [nx - eye_spacing, brow_y],
+                        eye_white_r * 0.34,
+                        [0.14, 0.18, 0.26, 0.82],
+                    );
+                    self.push_face_node(
+                        [nx + eye_spacing, brow_y],
+                        eye_white_r * 0.34,
+                        [0.14, 0.18, 0.26, 0.82],
+                    );
 
                     if blink_open > 0.4 {
                         let eye_color = [0.96, 0.97, 0.98, 0.98];
                         let pupil_color = [0.10, 0.12, 0.18, 0.98];
                         let left_eye = [nx - eye_spacing, eye_y];
                         let right_eye = [nx + eye_spacing, eye_y];
-                        let left_pupil = [left_eye[0] + pupil_offset[0], left_eye[1] + pupil_offset[1]];
-                        let right_pupil = [right_eye[0] + pupil_offset[0], right_eye[1] + pupil_offset[1]];
+                        let left_pupil =
+                            [left_eye[0] + pupil_offset[0], left_eye[1] + pupil_offset[1]];
+                        let right_pupil = [
+                            right_eye[0] + pupil_offset[0],
+                            right_eye[1] + pupil_offset[1],
+                        ];
 
                         self.push_face_node(left_eye, eye_white_r * blink_open, eye_color);
                         self.push_face_node(right_eye, eye_white_r * blink_open, eye_color);
@@ -2062,16 +2171,40 @@ impl Renderer {
                         let chatter = 0.04 + 0.12 * (time * 10.0 + node_seed).sin().abs();
                         let mouth_w = eye_white_r * 0.64;
                         let mouth_h = eye_white_r * (0.24 + chatter);
-                        self.push_face_node([nx - mouth_w, mouth_y], mouth_h, [0.15, 0.18, 0.25, 0.92]);
-                        self.push_face_node([nx, mouth_y], mouth_h * 1.18, [0.15, 0.18, 0.25, 0.96]);
-                        self.push_face_node([nx + mouth_w, mouth_y], mouth_h, [0.15, 0.18, 0.25, 0.92]);
-                        self.push_face_node([nx, mouth_y + mouth_h * 0.18], mouth_h * 0.42, [0.90, 0.56, 0.58, 0.28]);
+                        self.push_face_node(
+                            [nx - mouth_w, mouth_y],
+                            mouth_h,
+                            [0.15, 0.18, 0.25, 0.92],
+                        );
+                        self.push_face_node(
+                            [nx, mouth_y],
+                            mouth_h * 1.18,
+                            [0.15, 0.18, 0.25, 0.96],
+                        );
+                        self.push_face_node(
+                            [nx + mouth_w, mouth_y],
+                            mouth_h,
+                            [0.15, 0.18, 0.25, 0.92],
+                        );
+                        self.push_face_node(
+                            [nx, mouth_y + mouth_h * 0.18],
+                            mouth_h * 0.42,
+                            [0.90, 0.56, 0.58, 0.28],
+                        );
                     } else {
                         let smile_color = [0.15, 0.18, 0.25, 0.90];
                         let smile_r = eye_white_r * 0.18;
-                        self.push_face_node([nx - eye_spacing * 0.34, mouth_y], smile_r, smile_color);
+                        self.push_face_node(
+                            [nx - eye_spacing * 0.34, mouth_y],
+                            smile_r,
+                            smile_color,
+                        );
                         self.push_face_node([nx, mouth_y + smile_r * 0.22], smile_r, smile_color);
-                        self.push_face_node([nx + eye_spacing * 0.34, mouth_y], smile_r, smile_color);
+                        self.push_face_node(
+                            [nx + eye_spacing * 0.34, mouth_y],
+                            smile_r,
+                            smile_color,
+                        );
                     }
                 }
             }
@@ -2094,11 +2227,14 @@ impl Renderer {
             return;
         }
 
-        if total_node_instances + 2 > self.node_instance_capacity || self.node_instance_buf.is_none() {
+        if total_node_instances + 2 > self.node_instance_capacity
+            || self.node_instance_buf.is_none()
+        {
             let capacity = ((total_node_instances + 2) * 3 / 2).max(64);
             let buf_size = (capacity * std::mem::size_of::<NodeInstance>()) as u64;
             self.node_instance_buf = Some(
-                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                self.device
+                    .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.node_instance_capacity = capacity;
         }
@@ -2118,7 +2254,8 @@ impl Renderer {
             let capacity = (velocity_count * 3 / 2).max(64);
             let buf_size = (capacity * std::mem::size_of::<[f32; 2]>()) as u64;
             self.node_velocity_buf = Some(
-                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                self.device
+                    .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.node_velocity_capacity = capacity;
         }
@@ -2131,14 +2268,18 @@ impl Renderer {
                     ptr,
                     self.classic_velocity_scratch.len(),
                 );
-                for index in self.classic_velocity_scratch.len()..velocity_count.min(self.node_velocity_capacity) {
+                for index in self.classic_velocity_scratch.len()
+                    ..velocity_count.min(self.node_velocity_capacity)
+                {
                     *ptr.add(index) = [0.0, 0.0];
                 }
             }
         }
 
-        let should_draw_edges = lod.draw_edges && !lod.cluster_nodes
+        let should_draw_edges = lod.draw_edges
+            && !lod.cluster_nodes
             && !(self.edges_hidden && self.edge_filter_node.is_none());
+        self.clear_aggregated_edges();
         if should_draw_edges {
             // When filtering to a single node, only collect that node's edges (O(degree) not O(E)).
             if let Some(filter_id) = self.edge_filter_node {
@@ -2151,13 +2292,14 @@ impl Renderer {
             for candidate_index in 0..self.edge_candidate_indices.len() {
                 let edge_index = self.edge_candidate_indices[candidate_index];
                 let edge = &world.edges[edge_index];
-                let (Some(src_index), Some(tgt_index)) = (
-                    world.index_of(edge.source),
-                    world.index_of(edge.target),
-                ) else {
+                let (Some(src_index), Some(tgt_index)) =
+                    (world.index_of(edge.source), world.index_of(edge.target))
+                else {
                     continue;
                 };
-                if world.graph_node[src_index].visible == 0 || world.graph_node[tgt_index].visible == 0 {
+                if world.graph_node[src_index].visible == 0
+                    || world.graph_node[tgt_index].visible == 0
+                {
                     continue;
                 }
 
@@ -2166,29 +2308,25 @@ impl Renderer {
                 if (p0[0] == 0.0 && p0[1] == 0.0) || (p1[0] == 0.0 && p1[1] == 0.0) {
                     continue;
                 }
-                if !p0[0].is_finite() || !p0[1].is_finite() || !p1[0].is_finite() || !p1[1].is_finite() {
+                if !p0[0].is_finite()
+                    || !p0[1].is_finite()
+                    || !p1[0].is_finite()
+                    || !p1[1].is_finite()
+                {
                     continue;
                 }
                 if !self.edge_allowed_by_lod(world, lod, src_index, tgt_index) {
                     continue;
                 }
 
-                let src_in_view = self.node_in_view(view_bounds, p0, world.graph_node[src_index].radius);
-                let tgt_in_view = self.node_in_view(view_bounds, p1, world.graph_node[tgt_index].radius);
-                if view_bounds.is_some() && !(src_in_view || tgt_in_view) {
-                    continue;
-                }
-                let color = self.classic_edge_instance_color(world, edge, src_index, tgt_index, p0, p1);
+                let color =
+                    self.classic_edge_instance_color(world, edge, src_index, tgt_index, p0, p1);
                 let v0 = [world.velocity[src_index].vx, world.velocity[src_index].vy];
                 let v1 = [world.velocity[tgt_index].vx, world.velocity[tgt_index].vy];
                 let ideal_length = self.link_distance / edge.weight.max(0.01);
                 let (c0, c1) = string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
-                if let Some(bounds) = view_bounds {
-                    if !(segment_intersects_bounds(bounds, p0, p1)
-                        || curve_intersects_bounds(bounds, p0, c0, c1, p1))
-                    {
-                        continue;
-                    }
+                if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
+                    continue;
                 }
                 Self::push_curve_edge_instance(
                     &mut self.classic_edge_scratch,
@@ -2205,11 +2343,14 @@ impl Renderer {
 
         self.edge_instance_count = self.classic_edge_scratch.len();
         if self.edge_instance_count > 0 {
-            if self.edge_instance_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+            if self.edge_instance_count > self.edge_instance_capacity
+                || self.edge_instance_buf.is_none()
+            {
                 let capacity = (self.edge_instance_count * 3 / 2).max(64);
                 let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
                 self.edge_instance_buf = Some(
-                    self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                    self.device
+                        .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
                 );
                 self.edge_instance_capacity = capacity;
             }
@@ -2257,11 +2398,14 @@ impl Renderer {
         }
         self.aggregated_edge_count = self.classic_edge_scratch.len();
 
-        if self.aggregated_edge_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+        if self.aggregated_edge_count > self.edge_instance_capacity
+            || self.edge_instance_buf.is_none()
+        {
             let capacity = (self.aggregated_edge_count * 3 / 2).max(64);
             let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
             self.edge_instance_buf = Some(
-                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                self.device
+                    .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.edge_instance_capacity = capacity;
         }
@@ -2287,10 +2431,14 @@ impl Renderer {
     /// +2 for highlight rings, +hub_count for glow instances.
     pub fn allocate_buffers(&mut self, world: &World) {
         let hub_count = (0..world.len())
-            .filter(|&index| world.graph_node[index].visible != 0 && world.hierarchy[index].link_count >= 9)
+            .filter(|&index| {
+                world.graph_node[index].visible != 0 && world.hierarchy[index].link_count >= 9
+            })
             .count();
         let confidence_glow_count = (0..world.len())
-            .filter(|&index| world.graph_node[index].visible != 0 && world.graph_node[index].confidence > 0.0)
+            .filter(|&index| {
+                world.graph_node[index].visible != 0 && world.graph_node[index].confidence > 0.0
+            })
             .count();
         let node_count = world.len() + 2 + hub_count + confidence_glow_count;
         let edge_count = world.edges.len();
@@ -2299,7 +2447,8 @@ impl Renderer {
             let capacity = (node_count * 3 / 2).max(64);
             let buf_size = (capacity * std::mem::size_of::<NodeInstance>()) as u64;
             self.node_instance_buf = Some(
-                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                self.device
+                    .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.node_instance_capacity = capacity;
         }
@@ -2308,7 +2457,8 @@ impl Renderer {
             let capacity = (edge_count * 3 / 2).max(64);
             let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
             self.edge_instance_buf = Some(
-                self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                self.device
+                    .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.edge_instance_capacity = capacity;
         }
@@ -2318,7 +2468,10 @@ impl Renderer {
 
     /// Simple LCG random: returns float in [-1, 1].
     fn rand_float(&mut self) -> f32 {
-        self.wind_rng_state = self.wind_rng_state.wrapping_mul(1103515245).wrapping_add(12345);
+        self.wind_rng_state = self
+            .wind_rng_state
+            .wrapping_mul(1103515245)
+            .wrapping_add(12345);
         (self.wind_rng_state >> 16) as f32 / 32768.0 - 1.0
     }
 
@@ -2355,8 +2508,11 @@ impl Renderer {
             p[3] += (self.wind_y * 0.8 - p[3]) * 0.1;
             p[0] += p[2] * dt;
             p[1] += p[3] * dt;
-            if p[0] < cx - half_w * 1.3 || p[0] > cx + half_w * 1.3
-            || p[1] < cy - half_h * 1.3 || p[1] > cy + half_h * 1.3 {
+            if p[0] < cx - half_w * 1.3
+                || p[0] > cx + half_w * 1.3
+                || p[1] < cy - half_h * 1.3
+                || p[1] > cy + half_h * 1.3
+            {
                 // Respawn within viewport.
                 // Use self.wind_rng_state for deterministic randomness.
                 let state = &mut (p[0].to_bits() ^ p[1].to_bits() ^ 0xDEAD_BEEF);
@@ -2383,7 +2539,9 @@ impl Renderer {
 
     /// Append highlight ring instances after glow + regular node instances.
     pub fn set_highlights(&mut self, selected: Option<u32>, hovered: Option<u32>, world: &World) {
-        let Some(buf) = &self.node_instance_buf else { return };
+        let Some(buf) = &self.node_instance_buf else {
+            return;
+        };
         let ptr = buf.contents() as *mut NodeInstance;
         let mut idx = self.glow_count + self.node_count + self.face_feature_count;
         let capacity = self.node_instance_capacity;
@@ -2435,15 +2593,22 @@ impl Renderer {
     /// Called every frame — cheap (N bytes) and ensures highlight changes are always visible,
     /// even when physics is settled and update_positions isn't running.
     pub fn rebuild_highlight_flags(&mut self, world: &World) {
-        let total = self.glow_count + self.node_count + self.face_feature_count + self.highlight_count;
-        if total == 0 { return; }
+        let total =
+            self.glow_count + self.node_count + self.face_feature_count + self.highlight_count;
+        if total == 0 {
+            return;
+        }
 
         // Flag encoding: 0=normal, 1=highlighted, 2=dim-dark, 3=dim-light, 4+=value/255.
-        const NODE_DIM_DARK: u8 = 2;   // dark mode: strong dim + desaturate
-        const NODE_DIM_LIGHT: u8 = 3;  // light mode: gentle fade + desaturate
-        const GLOW_DIM: u8 = 5;        // glow dim factor ≈ 0.020
+        const NODE_DIM_DARK: u8 = 2; // dark mode: strong dim + desaturate
+        const NODE_DIM_LIGHT: u8 = 3; // light mode: gentle fade + desaturate
+        const GLOW_DIM: u8 = 5; // glow dim factor ≈ 0.020
 
-        let node_dim = if self.light_mode { NODE_DIM_LIGHT } else { NODE_DIM_DARK };
+        let node_dim = if self.light_mode {
+            NODE_DIM_LIGHT
+        } else {
+            NODE_DIM_DARK
+        };
 
         // Reuse pre-allocated scratch buffer (avoids heap allocation every frame).
         self.highlight_flag_scratch.clear();
@@ -2456,11 +2621,13 @@ impl Renderer {
                 let graph_node = &world.graph_node[node_index];
                 let lit = self.highlight.highlighted_ids.contains(&graph_node.node_id);
                 if world.hierarchy[node_index].link_count >= 9 && glow_flags < self.glow_count {
-                    self.highlight_flag_scratch.push(if lit { 1 } else { GLOW_DIM });
+                    self.highlight_flag_scratch
+                        .push(if lit { 1 } else { GLOW_DIM });
                     glow_flags += 1;
                 }
                 if graph_node.confidence > 0.0 && glow_flags < self.glow_count {
-                    self.highlight_flag_scratch.push(if lit { 1 } else { GLOW_DIM });
+                    self.highlight_flag_scratch
+                        .push(if lit { 1 } else { GLOW_DIM });
                     glow_flags += 1;
                 }
             }
@@ -2471,7 +2638,8 @@ impl Renderer {
             for &node_index in &self.rendered_node_indices {
                 let graph_node = &world.graph_node[node_index];
                 let lit = self.highlight.highlighted_ids.contains(&graph_node.node_id);
-                self.highlight_flag_scratch.push(if lit { 1 } else { node_dim });
+                self.highlight_flag_scratch
+                    .push(if lit { 1 } else { node_dim });
             }
             self.highlight_flag_scratch.resize(
                 self.glow_count + self.node_count + self.face_feature_count,
@@ -2495,7 +2663,8 @@ impl Renderer {
         if needed > self.highlight_flag_capacity || self.highlight_flag_buf.is_none() {
             let capacity = (needed * 3 / 2).max(64);
             self.highlight_flag_buf = Some(
-                self.device.new_buffer(capacity as u64, MTLResourceOptions::StorageModeShared),
+                self.device
+                    .new_buffer(capacity as u64, MTLResourceOptions::StorageModeShared),
             );
             self.highlight_flag_capacity = capacity;
         }
@@ -2516,7 +2685,9 @@ impl Renderer {
     pub fn update_field_lines(&mut self, hovered: Option<u32>, world: &World, time: f32) {
         if hovered == self.field_line_hovered_id && hovered.is_some() {
             // Same node still hovered — just update positions with time animation.
-            if hovered.is_none() { return; }
+            if hovered.is_none() {
+                return;
+            }
         }
         self.field_line_hovered_id = hovered;
 
@@ -2558,8 +2729,12 @@ impl Renderer {
                 continue;
             };
 
-            let Some(n_idx) = world.index_of(neighbor_entity) else { continue; };
-            if world.graph_node[n_idx].visible == 0 { continue; }
+            let Some(n_idx) = world.index_of(neighbor_entity) else {
+                continue;
+            };
+            if world.graph_node[n_idx].visible == 0 {
+                continue;
+            }
 
             let n_pos = [world.transform[n_idx].x, world.transform[n_idx].y];
             let dx = n_pos[0] - hov_pos[0];
@@ -2599,7 +2774,8 @@ impl Renderer {
                 let capacity = (self.field_line_count * 3 / 2).max(64);
                 let buf_size = (capacity * std::mem::size_of::<LineEdgeInstance>()) as u64;
                 self.field_line_buf = Some(
-                    self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                    self.device
+                        .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
                 );
                 self.field_line_capacity = capacity;
             }
@@ -2621,10 +2797,10 @@ impl Renderer {
         if self.dialogue_pipeline.is_some() {
             return;
         }
-        let library = match self.device.new_library_with_source(
-            DIALOGUE_SHADER_SOURCE,
-            &CompileOptions::new(),
-        ) {
+        let library = match self
+            .device
+            .new_library_with_source(DIALOGUE_SHADER_SOURCE, &CompileOptions::new())
+        {
             Ok(lib) => lib,
             Err(e) => {
                 eprintln!("dialogue shader compile: {e}");
@@ -2685,7 +2861,10 @@ impl Renderer {
         let Some(node_index) = self.dialogue.node_index else {
             return None;
         };
-        if node_index >= world.len() || self.last_viewport_width <= 0.0 || self.last_viewport_height <= 0.0 {
+        if node_index >= world.len()
+            || self.last_viewport_width <= 0.0
+            || self.last_viewport_height <= 0.0
+        {
             return None;
         }
 
@@ -2713,7 +2892,8 @@ impl Renderer {
         );
         let vw = self.last_viewport_width;
         let vh = self.last_viewport_height;
-        let (preferred_box_bottom_y, tail_tip_y) = dialogue_box_vertical_layout(node_y, node_radius, zoom);
+        let (preferred_box_bottom_y, tail_tip_y) =
+            dialogue_box_vertical_layout(node_y, node_radius, zoom);
         let preferred_box_top_y = preferred_box_bottom_y - box_h_world;
         let max_box_top_y = tail_tip_y - layout.tail_screen_height / zoom - box_h_world;
         let box_top_y = clamp_dialogue_box_top(
@@ -2796,10 +2976,15 @@ impl Renderer {
 
         // Upload vertices to GPU buffer.
         let needed_bytes = (vertex_count * std::mem::size_of::<DialogueVertex>()) as u64;
-        if self.dialogue_vertex_buf.as_ref().is_none_or(|b| b.length() < needed_bytes) {
+        if self
+            .dialogue_vertex_buf
+            .as_ref()
+            .is_none_or(|b| b.length() < needed_bytes)
+        {
             let capacity_bytes = (needed_bytes * 3 / 2).max(1024);
             self.dialogue_vertex_buf = Some(
-                self.device.new_buffer(capacity_bytes, MTLResourceOptions::StorageModeShared),
+                self.device
+                    .new_buffer(capacity_bytes, MTLResourceOptions::StorageModeShared),
             );
         }
         if let Some(buf) = &self.dialogue_vertex_buf {
@@ -2854,11 +3039,7 @@ impl Renderer {
         if let (Some(vbuf), Some(ubuf)) = (&self.dialogue_vertex_buf, &self.dialogue_uniform_buf) {
             encoder.set_vertex_buffer(0, Some(vbuf), 0);
             encoder.set_vertex_buffer(1, Some(ubuf), 0);
-            encoder.draw_primitives(
-                MTLPrimitiveType::Triangle,
-                0,
-                vertex_count as u64,
-            );
+            encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertex_count as u64);
         }
     }
 
@@ -2905,7 +3086,12 @@ impl Renderer {
             // Auto-expire after 2 seconds.
             let pulse_t = if self.pulse_start > 0.0 {
                 let dt = elapsed - self.pulse_start;
-                if dt > 2.0 { self.pulse_start = 0.0; -1.0 } else { dt }
+                if dt > 2.0 {
+                    self.pulse_start = 0.0;
+                    -1.0
+                } else {
+                    dt
+                }
             } else {
                 -1.0
             };
@@ -2926,7 +3112,11 @@ impl Renderer {
                 zoom_velocity: 0.0,
                 lite_mode: self.quality_level as f32,
                 impact_intensity: self.impact_intensity,
-                dialogue_theme: if self.visual_theme == VisualTheme::Dialogue { 1.0 } else { 0.0 },
+                dialogue_theme: if self.visual_theme == VisualTheme::Dialogue {
+                    1.0
+                } else {
+                    0.0
+                },
             };
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;
@@ -2977,12 +3167,7 @@ impl Renderer {
                 encoder.set_render_pipeline_state(&self.field_line_pipeline);
                 encoder.set_vertex_buffer(0, Some(fl_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
-                encoder.draw_primitives_instanced(
-                    MTLPrimitiveType::Triangle,
-                    0,
-                    6,
-                    fl_draw as u64,
-                );
+                encoder.draw_primitives_instanced(MTLPrimitiveType::Triangle, 0, 6, fl_draw as u64);
             }
 
             // Draw nodes: glow instances + regular nodes + highlight rings.
@@ -2993,8 +3178,7 @@ impl Renderer {
             {
                 // Safety: clamp draw count to actual buffer capacities.
                 // Metal validates that shader reads don't exceed buffer length.
-                let draw_count = total_instances
-                    .min(self.node_instance_capacity);
+                let draw_count = total_instances.min(self.node_instance_capacity);
 
                 encoder.set_render_pipeline_state(&self.node_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
@@ -3006,7 +3190,9 @@ impl Renderer {
                 // Ensure buffer exists AND is large enough for draw_count.
                 if self.highlight_flag_buf.is_none() || self.highlight_flag_capacity < draw_count {
                     let cap = (draw_count * 3 / 2).max(64);
-                    let buf = self.device.new_buffer(cap as u64, MTLResourceOptions::StorageModeShared);
+                    let buf = self
+                        .device
+                        .new_buffer(cap as u64, MTLResourceOptions::StorageModeShared);
                     self.highlight_flag_buf = Some(buf);
                     self.highlight_flag_capacity = cap;
                 }
@@ -3020,7 +3206,8 @@ impl Renderer {
                     let cap = (draw_count * 3 / 2).max(64);
                     let buf_size = (cap * std::mem::size_of::<[f32; 2]>()) as u64;
                     self.node_velocity_buf = Some(
-                        self.device.new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
+                        self.device
+                            .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
                     );
                     self.node_velocity_capacity = cap;
                 }
@@ -3053,14 +3240,12 @@ impl Renderer {
 mod tests {
     use super::*;
 
-
     #[test]
     fn z_for_link_count_tiers() {
         assert!(z_for_link_count(0) < z_for_link_count(4));
         assert!(z_for_link_count(4) < z_for_link_count(7));
         assert!(z_for_link_count(7) < z_for_link_count(10));
     }
-
 
     #[test]
     fn uniforms_size_matches_metal() {
@@ -3123,7 +3308,11 @@ mod tests {
             max_x: 100.0,
             max_y: 100.0,
         };
-        assert!(segment_intersects_bounds(bounds, [-20.0, 50.0], [120.0, 50.0]));
+        assert!(segment_intersects_bounds(
+            bounds,
+            [-20.0, 50.0],
+            [120.0, 50.0]
+        ));
     }
 
     #[test]
@@ -3131,6 +3320,42 @@ mod tests {
         let bounds = viewport_bounds([0.0, 0.0], 1.0, [200.0, 200.0], 0.0);
         assert!(bounds_intersects_circle(bounds, [90.0, 0.0], 12.0));
         assert!(!bounds_intersects_circle(bounds, [150.0, 0.0], 12.0));
+    }
+
+    #[test]
+    fn sort_and_dedup_indices_collapses_duplicate_candidates() {
+        let mut indices = vec![4, 1, 4, 2, 1, 3];
+        sort_and_dedup_indices(&mut indices);
+        assert_eq!(indices, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn edge_visibility_keeps_curve_crossing_view_even_if_endpoints_are_outside() {
+        let bounds = viewport_bounds([0.0, 0.0], 1.0, [200.0, 200.0], 0.0);
+        let p0 = [-160.0, 0.0];
+        let p1 = [160.0, 0.0];
+        let c0 = [-40.0, 90.0];
+        let c1 = [40.0, 90.0];
+
+        assert!(edge_intersects_view(Some(bounds), p0, p1, c0, c1));
+    }
+
+    #[test]
+    fn display_velocity_suppresses_minor_motion_artifacts() {
+        assert_eq!(display_velocity(2.0, 1.0), [0.0, 0.0]);
+    }
+
+    #[test]
+    fn display_velocity_caps_large_motion_stretch() {
+        let velocity = display_velocity(240.0, 0.0);
+        assert!(velocity[0] <= 18.0);
+        assert_eq!(velocity[1], 0.0);
+    }
+
+    #[test]
+    fn render_velocity_suppresses_motion_while_camera_animates() {
+        assert_eq!(render_velocity(120.0, 40.0, true), [0.0, 0.0]);
+        assert_ne!(render_velocity(120.0, 40.0, false), [0.0, 0.0]);
     }
 
     #[test]
@@ -3194,7 +3419,6 @@ mod tests {
         assert!(box_bottom_y < tail_tip_y);
     }
 
-
     #[test]
     fn string_edge_control_points_bend_off_center_line() {
         let (c0, c1) = string_edge_control_points(
@@ -3242,7 +3466,6 @@ mod tests {
         let taut_sag = taut.0[1].abs().max(taut.1[1].abs());
         assert!(relaxed_sag > taut_sag);
     }
-
 
     #[test]
     fn glow_instance_cutoff_stays_between_nodes_and_glows() {

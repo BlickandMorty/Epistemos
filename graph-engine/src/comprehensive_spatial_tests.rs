@@ -8,13 +8,21 @@ mod tests {
         Node {
             id,
             uuid: format!("uuid-{}", id),
-            x, y, vx: 0.0, vy: 0.0, fx: None, fy: None,
+            x,
+            y,
+            vx: 0.0,
+            vy: 0.0,
+            fx: None,
+            fy: None,
             node_type: NodeType::from_u8(0),
             link_count: 1,
             radius,
             label: format!("N{}", id),
             visible,
-            created_at: 0.0, updated_at: 0.0, confidence: 0.0, color_override: [0.0; 4],
+            created_at: 0.0,
+            updated_at: 0.0,
+            confidence: 0.0,
+            color_override: [0.0; 4],
         }
     }
 
@@ -2453,7 +2461,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -2555,7 +2566,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -2657,7 +2671,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -2759,7 +2776,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -2861,7 +2881,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -2963,7 +2986,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3065,7 +3091,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3167,7 +3196,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3269,7 +3301,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3368,7 +3403,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3459,7 +3497,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3549,7 +3590,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3639,7 +3683,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3729,7 +3776,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3819,7 +3869,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3909,7 +3962,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -3999,7 +4055,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4089,7 +4148,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4179,7 +4241,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4269,7 +4334,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4359,7 +4427,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4449,7 +4520,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4539,7 +4613,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4629,7 +4706,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4719,7 +4799,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4809,7 +4892,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4899,7 +4985,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -4989,7 +5078,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5079,7 +5171,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5169,7 +5264,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5259,7 +5357,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5349,7 +5450,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5439,7 +5543,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5529,7 +5636,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5619,7 +5729,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5709,7 +5822,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 1 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 1 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5802,7 +5918,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -5904,7 +6023,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6006,7 +6128,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6108,7 +6233,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6210,7 +6338,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6312,7 +6443,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6414,7 +6548,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6516,7 +6653,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6618,7 +6758,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6717,7 +6860,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6808,7 +6954,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6898,7 +7047,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -6988,7 +7140,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7078,7 +7233,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7168,7 +7326,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7258,7 +7419,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7348,7 +7512,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7438,7 +7605,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7528,7 +7698,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7618,7 +7791,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7708,7 +7884,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7798,7 +7977,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7888,7 +8070,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -7978,7 +8163,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8068,7 +8256,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8158,7 +8349,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8248,7 +8442,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8338,7 +8535,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8428,7 +8628,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8518,7 +8721,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8608,7 +8814,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8698,7 +8907,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8788,7 +9000,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8878,7 +9093,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -8968,7 +9186,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9058,7 +9279,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 10 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 10 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9151,7 +9375,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9253,7 +9480,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9355,7 +9585,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9457,7 +9690,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9559,7 +9795,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9661,7 +9900,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9763,7 +10005,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9865,7 +10110,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -9967,7 +10215,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10066,7 +10317,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10157,7 +10411,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10247,7 +10504,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10337,7 +10597,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10427,7 +10690,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10517,7 +10783,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10607,7 +10876,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10697,7 +10969,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10787,7 +11062,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10877,7 +11155,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -10967,7 +11248,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11057,7 +11341,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11147,7 +11434,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11237,7 +11527,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11327,7 +11620,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11417,7 +11713,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11507,7 +11806,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11597,7 +11899,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11687,7 +11992,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11777,7 +12085,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11867,7 +12178,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -11957,7 +12271,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12047,7 +12364,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12137,7 +12457,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12227,7 +12550,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12317,7 +12643,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12407,7 +12736,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 100 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 100 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12500,7 +12832,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12602,7 +12937,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12704,7 +13042,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12806,7 +13147,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -12908,7 +13252,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13010,7 +13357,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13112,7 +13462,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13214,7 +13567,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13316,7 +13672,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13415,7 +13774,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13506,7 +13868,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13596,7 +13961,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13686,7 +14054,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13776,7 +14147,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13866,7 +14240,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -13956,7 +14333,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14046,7 +14426,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14136,7 +14519,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14226,7 +14612,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14316,7 +14705,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14406,7 +14798,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14496,7 +14891,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14586,7 +14984,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14676,7 +15077,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14766,7 +15170,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14856,7 +15263,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -14946,7 +15356,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15036,7 +15449,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15126,7 +15542,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15216,7 +15635,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15306,7 +15728,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15396,7 +15821,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15486,7 +15914,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15576,7 +16007,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15666,7 +16100,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15756,7 +16193,10 @@ mod tests {
         if target_node.visible {
             assert!(res.is_some(), "Should hit center of visible point");
         } else {
-            assert!(res.is_none() || 500 > 1, "Should not hit invisible point unless coincident with a visible one");
+            assert!(
+                res.is_none() || 500 > 1,
+                "Should not hit invisible point unless coincident with a visible one"
+            );
         }
     }
 
@@ -15825,5 +16265,4 @@ mod tests {
             let _ = idx.query_point(j as f32 * 10.0, j as f32 * 10.0);
         }
     }
-
 }

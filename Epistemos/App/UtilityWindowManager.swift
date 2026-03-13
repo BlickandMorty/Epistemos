@@ -38,6 +38,20 @@ enum WindowThemeStyler {
             window.backgroundColor = theme.nsBackground
         }
         applyBackdrop(in: window.contentView, theme: theme)
+        refreshChrome(of: window)
+    }
+
+    static func refreshChrome(of window: NSWindow) {
+        window.contentView?.needsDisplay = true
+        window.contentView?.displayIfNeeded()
+        window.contentViewController?.view.needsDisplay = true
+        window.contentViewController?.view.displayIfNeeded()
+        window.contentView?.superview?.needsDisplay = true
+        window.contentView?.superview?.displayIfNeeded()
+        window.standardWindowButton(.closeButton)?.superview?.needsDisplay = true
+        window.standardWindowButton(.closeButton)?.superview?.displayIfNeeded()
+        window.toolbar?.validateVisibleItems()
+        window.invalidateShadow()
     }
 
     private static func applyBackdrop(in root: NSView?, theme: EpistemosTheme) {

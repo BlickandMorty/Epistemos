@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::block_kernel::op::{BlockId, Op, PropertyValue};
+use std::collections::HashMap;
 
 /// Extract trailing @key=value properties from block content.
 /// Mirrors the Swift BlockPropertyParser pattern: only trailing @key=value pairs.
@@ -15,14 +15,18 @@ fn parse_inline_properties(content: &str) -> HashMap<String, PropertyValue> {
         while pos > 0 && bytes[pos - 1] == b' ' {
             pos -= 1;
         }
-        if pos == 0 { break; }
+        if pos == 0 {
+            break;
+        }
 
         // Find the value: non-whitespace, non-@ chars backward
         let val_end = pos;
         while pos > 0 && bytes[pos - 1] != b' ' && bytes[pos - 1] != b'=' {
             pos -= 1;
         }
-        if pos == 0 || bytes[pos - 1] != b'=' { break; }
+        if pos == 0 || bytes[pos - 1] != b'=' {
+            break;
+        }
         let val_start = pos;
         pos -= 1; // skip '='
 
@@ -31,9 +35,13 @@ fn parse_inline_properties(content: &str) -> HashMap<String, PropertyValue> {
         while pos > 0 && (bytes[pos - 1].is_ascii_alphanumeric() || bytes[pos - 1] == b'_') {
             pos -= 1;
         }
-        if pos == key_end { break; } // empty key
+        if pos == key_end {
+            break;
+        } // empty key
         // Must be preceded by '@'
-        if pos == 0 || bytes[pos - 1] != b'@' { break; }
+        if pos == 0 || bytes[pos - 1] != b'@' {
+            break;
+        }
         let key_start = pos;
         pos -= 1; // skip '@'
 
@@ -46,12 +54,20 @@ fn parse_inline_properties(content: &str) -> HashMap<String, PropertyValue> {
 }
 
 fn parse_property_value(raw: &str) -> PropertyValue {
-    if raw.eq_ignore_ascii_case("true") { return PropertyValue::Bool(true); }
-    if raw.eq_ignore_ascii_case("false") { return PropertyValue::Bool(false); }
-    if let Ok(i) = raw.parse::<i64>() {
-        if !raw.contains('.') { return PropertyValue::Int(i); }
+    if raw.eq_ignore_ascii_case("true") {
+        return PropertyValue::Bool(true);
     }
-    if let Ok(f) = raw.parse::<f32>() { return PropertyValue::Float(f); }
+    if raw.eq_ignore_ascii_case("false") {
+        return PropertyValue::Bool(false);
+    }
+    if let Ok(i) = raw.parse::<i64>() {
+        if !raw.contains('.') {
+            return PropertyValue::Int(i);
+        }
+    }
+    if let Ok(f) = raw.parse::<f32>() {
+        return PropertyValue::Float(f);
+    }
     PropertyValue::String(raw.to_string())
 }
 
@@ -62,7 +78,7 @@ pub struct Block {
     pub content: String,
     pub depth: u16,
     pub order: u32,
-    pub children: Vec<BlockId>,  // Sorted by order
+    pub children: Vec<BlockId>, // Sorted by order
     pub properties: HashMap<String, PropertyValue>,
 }
 
@@ -85,7 +101,8 @@ impl BlockTree {
     fn sort_children_by_order(&mut self, parent_id: &BlockId) {
         if let Some(parent) = self.blocks.get(parent_id) {
             // Collect (id, order) pairs
-            let mut pairs: Vec<(BlockId, u32)> = parent.children
+            let mut pairs: Vec<(BlockId, u32)> = parent
+                .children
                 .iter()
                 .map(|id| (*id, self.blocks.get(id).map_or(0, |b| b.order)))
                 .collect();
@@ -103,7 +120,13 @@ impl BlockTree {
     /// Apply a single op, mutating the tree in place.
     pub fn apply(&mut self, op: &Op) {
         match op {
-            Op::InsertBlock { block_id, parent_id, position, content, depth } => {
+            Op::InsertBlock {
+                block_id,
+                parent_id,
+                position,
+                content,
+                depth,
+            } => {
                 let block = Block {
                     id: *block_id,
                     parent_id: *parent_id,
@@ -124,7 +147,8 @@ impl BlockTree {
                 } else {
                     self.roots.push(*block_id);
                     // Sort roots
-                    let mut pairs: Vec<(BlockId, u32)> = self.roots
+                    let mut pairs: Vec<(BlockId, u32)> = self
+                        .roots
                         .iter()
                         .map(|id| (*id, self.blocks.get(id).map_or(0, |b| b.order)))
                         .collect();
@@ -134,10 +158,11 @@ impl BlockTree {
             }
             Op::DeleteBlock { block_id } => {
                 // First, collect all info we need before any mutations
-                let block_info = self.blocks.get(block_id).map(|b| {
-                    (b.parent_id, b.children.clone())
-                });
-                
+                let block_info = self
+                    .blocks
+                    .get(block_id)
+                    .map(|b| (b.parent_id, b.children.clone()));
+
                 if let Some((parent_id, children)) = block_info {
                     // Reparent children
                     for child_id in &children {
@@ -145,10 +170,10 @@ impl BlockTree {
                             child.parent_id = parent_id;
                         }
                     }
-                    
+
                     // Remove the block
                     self.blocks.remove(block_id);
-                    
+
                     // Update parent's children list or roots
                     if let Some(pid) = parent_id {
                         if let Some(parent) = self.blocks.get_mut(&pid) {
@@ -159,7 +184,8 @@ impl BlockTree {
                     } else {
                         self.roots.retain(|id| id != block_id);
                         self.roots.extend_from_slice(&children);
-                        let mut pairs: Vec<(BlockId, u32)> = self.roots
+                        let mut pairs: Vec<(BlockId, u32)> = self
+                            .roots
                             .iter()
                             .map(|id| (*id, self.blocks.get(id).map_or(0, |b| b.order)))
                             .collect();
@@ -178,7 +204,11 @@ impl BlockTree {
                     block.properties = inline;
                 }
             }
-            Op::SplitBlock { block_id, offset, new_block_id } => {
+            Op::SplitBlock {
+                block_id,
+                offset,
+                new_block_id,
+            } => {
                 let (new_content, remaining_content, parent_id, depth, order) = {
                     if let Some(block) = self.blocks.get(block_id) {
                         // Snap offset to nearest char boundary to avoid panic on multi-byte UTF-8.
@@ -211,12 +241,18 @@ impl BlockTree {
                 if let (Some(append), Some(target)) = (content, self.blocks.get_mut(into_id)) {
                     target.content.push_str(&append);
                 }
-                self.apply(&Op::DeleteBlock { block_id: *block_id });
+                self.apply(&Op::DeleteBlock {
+                    block_id: *block_id,
+                });
             }
-            Op::MoveSubtree { block_id, new_parent, position } => {
+            Op::MoveSubtree {
+                block_id,
+                new_parent,
+                position,
+            } => {
                 // Get old parent before any mutations
                 let old_parent = self.blocks.get(block_id).and_then(|b| b.parent_id);
-                
+
                 // Remove from old parent first
                 if let Some(pid) = old_parent {
                     if let Some(parent) = self.blocks.get_mut(&pid) {
@@ -225,13 +261,13 @@ impl BlockTree {
                 } else {
                     self.roots.retain(|id| id != block_id);
                 }
-                
+
                 // Update block's parent and order
                 if let Some(block) = self.blocks.get_mut(block_id) {
                     block.parent_id = *new_parent;
                     block.order = *position;
                 }
-                
+
                 // Add to new parent
                 if let Some(pid) = new_parent {
                     if let Some(parent) = self.blocks.get_mut(pid) {
@@ -240,7 +276,8 @@ impl BlockTree {
                     self.sort_children_by_order(pid);
                 } else {
                     self.roots.push(*block_id);
-                    let mut pairs: Vec<(BlockId, u32)> = self.roots
+                    let mut pairs: Vec<(BlockId, u32)> = self
+                        .roots
                         .iter()
                         .map(|id| (*id, self.blocks.get(id).map_or(0, |b| b.order)))
                         .collect();
@@ -248,11 +285,19 @@ impl BlockTree {
                     self.roots = pairs.into_iter().map(|(id, _)| id).collect();
                 }
             }
-            Op::SetProperty { block_id, key, value } => {
+            Op::SetProperty {
+                block_id,
+                key,
+                value,
+            } => {
                 if let Some(block) = self.blocks.get_mut(block_id) {
                     match value {
-                        PropertyValue::Null => { block.properties.remove(key); }
-                        _ => { block.properties.insert(key.clone(), value.clone()); }
+                        PropertyValue::Null => {
+                            block.properties.remove(key);
+                        }
+                        _ => {
+                            block.properties.insert(key.clone(), value.clone());
+                        }
                     }
                 }
             }
@@ -306,23 +351,36 @@ impl BlockTree {
 
     /// Returns true if any block matches the given depth filter.
     pub fn has_matching_depth(&self, op: u8, depth: u16) -> bool {
-        self.blocks.values().any(|b| compare_u16(b.depth, op, depth))
+        self.blocks
+            .values()
+            .any(|b| compare_u16(b.depth, op, depth))
     }
 
     /// Returns block IDs matching a property filter.
-    pub fn blocks_matching_property(&self, key: &str, op: u8, value: &PropertyValue) -> Vec<&Block> {
-        self.blocks.values().filter(|b| {
-            if let Some(prop) = b.properties.get(key) {
-                compare_property(prop, op, value)
-            } else {
-                false
-            }
-        }).collect()
+    pub fn blocks_matching_property(
+        &self,
+        key: &str,
+        op: u8,
+        value: &PropertyValue,
+    ) -> Vec<&Block> {
+        self.blocks
+            .values()
+            .filter(|b| {
+                if let Some(prop) = b.properties.get(key) {
+                    compare_property(prop, op, value)
+                } else {
+                    false
+                }
+            })
+            .collect()
     }
 
     /// Returns block IDs matching a depth filter.
     pub fn blocks_matching_depth(&self, op: u8, depth: u16) -> Vec<&Block> {
-        self.blocks.values().filter(|b| compare_u16(b.depth, op, depth)).collect()
+        self.blocks
+            .values()
+            .filter(|b| compare_u16(b.depth, op, depth))
+            .collect()
     }
 }
 
@@ -332,8 +390,8 @@ fn compare_property(prop: &PropertyValue, op: u8, value: &PropertyValue) -> bool
         (PropertyValue::Float(a), PropertyValue::Float(b)) => compare_f32(*a, op, *b),
         (PropertyValue::Int(a), PropertyValue::Int(b)) => compare_i64(*a, op, *b),
         (PropertyValue::Bool(a), PropertyValue::Bool(b)) => match op {
-            0 => a == b,  // eq
-            1 => a != b,  // neq
+            0 => a == b, // eq
+            1 => a != b, // neq
             _ => false,
         },
         (PropertyValue::String(a), PropertyValue::String(b)) => match op {
@@ -406,8 +464,11 @@ mod tests {
         let mut tree = BlockTree::new();
         let id = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: id, parent_id: None, position: 0,
-            content: "Hello".into(), depth: 0,
+            block_id: id,
+            parent_id: None,
+            position: 0,
+            content: "Hello".into(),
+            depth: 0,
         });
         assert_eq!(tree.block_count(), 1);
         assert_eq!(tree.get(&id).unwrap().content, "Hello");
@@ -418,14 +479,21 @@ mod tests {
         let mut tree = BlockTree::new();
         let id = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: id, parent_id: None, position: 0,
-            content: "original text that will be completely rewritten".into(), depth: 0,
+            block_id: id,
+            parent_id: None,
+            position: 0,
+            content: "original text that will be completely rewritten".into(),
+            depth: 0,
         });
         tree.apply(&Op::UpdateBlock {
-            block_id: id, content: "something totally different now".into(),
+            block_id: id,
+            content: "something totally different now".into(),
         });
         // ID is preserved — this is the whole point of BTK
-        assert_eq!(tree.get(&id).unwrap().content, "something totally different now");
+        assert_eq!(
+            tree.get(&id).unwrap().content,
+            "something totally different now"
+        );
         assert_eq!(tree.block_count(), 1);
     }
 
@@ -437,16 +505,25 @@ mod tests {
         let grandchild = BlockId::new();
 
         tree.apply(&Op::InsertBlock {
-            block_id: parent, parent_id: None, position: 0,
-            content: "parent".into(), depth: 0,
+            block_id: parent,
+            parent_id: None,
+            position: 0,
+            content: "parent".into(),
+            depth: 0,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: child, parent_id: Some(parent), position: 0,
-            content: "child".into(), depth: 1,
+            block_id: child,
+            parent_id: Some(parent),
+            position: 0,
+            content: "child".into(),
+            depth: 1,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: grandchild, parent_id: Some(child), position: 0,
-            content: "grandchild".into(), depth: 2,
+            block_id: grandchild,
+            parent_id: Some(child),
+            position: 0,
+            content: "grandchild".into(),
+            depth: 2,
         });
 
         // Delete the child — grandchild should be reparented to parent
@@ -462,11 +539,16 @@ mod tests {
         let id = BlockId::new();
         let new_id = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: id, parent_id: None, position: 0,
-            content: "Hello World".into(), depth: 0,
+            block_id: id,
+            parent_id: None,
+            position: 0,
+            content: "Hello World".into(),
+            depth: 0,
         });
         tree.apply(&Op::SplitBlock {
-            block_id: id, offset: 5, new_block_id: new_id,
+            block_id: id,
+            offset: 5,
+            new_block_id: new_id,
         });
         assert_eq!(tree.get(&id).unwrap().content, "Hello");
         assert_eq!(tree.get(&new_id).unwrap().content, " World");
@@ -478,14 +560,23 @@ mod tests {
         let a = BlockId::new();
         let b = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: a, parent_id: None, position: 0,
-            content: "Hello".into(), depth: 0,
+            block_id: a,
+            parent_id: None,
+            position: 0,
+            content: "Hello".into(),
+            depth: 0,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: b, parent_id: None, position: 1,
-            content: " World".into(), depth: 0,
+            block_id: b,
+            parent_id: None,
+            position: 1,
+            content: " World".into(),
+            depth: 0,
         });
-        tree.apply(&Op::MergeBlock { block_id: b, into_id: a });
+        tree.apply(&Op::MergeBlock {
+            block_id: b,
+            into_id: a,
+        });
         assert_eq!(tree.get(&a).unwrap().content, "Hello World");
         assert!(tree.get(&b).is_none());
     }
@@ -497,20 +588,31 @@ mod tests {
         let b = BlockId::new();
         let c = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: a, parent_id: None, position: 0,
-            content: "A".into(), depth: 0,
+            block_id: a,
+            parent_id: None,
+            position: 0,
+            content: "A".into(),
+            depth: 0,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: b, parent_id: None, position: 1,
-            content: "B".into(), depth: 0,
+            block_id: b,
+            parent_id: None,
+            position: 1,
+            content: "B".into(),
+            depth: 0,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: c, parent_id: Some(a), position: 0,
-            content: "C".into(), depth: 1,
+            block_id: c,
+            parent_id: Some(a),
+            position: 0,
+            content: "C".into(),
+            depth: 1,
         });
         // Move C under B
         tree.apply(&Op::MoveSubtree {
-            block_id: c, new_parent: Some(b), position: 0,
+            block_id: c,
+            new_parent: Some(b),
+            position: 0,
         });
         assert_eq!(tree.get(&c).unwrap().parent_id, Some(b));
     }
@@ -520,11 +622,15 @@ mod tests {
         let mut tree = BlockTree::new();
         let id = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: id, parent_id: None, position: 0,
-            content: "claim".into(), depth: 0,
+            block_id: id,
+            parent_id: None,
+            position: 0,
+            content: "claim".into(),
+            depth: 0,
         });
         tree.apply(&Op::SetProperty {
-            block_id: id, key: "confidence".into(),
+            block_id: id,
+            key: "confidence".into(),
             value: PropertyValue::Float(0.8),
         });
         assert_eq!(
@@ -532,10 +638,17 @@ mod tests {
             Some(&PropertyValue::Float(0.8))
         );
         tree.apply(&Op::SetProperty {
-            block_id: id, key: "confidence".into(),
+            block_id: id,
+            key: "confidence".into(),
             value: PropertyValue::Null,
         });
-        assert!(tree.get(&id).unwrap().properties.get("confidence").is_none());
+        assert!(
+            tree.get(&id)
+                .unwrap()
+                .properties
+                .get("confidence")
+                .is_none()
+        );
     }
 
     #[test]
@@ -545,16 +658,25 @@ mod tests {
         let b = BlockId::new();
         let c = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: a, parent_id: None, position: 0,
-            content: "A".into(), depth: 0,
+            block_id: a,
+            parent_id: None,
+            position: 0,
+            content: "A".into(),
+            depth: 0,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: c, parent_id: Some(a), position: 0,
-            content: "C".into(), depth: 1,
+            block_id: c,
+            parent_id: Some(a),
+            position: 0,
+            content: "C".into(),
+            depth: 1,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: b, parent_id: None, position: 1,
-            content: "B".into(), depth: 0,
+            block_id: b,
+            parent_id: None,
+            position: 1,
+            content: "B".into(),
+            depth: 0,
         });
         let walked: Vec<&str> = tree.walk().iter().map(|b| b.content.as_str()).collect();
         assert_eq!(walked, vec!["A", "C", "B"]);
@@ -565,12 +687,21 @@ mod tests {
         let mut tree = BlockTree::new();
         let id = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: id, parent_id: None, position: 0,
-            content: "This is a claim @tag=claim @confidence=0.8".into(), depth: 0,
+            block_id: id,
+            parent_id: None,
+            position: 0,
+            content: "This is a claim @tag=claim @confidence=0.8".into(),
+            depth: 0,
         });
         let block = tree.get(&id).unwrap();
-        assert_eq!(block.properties.get("tag"), Some(&PropertyValue::String("claim".into())));
-        assert_eq!(block.properties.get("confidence"), Some(&PropertyValue::Float(0.8)));
+        assert_eq!(
+            block.properties.get("tag"),
+            Some(&PropertyValue::String("claim".into()))
+        );
+        assert_eq!(
+            block.properties.get("confidence"),
+            Some(&PropertyValue::Float(0.8))
+        );
     }
 
     #[test]
@@ -578,24 +709,33 @@ mod tests {
         let mut tree = BlockTree::new();
         let id = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: id, parent_id: None, position: 0,
-            content: "text @tag=claim".into(), depth: 0,
+            block_id: id,
+            parent_id: None,
+            position: 0,
+            content: "text @tag=claim".into(),
+            depth: 0,
         });
-        assert_eq!(tree.get(&id).unwrap().properties.get("tag"),
-                   Some(&PropertyValue::String("claim".into())));
+        assert_eq!(
+            tree.get(&id).unwrap().properties.get("tag"),
+            Some(&PropertyValue::String("claim".into()))
+        );
 
         // Update removes the property
         tree.apply(&Op::UpdateBlock {
-            block_id: id, content: "text without properties".into(),
+            block_id: id,
+            content: "text without properties".into(),
         });
         assert!(tree.get(&id).unwrap().properties.is_empty());
 
         // Update adds a different property
         tree.apply(&Op::UpdateBlock {
-            block_id: id, content: "text @status=verified".into(),
+            block_id: id,
+            content: "text @status=verified".into(),
         });
-        assert_eq!(tree.get(&id).unwrap().properties.get("status"),
-                   Some(&PropertyValue::String("verified".into())));
+        assert_eq!(
+            tree.get(&id).unwrap().properties.get("status"),
+            Some(&PropertyValue::String("verified".into()))
+        );
     }
 
     #[test]
@@ -618,12 +758,18 @@ mod tests {
         let a = BlockId::new();
         let b = BlockId::new();
         tree.apply(&Op::InsertBlock {
-            block_id: a, parent_id: None, position: 0,
-            content: "claim @confidence=0.3".into(), depth: 0,
+            block_id: a,
+            parent_id: None,
+            position: 0,
+            content: "claim @confidence=0.3".into(),
+            depth: 0,
         });
         tree.apply(&Op::InsertBlock {
-            block_id: b, parent_id: None, position: 1,
-            content: "fact @confidence=0.9".into(), depth: 0,
+            block_id: b,
+            parent_id: None,
+            position: 1,
+            content: "fact @confidence=0.9".into(),
+            depth: 0,
         });
         // confidence < 0.5 should match only block a
         assert!(tree.has_matching_property("confidence", 2, &PropertyValue::Float(0.5))); // lt

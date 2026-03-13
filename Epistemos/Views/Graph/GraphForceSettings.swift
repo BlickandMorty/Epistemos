@@ -9,7 +9,6 @@ import SwiftUI
 struct GraphForceSettings: View {
     @Environment(GraphState.self) private var graphState
 
-    @State private var selectedPreset: PhysicsPreset? = .observatory
     @State private var showAdvanced = false
     @State private var showLaboratory = false
 
@@ -129,9 +128,8 @@ struct GraphForceSettings: View {
     }
 
     private func presetButton(_ preset: PhysicsPreset) -> some View {
-        let isSelected = selectedPreset == preset
+        let isSelected = graphState.selectedPhysicsPreset == preset
         return Button {
-            selectedPreset = preset
             graphState.applyPreset(preset)
         } label: {
             VStack(spacing: 3) {
@@ -166,7 +164,7 @@ struct GraphForceSettings: View {
                 value: gs.linkDistance,
                 range: 20...500,
                 format: "%.0f",
-                onChange: { graphState.pushForceChange(); selectedPreset = nil }
+                onChange: { graphState.pushForceChange() }
             )
 
             forceSlider(
@@ -174,7 +172,7 @@ struct GraphForceSettings: View {
                 value: gs.chargeStrength,
                 range: -3000...0,
                 format: "%.0f",
-                onChange: { graphState.pushForceChange(); selectedPreset = nil }
+                onChange: { graphState.pushForceChange() }
             )
 
             forceSlider(
@@ -182,7 +180,7 @@ struct GraphForceSettings: View {
                 value: gs.chargeRange,
                 range: 100...3000,
                 format: "%.0f",
-                onChange: { graphState.pushForceChange(); selectedPreset = nil }
+                onChange: { graphState.pushForceChange() }
             )
 
             forceSlider(
@@ -191,7 +189,7 @@ struct GraphForceSettings: View {
                 range: 0...2,
                 format: "%.2f",
                 subtitle: "0 = auto",
-                onChange: { graphState.pushForceChange(); selectedPreset = nil }
+                onChange: { graphState.pushForceChange() }
             )
         }
     }
@@ -226,7 +224,7 @@ struct GraphForceSettings: View {
                 range: 0.05...0.95,
                 format: "%.2f",
                 subtitle: "Low = bouncy, High = viscous",
-                onChange: { graphState.pushExtendedForceChange(); selectedPreset = nil }
+                onChange: { graphState.pushExtendedForceChange() }
             )
 
             forceSlider(
@@ -234,7 +232,7 @@ struct GraphForceSettings: View {
                 value: gs.centerStrength,
                 range: 0...0.1,
                 format: "%.3f",
-                onChange: { graphState.pushExtendedForceChange(); selectedPreset = nil }
+                onChange: { graphState.pushExtendedForceChange() }
             )
 
             forceSlider(
@@ -242,7 +240,7 @@ struct GraphForceSettings: View {
                 value: gs.collisionRadius,
                 range: 0...100,
                 format: "%.0f px",
-                onChange: { graphState.pushExtendedForceChange(); selectedPreset = nil }
+                onChange: { graphState.pushExtendedForceChange() }
             )
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -260,7 +258,7 @@ struct GraphForceSettings: View {
                 range: 0...1,
                 format: "%.2f",
                 subtitle: "0 = off, 1 = strong bubbles",
-                onChange: { graphState.pushClusterChange(); selectedPreset = nil }
+                onChange: { graphState.pushClusterChange() }
             )
 
             forceSlider(
@@ -269,7 +267,7 @@ struct GraphForceSettings: View {
                 range: 0...1,
                 format: "%.2f",
                 subtitle: "Similarity pull",
-                onChange: { graphState.pushSemanticChange(); selectedPreset = nil }
+                onChange: { graphState.pushSemanticChange() }
             )
 
             if graphState.semanticStrength > 0.001 {
@@ -279,7 +277,7 @@ struct GraphForceSettings: View {
                     range: 0...1,
                     format: "%.2f",
                     subtitle: "Loose \u{2194} Swarm",
-                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                    onChange: { graphState.pushLabChange() }
                 )
             }
 
@@ -297,7 +295,6 @@ struct GraphForceSettings: View {
                 .controlSize(.small)
                 .onChange(of: graphState.centerMode) {
                     graphState.pushClusterChange()
-                    selectedPreset = nil
                 }
             }
         }
@@ -332,7 +329,7 @@ struct GraphForceSettings: View {
                 labToggle(
                     label: "Fluid Wake Physics",
                     isOn: gs.enableFluidDynamics,
-                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                    onChange: { graphState.pushLabChange() }
                 )
                 if graphState.enableFluidDynamics {
                     settingNote("Wake only appears while dragging nodes.")
@@ -342,7 +339,7 @@ struct GraphForceSettings: View {
                         range: 0...1,
                         format: "%.2f",
                         subtitle: "Water \u{2194} Honey",
-                        onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                        onChange: { graphState.pushLabChange() }
                     )
                 }
             }
@@ -356,7 +353,7 @@ struct GraphForceSettings: View {
                 labToggle(
                     label: "Crystalline Angular Tension",
                     isOn: gs.enableTorsionalSprings,
-                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                    onChange: { graphState.pushLabChange() }
                 )
                 if graphState.enableTorsionalSprings {
                     forceSlider(
@@ -365,7 +362,7 @@ struct GraphForceSettings: View {
                         range: 0...1,
                         format: "%.2f",
                         subtitle: "Organic Blob \u{2194} Snowflake",
-                        onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                        onChange: { graphState.pushLabChange() }
                     )
                 }
             }
@@ -382,7 +379,7 @@ struct GraphForceSettings: View {
                     range: -50...50,
                     format: "%.1f",
                     subtitle: "Left \u{2194} Right drift",
-                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                    onChange: { graphState.pushLabChange() }
                 )
                 forceSlider(
                     label: "Wind Y",
@@ -390,13 +387,13 @@ struct GraphForceSettings: View {
                     range: -50...50,
                     format: "%.1f",
                     subtitle: "Up \u{2194} Down drift",
-                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                    onChange: { graphState.pushLabChange() }
                 )
 
                 labToggle(
                     label: "Orbital Hierarchies",
                     isOn: gs.enableOrbital,
-                    onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                    onChange: { graphState.pushLabChange() }
                 )
                 if graphState.enableOrbital {
                     settingNote("Only affects contains/authored links.")
@@ -406,7 +403,7 @@ struct GraphForceSettings: View {
                         range: 0...1,
                         format: "%.2f",
                         subtitle: "Still \u{2194} Fast",
-                        onChange: { graphState.pushLabChange(); selectedPreset = nil }
+                        onChange: { graphState.pushLabChange() }
                     )
                 }
             }
@@ -420,9 +417,8 @@ struct GraphForceSettings: View {
     private var resetButton: some View {
         HStack {
             Spacer()
-            Button("Reset to Observatory") {
-                selectedPreset = .observatory
-                graphState.applyPreset(.observatory)
+            Button("Reset to Crystal") {
+                graphState.startOverlayPhysicsCycle()
             }
             .font(.system(size: 11))
             .buttonStyle(.plain)

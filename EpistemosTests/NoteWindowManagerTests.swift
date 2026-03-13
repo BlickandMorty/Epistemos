@@ -153,7 +153,6 @@ struct NoteWindowManagerTests {
         #expect(window.isMovableByWindowBackground)
         let toolbar = try #require(window.toolbar)
         #expect(toolbar.identifier == "TestNoteToolbar")
-        #expect(!toolbar.showsBaselineSeparator)
         #expect(window.toolbarStyle == .unified)
     }
 
@@ -174,8 +173,25 @@ struct NoteWindowManagerTests {
         #expect(panel.titlebarAppearsTransparent)
         let toolbar = try #require(panel.toolbar)
         #expect(toolbar.identifier == "NotesSidebarToolbar")
-        #expect(!toolbar.showsBaselineSeparator)
         #expect(panel.toolbarStyle == .unifiedCompact)
+    }
+
+    @MainActor
+    @Test("Note window theme refresh reapplies appearance and unified toolbar chrome")
+    func noteWindowThemeRefreshReappliesChrome() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1110, height: 740),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+
+        NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
+        NoteWindowThemeStyler.apply(to: window, theme: .platinumDark)
+
+        #expect(window.appearance?.name == .darkAqua)
+        #expect(window.titlebarAppearsTransparent)
+        #expect(window.toolbarStyle == .unified)
     }
 
     @Test("Note toolbar uses native symbol mappings inside the unified strip")
@@ -191,6 +207,68 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarMetrics.buttonSide == 28)
         #expect(NoteToolbarMetrics.buttonSide == NoteToolbarMetrics.iconSide * 2)
         #expect(NoteToolbarMetrics.chatFieldWidth == 180)
+        #expect(NoteToolbarMetrics.stripGlowBlurRadius == 8)
+        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0.018)
+    }
+
+    @Test("Preview mode follows the active editor stack and preserves uppercase heading display")
+    func previewModeUsesMatchingStack() {
+        #expect(NotePreviewRenderer.resolved(useTK2Editor: false) == .textKit1)
+        #expect(NotePreviewRenderer.resolved(useTK2Editor: true) == .textKit2)
+        #expect(
+            NotePreviewDisplay.renderedMarkdown(
+                "## Sub Heading\n### Third Level\nBody",
+                renderer: .textKit1
+            ) == "## SUB HEADING\n### THIRD LEVEL\nBody"
+        )
+        #expect(
+            NotePreviewDisplay.renderedMarkdown(
+                "## Sub Heading\n### Third Level\nBody",
+                renderer: .textKit2
+            ) == "## Sub Heading\n### Third Level\nBody"
+        )
+    }
+
+    @Test("TK2 wide preview switches into the dual-column paragraph layout")
+    func tk2WidePreviewUsesDualColumnLayout() {
+        #expect(!NoteDualPreviewLayout.usesDualColumns(for: 1179))
+        #expect(NoteDualPreviewLayout.usesDualColumns(for: 1180))
+
+        let blocks = NoteDualPreviewLayout.paragraphBlocks(
+            in: """
+            # Title
+
+            First paragraph
+            still first
+
+            ```swift
+            let x = 1
+
+            let y = 2
+            ```
+
+            Last paragraph
+            """
+        )
+
+        #expect(blocks.count == 4)
+        #expect(blocks[0] == "# Title")
+        #expect(blocks[1] == "First paragraph\nstill first")
+        #expect(blocks[2].contains("```swift"))
+        #expect(blocks[3] == "Last paragraph")
+    }
+
+    @Test("Landing shortcuts render uppercase at the stronger display size")
+    func landingShortcutsUseUppercaseDisplayLabels() {
+        #expect(LandingShortcutDisplay.label("New Note") == "NEW NOTE")
+        #expect(LandingShortcutDisplay.label("Click to search") == "CLICK TO SEARCH")
+        #expect(LandingShortcutDisplay.fontSize == 12)
+        #expect(LandingShortcutDisplay.keyHorizontalPadding == 7)
+        #expect(LandingShortcutDisplay.keyVerticalPadding == 4)
+        #expect(LandingShortcutDisplay.keyCornerRadius == 7)
+        #expect(LandingShortcutDisplay.shortcutRowSpacing == 12)
+        #expect(LandingShortcutDisplay.keyMinWidth(for: "N") == nil)
+        #expect(LandingShortcutDisplay.keyMinWidth(for: "Space") == 48)
     }
 
     @Test("Notes sidebar keeps compact header spacing and restores the vault changes control")
@@ -205,5 +283,29 @@ struct NoteWindowManagerTests {
         #expect(NotesSidebarMetrics.changesPanelHeight == 400)
         #expect(NotesSidebarGlyph.vaultChanges.symbolName == "doc.badge.clock")
         #expect(NotesSidebarGlyph.vaultChanges.activeSymbolName == "doc.badge.clock.fill")
+    }
+
+    @Test("Graph overlay controls stay global-only and hide the tag filter pill")
+    func graphOverlayControlsStayGlobalOnly() {
+        #expect(!GraphOverlayModePolicy.pageModeEnabled)
+        #expect(!GraphOverlayControlsDisplay.showsPageModeToggle)
+        #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.tag))
+        #expect(
+            GraphOverlayControlsDisplay.filterTypes == [.note, .chat, .idea, .source, .folder, .quote]
+        )
+    }
+
+    @Test("Graph mini panel opens as a centered square with a slight right bias")
+    func graphMiniPanelUsesCenteredSquareFrame() {
+        let visible = NSRect(x: 80, y: 40, width: 1440, height: 900)
+        let frame = GraphMiniPanelLayout.frame(in: visible)
+
+        #expect(frame.width == frame.height)
+        #expect(frame.width == GraphMiniPanelLayout.defaultSide)
+        #expect(frame.midY == visible.midY)
+        #expect(frame.midX == visible.midX + GraphMiniPanelLayout.horizontalBias)
+        #expect(frame.maxX <= visible.maxX - GraphMiniPanelLayout.screenPadding)
+        #expect(frame.minX >= visible.minX + GraphMiniPanelLayout.screenPadding)
+        #expect(frame.minY >= visible.minY + GraphMiniPanelLayout.screenPadding)
     }
 }

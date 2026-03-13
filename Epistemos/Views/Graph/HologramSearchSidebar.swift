@@ -541,10 +541,14 @@ private struct NodeRowButton: View {
                 }
             }
             Button {
+                graphState.cleanupEphemeralNodes()
                 graphState.selectNode(node.id)
-                graphState.mode = .page(nodeId: node.id)
-                graphState.focusOnNode(node.id, depth: 2)
-                graphState.requestRecommit()
+                graphState.pendingCenterNodeId = node.id
+                graphState.mode = .global
+                graphState.clearFocus()
+                graphState.focusOnNode(node.id, depth: GraphOverlayModePolicy.focusDepth)
+                graphState.requestModeSync()
+                graphState.requestFilterSync()
             } label: {
                 Label("Focus on Node", systemImage: "scope")
             }

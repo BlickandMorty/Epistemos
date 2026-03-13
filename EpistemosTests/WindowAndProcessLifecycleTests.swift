@@ -85,7 +85,7 @@ struct WindowManagementTests {
     }
     
     private func simulateWindowFocus() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func isWindowFocused() async -> Bool {
@@ -93,7 +93,7 @@ struct WindowManagementTests {
     }
     
     private func simulateWindowBlur() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func isWindowBlurred() async -> Bool {
@@ -101,7 +101,7 @@ struct WindowManagementTests {
     }
     
     private func startGraphOperation() async {
-        await Task.sleep(50_000_000)
+        try? await Task.sleep(nanoseconds: 50_000_000)
     }
     
     private func checkKeyboardFocus() async -> Bool {
@@ -109,7 +109,7 @@ struct WindowManagementTests {
     }
     
     private func bringWindowToFront() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func getDeferringRules() async -> DeferringRules {
@@ -117,7 +117,7 @@ struct WindowManagementTests {
     }
     
     private func simulateFocusTheft() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func recoverFocus() async -> Bool {
@@ -133,7 +133,7 @@ struct WindowManagementTests {
     }
     
     private func suppressFocusEvaluation() async {
-        await Task.sleep(5_000_000)
+        try? await Task.sleep(nanoseconds: 5_000_000)
     }
     
     private func isFocusEvaluationSuppressed() async -> Bool {
@@ -141,7 +141,7 @@ struct WindowManagementTests {
     }
     
     private func resumeFocusEvaluation() async {
-        await Task.sleep(5_000_000)
+        try? await Task.sleep(nanoseconds: 5_000_000)
     }
     
     struct DeferringRules {
@@ -253,7 +253,7 @@ struct ProcessLifecycleTests {
     }
     
     private func transitionToState(_ state: ProcessState) async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func getCurrentState() async -> ProcessState {
@@ -261,11 +261,11 @@ struct ProcessLifecycleTests {
     }
     
     private func hideWindow() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func showWindow() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func isProcessVisible() async -> Bool {
@@ -273,11 +273,11 @@ struct ProcessLifecycleTests {
     }
     
     private func becomeFocal() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func resignFocal() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func getDarwinRole() async -> DarwinRole {
@@ -285,7 +285,7 @@ struct ProcessLifecycleTests {
     }
     
     private func setDebugState(_ state: Bool) async {
-        await Task.sleep(5_000_000)
+        try? await Task.sleep(nanoseconds: 5_000_000)
     }
     
     private func getDebugState() async -> Bool {
@@ -293,11 +293,11 @@ struct ProcessLifecycleTests {
     }
     
     private func suspendProcess() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func resumeProcess() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func getTaskState() async -> TaskState {
@@ -309,7 +309,7 @@ struct ProcessLifecycleTests {
     }
     
     private func simulateTermination() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func cleanupLaunchdJob() async -> Bool {
@@ -321,7 +321,7 @@ struct ProcessLifecycleTests {
     }
     
     private func disconnectFromWorkspace() async {
-        await Task.sleep(10_000_000)
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
     
     private func isWorkspaceDisconnected() async -> Bool {
@@ -473,7 +473,7 @@ struct TrackingAnalyticsTests {
     }
     
     private func simulateAppQuit() async {
-        await Task.sleep(100_000_000)
+        try? await Task.sleep(nanoseconds: 100_000_000)
     }
     
     private func getAppTrackingState() async -> Int {

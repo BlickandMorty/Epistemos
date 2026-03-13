@@ -531,6 +531,29 @@ final class GraphStore {
         notifyChange()
     }
 
+    /// Replace a node's non-topology fields while preserving its adjacency slot.
+    /// Layout and UI flags stay anchored to the current live graph state.
+    func updateNode(_ node: GraphNodeRecord) {
+        guard let existing = nodes[node.id] else {
+            addNode(node)
+            return
+        }
+        guard let nodeIdx = _nodeIdx[node.id] else { return }
+
+        if existing.label != node.label {
+            removeFromTrigramIndex(nodeIdx: nodeIdx, label: existing.label)
+            addToTrigramIndex(nodeIdx: nodeIdx, label: node.label)
+        }
+
+        var updated = node
+        updated.position = existing.position
+        updated.velocity = existing.velocity
+        updated.isVisible = existing.isVisible
+        updated.isPinned = existing.isPinned
+        nodes[node.id] = updated
+        notifyChange()
+    }
+
     /// Add an edge to the store, updating compact adjacency for both endpoints.
     /// Adjacency deduplicates neighbor references (matches old Set<String> behavior).
     func addEdge(_ edge: GraphEdgeRecord) {

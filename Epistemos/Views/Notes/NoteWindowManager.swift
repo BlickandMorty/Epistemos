@@ -39,6 +39,19 @@ enum NoteWindowChrome {
     }
 }
 
+@MainActor
+enum NoteWindowThemeStyler {
+    static func apply(to window: NSWindow, theme: EpistemosTheme) {
+        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window.backgroundColor = theme.nsBackground
+        window.titlebarAppearsTransparent = true
+        window.toolbar?.showsBaselineSeparator = false
+        window.toolbarStyle = .unified
+        window.updateGlassToolbarTheme(theme)
+        WindowThemeStyler.refreshChrome(of: window)
+    }
+}
+
 // MARK: - NoteNavigationState
 // Per-tab navigation state for in-place wikilink traversal.
 // Owns the breadcrumb stack — first item is the root page, last is current.
@@ -259,9 +272,7 @@ final class NoteWindowManager {
         
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
 
-        let theme = bootstrap.uiState.theme
-        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        window.backgroundColor = theme.nsBackground
+        NoteWindowThemeStyler.apply(to: window, theme: bootstrap.uiState.theme)
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -368,9 +379,7 @@ final class NoteWindowManager {
         window.minSize = NSSize(width: 400, height: 300)
         
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
-        let theme = bootstrap.uiState.theme
-        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        window.backgroundColor = theme.nsBackground
+        NoteWindowThemeStyler.apply(to: window, theme: bootstrap.uiState.theme)
 
         // Zoom instead of fullscreen
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
@@ -407,8 +416,16 @@ final class NoteWindowManager {
     /// Sync appearance of all note windows to the current theme.
     func syncTheme(theme: EpistemosTheme) {
         for w in windows.values {
-            w.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-            w.backgroundColor = theme.nsBackground
+            NoteWindowThemeStyler.apply(to: w, theme: theme)
+        }
+    }
+
+    func closeWindowDisplaying(pageId: String) {
+        let rootPageIds = windows.keys.filter { rootPageId in
+            rootPageId == pageId || navigationStates[rootPageId]?.currentPageId == pageId
+        }
+        for rootPageId in rootPageIds {
+            windows[rootPageId]?.close()
         }
     }
 }

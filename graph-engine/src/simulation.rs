@@ -240,14 +240,20 @@ impl FluidGrid {
                         }
                     }
                 }
-                let avg_vx = if count > 0 { sum_vx / count as f32 } else { 0.0 };
-                let avg_vy = if count > 0 { sum_vy / count as f32 } else { 0.0 };
-                self.tmp_vx[idx] = ((1.0 - FLUID_DIFFUSION) * self.vx[idx]
-                    + FLUID_DIFFUSION * avg_vx)
-                    * decay;
-                self.tmp_vy[idx] = ((1.0 - FLUID_DIFFUSION) * self.vy[idx]
-                    + FLUID_DIFFUSION * avg_vy)
-                    * decay;
+                let avg_vx = if count > 0 {
+                    sum_vx / count as f32
+                } else {
+                    0.0
+                };
+                let avg_vy = if count > 0 {
+                    sum_vy / count as f32
+                } else {
+                    0.0
+                };
+                self.tmp_vx[idx] =
+                    ((1.0 - FLUID_DIFFUSION) * self.vx[idx] + FLUID_DIFFUSION * avg_vx) * decay;
+                self.tmp_vy[idx] =
+                    ((1.0 - FLUID_DIFFUSION) * self.vy[idx] + FLUID_DIFFUSION * avg_vy) * decay;
             }
         }
         // Swap: tmp becomes current.
@@ -361,12 +367,17 @@ pub struct Simulation {
     /// Original params temporarily overridden by search bullet-time.
     pub search_saved_velocity_decay: Option<f32>,
     pub search_saved_alpha_target: Option<f32>,
+    /// Temporary motion hold after drag or graph mutations.
+    interaction_motion_until: Option<std::time::Instant>,
+    interaction_motion_alpha_target: f32,
     /// Viewport bounds in world space [min_x, min_y, max_x, max_y].
     /// When set, only nodes inside (+ 1-hop neighbors) receive velocity updates.
     /// None = simulate all nodes.
     pub viewport_bounds: Option<[f32; 4]>,
     /// Scratch buffer for viewport active mask, reused each tick to avoid allocation.
     active_mask: Vec<bool>,
+    /// Snapshot of viewport-only nodes before one-hop expansion.
+    viewport_seed_mask: Vec<bool>,
     /// GPU-computed N-body forces to apply at next tick start, then drain.
     /// Render thread writes, physics thread reads+clears. Protected by the sim mutex.
     pub gpu_nbody_forces: Option<Vec<[f32; 2]>>,
@@ -378,6 +389,39 @@ pub struct Simulation {
 impl Default for Simulation {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn warm_start_limits(node_count: usize) -> (u16, std::time::Duration) {
+    match node_count {
+        0..=50 => (80, std::time::Duration::from_millis(10)),
+        51..=200 => (120, std::time::Duration::from_millis(10)),
+        201..=1_000 => (160, std::time::Duration::from_millis(10)),
+        1_001..=3_000 => (120, std::time::Duration::from_millis(8)),
+        _ => (96, std::time::Duration::from_millis(6)),
+    }
+}
+
+fn extend_active_mask_to_one_hop(
+    active_mask: &mut [bool],
+    edges: &[(usize, usize)],
+    viewport_seed_mask: &mut Vec<bool>,
+) {
+    viewport_seed_mask.clear();
+    viewport_seed_mask.extend_from_slice(active_mask);
+    let viewport_mask = viewport_seed_mask.as_slice();
+    let node_count = active_mask.len();
+
+    for &(source, target) in edges {
+        if source >= node_count || target >= node_count {
+            continue;
+        }
+        if viewport_mask[source] {
+            active_mask[target] = true;
+        }
+        if viewport_mask[target] {
+            active_mask[source] = true;
+        }
     }
 }
 
@@ -417,8 +461,11 @@ impl Simulation {
             fluid_grid: FluidGrid::new(),
             search_saved_velocity_decay: None,
             search_saved_alpha_target: None,
+            interaction_motion_until: None,
+            interaction_motion_alpha_target: 0.0,
             viewport_bounds: None,
             active_mask: Vec::new(),
+            viewport_seed_mask: Vec::new(),
             gpu_nbody_forces: None,
             last_tick_instant: std::time::Instant::now(),
         }
@@ -443,6 +490,8 @@ impl Simulation {
         self.edge_types.clear();
         self.graph_indices.clear();
         self.tick_count = 0;
+        self.interaction_motion_until = None;
+        self.interaction_motion_alpha_target = 0.0;
 
         // Map graph node index → simulation index (only visible nodes).
         let mut graph_to_sim: Vec<Option<usize>> = vec![None; graph.nodes.len()];
@@ -477,8 +526,12 @@ impl Simulation {
             self.is_settled = true;
             self.params.alpha = 0.0;
             // Zero out all velocities — no residual drift.
-            for v in &mut self.vx { *v = 0.0; }
-            for v in &mut self.vy { *v = 0.0; }
+            for v in &mut self.vx {
+                *v = 0.0;
+            }
+            for v in &mut self.vy {
+                *v = 0.0;
+            }
             // Still compute degrees from raw edge data (needed for node radius sizing)
             // but skip sorting/capping since physics won't run.
             for edge in &graph.edges {
@@ -496,7 +549,9 @@ impl Simulation {
                 }
             }
             for d in &mut self.degrees {
-                if *d == 0 { *d = 1; }
+                if *d == 0 {
+                    *d = 1;
+                }
             }
             return;
         }
@@ -507,8 +562,12 @@ impl Simulation {
             self.static_layout = true;
             self.is_settled = true;
             self.params.alpha = 0.0;
-            for v in &mut self.vx { *v = 0.0; }
-            for v in &mut self.vy { *v = 0.0; }
+            for v in &mut self.vx {
+                *v = 0.0;
+            }
+            for v in &mut self.vy {
+                *v = 0.0;
+            }
             // Fall through — still need edges + degrees for rendering.
         } else {
             self.static_layout = false;
@@ -578,17 +637,12 @@ impl Simulation {
     /// Nodes reach approximate equilibrium before the first render frame.
     fn warm_start(&mut self) {
         let n = self.x.len();
-        // Scale iterations with graph size — larger graphs need more settling.
-        let iterations = match n {
-            0..=50 => 80,
-            51..=200 => 120,
-            201..=1000 => 200,
-            _ => 300,
-        };
+        let (iterations, budget) = warm_start_limits(n);
 
         // Save and override params for fast convergence.
         let saved_decay = self.params.velocity_decay;
         let saved_viewport = self.viewport_bounds.take();
+        let start = std::time::Instant::now();
 
         self.params.alpha = 0.8;
         self.params.velocity_decay = 0.3; // Heavy damping — nodes stop quickly
@@ -596,7 +650,9 @@ impl Simulation {
 
         for _ in 0..iterations {
             self.tick();
-            if self.is_settled { break; }
+            if self.is_settled || start.elapsed() >= budget {
+                break;
+            }
         }
 
         // Restore params for interactive phase: low alpha, normal damping.
@@ -606,8 +662,12 @@ impl Simulation {
         self.is_settled = false;
 
         // Zero velocities so nodes don't drift from their settled positions.
-        for v in &mut self.vx { *v = 0.0; }
-        for v in &mut self.vy { *v = 0.0; }
+        for v in &mut self.vx {
+            *v = 0.0;
+        }
+        for v in &mut self.vy {
+            *v = 0.0;
+        }
 
         // Reset tick_count so tests and collision throttling start fresh.
         self.tick_count = 0;
@@ -631,10 +691,11 @@ impl Simulation {
             self.impact_frames -= 1;
         }
         let n = self.x.len();
+        let alpha_target = self.effective_alpha_target_at(std::time::Instant::now());
 
         // 1. Alpha decay — converges toward alpha_target.
         self.params.alpha +=
-            (self.params.alpha_target - self.params.alpha) * self.params.alpha_decay;
+            (alpha_target - self.params.alpha) * self.params.alpha_decay;
 
         // Clamp alpha to a small floor instead of letting it reach zero.
         const ALPHA_FLOOR: f32 = 0.0001;
@@ -704,8 +765,12 @@ impl Simulation {
             if let Some(gpu_forces) = self.gpu_nbody_forces.take() {
                 let len = gpu_forces.len().min(n);
                 for i in 0..len {
-                    if self.fx[i].is_none() { self.vx[i] += gpu_forces[i][0]; }
-                    if self.fy[i].is_none() { self.vy[i] += gpu_forces[i][1]; }
+                    if self.fx[i].is_none() {
+                        self.vx[i] += gpu_forces[i][0];
+                    }
+                    if self.fy[i].is_none() {
+                        self.vy[i] += gpu_forces[i][1];
+                    }
                 }
             } else {
                 self.bodies_scratch.clear();
@@ -772,7 +837,10 @@ impl Simulation {
 
         if !at_floor {
             // Cluster cohesion force (skipped in lite mode and at floor).
-            if !self.lite_mode && self.params.cluster_strength > 0.001 && !self.cluster_ids.is_empty() {
+            if !self.lite_mode
+                && self.params.cluster_strength > 0.001
+                && !self.cluster_ids.is_empty()
+            {
                 forces::force_cluster_with_scratch(
                     &self.x,
                     &self.y,
@@ -789,9 +857,12 @@ impl Simulation {
 
             // Semantic boids flocking (skipped in lite mode and at floor).
             // boids_cohesion scales effective strength: 0 → 50%, 1 → 100% of base.
-            if !self.lite_mode && self.params.semantic_strength > 0.001 && !self.semantic_neighbors.is_empty() {
-                let boids_eff = self.params.semantic_strength
-                    * (0.5 + self.params.boids_cohesion * 0.5);
+            if !self.lite_mode
+                && self.params.semantic_strength > 0.001
+                && !self.semantic_neighbors.is_empty()
+            {
+                let boids_eff =
+                    self.params.semantic_strength * (0.5 + self.params.boids_cohesion * 0.5);
                 forces::force_semantic(
                     &self.x,
                     &self.y,
@@ -859,18 +930,16 @@ impl Simulation {
         self.active_mask.resize(n, true);
         if let Some([vmin_x, vmin_y, vmax_x, vmax_y]) = self.viewport_bounds {
             for i in 0..n {
-                self.active_mask[i] = self.x[i] >= vmin_x && self.x[i] <= vmax_x
-                    && self.y[i] >= vmin_y && self.y[i] <= vmax_y;
+                self.active_mask[i] = self.x[i] >= vmin_x
+                    && self.x[i] <= vmax_x
+                    && self.y[i] >= vmin_y
+                    && self.y[i] <= vmax_y;
             }
-            // Extend to exactly 1-hop neighbors: snapshot viewport membership first
-            // to prevent transitive propagation through edge-list ordering.
-            let viewport_mask: Vec<bool> = self.active_mask.clone();
-            for &(s, t) in &self.edges {
-                if s < n && t < n {
-                    if viewport_mask[s] { self.active_mask[t] = true; }
-                    if viewport_mask[t] { self.active_mask[s] = true; }
-                }
-            }
+            extend_active_mask_to_one_hop(
+                &mut self.active_mask,
+                &self.edges,
+                &mut self.viewport_seed_mask,
+            );
         }
         // Take ownership of active mask to avoid borrow conflict with &mut self.
         let active = std::mem::take(&mut self.active_mask);
@@ -882,8 +951,17 @@ impl Simulation {
         #[cfg(not(target_arch = "aarch64"))]
         {
             Self::integrate_velocities_scalar(
-                &mut self.x, &mut self.y, &mut self.vx, &mut self.vy,
-                &self.fx, &self.fy, &active, n, decay, MAX_VELOCITY, &mut max_speed_sq,
+                &mut self.x,
+                &mut self.y,
+                &mut self.vx,
+                &mut self.vy,
+                &self.fx,
+                &self.fy,
+                &active,
+                n,
+                decay,
+                MAX_VELOCITY,
+                &mut max_speed_sq,
             );
         }
 
@@ -938,6 +1016,35 @@ impl Simulation {
         self.is_settled = false;
     }
 
+    pub fn sustain_interaction_motion_for(
+        &mut self,
+        duration: std::time::Duration,
+        alpha_target: f32,
+    ) {
+        if self.static_layout || duration.is_zero() {
+            return;
+        }
+        self.interaction_motion_until = Some(std::time::Instant::now() + duration);
+        self.interaction_motion_alpha_target = alpha_target.max(0.0);
+        self.is_settled = false;
+        self.params.alpha = self.params.alpha.max(self.interaction_motion_alpha_target);
+    }
+
+    fn effective_alpha_target_at(&mut self, now: std::time::Instant) -> f32 {
+        match self.interaction_motion_until {
+            Some(deadline) if now < deadline => self
+                .params
+                .alpha_target
+                .max(self.interaction_motion_alpha_target),
+            Some(_) => {
+                self.interaction_motion_until = None;
+                self.interaction_motion_alpha_target = 0.0;
+                self.params.alpha_target
+            }
+            None => self.params.alpha_target,
+        }
+    }
+
     /// User-controlled freeze: pause/resume physics independent of node-count threshold.
     pub fn set_user_frozen(&mut self, frozen: bool) {
         self.user_frozen = frozen;
@@ -945,8 +1052,14 @@ impl Simulation {
             self.static_layout = true;
             self.is_settled = true;
             self.params.alpha = 0.0;
-            for v in &mut self.vx { *v = 0.0; }
-            for v in &mut self.vy { *v = 0.0; }
+            for v in &mut self.vx {
+                *v = 0.0;
+            }
+            for v in &mut self.vy {
+                *v = 0.0;
+            }
+            self.interaction_motion_until = None;
+            self.interaction_motion_alpha_target = 0.0;
         } else {
             self.static_layout = false;
             self.reheat();
@@ -1005,12 +1118,22 @@ impl Simulation {
     /// Scalar velocity integration — shared by non-aarch64 fallback and SIMD remainder.
     #[inline(always)]
     fn integrate_velocities_scalar(
-        x: &mut [f32], y: &mut [f32], vx: &mut [f32], vy: &mut [f32],
-        fx: &[Option<f32>], fy: &[Option<f32>], active: &[bool],
-        n: usize, decay: f32, max_vel: f32, max_speed_sq: &mut f32,
+        x: &mut [f32],
+        y: &mut [f32],
+        vx: &mut [f32],
+        vy: &mut [f32],
+        fx: &[Option<f32>],
+        fy: &[Option<f32>],
+        active: &[bool],
+        n: usize,
+        decay: f32,
+        max_vel: f32,
+        max_speed_sq: &mut f32,
     ) {
         for i in 0..n {
-            if !active[i] { continue; }
+            if !active[i] {
+                continue;
+            }
             if let Some(fx_val) = fx[i] {
                 vx[i] = fx_val - x[i];
                 x[i] = fx_val;
@@ -1019,7 +1142,9 @@ impl Simulation {
                 vx[i] = vx[i].clamp(-max_vel, max_vel);
                 x[i] += vx[i];
                 let spd = vx[i] * vx[i] + vy[i] * vy[i];
-                if spd > *max_speed_sq { *max_speed_sq = spd; }
+                if spd > *max_speed_sq {
+                    *max_speed_sq = spd;
+                }
             }
             if let Some(fy_val) = fy[i] {
                 vy[i] = fy_val - y[i];
@@ -1029,8 +1154,14 @@ impl Simulation {
                 vy[i] = vy[i].clamp(-max_vel, max_vel);
                 y[i] += vy[i];
             }
-            if !x[i].is_finite() { x[i] = 0.0; vx[i] = 0.0; }
-            if !y[i].is_finite() { y[i] = 0.0; vy[i] = 0.0; }
+            if !x[i].is_finite() {
+                x[i] = 0.0;
+                vx[i] = 0.0;
+            }
+            if !y[i].is_finite() {
+                y[i] = 0.0;
+                vy[i] = 0.0;
+            }
         }
     }
 
@@ -1038,7 +1169,11 @@ impl Simulation {
     /// in chunks of 4; falls back to scalar for pinned/inactive chunks and remainder.
     #[cfg(target_arch = "aarch64")]
     fn integrate_velocities_neon(
-        &mut self, n: usize, active: &[bool], decay: f32, max_vel: f32,
+        &mut self,
+        n: usize,
+        active: &[bool],
+        decay: f32,
+        max_vel: f32,
         max_speed_sq: &mut f32,
     ) {
         use std::arch::aarch64::*;
@@ -1057,20 +1192,33 @@ impl Simulation {
                 let base = c * 4;
 
                 // Check if all 4 nodes in this chunk are active AND unpinned.
-                let all_eligible = active[base] && active[base + 1]
-                    && active[base + 2] && active[base + 3]
-                    && self.fx[base].is_none() && self.fx[base + 1].is_none()
-                    && self.fx[base + 2].is_none() && self.fx[base + 3].is_none()
-                    && self.fy[base].is_none() && self.fy[base + 1].is_none()
-                    && self.fy[base + 2].is_none() && self.fy[base + 3].is_none();
+                let all_eligible = active[base]
+                    && active[base + 1]
+                    && active[base + 2]
+                    && active[base + 3]
+                    && self.fx[base].is_none()
+                    && self.fx[base + 1].is_none()
+                    && self.fx[base + 2].is_none()
+                    && self.fx[base + 3].is_none()
+                    && self.fy[base].is_none()
+                    && self.fy[base + 1].is_none()
+                    && self.fy[base + 2].is_none()
+                    && self.fy[base + 3].is_none();
 
                 if !all_eligible {
                     // Scalar fallback for this chunk.
                     Self::integrate_velocities_scalar(
-                        &mut self.x[base..base + 4], &mut self.y[base..base + 4],
-                        &mut self.vx[base..base + 4], &mut self.vy[base..base + 4],
-                        &self.fx[base..base + 4], &self.fy[base..base + 4],
-                        &active[base..base + 4], 4, decay, max_vel, max_speed_sq,
+                        &mut self.x[base..base + 4],
+                        &mut self.y[base..base + 4],
+                        &mut self.vx[base..base + 4],
+                        &mut self.vy[base..base + 4],
+                        &self.fx[base..base + 4],
+                        &self.fy[base..base + 4],
+                        &active[base..base + 4],
+                        4,
+                        decay,
+                        max_vel,
+                        max_speed_sq,
                     );
                     continue;
                 }
@@ -1097,12 +1245,20 @@ impl Simulation {
                 // max_speed_sq: compute per-node speed² and track maximum.
                 let spd4 = vaddq_f32(vmulq_f32(vx4, vx4), vmulq_f32(vy4, vy4));
                 let chunk_max = vmaxvq_f32(spd4);
-                if chunk_max > *max_speed_sq { *max_speed_sq = chunk_max; }
+                if chunk_max > *max_speed_sq {
+                    *max_speed_sq = chunk_max;
+                }
 
                 // NaN/Inf safety: check all 4 positions.
                 for j in base..base + 4 {
-                    if !self.x[j].is_finite() { self.x[j] = 0.0; self.vx[j] = 0.0; }
-                    if !self.y[j].is_finite() { self.y[j] = 0.0; self.vy[j] = 0.0; }
+                    if !self.x[j].is_finite() {
+                        self.x[j] = 0.0;
+                        self.vx[j] = 0.0;
+                    }
+                    if !self.y[j].is_finite() {
+                        self.y[j] = 0.0;
+                        self.vy[j] = 0.0;
+                    }
                 }
             }
         }
@@ -1110,10 +1266,17 @@ impl Simulation {
         // Remainder nodes: scalar.
         if remainder_start < n {
             Self::integrate_velocities_scalar(
-                &mut self.x[remainder_start..], &mut self.y[remainder_start..],
-                &mut self.vx[remainder_start..], &mut self.vy[remainder_start..],
-                &self.fx[remainder_start..], &self.fy[remainder_start..],
-                &active[remainder_start..], n - remainder_start, decay, max_vel, max_speed_sq,
+                &mut self.x[remainder_start..],
+                &mut self.y[remainder_start..],
+                &mut self.vx[remainder_start..],
+                &mut self.vy[remainder_start..],
+                &self.fx[remainder_start..],
+                &self.fy[remainder_start..],
+                &active[remainder_start..],
+                n - remainder_start,
+                decay,
+                max_vel,
+                max_speed_sq,
             );
         }
     }
@@ -1379,7 +1542,10 @@ mod tests {
         let sim_default = Simulation::default();
         let sim_new = Simulation::new();
         assert_eq!(sim_default.x.len(), sim_new.x.len());
-        assert_eq!(sim_default.params.link_distance, sim_new.params.link_distance);
+        assert_eq!(
+            sim_default.params.link_distance,
+            sim_new.params.link_distance
+        );
     }
 
     #[test]
@@ -1635,6 +1801,36 @@ mod tests {
     }
 
     #[test]
+    fn interaction_motion_hold_overrides_zero_alpha_target_until_expiry() {
+        let mut sim = Simulation::new();
+        sim.params.alpha_target = 0.0;
+        sim.sustain_interaction_motion_for(std::time::Duration::from_secs(30), 0.015);
+
+        let hold_deadline = sim
+            .interaction_motion_until
+            .expect("interaction motion hold should set a deadline");
+        let active_target = sim.effective_alpha_target_at(hold_deadline - std::time::Duration::from_secs(1));
+        let expired_target = sim.effective_alpha_target_at(hold_deadline + std::time::Duration::from_secs(1));
+
+        assert!((active_target - 0.015).abs() < f32::EPSILON);
+        assert_eq!(expired_target, 0.0);
+    }
+
+    #[test]
+    fn interaction_motion_hold_never_lowers_existing_alpha_target() {
+        let mut sim = Simulation::new();
+        sim.params.alpha_target = 0.03;
+        sim.sustain_interaction_motion_for(std::time::Duration::from_secs(30), 0.015);
+
+        let hold_deadline = sim
+            .interaction_motion_until
+            .expect("interaction motion hold should set a deadline");
+        let effective = sim.effective_alpha_target_at(hold_deadline - std::time::Duration::from_secs(1));
+
+        assert!((effective - 0.03).abs() < f32::EPSILON);
+    }
+
+    #[test]
     fn alpha_decay_rate_configurable() {
         let mut p = ForceParams::default();
         p.alpha_decay = 0.05;
@@ -1769,7 +1965,14 @@ mod tests {
     fn is_settled_with_static_layout() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2191,7 +2394,14 @@ mod tests {
         graph.add_node("center".into(), 0.0, 0.0, 0, 5, "Center".into());
         for i in 0..5 {
             let angle = 2.0 * std::f32::consts::PI * (i as f32) / 5.0;
-            graph.add_node(format!("leaf-{}", i), 300.0 * angle.cos(), 300.0 * angle.sin(), 0, 1, format!("Leaf {}", i));
+            graph.add_node(
+                format!("leaf-{}", i),
+                300.0 * angle.cos(),
+                300.0 * angle.sin(),
+                0,
+                1,
+                format!("Leaf {}", i),
+            );
             graph.add_edge("center", &format!("leaf-{}", i), 1.0, 0);
         }
         let mut sim = Simulation::new();
@@ -2206,9 +2416,16 @@ mod tests {
     fn line_graph_converges() {
         let mut graph = Graph::new();
         for i in 0..5 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 200.0, 0.0, 0, 2, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 200.0,
+                0.0,
+                0,
+                2,
+                format!("Node {}", i),
+            );
             if i > 0 {
-                graph.add_edge(&format!("node-{}", i-1), &format!("node-{}", i), 1.0, 0);
+                graph.add_edge(&format!("node-{}", i - 1), &format!("node-{}", i), 1.0, 0);
             }
         }
         let mut sim = Simulation::new();
@@ -2223,7 +2440,14 @@ mod tests {
     fn complete_graph_converges() {
         let mut graph = Graph::new();
         for i in 0..5 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 100.0, 0.0, 0, 4, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 100.0,
+                0.0,
+                0,
+                4,
+                format!("Node {}", i),
+            );
             for j in 0..i {
                 graph.add_edge(&format!("node-{}", j), &format!("node-{}", i), 1.0, 0);
             }
@@ -2240,15 +2464,29 @@ mod tests {
     fn disconnected_components_converge() {
         let mut graph = Graph::new();
         for i in 0..3 {
-            graph.add_node(format!("a-{}", i), (i as f32) * 100.0, 0.0, 0, 1, format!("A{}", i));
+            graph.add_node(
+                format!("a-{}", i),
+                (i as f32) * 100.0,
+                0.0,
+                0,
+                1,
+                format!("A{}", i),
+            );
             if i > 0 {
-                graph.add_edge(&format!("a-{}", i-1), &format!("a-{}", i), 1.0, 0);
+                graph.add_edge(&format!("a-{}", i - 1), &format!("a-{}", i), 1.0, 0);
             }
         }
         for i in 0..3 {
-            graph.add_node(format!("b-{}", i), (i as f32) * 100.0, 200.0, 0, 1, format!("B{}", i));
+            graph.add_node(
+                format!("b-{}", i),
+                (i as f32) * 100.0,
+                200.0,
+                0,
+                1,
+                format!("B{}", i),
+            );
             if i > 0 {
-                graph.add_edge(&format!("b-{}", i-1), &format!("b-{}", i), 1.0, 0);
+                graph.add_edge(&format!("b-{}", i - 1), &format!("b-{}", i), 1.0, 0);
             }
         }
         let mut sim = Simulation::new();
@@ -2263,10 +2501,17 @@ mod tests {
     fn convergence_with_collision() {
         let mut graph = Graph::new();
         for i in 0..10 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         for i in 0..9 {
-            graph.add_edge(&format!("node-{}", i), &format!("node-{}", i+1), 1.0, 0);
+            graph.add_edge(&format!("node-{}", i), &format!("node-{}", i + 1), 1.0, 0);
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2281,10 +2526,17 @@ mod tests {
     fn convergence_with_clustering() {
         let mut graph = Graph::new();
         for i in 0..10 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 100.0, 0.0, 0, 2, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 100.0,
+                0.0,
+                0,
+                2,
+                format!("Node {}", i),
+            );
         }
         for i in 0..9 {
-            graph.add_edge(&format!("node-{}", i), &format!("node-{}", i+1), 1.0, 0);
+            graph.add_edge(&format!("node-{}", i), &format!("node-{}", i + 1), 1.0, 0);
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2324,8 +2576,14 @@ mod tests {
             }
         }
         for i in 0..sim.vx.len() {
-            assert!(sim.vx[i].abs() < 1.0, "velocity should be small when settled");
-            assert!(sim.vy[i].abs() < 1.0, "velocity should be small when settled");
+            assert!(
+                sim.vx[i].abs() < 1.0,
+                "velocity should be small when settled"
+            );
+            assert!(
+                sim.vy[i].abs() < 1.0,
+                "velocity should be small when settled"
+            );
         }
     }
 
@@ -2335,7 +2593,14 @@ mod tests {
         graph.add_node("fixed".into(), 0.0, 0.0, 0, 3, "Fixed".into());
         for i in 0..4 {
             let angle = 2.0 * std::f32::consts::PI * (i as f32) / 4.0;
-            graph.add_node(format!("mobile-{}", i), 200.0 * angle.cos(), 200.0 * angle.sin(), 0, 1, format!("M{}", i));
+            graph.add_node(
+                format!("mobile-{}", i),
+                200.0 * angle.cos(),
+                200.0 * angle.sin(),
+                0,
+                1,
+                format!("M{}", i),
+            );
             graph.add_edge("fixed", &format!("mobile-{}", i), 1.0, 0);
         }
         let mut sim = Simulation::new();
@@ -2431,23 +2696,23 @@ mod tests {
         graph1.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         graph1.add_node("b".into(), 100.0, 0.0, 0, 1, "B".into());
         graph1.add_edge("a", "b", 1.0, 0);
-        
+
         let mut sim1 = Simulation::new();
         sim1.load_from_graph(&graph1);
-        
+
         let mut graph2 = Graph::new();
         graph2.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         graph2.add_node("b".into(), 100.0, 0.0, 0, 1, "B".into());
         graph2.add_edge("a", "b", 1.0, 0);
-        
+
         let mut sim2 = Simulation::new();
         sim2.load_from_graph(&graph2);
-        
+
         for _ in 0..50 {
             sim1.tick();
             sim2.tick();
         }
-        
+
         for i in 0..sim1.x.len() {
             assert!((sim1.x[i] - sim2.x[i]).abs() < 1e-5);
         }
@@ -2459,17 +2724,17 @@ mod tests {
         graph.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         graph.add_node("b".into(), 100.0, 0.0, 0, 1, "B".into());
         graph.add_edge("a", "b", 2.5, 0);
-        
+
         let mut sim1 = Simulation::new();
         sim1.load_from_graph(&graph);
         let mut sim2 = Simulation::new();
         sim2.load_from_graph(&graph);
-        
+
         for _ in 0..50 {
             sim1.tick();
             sim2.tick();
         }
-        
+
         for i in 0..sim1.x.len() {
             assert!((sim1.x[i] - sim2.x[i]).abs() < 1e-5);
         }
@@ -2482,12 +2747,12 @@ mod tests {
         sim1.load_from_graph(&graph);
         let mut sim2 = Simulation::new();
         sim2.load_from_graph(&graph);
-        
+
         for _ in 0..500 {
             sim1.tick();
             sim2.tick();
         }
-        
+
         for i in 0..sim1.x.len() {
             assert!((sim1.x[i] - sim2.x[i]).abs() < 1e-4);
             assert!((sim1.y[i] - sim2.y[i]).abs() < 1e-4);
@@ -2500,16 +2765,16 @@ mod tests {
         let mut sim1 = Simulation::new();
         sim1.load_from_graph(&graph);
         sim1.params.link_distance = 150.0;
-        
+
         let mut sim2 = Simulation::new();
         sim2.load_from_graph(&graph);
         sim2.params.link_distance = 150.0;
-        
+
         for _ in 0..100 {
             sim1.tick();
             sim2.tick();
         }
-        
+
         for i in 0..sim1.x.len() {
             assert!((sim1.x[i] - sim2.x[i]).abs() < 1e-5);
         }
@@ -2522,12 +2787,12 @@ mod tests {
         sim1.load_from_graph(&graph);
         let mut sim2 = Simulation::new();
         sim2.load_from_graph(&graph);
-        
+
         for _ in 0..500 {
             sim1.tick();
             sim2.tick();
         }
-        
+
         assert_eq!(sim1.is_settled, sim2.is_settled);
     }
 
@@ -2538,12 +2803,12 @@ mod tests {
         sim1.load_from_graph(&graph);
         let mut sim2 = Simulation::new();
         sim2.load_from_graph(&graph);
-        
+
         for _ in 0..100 {
             sim1.tick();
             sim2.tick();
         }
-        
+
         for i in 0..sim1.vx.len() {
             assert!((sim1.vx[i] - sim2.vx[i]).abs() < 1e-5);
             assert!((sim1.vy[i] - sim2.vy[i]).abs() < 1e-5);
@@ -2671,7 +2936,14 @@ mod tests {
     fn static_layout_triggered_for_many_nodes() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2680,10 +2952,57 @@ mod tests {
     }
 
     #[test]
+    fn warm_start_limits_reduce_large_graph_work() {
+        let (medium_iters, medium_budget) = warm_start_limits(1_000);
+        let (large_iters, large_budget) = warm_start_limits(5_000);
+
+        assert!(large_iters < medium_iters);
+        assert!(large_budget < medium_budget);
+    }
+
+    #[test]
+    fn warm_start_limits_cap_mid_size_graphs() {
+        let (iterations, budget) = warm_start_limits(8_999);
+
+        assert!(iterations <= 96);
+        assert_eq!(budget, std::time::Duration::from_millis(6));
+    }
+
+    #[test]
+    fn active_mask_extension_is_exactly_one_hop() {
+        let mut active_mask = vec![true, false, false];
+        let edges = vec![(0, 1), (1, 2)];
+        let mut viewport_seed_mask = Vec::new();
+
+        extend_active_mask_to_one_hop(&mut active_mask, &edges, &mut viewport_seed_mask);
+
+        assert_eq!(active_mask, vec![true, true, false]);
+        assert_eq!(viewport_seed_mask, vec![true, false, false]);
+    }
+
+    #[test]
+    fn active_mask_extension_ignores_invalid_edges() {
+        let mut active_mask = vec![false, true];
+        let edges = vec![(1, 3), (0, 1)];
+        let mut viewport_seed_mask = Vec::new();
+
+        extend_active_mask_to_one_hop(&mut active_mask, &edges, &mut viewport_seed_mask);
+
+        assert_eq!(active_mask, vec![true, true]);
+    }
+
+    #[test]
     fn static_layout_no_physics() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2698,7 +3017,14 @@ mod tests {
     fn static_layout_velocities_zero() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
             graph.nodes[i].vx = 100.0;
         }
         let mut sim = Simulation::new();
@@ -2712,7 +3038,14 @@ mod tests {
     fn static_layout_alpha_zero() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2723,7 +3056,14 @@ mod tests {
     fn static_layout_reheat_no_effect() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2736,7 +3076,14 @@ mod tests {
     fn static_layout_preserves_positions() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 5.0, (i as f32) * 3.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 5.0,
+                (i as f32) * 3.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2750,7 +3097,14 @@ mod tests {
     fn static_layout_below_threshold_disabled() {
         let mut graph = Graph::new();
         for i in 0..8000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2761,7 +3115,14 @@ mod tests {
     fn static_layout_at_threshold_disabled() {
         let mut graph = Graph::new();
         for i in 0..9000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -2772,7 +3133,14 @@ mod tests {
     fn static_layout_computes_degrees() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         for i in 0..100 {
             graph.add_edge("node-0", &format!("node-{}", i), 1.0, 0);
@@ -2787,7 +3155,14 @@ mod tests {
     fn static_layout_min_degree_one() {
         let mut graph = Graph::new();
         for i in 0..3000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -3218,7 +3593,14 @@ mod tests {
     fn tick_count_with_static_layout() {
         let mut graph = Graph::new();
         for i in 0..10_000 {
-            graph.add_node(format!("node-{}", i), (i as f32) * 10.0, 0.0, 0, 1, format!("Node {}", i));
+            graph.add_node(
+                format!("node-{}", i),
+                (i as f32) * 10.0,
+                0.0,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
@@ -3364,7 +3746,11 @@ mod tests {
         // Impact damping (0.85) + normal velocity_decay should reduce velocity.
         // Without impact: vx = 100.0 * (1 - 0.05) = 95.0
         // With impact: 95.0 * 0.85 = 80.75
-        assert!(sim.vx[0] < 85.0, "Impact damping should reduce vx, got {}", sim.vx[0]);
+        assert!(
+            sim.vx[0] < 85.0,
+            "Impact damping should reduce vx, got {}",
+            sim.vx[0]
+        );
     }
 
     #[test]
@@ -3399,8 +3785,12 @@ mod tests {
         let orphan_x_after = sim.x[0];
 
         // Orphan should be pulled toward center (x decreases from 1000).
-        assert!(orphan_x_after < orphan_x_before,
-            "Orphan should move toward center: before={}, after={}", orphan_x_before, orphan_x_after);
+        assert!(
+            orphan_x_after < orphan_x_before,
+            "Orphan should move toward center: before={}, after={}",
+            orphan_x_before,
+            orphan_x_after
+        );
     }
 
     #[test]

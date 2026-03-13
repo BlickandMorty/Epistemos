@@ -227,6 +227,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         let foreground = NSColor(theme.foreground)
         let bodyFont = NSFont.systemFont(ofSize: baseFontSize)
         let accent = NSColor(theme.fontAccent)
+        let headingAccent = NSColor(theme.markdownHeadingAccent)
         let muted = Self.mutedColor(isDark: theme.isDark)
         let bodyParagraph = MarkdownTextStorage.bodyParagraphStyle()
 
@@ -252,15 +253,20 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 } else {
                     NSFont.systemFont(ofSize: fontSize, weight: weight)
                 }
-            let headingColor = usesDisplayFont ? accent : foreground
+            let headingColor = usesDisplayFont
+                ? NSColor(MarkdownHeadingDisplay.foregroundColor(for: theme, level: level))
+                : foreground
             var headingAttributes: [NSAttributedString.Key: Any] = [
                 .font: headingFont,
                 .foregroundColor: headingColor,
                 .paragraphStyle: headingParagraph,
             ]
+            if let shadow = MarkdownHeadingDisplay.nsShadow(for: theme, level: level) {
+                headingAttributes[.shadow] = shadow
+            }
             if level == 2 {
                 headingAttributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
-                headingAttributes[.underlineColor] = accent.withAlphaComponent(0.18)
+                headingAttributes[.underlineColor] = headingAccent.withAlphaComponent(0.18)
             }
             if level == 4 {
                 headingAttributes[.foregroundColor] = foreground.withAlphaComponent(
@@ -273,11 +279,25 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
 
             switch level {
             case 1:
-                applyH1PrefixStyle(to: attrStr, line: line, color: accent.withAlphaComponent(0.55))
+                applyH1PrefixStyle(
+                    to: attrStr,
+                    line: line,
+                    color: headingColor.withAlphaComponent(0.55)
+                )
             case 2:
-                applyPrefixColor(to: attrStr, line: line, prefix: "## ", color: accent.withAlphaComponent(0.50))
+                applyPrefixColor(
+                    to: attrStr,
+                    line: line,
+                    prefix: "## ",
+                    color: headingAccent.withAlphaComponent(0.50)
+                )
             case 3:
-                applyPrefixColor(to: attrStr, line: line, prefix: "### ", color: accent.withAlphaComponent(0.45))
+                applyPrefixColor(
+                    to: attrStr,
+                    line: line,
+                    prefix: "### ",
+                    color: headingAccent.withAlphaComponent(0.45)
+                )
             case 4:
                 applyPrefixColor(to: attrStr, line: line, prefix: "#### ", color: accent.withAlphaComponent(0.40))
             default:
@@ -455,8 +475,9 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         let utf8ToUtf16 = Self.buildUtf8ToUtf16Map(text)
         let sourceNSString = text as NSString
         let isDark = theme.isDark
-        let accent = Self.accentColor(isDark: isDark)
-        let muted = Self.mutedColor(isDark: isDark)
+        let accent = NSColor(theme.fontAccent)
+        let linkAccent = theme.preferredMarkdownLinkNSColor ?? accent
+        let muted = NSColor(theme.mutedForeground)
         let ghostMarker: [NSAttributedString.Key: Any]
         if isActive {
             ghostMarker = [
@@ -499,7 +520,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             applySpanStyle(
                 to: attrStr, span.style, group: span.group, range: spanRange,
                 sourceText: sourceNSString, sourceRange: sourceRange,
-                ghost: ghostMarker, accent: accent, muted: muted
+                ghost: ghostMarker, accent: accent, linkAccent: linkAccent, muted: muted
             )
         }
     }
@@ -512,7 +533,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         _ style: UInt8, group: UInt8, range: NSRange,
         sourceText: NSString, sourceRange: NSRange,
         ghost: [NSAttributedString.Key: Any],
-        accent: NSColor, muted: NSColor
+        accent: NSColor, linkAccent: NSColor, muted: NSColor
     ) {
         // Read the structural font and foreground already applied to this range.
         // Inline styles derive from them so headings keep their size and color.
@@ -531,7 +552,11 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 let content = NSRange(location: range.location + 2, length: range.length - 4)
                 attrStr.addAttributes(
                     [
-                        .font: AppDisplayTypography.nsFont(size: size, weight: .bold),
+                        .font: AppDisplayTypography.preservingFamilyFont(
+                            from: existingFont,
+                            size: size,
+                            bold: true
+                        ),
                         .foregroundColor: existingForeground,
                     ], range: content)
             }
@@ -542,8 +567,11 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 let content = NSRange(location: range.location + 1, length: range.length - 2)
                 attrStr.addAttributes(
                     [
-                        .font: NSFontManager.shared.convert(
-                            existingFont, toHaveTrait: .italicFontMask),
+                        .font: AppDisplayTypography.preservingFamilyFont(
+                            from: existingFont,
+                            size: size,
+                            italic: true
+                        ),
                         .foregroundColor: existingForeground,
                     ], range: content)
             }
@@ -590,21 +618,19 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         case 15:  // Wikilink content — accent pill with native link
             let linkTitle = sourceText.substring(with: sourceRange)
             let existingTraits = NSFontManager.shared.traits(of: existingFont)
-            var wikilinkFont = AppDisplayTypography.nsFont(
+            let wikilinkFont = AppDisplayTypography.preservingFamilyFont(
+                from: existingFont,
                 size: size,
-                weight: existingTraits.contains(.boldFontMask) ? .bold : .regular
+                bold: existingTraits.contains(.boldFontMask),
+                italic: existingTraits.contains(.italicFontMask)
             )
-            if existingTraits.contains(.italicFontMask) {
-                wikilinkFont = NSFontManager.shared.convert(
-                    wikilinkFont, toHaveTrait: .italicFontMask)
-            }
             attrStr.addAttributes(
                 [
                     .font: wikilinkFont,
-                    .foregroundColor: accent,
-                    .backgroundColor: accent.withAlphaComponent(theme.isDark ? 0.10 : 0.08),
+                    .foregroundColor: linkAccent,
+                    .backgroundColor: linkAccent.withAlphaComponent(theme.isDark ? 0.10 : 0.08),
                     .underlineStyle: NSUnderlineStyle.single.rawValue,
-                    .underlineColor: accent.withAlphaComponent(0.35),
+                    .underlineColor: linkAccent.withAlphaComponent(0.35),
                     .link: "wikilink://\(linkTitle)" as NSString,
                     .cursor: NSCursor.pointingHand,
                 ], range: range)
@@ -626,11 +652,11 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                         attrStr.addAttributes(
                             [
                                 .font: existingFont,
-                                .foregroundColor: accent,
-                                .backgroundColor: accent.withAlphaComponent(
+                                .foregroundColor: linkAccent,
+                                .backgroundColor: linkAccent.withAlphaComponent(
                                     theme.isDark ? 0.08 : 0.06),
                                 .underlineStyle: NSUnderlineStyle.single.rawValue,
-                                .underlineColor: accent.withAlphaComponent(0.30),
+                                .underlineColor: linkAccent.withAlphaComponent(0.30),
                             ], range: textRange)
                     }
                 }
@@ -655,10 +681,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             let blockId = sourceText.substring(with: sourceRange)
             attrStr.addAttributes(
                 [
-                    .foregroundColor: accent,
-                    .backgroundColor: accent.withAlphaComponent(theme.isDark ? 0.10 : 0.08),
+                    .foregroundColor: linkAccent,
+                    .backgroundColor: linkAccent.withAlphaComponent(theme.isDark ? 0.10 : 0.08),
                     .underlineStyle: NSUnderlineStyle.single.rawValue,
-                    .underlineColor: accent.withAlphaComponent(0.35),
+                    .underlineColor: linkAccent.withAlphaComponent(0.35),
                     .link: "blockref://\(blockId)" as NSString,
                     .cursor: NSCursor.pointingHand,
                 ], range: range)
@@ -734,7 +760,9 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
 
     private func displayText(for paragraphText: String, paraType: UInt8, metadata: UInt16) -> String
     {
-        paragraphText
+        guard paraType == 1 else { return paragraphText }
+        let level = Int(metadata & 0xFF)
+        return MarkdownHeadingDisplay.displayText(paragraphText, level: level)
     }
 
     private func leadingDocumentContentIsEmpty(before location: Int, in documentString: NSString)

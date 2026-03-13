@@ -1,7 +1,7 @@
 //! Automatically generated advanced chaos engineering tests.
 #[cfg(test)]
 mod tests {
-    use crate::simulation::{Simulation, CenterMode};
+    use crate::simulation::{CenterMode, Simulation};
     use crate::types::Graph;
 
     #[test]
@@ -15,20 +15,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -43,20 +47,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -71,20 +79,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -99,20 +111,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -127,20 +143,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -155,20 +175,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -183,20 +207,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -211,20 +239,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -239,20 +271,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -267,20 +303,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -298,20 +338,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -329,20 +373,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -360,20 +408,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -391,20 +443,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -422,20 +478,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -453,20 +513,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -484,20 +548,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -515,20 +583,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -546,20 +618,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -574,20 +650,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -602,20 +682,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -630,20 +714,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -658,20 +746,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -686,20 +778,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -714,20 +810,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -742,20 +842,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -770,20 +874,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -798,20 +906,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -826,20 +938,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -854,20 +970,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -882,20 +1002,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -910,20 +1034,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -938,20 +1066,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -966,20 +1098,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -994,20 +1130,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -1022,20 +1162,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
     }
 
@@ -1050,20 +1194,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1081,20 +1229,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1112,20 +1264,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1143,20 +1299,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1174,20 +1334,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1205,20 +1369,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1236,20 +1404,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1267,20 +1439,24 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..100 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
@@ -1298,24 +1474,27 @@ mod tests {
                 val,
                 val,
                 0,
-                if val.is_nan() || !val.is_finite() { 1 } else { (val.abs() as u32) % 100 },
+                if val.is_nan() || !val.is_finite() {
+                    1
+                } else {
+                    (val.abs() as u32) % 100
+                },
                 format!("N{}", i),
             );
         }
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         sim.params.center_mode = CenterMode::Attract;
-        
+
         // Trigger N ticks under chaos conditions
         for _ in 0..1000 {
             sim.tick();
         }
-        
-        // Under severe chaos (NaNs / Inf), math will break down, 
+
+        // Under severe chaos (NaNs / Inf), math will break down,
         // but the core requirement is we don't hit a panic boundary!
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite());
         }
     }
-
 }

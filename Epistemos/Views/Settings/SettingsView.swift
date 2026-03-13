@@ -510,6 +510,7 @@ private struct ThemePairCard: View {
         case .classic: ("sun.max", "moon.stars")
         case .warmth: ("sun.max.fill", "sunset.fill")
         case .ember: ("leaf", "flame")
+        case .platinum: ("square.grid.2x2", "square.grid.2x2")
         }
     }
 

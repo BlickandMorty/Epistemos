@@ -331,6 +331,12 @@ actor SearchIndexService {
         log.info("Rebuilt search index with \(pages.count) pages")
     }
 
+    func rebuildFromSwiftDataAsync(
+        _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
+    ) async throws {
+        try rebuildFromSwiftData(pages)
+    }
+
     // MARK: - Diff Sync
 
     nonisolated func diffSync(

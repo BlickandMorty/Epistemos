@@ -179,7 +179,8 @@ impl World {
             self.node_id_to_entity.remove(&node_id);
         }
 
-        self.edges.retain(|edge| edge.source != entity && edge.target != entity);
+        self.edges
+            .retain(|edge| edge.source != entity && edge.target != entity);
         self.rebuild_edge_adjacency();
     }
 
@@ -192,6 +193,10 @@ impl World {
     }
 
     pub fn index_of(&self, entity: Entity) -> Option<usize> {
+        let dense_index = entity as usize;
+        if self.entities.get(dense_index).copied() == Some(entity) {
+            return Some(dense_index);
+        }
         self.entity_to_index.get(&entity).copied()
     }
 
@@ -255,7 +260,11 @@ mod tests {
     #[test]
     fn test_world_add_entity() {
         let mut world = World::new();
-        let t = TransformComponent { x: 1.0, y: 2.0, scale: 3.0 };
+        let t = TransformComponent {
+            x: 1.0,
+            y: 2.0,
+            scale: 3.0,
+        };
         let e = world.spawn(t);
 
         assert_eq!(world.len(), 1);
@@ -269,8 +278,16 @@ mod tests {
     #[test]
     fn test_world_remove_entity() {
         let mut world = World::new();
-        let t0 = TransformComponent { x: 10.0, y: 20.0, scale: 1.0 };
-        let t1 = TransformComponent { x: 30.0, y: 40.0, scale: 2.0 };
+        let t0 = TransformComponent {
+            x: 10.0,
+            y: 20.0,
+            scale: 1.0,
+        };
+        let t1 = TransformComponent {
+            x: 30.0,
+            y: 40.0,
+            scale: 2.0,
+        };
         let e0 = world.spawn(t0);
         let e1 = world.spawn(t1);
 
@@ -311,7 +328,11 @@ mod tests {
         let mut ids = Vec::with_capacity(100);
 
         for i in 0..100u32 {
-            let t = TransformComponent { x: i as f32, y: 0.0, scale: 1.0 };
+            let t = TransformComponent {
+                x: i as f32,
+                y: 0.0,
+                scale: 1.0,
+            };
             ids.push(world.spawn(t));
         }
 
@@ -326,8 +347,16 @@ mod tests {
     #[test]
     fn test_despawn_last() {
         let mut world = World::new();
-        let t0 = TransformComponent { x: 1.0, y: 2.0, scale: 1.0 };
-        let t1 = TransformComponent { x: 3.0, y: 4.0, scale: 1.0 };
+        let t0 = TransformComponent {
+            x: 1.0,
+            y: 2.0,
+            scale: 1.0,
+        };
+        let t1 = TransformComponent {
+            x: 3.0,
+            y: 4.0,
+            scale: 1.0,
+        };
         let e0 = world.spawn(t0);
         let e1 = world.spawn(t1);
 
@@ -344,7 +373,11 @@ mod tests {
     #[test]
     fn test_despawn_nonexistent() {
         let mut world = World::new();
-        let t = TransformComponent { x: 1.0, y: 2.0, scale: 1.0 };
+        let t = TransformComponent {
+            x: 1.0,
+            y: 2.0,
+            scale: 1.0,
+        };
         world.spawn(t);
 
         world.despawn(999);
@@ -356,9 +389,21 @@ mod tests {
     #[test]
     fn test_index_of() {
         let mut world = World::new();
-        let t0 = TransformComponent { x: 0.0, y: 0.0, scale: 1.0 };
-        let t1 = TransformComponent { x: 1.0, y: 1.0, scale: 1.0 };
-        let t2 = TransformComponent { x: 2.0, y: 2.0, scale: 1.0 };
+        let t0 = TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        };
+        let t1 = TransformComponent {
+            x: 1.0,
+            y: 1.0,
+            scale: 1.0,
+        };
+        let t2 = TransformComponent {
+            x: 2.0,
+            y: 2.0,
+            scale: 1.0,
+        };
         let e0 = world.spawn(t0);
         let e1 = world.spawn(t1);
         let e2 = world.spawn(t2);
@@ -376,11 +421,54 @@ mod tests {
     }
 
     #[test]
+    fn test_index_of_dense_fast_path_and_swap_remove_fallback() {
+        let mut world = World::new();
+        let e0 = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        let e1 = world.spawn(TransformComponent {
+            x: 1.0,
+            y: 1.0,
+            scale: 1.0,
+        });
+        let e2 = world.spawn(TransformComponent {
+            x: 2.0,
+            y: 2.0,
+            scale: 1.0,
+        });
+
+        assert_eq!(world.index_of(e0), Some(0));
+        assert_eq!(world.index_of(e1), Some(1));
+        assert_eq!(world.index_of(e2), Some(2));
+
+        world.despawn(e1);
+
+        assert_eq!(world.index_of(e0), Some(0));
+        assert_eq!(world.index_of(e1), None);
+        assert_eq!(world.index_of(e2), Some(1));
+        assert_world_invariants(&world);
+    }
+
+    #[test]
     fn test_full_cycle_consistency() {
         let mut world = World::with_capacity(4);
-        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
-        let e1 = world.spawn(TransformComponent { x: 1.0, y: 1.0, scale: 1.0 });
-        let e2 = world.spawn(TransformComponent { x: 2.0, y: 2.0, scale: 1.0 });
+        let e0 = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        let e1 = world.spawn(TransformComponent {
+            x: 1.0,
+            y: 1.0,
+            scale: 1.0,
+        });
+        let e2 = world.spawn(TransformComponent {
+            x: 2.0,
+            y: 2.0,
+            scale: 1.0,
+        });
 
         world.despawn(e1); // middle swap — e2 moves to index 1
         assert_world_invariants(&world);
@@ -393,7 +481,11 @@ mod tests {
         assert_eq!(world.transform[idx].x, 2.0);
 
         // Re-spawn after full cycle — new IDs, no collision
-        let e3 = world.spawn(TransformComponent { x: 3.0, y: 3.0, scale: 1.0 });
+        let e3 = world.spawn(TransformComponent {
+            x: 3.0,
+            y: 3.0,
+            scale: 1.0,
+        });
         assert_eq!(world.len(), 2);
         assert!(world.index_of(e0).is_none());
         assert!(world.index_of(e1).is_none());
@@ -404,12 +496,42 @@ mod tests {
     #[test]
     fn test_despawn_removes_incident_edges() {
         let mut world = World::new();
-        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
-        let e1 = world.spawn(TransformComponent { x: 1.0, y: 1.0, scale: 1.0 });
-        let e2 = world.spawn(TransformComponent { x: 2.0, y: 2.0, scale: 1.0 });
-        world.edges.push(EdgeComponent { source: e0, target: e1, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
-        world.edges.push(EdgeComponent { source: e1, target: e2, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
-        world.edges.push(EdgeComponent { source: e0, target: e2, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
+        let e0 = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        let e1 = world.spawn(TransformComponent {
+            x: 1.0,
+            y: 1.0,
+            scale: 1.0,
+        });
+        let e2 = world.spawn(TransformComponent {
+            x: 2.0,
+            y: 2.0,
+            scale: 1.0,
+        });
+        world.edges.push(EdgeComponent {
+            source: e0,
+            target: e1,
+            weight: 1.0,
+            edge_type: 0,
+            _pad0: [0; 3],
+        });
+        world.edges.push(EdgeComponent {
+            source: e1,
+            target: e2,
+            weight: 1.0,
+            edge_type: 0,
+            _pad0: [0; 3],
+        });
+        world.edges.push(EdgeComponent {
+            source: e0,
+            target: e2,
+            weight: 1.0,
+            edge_type: 0,
+            _pad0: [0; 3],
+        });
         world.rebuild_edge_adjacency();
 
         world.despawn(e1);
@@ -426,12 +548,36 @@ mod tests {
     #[test]
     fn test_rebuild_edge_adjacency_tracks_incident_edges() {
         let mut world = World::new();
-        let e0 = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
-        let e1 = world.spawn(TransformComponent { x: 1.0, y: 0.0, scale: 1.0 });
-        let e2 = world.spawn(TransformComponent { x: 2.0, y: 0.0, scale: 1.0 });
+        let e0 = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        let e1 = world.spawn(TransformComponent {
+            x: 1.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        let e2 = world.spawn(TransformComponent {
+            x: 2.0,
+            y: 0.0,
+            scale: 1.0,
+        });
 
-        world.edges.push(EdgeComponent { source: e0, target: e1, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
-        world.edges.push(EdgeComponent { source: e1, target: e2, weight: 1.0, edge_type: 0, _pad0: [0; 3] });
+        world.edges.push(EdgeComponent {
+            source: e0,
+            target: e1,
+            weight: 1.0,
+            edge_type: 0,
+            _pad0: [0; 3],
+        });
+        world.edges.push(EdgeComponent {
+            source: e1,
+            target: e2,
+            weight: 1.0,
+            edge_type: 0,
+            _pad0: [0; 3],
+        });
         world.rebuild_edge_adjacency();
 
         let i0 = world.index_of(e0).unwrap();
@@ -447,7 +593,11 @@ mod tests {
         let mut world = World::new();
         assert!(world.is_empty());
 
-        let e = world.spawn(TransformComponent { x: 0.0, y: 0.0, scale: 1.0 });
+        let e = world.spawn(TransformComponent {
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+        });
         assert!(!world.is_empty());
 
         world.despawn(e);

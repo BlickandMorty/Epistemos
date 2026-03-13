@@ -103,6 +103,105 @@ enum NoteToolbarMetrics {
     static let buttonSide: CGFloat = 28
     static let spacing: CGFloat = 6
     static let chatFieldWidth: CGFloat = 180
+    static let stripGlowBlurRadius: CGFloat = 8
+}
+
+enum NoteToolbarPalette {
+    static func stripGlowOpacity(for theme: EpistemosTheme) -> Double {
+        if theme.usesNativeWindowBlur {
+            return theme.isDark ? 0.045 : 0.018
+        }
+        return theme.isDark ? 0.050 : 0.018
+    }
+
+    static func iconOpacity(for theme: EpistemosTheme, isActive: Bool) -> Double {
+        if isActive {
+            return 1
+        }
+        return theme.isDark ? 0.86 : 0.74
+    }
+}
+
+enum NotePreviewRenderer: Equatable {
+    case textKit1
+    case textKit2
+
+    static func resolved(useTK2Editor: Bool) -> Self {
+        useTK2Editor ? .textKit2 : .textKit1
+    }
+}
+
+enum NotePreviewDisplay {
+    static func renderedMarkdown(_ markdown: String, renderer: NotePreviewRenderer) -> String {
+        guard renderer == .textKit1 else { return markdown }
+
+        return markdown
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(transformHeadingLine)
+            .joined(separator: "\n")
+    }
+
+    private static func transformHeadingLine<S: StringProtocol>(_ line: S) -> String {
+        let rawLine = String(line)
+        let leadingSpaces = rawLine.prefix(while: \.isWhitespace)
+        let trimmed = String(rawLine.dropFirst(leadingSpaces.count))
+
+        if trimmed.hasPrefix("### ") && !trimmed.hasPrefix("#### ") {
+            return "\(leadingSpaces)### \(MarkdownHeadingDisplay.displayText(String(trimmed.dropFirst(4)), level: 3))"
+        }
+        if trimmed.hasPrefix("## ") && !trimmed.hasPrefix("### ") {
+            return "\(leadingSpaces)## \(MarkdownHeadingDisplay.displayText(String(trimmed.dropFirst(3)), level: 2))"
+        }
+        if trimmed.hasPrefix("# ") && !trimmed.hasPrefix("## ") {
+            return "\(leadingSpaces)# \(MarkdownHeadingDisplay.displayText(String(trimmed.dropFirst(2)), level: 1))"
+        }
+
+        return rawLine
+    }
+}
+
+enum NoteDualPreviewLayout {
+    static let minimumWidth: CGFloat = 1180
+    static let columnSpacing: CGFloat = 28
+    static let blockSpacing: CGFloat = 22
+    static let outerPadding = EdgeInsets(top: 32, leading: 32, bottom: 32, trailing: 32)
+    static let blockPadding = EdgeInsets(top: 18, leading: 18, bottom: 18, trailing: 18)
+
+    static func usesDualColumns(for availableWidth: CGFloat) -> Bool {
+        availableWidth >= minimumWidth
+    }
+
+    static func paragraphBlocks(in markdown: String) -> [String] {
+        var blocks: [String] = []
+        var current: [String] = []
+        var isInsideCodeFence = false
+
+        func flushCurrent() {
+            let block = current.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !block.isEmpty {
+                blocks.append(block)
+            }
+            current.removeAll(keepingCapacity: true)
+        }
+
+        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
+            let currentLine = String(line)
+            let trimmed = currentLine.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") {
+                current.append(currentLine)
+                isInsideCodeFence.toggle()
+                continue
+            }
+            if !isInsideCodeFence && trimmed.isEmpty {
+                flushCurrent()
+                continue
+            }
+            current.append(currentLine)
+        }
+
+        flushCurrent()
+        return blocks
+    }
 }
 
 enum NoteToolbarGlyph: Sendable {
@@ -150,9 +249,9 @@ private struct NoteToolbarIcon: View {
 
     private var color: Color {
         if isActive {
-            return theme.fontAccent
+            return theme.accent.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: true))
         }
-        return theme.foreground.opacity(theme.isDark ? 0.82 : 0.72)
+        return theme.foreground.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: false))
     }
 
     var body: some View {
@@ -246,6 +345,7 @@ struct NoteDetailWorkspaceView: View {
     let pageId: String
 
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
+    @Environment(GraphState.self) private var graphState
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
@@ -290,7 +390,6 @@ struct NoteDetailWorkspaceView: View {
     @State private var isTransitioning = false
     /// Per-note AI chat state (one per open note tab).
     @State private var noteChatState: NoteChatState
-
     init(pageId: String) {
         self.pageId = pageId
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
@@ -299,121 +398,7 @@ struct NoteDetailWorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Allow content to extend under toolbar for glass effect
-            HStack(spacing: 0) {
-                ZStack {
-                    if let page = pages.first {
-                        VStack(spacing: 0) {
-                            if showPreview {
-                                NotePreviewView(body: page.loadBody(), theme: ui.theme)
-                            } else {
-                                ProseEditorView(page: page, isEditable: true)
-                            }
-                        }
-                        .frame(minWidth: 400, minHeight: 300)
-                    } else {
-                        ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
-                            .frame(minWidth: 400, minHeight: 300)
-                    }
-
-                    // Greeting overlay — always in the view tree (no insertion delay).
-                    // Opacity is flipped instantly to 1 before the mode swap, then
-                    // animated back to 0 after the new view has settled.
-                    TransitionGreetingView(
-                        message: transitionGreeting,
-                        theme: ui.theme
-                    )
-                    .opacity(transitionOpacity)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(transitionOpacity > 0)
-                }
-                .overlay(alignment: .bottom) {
-                    VStack(spacing: 0) {
-                        // Soft transparent fade from clear → background
-                        LinearGradient(
-                            colors: [
-                                ui.theme.background.opacity(0),
-                                ui.theme.background.opacity(0.7),
-                                ui.theme.background.opacity(0.95),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: 44)
-                        .allowsHitTesting(false)
-
-                        ZStack {
-                            HStack(spacing: 8) {
-                                Text("\(wordCount) words")
-                                    .font(AppDisplayTypography.font(size: 13))
-                                    .monospacedDigit()
-                                    .foregroundStyle(ui.theme.foreground.opacity(0.55))
-                            }
-
-                            HStack(spacing: 3) {
-                                Image(systemName: "command")
-                                    .font(.system(size: 10, weight: .medium))
-                                Text("S")
-                                    .font(.custom("RetroGaming", size: 10))
-                                Text("Save to Disk")
-                                    .font(.custom("RetroGaming", size: 10))
-                                    .padding(.leading, 2)
-                                Spacer()
-                                Image(systemName: "command")
-                                    .font(.system(size: 10, weight: .medium))
-                                Text("2")
-                                    .font(.custom("RetroGaming", size: 10))
-                                Text("Note Sidebar")
-                                    .font(.custom("RetroGaming", size: 10))
-                                    .padding(.leading, 2)
-                            }
-                            .foregroundStyle(ui.theme.foreground.opacity(0.35))
-                            .padding(.horizontal, 16)
-                        }
-                        .padding(.bottom, 8)
-                        .frame(maxWidth: .infinity)
-                        .background(ui.theme.background.opacity(0.95))
-                    }
-                    .allowsHitTesting(false)
-                }
-                .overlay(alignment: .trailing) {
-                    NoteOutlineOverlay(
-                        markdown: notesUI.useTK2Editor
-                            ? ""
-                            : (PageStoragePool.shared.bodyText(for: pageId)
-                                ?? pages.first?.loadBody() ?? ""),
-                        theme: ui.theme,
-                        onNavigate: { charOffset in
-                            scrollEditorTo(charOffset: charOffset)
-                        },
-                        externalItems: notesUI.useTK2Editor ? tocItems : nil
-                    )
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(ui.theme.background)
-                .environment(noteChatState)
-                .onAppear {
-                    noteChatState.loadPersistedMessages(modelContext)
-                    refreshTabCount()
-                    if let page = pages.first {
-                        scheduleMetricsRefresh(
-                            body: page.loadBody(),
-                            includeMarkdownHeadings: true
-                        )
-                    }
-                }
-                .onDisappear {
-                    wordCountDebounce?.cancel()
-                    metricsTask?.cancel()
-                    noteChatState.clear()
-                }
-                .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
-                    if wasStreaming && !isNowStreaming, let page = pages.first {
-                        noteChatState.persistMessages(modelContext, noteTitle: page.title)
-                    }
-                }
-
-            }
+            noteCanvas
         }
         .toolbar {
             if let nav = navState, nav.hasBreadcrumb {
@@ -597,6 +582,122 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
+    private var noteCanvas: some View {
+        HStack(spacing: 0) {
+            ZStack {
+                if let page = pages.first {
+                    let previewRenderer = NotePreviewRenderer.resolved(
+                        useTK2Editor: notesUI.useTK2Editor
+                    )
+                    let pageBody = page.loadBody()
+                    VStack(spacing: 0) {
+                        if showPreview {
+                            notePreview(body: pageBody, renderer: previewRenderer)
+                        } else {
+                            ProseEditorView(page: page, isEditable: true)
+                        }
+                    }
+                    .frame(minWidth: 400, minHeight: 300)
+                } else {
+                    ContentUnavailableView("Note not found", systemImage: "doc.questionmark")
+                        .frame(minWidth: 400, minHeight: 300)
+                }
+
+                TransitionGreetingView(
+                    message: transitionGreeting,
+                    theme: ui.theme
+                )
+                .opacity(transitionOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(transitionOpacity > 0)
+            }
+            .overlay(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [
+                            ui.theme.background.opacity(0),
+                            ui.theme.background.opacity(0.7),
+                            ui.theme.background.opacity(0.95),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 44)
+                    .allowsHitTesting(false)
+
+                    ZStack {
+                        HStack(spacing: 8) {
+                            Text("\(wordCount) words")
+                                .font(AppDisplayTypography.font(size: 13))
+                                .monospacedDigit()
+                                .foregroundStyle(ui.theme.foreground.opacity(0.55))
+                        }
+
+                        HStack(spacing: 3) {
+                            Image(systemName: "command")
+                                .font(.system(size: 10, weight: .medium))
+                            Text("S")
+                                .font(.custom("RetroGaming", size: 10))
+                            Text("Save to Disk")
+                                .font(.custom("RetroGaming", size: 10))
+                                .padding(.leading, 2)
+                            Spacer()
+                            Image(systemName: "command")
+                                .font(.system(size: 10, weight: .medium))
+                            Text("2")
+                                .font(.custom("RetroGaming", size: 10))
+                            Text("Note Sidebar")
+                                .font(.custom("RetroGaming", size: 10))
+                                .padding(.leading, 2)
+                        }
+                        .foregroundStyle(ui.theme.foreground.opacity(0.35))
+                        .padding(.horizontal, 16)
+                    }
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(ui.theme.background.opacity(0.95))
+                }
+                .allowsHitTesting(false)
+            }
+            .overlay(alignment: .trailing) {
+                NoteOutlineOverlay(
+                    markdown: notesUI.useTK2Editor
+                        ? ""
+                        : (PageStoragePool.shared.bodyText(for: pageId)
+                            ?? pages.first?.loadBody() ?? ""),
+                    theme: ui.theme,
+                    onNavigate: { charOffset in
+                        scrollEditorTo(charOffset: charOffset)
+                    },
+                    externalItems: notesUI.useTK2Editor ? tocItems : nil
+                )
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ui.theme.background)
+            .environment(noteChatState)
+            .onAppear {
+                noteChatState.loadPersistedMessages(modelContext)
+                refreshTabCount()
+                if let page = pages.first {
+                    scheduleMetricsRefresh(
+                        body: page.loadBody(),
+                        includeMarkdownHeadings: true
+                    )
+                }
+            }
+            .onDisappear {
+                wordCountDebounce?.cancel()
+                metricsTask?.cancel()
+                noteChatState.clear()
+            }
+            .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
+                if wasStreaming && !isNowStreaming, let page = pages.first {
+                    noteChatState.persistMessages(modelContext, noteTitle: page.title)
+                }
+            }
+        }
+    }
+
     private var noteToolbarStrip: some View {
         HStack(spacing: NoteToolbarMetrics.spacing) {
             if !showPreview {
@@ -604,6 +705,13 @@ struct NoteDetailWorkspaceView: View {
             }
 
             noteToolbarControls
+        }
+        .background {
+            Capsule()
+                .fill(ui.theme.fontAccent.opacity(NoteToolbarPalette.stripGlowOpacity(for: ui.theme)))
+                .blur(radius: NoteToolbarMetrics.stripGlowBlurRadius)
+                .padding(.horizontal, -8)
+                .padding(.vertical, -3)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -995,6 +1103,19 @@ struct NoteDetailWorkspaceView: View {
         }
     }
 
+    @ViewBuilder
+    private func notePreview(body: String, renderer: NotePreviewRenderer) -> some View {
+        switch renderer {
+        case .textKit1:
+            NotePreviewView(
+                body: NotePreviewDisplay.renderedMarkdown(body, renderer: renderer),
+                theme: ui.theme
+            )
+        case .textKit2:
+            AdaptiveNotePreviewView2(content: body, theme: ui.theme)
+        }
+    }
+
     private func navigateToWikilink(title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -1218,14 +1339,14 @@ struct NoteDetailWorkspaceView: View {
             } label: {
                 Image(systemName: noteChatRoutingIcon)
                     .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(ui.theme.mutedForeground)
             }
             .menuStyle(.borderlessButton)
             .help(noteChatRoutingLabel)
 
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(ui.theme.mutedForeground)
             TextField("Ask", text: $chat.inputText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 11))
@@ -2557,6 +2678,153 @@ private struct NotePreviewView: NSViewRepresentable {
             tv.textContainerInset = NSSize(width: horizontalInset, height: verticalInset)
         }
     }
+}
+
+private struct NotePreviewView2: NSViewRepresentable {
+    let body: String
+    let theme: EpistemosTheme
+
+    private static let maxReadableWidth: CGFloat = 720
+    private static let minHorizontalInset: CGFloat = 60
+    private static let verticalInset: CGFloat = 54
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let (scrollView, textView) = ProseTextView2.makeTextKit2()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.allowsUndo = false
+        textView.drawsBackground = false
+        textView.backgroundColor = .clear
+        textView.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
+        textView.applyTheme(theme)
+        textView.textStorage?.setAttributedString(NSAttributedString(string: body))
+        textView.reparseAndInvalidate()
+
+        scrollView.drawsBackground = false
+        scrollView.backgroundColor = .clear
+        scrollView.wantsLayer = true
+        scrollView.automaticallyAdjustsContentInsets = false
+        scrollView.contentInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+
+        scrollView.contentView.postsFrameChangedNotifications = true
+        context.coordinator.frameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak textView] _ in
+            guard let textView else { return }
+            MainActor.assumeIsolated {
+                Self.updateCenteringInsets(for: textView)
+            }
+        }
+
+        context.coordinator.textView = textView
+        context.coordinator.lastTheme = theme
+
+        DispatchQueue.main.async {
+            Self.updateCenteringInsets(for: textView)
+        }
+
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = context.coordinator.textView else { return }
+
+        if context.coordinator.lastTheme != theme {
+            context.coordinator.lastTheme = theme
+            textView.applyTheme(theme)
+        }
+
+        if textView.string != body {
+            textView.textStorage?.setAttributedString(NSAttributedString(string: body))
+            textView.reparseAndInvalidate()
+        } else {
+            textView.updateVisibleLineRange()
+        }
+
+        Self.updateCenteringInsets(for: textView)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        nonisolated(unsafe) var textView: ProseTextView2?
+        var lastTheme: EpistemosTheme?
+        nonisolated(unsafe) var frameObserver: (any NSObjectProtocol)?
+
+        deinit {
+            if let frameObserver {
+                NotificationCenter.default.removeObserver(frameObserver)
+            }
+        }
+    }
+
+    private static func updateCenteringInsets(for textView: ProseTextView2) {
+        guard let scrollView = textView.enclosingScrollView else { return }
+        let availableWidth = scrollView.contentSize.width
+        let horizontalInset = max(minHorizontalInset, (availableWidth - maxReadableWidth) / 2)
+        let currentInset = textView.textContainerInset
+        if abs(currentInset.width - horizontalInset) > 0.5
+            || abs(currentInset.height - verticalInset) > 0.5
+        {
+            textView.textContainerInset = NSSize(width: horizontalInset, height: verticalInset)
+        }
+    }
+}
+
+private struct AdaptiveNotePreviewView2: View {
+    let content: String
+    let theme: EpistemosTheme
+
+    private var blocks: [String] {
+        NoteDualPreviewLayout.paragraphBlocks(in: content)
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            if NoteDualPreviewLayout.usesDualColumns(for: proxy.size.width), blocks.count > 1 {
+                ScrollView {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: NoteDualPreviewLayout.columnSpacing, alignment: .top),
+                            GridItem(.flexible(), spacing: NoteDualPreviewLayout.columnSpacing, alignment: .top),
+                        ],
+                        alignment: .leading,
+                        spacing: NoteDualPreviewLayout.blockSpacing
+                    ) {
+                        ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                            NoteDualPreviewBlock(markdown: block, theme: theme)
+                        }
+                    }
+                    .padding(NoteDualPreviewLayout.outerPadding)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+                .background(theme.background)
+            } else {
+                NotePreviewView2(body: content, theme: theme)
+            }
+        }
+    }
+}
+
+private struct NoteDualPreviewBlock: View {
+    let markdown: String
+    let theme: EpistemosTheme
+
+    var body: some View {
+        MarkdownTextView(content: markdown, theme: theme)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(NoteDualPreviewLayout.blockPadding)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(theme.isDark ? Color.white.opacity(0.03) : Color.black.opacity(0.025))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(theme.isDark ? Color.white.opacity(0.05) : Color.black.opacity(0.06), lineWidth: 0.5)
+            )
+        }
 }
 
 // MARK: - Transition Greeting View

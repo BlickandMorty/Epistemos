@@ -560,6 +560,9 @@ actor VaultIndexActor {
                 } else {
                     page.saveBody(body)
                     BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
+                    page.lastSyncedBodyHash = SDPage.bodyHash(body)
+                    page.lastSyncedAt = .now
+                    page.needsVaultSync = false
                     // Notify editor to reload — vault replaced the body externally.
                     let changedId = page.id
                     Task { @MainActor in
@@ -630,6 +633,9 @@ actor VaultIndexActor {
             page.filePath = filePath
             page.wordCount = parsedWordCount
             page.emoji = parsedEmoji
+            page.lastSyncedBodyHash = SDPage.bodyHash(body)
+            page.lastSyncedAt = .now
+            page.needsVaultSync = false
 
             // Compute subfolder relative to vault root
             let relativePath = fileURL.deletingLastPathComponent().path

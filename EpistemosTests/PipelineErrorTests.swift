@@ -6,14 +6,14 @@ struct PipelineErrorTests {
 
     @Test("noLLMService has descriptive message")
     func noLLMServiceDescription() {
-        let err = PipelineError.noLLMService
+        let err = Epistemos.PipelineError.noLLMService
         #expect(err.errorDescription != nil)
         #expect(err.errorDescription!.contains("API key") || err.errorDescription!.contains("LLM"))
     }
 
     @Test("analysisFailure includes the message")
     func analysisFailureDescription() {
-        let err = PipelineError.analysisFailure("Something went wrong")
+        let err = Epistemos.PipelineError.analysisFailure("Something went wrong")
         #expect(err.errorDescription == "Something went wrong")
     }
 }

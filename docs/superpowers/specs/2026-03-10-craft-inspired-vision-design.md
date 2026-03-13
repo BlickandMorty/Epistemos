@@ -280,16 +280,16 @@ In default "Prose" mode:
 ```
 Tier 1: Apple Intelligence    (free, instant, ~4K context)
   ↓ fallback
-Tier 2: Qwen via MLX Swift    (free, fast, on-device, 128K context)
+Tier 2: Qwen/Gemma via MLX Swift    (free, fast, on-device, primary local route)
   ↓ fallback
 Tier 3: Ollama                (user-managed advanced local models)
   ↓ fallback
 Tier 4: Cloud API             (most capable, costs money, needs internet)
 ```
 
-### Embedded Local Inference (MLX Swift + Qwen)
+### Embedded Local Inference (MLX Swift + Qwen/Gemma)
 
-No external software required. MLX Swift runs Qwen models directly in-process using Apple Silicon unified memory.
+No external software required. MLX Swift runs Qwen and Gemma models directly in-process using Apple Silicon unified memory.
 
 **Model allocation strategy:**
 
@@ -308,10 +308,16 @@ No external software required. MLX Swift runs Qwen models directly in-process us
 - When swapping: unload current model, clear cache, load new model (~2-5s)
 - Low memory mode on 8GB machines: defer to Tier 1 (Apple AI) + Tier 4 (Cloud) only
 
+**User routing requirements locked 2026-03-12:**
+- Apple on-device models stay first in the routing stack.
+- Qwen is the primary MLX local family after Apple.
+- Gemma is the secondary MLX local family and should ship as an available local fallback, not as an afterthought.
+- Ollama remains optional. It is not the default local path.
+
 **Model management UI:**
-- First launch: prompt to download recommended model (Qwen 3B, ~2.2GB)
+- First launch: pre-download the recommended small local set so the app already has a Qwen model and a Gemma model ready for offline routing
 - Models stored in `~/Library/Application Support/Epistemos/Models/`
-- Settings panel for downloading additional models, importing custom MLX models, viewing disk usage
+- Settings panel for downloading additional models, importing custom MLX models, viewing disk usage, and choosing which family handles triage versus general local fallback
 - One model loaded at a time (swap unloads previous)
 
 **Service architecture:**
@@ -1158,6 +1164,7 @@ Users can record a 5-15 second voice sample to clone any voice for any agent.
 |  Voice Settings                     |
 |                                     |
 |  Master Toggle:  [* On]             |
+|  Engine:       [Chatterbox v]       |
 |                                     |
 |  Agent Voices:                      |
 |  Librarian  [Default v] [Record]   |
@@ -1172,6 +1179,12 @@ Users can record a 5-15 second voice sample to clone any voice for any agent.
 |  Volume: [======*==] 80%           |
 +-------------------------------------+
 ```
+
+Voice requirements locked 2026-03-12:
+- Settings must expose Chatterbox, Fish Speech, Voicebox, and Resemble AI as selectable engines.
+- Per-agent engine selection is required, not just per-agent voice selection.
+- Custom/cloned voice flows must be surfaced where supported, with Chatterbox custom voice specifically preserved.
+- Current local reference material verified on disk: `/Users/jojo/projects/logic to implement/chatterbox-master` and `/Users/jojo/projects/logic to implement/fish-speech-main`.
 
 ---
 

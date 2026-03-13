@@ -119,10 +119,16 @@ fn measure_indent(line: &str) -> (u16, &str) {
 
     while pos < bytes.len() {
         match bytes[pos] {
-            b'\t' => { depth += 1; spaces = 0; }
+            b'\t' => {
+                depth += 1;
+                spaces = 0;
+            }
             b' ' => {
                 spaces += 1;
-                if spaces == 2 { depth += 1; spaces = 0; }
+                if spaces == 2 {
+                    depth += 1;
+                    spaces = 0;
+                }
             }
             _ => break,
         }
@@ -133,8 +139,12 @@ fn measure_indent(line: &str) -> (u16, &str) {
 }
 
 fn strip_list_marker(s: &str) -> &str {
-    if let Some(rest) = s.strip_prefix("- ") { return rest; }
-    if let Some(rest) = s.strip_prefix("* ") { return rest; }
+    if let Some(rest) = s.strip_prefix("- ") {
+        return rest;
+    }
+    if let Some(rest) = s.strip_prefix("* ") {
+        return rest;
+    }
 
     // Ordered: "1. ", "2. ", etc.
     let bytes = s.as_bytes();

@@ -56,10 +56,15 @@ struct TypewriterPlainText: View {
 // to give subtle feedback as tokens arrive.
 
 enum HapticHelper {
+    @MainActor
+    static func softTick() {
+        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+    }
+
     /// Fires a single alignment haptic on the Force Touch trackpad.
     /// No-op on Macs without a trackpad — the API gracefully does nothing.
     @MainActor
     static func streamingTick() {
-        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        softTick()
     }
 }

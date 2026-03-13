@@ -135,8 +135,8 @@ mod tests {
         let mut grid = SpatialGrid::new(50.0);
 
         // Three entities in different cells
-        grid.insert(0, 10.0, 10.0);   // cell (0, 0)
-        grid.insert(1, 60.0, 60.0);   // cell (1, 1)
+        grid.insert(0, 10.0, 10.0); // cell (0, 0)
+        grid.insert(1, 60.0, 60.0); // cell (1, 1)
         grid.insert(2, 200.0, 200.0); // cell (4, 4) — far away
 
         // Query around (10, 10) with radius 70 — should find entities 0 and 1
@@ -151,9 +151,21 @@ mod tests {
         let mut grid = SpatialGrid::new(50.0);
         let entities: Vec<u32> = vec![0, 1, 2];
         let transforms = vec![
-            TransformComponent { x: 5.0, y: 5.0, scale: 1.0 },
-            TransformComponent { x: 10.0, y: 10.0, scale: 1.0 },
-            TransformComponent { x: 300.0, y: 300.0, scale: 1.0 },
+            TransformComponent {
+                x: 5.0,
+                y: 5.0,
+                scale: 1.0,
+            },
+            TransformComponent {
+                x: 10.0,
+                y: 10.0,
+                scale: 1.0,
+            },
+            TransformComponent {
+                x: 300.0,
+                y: 300.0,
+                scale: 1.0,
+            },
         ];
 
         grid.rebuild(&entities, &transforms);
@@ -227,6 +239,20 @@ mod tests {
         assert!(out.contains(&0));
         assert!(out.contains(&1));
         assert!(!out.contains(&2));
+    }
+
+    #[test]
+    fn test_query_bounds_into_never_duplicates_entities() {
+        let mut grid = SpatialGrid::new(50.0);
+        grid.insert(7, 10.0, 10.0);
+        grid.insert(8, 55.0, 55.0);
+        grid.insert(9, 95.0, 95.0);
+
+        let mut out = vec![999];
+        grid.query_bounds_into(-20.0, -20.0, 140.0, 140.0, &mut out);
+
+        out.sort_unstable();
+        assert_eq!(out, vec![7, 8, 9]);
     }
 
     #[test]

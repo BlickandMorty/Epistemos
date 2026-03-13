@@ -1,6 +1,24 @@
 import SwiftData
 import SwiftUI
 
+enum LandingShortcutDisplay {
+    static let fontSize: CGFloat = 12
+    static let keyHorizontalPadding: CGFloat = 7
+    static let keyVerticalPadding: CGFloat = 4
+    static let keyCornerRadius: CGFloat = 7
+    static let multiCharacterKeyMinWidth: CGFloat = 48
+    static let shortcutRowSpacing: CGFloat = 12
+
+    static func label(_ text: String) -> String {
+        text.uppercased()
+    }
+
+    static func keyMinWidth(for text: String?) -> CGFloat? {
+        guard let text, text.count > 1 else { return nil }
+        return multiCharacterKeyMinWidth
+    }
+}
+
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 // Search/command palette is now a global overlay (CommandPaletteOverlay)
@@ -71,6 +89,7 @@ struct LandingView: View {
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
+
         }
         .onKeyPress(.escape) {
             if showingSearch {
@@ -103,7 +122,7 @@ struct LandingView: View {
             Spacer()
 
             // Shortcut hints
-            HStack(spacing: 16) {
+            HStack(spacing: LandingShortcutDisplay.shortcutRowSpacing) {
                 CommandHint(icon: "magnifyingglass", label: "Click to search", theme: theme) {
                     activateLandingSearch()
                 }
@@ -145,6 +164,7 @@ struct LandingView: View {
                 CommandHint(modIcon: "command", key: "G", label: "Graph", theme: theme) {
                     HologramController.shared.toggle()
                 }
+                .help("Graph overlay (\u{2318}G).")
                 .springEntrance(index: 4, stagger: 0.08)
             }
             .padding(.bottom, 28)
@@ -717,23 +737,53 @@ private struct CommandHint: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 3) {
-                if let icon {
+            HStack(spacing: 2) {
+                if modIcon != nil || key != nil {
+                    HStack(spacing: 3) {
+                        if let modIcon {
+                            Image(systemName: modIcon)
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        if let key {
+                            Text(key)
+                                .font(.custom("RetroGaming", size: LandingShortcutDisplay.fontSize))
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                    }
+                    .padding(.horizontal, LandingShortcutDisplay.keyHorizontalPadding)
+                    .padding(.vertical, LandingShortcutDisplay.keyVerticalPadding)
+                    .frame(minWidth: LandingShortcutDisplay.keyMinWidth(for: key))
+                    .fixedSize(horizontal: true, vertical: false)
+                    .background(
+                        RoundedRectangle(
+                            cornerRadius: LandingShortcutDisplay.keyCornerRadius,
+                            style: .continuous
+                        )
+                        .fill(theme.card.opacity(theme.isDark ? 0.62 : 0.96))
+                    )
+                    .overlay(
+                        RoundedRectangle(
+                            cornerRadius: LandingShortcutDisplay.keyCornerRadius,
+                            style: .continuous
+                        )
+                        .strokeBorder(
+                            isHovered ? theme.fontAccent.opacity(0.65) : theme.border.opacity(0.9),
+                            lineWidth: 1
+                        )
+                    )
+                } else if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                 }
-                if let modIcon {
-                    Image(systemName: modIcon)
-                        .font(.system(size: 11, weight: .medium))
-                }
-                if let key {
-                    Text(key).font(.custom("RetroGaming", size: 12))
-                }
-                Text(label)
-                    .font(.custom("RetroGaming", size: 12))
-                    .padding(.leading, (key != nil || icon != nil) ? 2 : 0)
+                Text(LandingShortcutDisplay.label(label))
+                    .font(.custom("RetroGaming", size: LandingShortcutDisplay.fontSize))
+                    .padding(.leading, (key != nil || modIcon != nil || icon != nil) ? 4 : 0)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .contentShape(Rectangle())
+            .fixedSize(horizontal: true, vertical: false)
         }
         .buttonStyle(.plain)
         .foregroundStyle(isHovered ? theme.fontAccent : theme.textTertiary.opacity(0.5))

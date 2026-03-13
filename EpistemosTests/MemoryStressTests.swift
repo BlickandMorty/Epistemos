@@ -56,7 +56,7 @@ struct MemoryStressTests {
         }
         
         let memoryIncrease = loadMemory > initialMemory ? loadMemory - initialMemory : 0
-        let memoryPerNode = nodes.count > 0 ? Double(memoryIncrease) / Double(nodes.count) : 0
+        _ = nodes.count > 0 ? Double(memoryIncrease) / Double(nodes.count) : 0
 
         #expect(store.nodeCount == 15000, "Should load all 15,000 nodes")
     }
@@ -124,7 +124,7 @@ struct MemoryStressTests {
             let store = GraphStore()
             let (nodes, edges) = GraphTestDataGenerator.generateConnectedGraph(nodeCount: nodeCount)
             
-            let before = MemoryTracker.currentMemoryUsage()
+            _ = MemoryTracker.currentMemoryUsage()
             store.loadDirect(nodes: nodes, edges: edges)
             
             // Simulate some work

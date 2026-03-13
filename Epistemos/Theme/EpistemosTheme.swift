@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Theme Definition
-// 8 themes — 4 light (White, Sunny, Tan, Magnolia) + 4 dark (Sunset, OLED, Ember, Nocturne).
+// 10 themes — 5 light + 5 dark, including the Platinum pair.
 
 enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case light = "light"
@@ -12,6 +12,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     case oled = "oled"
     case ember = "ember"
     case nocturne = "nocturne"
+    case platinum = "platinum"      // Classic Mac OS 9 Platinum (light)
+    case platinumDark = "platinumDark"  // Beautiful dark variant
 
     var displayName: String {
         switch self {
@@ -23,15 +25,20 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   "OLED"
         case .ember:  "Ember"
         case .nocturne: "Nocturne"
+        case .platinum: "Platinum"
+        case .platinumDark: "Platinum Dark"
         }
     }
 
     var isDark: Bool {
         switch self {
-        case .light, .sunny, .tan, .magnolia: false
-        case .sunset, .oled, .ember, .nocturne: true
+        case .light, .sunny, .tan, .magnolia, .platinum: false
+        case .sunset, .oled, .ember, .nocturne, .platinumDark: true
         }
     }
+    
+    /// Whether this theme uses Platinum styling (beveled buttons, racing stripes)
+    var isPlatinum: Bool { self == .platinum || self == .platinumDark }
 
     var colorScheme: ColorScheme { isDark ? .dark : .light }
     var usesNativeWindowBlur: Bool { self == .magnolia || self == .nocturne }
@@ -48,6 +55,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0x000000)
         case .ember:  Color(hex: 0x1C1410)
         case .nocturne: Color(hex: 0x19141F)
+        case .platinum: Color(hex: 0xDEDEDE)  // Classic platinum gray
+        case .platinumDark: Color(hex: 0x1E1E24)  // Beautiful deep blue-gray
         }
     }
 
@@ -61,6 +70,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   0xDADADE
         case .ember:  0xE0D4C8
         case .nocturne: 0xE7DEE8
+        case .platinum: 0x000000
+        case .platinumDark: 0xFFFFFF
         }
     }
 
@@ -76,6 +87,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0xDADADE)
         case .ember:  Color(hex: 0xC8762A)
         case .nocturne: Color(hex: 0xA8B6D9)
+        case .platinum: Color(hex: 0x000080)
+        case .platinumDark: Color(hex: 0x7B68EE)
         }
     }
 
@@ -89,11 +102,47 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   0xFFFFFF
         case .ember:  0xE8A040
         case .nocturne: 0xD7A7B6
+        case .platinum: 0x000000
+        case .platinumDark: 0xFFFFFF
+        }
+    }
+
+    nonisolated var markdownHeadingAccentHex: UInt32 {
+        switch self {
+        case .platinum:
+            0x00007B
+        case .platinumDark:
+            0x7B68EE
+        default:
+            headingAccentHex
+        }
+    }
+
+    nonisolated var preferredMarkdownLinkHex: UInt32? {
+        switch self {
+        case .platinum:
+            markdownHeadingAccentHex
+        default:
+            nil
         }
     }
 
     var fontAccent: Color {
         Color(hex: headingAccentHex)
+    }
+
+    var markdownHeadingAccent: Color {
+        Color(hex: markdownHeadingAccentHex)
+    }
+
+    var preferredMarkdownLinkColor: Color? {
+        guard let preferredMarkdownLinkHex else { return nil }
+        return Color(hex: preferredMarkdownLinkHex)
+    }
+
+    var preferredMarkdownLinkNSColor: NSColor? {
+        guard let preferredMarkdownLinkHex else { return nil }
+        return NSColor(Color(hex: preferredMarkdownLinkHex))
     }
 
     var uiAccent: Color {
@@ -106,6 +155,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0xDADADE)
         case .ember:  Color(hex: 0xE0D4C8)
         case .nocturne: Color(hex: 0xE7DEE8)
+        case .platinum: Color(hex: 0x000080)  // Classic Mac blue
+        case .platinumDark: Color(hex: 0x7B68EE)  // Beautiful medium slate blue
         }
     }
 
@@ -121,6 +172,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0x141414)
         case .ember:  Color(hex: 0x2A1E14)
         case .nocturne: Color(hex: 0x27212D)
+        case .platinum: Color(hex: 0xCCCCCC)
+        case .platinumDark: Color(hex: 0x252530)
         }
     }
 
@@ -134,10 +187,41 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   0x8A8A8A
         case .ember:  0xA08060
         case .nocturne: 0xA89CA8
+        case .platinum: 0x555555
+        case .platinumDark: 0x9090A0
         }
     }
 
     var mutedForeground: Color { Color(hex: mutedForegroundHex) }
+
+    nonisolated var assistantBubbleForegroundHex: UInt32 {
+        switch self {
+        case .platinum:
+            mutedForegroundHex
+        default:
+            foregroundHex
+        }
+    }
+
+    var assistantBubbleForeground: Color { Color(hex: assistantBubbleForegroundHex) }
+
+    nonisolated var assistantBubbleBackgroundHex: UInt32? {
+        nil
+    }
+
+    var assistantBubbleBackground: Color {
+        guard let assistantBubbleBackgroundHex else { return .clear }
+        return Color(hex: assistantBubbleBackgroundHex)
+    }
+
+    nonisolated var userBubbleBackgroundHex: UInt32? {
+        switch self {
+        case .platinum:
+            0xD6C2A2
+        default:
+            nil
+        }
+    }
 
     var border: Color {
         switch self {
@@ -149,6 +233,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.55)
         case .ember:  Color(hex: 0x3A2818)
         case .nocturne: Color(hex: 0x3B3243)
+        case .platinum: Color.black.opacity(0.2)
+        case .platinumDark: Color.white.opacity(0.15)
         }
     }
 
@@ -179,6 +265,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0x56B6B6)
         case .ember:  Color(hex: 0x5AACAC)
         case .nocturne: Color(hex: 0x7DB3C4)
+        case .platinum: Color(hex: 0x000080)
+        case .platinumDark: Color(hex: 0x7B68EE)
         }
     }
     var codeProperty: Color { fontAccent }
@@ -270,6 +358,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 16/255, green: 16/255, blue: 16/255).opacity(0.82)
         case .ember:  Color(hex: 0x241A10).opacity(0.88)
         case .nocturne: Color(hex: 0x221C2A).opacity(0.86)
+        case .platinum: Color(hex: 0xDDDDDD)
+        case .platinumDark: Color(hex: 0x2D2D38)
         }
     }
 
@@ -283,6 +373,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.32)
         case .ember:  Color(hex: 0x402C1C)
         case .nocturne: Color(hex: 0x443A4D)
+        case .platinum: Color.black.opacity(0.1)
+        case .platinumDark: Color.white.opacity(0.08)
         }
     }
 
@@ -296,6 +388,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 28/255, green: 28/255, blue: 28/255).opacity(0.7)
         case .ember:  Color(hex: 0x30201A).opacity(0.75)
         case .nocturne: Color(hex: 0x342B3D).opacity(0.78)
+        case .platinum: Color(hex: 0xCCCCCC)
+        case .platinumDark: Color(hex: 0x353545)
         }
     }
 
@@ -311,6 +405,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 8/255, green: 8/255, blue: 8/255).opacity(0.85)
         case .ember:  Color(hex: 0x141008).opacity(0.88)
         case .nocturne: Color(hex: 0x140F18).opacity(0.90)
+        case .platinum: Color(hex: 0xDDDDDD)
+        case .platinumDark: Color(hex: 0x2D2D38)
         }
     }
 
@@ -326,6 +422,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 20/255, green: 20/255, blue: 20/255).opacity(0.7)
         case .ember:  Color(hex: 0x3A2414).opacity(0.8)
         case .nocturne: Color(hex: 0x3A3046).opacity(0.78)
+        case .platinum: Color(hex: 0x000080)
+        case .platinumDark: Color(hex: 0x6B5DD6)
         }
     }
 
@@ -339,6 +437,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0xDADADE).opacity(0.92)
         case .ember:  Color(hex: 0xE0D4C8).opacity(0.92)
         case .nocturne: Color(hex: 0xEEE4EC).opacity(0.94)
+        case .platinum: Color.black.opacity(0.7)
+        case .platinumDark: Color.white.opacity(0.75)
         }
     }
 
@@ -352,6 +452,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 180/255, green: 180/255, blue: 180/255).opacity(0.92)
         case .ember:  Color(hex: 0xA08060).opacity(0.92)
         case .nocturne: Color(hex: 0xA89CA8).opacity(0.92)
+        case .platinum: Color.black.opacity(0.5)
+        case .platinumDark: Color.white.opacity(0.6)
         }
     }
 
@@ -367,6 +469,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(red: 18/255, green: 18/255, blue: 18/255).opacity(0.92)
         case .ember:  Color(hex: 0x241A10).opacity(0.90)
         case .nocturne: Color(hex: 0x241E2B).opacity(0.90)
+        case .platinum: Color(hex: 0xDDDDDD)
+        case .platinumDark: Color(hex: 0x252530)
         }
     }
 
@@ -380,6 +484,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   Color(hex: 0x000000)
         case .ember:  Color(hex: 0x1C1410)
         case .nocturne: Color(hex: 0x19141F)
+        case .platinum: Color(hex: 0xEEEEEE)
+        case .platinumDark: Color(hex: 0x2A2A38)
         }
     }
 
@@ -401,7 +507,10 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     var pressedOverlay: Color { isDark ? Color.white.opacity(0.12) : Color.black.opacity(0.08) }
 
     var userBubbleBg: Color {
-        switch self {
+        if let userBubbleBackgroundHex {
+            return Color(hex: userBubbleBackgroundHex)
+        }
+        return switch self {
         case .tan:    Color(hex: 0x6B3D1A)
         case .sunset: Color(hex: 0x3A2040)
         case .oled:   Color(hex: 0x2A2A2A)
@@ -440,6 +549,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         case .oled:   .black
         case .ember:  NSColor(red: 0x1C/255, green: 0x14/255, blue: 0x10/255, alpha: 1)
         case .nocturne: NSColor(red: 0x19/255, green: 0x14/255, blue: 0x1F/255, alpha: 1)
+        case .platinum: NSColor(red: 0xDE/255, green: 0xDE/255, blue: 0xDE/255, alpha: 1)
+        case .platinumDark: NSColor(red: 0x1E/255, green: 0x1E/255, blue: 0x24/255, alpha: 1)
         }
     }
 }
@@ -451,6 +562,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
     case classic = "classic"
     case warmth  = "warmth"
     case ember   = "ember"
+    case platinum = "platinum"
 
     var displayName: String {
         switch self {
@@ -458,6 +570,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
         case .classic: "Classic"
         case .warmth:  "Warmth"
         case .ember:   "Ember"
+        case .platinum: "Platinum"
         }
     }
 
@@ -467,6 +580,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
         case .classic: "White · OLED"
         case .warmth:  "Sunny · Sunset"
         case .ember:   "Tan · Ember"
+        case .platinum: "Platinum · Platinum Dark"
         }
     }
 
@@ -476,6 +590,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
         case .classic: .light
         case .warmth:  .sunny
         case .ember:   .tan
+        case .platinum: .platinum
         }
     }
 
@@ -485,6 +600,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
         case .classic: .oled
         case .warmth:  .sunset
         case .ember:   .ember
+        case .platinum: .platinumDark
         }
     }
 
@@ -588,6 +704,31 @@ enum AppDisplayTypography: Sendable {
         NSFont(name: fontName, size: size)
             ?? NSFont.systemFont(ofSize: size, weight: weight)
     }
+
+    nonisolated static func isDisplayFont(_ font: NSFont) -> Bool {
+        font.fontName.contains(fontName)
+    }
+
+    nonisolated static func preservingFamilyFont(
+        from font: NSFont,
+        size: CGFloat,
+        bold: Bool = false,
+        italic: Bool = false
+    ) -> NSFont {
+        let manager = NSFontManager.shared
+        var resolved = isDisplayFont(font)
+            ? nsFont(size: size, weight: bold ? .bold : .regular)
+            : font.withSize(size)
+
+        if bold {
+            resolved = manager.convert(resolved, toHaveTrait: .boldFontMask)
+        }
+        if italic {
+            resolved = manager.convert(resolved, toHaveTrait: .italicFontMask)
+        }
+
+        return resolved
+    }
 }
 
 enum InlineMarkdownStyler {
@@ -604,18 +745,25 @@ enum InlineMarkdownStyler {
     }
 
     static func text(_ text: String, strongFontSize: CGFloat? = nil) -> Text {
-        Self.text(text, strongFontSize: strongFontSize, strongForegroundColor: nil)
+        Self.text(
+            text,
+            strongFontSize: strongFontSize,
+            strongForegroundColor: nil,
+            linkForegroundColor: nil
+        )
     }
 
     static func text(
         _ text: String,
         strongFontSize: CGFloat? = nil,
-        strongForegroundColor: Color?
+        strongForegroundColor: Color?,
+        linkForegroundColor: Color? = nil
     ) -> Text {
         if let attributed = attributedString(
             text,
             strongFontSize: strongFontSize,
-            strongForegroundColor: strongForegroundColor
+            strongForegroundColor: strongForegroundColor,
+            linkForegroundColor: linkForegroundColor
         ) {
             return Text(attributed)
         }
@@ -623,13 +771,19 @@ enum InlineMarkdownStyler {
     }
 
     static func attributedString(_ text: String, strongFontSize: CGFloat? = nil) -> AttributedString? {
-        Self.attributedString(text, strongFontSize: strongFontSize, strongForegroundColor: nil)
+        Self.attributedString(
+            text,
+            strongFontSize: strongFontSize,
+            strongForegroundColor: nil,
+            linkForegroundColor: nil
+        )
     }
 
     static func attributedString(
         _ text: String,
         strongFontSize: CGFloat? = nil,
-        strongForegroundColor: Color?
+        strongForegroundColor: Color?,
+        linkForegroundColor: Color? = nil
     ) -> AttributedString? {
         let cleaned = cleanedText(text)
         guard var attributed = try? AttributedString(
@@ -644,6 +798,7 @@ enum InlineMarkdownStyler {
             fontSize: strongFontSize,
             foregroundColor: strongForegroundColor
         )
+        applyLinkForegroundColor(to: &attributed, foregroundColor: linkForegroundColor)
         return attributed
     }
 
@@ -652,6 +807,7 @@ enum InlineMarkdownStyler {
         fontSize: CGFloat,
         foregroundColor: Color? = nil
     ) {
+        _ = fontSize
         let strongRuns = attributed.runs.compactMap { run -> (Range<AttributedString.Index>, InlinePresentationIntent)? in
             guard let intent = run.inlinePresentationIntent, intent.contains(.stronglyEmphasized) else {
                 return nil
@@ -659,15 +815,24 @@ enum InlineMarkdownStyler {
             return (run.range, intent)
         }
 
-        for (range, intent) in strongRuns {
-            var font = AppDisplayTypography.font(size: fontSize)
-            if intent.contains(.emphasized) {
-                font = font.italic()
-            }
-            attributed[range].font = font
+        for (range, _) in strongRuns {
             if let foregroundColor {
                 attributed[range].foregroundColor = foregroundColor
             }
+        }
+    }
+
+    static func applyLinkForegroundColor(
+        to attributed: inout AttributedString,
+        foregroundColor: Color? = nil
+    ) {
+        guard let foregroundColor else { return }
+        let linkRuns = attributed.runs.compactMap { run -> Range<AttributedString.Index>? in
+            run.link != nil ? run.range : nil
+        }
+
+        for range in linkRuns {
+            attributed[range].foregroundColor = foregroundColor
         }
     }
 }

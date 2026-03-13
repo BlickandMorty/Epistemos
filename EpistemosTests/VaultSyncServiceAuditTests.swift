@@ -6,6 +6,43 @@ import Testing
 @Suite("VaultSyncService Audit")
 @MainActor
 struct VaultSyncServiceAuditTests {
+    actor ExportCounter {
+        private var count = 0
+
+        func increment() {
+            count += 1
+        }
+
+        func value() -> Int {
+            count
+        }
+    }
+
+    actor ExportGate {
+        private var didStart = false
+        private var waiters: [CheckedContinuation<Void, Never>] = []
+
+        func markStarted() {
+            guard !didStart else { return }
+            didStart = true
+            let waiters = self.waiters
+            self.waiters.removeAll()
+            for waiter in waiters {
+                waiter.resume()
+            }
+        }
+
+        func waitUntilStarted() async {
+            if didStart {
+                return
+            }
+
+            await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+            }
+        }
+    }
+
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -17,6 +54,20 @@ struct VaultSyncServiceAuditTests {
             .appendingPathComponent("vault-sync-audit-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        condition: @escaping @MainActor () -> Bool
+    ) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while !condition() {
+            if clock.now >= deadline {
+                throw CancellationError()
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     @discardableResult
@@ -64,9 +115,10 @@ struct VaultSyncServiceAuditTests {
             lastSyncedAt: oldDate
         )
         try context.save()
+        let failedPageID = failedPage.id
 
         service.setExportPageOverrideForTesting { pageId, _ in
-            if pageId == failedPage.id {
+            if pageId == failedPageID {
                 throw StubError.exportFailed
             }
             return "/tmp/\(pageId).md"
@@ -94,6 +146,99 @@ struct VaultSyncServiceAuditTests {
         #expect(savedFailure.lastSyncedBodyHash == "old-failed-hash")
     }
 
+    @Test("saveAllDirtyPages coalesces overlapping calls")
+    func saveAllDirtyPagesCoalescesOverlappingCalls() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        let page = insertDirtyPage(
+            in: context,
+            title: "Overlap",
+            body: "body",
+            lastSyncedHash: "old-overlap-hash",
+            lastSyncedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        try context.save()
+
+        let counter = ExportCounter()
+        service.setExportPageOverrideForTesting { pageId, _ in
+            await counter.increment()
+            try? await Task.sleep(for: .milliseconds(50))
+            return "/tmp/\(pageId).md"
+        }
+
+        let first = service.saveAllDirtyPages()
+        let second = service.saveAllDirtyPages()
+        await first?.value
+        await second?.value
+
+        #expect(await counter.value() == 1)
+
+        let savedPage = try context.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == page.id })
+        #expect(savedPage?.needsVaultSync == false)
+    }
+
+    @Test("saveAllDirtyPages reruns once if body changes during export")
+    func saveAllDirtyPagesRerunsIfBodyChangesDuringExport() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        let oldDate = Date(timeIntervalSince1970: 1_000)
+        let page = insertDirtyPage(
+            in: context,
+            title: "Racing Edit",
+            body: "body before export",
+            lastSyncedHash: "old-race-hash",
+            lastSyncedAt: oldDate
+        )
+        try context.save()
+        let pageID = page.id
+        let counter = ExportCounter()
+        let gate = ExportGate()
+
+        service.setExportPageOverrideForTesting { _, _ in
+            await counter.increment()
+            if await counter.value() == 1 {
+                await gate.markStarted()
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            return "/tmp/\(pageID).md"
+        }
+
+        let task = service.saveAllDirtyPages()
+        await gate.waitUntilStarted()
+
+        let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageID })
+        if let mutatedPage = try context.fetch(desc).first {
+            mutatedPage.body = "body after export started"
+            mutatedPage.needsVaultSync = true
+            try context.save()
+        } else {
+            Issue.record("Missing page during export mutation")
+        }
+
+        await task?.value
+
+        let savedPage = try context.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == pageID })
+
+        #expect(await counter.value() == 2)
+        #expect(savedPage?.needsVaultSync == false)
+        #expect(savedPage?.lastSyncedAt != oldDate)
+        #expect(savedPage?.lastSyncedBodyHash == SDPage.bodyHash("body after export started"))
+    }
+
     @Test("movePage relocates the markdown file into the target vault subfolder")
     func movePageRelocatesFileIntoTargetSubfolder() throws {
         let container = try makeContainer()
@@ -117,14 +262,60 @@ struct VaultSyncServiceAuditTests {
         let movedURL = vaultURL
             .appendingPathComponent("Daily Notes", isDirectory: true)
             .appendingPathComponent("Daily Note.md")
+        let pageID = page.id
 
-        let refreshed = try context.fetch(
-            FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == page.id })
-        ).first
+        let refreshed = try context.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == pageID })
 
         #expect(FileManager.default.fileExists(atPath: movedURL.path))
         #expect(!FileManager.default.fileExists(atPath: originalURL.path))
         #expect(refreshed?.subfolder == "Daily Notes")
         #expect(refreshed?.filePath == movedURL.path)
+    }
+
+    @Test("syncFromVault preserves existing dirty pages")
+    func syncFromVaultPreservesExistingDirtyPages() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        let noteURL = vaultURL.appendingPathComponent("Dirty.md")
+        try "vault body".write(to: noteURL, atomically: true, encoding: .utf8)
+
+        service.startWatching(vaultURL: vaultURL)
+        try await waitUntil { service.isIndexing == false }
+
+        let pageId = try #require(try context.fetch(FetchDescriptor<SDPage>()).first?.id)
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        let oldSyncedAt = Date(timeIntervalSince1970: 1_234)
+
+        guard let page = try context.fetch(descriptor).first else {
+            Issue.record("Imported page missing before sync")
+            return
+        }
+
+        page.saveBody("local dirty body")
+        page.needsVaultSync = true
+        page.lastSyncedBodyHash = "prior-sync-hash"
+        page.lastSyncedAt = oldSyncedAt
+        try context.save()
+
+        let conflicts = await service.syncFromVault()
+        #expect(conflicts.isEmpty)
+
+        guard let refreshed = try context.fetch(descriptor).first else {
+            Issue.record("Imported page missing after sync")
+            return
+        }
+
+        #expect(refreshed.loadBody() == "local dirty body")
+        #expect(refreshed.needsVaultSync)
+        #expect(refreshed.lastSyncedBodyHash == "prior-sync-hash")
+        #expect(refreshed.lastSyncedAt == oldSyncedAt)
     }
 }

@@ -487,6 +487,22 @@ struct ConcurrencySwiftDataTests {
 @Suite("Concurrency - Graph State Updates")
 @MainActor
 struct ConcurrencyGraphStateTests {
+
+    @Test("Overlay physics policy opens in Crystal and hands off to Chaos")
+    func overlayPhysicsPolicyDefaults() {
+        #expect(GraphOverlayPhysicsPolicy.openingPreset == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.restingPreset == .chaos)
+        #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 20)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 19.99) == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 20) == .chaos)
+    }
+
+    @Test("Overlay interaction warmth window stays extended for 30 seconds")
+    func overlayInteractionWarmthDefaults() {
+        #expect(GraphOverlayPhysicsPolicy.interactionMotionHoldSeconds == 30)
+        #expect(GraphOverlayPhysicsPolicy.interactionMotionAlphaTarget > 0)
+    }
     
     @Test("Filter version increments")
     func filterVersionIncrements() {

@@ -27,6 +27,13 @@ private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> String?
 
+    private struct DirtySaveBatch {
+        let context: ModelContext
+        let vaultURL: URL
+        let dirtyIds: [String]
+        let expectedBodyHashes: [String: String]
+    }
+
     private var indexActor: VaultIndexActor?
     private let modelContainer: ModelContainer
     var exportPageOverride: ExportPageOperation?
@@ -55,6 +62,8 @@ final class VaultSyncService {
     private var autoSaveTask: Task<Void, Never>?
     private var versionCaptureTask: Task<Void, Never>?
     private var manifestRefreshTask: Task<Void, Never>?
+    private var inFlightDirtySaveTask: Task<Void, Never>?
+    private var pendingDirtySaveRequest = false
 
     // MARK: - File Watching
     private var fileWatcherSource: DispatchSourceFileSystemObject?
@@ -451,7 +460,7 @@ final class VaultSyncService {
         Task {
             let pages = await actor.allPagesForRebuild()
             do {
-                try svc.rebuildFromSwiftData(pages)
+                try await svc.rebuildFromSwiftDataAsync(pages)
             } catch {
                 log.error("FTS5 index rebuild failed: \(error.localizedDescription, privacy: .public)")
             }
@@ -487,23 +496,8 @@ final class VaultSyncService {
         // Signal the graph to rebuild with synced data
         AppBootstrap.shared?.graphState.needsRefresh = true
 
-        // After import, re-fetch pages and update hashes
-        let descriptor = FetchDescriptor<SDPage>()
-        guard let updatedPages = try? context.fetch(descriptor) else { return [] }
-
-        // Update hashes for all pages (single pass — avoids reading each body from disk twice)
-        for page in updatedPages {
-            page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
-            page.lastSyncedAt = .now
-            page.needsVaultSync = false
-        }
-        do {
-            try context.save()
-        } catch {
-            Log.vault.error("Failed to save after sync-from-vault hash update: \(error.localizedDescription, privacy: .public)")
-        }
-
-        log.info("Sync from vault complete: \(updatedPages.count) pages")
+        let pageCount = await actor.allPageTimestamps().count
+        log.info("Sync from vault complete: \(pageCount) pages")
         eventBus?.emit(.vaultChanged)
         return []
     }
@@ -566,6 +560,22 @@ final class VaultSyncService {
     /// Save all dirty pages to their vault .md files.
     @discardableResult
     func saveAllDirtyPages() -> Task<Void, Never>? {
+        if let task = inFlightDirtySaveTask, !task.isCancelled {
+            pendingDirtySaveRequest = true
+            return task
+        }
+
+        guard let initialBatch = nextDirtySaveBatch() else { return nil }
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.runDirtySaveLoop(startingWith: initialBatch)
+        }
+        inFlightDirtySaveTask = task
+        return task
+    }
+
+    private func nextDirtySaveBatch() -> DirtySaveBatch? {
         guard let vaultURL else { return nil }
 
         let context = modelContainer.mainContext
@@ -578,11 +588,12 @@ final class VaultSyncService {
             return nil
         }
 
-        let dirtyIds = dirtyPages.map(\.id)
+        var expectedBodyHashes: [String: String] = [:]
+        expectedBodyHashes.reserveCapacity(dirtyPages.count)
 
-        // Capture versions before saving
-        for pageId in dirtyIds {
-            captureVersionIfNeeded(pageId: pageId)
+        for page in dirtyPages {
+            captureVersionIfNeeded(pageId: page.id)
+            expectedBodyHashes[page.id] = SDPage.bodyHash(page.loadBody(mapped: true))
         }
 
         do {
@@ -590,40 +601,64 @@ final class VaultSyncService {
         } catch {
             Log.vault.error("Failed to save before dirty pages export: \(error.localizedDescription, privacy: .public)")
         }
-        let task = Task { [weak self] in
-            guard let self else { return }
-            var successfulIds: [String] = []
-            successfulIds.reserveCapacity(dirtyIds.count)
 
-            for pageId in dirtyIds {
+        return DirtySaveBatch(
+            context: context,
+            vaultURL: vaultURL,
+            dirtyIds: dirtyPages.map(\.id),
+            expectedBodyHashes: expectedBodyHashes
+        )
+    }
+
+    private func runDirtySaveLoop(startingWith initialBatch: DirtySaveBatch) async {
+        defer {
+            inFlightDirtySaveTask = nil
+            pendingDirtySaveRequest = false
+        }
+
+        var currentBatch: DirtySaveBatch? = initialBatch
+        while !Task.isCancelled {
+            pendingDirtySaveRequest = false
+            guard let batch = currentBatch ?? nextDirtySaveBatch() else { return }
+            currentBatch = nil
+
+            var successfulIds: [String] = []
+            successfulIds.reserveCapacity(batch.dirtyIds.count)
+
+            for pageId in batch.dirtyIds {
                 do {
-                    _ = try await self.exportPage(pageId: pageId, to: vaultURL)
+                    _ = try await exportPage(pageId: pageId, to: batch.vaultURL)
                     successfulIds.append(pageId)
                 } catch {
                     log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             }
 
-            await MainActor.run {
-                for pageId in successfulIds {
-                    let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-                    if let page = try? context.fetch(desc).first {
-                        page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody(mapped: true))
-                        page.lastSyncedAt = .now
-                        page.needsVaultSync = false
-                        SpotlightIndexer.index(page)
-                    }
-                }
-                do {
-                    try context.save()
-                } catch {
-                    Log.vault.error("Failed to save sync tracking after dirty pages export: \(error.localizedDescription, privacy: .public)")
+            for pageId in successfulIds {
+                let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                guard let page = try? batch.context.fetch(desc).first else { continue }
+
+                let currentHash = SDPage.bodyHash(page.loadBody(mapped: true))
+                if currentHash == batch.expectedBodyHashes[pageId] {
+                    page.lastSyncedBodyHash = currentHash
+                    page.lastSyncedAt = .now
+                    page.needsVaultSync = false
+                    SpotlightIndexer.index(page)
+                } else {
+                    pendingDirtySaveRequest = true
                 }
             }
 
-            log.info("Saved \(successfulIds.count) of \(dirtyIds.count) dirty pages to vault")
+            do {
+                try batch.context.save()
+            } catch {
+                Log.vault.error("Failed to save sync tracking after dirty pages export: \(error.localizedDescription, privacy: .public)")
+            }
+
+            log.info("Saved \(successfulIds.count) of \(batch.dirtyIds.count) dirty pages to vault")
+
+            guard pendingDirtySaveRequest else { return }
         }
-        return task
     }
 
     /// Auto-save interval in seconds. 0 = disabled.
@@ -646,8 +681,8 @@ final class VaultSyncService {
         autoSaveTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(interval))
-                guard !Task.isCancelled, let self else { return }
-                self.saveAllDirtyPages()
+                guard !Task.isCancelled else { return }
+                self?.saveAllDirtyPages()
             }
         }
     }
@@ -658,7 +693,8 @@ final class VaultSyncService {
         manifestRefreshTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(300))
-                guard !Task.isCancelled, let self else { return }
+                guard !Task.isCancelled else { return }
+                guard self != nil else { return }
                 AppBootstrap.shared?.refreshAmbientManifest()
             }
         }
@@ -896,18 +932,30 @@ final class VaultSyncService {
 
     // MARK: - Directory Operations
 
+    private func removeVaultItem(at url: URL, label: String) {
+        do {
+            var trashedURL: NSURL?
+            try FileManager.default.trashItem(at: url, resultingItemURL: &trashedURL)
+            log.info("Moved \(label, privacy: .public) to Trash: \(url.path, privacy: .private)")
+            eventBus?.emit(.vaultChanged)
+        } catch {
+            do {
+                try FileManager.default.removeItem(at: url)
+                log.info("Deleted \(label, privacy: .public): \(url.path, privacy: .private)")
+                eventBus?.emit(.vaultChanged)
+            } catch {
+                log.error(
+                    "Failed to remove \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+    }
+
     /// Delete the .md file for a page from the vault.
     /// Called when user deletes a page from the sidebar — prevents orphan resurrection on reimport.
     func deletePageFromDisk(filePath: String?) {
         guard let filePath, FileManager.default.fileExists(atPath: filePath) else { return }
-
-        do {
-            try FileManager.default.removeItem(atPath: filePath)
-            log.info("Deleted page file: \(filePath, privacy: .private)")
-            eventBus?.emit(.vaultChanged)
-        } catch {
-            log.error("Failed to delete page file: \(error.localizedDescription, privacy: .public)")
-        }
+        removeVaultItem(at: URL(fileURLWithPath: filePath), label: "page file")
     }
 
     /// Delete a physical directory from the vault.
@@ -916,15 +964,7 @@ final class VaultSyncService {
         guard let vaultURL else { return }
         let dirURL = vaultURL.appendingPathComponent(relativePath, isDirectory: true)
         guard FileManager.default.fileExists(atPath: dirURL.path) else { return }
-
-        do {
-            try FileManager.default.removeItem(at: dirURL)
-            log.info("Deleted directory: \(relativePath, privacy: .public)")
-        } catch {
-            log.error(
-                "Failed to delete directory \(relativePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-        }
+        removeVaultItem(at: dirURL, label: "directory")
     }
 
     /// Create a physical directory in the vault for an SDFolder.

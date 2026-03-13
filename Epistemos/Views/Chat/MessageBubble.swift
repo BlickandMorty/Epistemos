@@ -275,72 +275,74 @@ struct MessageBubble: View {
     // MARK: - Assistant Bubble
 
     private var assistantBubble: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        assistantBubbleChrome {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
             // Vault briefing header — Notes Mode auto-briefing indicator
-            if message.isVaultBriefing {
-                HStack(spacing: 6) {
-                    Image(systemName: "book.pages.fill")
-                        .font(.epCaption)
-                        .foregroundStyle(theme.accent)
-                    Text("Vault Briefing")
-                        .font(.epCaption)
-                        .foregroundStyle(theme.accent)
+                if message.isVaultBriefing {
+                    HStack(spacing: 6) {
+                        Image(systemName: "book.pages.fill")
+                            .font(.epCaption)
+                            .foregroundStyle(theme.accent)
+                        Text("Vault Briefing")
+                            .font(.epCaption)
+                            .foregroundStyle(theme.accent)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(theme.accent.opacity(0.1), in: Capsule())
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(theme.accent.opacity(0.1), in: Capsule())
-            }
 
-            // Loaded note chips — show which notes were referenced
-            if let titles = message.loadedNoteTitles, !titles.isEmpty {
-                FlowLayout(spacing: 6) {
-                    ForEach(titles, id: \.self) { title in
-                        HStack(spacing: 4) {
-                            Image(systemName: "doc.text")
-                                .font(.epSmall)
-                            Text(title)
-                                .font(.epSmall)
-                                .lineLimit(1)
+                // Loaded note chips — show which notes were referenced
+                if let titles = message.loadedNoteTitles, !titles.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(titles, id: \.self) { title in
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.text")
+                                    .font(.epSmall)
+                                Text(title)
+                                    .font(.epSmall)
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(theme.accent.opacity(0.8))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(theme.accent.opacity(0.08), in: Capsule())
+                            .overlay(Capsule().strokeBorder(theme.accent.opacity(0.15), lineWidth: 0.5))
                         }
-                        .foregroundStyle(theme.accent.opacity(0.8))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(theme.accent.opacity(0.08), in: Capsule())
-                        .overlay(Capsule().strokeBorder(theme.accent.opacity(0.15), lineWidth: 0.5))
                     }
                 }
-            }
 
-            // Thinking accordion — for completed messages with reasoning
-            if let reasoning = message.reasoningText, !reasoning.isEmpty {
-                ThinkingAccordion(
-                    reasoningText: reasoning,
-                    duration: message.reasoningDuration,
-                    isLive: false
+                // Thinking accordion — for completed messages with reasoning
+                if let reasoning = message.reasoningText, !reasoning.isEmpty {
+                    ThinkingAccordion(
+                        reasoningText: reasoning,
+                        duration: message.reasoningDuration,
+                        isLive: false
+                    )
+                }
+
+                // Response heading — auto-extracted topic
+                if let heading = extractHeading(from: message.content) {
+                    Text(heading)
+                        .font(AppHeadingRole.h2.font)
+                        .foregroundStyle(theme.fontAccent)
+                }
+
+                // Response content — regular mode display.
+                // Research results are routed to researchBubble above.
+                // Confidence bar and ConsensusReportCard are research-only features
+                // and are NOT shown here — regular chat has no real enrichment data.
+                TaggedMarkdownTextView(content: cleanedText, theme: theme)
+
+                // Toolbar — always rendered at fixed height, opacity-only transition
+                MessageToolbar(
+                    message: message,
+                    copied: $copied,
+                    rating: $rating
                 )
+                .opacity(isHovered ? 1 : 0)
+                .animation(Motion.quick, value: isHovered)
             }
-
-            // Response heading — auto-extracted topic
-            if let heading = extractHeading(from: message.content) {
-                Text(heading)
-                    .font(AppHeadingRole.h2.font)
-                    .foregroundStyle(theme.fontAccent)
-            }
-
-            // Response content — regular mode display.
-            // Research results are routed to researchBubble above.
-            // Confidence bar and ConsensusReportCard are research-only features
-            // and are NOT shown here — regular chat has no real enrichment data.
-            TaggedMarkdownTextView(content: cleanedText, theme: theme)
-
-            // Toolbar — always rendered at fixed height, opacity-only transition
-            MessageToolbar(
-                message: message,
-                copied: $copied,
-                rating: $rating
-            )
-            .opacity(isHovered ? 1 : 0)
-            .animation(Motion.quick, value: isHovered)
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
@@ -375,6 +377,24 @@ struct MessageBubble: View {
     /// stripped by TaggedMarkdownTextView's inlineMarkdown() safety-net regex.
     private var cleanedText: String {
         message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    @ViewBuilder
+    private func assistantBubbleChrome<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if theme.assistantBubbleBackgroundHex != nil {
+            content()
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, 12)
+                .background(theme.assistantBubbleBackground, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(theme.border.opacity(0.85), lineWidth: 0.8)
+                )
+        } else {
+            content()
+        }
     }
 }
 

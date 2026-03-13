@@ -24,13 +24,14 @@ pub struct SearchResult {
 pub struct SearchIndex {
     /// FST set of lowercased labels for Levenshtein automaton queries.
     fst_set: Option<Set<Vec<u8>>>,
-    /// Reverse index: lowercased label → list of entry indices.
-    label_to_entries: FxHashMap<String, Vec<usize>>,
+    /// Sorted entry indices by lowercased label for duplicate-label lookup.
+    sorted_label_indices: Vec<usize>,
     /// Parallel arrays for label→node mapping.
     entries: Vec<SearchEntry>,
 }
 
 struct SearchEntry {
+    node_id: u32,
     uuid: String,
     label: String,
     label_lower: String,
@@ -47,7 +48,7 @@ impl SearchIndex {
     pub fn new() -> Self {
         Self {
             fst_set: None,
-            label_to_entries: FxHashMap::default(),
+            sorted_label_indices: Vec::new(),
             entries: Vec::new(),
         }
     }
@@ -56,7 +57,9 @@ impl SearchIndex {
     /// Call this after commit() completes.
     pub fn build(&mut self, nodes: &[crate::types::Node]) {
         self.entries.clear();
-        self.label_to_entries.clear();
+        self.sorted_label_indices.clear();
+        self.entries.reserve(nodes.len());
+        self.sorted_label_indices.reserve(nodes.len());
 
         // Collect entries from all visible nodes.
         for node in nodes {
@@ -64,12 +67,8 @@ impl SearchIndex {
                 continue;
             }
             let label_lower = node.label.to_lowercase();
-            let idx = self.entries.len();
-            self.label_to_entries
-                .entry(label_lower.clone())
-                .or_default()
-                .push(idx);
             self.entries.push(SearchEntry {
+                node_id: node.id,
                 uuid: node.uuid.clone(),
                 label: node.label.clone(),
                 label_lower,
@@ -77,16 +76,37 @@ impl SearchIndex {
             });
         }
 
-        // Build FST set from deduplicated, sorted labels.
-        let mut labels: Vec<&str> = self.label_to_entries.keys().map(|s| s.as_str()).collect();
-        labels.sort_unstable();
+        self.sorted_label_indices.extend(0..self.entries.len());
+        self.sorted_label_indices.sort_unstable_by(|&a, &b| {
+            self.entries[a]
+                .label_lower
+                .cmp(&self.entries[b].label_lower)
+                .then(a.cmp(&b))
+        });
 
+        // Build FST set from deduplicated, sorted labels.
         let mut builder = SetBuilder::memory();
-        for label in &labels {
+        let mut last_label: Option<&str> = None;
+        for &entry_index in &self.sorted_label_indices {
+            let label = self.entries[entry_index].label_lower.as_str();
+            if last_label == Some(label) {
+                continue;
+            }
             let _ = builder.insert(label);
+            last_label = Some(label);
         }
 
         self.fst_set = Some(builder.into_set());
+    }
+
+    fn entry_range_for_label(&self, label: &str) -> std::ops::Range<usize> {
+        let start = self
+            .sorted_label_indices
+            .partition_point(|&entry_index| self.entries[entry_index].label_lower.as_str() < label);
+        let end = self
+            .sorted_label_indices
+            .partition_point(|&entry_index| self.entries[entry_index].label_lower.as_str() <= label);
+        start..end
     }
 
     /// Search for nodes matching the query. Returns up to `limit` results.
@@ -106,10 +126,9 @@ impl SearchIndex {
             if let Ok(lev) = Levenshtein::new(&query_lower, max_dist) {
                 let mut stream = fst.search(&lev).into_stream();
                 while let Some(key) = stream.next() {
-                    if let Ok(label) = std::str::from_utf8(key)
-                        && let Some(indices) = self.label_to_entries.get(label)
-                    {
-                        for &idx in indices {
+                    if let Ok(label) = std::str::from_utf8(key) {
+                        for sorted_index in self.entry_range_for_label(label) {
+                            let idx = self.sorted_label_indices[sorted_index];
                             // FST bonus: 0.25 for edit-distance matches not caught by linear scan.
                             fst_hits.insert(idx, 0.25);
                         }
@@ -125,7 +144,9 @@ impl SearchIndex {
             let mut score = Self::score_match(&entry.label_lower, &query_lower);
 
             // Boost from FST Levenshtein if not already matched by linear scoring.
-            if let Some(&fst_bonus) = fst_hits.get(&i) && score == 0.0 {
+            if let Some(&fst_bonus) = fst_hits.get(&i)
+                && score == 0.0
+            {
                 score = fst_bonus;
             }
 
@@ -135,10 +156,7 @@ impl SearchIndex {
         }
 
         // Sort by score descending.
-        scored.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(limit);
 
         scored
@@ -153,6 +171,38 @@ impl SearchIndex {
                 )
             })
             .collect()
+    }
+
+    /// Collect UUIDs whose labels contain the query (case-insensitive).
+    /// Preserves the legacy highlight semantics without re-lowercasing labels on every pass.
+    pub fn collect_contains_match_uuids<'a>(&'a self, query: &str, out: &mut Vec<&'a str>) {
+        out.clear();
+        if query.is_empty() {
+            return;
+        }
+
+        let query_lower = query.to_lowercase();
+        for entry in &self.entries {
+            if entry.label_lower.contains(&query_lower) {
+                out.push(entry.uuid.as_str());
+            }
+        }
+    }
+
+    /// Collect node IDs whose labels contain the query (case-insensitive).
+    /// This avoids UUID-to-ID hash lookups in the highlight path.
+    pub fn collect_contains_match_node_ids(&self, query: &str, out: &mut Vec<u32>) {
+        out.clear();
+        if query.is_empty() {
+            return;
+        }
+
+        let query_lower = query.to_lowercase();
+        for entry in &self.entries {
+            if entry.label_lower.contains(&query_lower) {
+                out.push(entry.node_id);
+            }
+        }
     }
 
     /// Score a label against a query. Returns 0.0 for no match.
@@ -354,30 +404,130 @@ mod tests {
         ]);
         // "quantm" is edit distance 1 from "quantum" — FST should catch it
         let results = idx.search("quantm", 10);
-        assert!(!results.is_empty(), "FST Levenshtein should match 'quantm' → 'quantum computing'");
+        assert!(
+            !results.is_empty(),
+            "FST Levenshtein should match 'quantm' → 'quantum computing'"
+        );
         assert_eq!(results[0].0, "a");
     }
 
     #[test]
     fn fst_levenshtein_edit_distance_2() {
         let mut idx = SearchIndex::new();
-        idx.build(&[
-            make_node("a", "reinforcement learning", 0),
-        ]);
+        idx.build(&[make_node("a", "reinforcement learning", 0)]);
         // "reinfrcement" has 2 edits from "reinforcement" — should match with longer query
         let results = idx.search("reinfrcement", 10);
-        assert!(!results.is_empty(), "FST Levenshtein dist=2 should match longer queries");
+        assert!(
+            !results.is_empty(),
+            "FST Levenshtein dist=2 should match longer queries"
+        );
     }
 
     #[test]
     fn fst_prefix_still_works() {
         let mut idx = SearchIndex::new();
-        idx.build(&[
-            make_node("a", "Artificial Intelligence", 0),
-        ]);
+        idx.build(&[make_node("a", "Artificial Intelligence", 0)]);
         let results = idx.search("artif", 10);
         assert!(!results.is_empty());
         // Prefix match should still score 0.9
         assert!(results[0].3 >= 0.9);
+    }
+
+    #[test]
+    fn exact_match_returns_all_duplicate_labels() {
+        let mut idx = SearchIndex::new();
+        idx.build(&[
+            make_node("a", "Shared Label", 0),
+            make_node("b", "Shared Label", 0),
+            make_node("c", "Other", 0),
+        ]);
+
+        let results = idx.search("shared label", 10);
+        let uuids: Vec<&str> = results.iter().map(|(uuid, _, _, _)| uuid.as_str()).collect();
+
+        assert_eq!(results.len(), 2);
+        assert!(uuids.contains(&"a"));
+        assert!(uuids.contains(&"b"));
+    }
+
+    #[test]
+    fn typo_match_returns_all_duplicate_labels() {
+        let mut idx = SearchIndex::new();
+        idx.build(&[
+            make_node("a", "Quantum Note", 0),
+            make_node("b", "Quantum Note", 0),
+            make_node("c", "Machine Learning", 0),
+        ]);
+
+        let results = idx.search("quantm note", 10);
+        let uuids: Vec<&str> = results.iter().map(|(uuid, _, _, _)| uuid.as_str()).collect();
+
+        assert_eq!(results.len(), 2);
+        assert!(uuids.contains(&"a"));
+        assert!(uuids.contains(&"b"));
+    }
+
+    #[test]
+    fn collect_contains_match_uuids_preserves_case_insensitive_contains_behavior() {
+        let mut idx = SearchIndex::new();
+        idx.build(&[
+            make_node("a", "Alpha Cluster", 0),
+            make_node("b", "beta topic", 0),
+            make_node("c", "Gamma", 0),
+        ]);
+
+        let mut matches = Vec::new();
+        idx.collect_contains_match_uuids("TOP", &mut matches);
+
+        assert_eq!(matches, vec!["b"]);
+    }
+
+    #[test]
+    fn collect_contains_match_uuids_returns_all_matching_entries() {
+        let mut idx = SearchIndex::new();
+        idx.build(&[
+            make_node("a", "Source 7", 0),
+            make_node("b", "Backup Source 7", 0),
+            make_node("c", "Reference", 0),
+        ]);
+
+        let mut matches = Vec::new();
+        idx.collect_contains_match_uuids("source 7", &mut matches);
+
+        assert_eq!(matches, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn collect_contains_match_node_ids_preserves_case_insensitive_contains_behavior() {
+        let mut idx = SearchIndex::new();
+        let mut alpha = make_node("a", "Alpha Cluster", 0);
+        alpha.id = 11;
+        let mut beta = make_node("b", "beta topic", 0);
+        beta.id = 29;
+        let mut gamma = make_node("c", "Gamma", 0);
+        gamma.id = 47;
+        idx.build(&[alpha, beta, gamma]);
+
+        let mut matches = Vec::new();
+        idx.collect_contains_match_node_ids("TOP", &mut matches);
+
+        assert_eq!(matches, vec![29]);
+    }
+
+    #[test]
+    fn collect_contains_match_node_ids_returns_all_matching_entries() {
+        let mut idx = SearchIndex::new();
+        let mut source = make_node("a", "Source 7", 0);
+        source.id = 3;
+        let mut backup = make_node("b", "Backup Source 7", 0);
+        backup.id = 9;
+        let mut reference = make_node("c", "Reference", 0);
+        reference.id = 21;
+        idx.build(&[source, backup, reference]);
+
+        let mut matches = Vec::new();
+        idx.collect_contains_match_node_ids("source 7", &mut matches);
+
+        assert_eq!(matches, vec![3, 9]);
     }
 }

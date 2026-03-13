@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - MarkdownTextView
@@ -8,6 +9,62 @@ import SwiftUI
 //
 // Read-only — no editing. Used for AI assistant responses in chat bubbles.
 // For the editable notes editor, see MarkdownTextStorage + ProseEditorRepresentable.
+
+enum MarkdownHeadingDisplay {
+    nonisolated static func foregroundHex(for theme: EpistemosTheme, level: Int) -> UInt32 {
+        guard (1...3).contains(level) else { return theme.foregroundHex }
+        if theme == .platinum && level == 1 {
+            return theme.headingAccentHex
+        }
+        return theme.markdownHeadingAccentHex
+    }
+
+    static func displayText(_ text: String, level: Int) -> String {
+        guard (1...3).contains(level) else { return text }
+        return sameLengthUppercase(text)
+    }
+
+    static func foregroundColor(for theme: EpistemosTheme, level: Int) -> Color {
+        Color(hex: foregroundHex(for: theme, level: level))
+    }
+
+    static func glowRadius(for level: Int) -> CGFloat {
+        level == 1 ? 8 : 0
+    }
+
+    static func swiftUIShadowColor(for theme: EpistemosTheme, level: Int) -> Color {
+        guard level == 1 else { return .clear }
+        return foregroundColor(for: theme, level: level).opacity(theme.isDark ? 0.18 : 0.10)
+    }
+
+    static func nsShadow(for theme: EpistemosTheme, level: Int) -> NSShadow? {
+        guard level == 1 else { return nil }
+        let shadow = NSShadow()
+        shadow.shadowBlurRadius = glowRadius(for: level)
+        shadow.shadowOffset = .zero
+        shadow.shadowColor = NSColor(foregroundColor(for: theme, level: level)).withAlphaComponent(
+            theme.isDark ? 0.18 : 0.10
+        )
+        return shadow
+    }
+
+    private static func sameLengthUppercase(_ text: String) -> String {
+        var transformed = String()
+        transformed.reserveCapacity(text.count)
+
+        for character in text {
+            let original = String(character)
+            let uppercased = original.uppercased()
+            if uppercased.utf16.count == original.utf16.count {
+                transformed.append(contentsOf: uppercased)
+            } else {
+                transformed.append(character)
+            }
+        }
+
+        return transformed
+    }
+}
 
 struct MarkdownTextView: View {
     let content: String
@@ -271,11 +328,16 @@ struct MarkdownTextView: View {
         }()
         let fontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
         let topPad = retroRole?.topPadding ?? 6
-        let color = retroRole == nil ? theme.foreground : theme.fontAccent
+        let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
+        let displayText = MarkdownHeadingDisplay.displayText(text, level: level)
 
-        inlineMarkdown(text, baseFontSize: fontSize)
+        inlineMarkdown(displayText, baseFontSize: fontSize)
             .font(font)
             .foregroundStyle(color)
+            .shadow(
+                color: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
+                radius: MarkdownHeadingDisplay.glowRadius(for: level)
+            )
             .padding(.top, topPad)
             .padding(.bottom, 2)
     }
@@ -331,6 +393,11 @@ struct MarkdownTextView: View {
     // MARK: - Inline Markdown -> SwiftUI Text
 
     private func inlineMarkdown(_ text: String, baseFontSize: CGFloat) -> Text {
-        InlineMarkdownStyler.text(text, strongFontSize: baseFontSize)
+        InlineMarkdownStyler.text(
+            text,
+            strongFontSize: baseFontSize,
+            strongForegroundColor: nil,
+            linkForegroundColor: theme.preferredMarkdownLinkColor
+        )
     }
 }

@@ -60,6 +60,13 @@ Phase 10: Polish & Distribution
 **Design doc reference:** Section 4 (Model Provider Layer)
 **Research paper reference:** "Optimization for Inference and Low-Latency Execution", "Local vs. Cloud Hybrid Architectures"
 
+**User requirements locked 2026-03-12:**
+- Routing order must stay: Apple on-device first, then MLX local models, then cloud. Ollama remains optional power-user local infrastructure, not the default local path.
+- MLX support must cover both Qwen and Gemma families. Qwen is the primary post-Apple local route; Gemma is the secondary local route/fallback.
+- First-run model setup should pre-download the small always-available local models instead of waiting for manual download later. Minimum target: one small Qwen profile plus one small Gemma profile.
+- Settings must expose downloaded-model status, routing preference, and which local family handles triage versus general fallback.
+- Local reference material currently verified on disk: `/Users/jojo/projects/logic to implement/chatterbox-master` and `/Users/jojo/projects/logic to implement/fish-speech-main`.
+
 ### Task 1.1: Add MLX SPM Dependencies
 
 **Files to modify:**
@@ -1822,6 +1829,14 @@ Listens to message bus and updates NPC states:
 **Goal:** Chatterbox TTS integration. Each agent gets a distinct voice. Read Mode for notes, chat, and graph.
 
 **Design doc reference:** Section 10 (Voice System)
+
+**User requirements locked 2026-03-12:**
+- This phase must expand from single-engine Chatterbox to a multi-engine voice system surfaced in settings.
+- Required engines: Chatterbox, Fish Speech, Voicebox, and Resemble AI.
+- Settings must allow a global default engine, per-agent engine/voice selection, and custom or cloned voice workflows where the provider supports them.
+- Chatterbox custom-voice flow is required, not optional.
+- Local reference material currently verified on disk: `/Users/jojo/projects/logic to implement/chatterbox-master` and `/Users/jojo/projects/logic to implement/fish-speech-main`.
+- Voicebox and Resemble AI still need to be cloned or vendored when Phase 9 starts.
 
 ### Task 9.1: Create Python TTS Daemon
 

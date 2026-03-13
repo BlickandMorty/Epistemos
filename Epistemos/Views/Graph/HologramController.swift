@@ -3,6 +3,11 @@ import Combine
 import os
 import SwiftData
 
+enum GraphOverlayModePolicy {
+    static let pageModeEnabled = false
+    static let focusDepth = 3
+}
+
 // MARK: - HologramController
 // Singleton that manages the hologram overlay lifecycle and global hotkey.
 //
@@ -62,35 +67,16 @@ final class HologramController {
         }
 
         ensureOverlay()
-
-        // Auto-enter page mode if a note window is active.
-        if let pageId = AppBootstrap.shared?.notesUI.activePageId,
-           let graphState,
-           let modelContainer,
-           let node = graphState.store.node(bySourceId: pageId, type: .note) {
-            graphState.mode = .page(nodeId: node.id)
-
-            // Extract quotes, sources, wikilinks from the note body as ephemeral nodes.
-            graphState.buildPageSubgraph(for: pageId, context: modelContainer.mainContext)
-
-            // Focus on the page node + its neighbors (including new ephemeral nodes).
-            graphState.focusOnNode(node.id, depth: 2)
-
-            // Pass note window for anchor positioning + live tracking.
-            let noteWindow = NoteWindowManager.shared.window(for: pageId)
-            overlay?.show(noteWindow: noteWindow)
-        } else {
-            // No active note — global mode.
-            graphState?.mode = .global
-            graphState?.clearFocus()
-            overlay?.show()
-        }
-
+        prepareOverlayForGlobalMode()
+        graphState?.startOverlayPhysicsCycle()
+        overlay?.show()
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func show() {
         ensureOverlay()
+        prepareOverlayForGlobalMode()
+        graphState?.startOverlayPhysicsCycle()
         overlay?.show()
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -101,36 +87,26 @@ final class HologramController {
         defer { Log.graphPerf.endInterval("revealPage", interval) }
 
         ensureOverlay()
-        guard let graphState, let modelContainer,
+        guard let graphState,
               let node = graphState.store.node(bySourceId: pageId, type: .note) else {
             show()
             return
         }
-        graphState.mode = .page(nodeId: node.id)
-        graphState.buildPageSubgraph(for: pageId, context: modelContainer.mainContext)
-        graphState.focusOnNode(node.id, depth: 2)
-
-        // Only request full recommit if the engine hasn't committed yet.
-        // Otherwise the page subgraph was built incrementally (pendingNodeAdds/EdgeAdds)
-        // and the filter change (focusOn) is applied by the render loop's filter sync.
-        // This avoids an O(N) clear+rebuild for what is a local graph operation.
-        if graphState.engineHandle == nil {
-            graphState.requestRecommit()
-        } else {
-            graphState.requestFilterSync()
-        }
-
-        let noteWindow = NoteWindowManager.shared.window(for: pageId)
-        overlay?.show(noteWindow: noteWindow)
+        prepareOverlayForGlobalMode(centering: node.id)
+        graphState.startOverlayPhysicsCycle()
+        overlay?.show()
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func hide() {
+        graphState?.cancelOverlayPhysicsCycle()
         overlay?.hide()
         // Clean up ephemeral page-mode nodes.
-        graphState?.cleanupEphemeralNodes()
-        graphState?.clearFocus()
-        graphState?.mode = .global
+        prepareOverlayForGlobalMode()
+    }
+
+    func syncTheme(_ theme: EpistemosTheme) {
+        overlay?.syncTheme(theme: theme)
     }
 
     var isVisible: Bool {
@@ -161,11 +137,24 @@ final class HologramController {
         if needsRefresh, let modelContainer {
             Task {
                 let refreshInterval = Log.graphPerf.beginInterval("refreshStructuralData")
-                await graphState.refreshStructuralDataAsync(container: modelContainer)
-                graphState.requestRecommit()
+                let refreshedIncrementally = await graphState.refreshStructuralDataAsync(container: modelContainer)
+                if !refreshedIncrementally {
+                    graphState.requestRecommit()
+                }
                 Log.graphPerf.endInterval("refreshStructuralData", refreshInterval)
             }
         }
+    }
+
+    private func prepareOverlayForGlobalMode(centering nodeId: String? = nil) {
+        guard let graphState else { return }
+        graphState.cleanupEphemeralNodes()
+        graphState.mode = .global
+        graphState.requestModeSync()
+        graphState.clearFocus()
+        graphState.requestFilterSync()
+        graphState.selectNode(nodeId)
+        graphState.pendingCenterNodeId = nodeId
     }
 
     // MARK: - Screen Changes
@@ -189,6 +178,7 @@ final class HologramController {
         // Global hotkey monitors are managed by CommandPaletteWindowController.
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         screenObserver = nil
+        graphState?.cancelOverlayPhysicsCycle()
         overlay?.forceClose()
         overlay = nil
     }

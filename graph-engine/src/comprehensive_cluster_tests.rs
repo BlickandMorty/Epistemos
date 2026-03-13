@@ -13,7 +13,11 @@ mod tests {
             assert!((c as usize) < 10, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 10, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            10,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -28,7 +32,11 @@ mod tests {
             assert!((c as usize) < 10, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 10, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            10,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -42,7 +50,11 @@ mod tests {
             assert!((c as usize) < 10, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 10, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            10,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -58,7 +70,11 @@ mod tests {
             assert!((c as usize) < 10, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 10, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            10,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -66,7 +82,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -82,7 +98,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -100,7 +116,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -117,7 +133,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -135,8 +151,8 @@ mod tests {
     fn test_cluster_8_n10_chain_ordered_unique() {
         let n = 10;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 10, "Output length should match node count");
@@ -149,8 +165,8 @@ mod tests {
     fn test_cluster_9_n10_chain_ordered_with_duplicates() {
         let n = 10;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -165,8 +181,8 @@ mod tests {
     fn test_cluster_10_n10_chain_reversed_unique() {
         let n = 10;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -180,8 +196,8 @@ mod tests {
     fn test_cluster_11_n10_chain_reversed_with_duplicates() {
         let n = 10;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -260,7 +276,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 10, "Output length should match node count");
@@ -274,7 +290,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -290,7 +306,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -305,7 +321,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -323,12 +339,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -346,12 +362,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -371,12 +387,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -395,12 +411,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -494,7 +510,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 10, "Output length should match node count");
@@ -503,7 +519,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (10 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -511,7 +531,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -522,7 +542,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (10 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -530,7 +554,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -540,7 +564,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (10 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -548,7 +576,7 @@ mod tests {
         let n = 10;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -560,7 +588,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (10 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -573,7 +605,11 @@ mod tests {
             assert!((c as usize) < 50, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 50, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            50,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -588,7 +624,11 @@ mod tests {
             assert!((c as usize) < 50, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 50, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            50,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -602,7 +642,11 @@ mod tests {
             assert!((c as usize) < 50, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 50, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            50,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -618,7 +662,11 @@ mod tests {
             assert!((c as usize) < 50, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 50, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            50,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -626,7 +674,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -642,7 +690,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -660,7 +708,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -677,7 +725,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -695,8 +743,8 @@ mod tests {
     fn test_cluster_40_n50_chain_ordered_unique() {
         let n = 50;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 50, "Output length should match node count");
@@ -709,8 +757,8 @@ mod tests {
     fn test_cluster_41_n50_chain_ordered_with_duplicates() {
         let n = 50;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -725,8 +773,8 @@ mod tests {
     fn test_cluster_42_n50_chain_reversed_unique() {
         let n = 50;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -740,8 +788,8 @@ mod tests {
     fn test_cluster_43_n50_chain_reversed_with_duplicates() {
         let n = 50;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -820,7 +868,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 50, "Output length should match node count");
@@ -834,7 +882,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -850,7 +898,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -865,7 +913,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -883,12 +931,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -900,7 +948,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -909,12 +960,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -928,7 +979,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -937,12 +991,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -955,7 +1009,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -964,12 +1021,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -984,7 +1041,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -1066,7 +1126,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 50, "Output length should match node count");
@@ -1075,7 +1135,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (50 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1083,7 +1147,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1094,7 +1158,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (50 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1102,7 +1170,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -1112,7 +1180,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (50 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1120,7 +1192,7 @@ mod tests {
         let n = 50;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1132,7 +1204,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (50 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1145,7 +1221,11 @@ mod tests {
             assert!((c as usize) < 200, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 200, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            200,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1160,7 +1240,11 @@ mod tests {
             assert!((c as usize) < 200, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 200, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            200,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1174,7 +1258,11 @@ mod tests {
             assert!((c as usize) < 200, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 200, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            200,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1190,7 +1278,11 @@ mod tests {
             assert!((c as usize) < 200, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 200, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            200,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1198,7 +1290,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1214,7 +1306,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1232,7 +1324,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1249,7 +1341,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1267,8 +1359,8 @@ mod tests {
     fn test_cluster_72_n200_chain_ordered_unique() {
         let n = 200;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 200, "Output length should match node count");
@@ -1281,8 +1373,8 @@ mod tests {
     fn test_cluster_73_n200_chain_ordered_with_duplicates() {
         let n = 200;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1297,8 +1389,8 @@ mod tests {
     fn test_cluster_74_n200_chain_reversed_unique() {
         let n = 200;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -1312,8 +1404,8 @@ mod tests {
     fn test_cluster_75_n200_chain_reversed_with_duplicates() {
         let n = 200;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1392,7 +1484,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 200, "Output length should match node count");
@@ -1406,7 +1498,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1422,7 +1514,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -1437,7 +1529,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1455,12 +1547,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1472,7 +1564,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -1481,12 +1576,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1500,7 +1595,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -1509,12 +1607,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1527,7 +1625,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -1536,12 +1637,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1556,7 +1657,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -1638,7 +1742,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 200, "Output length should match node count");
@@ -1647,7 +1751,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (200 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1655,7 +1763,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1666,7 +1774,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (200 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1674,7 +1786,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -1684,7 +1796,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (200 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1692,7 +1808,7 @@ mod tests {
         let n = 200;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1704,7 +1820,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (200 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -1717,7 +1837,11 @@ mod tests {
             assert!((c as usize) < 1000, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 1000, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            1000,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1732,7 +1856,11 @@ mod tests {
             assert!((c as usize) < 1000, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 1000, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            1000,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1746,7 +1874,11 @@ mod tests {
             assert!((c as usize) < 1000, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 1000, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            1000,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1762,7 +1894,11 @@ mod tests {
             assert!((c as usize) < 1000, "Cluster ID {} out of bounds", c);
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
-        assert_eq!(unique.len(), 1000, "Empty graph should have N distinct clusters");
+        assert_eq!(
+            unique.len(),
+            1000,
+            "Empty graph should have N distinct clusters"
+        );
     }
 
     #[test]
@@ -1770,7 +1906,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1786,7 +1922,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1804,7 +1940,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1821,7 +1957,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -1839,8 +1975,8 @@ mod tests {
     fn test_cluster_104_n1000_chain_ordered_unique() {
         let n = 1000;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 1000, "Output length should match node count");
@@ -1853,8 +1989,8 @@ mod tests {
     fn test_cluster_105_n1000_chain_ordered_with_duplicates() {
         let n = 1000;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1869,8 +2005,8 @@ mod tests {
     fn test_cluster_106_n1000_chain_reversed_unique() {
         let n = 1000;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -1884,8 +2020,8 @@ mod tests {
     fn test_cluster_107_n1000_chain_reversed_with_duplicates() {
         let n = 1000;
         let mut edges = Vec::new();
-        for i in 0..n-1 {
-            edges.push((i, i+1));
+        for i in 0..n - 1 {
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1964,7 +2100,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 1000, "Output length should match node count");
@@ -1978,7 +2114,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -1994,7 +2130,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -2009,7 +2145,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in 0..n {
-            edges.push((i, (i+1)%n));
+            edges.push((i, (i + 1) % n));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -2027,12 +2163,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -2044,7 +2180,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -2053,12 +2192,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -2072,7 +2211,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -2081,12 +2223,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -2099,7 +2241,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -2108,12 +2253,12 @@ mod tests {
         let mut edges = Vec::new();
         let half = n / 2;
         for i in 0..half {
-            for j in (i+1)..half {
+            for j in (i + 1)..half {
                 edges.push((i, j));
             }
         }
         for i in half..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -2128,7 +2273,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Even if modularity joins some things, we shouldn't get N clusters or 1 cluster.
-        assert!(unique.len() >= 2, "Two distinct cliques with 1 bridge should not completely merge");
+        assert!(
+            unique.len() >= 2,
+            "Two distinct cliques with 1 bridge should not completely merge"
+        );
     }
 
     #[test]
@@ -2210,7 +2358,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), 1000, "Output length should match node count");
@@ -2219,7 +2367,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (1000 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -2227,7 +2379,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -2238,7 +2390,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (1000 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -2246,7 +2402,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         edges.reverse();
         let result = detect_communities(n, &edges);
@@ -2256,7 +2412,11 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (1000 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
 
     #[test]
@@ -2264,7 +2424,7 @@ mod tests {
         let n = 1000;
         let mut edges = Vec::new();
         for i in (0..(n - 1)).step_by(2) {
-            edges.push((i, i+1));
+            edges.push((i, i + 1));
         }
         let mut extra = edges.clone();
         edges.append(&mut extra);
@@ -2276,7 +2436,10 @@ mod tests {
         }
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         let expected_clusters = (1000 + 1) / 2;
-        assert_eq!(unique.len(), expected_clusters, "Disconnected pairs should have N/2 clusters");
+        assert_eq!(
+            unique.len(),
+            expected_clusters,
+            "Disconnected pairs should have N/2 clusters"
+        );
     }
-
 }

@@ -6,9 +6,9 @@
 
 use crate::markdown::{CodeToken, TokenType};
 use parking_lot::Mutex;
+use rustc_hash::FxHasher;
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hash, Hasher};
-use rustc_hash::FxHasher;
 use tree_sitter_language::LanguageFn;
 
 // ── Tree cache ──────────────────────────────────────────────────────────────
@@ -17,8 +17,7 @@ const MAX_CACHE_ENTRIES: usize = 128;
 
 type FxBuildHasher = BuildHasherDefault<FxHasher>;
 
-static TREE_CACHE: Mutex<Option<HashMap<u64, tree_sitter::Tree, FxBuildHasher>>> =
-    Mutex::new(None);
+static TREE_CACHE: Mutex<Option<HashMap<u64, tree_sitter::Tree, FxBuildHasher>>> = Mutex::new(None);
 
 fn cache_key(lang: &str, code: &str) -> u64 {
     let mut h = FxHasher::default();
@@ -67,41 +66,151 @@ fn language_fn_for_tag(lang: &str) -> Option<LanguageFn> {
 fn is_keyword(kind: &str) -> bool {
     matches!(
         kind,
-        "fn" | "func" | "function"
-            | "let" | "var" | "const" | "val"
-            | "if" | "else" | "elif"
-            | "for" | "while" | "loop" | "do"
-            | "return" | "yield" | "break" | "continue"
-            | "switch" | "case" | "default" | "match"
-            | "struct" | "class" | "enum" | "protocol" | "interface" | "trait" | "impl"
-            | "import" | "from" | "use" | "module" | "package"
-            | "pub" | "public" | "private" | "protected" | "internal" | "open" | "fileprivate"
-            | "static" | "final" | "override" | "mutating" | "nonmutating"
-            | "async" | "await" | "throws" | "throw" | "try" | "catch" | "finally"
-            | "guard" | "defer" | "where" | "in" | "as" | "is"
-            | "new" | "delete" | "typeof" | "instanceof" | "void"
-            | "self" | "super" | "Self"
-            | "type" | "typealias" | "extension" | "associatedtype"
-            | "with" | "pass" | "raise" | "except" | "lambda" | "def"
-            | "not" | "and" | "or"
-            | "go" | "chan" | "select" | "range" | "map"
-            | "export" | "require"
-            | "unsafe" | "extern" | "crate" | "mod" | "ref" | "move"
-            | "mut" | "dyn"
+        "fn" | "func"
+            | "function"
+            | "let"
+            | "var"
+            | "const"
+            | "val"
+            | "if"
+            | "else"
+            | "elif"
+            | "for"
+            | "while"
+            | "loop"
+            | "do"
+            | "return"
+            | "yield"
+            | "break"
+            | "continue"
+            | "switch"
+            | "case"
+            | "default"
+            | "match"
+            | "struct"
+            | "class"
+            | "enum"
+            | "protocol"
+            | "interface"
+            | "trait"
+            | "impl"
+            | "import"
+            | "from"
+            | "use"
+            | "module"
+            | "package"
+            | "pub"
+            | "public"
+            | "private"
+            | "protected"
+            | "internal"
+            | "open"
+            | "fileprivate"
+            | "static"
+            | "final"
+            | "override"
+            | "mutating"
+            | "nonmutating"
+            | "async"
+            | "await"
+            | "throws"
+            | "throw"
+            | "try"
+            | "catch"
+            | "finally"
+            | "guard"
+            | "defer"
+            | "where"
+            | "in"
+            | "as"
+            | "is"
+            | "new"
+            | "delete"
+            | "typeof"
+            | "instanceof"
+            | "void"
+            | "self"
+            | "super"
+            | "Self"
+            | "type"
+            | "typealias"
+            | "extension"
+            | "associatedtype"
+            | "with"
+            | "pass"
+            | "raise"
+            | "except"
+            | "lambda"
+            | "def"
+            | "not"
+            | "and"
+            | "or"
+            | "go"
+            | "chan"
+            | "select"
+            | "range"
+            | "map"
+            | "export"
+            | "require"
+            | "unsafe"
+            | "extern"
+            | "crate"
+            | "mod"
+            | "ref"
+            | "move"
+            | "mut"
+            | "dyn"
     )
 }
 
 fn is_constant(kind: &str) -> bool {
-    matches!(kind, "true" | "false" | "nil" | "null" | "None" | "True" | "False")
+    matches!(
+        kind,
+        "true" | "false" | "nil" | "null" | "None" | "True" | "False"
+    )
 }
 
 fn is_operator(kind: &str) -> bool {
     matches!(
         kind,
-        "=" | "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">="
-            | "&&" | "||" | "!" | "&" | "|" | "^" | "~" | "<<" | ">>" | "+=" | "-="
-            | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>="
-            | "=>" | "->" | ".." | "..=" | "??" | "?." | "?:" | "::"
+        "=" | "+"
+            | "-"
+            | "*"
+            | "/"
+            | "%"
+            | "=="
+            | "!="
+            | "<"
+            | ">"
+            | "<="
+            | ">="
+            | "&&"
+            | "||"
+            | "!"
+            | "&"
+            | "|"
+            | "^"
+            | "~"
+            | "<<"
+            | ">>"
+            | "+="
+            | "-="
+            | "*="
+            | "/="
+            | "%="
+            | "&="
+            | "|="
+            | "^="
+            | "<<="
+            | ">>="
+            | "=>"
+            | "->"
+            | ".."
+            | "..="
+            | "??"
+            | "?."
+            | "?:"
+            | "::"
     )
 }
 
@@ -172,7 +281,10 @@ fn classify_node(node: tree_sitter::Node, code: &str) -> TokenType {
     }
 
     // Identifiers need parent context for classification
-    if kind == "identifier" || kind == "simple_identifier" || kind == "shorthand_property_identifier" {
+    if kind == "identifier"
+        || kind == "simple_identifier"
+        || kind == "shorthand_property_identifier"
+    {
         if let Some(parent) = node.parent() {
             let parent_kind = parent.kind();
 
@@ -183,14 +295,17 @@ fn classify_node(node: tree_sitter::Node, code: &str) -> TokenType {
                 || parent_kind == "call_expression"
                 || parent_kind == "function_declaration"
                 || parent_kind == "function_definition"
-                || parent_kind == "simple_identifier" // Swift chain
+                || parent_kind == "simple_identifier"
+            // Swift chain
             {
                 // Check if this identifier is the function/method name
                 if parent_kind.contains("call") {
                     // In call expressions, the function identifier is typically
                     // the first child or the "function" field
                     if let Some(func_node) = parent.child_by_field_name("function") {
-                        if func_node.id() == node.id() || func_node.start_byte() == node.start_byte() {
+                        if func_node.id() == node.id()
+                            || func_node.start_byte() == node.start_byte()
+                        {
                             return TokenType::Function;
                         }
                     }
@@ -211,7 +326,13 @@ fn classify_node(node: tree_sitter::Node, code: &str) -> TokenType {
                 if field == "property" || field == "field" || field == "member" {
                     return TokenType::Property;
                 }
-                if field == "name" && (parent_kind.contains("type") || parent_kind.contains("class") || parent_kind.contains("struct") || parent_kind.contains("interface") || parent_kind.contains("enum")) {
+                if field == "name"
+                    && (parent_kind.contains("type")
+                        || parent_kind.contains("class")
+                        || parent_kind.contains("struct")
+                        || parent_kind.contains("interface")
+                        || parent_kind.contains("enum"))
+                {
                     return TokenType::Type;
                 }
             }
@@ -279,7 +400,10 @@ fn classify_node(node: tree_sitter::Node, code: &str) -> TokenType {
 /// Walk the tree depth-first to find the field name for a given child node.
 /// Uses the parent's child enumeration since the cursor API doesn't expose
 /// field names for arbitrary nodes easily.
-fn cursor_field_name_for_node(node: tree_sitter::Node, parent: tree_sitter::Node) -> Option<&'static str> {
+fn cursor_field_name_for_node(
+    node: tree_sitter::Node,
+    parent: tree_sitter::Node,
+) -> Option<&'static str> {
     for i in 0..parent.child_count() {
         if let Some(child) = parent.child(i) {
             if child.id() == node.id() {
@@ -342,8 +466,10 @@ pub fn tokenize(lang: &str, code: &str) -> Vec<CodeToken> {
 
             // Coalesce: named comment/string nodes emit one token, skip children
             let is_coalesced = node.is_named()
-                && (kind.contains("comment") || kind.contains("string_literal")
-                    || kind == "raw_string_literal" || kind == "string");
+                && (kind.contains("comment")
+                    || kind.contains("string_literal")
+                    || kind == "raw_string_literal"
+                    || kind == "string");
 
             if is_coalesced && valid_range {
                 let tt = classify_node(node, code);
@@ -411,7 +537,11 @@ mod tests {
         assert!(!tokens.is_empty());
         let keywords = tokens_of_type(&tokens, TokenType::Keyword);
         let texts: Vec<&str> = keywords.iter().map(|t| token_text(t, code)).collect();
-        assert!(texts.contains(&"let"), "expected 'let' keyword, got: {:?}", texts);
+        assert!(
+            texts.contains(&"let"),
+            "expected 'let' keyword, got: {:?}",
+            texts
+        );
     }
 
     #[test]
@@ -421,7 +551,11 @@ mod tests {
         assert!(!tokens.is_empty());
         let keywords = tokens_of_type(&tokens, TokenType::Keyword);
         let texts: Vec<&str> = keywords.iter().map(|t| token_text(t, code)).collect();
-        assert!(texts.contains(&"fn"), "expected 'fn' keyword, got: {:?}", texts);
+        assert!(
+            texts.contains(&"fn"),
+            "expected 'fn' keyword, got: {:?}",
+            texts
+        );
     }
 
     #[test]
@@ -429,9 +563,14 @@ mod tests {
         let code = r#"x = "hello world""#;
         let tokens = tokenize("python", code);
         assert!(!tokens.is_empty());
-        assert!(has_token_type(&tokens, TokenType::String),
+        assert!(
+            has_token_type(&tokens, TokenType::String),
             "expected string token, got types: {:?}",
-            tokens.iter().map(|t| (token_text(t, code), t.token_type)).collect::<Vec<_>>());
+            tokens
+                .iter()
+                .map(|t| (token_text(t, code), t.token_type))
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -453,7 +592,11 @@ mod tests {
         assert!(!tokens.is_empty());
         let keywords = tokens_of_type(&tokens, TokenType::Keyword);
         let texts: Vec<&str> = keywords.iter().map(|t| token_text(t, code)).collect();
-        assert!(texts.contains(&"function"), "expected 'function' keyword, got: {:?}", texts);
+        assert!(
+            texts.contains(&"function"),
+            "expected 'function' keyword, got: {:?}",
+            texts
+        );
     }
 
     #[test]
@@ -461,9 +604,14 @@ mod tests {
         let code = "// this is a comment";
         let tokens = tokenize("rust", code);
         assert!(!tokens.is_empty());
-        assert!(has_token_type(&tokens, TokenType::Comment),
+        assert!(
+            has_token_type(&tokens, TokenType::Comment),
             "expected comment token, got: {:?}",
-            tokens.iter().map(|t| (token_text(t, code), t.token_type)).collect::<Vec<_>>());
+            tokens
+                .iter()
+                .map(|t| (token_text(t, code), t.token_type))
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -471,16 +619,25 @@ mod tests {
         let code = "let x = 3.14;";
         let tokens = tokenize("rust", code);
         assert!(!tokens.is_empty());
-        assert!(has_token_type(&tokens, TokenType::Number),
+        assert!(
+            has_token_type(&tokens, TokenType::Number),
             "expected number token, got: {:?}",
-            tokens.iter().map(|t| (token_text(t, code), t.token_type)).collect::<Vec<_>>());
+            tokens
+                .iter()
+                .map(|t| (token_text(t, code), t.token_type))
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
     fn tokenize_multiline_swift() {
         let code = "import Foundation\nfunc greet(_ name: String) -> String {\n    return \"Hello, \\(name)\"\n}\n";
         let tokens = tokenize("swift", code);
-        assert!(tokens.len() > 5, "expected >5 tokens for multiline Swift, got {}", tokens.len());
+        assert!(
+            tokens.len() > 5,
+            "expected >5 tokens for multiline Swift, got {}",
+            tokens.len()
+        );
     }
 
     #[test]
@@ -488,9 +645,14 @@ mod tests {
         let code = r#"{"key": "value", "num": 42}"#;
         let tokens = tokenize("json", code);
         assert!(!tokens.is_empty());
-        assert!(has_token_type(&tokens, TokenType::String),
+        assert!(
+            has_token_type(&tokens, TokenType::String),
             "expected string token in JSON, got: {:?}",
-            tokens.iter().map(|t| (token_text(t, code), t.token_type)).collect::<Vec<_>>());
+            tokens
+                .iter()
+                .map(|t| (token_text(t, code), t.token_type))
+                .collect::<Vec<_>>()
+        );
     }
 
     // Additional correctness tests
@@ -500,8 +662,12 @@ mod tests {
         let code = "fn main() { let x = 42; }";
         let tokens = tokenize("rust", code);
         for w in tokens.windows(2) {
-            assert!(w[0].start <= w[1].start,
-                "tokens not sorted: {} > {}", w[0].start, w[1].start);
+            assert!(
+                w[0].start <= w[1].start,
+                "tokens not sorted: {} > {}",
+                w[0].start,
+                w[1].start
+            );
         }
     }
 
@@ -510,9 +676,14 @@ mod tests {
         let code = "let name: String = \"hello\"";
         let tokens = tokenize("swift", code);
         for w in tokens.windows(2) {
-            assert!(w[0].end <= w[1].start || w[0].start == w[1].start,
+            assert!(
+                w[0].end <= w[1].start || w[0].start == w[1].start,
                 "overlapping tokens: [{}, {}) and [{}, {})",
-                w[0].start, w[0].end, w[1].start, w[1].end);
+                w[0].start,
+                w[0].end,
+                w[1].start,
+                w[1].end
+            );
         }
     }
 
@@ -539,7 +710,12 @@ mod tests {
         ];
         for (lang, code) in snippets {
             let tokens = tokenize(lang, code);
-            assert!(!tokens.is_empty(), "language '{}' produced no tokens for '{}'", lang, code);
+            assert!(
+                !tokens.is_empty(),
+                "language '{}' produced no tokens for '{}'",
+                lang,
+                code
+            );
         }
     }
 

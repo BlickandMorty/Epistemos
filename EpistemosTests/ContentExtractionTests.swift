@@ -534,14 +534,14 @@ class ContentPipeline {
 struct ContentResult {
     var text: String? = "Processed text"
     var extractorType: ExtractorType = .pdf
-    var error: PipelineError? = nil
+    var error: ContentPipelineError? = nil
     var chunks: [ContentChunk] = [ContentChunk(text: "Chunk")]
     var processingTime: Double = 1.0
     var metadata: ContentMetadata = ContentMetadata()
 }
 
 enum ExtractorType { case pdf, web, ocr }
-enum PipelineError: Error { case unsupportedFormat }
+enum ContentPipelineError: Error { case unsupportedFormat }
 
 struct ContentChunk {
     let text: String

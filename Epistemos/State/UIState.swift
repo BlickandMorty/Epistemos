@@ -12,7 +12,7 @@ final class UIState {
     // MARK: - Theme
 
     /// The active theme pair. Drives both light and dark rendering.
-    var activePair: ThemePair = .magnolia {
+    var activePair: ThemePair = .platinum {
         didSet {
             UserDefaults.standard.set(activePair.rawValue, forKey: "epistemos.theme.pair")
         }
@@ -62,6 +62,7 @@ final class UIState {
     // MARK: - Init
 
     init() {
+        isSystemDark = SystemAppearanceState.isDark()
         if let saved = UserDefaults.standard.string(forKey: "epistemos.theme.pair"),
            let pair = ThemePair(rawValue: saved) {
             activePair = pair

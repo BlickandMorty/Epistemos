@@ -2,16 +2,13 @@ import Foundation
 import Testing
 @testable import Epistemos
 
-private let generatedCount = 1000
-private let generatedIndices = Array(0..<generatedCount)
-
 private func hasKind(_ items: [TOCItem], _ kind: TOCItem.TOCKind) -> Bool {
     items.contains { $0.kind == kind }
 }
 
 @Suite("Generated Notes - TOC 1000")
 struct GeneratedNotesTOC1000Tests {
-    @Test("generated notes TOC case", arguments: generatedIndices)
+    @Test("generated notes TOC case", arguments: Array(0..<1000))
     func generatedTOC(_ i: Int) {
         let level = (i % 5) + 1
         let heading = String(repeating: "#", count: level)
@@ -31,7 +28,7 @@ struct GeneratedNotesTOC1000Tests {
 
 @Suite("Generated Notes - LineDiff 1000")
 struct GeneratedNotesLineDiff1000Tests {
-    @Test("generated notes line diff case", arguments: generatedIndices)
+    @Test("generated notes line diff case", arguments: Array(0..<1000))
     func generatedLineDiff(_ i: Int) {
         let old = "alpha \(i)\ncommon line\nshared"
         let new = "alpha \(i) updated\ncommon line\nshared\nextra \(i)"
@@ -47,7 +44,7 @@ struct GeneratedNotesLineDiff1000Tests {
 
 @Suite("Generated Chat - QueryParser 1000")
 struct GeneratedChatQueryParser1000Tests {
-    @Test("generated chat parser routing case", arguments: generatedIndices)
+    @Test("generated chat parser routing case", arguments: Array(0..<1000))
     func generatedQueryParserRouting(_ i: Int) {
         switch i % 5 {
         case 0:
@@ -71,7 +68,7 @@ struct GeneratedChatQueryParser1000Tests {
             let parsed = QueryParser.parseToAST("how many notes")
             // No aggregation in QueryAST — falls through to FTS
             if case .ftsMatch = parsed {
-                #expect(true)
+                #expect(Bool(true))
             } else {
                 Issue.record("Expected ftsMatch fallback for case \(i)")
             }
@@ -109,7 +106,7 @@ struct GeneratedChatQueryParser1000Tests {
 @Suite("Generated Chat - NoteChatState 1000")
 @MainActor
 struct GeneratedChatNoteState1000Tests {
-    @Test("generated note chat state lifecycle case", arguments: generatedIndices)
+    @Test("generated note chat state lifecycle case", arguments: Array(0..<1000))
     func generatedNoteChatStateLifecycle(_ i: Int) {
         let state = NoteChatState(pageId: "generated-page-\(i)")
 
@@ -130,4 +127,3 @@ struct GeneratedChatNoteState1000Tests {
         #expect(state.error == nil)
     }
 }
-

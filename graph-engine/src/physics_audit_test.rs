@@ -15,7 +15,7 @@ mod physics_audit_tests {
                 0.0,
                 0, // note
                 1, // link count
-                format!("Node {}", i)
+                format!("Node {}", i),
             );
         }
         let mut sim = Simulation::new();
@@ -72,16 +72,19 @@ mod physics_audit_tests {
 
         // With no center force and outward velocity, node drifts further.
         // This is correct d3 behavior — center_strength=0 means no pull.
-        assert!(sim.x[0].is_finite(),
-            "Node should remain finite, got x={}", sim.x[0]);
+        assert!(
+            sim.x[0].is_finite(),
+            "Node should remain finite, got x={}",
+            sim.x[0]
+        );
     }
 
     #[test]
     fn test_distant_nodes_reaggregated_by_center_gravity() {
         // This tests the FIX to the orphan nodes bug
         let mut sim = setup_sim_with_nodes(1);
-        
-        sim.params.center_strength = 0.02; 
+
+        sim.params.center_strength = 0.02;
         sim.params.velocity_decay = 0.05;
         // Turn off cooling so physics runs continuously for the test
         sim.params.alpha_decay = 0.0;
@@ -96,7 +99,7 @@ mod physics_audit_tests {
         }
 
         assert!(sim.vx[0] < 0.0 || sim.x[0] < 5000.0 + 10.0);
-        
+
         // Force convergence
         for _ in 0..1000 {
             sim.tick();
@@ -104,7 +107,11 @@ mod physics_audit_tests {
 
         // After 1050 ticks with center gravity, node should be pulled closer to origin
         // The exact position depends on many factors, but it should be significantly closer
-        assert!(sim.x[0].abs() < 5000.0, "Node should be pulled toward center, but x was {}", sim.x[0]);
+        assert!(
+            sim.x[0].abs() < 5000.0,
+            "Node should be pulled toward center, but x was {}",
+            sim.x[0]
+        );
     }
 
     #[test]
@@ -112,11 +119,14 @@ mod physics_audit_tests {
         let mut sim = setup_sim_with_nodes(2);
 
         // Node 0 is the center hub
-        sim.x[0] = 0.0; sim.y[0] = 0.0;
-        sim.fx[0] = Some(0.0); sim.fy[0] = Some(0.0);
-        
+        sim.x[0] = 0.0;
+        sim.y[0] = 0.0;
+        sim.fx[0] = Some(0.0);
+        sim.fy[0] = Some(0.0);
+
         // Node 1 is an orphan at the edge of the blast radius
-        sim.x[1] = 400.0; sim.y[1] = 0.0;
+        sim.x[1] = 400.0;
+        sim.y[1] = 0.0;
 
         // Limit the charge radius
         sim.params.charge_strength = -500.0;
@@ -133,7 +143,11 @@ mod physics_audit_tests {
 
         // Node 1 at distance 400 with charge_range 280 should receive minimal force
         // Small numerical errors or force leakage is acceptable, but should be very small
-        assert!(sim.vx[1].abs() < 1.0, "Node 1 velocity should be near zero (outside charge range), but was {}", sim.vx[1]);
+        assert!(
+            sim.vx[1].abs() < 1.0,
+            "Node 1 velocity should be near zero (outside charge range), but was {}",
+            sim.vx[1]
+        );
     }
 
     #[test]
@@ -150,8 +164,11 @@ mod physics_audit_tests {
         // Should not hang. We just rely on cargo test timing out or succeeding quickly.
         let start = std::time::Instant::now();
         sim.tick();
-        
-        assert!(start.elapsed().as_millis() < 500, "Coincident nodes should settle quickly without hanging the quadtree.");
+
+        assert!(
+            start.elapsed().as_millis() < 500,
+            "Coincident nodes should settle quickly without hanging the quadtree."
+        );
     }
 
     #[test]
@@ -160,7 +177,7 @@ mod physics_audit_tests {
         // We know engine.rs runs up to 1200 ticks synchronously on the main thread for N < 2000.
         // Let's test the execution time of 1200 ticks for 1900 nodes.
         let mut sim = setup_sim_with_nodes(1900);
-        
+
         let _start_positions = vec![(0.0, 0.0); 1900];
         for i in 0..1900 {
             // Distribute them in a spiral like engine.rs does
@@ -175,15 +192,18 @@ mod physics_audit_tests {
         for _ in 0..1200 {
             sim.tick();
         }
-        
+
         let elapsed_ms = start.elapsed().as_millis();
-        
+
         // Let's assert that it's surprisingly slow (which proves the bug) or fast enough.
         // If this takes > 1000ms, it's a huge red flag that we are hanging the main thread.
         println!("1200 ticks for 1900 nodes took {} ms", elapsed_ms);
-        
+
         // We'll assert it completes. The console output will log the time.
-        assert!(elapsed_ms < 10000, "Sanity check: took more than 10 seconds!");
+        assert!(
+            elapsed_ms < 10000,
+            "Sanity check: took more than 10 seconds!"
+        );
     }
 
     #[test]
@@ -199,7 +219,7 @@ mod physics_audit_tests {
         sim.tick();
 
         assert!(sim.params.alpha < original_alpha); // Must decrease
-        assert!(sim.params.alpha > 0.0);           // But not disappear instantly
+        assert!(sim.params.alpha > 0.0); // But not disappear instantly
     }
 
     #[test]
@@ -213,8 +233,12 @@ mod physics_audit_tests {
         for i in 0..30 {
             let angle = (i as f32) * std::f32::consts::TAU / 30.0;
             graph.add_node(
-                format!("leaf-{}", i), 120.0 * angle.cos(), 120.0 * angle.sin(),
-                0, 1, format!("Leaf {}", i),
+                format!("leaf-{}", i),
+                120.0 * angle.cos(),
+                120.0 * angle.sin(),
+                0,
+                1,
+                format!("Leaf {}", i),
             );
             graph.add_edge("hub", &format!("leaf-{}", i), 1.0, 0);
         }
@@ -223,9 +247,16 @@ mod physics_audit_tests {
         sim.load_from_graph(&graph);
 
         // All 30 edges must be loaded — no cap.
-        assert_eq!(sim.edges.len(), 30, "All 30 hub edges must be in physics sim");
+        assert_eq!(
+            sim.edges.len(),
+            30,
+            "All 30 hub edges must be in physics sim"
+        );
         // Hub degree must be 30.
-        assert_eq!(sim.degrees[0], 30, "Hub degree must reflect all connections");
+        assert_eq!(
+            sim.degrees[0], 30,
+            "Hub degree must reflect all connections"
+        );
     }
 
     #[test]
@@ -239,8 +270,12 @@ mod physics_audit_tests {
             let angle = (i as f32) * std::f32::consts::TAU / 25.0;
             let r = 120.0;
             graph.add_node(
-                format!("child-{}", i), r * angle.cos(), r * angle.sin(),
-                0, 2, format!("Child {}", i),
+                format!("child-{}", i),
+                r * angle.cos(),
+                r * angle.sin(),
+                0,
+                2,
+                format!("Child {}", i),
             );
             graph.add_edge("hub", &format!("child-{}", i), 1.0, 0);
         }
@@ -253,7 +288,9 @@ mod physics_audit_tests {
         sim.params.alpha_decay = 0.0; // Keep physics running
 
         // Run 500 ticks to reach equilibrium
-        for _ in 0..500 { sim.tick(); }
+        for _ in 0..500 {
+            sim.tick();
+        }
 
         // Find nested node's sim index (last node added = index 26)
         let nested_idx = 26;
@@ -265,8 +302,10 @@ mod physics_audit_tests {
 
         // Nested node must stay within reasonable distance of its parent.
         // With link_distance=120, it should settle near that distance.
-        assert!(dist_to_parent < 400.0,
+        assert!(
+            dist_to_parent < 400.0,
             "Nested node should stay near parent (child-0), but distance was {:.1}",
-            dist_to_parent);
+            dist_to_parent
+        );
     }
 }

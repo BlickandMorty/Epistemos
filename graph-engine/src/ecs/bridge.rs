@@ -6,8 +6,8 @@
 use rustc_hash::FxHashMap;
 
 use super::{
-    EdgeComponent, GraphNodeComponent, HierarchyComponent, RenderComponent,
-    TransformComponent, VelocityComponent, World,
+    EdgeComponent, GraphNodeComponent, HierarchyComponent, RenderComponent, TransformComponent,
+    VelocityComponent, World,
 };
 use crate::types::Graph;
 

@@ -112,7 +112,11 @@ impl EmbeddingStore {
             .collect();
 
         // Partial sort: top-K by descending similarity
-        hits.sort_unstable_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_unstable_by(|a, b| {
+            b.similarity
+                .partial_cmp(&a.similarity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         hits.truncate(k);
         hits
     }
@@ -144,7 +148,11 @@ impl EmbeddingStore {
             .filter(|hit| hit.similarity >= threshold)
             .collect();
 
-        hits.sort_unstable_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_unstable_by(|a, b| {
+            b.similarity
+                .partial_cmp(&a.similarity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         hits.truncate(k);
         hits
     }

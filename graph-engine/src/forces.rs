@@ -74,8 +74,10 @@ pub fn force_link(
 
         // Skip force on pinned (dragged) nodes — their velocity is discarded
         // anyway, but applying it causes oscillation in connected free nodes.
-        let ti_pinned = fx.get(ti).copied().flatten().is_some() || fy.get(ti).copied().flatten().is_some();
-        let si_pinned = fx.get(si).copied().flatten().is_some() || fy.get(si).copied().flatten().is_some();
+        let ti_pinned =
+            fx.get(ti).copied().flatten().is_some() || fy.get(ti).copied().flatten().is_some();
+        let si_pinned =
+            fx.get(si).copied().flatten().is_some() || fy.get(si).copied().flatten().is_some();
 
         if !ti_pinned {
             vx[ti] -= dx * displacement * bias;
@@ -111,7 +113,20 @@ pub fn force_many_body(
     let fy: Vec<Option<f32>> = vec![None; x.len()];
     let mut bodies = Vec::new();
     let degrees: Vec<u32> = vec![1; x.len()]; // uniform degrees for standalone usage
-    force_many_body_with_scratch(x, y, vx, vy, &fx, &fy, charge_strength, distance_max, distance_min, alpha, &mut bodies, &degrees);
+    force_many_body_with_scratch(
+        x,
+        y,
+        vx,
+        vy,
+        &fx,
+        &fy,
+        charge_strength,
+        distance_max,
+        distance_min,
+        alpha,
+        &mut bodies,
+        &degrees,
+    );
 }
 
 /// Like `force_many_body` but reuses a caller-provided scratch buffer for `Body` allocations.
@@ -137,13 +152,11 @@ pub fn force_many_body_with_scratch(
 
     // Build Barnes-Hut tree with uniform charge (canonical d3-force behavior).
     bodies.clear();
-    bodies.extend((0..n).map(|i| {
-        Body {
-            index: i,
-            x: x[i],
-            y: y[i],
-            strength: charge_strength,
-        }
+    bodies.extend((0..n).map(|i| Body {
+        index: i,
+        x: x[i],
+        y: y[i],
+        strength: charge_strength,
     }));
 
     let tree = match quadtree::build_tree(bodies) {
@@ -157,8 +170,11 @@ pub fn force_many_body_with_scratch(
     // Apply force from tree to each node. Skip pinned (dragged) nodes —
     // they're in the tree as repulsion sources but shouldn't receive force.
     for i in 0..n {
-        let pinned = fx.get(i).copied().flatten().is_some() || fy.get(i).copied().flatten().is_some();
-        if pinned { continue; }
+        let pinned =
+            fx.get(i).copied().flatten().is_some() || fy.get(i).copied().flatten().is_some();
+        if pinned {
+            continue;
+        }
 
         let mut dvx = 0.0_f32;
         let mut dvy = 0.0_f32;
@@ -285,9 +301,13 @@ pub fn force_collide_with_scratch(
 /// If both are fixed, skip entirely (can't resolve).
 #[inline(always)]
 fn resolve_overlap(
-    x: &mut [f32], y: &mut [f32], radii: &[f32],
-    fx: &[Option<f32>], fy: &[Option<f32>],
-    i: usize, j: usize,
+    x: &mut [f32],
+    y: &mut [f32],
+    radii: &[f32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
+    i: usize,
+    j: usize,
 ) {
     let mut dx = x[j] - x[i];
     let mut dy = y[j] - y[i];
@@ -296,13 +316,15 @@ fn resolve_overlap(
     let min_dist_sq = min_dist * min_dist;
 
     if dist_sq < min_dist_sq {
-        let i_fixed = fx.get(i).is_some_and(|f| f.is_some())
-            || fy.get(i).is_some_and(|f| f.is_some());
-        let j_fixed = fx.get(j).is_some_and(|f| f.is_some())
-            || fy.get(j).is_some_and(|f| f.is_some());
+        let i_fixed =
+            fx.get(i).is_some_and(|f| f.is_some()) || fy.get(i).is_some_and(|f| f.is_some());
+        let j_fixed =
+            fx.get(j).is_some_and(|f| f.is_some()) || fy.get(j).is_some_and(|f| f.is_some());
 
         // Both fixed — can't resolve overlap.
-        if i_fixed && j_fixed { return; }
+        if i_fixed && j_fixed {
+            return;
+        }
 
         let dist = dist_sq.sqrt().max(1e-6);
         let overlap = (min_dist - dist) / dist;
@@ -525,13 +547,18 @@ pub fn force_torsion(
     // For each hub node (degree > 2), equalize angular spacing.
     for hub in 0..n {
         let deg = degrees[hub] as usize;
-        if deg <= 2 { continue; }
+        if deg <= 2 {
+            continue;
+        }
 
         let nb = &neighbors[hub];
-        if nb.len() <= 2 { continue; }
+        if nb.len() <= 2 {
+            continue;
+        }
 
         // Compute angles from hub to each neighbor.
-        let mut angles: Vec<(f32, usize)> = nb.iter()
+        let mut angles: Vec<(f32, usize)> = nb
+            .iter()
             .map(|&ni| {
                 let angle = (y[ni] - y[hub]).atan2(x[ni] - x[hub]);
                 (angle, ni)
@@ -546,17 +573,23 @@ pub fn force_torsion(
         for i in 0..k {
             let j = (i + 1) % k;
             let mut gap = angles[j].0 - angles[i].0;
-            if gap < 0.0 { gap += std::f32::consts::TAU; }
+            if gap < 0.0 {
+                gap += std::f32::consts::TAU;
+            }
 
             let error = ideal_gap - gap;
-            if error.abs() < 0.01 { continue; } // Dead zone — don't fight for tiny errors.
+            if error.abs() < 0.01 {
+                continue;
+            } // Dead zone — don't fight for tiny errors.
 
             let ni = angles[i].1;
             let nj = angles[j].1;
 
             // Tangential force perpendicular to the hub→neighbor direction.
             // Push ni clockwise and nj counter-clockwise (or vice versa).
-            let dist_i = ((x[ni] - x[hub]).powi(2) + (y[ni] - y[hub]).powi(2)).sqrt().max(1.0);
+            let dist_i = ((x[ni] - x[hub]).powi(2) + (y[ni] - y[hub]).powi(2))
+                .sqrt()
+                .max(1.0);
             let theta_i = angles[i].0;
             let tx_i = -theta_i.sin();
             let ty_i = theta_i.cos();
@@ -565,7 +598,9 @@ pub fn force_torsion(
             vx[ni] += tx_i * force_i;
             vy[ni] += ty_i * force_i;
 
-            let dist_j = ((x[nj] - x[hub]).powi(2) + (y[nj] - y[hub]).powi(2)).sqrt().max(1.0);
+            let dist_j = ((x[nj] - x[hub]).powi(2) + (y[nj] - y[hub]).powi(2))
+                .sqrt()
+                .max(1.0);
             let theta_j = angles[j].0;
             let tx_j = -theta_j.sin();
             let ty_j = theta_j.cos();
@@ -699,10 +734,14 @@ pub fn force_orbital(
     let eff = speed * 0.3 * alpha;
 
     for (ei, &(parent, child)) in edges.iter().enumerate() {
-        if parent >= n || child >= n { continue; }
+        if parent >= n || child >= n {
+            continue;
+        }
         let etype = edge_types.get(ei).copied().unwrap_or(0);
         // Only hierarchical edges: contains(1) and authored(5).
-        if etype != 1 && etype != 5 { continue; }
+        if etype != 1 && etype != 5 {
+            continue;
+        }
         // Parent is the higher-degree node. If child has higher degree, swap semantics.
         let (hub, leaf) = if degrees[parent] >= degrees[child] {
             (parent, child)
@@ -739,7 +778,20 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // Nodes at distance 200 with link_distance 180 → should attract slightly.
         // Node 0 should move rightward (positive vx), node 1 leftward (negative vx).
@@ -757,7 +809,20 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // Nodes at distance 50 with link_distance 180 → should push apart.
         assert!(vx[0] < 0.0, "node 0 should move left, got {}", vx[0]);
@@ -775,7 +840,11 @@ mod tests {
 
         // Negative strength → repulsion. Node 0 should be pushed left, node 1 right.
         assert!(vx[0] < 0.0, "node 0 should be repelled left, got {}", vx[0]);
-        assert!(vx[1] > 0.0, "node 1 should be repelled right, got {}", vx[1]);
+        assert!(
+            vx[1] > 0.0,
+            "node 1 should be repelled right, got {}",
+            vx[1]
+        );
     }
 
     #[test]
@@ -825,7 +894,11 @@ mod tests {
         assert_eq!(x[0], 0.0, "fixed node should not move");
         assert_eq!(y[0], 0.0, "fixed node should not move");
         // Node 1 should have been pushed away by the full displacement.
-        assert!(x[1] > 50.0, "unfixed node should be pushed fully away, got {}", x[1]);
+        assert!(
+            x[1] > 50.0,
+            "unfixed node should be pushed fully away, got {}",
+            x[1]
+        );
     }
 
     #[test]
@@ -885,7 +958,20 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![10, 1]; // node 0 is a hub
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // Hub (degree 10) should move less than leaf (degree 1).
         assert!(
@@ -909,8 +995,34 @@ mod tests {
         let edges = vec![(0, 1)];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx_w1, &mut vy_w1, &edges, &[1.0], &degrees, &[], &[], 200.0, 0.0, 1.0);
-        force_link(&x, &y, &mut vx_w3, &mut vy_w3, &edges, &[3.0], &degrees, &[], &[], 200.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx_w1,
+            &mut vy_w1,
+            &edges,
+            &[1.0],
+            &degrees,
+            &[],
+            &[],
+            200.0,
+            0.0,
+            1.0,
+        );
+        force_link(
+            &x,
+            &y,
+            &mut vx_w3,
+            &mut vy_w3,
+            &edges,
+            &[3.0],
+            &degrees,
+            &[],
+            &[],
+            200.0,
+            0.0,
+            1.0,
+        );
 
         // Weight=1 at exact distance → near zero force. Weight=3 → strong attraction.
         assert!(
@@ -981,7 +1093,20 @@ mod tests {
         let weights: Vec<f32> = vec![];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         assert_eq!(vx[0], 0.0);
         assert_eq!(vx[1], 0.0);
@@ -997,7 +1122,20 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 1.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            1.0,
+            1.0,
+        );
 
         // At exact distance with override strength, force should be minimal
         assert!(vx[0].abs() < 1e-5);
@@ -1015,8 +1153,34 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx1, &mut vy1, &edges, &weights, &degrees, &[], &[], 180.0, 0.5, 1.0);
-        force_link(&x, &y, &mut vx2, &mut vy2, &edges, &weights, &degrees, &[], &[], 180.0, 1.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx1,
+            &mut vy1,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.5,
+            1.0,
+        );
+        force_link(
+            &x,
+            &y,
+            &mut vx2,
+            &mut vy2,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            1.0,
+            1.0,
+        );
 
         // Double strength should produce approximately double force
         assert!(vx2[0].abs() > vx1[0].abs());
@@ -1032,7 +1196,20 @@ mod tests {
         let weights = vec![10.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // High weight should produce strong attraction
         assert!(vx[0].abs() > 1.0);
@@ -1048,12 +1225,29 @@ mod tests {
         let weights = vec![0.1];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // Low weight produces weak attraction
         // Distance 200 vs effective distance 180/0.1 = 1800, so nodes are much closer than target
         // This actually produces REPULSION (pushing apart)
-        assert!(vx[0] < 0.0, "when closer than target, should repel: got {}", vx[0]);
+        assert!(
+            vx[0] < 0.0,
+            "when closer than target, should repel: got {}",
+            vx[0]
+        );
     }
 
     #[test]
@@ -1066,7 +1260,20 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // Self-loop should apply no net force (or minimal)
         assert!(vx[0].abs() < 1.0);
@@ -1082,7 +1289,20 @@ mod tests {
         let weights = vec![1.0, 1.0];
         let degrees = vec![1, 2, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // Middle node (1) should have forces from both edges
         assert!(vx[1] != 0.0);
@@ -1098,7 +1318,20 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 0.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            0.0,
+        );
 
         assert_eq!(vx[0], 0.0);
         assert_eq!(vx[1], 0.0);
@@ -1114,7 +1347,20 @@ mod tests {
         let weights = vec![1.0];
         let degrees = vec![1, 1];
 
-        force_link(&x, &y, &mut vx, &mut vy, &edges, &weights, &degrees, &[], &[],180.0, 0.0, 1.0);
+        force_link(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &edges,
+            &weights,
+            &degrees,
+            &[],
+            &[],
+            180.0,
+            0.0,
+            1.0,
+        );
 
         // Both x and y should be affected for diagonal edge
         assert!(vx[0] != 0.0 || vy[0] != 0.0);
@@ -1196,7 +1442,12 @@ mod tests {
         force_many_body(&x, &y, &mut vx, &mut vy, -600.0, 600.0, 1.0, 1.0);
 
         // Forces should be equal and opposite
-        assert!((vx[0] + vx[1]).abs() < 0.01, "forces should be symmetric: v0={}, v1={}", vx[0], vx[1]);
+        assert!(
+            (vx[0] + vx[1]).abs() < 0.01,
+            "forces should be symmetric: v0={}, v1={}",
+            vx[0],
+            vx[1]
+        );
     }
 
     #[test]
@@ -1208,7 +1459,20 @@ mod tests {
         let mut scratch = Vec::new();
 
         let degrees = vec![1u32; 3];
-        force_many_body_with_scratch(&x, &y, &mut vx, &mut vy, &[], &[], -600.0, 600.0, 1.0, 1.0, &mut scratch, &degrees);
+        force_many_body_with_scratch(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &[],
+            &[],
+            -600.0,
+            600.0,
+            1.0,
+            1.0,
+            &mut scratch,
+            &degrees,
+        );
 
         assert!(scratch.capacity() >= 3);
     }
@@ -1361,11 +1625,17 @@ mod tests {
 
         // All pairs should have no overlap (with tolerance)
         for i in 0..50 {
-            for j in (i+1)..50 {
+            for j in (i + 1)..50 {
                 let dist_sq = (x[j] - x[i]).powi(2) + (y[j] - y[i]).powi(2);
                 let min_dist = radii[i] + radii[j];
-                assert!(dist_sq >= min_dist.powi(2) - 10.0, 
-                    "nodes {} and {} overlap: dist={}, min={}", i, j, dist_sq.sqrt(), min_dist);
+                assert!(
+                    dist_sq >= min_dist.powi(2) - 10.0,
+                    "nodes {} and {} overlap: dist={}, min={}",
+                    i,
+                    j,
+                    dist_sq.sqrt(),
+                    min_dist
+                );
             }
         }
     }
@@ -1498,7 +1768,12 @@ mod tests {
         // All nodes should be pulled toward center (0,0)
         // Nodes at x > 0 should be pulled left (vx < 0)
         for i in 1..n {
-            assert!(vx[i] < 0.0, "node {} at x={} should be pulled left toward center", i, x[i]);
+            assert!(
+                vx[i] < 0.0,
+                "node {} at x={} should be pulled left toward center",
+                i,
+                x[i]
+            );
         }
         // Node at x=0 stays at center
         assert_eq!(vx[0], 0.0);
@@ -1639,7 +1914,18 @@ mod tests {
         let mut cy = Vec::new();
         let mut counts = Vec::new();
 
-        force_cluster_with_scratch(&x, &y, &mut vx, &mut vy, &cluster_ids, 0.5, 1.0, &mut cx, &mut cy, &mut counts);
+        force_cluster_with_scratch(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &cluster_ids,
+            0.5,
+            1.0,
+            &mut cx,
+            &mut cy,
+            &mut counts,
+        );
 
         assert!(cx.capacity() >= 1);
         assert!(counts.capacity() >= 1);

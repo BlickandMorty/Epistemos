@@ -142,6 +142,7 @@ enum NotesSidebarMetrics {
     static let searchBarTopPadding: CGFloat = 0
     static let overlapsTitlebar = false
     static let showsBottomCollectionButton = false
+    static let showsBottomOrganizerButton = false
     static let showsBottomMiniChatButton = false
     static let changesPanelWidth: CGFloat = 320
     static let changesPanelHeight: CGFloat = 400
@@ -162,6 +163,16 @@ enum NotesSidebarGlyph: Sendable {
         case .vaultChanges:
             "doc.badge.clock.fill"
         }
+    }
+}
+
+struct NotesSidebarHoverTickState {
+    private(set) var isHovering = false
+
+    mutating func update(hovering: Bool) -> Bool {
+        guard hovering != isHovering else { return false }
+        isHovering = hovering
+        return hovering
     }
 }
 
@@ -187,7 +198,6 @@ struct NotesSidebar: View {
     @Environment(GraphState.self) private var graphState
     @Environment(\.modelContext) private var modelContext
 
-    @State private var showOrganizer = false
     @State private var bodySearchResults: [SidebarPageItem] = []
     @State private var pendingDeletePage: SidebarPageItem?
     @State private var pendingDeleteFolder: SidebarFolderItem?
@@ -594,13 +604,8 @@ struct NotesSidebar: View {
                 },
                 onNewFolder: { createFolder(title: "Untitled Folder") },
                 onNewCollection: { createCollection(title: "Untitled Collection") },
-                onTodayJournal: { Task { await getOrCreateTodayJournal() } },
-                onOrganize: { showOrganizer = true }
+                onTodayJournal: { Task { await getOrCreateTodayJournal() } }
             )
-        }
-        .sheet(isPresented: $showOrganizer) {
-            VaultOrganizerView(allPages: allPages, allFolders: allFolders)
-                .preferredColorScheme(ui.theme.colorScheme)
         }
     }
 
@@ -1016,21 +1021,49 @@ struct NotesSidebar: View {
             "This folder contains \(parts.joined(separator: " and ")). All contents will be permanently deleted."
     }
 
+    private func deletePageRecord(_ page: SDPage, removeVaultFile: Bool) {
+        clearSelectionIfNeeded(pageId: page.id)
+        notesUI.closeTab(page.id)
+        NoteWindowManager.shared.closeWindowDisplaying(pageId: page.id)
+        if removeVaultFile {
+            vaultSync.deletePageFromDisk(filePath: page.filePath)
+        }
+        NoteFileStorage.deleteBody(pageId: page.id)
+        SpotlightIndexer.deindex(page.id)
+        let pageId = page.id
+        let insightDesc = FetchDescriptor<SDNoteInsight>(
+            predicate: #Predicate { $0.pageId == pageId })
+        if let insight = try? modelContext.fetch(insightDesc).first {
+            modelContext.delete(insight)
+        }
+        modelContext.delete(page)
+    }
+
+    private func folderSubtreeIds(_ folder: SDFolder) -> Set<String> {
+        var ids: Set<String> = [folder.id]
+        for child in folder.children ?? [] {
+            ids.formUnion(folderSubtreeIds(child))
+        }
+        return ids
+    }
+
+    private func pagesInFolderTree(_ folder: SDFolder) -> [SDPage] {
+        let subtreeIds = folderSubtreeIds(folder)
+        let relativePath = folder.relativePath
+        let nestedPrefix = relativePath + "/"
+        return allPages.filter { page in
+            if let folderId = page.folder?.id, subtreeIds.contains(folderId) {
+                return true
+            }
+            guard let subfolder = page.subfolder else { return false }
+            return subfolder == relativePath || subfolder.hasPrefix(nestedPrefix)
+        }
+    }
+
     private func performPageDelete() {
         guard let item = pendingDeletePage else { return }
-        clearSelectionIfNeeded(pageId: item.id)
-        notesUI.closeTab(item.id)
         if let page = fetchPage(item.id) {
-            vaultSync.deletePageFromDisk(filePath: page.filePath)
-            SpotlightIndexer.deindex(page.id)
-            // Clean up orphaned SDNoteInsight before deleting the page
-            let pageId = page.id
-            let insightDesc = FetchDescriptor<SDNoteInsight>(
-                predicate: #Predicate { $0.pageId == pageId })
-            if let insight = try? modelContext.fetch(insightDesc).first {
-                modelContext.delete(insight)
-            }
-            modelContext.delete(page)
+            deletePageRecord(page, removeVaultFile: true)
         }
         pendingDeletePage = nil
         saveSidebarChanges()
@@ -1044,20 +1077,18 @@ struct NotesSidebar: View {
             return
         }
         closeFolderTabs(folder)
-        deletePagesInFolder(folder)
         vaultSync.deleteDirectory(relativePath: folder.relativePath)
+        deletePagesInFolder(folder)
         modelContext.delete(folder)
         pendingDeleteFolder = nil
         saveSidebarChanges()
     }
 
     private func closeFolderTabs(_ folder: SDFolder) {
-        for page in (folder.pages ?? []) {
+        for page in pagesInFolderTree(folder) {
             clearSelectionIfNeeded(pageId: page.id)
             notesUI.closeTab(page.id)
-        }
-        for child in (folder.children ?? []) {
-            closeFolderTabs(child)
+            NoteWindowManager.shared.closeWindowDisplaying(pageId: page.id)
         }
     }
 
@@ -1071,12 +1102,8 @@ struct NotesSidebar: View {
     }
 
     private func deletePagesInFolder(_ folder: SDFolder) {
-        for page in (folder.pages ?? []) {
-            SpotlightIndexer.deindex(page.id)
-            modelContext.delete(page)
-        }
-        for child in (folder.children ?? []) {
-            deletePagesInFolder(child)
+        for page in pagesInFolderTree(folder) {
+            deletePageRecord(page, removeVaultFile: false)
         }
     }
 
@@ -1699,6 +1726,7 @@ private struct FileRow: View {
                 }
             }
             .physicsHover(.subtle)
+            .notesSidebarHoverTick()
             .graphReactive(nodeId: item.id)
         }
     }
@@ -1773,6 +1801,7 @@ private struct SearchResultRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(NativeCardButtonStyle())
+        .notesSidebarHoverTick()
     }
 }
 
@@ -1815,7 +1844,6 @@ private struct EditorActionsBar: View {
     let onNewFolder: () -> Void
     let onNewCollection: () -> Void
     let onTodayJournal: () -> Void
-    let onOrganize: () -> Void
 
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(UIState.self) private var ui
@@ -1893,10 +1921,6 @@ private struct EditorActionsBar: View {
                 .frame(height: 14)
                 .padding(.horizontal, 2)
 
-            SidebarIconButton(icon: "wand.and.stars", tooltip: "AI Organize") {
-                onOrganize()
-            }
-
             if NotesSidebarMetrics.showsBottomMiniChatButton {
                 SidebarIconButton(icon: "bubble.left.and.bubble.right", tooltip: "Mini Chat") {
                     CommandPaletteWindowController.shared.toggleChatMode()
@@ -1962,5 +1986,25 @@ private struct SidebarIconButton: View {
         .buttonStyle(NativeToolbarButtonStyle())
         .help(tooltip)
         .accessibilityLabel(tooltip)
+    }
+}
+
+private struct NotesSidebarHoverTickModifier: ViewModifier {
+    @State private var tickState = NotesSidebarHoverTickState()
+
+    func body(content: Content) -> some View {
+        content.onHover { hovering in
+            var nextState = tickState
+            let shouldTick = nextState.update(hovering: hovering)
+            tickState = nextState
+            guard shouldTick else { return }
+            HapticHelper.softTick()
+        }
+    }
+}
+
+private extension View {
+    func notesSidebarHoverTick() -> some View {
+        modifier(NotesSidebarHoverTickModifier())
     }
 }

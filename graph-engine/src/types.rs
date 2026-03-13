@@ -3,7 +3,7 @@
 //! Core types for the LogSeq-style graph engine.
 //! 7 node types (down from 13), explicit velocity model (d3-force style).
 
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 /// Node type enum — 7 semantic categories.
 /// Idea merges BrainDump, Source merges Paper/Book/Thinker, Tag absorbs Concept.
@@ -41,11 +41,11 @@ impl NodeType {
             Self::Note => [0.39, 0.90, 0.85, 1.0],   // teal
             Self::Chat => [1.00, 0.62, 0.04, 1.0],   // orange
             Self::Idea => [1.00, 0.84, 0.04, 1.0],   // yellow
-            Self::Source => [0.20, 0.78, 0.35, 1.0],  // green
-            Self::Folder => [0.64, 0.52, 0.37, 1.0],  // brown
-            Self::Quote => [0.69, 0.32, 0.87, 1.0],   // purple
-            Self::Tag => [0.46, 0.46, 0.50, 1.0],     // gray
-            Self::Block => [0.55, 0.78, 0.90, 1.0],   // sky blue
+            Self::Source => [0.20, 0.78, 0.35, 1.0], // green
+            Self::Folder => [0.64, 0.52, 0.37, 1.0], // brown
+            Self::Quote => [0.69, 0.32, 0.87, 1.0],  // purple
+            Self::Tag => [0.46, 0.46, 0.50, 1.0],    // gray
+            Self::Block => [0.55, 0.78, 0.90, 1.0],  // sky blue
         }
     }
 
@@ -55,14 +55,13 @@ impl NodeType {
             Self::Note => [0.05, 0.48, 0.44, 1.0],   // teal (darker)
             Self::Chat => [0.72, 0.36, 0.00, 1.0],   // orange (darker)
             Self::Idea => [0.65, 0.52, 0.00, 1.0],   // gold (darker)
-            Self::Source => [0.05, 0.46, 0.16, 1.0],  // green (darker)
-            Self::Folder => [0.40, 0.28, 0.16, 1.0],  // brown (darker)
-            Self::Quote => [0.42, 0.12, 0.58, 1.0],   // purple (darker)
-            Self::Tag => [0.25, 0.25, 0.30, 1.0],     // gray (darker)
-            Self::Block => [0.15, 0.42, 0.60, 1.0],   // blue (darker)
+            Self::Source => [0.05, 0.46, 0.16, 1.0], // green (darker)
+            Self::Folder => [0.40, 0.28, 0.16, 1.0], // brown (darker)
+            Self::Quote => [0.42, 0.12, 0.58, 1.0],  // purple (darker)
+            Self::Tag => [0.25, 0.25, 0.30, 1.0],    // gray (darker)
+            Self::Block => [0.15, 0.42, 0.60, 1.0],  // blue (darker)
         }
     }
-
 }
 
 /// Minimum node radius in world units.
@@ -84,41 +83,40 @@ pub fn radius_for_link_count(link_count: u32) -> f32 {
 /// 5=authored, 6=related, 7=quotes, 8=supports, 9=contradicts, 10=expands, 11=questions.
 pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
     match edge_type {
-        0  => [0.55, 0.55, 0.60, 0.35],  // reference — light gray
-        1  => [0.50, 0.40, 0.30, 0.35],  // contains — brown
-        2  => [0.46, 0.46, 0.50, 0.30],  // tagged — gray
-        3  => [0.40, 0.70, 0.90, 0.40],  // mentions — light blue
-        4  => [0.20, 0.78, 0.35, 0.45],  // cites — green
-        5  => [1.00, 0.62, 0.04, 0.40],  // authored — orange
-        6  => [0.69, 0.32, 0.87, 0.40],  // related — purple
-        7  => [1.00, 0.84, 0.04, 0.40],  // quotes — yellow
-        8  => [0.30, 0.90, 0.40, 0.50],  // supports — bright green
-        9  => [0.95, 0.25, 0.25, 0.50],  // contradicts — red
-        10 => [0.30, 0.85, 0.85, 0.45],  // expands — cyan
-        11 => [0.95, 0.75, 0.10, 0.45],  // questions — amber
-        _  => [0.55, 0.55, 0.60, 0.30],  // default — gray
+        0 => [0.55, 0.55, 0.60, 0.35],  // reference — light gray
+        1 => [0.50, 0.40, 0.30, 0.35],  // contains — brown
+        2 => [0.46, 0.46, 0.50, 0.30],  // tagged — gray
+        3 => [0.40, 0.70, 0.90, 0.40],  // mentions — light blue
+        4 => [0.20, 0.78, 0.35, 0.45],  // cites — green
+        5 => [1.00, 0.62, 0.04, 0.40],  // authored — orange
+        6 => [0.69, 0.32, 0.87, 0.40],  // related — purple
+        7 => [1.00, 0.84, 0.04, 0.40],  // quotes — yellow
+        8 => [0.30, 0.90, 0.40, 0.50],  // supports — bright green
+        9 => [0.95, 0.25, 0.25, 0.50],  // contradicts — red
+        10 => [0.30, 0.85, 0.85, 0.45], // expands — cyan
+        11 => [0.95, 0.75, 0.10, 0.45], // questions — amber
+        _ => [0.55, 0.55, 0.60, 0.30],  // default — gray
     }
 }
 
 /// RGBA color for an edge type (light mode — strong contrast on light background).
 pub fn edge_type_color_light(edge_type: u8) -> [f32; 4] {
     match edge_type {
-        0  => [0.18, 0.18, 0.22, 0.80],  // reference — dark gray
-        1  => [0.22, 0.14, 0.06, 0.80],  // contains — brown
-        2  => [0.18, 0.18, 0.22, 0.75],  // tagged — gray
-        3  => [0.06, 0.25, 0.55, 0.85],  // mentions — blue
-        4  => [0.02, 0.35, 0.10, 0.85],  // cites — green
-        5  => [0.50, 0.25, 0.00, 0.85],  // authored — orange
-        6  => [0.30, 0.06, 0.48, 0.85],  // related — purple
-        7  => [0.45, 0.35, 0.00, 0.85],  // quotes — gold
-        8  => [0.02, 0.38, 0.10, 0.85],  // supports — green
-        9  => [0.55, 0.05, 0.05, 0.85],  // contradicts — red
-        10 => [0.02, 0.35, 0.35, 0.85],  // expands — teal
-        11 => [0.48, 0.30, 0.00, 0.85],  // questions — amber
-        _  => [0.18, 0.18, 0.22, 0.75],  // default — gray
+        0 => [0.18, 0.18, 0.22, 0.80],  // reference — dark gray
+        1 => [0.22, 0.14, 0.06, 0.80],  // contains — brown
+        2 => [0.18, 0.18, 0.22, 0.75],  // tagged — gray
+        3 => [0.06, 0.25, 0.55, 0.85],  // mentions — blue
+        4 => [0.02, 0.35, 0.10, 0.85],  // cites — green
+        5 => [0.50, 0.25, 0.00, 0.85],  // authored — orange
+        6 => [0.30, 0.06, 0.48, 0.85],  // related — purple
+        7 => [0.45, 0.35, 0.00, 0.85],  // quotes — gold
+        8 => [0.02, 0.38, 0.10, 0.85],  // supports — green
+        9 => [0.55, 0.05, 0.05, 0.85],  // contradicts — red
+        10 => [0.02, 0.35, 0.35, 0.85], // expands — teal
+        11 => [0.48, 0.30, 0.00, 0.85], // questions — amber
+        _ => [0.18, 0.18, 0.22, 0.75],  // default — gray
     }
 }
-
 
 /// A node in the knowledge graph.
 /// Uses d3-force's explicit velocity model (vx/vy stored directly).
@@ -173,6 +171,34 @@ impl Default for Graph {
 }
 
 impl Graph {
+    fn refresh_node_link_metrics(&mut self, node_id: u32) {
+        let Some(&index) = self.id_to_index.get(&node_id) else {
+            return;
+        };
+
+        let mut neighbors = FxHashSet::default();
+        for edge in &self.edges {
+            if edge.source == node_id {
+                neighbors.insert(edge.target);
+            }
+            if edge.target == node_id {
+                neighbors.insert(edge.source);
+            }
+        }
+
+        let link_count = neighbors.len() as u32;
+        let node = &mut self.nodes[index];
+        node.link_count = link_count;
+        node.radius = radius_for_link_count(link_count);
+    }
+
+    fn refresh_pair_link_metrics(&mut self, first_id: u32, second_id: u32) {
+        self.refresh_node_link_metrics(first_id);
+        if second_id != first_id {
+            self.refresh_node_link_metrics(second_id);
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             nodes: Vec::new(),
@@ -239,6 +265,7 @@ impl Graph {
                 weight,
                 edge_type,
             });
+            self.refresh_pair_link_metrics(src, tgt);
         }
     }
 
@@ -246,8 +273,22 @@ impl Graph {
     /// Uses swap-remove for O(1) Vec removal, fixes id_to_index for the swapped element.
     /// `next_id` is NOT reset — IDs are monotonically increasing to avoid collisions.
     pub fn remove_node(&mut self, uuid: &str) -> bool {
-        let Some(&id) = self.uuid_to_id.get(uuid) else { return false };
-        let Some(&idx) = self.id_to_index.get(&id) else { return false };
+        let Some(&id) = self.uuid_to_id.get(uuid) else {
+            return false;
+        };
+        let Some(&idx) = self.id_to_index.get(&id) else {
+            return false;
+        };
+
+        let mut affected_neighbors = FxHashSet::default();
+        for edge in &self.edges {
+            if edge.source == id {
+                affected_neighbors.insert(edge.target);
+            }
+            if edge.target == id {
+                affected_neighbors.insert(edge.source);
+            }
+        }
 
         // Remove all edges touching this node.
         self.edges.retain(|e| e.source != id && e.target != id);
@@ -262,6 +303,10 @@ impl Graph {
 
         self.uuid_to_id.remove(uuid);
         self.id_to_index.remove(&id);
+
+        for neighbor_id in affected_neighbors {
+            self.refresh_node_link_metrics(neighbor_id);
+        }
         true
     }
 
@@ -270,13 +315,19 @@ impl Graph {
     pub fn remove_edges(&mut self, source_uuid: &str, target_uuid: &str) -> usize {
         let src_id = self.uuid_to_id.get(source_uuid).copied();
         let tgt_id = self.uuid_to_id.get(target_uuid).copied();
-        let (Some(src), Some(tgt)) = (src_id, tgt_id) else { return 0 };
+        let (Some(src), Some(tgt)) = (src_id, tgt_id) else {
+            return 0;
+        };
 
         let before = self.edges.len();
         self.edges.retain(|e| {
             !((e.source == src && e.target == tgt) || (e.source == tgt && e.target == src))
         });
-        before - self.edges.len()
+        let removed = before - self.edges.len();
+        if removed > 0 {
+            self.refresh_pair_link_metrics(src, tgt);
+        }
+        removed
     }
 }
 
@@ -399,7 +450,7 @@ mod tests {
     fn node_default_values() {
         let mut g = Graph::new();
         g.add_node("test-uuid".into(), 10.0, 20.0, 0, 5, "Test".into());
-        
+
         let node = &g.nodes[0];
         assert_eq!(node.id, 0);
         assert_eq!(node.uuid, "test-uuid");
@@ -419,11 +470,11 @@ mod tests {
     fn node_velocity_model_explicit() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        
+
         // Velocity should be explicitly stored (d3-force style)
         g.nodes[0].vx = 5.0;
         g.nodes[0].vy = -3.0;
-        
+
         assert_eq!(g.nodes[0].vx, 5.0);
         assert_eq!(g.nodes[0].vy, -3.0);
     }
@@ -432,11 +483,11 @@ mod tests {
     fn node_fixed_position() {
         let mut g = Graph::new();
         g.add_node("a".into(), 10.0, 20.0, 0, 1, "A".into());
-        
+
         // Test fixed position (drag constraint)
         g.nodes[0].fx = Some(100.0);
         g.nodes[0].fy = Some(200.0);
-        
+
         assert_eq!(g.nodes[0].fx, Some(100.0));
         assert_eq!(g.nodes[0].fy, Some(200.0));
     }
@@ -445,11 +496,11 @@ mod tests {
     fn node_partial_fixed_position() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        
+
         // Only fix x, leave y free
         g.nodes[0].fx = Some(50.0);
         g.nodes[0].fy = None;
-        
+
         assert_eq!(g.nodes[0].fx, Some(50.0));
         assert_eq!(g.nodes[0].fy, None);
     }
@@ -460,7 +511,7 @@ mod tests {
         for t in 0..=6u8 {
             g.add_node(format!("node-{}", t), 0.0, 0.0, t, 1, format!("Node {}", t));
         }
-        
+
         for t in 0..=6u8 {
             assert_eq!(g.nodes[t as usize].node_type as u8, t);
         }
@@ -470,12 +521,12 @@ mod tests {
     fn node_visibility_toggle() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        
+
         assert!(g.nodes[0].visible);
-        
+
         g.nodes[0].visible = false;
         assert!(!g.nodes[0].visible);
-        
+
         g.nodes[0].visible = true;
         assert!(g.nodes[0].visible);
     }
@@ -485,7 +536,7 @@ mod tests {
         let mut g = Graph::new();
         let long_label = "a".repeat(1000);
         g.add_node("a".into(), 0.0, 0.0, 0, 1, long_label.clone());
-        
+
         assert_eq!(g.nodes[0].label, long_label);
     }
 
@@ -494,7 +545,7 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("uuid-1".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("uuid-2".into(), 0.0, 0.0, 0, 1, "B".into());
-        
+
         assert_ne!(g.nodes[0].id, g.nodes[1].id);
         assert_ne!(g.nodes[0].uuid, g.nodes[1].uuid);
     }
@@ -503,7 +554,7 @@ mod tests {
     fn node_timestamps_default_zero() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        
+
         assert_eq!(g.nodes[0].created_at, 0.0);
         assert_eq!(g.nodes[0].updated_at, 0.0);
     }
@@ -512,10 +563,10 @@ mod tests {
     fn node_timestamps_settable() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        
+
         g.nodes[0].created_at = 1700000000.0;
         g.nodes[0].updated_at = 1700001000.0;
-        
+
         assert_eq!(g.nodes[0].created_at, 1700000000.0);
         assert_eq!(g.nodes[0].updated_at, 1700001000.0);
     }
@@ -530,7 +581,7 @@ mod tests {
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 10.0, 0.0, 1, 2, "B".into());
         g.add_edge("a", "b", 1.0, 0);
-        
+
         assert_eq!(g.edges.len(), 1);
         assert_eq!(g.edges[0].source, 0);
         assert_eq!(g.edges[0].target, 1);
@@ -543,11 +594,11 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
-        
+
         for t in 0..=11u8 {
             g.add_edge("a", "b", 1.0, t);
         }
-        
+
         for (i, t) in (0..=11u8).enumerate() {
             assert_eq!(g.edges[i].edge_type, t);
         }
@@ -558,11 +609,11 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
-        
+
         g.add_edge("a", "b", 0.5, 0);
         g.add_edge("a", "b", 2.0, 0);
         g.add_edge("a", "b", 10.0, 0);
-        
+
         assert_eq!(g.edges[0].weight, 0.5);
         assert_eq!(g.edges[1].weight, 2.0);
         assert_eq!(g.edges[2].weight, 10.0);
@@ -572,13 +623,13 @@ mod tests {
     fn edge_unknown_uuid_skipped() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        
+
         g.add_edge("a", "nonexistent", 1.0, 0);
         assert_eq!(g.edges.len(), 0);
-        
+
         g.add_edge("nonexistent", "a", 1.0, 0);
         assert_eq!(g.edges.len(), 0);
-        
+
         g.add_edge("nonexistent1", "nonexistent2", 1.0, 0);
         assert_eq!(g.edges.len(), 0);
     }
@@ -589,10 +640,10 @@ mod tests {
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
         g.add_node("c".into(), 0.0, 0.0, 0, 1, "C".into());
-        
+
         g.add_edge("a", "b", 1.0, 0);
         g.add_edge("a", "c", 1.0, 0);
-        
+
         assert_eq!(g.edges.len(), 2);
         assert_eq!(g.edges[0].source, 0);
         assert_eq!(g.edges[1].source, 0);
@@ -603,10 +654,10 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
-        
+
         g.add_edge("a", "b", 1.0, 0);
         g.add_edge("b", "a", 1.0, 0);
-        
+
         assert_eq!(g.edges.len(), 2);
         assert_eq!(g.edges[0].source, 0);
         assert_eq!(g.edges[0].target, 1);
@@ -615,12 +666,43 @@ mod tests {
     }
 
     #[test]
+    fn parallel_edges_do_not_inflate_unique_link_count() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 0.0, 0.0, 0, 0, "B".into());
+
+        g.add_edge("a", "b", 1.0, 0);
+        g.add_edge("b", "a", 0.5, 1);
+
+        assert_eq!(g.nodes[0].link_count, 1);
+        assert_eq!(g.nodes[1].link_count, 1);
+        assert_eq!(g.nodes[0].radius, radius_for_link_count(1));
+        assert_eq!(g.nodes[1].radius, radius_for_link_count(1));
+    }
+
+    #[test]
+    fn edge_add_refreshes_neighbor_link_counts() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 0.0, 0.0, 0, 0, "B".into());
+        g.add_node("c".into(), 0.0, 0.0, 0, 0, "C".into());
+
+        g.add_edge("a", "b", 1.0, 0);
+        g.add_edge("b", "c", 1.0, 0);
+
+        assert_eq!(g.nodes[0].link_count, 1);
+        assert_eq!(g.nodes[1].link_count, 2);
+        assert_eq!(g.nodes[2].link_count, 1);
+        assert_eq!(g.nodes[1].radius, radius_for_link_count(2));
+    }
+
+    #[test]
     fn edge_self_loop() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
-        
+
         g.add_edge("a", "a", 1.0, 0);
-        
+
         assert_eq!(g.edges.len(), 1);
         assert_eq!(g.edges[0].source, 0);
         assert_eq!(g.edges[0].target, 0);
@@ -631,9 +713,9 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
-        
+
         g.add_edge("a", "b", 1.0, 0);
-        
+
         // Edge source and target are distinct
         assert_ne!(g.edges[0].source, g.edges[0].target);
     }
@@ -655,7 +737,7 @@ mod tests {
     fn graph_default_same_as_new() {
         let g_default = Graph::default();
         let g_new = Graph::new();
-        
+
         assert_eq!(g_default.nodes.len(), g_new.nodes.len());
         assert_eq!(g_default.edges.len(), g_new.edges.len());
     }
@@ -666,7 +748,7 @@ mod tests {
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
         g.add_node("c".into(), 0.0, 0.0, 0, 1, "C".into());
-        
+
         assert_eq!(g.nodes[0].id, 0);
         assert_eq!(g.nodes[1].id, 1);
         assert_eq!(g.nodes[2].id, 2);
@@ -677,7 +759,7 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("uuid-a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("uuid-b".into(), 0.0, 0.0, 0, 1, "B".into());
-        
+
         assert_eq!(g.uuid_to_id.get("uuid-a"), Some(&0));
         assert_eq!(g.uuid_to_id.get("uuid-b"), Some(&1));
     }
@@ -687,7 +769,7 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
-        
+
         assert_eq!(g.id_to_index.get(&0), Some(&0));
         assert_eq!(g.id_to_index.get(&1), Some(&1));
     }
@@ -698,9 +780,9 @@ mod tests {
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
         g.add_edge("a", "b", 1.0, 0);
-        
+
         g.clear();
-        
+
         assert!(g.nodes.is_empty());
         assert!(g.edges.is_empty());
         assert!(g.uuid_to_id.is_empty());
@@ -712,9 +794,16 @@ mod tests {
     fn graph_multiple_nodes() {
         let mut g = Graph::new();
         for i in 0..100 {
-            g.add_node(format!("node-{}", i), i as f32, i as f32, 0, 1, format!("Node {}", i));
+            g.add_node(
+                format!("node-{}", i),
+                i as f32,
+                i as f32,
+                0,
+                1,
+                format!("Node {}", i),
+            );
         }
-        
+
         assert_eq!(g.nodes.len(), 100);
         assert_eq!(g.uuid_to_id.len(), 100);
     }
@@ -725,11 +814,11 @@ mod tests {
         for i in 0..10 {
             g.add_node(format!("node-{}", i), 0.0, 0.0, 0, 1, format!("Node {}", i));
         }
-        
+
         for i in 0..9 {
             g.add_edge(&format!("node-{}", i), &format!("node-{}", i + 1), 1.0, 0);
         }
-        
+
         assert_eq!(g.edges.len(), 9);
     }
 
@@ -738,10 +827,10 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 1, "A".into());
         assert_eq!(g.next_id, 1);
-        
+
         g.clear();
         assert_eq!(g.next_id, 0); // Reset after clear
-        
+
         g.add_node("b".into(), 0.0, 0.0, 0, 1, "B".into());
         assert_eq!(g.next_id, 1);
         assert_eq!(g.nodes[0].id, 0);
@@ -805,7 +894,7 @@ mod tests {
         let r8 = radius_for_link_count(8);
         let r27 = radius_for_link_count(27);
         let r64 = radius_for_link_count(64);
-        
+
         assert!(r1 < r8);
         assert!(r8 < r27);
         assert!(r27 < r64);
@@ -816,7 +905,7 @@ mod tests {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 8, "A".into());
         g.add_node("b".into(), 0.0, 0.0, 0, 27, "B".into());
-        
+
         // Radius is computed from link_count
         assert!((g.nodes[0].radius - 16.0).abs() < 0.1);
         assert!((g.nodes[1].radius - 24.0).abs() < 0.1);
@@ -826,9 +915,14 @@ mod tests {
     fn radius_values_in_valid_range() {
         for i in 0..=1000 {
             let r = radius_for_link_count(i);
-            assert!(r >= MIN_RADIUS && r <= MAX_RADIUS,
+            assert!(
+                r >= MIN_RADIUS && r <= MAX_RADIUS,
                 "Radius {} for link count {} out of range [{}, {}]",
-                r, i, MIN_RADIUS, MAX_RADIUS);
+                r,
+                i,
+                MIN_RADIUS,
+                MAX_RADIUS
+            );
         }
     }
 
@@ -858,7 +952,11 @@ mod tests {
         // All valid types should have reasonable opacity
         for t in 0..=11u8 {
             let c = edge_type_color(t);
-            assert!(c[3] >= 0.3 && c[3] <= 0.55, "Dark mode alpha out of range for type {}", t);
+            assert!(
+                c[3] >= 0.3 && c[3] <= 0.55,
+                "Dark mode alpha out of range for type {}",
+                t
+            );
         }
     }
 
@@ -867,7 +965,10 @@ mod tests {
         for t in 0..=11u8 {
             let c = edge_type_color(t);
             for i in 0..4 {
-                assert!(c[i] >= 0.0 && c[i] <= 1.0, "Color component out of [0,1] range");
+                assert!(
+                    c[i] >= 0.0 && c[i] <= 1.0,
+                    "Color component out of [0,1] range"
+                );
             }
         }
     }
@@ -878,7 +979,7 @@ mod tests {
         let c0 = edge_type_color(0);
         let c4 = edge_type_color(4);
         let c9 = edge_type_color(9);
-        
+
         assert_ne!(c0, c4);
         assert_ne!(c4, c9);
         assert_ne!(c0, c9);
@@ -982,6 +1083,24 @@ mod tests {
     }
 
     #[test]
+    fn remove_node_refreshes_neighbor_link_counts() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        g.add_node("c".into(), 2.0, 0.0, 0, 0, "C".into());
+        g.add_edge("a", "b", 1.0, 0);
+        g.add_edge("b", "c", 1.0, 0);
+
+        assert!(g.remove_node("b"));
+
+        assert_eq!(g.nodes.len(), 2);
+        assert_eq!(g.nodes[0].link_count, 0);
+        assert_eq!(g.nodes[1].link_count, 0);
+        assert_eq!(g.nodes[0].radius, radius_for_link_count(0));
+        assert_eq!(g.nodes[1].radius, radius_for_link_count(0));
+    }
+
+    #[test]
     fn remove_node_swap_fixup() {
         let mut g = Graph::new();
         g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
@@ -1032,6 +1151,24 @@ mod tests {
         g.add_edge("b", "a", 0.5, 1);
         assert_eq!(g.remove_edges("a", "b"), 2);
         assert!(g.edges.is_empty());
+    }
+
+    #[test]
+    fn remove_edges_refreshes_link_counts_after_pair_removal() {
+        let mut g = Graph::new();
+        g.add_node("a".into(), 0.0, 0.0, 0, 0, "A".into());
+        g.add_node("b".into(), 1.0, 0.0, 0, 0, "B".into());
+        g.add_node("c".into(), 2.0, 0.0, 0, 0, "C".into());
+        g.add_edge("a", "b", 1.0, 0);
+        g.add_edge("b", "a", 0.5, 1);
+        g.add_edge("b", "c", 1.0, 0);
+
+        assert_eq!(g.remove_edges("a", "b"), 2);
+
+        assert_eq!(g.nodes[0].link_count, 0);
+        assert_eq!(g.nodes[1].link_count, 1);
+        assert_eq!(g.nodes[2].link_count, 1);
+        assert_eq!(g.nodes[1].radius, radius_for_link_count(1));
     }
 
     #[test]

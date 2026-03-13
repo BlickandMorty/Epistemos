@@ -61,9 +61,7 @@ pub struct StyleSpan {
 /// Parse markdown text and return styled spans.
 fn parse_markdown(text: &str) -> Vec<StyleSpan> {
     let mut spans = Vec::new();
-    let opts = Options::ENABLE_TABLES
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TASKLISTS;
+    let opts = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
 
     let parser = Parser::new_ext(text, opts);
 
@@ -235,7 +233,8 @@ fn extract_wikilinks(text: &str, spans: &mut Vec<StyleSpan>) {
     let bytes = text.as_bytes();
     let mut i = 0;
     while i + 1 < bytes.len() {
-        if bytes[i] == b'[' && bytes[i + 1] == b'['
+        if bytes[i] == b'['
+            && bytes[i + 1] == b'['
             && let Some(close_offset) = text[i + 2..].find("]]")
         {
             let content_start = i + 2;
@@ -349,7 +348,8 @@ fn extract_block_references(text: &str, spans: &mut Vec<StyleSpan>) {
     let bytes = text.as_bytes();
     let mut i = 0;
     while i + 1 < bytes.len() {
-        if bytes[i] == b'(' && bytes[i + 1] == b'('
+        if bytes[i] == b'('
+            && bytes[i + 1] == b'('
             && let Some(close_offset) = text[i + 2..].find("))")
         {
             let content_start = i + 2;
@@ -648,7 +648,9 @@ fn count_blockquote_depth(trimmed: &str) -> u8 {
 /// Returns 0 for plain blockquote, 1-9 for callout types.
 fn detect_callout_type(trimmed: &str) -> u8 {
     let inner = trimmed.trim_start_matches(|c: char| c == '>' || c == ' ');
-    if !inner.starts_with("[!") { return 0; }
+    if !inner.starts_with("[!") {
+        return 0;
+    }
     let after = &inner[2..];
     let end = match after.find(']') {
         Some(i) => i,
@@ -676,10 +678,7 @@ fn detect_task_list(trimmed: &str, indent: usize) -> Option<(u8, u8)> {
 
     if rest == "[ ]" || rest.starts_with("[ ] ") {
         Some(((indent / 2) as u8, 0))
-    } else if rest == "[x]"
-        || rest.starts_with("[x] ")
-        || rest == "[X]"
-        || rest.starts_with("[X] ")
+    } else if rest == "[x]" || rest.starts_with("[x] ") || rest == "[X]" || rest.starts_with("[X] ")
     {
         Some(((indent / 2) as u8, 1))
     } else {
@@ -929,8 +928,8 @@ pub unsafe extern "C" fn markdown_parse_code_tokens(
 
 // ── Non-Destructive Fold State ───────────────────────────────────────────
 
-use std::collections::HashSet;
 use parking_lot::Mutex as ParkingMutex;
+use std::collections::HashSet;
 
 /// Global fold state — set of folded heading line indices.
 static FOLD_STATE: std::sync::LazyLock<ParkingMutex<HashSet<u32>>> =
@@ -956,10 +955,7 @@ pub fn clear_all_folds() {
 /// Given a heading line index and structure spans, return the range of lines
 /// that would be hidden when folding. Returns (start_inclusive, end_exclusive).
 /// Returns None if the line is not a heading.
-pub fn fold_range_for_heading(
-    heading_line: u32,
-    spans: &[StructureSpan],
-) -> Option<(u32, u32)> {
+pub fn fold_range_for_heading(heading_line: u32, spans: &[StructureSpan]) -> Option<(u32, u32)> {
     let idx = heading_line as usize;
     if idx >= spans.len() || spans[idx].para_type != ParaType::Heading as u8 {
         return None;
@@ -1103,7 +1099,10 @@ mod tests {
         assert_eq!(content.len(), 1);
         // Verify content span covers "My Page"
         let text = "see [[My Page]] for details";
-        assert_eq!(&text[content[0].start as usize..content[0].end as usize], "My Page");
+        assert_eq!(
+            &text[content[0].start as usize..content[0].end as usize],
+            "My Page"
+        );
     }
 
     #[test]
@@ -1225,7 +1224,10 @@ mod tests {
         let content = spans_of_kind(&spans, StyleKind::BlockReference);
         assert_eq!(content.len(), 1);
         let text = "see ((abc-123)) for details";
-        assert_eq!(&text[content[0].start as usize..content[0].end as usize], "abc-123");
+        assert_eq!(
+            &text[content[0].start as usize..content[0].end as usize],
+            "abc-123"
+        );
     }
 
     #[test]
@@ -1420,11 +1422,7 @@ mod tests {
         }; 16];
 
         let count = unsafe {
-            markdown_parse_structure(
-                text.as_ptr() as *const c_char,
-                buffer.as_mut_ptr(),
-                16,
-            )
+            markdown_parse_structure(text.as_ptr() as *const c_char, buffer.as_mut_ptr(), 16)
         };
 
         assert_eq!(count, 5);
@@ -1437,9 +1435,7 @@ mod tests {
 
     #[test]
     fn structure_ffi_null_safety() {
-        let count = unsafe {
-            markdown_parse_structure(std::ptr::null(), std::ptr::null_mut(), 0)
-        };
+        let count = unsafe { markdown_parse_structure(std::ptr::null(), std::ptr::null_mut(), 0) };
         assert_eq!(count, 0);
     }
 
@@ -1453,11 +1449,7 @@ mod tests {
         }; 2]; // Only room for 2 spans
 
         let count = unsafe {
-            markdown_parse_structure(
-                text.as_ptr() as *const c_char,
-                buffer.as_mut_ptr(),
-                2,
-            )
+            markdown_parse_structure(text.as_ptr() as *const c_char, buffer.as_mut_ptr(), 2)
         };
 
         assert_eq!(count, 2); // Capped at buffer size
@@ -1593,7 +1585,15 @@ mod tests {
     fn ffi_code_tokens_round_trip() {
         let code = "let x = 42\n";
         let lang = "swift\0";
-        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 256];
+        let mut buffer = vec![
+            CodeToken {
+                start: 0,
+                end: 0,
+                token_type: 0,
+                _pad: [0; 3]
+            };
+            256
+        ];
 
         // SAFETY: test buffer is properly sized, code is valid UTF-8, lang is null-terminated.
         let count = unsafe {
@@ -1608,14 +1608,24 @@ mod tests {
 
         assert!(count > 0, "Expected tokens from Swift code");
         buffer.truncate(count as usize);
-        let keyword = buffer.iter().find(|t| t.token_type == TokenType::Keyword as u8);
+        let keyword = buffer
+            .iter()
+            .find(|t| t.token_type == TokenType::Keyword as u8);
         assert!(keyword.is_some(), "Expected keyword token via FFI");
     }
 
     #[test]
     fn ffi_code_tokens_null_language() {
         let code = "let x = 42\n";
-        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 256];
+        let mut buffer = vec![
+            CodeToken {
+                start: 0,
+                end: 0,
+                token_type: 0,
+                _pad: [0; 3]
+            };
+            256
+        ];
 
         // SAFETY: null language should return 0 safely.
         let count = unsafe {
@@ -1634,7 +1644,15 @@ mod tests {
     #[test]
     fn ffi_code_tokens_null_code() {
         let lang = "swift\0";
-        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 256];
+        let mut buffer = vec![
+            CodeToken {
+                start: 0,
+                end: 0,
+                token_type: 0,
+                _pad: [0; 3]
+            };
+            256
+        ];
 
         // SAFETY: null code pointer should return 0 safely.
         let count = unsafe {
@@ -1655,7 +1673,15 @@ mod tests {
         let code = "fn main() { let a = 1; let b = 2; let c = 3; }";
         let lang = "rust\0";
         // Tiny buffer — should truncate, not overflow
-        let mut buffer = vec![CodeToken { start: 0, end: 0, token_type: 0, _pad: [0; 3] }; 2];
+        let mut buffer = vec![
+            CodeToken {
+                start: 0,
+                end: 0,
+                token_type: 0,
+                _pad: [0; 3]
+            };
+            2
+        ];
 
         // SAFETY: buffer of size 2, max_tokens=2.
         let count = unsafe {
@@ -1767,27 +1793,15 @@ mod tests {
         let mut start: u32 = 0;
         let mut end: u32 = 0;
         // SAFETY: text is null-terminated, pointers are valid.
-        let ok = unsafe {
-            markdown_fold_range(
-                text.as_ptr() as *const c_char,
-                0,
-                &mut start,
-                &mut end,
-            )
-        };
+        let ok =
+            unsafe { markdown_fold_range(text.as_ptr() as *const c_char, 0, &mut start, &mut end) };
         assert!(ok);
         assert_eq!(start, 1);
         assert_eq!(end, 3); // to end of document
 
         // Non-heading line returns false
-        let not_ok = unsafe {
-            markdown_fold_range(
-                text.as_ptr() as *const c_char,
-                1,
-                &mut start,
-                &mut end,
-            )
-        };
+        let not_ok =
+            unsafe { markdown_fold_range(text.as_ptr() as *const c_char, 1, &mut start, &mut end) };
         assert!(!not_ok);
     }
 }

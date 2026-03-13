@@ -4,6 +4,16 @@ import AppKit
 // Plain class (not @Observable) — uses NSWorkspace notifications to detect dark/light mode.
 // Pitfall #13: never use .preferredColorScheme() — it overrides @Environment(\.colorScheme).
 
+enum SystemAppearanceState {
+    static func isDark(
+        globalDomain: [String: Any]? = UserDefaults.standard.persistentDomain(
+            forName: UserDefaults.globalDomain
+        )
+    ) -> Bool {
+        (globalDomain?["AppleInterfaceStyle"] as? String) == "Dark"
+    }
+}
+
 final class SystemAppearanceObserver {
     private var workspaceToken: NSObjectProtocol?
     private var themeToken: NSObjectProtocol?
@@ -44,7 +54,6 @@ final class SystemAppearanceObserver {
 
     @MainActor
     private func notifyNow() {
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        onAppearanceChange?(isDark)
+        onAppearanceChange?(SystemAppearanceState.isDark())
     }
 }

@@ -153,7 +153,7 @@ struct InlineTests {
 
     // MARK: - Bold
 
-    @Test("Bold text in notes uses the RetroGaming display font in both stacks")
+    @Test("Bold text in notes stays on the body font family in both stacks")
     func boldParity() {
         let md = "Hello **bold** world"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -166,8 +166,8 @@ struct InlineTests {
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         #expect(tk1Font != nil)
         #expect(tk2Font != nil)
-        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
     }
 
     @Test("Bold markers — both stacks ghost the ** delimiters")
@@ -180,6 +180,20 @@ struct InlineTests {
         let tk2Color = tk2.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
         #expect((tk1Color?.alphaComponent ?? 1.0) < 0.2)
         #expect((tk2Color?.alphaComponent ?? 1.0) < 0.2)
+    }
+
+    @Test("Bold content stays readable in the legacy stack and the TK2 stack")
+    func boldContentPreservesReadableForeground() {
+        let md = "**bold**"
+        let tk1 = ParityHelpers.tk1Styled(md, theme: .oled)
+        let tk2 = ParityHelpers.tk2Styled(md, theme: .oled)
+
+        let expected = NSColor(EpistemosTheme.oled.foreground)
+        let tk1Color = tk1.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+        let tk2Color = tk2.attribute(.foregroundColor, at: 2, effectiveRange: nil) as? NSColor
+
+        #expect(ParityHelpers.colorsMatch(tk1Color, expected))
+        #expect(ParityHelpers.colorsMatch(tk2Color, expected))
     }
 
     // MARK: - Italic
@@ -276,7 +290,7 @@ struct InlineTests {
 
     // MARK: - Nested bold+italic
 
-    @Test("Bold-italic (***) — both stacks use the display font on content")
+    @Test("Bold-italic (***) stays on the body font family in both stacks")
     func boldItalicParity() {
         let md = "***bolditalic***"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -287,13 +301,13 @@ struct InlineTests {
         let offset = 3
         let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
-        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
     }
 
     // MARK: - Full-Stack Integration (ProseTextView2 delegate pipeline)
 
-    @Test("Full-stack bold — ProseTextView2 delegate produces display font in text element")
+    @Test("Full-stack bold — ProseTextView2 delegate keeps inline content out of the display font")
     func tk2FullStackBoldStyling() {
         let (_, tv) = ProseTextView2.makeTextKit2()
         let md = "Hello **bold** world"
@@ -309,19 +323,19 @@ struct InlineTests {
         // Force layout so delegate provides styled paragraphs
         tlm.ensureLayout(for: contentStorage.documentRange)
 
-        var foundDisplayFont = false
+        var foundNonDisplayFont = false
         contentStorage.enumerateTextElements(from: contentStorage.documentRange.location) { element in
             guard let para = element as? NSTextParagraph else { return true }
             let attrStr = para.attributedString
             // "bold" content starts at offset 8 in "Hello **bold** world"
             guard attrStr.length > 8 else { return true }
             let font = attrStr.attribute(.font, at: 8, effectiveRange: nil) as? NSFont
-            if font?.fontName.contains("RetroGaming") == true {
-                foundDisplayFont = true
+            if font?.fontName.contains("RetroGaming") != true {
+                foundNonDisplayFont = true
             }
             return false
         }
-        #expect(foundDisplayFont)
+        #expect(foundNonDisplayFont)
     }
 
     @Test("Full-stack wikilink — ProseTextView2 delegate produces .link attribute")
@@ -408,8 +422,8 @@ struct ParagraphTests {
     }
 
     @MainActor
-    @Test("TK2 display headings preserve the same text casing as TK1")
-    func tk2DisplayHeadingsPreserveLegacyTextCase() {
+    @Test("TK2 display headings uppercase H1 through H3 without changing source markdown")
+    func tk2DisplayHeadingsUppercaseFirstThreeLevels() {
         let markdown = "# Big Heading\n## Sub Heading\n### Third Level"
         let (_, textView) = ProseTextView2.makeTextKit2()
         textView.textStorage?.setAttributedString(NSAttributedString(string: markdown))
@@ -419,9 +433,9 @@ struct ParagraphTests {
 
         let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
         #expect(paragraphs.count >= 3)
-        #expect(paragraphs[0].string == "# Big Heading\n")
-        #expect(paragraphs[1].string == "## Sub Heading\n")
-        #expect(paragraphs[2].string == "### Third Level")
+        #expect(paragraphs[0].string == "# BIG HEADING\n")
+        #expect(paragraphs[1].string == "## SUB HEADING\n")
+        #expect(paragraphs[2].string == "### THIRD LEVEL")
     }
 
     @MainActor
@@ -788,7 +802,7 @@ struct EdgeCaseTests {
         #expect(tk2String(text) == text)
     }
 
-    @Test("Combined unicode: emoji + bold markdown uses display font in both stacks")
+    @Test("Combined unicode: emoji + bold markdown stays out of the display font in both stacks")
     func unicodeBoldParity() {
         let md = "🎉 **bold** end"
         let tk1 = ParityHelpers.tk1Styled(md)
@@ -801,8 +815,21 @@ struct EdgeCaseTests {
         let offset = 5
         let tk1Font = tk1.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
         let tk2Font = tk2.attribute(.font, at: offset, effectiveRange: nil) as? NSFont
-        #expect(tk1Font?.fontName.contains("RetroGaming") == true)
-        #expect(tk2Font?.fontName.contains("RetroGaming") == true)
+        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
+    }
+
+    @Test("Bold blockquote content stays out of the display font in both stacks")
+    func quoteBoldParity() {
+        let md = "> **Quoted** text"
+        let tk1 = ParityHelpers.tk1Styled(md)
+        let tk2 = ParityHelpers.tk2Styled(md)
+
+        let quotedRange = (md as NSString).range(of: "Quoted")
+        let tk1Font = tk1.attribute(.font, at: quotedRange.location, effectiveRange: nil) as? NSFont
+        let tk2Font = tk2.attribute(.font, at: quotedRange.location, effectiveRange: nil) as? NSFont
+        #expect(tk1Font?.fontName.contains("RetroGaming") == false)
+        #expect(tk2Font?.fontName.contains("RetroGaming") == false)
     }
 
     // MARK: - Long Single Line

@@ -2,6 +2,57 @@ import SwiftUI
 import SwiftData
 import AppKit
 
+enum GraphMiniPanelLayout {
+    static let defaultSide: CGFloat = 620
+    static let horizontalBias: CGFloat = 78
+    static let screenPadding: CGFloat = 24
+
+    static func frame(in visibleFrame: NSRect) -> NSRect {
+        let availableSquare = max(240, min(visibleFrame.width, visibleFrame.height) - screenPadding * 2)
+        let side = min(defaultSide, availableSquare)
+        let x = min(
+            max(visibleFrame.midX - side * 0.5 + horizontalBias, visibleFrame.minX + screenPadding),
+            visibleFrame.maxX - side - screenPadding
+        )
+        let y = min(
+            max(visibleFrame.midY - side * 0.5, visibleFrame.minY + screenPadding),
+            visibleFrame.maxY - side - screenPadding
+        )
+        return NSRect(x: x, y: y, width: side, height: side).integral
+    }
+}
+
+enum GraphOverlayThemeStyle {
+    static let miniTintIdentifier = NSUserInterfaceItemIdentifier("graphMiniTint")
+
+    static func resolvedTheme(explicitTheme: EpistemosTheme? = nil, fallbackIsDark: Bool? = nil) -> EpistemosTheme {
+        if let explicitTheme {
+            return explicitTheme
+        }
+        if let theme = AppBootstrap.shared?.uiState.theme {
+            return theme
+        }
+        let isDark = fallbackIsDark ?? SystemAppearanceState.isDark()
+        return isDark ? .platinumDark : .platinum
+    }
+
+    static func appearanceName(for theme: EpistemosTheme) -> NSAppearance.Name {
+        theme.isDark ? .darkAqua : .aqua
+    }
+
+    static func overlayTintColor(for theme: EpistemosTheme) -> NSColor {
+        theme.nsBackground.withAlphaComponent(theme.isDark ? 0.74 : 0.56)
+    }
+
+    static func miniTintColor(for theme: EpistemosTheme) -> NSColor {
+        theme.nsBackground.withAlphaComponent(theme.isDark ? 0.55 : 0.08)
+    }
+
+    static func lightModeEnabled(for theme: EpistemosTheme) -> Bool {
+        !theme.isDark
+    }
+}
+
 // MARK: - HologramOverlay
 // Full-screen borderless NSWindow that renders the knowledge graph
 // on top of a heavy frosted-glass blur. Triggered by a global hotkey.
@@ -47,6 +98,7 @@ final class HologramOverlay {
     private var selectionObserverTask: Task<Void, Never>?
     private var inspectorPositionTask: Task<Void, Never>?
     private var minimizeObserver: Any?
+    private var resetObserver: Any?
     private var restoreObserver: Any?
     private var closeObserver: Any?
 
@@ -233,11 +285,9 @@ final class HologramOverlay {
         // 4. Animate frame change to mini size in bottom-right.
         let miniFrame: NSRect
         if let screen = NSScreen.main {
-            let x = screen.visibleFrame.maxX - 520
-            let y = screen.visibleFrame.minY + 20
-            miniFrame = NSRect(x: x, y: y, width: 500, height: 380)
+            miniFrame = GraphMiniPanelLayout.frame(in: screen.visibleFrame)
         } else {
-            miniFrame = NSRect(x: 100, y: 100, width: 500, height: 380)
+            miniFrame = NSRect(x: 100, y: 100, width: GraphMiniPanelLayout.defaultSide, height: GraphMiniPanelLayout.defaultSide)
         }
 
         // Add frosted glass background for mini mode.
@@ -359,15 +409,22 @@ final class HologramOverlay {
         // Re-register observers if needed (teardown removes them).
         if minimizeObserver == nil { observeMinimizeNotifications() }
 
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let theme = GraphOverlayThemeStyle.resolvedTheme()
 
         // Create MetalGraphNSView directly in mini mode (no full-screen window).
-        let graphView = MetalGraphNSView(frame: NSRect(x: 0, y: 0, width: 500, height: 380))
+        let graphView = MetalGraphNSView(
+            frame: NSRect(
+                x: 0,
+                y: 0,
+                width: GraphMiniPanelLayout.defaultSide,
+                height: GraphMiniPanelLayout.defaultSide
+            )
+        )
         graphView.graphState = graphState
         graphView.physicsCoordinator = physicsCoordinator
         graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
-        graphView.setLightMode(!isDark)
+        graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.isMiniMode = true
         self.metalView = graphView
 
@@ -419,15 +476,20 @@ final class HologramOverlay {
     // MARK: - Mini Panel Creation
 
     private func createMiniPanel() -> GraphOverlayPanel {
-        let panel = GraphOverlayPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 380))
-        panel.minSize = NSSize(width: 320, height: 240)
+        let panel = GraphOverlayPanel(
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: GraphMiniPanelLayout.defaultSide,
+                height: GraphMiniPanelLayout.defaultSide
+            )
+        )
+        panel.minSize = NSSize(width: 320, height: 320)
         panel.maxSize = NSSize(width: 1200, height: 900)
 
-        // Position: bottom-right of main screen with padding.
+        // Position: centered with a slight right bias.
         if let screen = NSScreen.main {
-            let x = screen.visibleFrame.maxX - 520
-            let y = screen.visibleFrame.minY + 20
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
+            panel.setFrame(GraphMiniPanelLayout.frame(in: screen.visibleFrame), display: true)
         }
 
         // Frosted glass blur box with rounded corners.
@@ -447,8 +509,10 @@ final class HologramOverlay {
         // Subtle tint overlay for depth.
         let tint = NSView(frame: content.bounds)
         tint.wantsLayer = true
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.55 : 0.05).cgColor
+        tint.identifier = GraphOverlayThemeStyle.miniTintIdentifier
+        tint.layer?.backgroundColor = GraphOverlayThemeStyle.miniTintColor(
+            for: GraphOverlayThemeStyle.resolvedTheme()
+        ).cgColor
         tint.autoresizingMask = [.width, .height]
         content.addSubview(tint)
 
@@ -494,10 +558,12 @@ final class HologramOverlay {
         blur.autoresizingMask = [.width, .height]
         content.addSubview(blur)
 
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let tint = NSView(frame: content.bounds)
         tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(isDark ? 0.55 : 0.05).cgColor
+        tint.identifier = GraphOverlayThemeStyle.miniTintIdentifier
+        tint.layer?.backgroundColor = GraphOverlayThemeStyle.miniTintColor(
+            for: GraphOverlayThemeStyle.resolvedTheme()
+        ).cgColor
         tint.autoresizingMask = [.width, .height]
         content.addSubview(tint)
 
@@ -686,6 +752,12 @@ final class HologramOverlay {
         ) { [weak self] _ in
             self?.minimize()
         }
+        resetObserver = NotificationCenter.default.addObserver(
+            forName: .graphResetRequested, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.graphState.startOverlayPhysicsCycle()
+            self?.metalView?.zoomToFit()
+        }
         restoreObserver = NotificationCenter.default.addObserver(
             forName: .graphRestoreRequested, object: nil, queue: .main
         ) { [weak self] _ in
@@ -694,7 +766,8 @@ final class HologramOverlay {
         closeObserver = NotificationCenter.default.addObserver(
             forName: .graphCloseRequested, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.hide()
+            guard self != nil else { return }
+            HologramController.shared.hide()
         }
     }
 
@@ -776,16 +849,19 @@ final class HologramOverlay {
         }
     }
 
-    /// Re-sync blur, tint, and graph color palette to match current system appearance.
-    private func syncTheme() {
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    func syncTheme(theme explicitTheme: EpistemosTheme? = nil) {
+        let theme = GraphOverlayThemeStyle.resolvedTheme(explicitTheme: explicitTheme)
         blurView?.material = .fullScreenUI
-        darkenLayer?.layer?.backgroundColor = (isDark
-            ? NSColor.black.withAlphaComponent(0.75)
-            : NSColor.white.withAlphaComponent(0.55)
+        darkenLayer?.layer?.backgroundColor = GraphOverlayThemeStyle.overlayTintColor(
+            for: theme
         ).cgColor
-        metalView?.setLightMode(!isDark)
-        window?.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        metalView?.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
+        let appearanceName = GraphOverlayThemeStyle.appearanceName(for: theme)
+        window?.appearance = NSAppearance(named: appearanceName)
+        miniPanel?.appearance = NSAppearance(named: appearanceName)
+        miniInspectorPanel?.appearance = NSAppearance(named: appearanceName)
+        updateMiniPanelTint(miniPanel, theme: theme)
+        updateMiniPanelTint(miniInspectorPanel, theme: theme)
     }
 
     /// Destroy all views and the Rust engine to free GPU/CPU memory.
@@ -803,9 +879,11 @@ final class HologramOverlay {
         noteWindowResizeObserver = nil
         // Remove minimize/restore/close observers.
         if let obs = minimizeObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = resetObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = restoreObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = closeObserver { NotificationCenter.default.removeObserver(obs) }
         minimizeObserver = nil
+        resetObserver = nil
         restoreObserver = nil
         closeObserver = nil
         // Remove fullscreen transition observers.
@@ -858,10 +936,10 @@ final class HologramOverlay {
             observeMinimizeNotifications()
         }
 
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let theme = GraphOverlayThemeStyle.resolvedTheme()
 
         let window = GraphOverlayPanel(contentRect: screen.frame)
-        window.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
+        window.appearance = NSAppearance(named: GraphOverlayThemeStyle.appearanceName(for: theme))
         // Full-screen overlay doesn't need a shadow (blur background covers everything).
         window.hasShadow = false
 
@@ -881,9 +959,8 @@ final class HologramOverlay {
         // Tint overlay for depth — white in light mode for a bright frosted look.
         let darken = NSView(frame: screen.frame)
         darken.wantsLayer = true
-        darken.layer?.backgroundColor = (isDark
-            ? NSColor.black.withAlphaComponent(0.75)
-            : NSColor.white.withAlphaComponent(0.55)
+        darken.layer?.backgroundColor = GraphOverlayThemeStyle.overlayTintColor(
+            for: theme
         ).cgColor
         darken.autoresizingMask = [.width, .height]
         contentView.addSubview(darken)
@@ -895,7 +972,7 @@ final class HologramOverlay {
         graphView.physicsCoordinator = physicsCoordinator
         graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
-        graphView.setLightMode(!isDark)
+        graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
 
@@ -964,7 +1041,7 @@ final class HologramOverlay {
                    responder is NSTextView || responder is NSTextField {
                     return event  // Let text field handle Escape (blur/cancel).
                 }
-                self.hide()
+                HologramController.shared.hide()
                 return nil
             }
 
@@ -973,7 +1050,7 @@ final class HologramOverlay {
                 let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
                     .subtracting([.capsLock, .numericPad, .function])
                 if mods == .command {
-                    self.hide()
+                    HologramController.shared.hide()
                     return nil
                 }
             }
@@ -1023,6 +1100,30 @@ final class HologramOverlay {
         // Observe fullscreen transitions and parent window miniaturize.
         observeFullscreenTransitions()
         observeParentMiniaturize()
+    }
+
+    private func updateMiniPanelTint(_ panel: NSWindow?, theme: EpistemosTheme) {
+        guard let tintView = findSubview(
+            in: panel?.contentView,
+            identifier: GraphOverlayThemeStyle.miniTintIdentifier
+        ) else { return }
+        tintView.layer?.backgroundColor = GraphOverlayThemeStyle.miniTintColor(for: theme).cgColor
+    }
+
+    private func findSubview(
+        in root: NSView?,
+        identifier: NSUserInterfaceItemIdentifier
+    ) -> NSView? {
+        guard let root else { return nil }
+        if root.identifier == identifier {
+            return root
+        }
+        for subview in root.subviews {
+            if let match = findSubview(in: subview, identifier: identifier) {
+                return match
+            }
+        }
+        return nil
     }
 
 }

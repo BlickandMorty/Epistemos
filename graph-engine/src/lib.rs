@@ -1,23 +1,23 @@
 // FFI entry points dereference raw pointers by design — safety is the C caller's contract.
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-pub mod types;
-pub mod quadtree;
-pub mod forces;
-pub mod simulation;
-pub mod spatial;
-pub mod renderer;
-pub mod engine;
-pub mod markdown;
-pub mod code_highlight;
+pub mod block_kernel;
 pub mod cluster;
 pub mod cluster_cache;
-pub mod search;
-pub mod embedding;
-pub mod version;
-pub mod block_kernel;
+pub mod code_highlight;
 pub mod ecs;
 pub mod edge_aggregation;
+pub mod embedding;
+pub mod engine;
+pub mod forces;
+pub mod markdown;
+pub mod quadtree;
+pub mod renderer;
+pub mod search;
+pub mod simulation;
+pub mod spatial;
+pub mod types;
+pub mod version;
 
 #[cfg(test)]
 pub mod physics_audit_test;
@@ -65,14 +65,16 @@ mod theme_ecs_tests;
 // Swift's withCString closures are therefore safe — Rust never holds a reference
 // after the function returns.
 
-use std::ffi::{c_char, c_void, CStr, CString};
+use std::ffi::{CStr, CString, c_char, c_void};
 
 use crate::engine::Engine;
 
 /// Null-guard for engine pointer in void-returning FFI functions.
 macro_rules! ffi_engine {
     ($ptr:ident) => {
-        if $ptr.is_null() { return; }
+        if $ptr.is_null() {
+            return;
+        }
         #[allow(unused_unsafe)]
         let $ptr = unsafe { &mut *$ptr };
     };
@@ -81,7 +83,9 @@ macro_rules! ffi_engine {
 /// Null-guard for engine pointer in value-returning FFI functions.
 macro_rules! ffi_engine_or {
     ($ptr:ident, $default:expr) => {
-        if $ptr.is_null() { return $default; }
+        if $ptr.is_null() {
+            return $default;
+        }
         #[allow(unused_unsafe)]
         let $ptr = unsafe { &mut *$ptr };
     };
@@ -90,7 +94,11 @@ macro_rules! ffi_engine_or {
 /// Null-guard for C string pointer — returns empty &str on null.
 macro_rules! ffi_cstr {
     ($ptr:ident) => {{
-        if $ptr.is_null() { "" } else { unsafe { CStr::from_ptr($ptr) }.to_str().unwrap_or("") }
+        if $ptr.is_null() {
+            ""
+        } else {
+            unsafe { CStr::from_ptr($ptr) }.to_str().unwrap_or("")
+        }
     }};
 }
 
@@ -185,9 +193,12 @@ pub extern "C" fn graph_engine_add_nodes_batch(
     ffi_engine!(engine);
     let count = count as usize;
     if count == 0
-        || uuids.is_null() || labels.is_null()
-        || xs.is_null() || ys.is_null()
-        || node_types.is_null() || link_counts.is_null()
+        || uuids.is_null()
+        || labels.is_null()
+        || xs.is_null()
+        || ys.is_null()
+        || node_types.is_null()
+        || link_counts.is_null()
     {
         return;
     }
@@ -200,10 +211,22 @@ pub extern "C" fn graph_engine_add_nodes_batch(
 
     let graph = engine.graph_mut();
     for i in 0..count {
-        let uuid_str = if uuid_ptrs[i].is_null() { String::new() }
-            else { unsafe { CStr::from_ptr(uuid_ptrs[i]) }.to_str().unwrap_or("").to_owned() };
-        let label_str = if label_ptrs[i].is_null() { String::new() }
-            else { unsafe { CStr::from_ptr(label_ptrs[i]) }.to_str().unwrap_or("").to_owned() };
+        let uuid_str = if uuid_ptrs[i].is_null() {
+            String::new()
+        } else {
+            unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+                .to_str()
+                .unwrap_or("")
+                .to_owned()
+        };
+        let label_str = if label_ptrs[i].is_null() {
+            String::new()
+        } else {
+            unsafe { CStr::from_ptr(label_ptrs[i]) }
+                .to_str()
+                .unwrap_or("")
+                .to_owned()
+        };
         graph.add_node(uuid_str, xs[i], ys[i], types[i], links[i], label_str);
     }
 }
@@ -223,8 +246,10 @@ pub extern "C" fn graph_engine_add_edges_batch(
     ffi_engine!(engine);
     let count = count as usize;
     if count == 0
-        || source_uuids.is_null() || target_uuids.is_null()
-        || weights.is_null() || edge_types.is_null()
+        || source_uuids.is_null()
+        || target_uuids.is_null()
+        || weights.is_null()
+        || edge_types.is_null()
     {
         return;
     }
@@ -235,10 +260,20 @@ pub extern "C" fn graph_engine_add_edges_batch(
 
     let graph = engine.graph_mut();
     for i in 0..count {
-        let src = if src_ptrs[i].is_null() { "" }
-            else { unsafe { CStr::from_ptr(src_ptrs[i]) }.to_str().unwrap_or("") };
-        let tgt = if tgt_ptrs[i].is_null() { "" }
-            else { unsafe { CStr::from_ptr(tgt_ptrs[i]) }.to_str().unwrap_or("") };
+        let src = if src_ptrs[i].is_null() {
+            ""
+        } else {
+            unsafe { CStr::from_ptr(src_ptrs[i]) }
+                .to_str()
+                .unwrap_or("")
+        };
+        let tgt = if tgt_ptrs[i].is_null() {
+            ""
+        } else {
+            unsafe { CStr::from_ptr(tgt_ptrs[i]) }
+                .to_str()
+                .unwrap_or("")
+        };
         graph.add_edge(src, tgt, wts[i], types[i]);
     }
 }
@@ -321,11 +356,7 @@ pub extern "C" fn graph_engine_commit_incremental(engine: *mut Engine) {
 
 /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_render(
-    engine: *mut Engine,
-    width: u32,
-    height: u32,
-) -> u32 {
+pub extern "C" fn graph_engine_render(engine: *mut Engine, width: u32, height: u32) -> u32 {
     ffi_engine_or!(engine, 0);
     engine.render(width, height)
 }
@@ -347,11 +378,7 @@ pub extern "C" fn graph_engine_mouse_down(
 
 /// Mouse/trackpad moved.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_mouse_moved(
-    engine: *mut Engine,
-    screen_x: f32,
-    screen_y: f32,
-) {
+pub extern "C" fn graph_engine_mouse_moved(engine: *mut Engine, screen_x: f32, screen_y: f32) {
     ffi_engine!(engine);
     engine.mouse_moved(screen_x, screen_y);
 }
@@ -366,11 +393,7 @@ pub extern "C" fn graph_engine_mouse_up(engine: *mut Engine) {
 /// Two-finger scroll: pan the camera.
 /// `delta_x`, `delta_y`: scroll deltas in screen points.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_scroll(
-    engine: *mut Engine,
-    delta_x: f32,
-    delta_y: f32,
-) {
+pub extern "C" fn graph_engine_scroll(engine: *mut Engine, delta_x: f32, delta_y: f32) {
     ffi_engine!(engine);
     engine.scroll(delta_x, delta_y);
 }
@@ -420,10 +443,7 @@ pub extern "C" fn graph_engine_set_extended_force_params(
 /// Highlight a node and its neighbors (shift+click behavior).
 /// `uuid`: null-terminated UTF-8 C string.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_highlight_neighbors(
-    engine: *mut Engine,
-    uuid: *const c_char,
-) {
+pub extern "C" fn graph_engine_highlight_neighbors(engine: *mut Engine, uuid: *const c_char) {
     ffi_engine!(engine);
     let uuid_str = ffi_cstr!(uuid);
     engine.highlight_neighbors(uuid_str);
@@ -439,10 +459,7 @@ pub extern "C" fn graph_engine_clear_highlight(engine: *mut Engine) {
 /// Highlight all nodes matching a search query (case-insensitive label match).
 /// Empty query clears highlighting.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_search_highlight(
-    engine: *mut Engine,
-    query: *const c_char,
-) {
+pub extern "C" fn graph_engine_search_highlight(engine: *mut Engine, query: *const c_char) {
     ffi_engine!(engine);
     let query_str = ffi_cstr!(query);
     engine.search_highlight(query_str);
@@ -508,10 +525,7 @@ pub extern "C" fn graph_engine_center_camera(engine: *mut Engine) {
 
 /// Center camera on a specific node by UUID, zooming in moderately.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_center_on_node(
-    engine: *mut Engine,
-    uuid: *const c_char,
-) {
+pub extern "C" fn graph_engine_center_on_node(engine: *mut Engine, uuid: *const c_char) {
     ffi_engine!(engine);
     let uuid_str = ffi_cstr!(uuid);
     engine.center_on_node(uuid_str);
@@ -578,8 +592,12 @@ pub extern "C" fn graph_engine_screen_to_world(
     ffi_engine!(engine);
     let (wx, wy) = engine.screen_to_world(screen_x, screen_y);
     unsafe {
-        if !out_world_x.is_null() { *out_world_x = wx; }
-        if !out_world_y.is_null() { *out_world_y = wy; }
+        if !out_world_x.is_null() {
+            *out_world_x = wx;
+        }
+        if !out_world_y.is_null() {
+            *out_world_y = wy;
+        }
     }
 }
 
@@ -592,11 +610,17 @@ pub extern "C" fn graph_engine_node_screen_pos(
     out: *mut f32,
 ) -> u8 {
     ffi_engine_or!(engine, 0);
-    if uuid.is_null() || out.is_null() { return 0; }
+    if uuid.is_null() || out.is_null() {
+        return 0;
+    }
     // SAFETY: `uuid` is a valid C string from Swift.
     let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
-    let Ok(uuid_str) = uuid_str.to_str() else { return 0 };
-    let Some(pos) = engine.node_screen_pos(uuid_str) else { return 0 };
+    let Ok(uuid_str) = uuid_str.to_str() else {
+        return 0;
+    };
+    let Some(pos) = engine.node_screen_pos(uuid_str) else {
+        return 0;
+    };
     // SAFETY: `out` points to caller-owned array of at least 2 floats.
     unsafe {
         *out.add(0) = pos[0];
@@ -613,10 +637,14 @@ pub extern "C" fn graph_engine_node_drift(
     uuid: *const std::ffi::c_char,
 ) -> f32 {
     ffi_engine_or!(engine, -1.0);
-    if uuid.is_null() { return -1.0; }
+    if uuid.is_null() {
+        return -1.0;
+    }
     // SAFETY: `uuid` is a valid C string from Swift.
     let uuid_str = unsafe { std::ffi::CStr::from_ptr(uuid) };
-    let Ok(uuid_str) = uuid_str.to_str() else { return -1.0; };
+    let Ok(uuid_str) = uuid_str.to_str() else {
+        return -1.0;
+    };
     engine.node_drift(uuid_str).unwrap_or(-1.0)
 }
 
@@ -699,7 +727,10 @@ pub extern "C" fn graph_engine_set_visual_theme(engine: *mut Engine, theme: u8) 
 pub extern "C" fn graph_engine_set_node_color_override(
     engine: *mut Engine,
     uuid: *const c_char,
-    r: f32, g: f32, b: f32, a: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+    a: f32,
 ) {
     ffi_engine!(engine);
     let uuid_str = ffi_cstr!(uuid);
@@ -806,10 +837,7 @@ pub extern "C" fn graph_engine_search(
 
 /// Free search results allocated by `graph_engine_search`.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_free_search_results(
-    results: *mut search::SearchResult,
-    count: u32,
-) {
+pub extern "C" fn graph_engine_free_search_results(results: *mut search::SearchResult, count: u32) {
     if results.is_null() {
         return;
     }
@@ -909,19 +937,14 @@ pub extern "C" fn graph_engine_recompute_semantic_neighbors(
     threshold: f32,
 ) {
     ffi_engine!(engine);
-    engine.semantic_neighbors = engine
-        .embedding_store
-        .all_knn_pairs(k as usize, threshold);
+    engine.semantic_neighbors = engine.embedding_store.all_knn_pairs(k as usize, threshold);
     // Reheat physics so the new attraction forces take effect.
     engine.reheat();
 }
 
 /// Set semantic attraction strength (0 = off, 1 = strong).
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_semantic_strength(
-    engine: *mut Engine,
-    strength: f32,
-) {
+pub extern "C" fn graph_engine_set_semantic_strength(engine: *mut Engine, strength: f32) {
     ffi_engine!(engine);
     engine.set_semantic_strength(strength);
 }
@@ -946,11 +969,7 @@ pub extern "C" fn graph_engine_set_node_time(
 /// Nodes with created_at == 0.0 (no timestamp) remain always visible.
 /// Pass (0.0, very large number) to clear the filter.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_set_time_filter(
-    engine: *mut Engine,
-    min_ts: f64,
-    max_ts: f64,
-) {
+pub extern "C" fn graph_engine_set_time_filter(engine: *mut Engine, min_ts: f64, max_ts: f64) {
     ffi_engine!(engine);
     engine.set_time_filter(min_ts, max_ts);
 }
@@ -1039,7 +1058,10 @@ pub extern "C" fn graph_engine_add_version(
 ) -> u8 {
     ffi_engine_or!(engine, 0);
     let uuid = ffi_cstr!(node_uuid);
-    if engine.version_store.add_version(uuid, hash, parent_hash, timestamp) {
+    if engine
+        .version_store
+        .add_version(uuid, hash, parent_hash, timestamp)
+    {
         1
     } else {
         0
@@ -1061,17 +1083,20 @@ pub extern "C" fn graph_engine_get_version_count(
 
 /// Initialize BTK for a page. Call once when a page is opened.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_btk_init(
-    engine: *mut Engine,
-    page_id: *const c_char,
-) -> u8 {
+pub extern "C" fn graph_engine_btk_init(engine: *mut Engine, page_id: *const c_char) -> u8 {
     ffi_engine_or!(engine, 0);
     let page_id = ffi_cstr!(page_id);
-    if page_id.is_empty() { return 0; }
+    if page_id.is_empty() {
+        return 0;
+    }
 
-    engine.btk_trees.entry(page_id.to_string())
+    engine
+        .btk_trees
+        .entry(page_id.to_string())
         .or_insert_with(block_kernel::BlockTree::new);
-    engine.btk_logs.entry(page_id.to_string())
+    engine
+        .btk_logs
+        .entry(page_id.to_string())
         .or_insert_with(block_kernel::op_log::OpLog::new);
     1
 }
@@ -1079,8 +1104,8 @@ pub extern "C" fn graph_engine_btk_init(
 /// BlockFFI struct for loading existing blocks from Swift
 #[repr(C)]
 pub struct BlockFFI {
-    pub id: [u8; 16],           // UUID as 16 bytes
-    pub parent_id: [u8; 16],    // Zero = no parent
+    pub id: [u8; 16],        // UUID as 16 bytes
+    pub parent_id: [u8; 16], // Zero = no parent
     pub content_ptr: *const c_char,
     pub depth: u16,
     pub order: u32,
@@ -1097,11 +1122,17 @@ pub extern "C" fn graph_engine_btk_load_blocks(
 ) -> u8 {
     ffi_engine_or!(engine, 0);
     let page_id_str = ffi_cstr!(page_id);
-    if page_id_str.is_empty() || blocks_ptr.is_null() { return 0; }
+    if page_id_str.is_empty() || blocks_ptr.is_null() {
+        return 0;
+    }
 
-    let tree = engine.btk_trees.entry(page_id_str.to_string())
+    let tree = engine
+        .btk_trees
+        .entry(page_id_str.to_string())
         .or_insert_with(block_kernel::BlockTree::new);
-    let log = engine.btk_logs.entry(page_id_str.to_string())
+    let log = engine
+        .btk_logs
+        .entry(page_id_str.to_string())
         .or_insert_with(block_kernel::op_log::OpLog::new);
 
     // SAFETY: Swift passes a valid array of `count` BlockFFI structs.
@@ -1113,7 +1144,9 @@ pub extern "C" fn graph_engine_btk_load_blocks(
         } else {
             // SAFETY: Swift passes a valid null-terminated UTF-8 string; lifetime spans this loop iteration.
             unsafe { CStr::from_ptr(b.content_ptr) }
-                .to_str().unwrap_or("").to_string()
+                .to_str()
+                .unwrap_or("")
+                .to_string()
         };
 
         let block_id = block_kernel::BlockId(b.id);
@@ -1219,12 +1252,16 @@ pub extern "C" fn graph_engine_btk_update_block(
 ) -> u8 {
     ffi_engine_or!(engine, 0);
     let page_id_str = ffi_cstr!(page_id);
-    if page_id_str.is_empty() || block_id_bytes.is_null() { return 0; }
+    if page_id_str.is_empty() || block_id_bytes.is_null() {
+        return 0;
+    }
     let content_str = ffi_cstr!(new_content);
 
     // SAFETY: block_id_bytes points to 16 bytes from Swift.
     let mut id_arr = [0u8; 16];
-    unsafe { std::ptr::copy_nonoverlapping(block_id_bytes, id_arr.as_mut_ptr(), 16); }
+    unsafe {
+        std::ptr::copy_nonoverlapping(block_id_bytes, id_arr.as_mut_ptr(), 16);
+    }
     let block_id = block_kernel::op::BlockId(id_arr);
 
     let op = block_kernel::op::Op::UpdateBlock {
@@ -1354,7 +1391,9 @@ pub extern "C" fn graph_engine_dialogue_set_streaming(engine: *mut Engine, strea
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_dialogue_screen_rect(engine: *mut Engine, out: *mut f32) {
     ffi_engine!(engine);
-    if out.is_null() { return; }
+    if out.is_null() {
+        return;
+    }
     let rect = engine.dialogue_screen_rect();
     // SAFETY: `out` points to caller-owned array of at least 4 floats.
     unsafe {
@@ -1370,7 +1409,9 @@ pub extern "C" fn graph_engine_dialogue_screen_rect(engine: *mut Engine, out: *m
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_dialogue_node_screen_pos(engine: *mut Engine, out: *mut f32) {
     ffi_engine!(engine);
-    if out.is_null() { return; }
+    if out.is_null() {
+        return;
+    }
     let pos = engine.dialogue_node_screen_pos();
     // SAFETY: `out` points to caller-owned array of at least 2 floats.
     unsafe {

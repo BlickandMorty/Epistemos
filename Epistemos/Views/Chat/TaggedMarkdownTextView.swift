@@ -233,6 +233,7 @@ struct TaggedMarkdownTextView: View {
         let headerBg = theme.isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04)
         let altRowBg = theme.isDark ? Color.white.opacity(0.02) : Color.black.opacity(0.02)
         let colCount = rows.map(\.count).max() ?? 1
+        let bodyForeground = theme.assistantBubbleForeground
 
         VStack(spacing: 0) {
             ForEach(Array(rows.enumerated()), id: \.offset) { rowIdx, cells in
@@ -245,7 +246,7 @@ struct TaggedMarkdownTextView: View {
                             strongForegroundColor: theme.chatStrongForeground
                         )
                             .font(.system(size: 13))
-                            .foregroundStyle(theme.foreground.opacity(rowIdx < headerCount ? 1.0 : 0.85))
+                            .foregroundStyle(bodyForeground.opacity(rowIdx < headerCount ? 1.0 : 0.85))
                             .fontWeight(rowIdx < headerCount ? .semibold : .regular)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 10)
@@ -281,6 +282,7 @@ struct TaggedMarkdownTextView: View {
 
     @ViewBuilder
     private func renderBlock(_ block: MarkdownBlock) -> some View {
+        let bodyForeground = theme.assistantBubbleForeground
         switch block {
         case .heading(let level, let text):
             renderHeading(level: level, text: text)
@@ -291,7 +293,7 @@ struct TaggedMarkdownTextView: View {
                 strongForegroundColor: theme.chatStrongForeground
             )
                 .font(.system(size: 15))
-                .foregroundStyle(theme.foreground)
+                .foregroundStyle(bodyForeground)
                 .padding(.vertical, 5)
         case .bulletItem(let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -303,7 +305,7 @@ struct TaggedMarkdownTextView: View {
                     strongForegroundColor: theme.chatStrongForeground
                 )
                     .font(.system(size: 15))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(bodyForeground)
             }
             .padding(.leading, 16)
             .padding(.vertical, 3)
@@ -318,7 +320,7 @@ struct TaggedMarkdownTextView: View {
                     strongForegroundColor: theme.chatStrongForeground
                 )
                     .font(.system(size: 15))
-                    .foregroundStyle(theme.foreground)
+                    .foregroundStyle(bodyForeground)
             }
             .padding(.leading, 16)
             .padding(.vertical, 3)
@@ -388,11 +390,16 @@ struct TaggedMarkdownTextView: View {
         }()
         let fontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
         let topPad = retroRole?.topPadding ?? 6
-        let color = retroRole == nil ? theme.foreground : theme.fontAccent
+        let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
+        let displayText = MarkdownHeadingDisplay.displayText(text, level: level)
 
-        taggedInlineMarkdown(text, baseFontSize: fontSize)
+        taggedInlineMarkdown(displayText, baseFontSize: fontSize)
             .font(font)
             .foregroundStyle(color)
+            .shadow(
+                color: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
+                radius: MarkdownHeadingDisplay.glowRadius(for: level)
+            )
             .padding(.top, topPad)
             .padding(.bottom, 2)
     }
@@ -509,7 +516,8 @@ struct TaggedMarkdownTextView: View {
         InlineMarkdownStyler.text(
             text,
             strongFontSize: baseFontSize,
-            strongForegroundColor: strongForegroundColor
+            strongForegroundColor: strongForegroundColor,
+            linkForegroundColor: theme.preferredMarkdownLinkColor
         )
     }
 }

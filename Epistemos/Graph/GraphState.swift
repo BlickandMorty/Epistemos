@@ -25,6 +25,18 @@ enum GraphMode: Sendable {
     case page(nodeId: String)
 }
 
+enum GraphOverlayPhysicsPolicy {
+    static let openingPreset: PhysicsPreset = .crystal
+    static let restingPreset: PhysicsPreset = .chaos
+    static let chaosDelaySeconds: TimeInterval = 20
+    static let interactionMotionHoldSeconds: TimeInterval = 30
+    static let interactionMotionAlphaTarget: Float = 0.015
+
+    static func preset(afterElapsedSeconds elapsed: TimeInterval) -> PhysicsPreset {
+        elapsed >= chaosDelaySeconds ? restingPreset : openingPreset
+    }
+}
+
 // MARK: - Physics Presets
 
 enum PhysicsPreset: String, CaseIterable, Identifiable {
@@ -262,6 +274,7 @@ final class GraphState {
     /// Embedding service for semantic similarity (NLEmbedding → Rust SIMD).
     let embeddingService: EmbeddingService
     private var isRestoringPhysicsSettings = false
+    private var overlayPhysicsTask: Task<Void, Never>?
 
     init() {
         let svc = EmbeddingService()
@@ -290,11 +303,11 @@ final class GraphState {
     // MARK: - Graph Mode
 
     var mode: GraphMode = .global
+    var modeVersion: Int = 0
+
+    func requestModeSync() { modeVersion += 1 }
 
     // MARK: - Pending Scene Actions
-
-    /// Set to true to request the Metal canvas reset its camera view.
-    var pendingResetView = false
 
     /// Set to a node ID to request the Metal canvas center its camera on that node.
     var pendingCenterNodeId: String?
@@ -349,12 +362,6 @@ final class GraphState {
     /// Set to true when the rebuild button is pressed while graph is visible.
     var pendingRebuild = false
 
-    /// Set to true to request the overlay minimize to a floating window.
-    var pendingMinimize = false
-
-    /// Set to true to request the overlay close completely.
-    var pendingClose = false
-
     // MARK: - Quality Level
 
     /// Graph rendering quality is fixed to cinematic (0).
@@ -398,6 +405,7 @@ final class GraphState {
     var centerStrength: Float = 0.03
     /// Collision buffer zone in pixels. Logseq: 26.
     var collisionRadius: Float = 26.0
+    private(set) var selectedPhysicsPreset: PhysicsPreset?
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
     var forceConfigVersion: Int = 0
@@ -405,11 +413,13 @@ final class GraphState {
     var extendedForceConfigVersion: Int = 0
 
     func pushForceChange() {
+        selectedPhysicsPreset = nil
         forceConfigVersion += 1
         savePhysicsSettings()
     }
 
     func pushExtendedForceChange() {
+        selectedPhysicsPreset = nil
         extendedForceConfigVersion += 1
         savePhysicsSettings()
     }
@@ -430,6 +440,7 @@ final class GraphState {
     var labConfigVersion: Int = 0
 
     func pushLabChange() {
+        selectedPhysicsPreset = nil
         labConfigVersion += 1
         savePhysicsSettings()
     }
@@ -462,6 +473,11 @@ final class GraphState {
         d.set(windY, forKey: "epistemos.physics.windY")
         d.set(enableOrbital, forKey: "epistemos.physics.enableOrbital")
         d.set(orbitalSpeed, forKey: "epistemos.physics.orbitalSpeed")
+        if let selectedPhysicsPreset {
+            d.set(selectedPhysicsPreset.rawValue, forKey: "epistemos.physics.selectedPreset")
+        } else {
+            d.removeObject(forKey: "epistemos.physics.selectedPreset")
+        }
         d.set(true, forKey: "epistemos.physics.hasSavedSettings")
         d.set(Self.physicsVersion, forKey: "epistemos.physics.version")
     }
@@ -506,6 +522,11 @@ final class GraphState {
             enableOrbital = d.bool(forKey: "epistemos.physics.enableOrbital")
             orbitalSpeed = d.float(forKey: "epistemos.physics.orbitalSpeed")
         }
+        if let raw = d.string(forKey: "epistemos.physics.selectedPreset") {
+            selectedPhysicsPreset = PhysicsPreset(rawValue: raw)
+        } else {
+            selectedPhysicsPreset = nil
+        }
         if isPhysicsFrozen { physicsFrozenVersion += 1 }
     }
 
@@ -516,8 +537,13 @@ final class GraphState {
     var semanticForceConfigVersion: Int = 0
 
     var clusterConfigVersion: Int = 0
-    func pushClusterChange() { clusterConfigVersion += 1; savePhysicsSettings() }
+    func pushClusterChange() {
+        selectedPhysicsPreset = nil
+        clusterConfigVersion += 1
+        savePhysicsSettings()
+    }
     func pushSemanticChange() {
+        selectedPhysicsPreset = nil
         semanticForceConfigVersion += 1
         savePhysicsSettings()
     }
@@ -540,7 +566,9 @@ final class GraphState {
     }
 
     /// Apply a named physics preset.
-    func applyPreset(_ preset: PhysicsPreset) {
+    func applyPreset(_ preset: PhysicsPreset, persist: Bool = true) {
+        cancelOverlayPhysicsCycle()
+        selectedPhysicsPreset = preset
         linkDistance = preset.linkDistance
         chargeStrength = preset.chargeStrength
         chargeRange = preset.chargeRange
@@ -570,7 +598,28 @@ final class GraphState {
         clusterConfigVersion += 1
         semanticForceConfigVersion += 1
         labConfigVersion += 1
-        savePhysicsSettings()
+        if persist {
+            savePhysicsSettings()
+        }
+    }
+
+    func startOverlayPhysicsCycle() {
+        cancelOverlayPhysicsCycle()
+        applyPreset(GraphOverlayPhysicsPolicy.openingPreset, persist: false)
+        let delayNs = UInt64(GraphOverlayPhysicsPolicy.chaosDelaySeconds * 1_000_000_000)
+        overlayPhysicsTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delayNs)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.applyPreset(GraphOverlayPhysicsPolicy.restingPreset, persist: false)
+            }
+        }
+    }
+
+    func cancelOverlayPhysicsCycle() {
+        overlayPhysicsTask?.cancel()
+        overlayPhysicsTask = nil
     }
 
     // MARK: - Semantic Clustering
@@ -687,8 +736,9 @@ final class GraphState {
 
     /// Async refresh: runs full GraphBuilder build + persist on a background actor,
     /// then loads the resulting Sendable records into the store on main.
-    func refreshStructuralDataAsync(container: ModelContainer) async {
-        guard !isBuildingStructural else { return }
+    @discardableResult
+    func refreshStructuralDataAsync(container: ModelContainer) async -> Bool {
+        guard !isBuildingStructural else { return false }
         isBuildingStructural = true
         needsRefresh = false
 
@@ -696,13 +746,148 @@ final class GraphState {
         let actor = BackgroundGraphActor(modelContainer: container)
         do {
             let records = try await actor.rebuildStructural(positionHints: hints)
-            store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
+            if !applyIncrementalStructuralRefresh(nodeRecords: records.nodes, edgeRecords: records.edges) {
+                store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
+                isLoaded = true
+                isBuildingStructural = false
+                return false
+            }
             isLoaded = true
         } catch {
             Log.app.error("GraphState: background structural refresh failed: \(error.localizedDescription, privacy: .public)")
+            isBuildingStructural = false
+            return false
         }
 
         isBuildingStructural = false
+        return true
+    }
+
+    private func applyIncrementalStructuralRefresh(
+        nodeRecords: [GraphNodeRecord],
+        edgeRecords: [GraphEdgeRecord]
+    ) -> Bool {
+        guard isLoaded, !store.nodes.isEmpty else { return false }
+
+        let nextNodesById = Dictionary(uniqueKeysWithValues: nodeRecords.map { ($0.id, $0) })
+        let nextEdgesById = Dictionary(uniqueKeysWithValues: edgeRecords.map { ($0.id, $0) })
+
+        if structuralRefreshRequiresFullReload(
+            nextNodesById: nextNodesById,
+            nextEdgesById: nextEdgesById
+        ) {
+            return false
+        }
+
+        let currentNodeIds = Set(store.nodes.keys)
+        let currentEdgeIds = Set(store.edges.keys)
+        let nextNodeIds = Set(nextNodesById.keys)
+        let nextEdgeIds = Set(nextEdgesById.keys)
+        let removedNodeIds = currentNodeIds.subtracting(nextNodeIds)
+
+        let removedEdgeIds = currentEdgeIds.subtracting(nextEdgeIds).filter { edgeId in
+            guard let edge = store.edges[edgeId] else { return false }
+            return !removedNodeIds.contains(edge.sourceNodeId) && !removedNodeIds.contains(edge.targetNodeId)
+        }
+
+        for edgeId in removedEdgeIds {
+            guard let edge = store.edges[edgeId] else { continue }
+            requestIncrementalRemoveEdge(sourceId: edge.sourceNodeId, targetId: edge.targetNodeId)
+            store.removeEdge(edgeId)
+        }
+
+        for nodeId in removedNodeIds {
+            requestIncrementalRemove(nodeId: nodeId)
+            store.removeNode(nodeId)
+        }
+
+        for node in nodeRecords where !currentNodeIds.contains(node.id) {
+            store.addNode(node)
+            requestIncrementalAdd(node: node)
+        }
+
+        for edge in edgeRecords where !currentEdgeIds.contains(edge.id) {
+            store.addEdge(edge)
+            requestIncrementalAddEdge(edge)
+        }
+
+        for node in nodeRecords {
+            guard let existing = store.nodes[node.id] else { continue }
+            guard existing.sourceId != node.sourceId
+                || existing.metadata != node.metadata
+                || existing.weight != node.weight
+                || existing.createdAt != node.createdAt
+                || existing.updatedAt != node.updatedAt
+            else {
+                continue
+            }
+            store.updateNode(node)
+            syncNodeMetadataToEngine(node)
+        }
+
+        refreshFocusedFilterIfNeeded()
+        if filter.isFiltered {
+            requestFilterSync()
+        }
+        return true
+    }
+
+    private func structuralRefreshRequiresFullReload(
+        nextNodesById: [String: GraphNodeRecord],
+        nextEdgesById: [String: GraphEdgeRecord]
+    ) -> Bool {
+        for (nodeId, existing) in store.nodes {
+            guard let next = nextNodesById[nodeId] else { continue }
+            if existing.type != next.type || existing.label != next.label {
+                return true
+            }
+        }
+
+        for (edgeId, existing) in store.edges {
+            guard let next = nextEdgesById[edgeId] else { continue }
+            if existing.sourceNodeId != next.sourceNodeId
+                || existing.targetNodeId != next.targetNodeId
+                || existing.type != next.type
+                || existing.weight != next.weight
+            {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func refreshFocusedFilterIfNeeded() {
+        guard let focusedNodeId = filter.focusedNodeId else { return }
+        guard store.nodes[focusedNodeId] != nil else {
+            clearFocus()
+            return
+        }
+        let depth: Int
+        if case .page = mode {
+            depth = 2
+        } else {
+            depth = 3
+        }
+        focusOnNode(focusedNodeId, depth: depth)
+    }
+
+    private func syncNodeMetadataToEngine(_ node: GraphNodeRecord) {
+        guard let engine = engineHandle else { return }
+        let createdAt = node.createdAt.timeIntervalSince1970
+        let updatedAt = node.updatedAt.timeIntervalSince1970
+        let confidence: Float = switch node.metadata.evidenceGrade?.uppercased() {
+        case "A": 1.0
+        case "B": 0.8
+        case "C": 0.6
+        case "D": 0.4
+        case "F": 0.2
+        default: 0.0
+        }
+        node.id.withCString { uuidPtr in
+            graph_engine_set_node_time(engine, uuidPtr, createdAt, updatedAt)
+            graph_engine_set_node_confidence(engine, uuidPtr, confidence)
+        }
     }
 
     // MARK: - Rust Search

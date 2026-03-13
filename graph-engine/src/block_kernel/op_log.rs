@@ -3,13 +3,16 @@ use crate::block_kernel::op::Op;
 /// Append-only operation log. Source of truth for block state.
 /// Each op gets a monotonic sequence number.
 pub struct OpLog {
-    ops: Vec<(u64, Op)>,  // (sequence_number, op)
+    ops: Vec<(u64, Op)>, // (sequence_number, op)
     next_seq: u64,
 }
 
 impl OpLog {
     pub fn new() -> Self {
-        Self { ops: Vec::new(), next_seq: 1 }
+        Self {
+            ops: Vec::new(),
+            next_seq: 1,
+        }
     }
 
     /// Append an op and return its sequence number.
@@ -56,11 +59,15 @@ mod tests {
         let mut log = OpLog::new();
         let id = BlockId::new();
         let s1 = log.append(Op::InsertBlock {
-            block_id: id, parent_id: None, position: 0,
-            content: "hello".into(), depth: 0,
+            block_id: id,
+            parent_id: None,
+            position: 0,
+            content: "hello".into(),
+            depth: 0,
         });
         let s2 = log.append(Op::UpdateBlock {
-            block_id: id, content: "world".into(),
+            block_id: id,
+            content: "world".into(),
         });
         assert_eq!(s1, 1);
         assert_eq!(s2, 2);
@@ -73,7 +80,8 @@ mod tests {
         let id = BlockId::new();
         for i in 0..5 {
             log.append(Op::UpdateBlock {
-                block_id: id, content: format!("v{}", i),
+                block_id: id,
+                content: format!("v{}", i),
             });
         }
         let after_3 = log.since(3);

@@ -1,11 +1,11 @@
-use crate::block_kernel::op::{BlockId, Op};
 use crate::block_kernel::block_tree::BlockTree;
+use crate::block_kernel::op::{BlockId, Op};
 
 /// A text edit as reported by NSTextStorage.
 #[repr(C)]
 pub struct TextEdit {
     pub utf16_offset: u32,
-    pub old_length: u32,   // Number of UTF-16 code units replaced
+    pub old_length: u32, // Number of UTF-16 code units replaced
     pub new_text_ptr: *const u8,
     pub new_text_len: u32, // Byte length of replacement (UTF-8)
 }
@@ -176,8 +176,11 @@ mod tests {
             let id = BlockId::new();
             ids.push(id);
             tree.apply(&Op::InsertBlock {
-                block_id: id, parent_id: None, position: i as u32,
-                content: content.to_string(), depth: 0,
+                block_id: id,
+                parent_id: None,
+                position: i as u32,
+                content: content.to_string(),
+                depth: 0,
             });
         }
         (tree, ids)

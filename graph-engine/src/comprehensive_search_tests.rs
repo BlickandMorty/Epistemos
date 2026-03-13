@@ -8,13 +8,21 @@ mod tests {
         Node {
             id: 0,
             uuid: format!("uuid-{}", id),
-            x: 0.0, y: 0.0, vx: 0.0, vy: 0.0, fx: None, fy: None,
+            x: 0.0,
+            y: 0.0,
+            vx: 0.0,
+            vy: 0.0,
+            fx: None,
+            fy: None,
             node_type: NodeType::from_u8(0),
             link_count: 1,
             radius: 8.0,
             label: label.to_string(),
             visible,
-            created_at: 0.0, updated_at: 0.0, confidence: 0.0, color_override: [0.0; 4],
+            created_at: 0.0,
+            updated_at: 0.0,
+            confidence: 0.0,
+            color_override: [0.0; 4],
         }
     }
 
@@ -32,10 +40,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -67,10 +93,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -102,10 +146,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -137,10 +199,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -172,10 +252,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -207,10 +305,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -242,10 +358,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -277,10 +411,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -312,10 +464,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -347,10 +517,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -382,10 +570,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -417,10 +623,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -452,10 +676,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -487,10 +729,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -522,10 +782,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -557,10 +835,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -592,10 +888,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -627,10 +941,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -662,10 +994,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -697,10 +1047,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -732,10 +1100,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -767,10 +1153,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -802,10 +1206,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -837,10 +1259,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -872,10 +1312,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -907,10 +1365,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -942,10 +1418,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -977,10 +1471,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1012,10 +1524,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1047,10 +1577,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1082,10 +1630,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1117,10 +1683,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1152,10 +1736,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1187,10 +1789,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1222,10 +1842,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1257,10 +1895,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1292,10 +1948,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1327,10 +2001,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1362,10 +2054,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1397,10 +2107,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1432,10 +2160,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1467,10 +2213,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1502,10 +2266,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1537,10 +2319,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1572,10 +2372,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1607,10 +2425,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1642,10 +2478,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1677,10 +2531,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1712,10 +2584,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1747,10 +2637,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1782,10 +2690,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1817,10 +2743,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1852,10 +2796,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1887,10 +2849,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1922,10 +2902,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1957,10 +2955,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -1992,10 +3008,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2027,10 +3061,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2062,10 +3114,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2097,10 +3167,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2132,10 +3220,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2167,10 +3273,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2202,10 +3326,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2237,10 +3379,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2272,10 +3432,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2307,10 +3485,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2342,10 +3538,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2377,10 +3591,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2412,10 +3644,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2447,10 +3697,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2482,10 +3750,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2517,10 +3803,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2540,7 +3844,12 @@ mod tests {
 
     #[test]
     fn test_search_72_tech_all_visible_exact_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2552,10 +3861,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2575,7 +3902,12 @@ mod tests {
 
     #[test]
     fn test_search_73_tech_all_visible_exact_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2587,10 +3919,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2610,7 +3960,12 @@ mod tests {
 
     #[test]
     fn test_search_74_tech_all_visible_exact_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2622,10 +3977,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2645,7 +4018,12 @@ mod tests {
 
     #[test]
     fn test_search_75_tech_all_visible_prefix_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2657,10 +4035,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2680,7 +4076,12 @@ mod tests {
 
     #[test]
     fn test_search_76_tech_all_visible_prefix_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2692,10 +4093,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2715,7 +4134,12 @@ mod tests {
 
     #[test]
     fn test_search_77_tech_all_visible_prefix_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2727,10 +4151,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2750,7 +4192,12 @@ mod tests {
 
     #[test]
     fn test_search_78_tech_all_visible_contains_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2762,10 +4209,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2785,7 +4250,12 @@ mod tests {
 
     #[test]
     fn test_search_79_tech_all_visible_contains_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2797,10 +4267,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2820,7 +4308,12 @@ mod tests {
 
     #[test]
     fn test_search_80_tech_all_visible_contains_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2832,10 +4325,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2855,7 +4366,12 @@ mod tests {
 
     #[test]
     fn test_search_81_tech_all_visible_subsequence_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2867,10 +4383,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2890,7 +4424,12 @@ mod tests {
 
     #[test]
     fn test_search_82_tech_all_visible_subsequence_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2902,10 +4441,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2925,7 +4482,12 @@ mod tests {
 
     #[test]
     fn test_search_83_tech_all_visible_subsequence_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2937,10 +4499,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2960,7 +4540,12 @@ mod tests {
 
     #[test]
     fn test_search_84_tech_all_visible_typo1_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -2972,10 +4557,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -2995,7 +4598,12 @@ mod tests {
 
     #[test]
     fn test_search_85_tech_all_visible_typo1_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3007,10 +4615,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3030,7 +4656,12 @@ mod tests {
 
     #[test]
     fn test_search_86_tech_all_visible_typo1_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3042,10 +4673,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3065,7 +4714,12 @@ mod tests {
 
     #[test]
     fn test_search_87_tech_all_visible_typo2_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3077,10 +4731,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3100,7 +4772,12 @@ mod tests {
 
     #[test]
     fn test_search_88_tech_all_visible_typo2_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3112,10 +4789,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3135,7 +4830,12 @@ mod tests {
 
     #[test]
     fn test_search_89_tech_all_visible_typo2_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3147,10 +4847,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3170,7 +4888,12 @@ mod tests {
 
     #[test]
     fn test_search_90_tech_all_visible_empty_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3182,10 +4905,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3205,7 +4946,12 @@ mod tests {
 
     #[test]
     fn test_search_91_tech_all_visible_empty_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3217,10 +4963,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3240,7 +5004,12 @@ mod tests {
 
     #[test]
     fn test_search_92_tech_all_visible_empty_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3252,10 +5021,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3275,7 +5062,12 @@ mod tests {
 
     #[test]
     fn test_search_93_tech_all_visible_miss_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3287,10 +5079,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3310,7 +5120,12 @@ mod tests {
 
     #[test]
     fn test_search_94_tech_all_visible_miss_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3322,10 +5137,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3345,7 +5178,12 @@ mod tests {
 
     #[test]
     fn test_search_95_tech_all_visible_miss_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = true;
@@ -3357,10 +5195,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3380,7 +5236,12 @@ mod tests {
 
     #[test]
     fn test_search_96_tech_mixed_visible_exact_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3392,10 +5253,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3415,7 +5294,12 @@ mod tests {
 
     #[test]
     fn test_search_97_tech_mixed_visible_exact_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3427,10 +5311,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3450,7 +5352,12 @@ mod tests {
 
     #[test]
     fn test_search_98_tech_mixed_visible_exact_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3462,10 +5369,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3485,7 +5410,12 @@ mod tests {
 
     #[test]
     fn test_search_99_tech_mixed_visible_prefix_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3497,10 +5427,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3520,7 +5468,12 @@ mod tests {
 
     #[test]
     fn test_search_100_tech_mixed_visible_prefix_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3532,10 +5485,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3555,7 +5526,12 @@ mod tests {
 
     #[test]
     fn test_search_101_tech_mixed_visible_prefix_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3567,10 +5543,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3590,7 +5584,12 @@ mod tests {
 
     #[test]
     fn test_search_102_tech_mixed_visible_contains_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3602,10 +5601,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3625,7 +5642,12 @@ mod tests {
 
     #[test]
     fn test_search_103_tech_mixed_visible_contains_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3637,10 +5659,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3660,7 +5700,12 @@ mod tests {
 
     #[test]
     fn test_search_104_tech_mixed_visible_contains_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3672,10 +5717,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3695,7 +5758,12 @@ mod tests {
 
     #[test]
     fn test_search_105_tech_mixed_visible_subsequence_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3707,10 +5775,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3730,7 +5816,12 @@ mod tests {
 
     #[test]
     fn test_search_106_tech_mixed_visible_subsequence_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3742,10 +5833,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3765,7 +5874,12 @@ mod tests {
 
     #[test]
     fn test_search_107_tech_mixed_visible_subsequence_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3777,10 +5891,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3800,7 +5932,12 @@ mod tests {
 
     #[test]
     fn test_search_108_tech_mixed_visible_typo1_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3812,10 +5949,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3835,7 +5990,12 @@ mod tests {
 
     #[test]
     fn test_search_109_tech_mixed_visible_typo1_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3847,10 +6007,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3870,7 +6048,12 @@ mod tests {
 
     #[test]
     fn test_search_110_tech_mixed_visible_typo1_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3882,10 +6065,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3905,7 +6106,12 @@ mod tests {
 
     #[test]
     fn test_search_111_tech_mixed_visible_typo2_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3917,10 +6123,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3940,7 +6164,12 @@ mod tests {
 
     #[test]
     fn test_search_112_tech_mixed_visible_typo2_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3952,10 +6181,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -3975,7 +6222,12 @@ mod tests {
 
     #[test]
     fn test_search_113_tech_mixed_visible_typo2_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -3987,10 +6239,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4010,7 +6280,12 @@ mod tests {
 
     #[test]
     fn test_search_114_tech_mixed_visible_empty_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -4022,10 +6297,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4045,7 +6338,12 @@ mod tests {
 
     #[test]
     fn test_search_115_tech_mixed_visible_empty_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -4057,10 +6355,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4080,7 +6396,12 @@ mod tests {
 
     #[test]
     fn test_search_116_tech_mixed_visible_empty_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -4092,10 +6413,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4115,7 +6454,12 @@ mod tests {
 
     #[test]
     fn test_search_117_tech_mixed_visible_miss_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -4127,10 +6471,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4150,7 +6512,12 @@ mod tests {
 
     #[test]
     fn test_search_118_tech_mixed_visible_miss_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -4162,10 +6529,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4185,7 +6570,12 @@ mod tests {
 
     #[test]
     fn test_search_119_tech_mixed_visible_miss_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = i % 2 == 0;
@@ -4197,10 +6587,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4220,7 +6628,12 @@ mod tests {
 
     #[test]
     fn test_search_120_tech_none_visible_exact_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4232,10 +6645,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4255,7 +6686,12 @@ mod tests {
 
     #[test]
     fn test_search_121_tech_none_visible_exact_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4267,10 +6703,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4290,7 +6744,12 @@ mod tests {
 
     #[test]
     fn test_search_122_tech_none_visible_exact_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4302,10 +6761,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4325,7 +6802,12 @@ mod tests {
 
     #[test]
     fn test_search_123_tech_none_visible_prefix_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4337,10 +6819,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4360,7 +6860,12 @@ mod tests {
 
     #[test]
     fn test_search_124_tech_none_visible_prefix_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4372,10 +6877,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4395,7 +6918,12 @@ mod tests {
 
     #[test]
     fn test_search_125_tech_none_visible_prefix_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4407,10 +6935,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4430,7 +6976,12 @@ mod tests {
 
     #[test]
     fn test_search_126_tech_none_visible_contains_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4442,10 +6993,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4465,7 +7034,12 @@ mod tests {
 
     #[test]
     fn test_search_127_tech_none_visible_contains_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4477,10 +7051,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4500,7 +7092,12 @@ mod tests {
 
     #[test]
     fn test_search_128_tech_none_visible_contains_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4512,10 +7109,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4535,7 +7150,12 @@ mod tests {
 
     #[test]
     fn test_search_129_tech_none_visible_subsequence_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4547,10 +7167,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4570,7 +7208,12 @@ mod tests {
 
     #[test]
     fn test_search_130_tech_none_visible_subsequence_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4582,10 +7225,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4605,7 +7266,12 @@ mod tests {
 
     #[test]
     fn test_search_131_tech_none_visible_subsequence_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4617,10 +7283,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4640,7 +7324,12 @@ mod tests {
 
     #[test]
     fn test_search_132_tech_none_visible_typo1_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4652,10 +7341,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4675,7 +7382,12 @@ mod tests {
 
     #[test]
     fn test_search_133_tech_none_visible_typo1_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4687,10 +7399,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4710,7 +7440,12 @@ mod tests {
 
     #[test]
     fn test_search_134_tech_none_visible_typo1_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4722,10 +7457,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4745,7 +7498,12 @@ mod tests {
 
     #[test]
     fn test_search_135_tech_none_visible_typo2_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4757,10 +7515,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4780,7 +7556,12 @@ mod tests {
 
     #[test]
     fn test_search_136_tech_none_visible_typo2_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4792,10 +7573,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4815,7 +7614,12 @@ mod tests {
 
     #[test]
     fn test_search_137_tech_none_visible_typo2_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4827,10 +7631,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4850,7 +7672,12 @@ mod tests {
 
     #[test]
     fn test_search_138_tech_none_visible_empty_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4862,10 +7689,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4885,7 +7730,12 @@ mod tests {
 
     #[test]
     fn test_search_139_tech_none_visible_empty_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4897,10 +7747,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4920,7 +7788,12 @@ mod tests {
 
     #[test]
     fn test_search_140_tech_none_visible_empty_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4932,10 +7805,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4955,7 +7846,12 @@ mod tests {
 
     #[test]
     fn test_search_141_tech_none_visible_miss_limit1() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -4967,10 +7863,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -4990,7 +7904,12 @@ mod tests {
 
     #[test]
     fn test_search_142_tech_none_visible_miss_limit5() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -5002,10 +7921,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5025,7 +7962,12 @@ mod tests {
 
     #[test]
     fn test_search_143_tech_none_visible_miss_limit50() {
-        let labels = ["machine learning", "neural networks", "deep reinforcement learning", "quantum computing"];
+        let labels = [
+            "machine learning",
+            "neural networks",
+            "deep reinforcement learning",
+            "quantum computing",
+        ];
         let mut nodes = Vec::new();
         for (i, &l) in labels.iter().enumerate() {
             let visible = false;
@@ -5037,10 +7979,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5072,10 +8032,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5107,10 +8085,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5142,10 +8138,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5177,10 +8191,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5212,10 +8244,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5247,10 +8297,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5282,10 +8350,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5317,10 +8403,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5352,10 +8456,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5387,10 +8509,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5422,10 +8562,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5457,10 +8615,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5492,10 +8668,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5527,10 +8721,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5562,10 +8774,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5597,10 +8827,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5632,10 +8880,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5667,10 +8933,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5702,10 +8986,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5737,10 +9039,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5772,10 +9092,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5807,10 +9145,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5842,10 +9198,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5877,10 +9251,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5912,10 +9304,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5947,10 +9357,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -5982,10 +9410,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6017,10 +9463,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6052,10 +9516,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6087,10 +9569,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6122,10 +9622,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6157,10 +9675,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6192,10 +9728,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6227,10 +9781,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6262,10 +9834,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6297,10 +9887,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6332,10 +9940,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6367,10 +9993,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6402,10 +10046,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6437,10 +10099,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6472,10 +10152,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6507,10 +10205,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6542,10 +10258,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6577,10 +10311,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6612,10 +10364,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6647,10 +10417,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6682,10 +10470,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6717,10 +10523,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6752,10 +10576,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6787,10 +10629,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6822,10 +10682,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6857,10 +10735,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6892,10 +10788,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6927,10 +10841,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6962,10 +10894,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -6997,10 +10947,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7032,10 +11000,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7067,10 +11053,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7102,10 +11106,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7137,10 +11159,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7172,10 +11212,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7207,10 +11265,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7242,10 +11318,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7277,10 +11371,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7312,10 +11424,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7347,10 +11477,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7382,10 +11530,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7417,10 +11583,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7452,10 +11636,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7487,10 +11689,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7522,10 +11742,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7557,10 +11795,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7592,10 +11848,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7627,10 +11901,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7662,10 +11954,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7697,10 +12007,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7732,10 +12060,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7767,10 +12113,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7802,10 +12166,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7837,10 +12219,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7872,10 +12272,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7907,10 +12325,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7942,10 +12378,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -7977,10 +12431,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8012,10 +12484,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8047,10 +12537,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8082,10 +12590,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8117,10 +12643,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8152,10 +12696,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8187,10 +12749,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8222,10 +12802,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8257,10 +12855,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8292,10 +12908,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8327,10 +12961,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8362,10 +13014,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8397,10 +13067,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8432,10 +13120,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8467,10 +13173,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8502,10 +13226,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8537,10 +13279,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8572,10 +13332,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8607,10 +13385,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8642,10 +13438,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8677,10 +13491,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8712,10 +13544,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8747,10 +13597,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8782,10 +13650,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8817,10 +13703,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8852,10 +13756,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8887,10 +13809,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8922,10 +13862,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8957,10 +13915,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -8992,10 +13968,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9027,10 +14021,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9062,10 +14074,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9097,10 +14127,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9132,10 +14180,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9167,10 +14233,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9202,10 +14286,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9237,10 +14339,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9272,10 +14392,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9307,10 +14445,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9342,10 +14498,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9377,10 +14551,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9412,10 +14604,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9447,10 +14657,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9482,10 +14710,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9517,10 +14763,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9552,10 +14816,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9587,10 +14869,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9622,10 +14922,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9657,10 +14975,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9692,10 +15028,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9727,10 +15081,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9762,10 +15134,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9797,10 +15187,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9832,10 +15240,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9867,10 +15293,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9902,10 +15346,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9937,10 +15399,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -9972,10 +15452,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10007,10 +15505,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10042,10 +15558,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10077,10 +15611,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10112,10 +15664,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10147,10 +15717,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10182,10 +15770,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10217,10 +15823,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10252,10 +15876,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10287,10 +15929,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10322,10 +15982,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10357,10 +16035,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10392,10 +16088,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10427,10 +16141,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10462,10 +16194,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10497,10 +16247,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10532,10 +16300,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10567,10 +16353,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10602,10 +16406,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10637,10 +16459,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10672,10 +16512,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10707,10 +16565,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10742,10 +16618,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10777,10 +16671,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10812,10 +16724,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10847,10 +16777,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10882,10 +16830,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10917,10 +16883,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10952,10 +16936,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -10987,10 +16989,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11022,10 +17042,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11057,10 +17095,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11092,10 +17148,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11127,10 +17201,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11162,10 +17254,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11197,10 +17307,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11232,10 +17360,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11267,10 +17413,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11302,10 +17466,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11337,10 +17519,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11372,10 +17572,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11407,10 +17625,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11442,10 +17678,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11477,10 +17731,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11512,10 +17784,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11547,10 +17837,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11582,10 +17890,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11617,10 +17943,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11652,10 +17996,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11687,10 +18049,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11722,10 +18102,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11757,10 +18155,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11792,10 +18208,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11827,10 +18261,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11862,10 +18314,28 @@ mod tests {
         let query = match "exact" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11897,10 +18367,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11932,10 +18420,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -11967,10 +18473,28 @@ mod tests {
         let query = match "prefix" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12002,10 +18526,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12037,10 +18579,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12072,10 +18632,28 @@ mod tests {
         let query = match "contains" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12107,10 +18685,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12142,10 +18738,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12177,10 +18791,28 @@ mod tests {
         let query = match "subsequence" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12212,10 +18844,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12247,10 +18897,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12282,10 +18950,28 @@ mod tests {
         let query = match "typo1" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12317,10 +19003,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12352,10 +19056,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12387,10 +19109,28 @@ mod tests {
         let query = match "typo2" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12422,10 +19162,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12457,10 +19215,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12492,10 +19268,28 @@ mod tests {
         let query = match "empty" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12527,10 +19321,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12562,10 +19374,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12597,10 +19427,28 @@ mod tests {
         let query = match "miss" {
             "exact" => target.to_string(),
             "prefix" => target.chars().take(3).collect(),
-            "contains" => if target.len() > 3 { target.chars().skip(1).take(3).collect() } else { target.to_string() },
+            "contains" => {
+                if target.len() > 3 {
+                    target.chars().skip(1).take(3).collect()
+                } else {
+                    target.to_string()
+                }
+            }
             "subsequence" => target.chars().step_by(2).collect(),
-            "typo1" => { let mut q = target.to_string(); if !q.is_empty() { q.replace_range(0..1, "z"); } q },
-            "typo2" => { let mut q = target.to_string(); if q.len() > 1 { q.replace_range(0..2, "zz"); } q },
+            "typo1" => {
+                let mut q = target.to_string();
+                if !q.is_empty() {
+                    q.replace_range(0..1, "z");
+                }
+                q
+            }
+            "typo2" => {
+                let mut q = target.to_string();
+                if q.len() > 1 {
+                    q.replace_range(0..2, "zz");
+                }
+                q
+            }
             "empty" => String::new(),
             "miss" => "xyz_unlikely_match_123".to_string(),
             _ => String::new(),
@@ -12617,5 +19465,4 @@ mod tests {
             assert!(results.is_empty(), "Unlikely query should return nothing");
         }
     }
-
 }

@@ -1,7 +1,7 @@
 //! Automatically generated comprehensive simulation tests.
 #[cfg(test)]
 mod tests {
-    use crate::simulation::{Simulation, CenterMode};
+    use crate::simulation::{CenterMode, Simulation};
     use crate::types::Graph;
 
     #[test]
@@ -25,8 +25,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -51,8 +61,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -77,8 +97,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -103,8 +133,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -129,8 +169,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -155,8 +205,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -181,8 +241,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -207,8 +277,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -233,8 +313,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -259,8 +349,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -285,8 +385,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -311,8 +421,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -337,8 +457,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -363,8 +493,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -389,8 +529,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -415,8 +565,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -441,8 +601,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -467,8 +637,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -493,8 +673,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -519,8 +709,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -545,8 +745,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -571,8 +781,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -597,8 +817,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -623,8 +853,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -649,8 +889,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -675,8 +925,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -701,8 +961,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -727,8 +997,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -753,8 +1033,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -779,8 +1069,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -805,8 +1105,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -831,8 +1141,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -857,8 +1177,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -883,8 +1213,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -909,8 +1249,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -935,8 +1285,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -964,8 +1324,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -993,8 +1363,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1022,8 +1402,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1051,8 +1441,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1080,8 +1480,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1109,8 +1519,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1138,8 +1558,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1167,8 +1597,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1196,8 +1636,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1225,8 +1675,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1254,8 +1714,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1283,8 +1753,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1312,8 +1792,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1341,8 +1831,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1370,8 +1870,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1399,8 +1909,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1428,8 +1948,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1457,8 +1987,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1470,7 +2010,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1487,8 +2028,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1500,7 +2051,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1517,8 +2069,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1530,7 +2092,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1547,8 +2110,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1560,7 +2133,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1577,8 +2151,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1590,7 +2174,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1607,8 +2192,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1620,7 +2215,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1637,8 +2233,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1650,7 +2256,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1667,8 +2274,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1680,7 +2297,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1697,8 +2315,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1710,7 +2338,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1727,8 +2356,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1740,7 +2379,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1757,8 +2397,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1770,7 +2420,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1787,8 +2438,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1800,7 +2461,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1817,8 +2479,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1830,7 +2502,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1847,8 +2520,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1860,7 +2543,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1877,8 +2561,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1890,7 +2584,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1907,8 +2602,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1920,7 +2625,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1937,8 +2643,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1950,7 +2666,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1967,8 +2684,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -1980,7 +2707,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 2 <= 20 { // Limit full graph edges to avoid massive tests
+        if 2 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..2 {
                 for j in (i + 1)..2 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -1997,8 +2725,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2020,8 +2758,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2043,8 +2791,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2066,8 +2824,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2089,8 +2857,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2112,8 +2890,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2135,8 +2923,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2158,8 +2956,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2181,8 +2989,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2204,8 +3022,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2227,8 +3055,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2250,8 +3088,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2273,8 +3121,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2296,8 +3154,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2319,8 +3187,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2342,8 +3220,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2365,8 +3253,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2388,8 +3286,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2411,8 +3319,18 @@ mod tests {
         for i in 0..2 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2437,8 +3355,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2463,8 +3391,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2489,8 +3427,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2515,8 +3463,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2541,8 +3499,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2567,8 +3535,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2593,8 +3571,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2619,8 +3607,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2645,8 +3643,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2671,8 +3679,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2697,8 +3715,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2723,8 +3751,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2749,8 +3787,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2775,8 +3823,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2801,8 +3859,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2827,8 +3895,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2853,8 +3931,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2879,8 +3967,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2905,8 +4003,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2931,8 +4039,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2957,8 +4075,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -2983,8 +4111,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3009,8 +4147,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3035,8 +4183,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3061,8 +4219,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3087,8 +4255,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3113,8 +4291,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3139,8 +4327,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3165,8 +4363,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3191,8 +4399,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3217,8 +4435,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3243,8 +4471,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3269,8 +4507,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3295,8 +4543,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3321,8 +4579,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3347,8 +4615,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3376,8 +4654,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3405,8 +4693,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3434,8 +4732,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3463,8 +4771,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3492,8 +4810,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3521,8 +4849,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3550,8 +4888,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3579,8 +4927,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3608,8 +4966,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3637,8 +5005,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3666,8 +5044,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3695,8 +5083,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3724,8 +5122,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3753,8 +5161,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3782,8 +5200,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3811,8 +5239,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3840,8 +5278,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3869,8 +5317,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3882,7 +5340,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -3899,8 +5358,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3912,7 +5381,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -3929,8 +5399,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3942,7 +5422,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -3959,8 +5440,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -3972,7 +5463,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -3989,8 +5481,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4002,7 +5504,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4019,8 +5522,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4032,7 +5545,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4049,8 +5563,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4062,7 +5586,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4079,8 +5604,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4092,7 +5627,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4109,8 +5645,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4122,7 +5668,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4139,8 +5686,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4152,7 +5709,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4169,8 +5727,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4182,7 +5750,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4199,8 +5768,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4212,7 +5791,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4229,8 +5809,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4242,7 +5832,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4259,8 +5850,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4272,7 +5873,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4289,8 +5891,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4302,7 +5914,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4319,8 +5932,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4332,7 +5955,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4349,8 +5973,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4362,7 +5996,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4379,8 +6014,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4392,7 +6037,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 10 <= 20 { // Limit full graph edges to avoid massive tests
+        if 10 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..10 {
                 for j in (i + 1)..10 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -4409,8 +6055,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4432,8 +6088,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4455,8 +6121,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4478,8 +6154,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4501,8 +6187,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4524,8 +6220,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4547,8 +6253,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4570,8 +6286,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4593,8 +6319,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4616,8 +6352,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4639,8 +6385,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4662,8 +6418,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4685,8 +6451,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4708,8 +6484,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4731,8 +6517,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4754,8 +6550,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4777,8 +6583,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4800,8 +6616,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4823,8 +6649,18 @@ mod tests {
         for i in 0..10 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4849,8 +6685,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4875,8 +6721,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4901,8 +6757,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4927,8 +6793,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4953,8 +6829,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -4979,8 +6865,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5005,8 +6901,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5031,8 +6937,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5057,8 +6973,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5083,8 +7009,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5109,8 +7045,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5135,8 +7081,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5161,8 +7117,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5187,8 +7153,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5213,8 +7189,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5239,8 +7225,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5265,8 +7261,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5291,8 +7297,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5317,8 +7333,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5343,8 +7369,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5369,8 +7405,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5395,8 +7441,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5421,8 +7477,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5447,8 +7513,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5473,8 +7549,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5499,8 +7585,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5525,8 +7621,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5551,8 +7657,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5577,8 +7693,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5603,8 +7729,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5629,8 +7765,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5655,8 +7801,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5681,8 +7837,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5707,8 +7873,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5733,8 +7909,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5759,8 +7945,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5788,8 +7984,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5817,8 +8023,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5846,8 +8062,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5875,8 +8101,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5904,8 +8140,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5933,8 +8179,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5962,8 +8218,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -5991,8 +8257,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6020,8 +8296,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6049,8 +8335,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6078,8 +8374,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6107,8 +8413,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6136,8 +8452,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6165,8 +8491,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6194,8 +8530,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6223,8 +8569,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6252,8 +8608,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6281,8 +8647,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6294,7 +8670,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6311,8 +8688,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6324,7 +8711,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6341,8 +8729,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6354,7 +8752,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6371,8 +8770,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6384,7 +8793,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6401,8 +8811,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6414,7 +8834,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6431,8 +8852,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6444,7 +8875,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 0.1;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6461,8 +8893,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6474,7 +8916,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6491,8 +8934,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6504,7 +8957,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6521,8 +8975,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6534,7 +8998,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6551,8 +9016,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6564,7 +9039,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6581,8 +9057,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6594,7 +9080,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6611,8 +9098,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6624,7 +9121,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 10.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6641,8 +9139,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6654,7 +9162,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6671,8 +9180,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6684,7 +9203,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6701,8 +9221,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6714,7 +9244,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6731,8 +9262,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6744,7 +9285,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6761,8 +9303,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6774,7 +9326,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6791,8 +9344,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6804,7 +9367,8 @@ mod tests {
             let y = (i as f32 / 5.0) * 5000.0;
             g.add_node(format!("n{}", i), x, y, 0, 1, format!("N{}", i));
         }
-        if 50 <= 20 { // Limit full graph edges to avoid massive tests
+        if 50 <= 20 {
+            // Limit full graph edges to avoid massive tests
             for i in 0..50 {
                 for j in (i + 1)..50 {
                     g.add_edge(&format!("n{}", i), &format!("n{}", j), 1.0, 0);
@@ -6821,8 +9385,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6844,8 +9418,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6867,8 +9451,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6890,8 +9484,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6913,8 +9517,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6936,8 +9550,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6959,8 +9583,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -6982,8 +9616,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7005,8 +9649,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7028,8 +9682,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7051,8 +9715,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7074,8 +9748,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7097,8 +9781,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7120,8 +9814,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7143,8 +9847,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7166,8 +9880,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7189,8 +9913,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7212,8 +9946,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
 
@@ -7235,9 +9979,18 @@ mod tests {
         for i in 0..50 {
             assert!(sim.x[i].is_finite(), "Node {} x is not finite", i);
             assert!(sim.y[i].is_finite(), "Node {} y is not finite", i);
-            assert!(sim.x[i].abs() < 1e7, "Node {} x exploded to {}", i, sim.x[i]);
-            assert!(sim.y[i].abs() < 1e7, "Node {} y exploded to {}", i, sim.y[i]);
+            assert!(
+                sim.x[i].abs() < 1e7,
+                "Node {} x exploded to {}",
+                i,
+                sim.x[i]
+            );
+            assert!(
+                sim.y[i].abs() < 1e7,
+                "Node {} y exploded to {}",
+                i,
+                sim.y[i]
+            );
         }
     }
-
 }

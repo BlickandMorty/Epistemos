@@ -96,6 +96,87 @@ Do not spend time here on:
 - One command gives comparable before/after numbers
 - We can tell whether a change helped commit, render, or physics separately
 
+### Phase 1 Baseline (2026-03-12)
+
+Command:
+
+```bash
+cargo test benchmark_graph_phase1_matrix --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml -- --nocapture
+```
+
+Current debug-test baseline from the new headless matrix in `graph-engine/src/bench_tests.rs`:
+
+| Nodes | Commit Core Total | 1s Steady-State Sim | Viewport Refresh | Search Highlight | Notes |
+|---|---:|---:|---:|---:|---|
+| 1k | 755,622 us | 141,615 us | 28,867 us | 12,728 us | 60 physics ticks |
+| 5k | 5,109,054 us | 327,189 us | 57,637 us | 64,146 us | 30 physics ticks, warm-start still active |
+| 10k | 163,942 us | 1 us | 73,169 us | 130,363 us | crosses `Simulation` static-layout threshold (`> 9000`), so steady-state physics is effectively disabled by design |
+
+Interpretation:
+- `commit core` is headless commit work: simulation load/warm-start, cluster assignment, world rebuild, and search-index build.
+- `viewport refresh` is 120 pan/zoom cull steps using the same spatial-grid + bounds intersection path the renderer uses before GPU upload.
+- `search highlight` is 80 passes of the current linear label-scan highlight path.
+- These numbers are for relative before/after comparison in `cargo test`, not release-build FPS claims.
+
+### Safe Optimization Applied (2026-03-12)
+
+Implemented:
+- bounded `Simulation::warm_start()` for large graphs with an explicit iteration + time budget
+- regression guard in `graph-engine/src/simulation.rs` so mid-size graphs stay capped
+
+Measured after the warm-start cap:
+
+| Nodes | Commit Core Before | Commit Core After | Delta |
+|---|---:|---:|---:|
+| 1k | 755,622 us | 44,087 us | -94.2% |
+| 5k | 5,109,054 us | 132,704 us | -97.4% |
+| 10k | 163,942 us | 159,083 us | -3.0% |
+
+Notes:
+- This directly confirms the previous hotspot: mid-size full recommits were spending most of their time inside simulation warm-start.
+- `10k` remains mostly unchanged because it was already crossing the static-layout threshold and bypassing active physics.
+- Follow-up cost centers are now clearer: search highlight still scales linearly, and viewport refresh is now easier to isolate without warm-start dominating the graph.
+
+### Safe Optimization Applied (2026-03-12, cull + highlight path)
+
+Implemented:
+- fast dense-entity lookup in `graph-engine/src/ecs/mod.rs` so renderer culling does not pay a hash lookup for the common `entity == index` graph world
+- direct node-ID highlight collection in `graph-engine/src/search.rs` and `graph-engine/src/engine.rs`, which removes UUID-to-ID hash lookups from search highlight
+- shorter `Simulation` lock scope in `Engine::sync_all_positions()` so spatial-grid rebuild work no longer holds the simulation mutex
+
+Measured against the immediately previous headless matrix:
+
+| Nodes | Viewport Refresh Before | Viewport Refresh After | Delta | Search Highlight Before | Search Highlight After | Delta |
+|---|---:|---:|---:|---:|---:|---:|
+| 1k | 27,942 us | 22,108 us | -20.9% | 9,088 us | 8,664 us | -4.7% |
+| 5k | 55,152 us | 36,691 us | -33.5% | 45,062 us | 43,945 us | -2.5% |
+| 10k | 71,672 us | 45,291 us | -36.8% | 93,158 us | 88,720 us | -4.8% |
+
+Notes:
+- The culling win is the larger result here because viewport refresh was paying repeated `entity -> index` hash lookups on every visible candidate.
+- The search-highlight win is smaller because the expensive part is still the linear contains scan; this pass only removed the extra UUID mapping and per-query allocation churn.
+- The shorter simulation lock scope is a smoothness fix more than a benchmark headline. It reduces render-thread contention against the physics thread during active motion.
+
+### Safe Optimization Applied (2026-03-12, search-index build path)
+
+Implemented:
+- removed the `label -> Vec<entry index>` reverse map from `graph-engine/src/search.rs`
+- replaced it with sorted entry-index bookkeeping so FST duplicate-label expansion still works without building a second large hash structure during commit
+- preserved duplicate-label exact and typo behavior with focused regression tests
+
+Measured against the immediately previous headless matrix:
+
+| Nodes | Search Index Build Before | Search Index Build After | Delta | Commit Core Total Before | Commit Core Total After | Delta |
+|---|---:|---:|---:|---:|---:|---:|
+| 1k | 11,826 us | 11,835 us | +0.1% | 44,326 us | 46,070 us | +3.9% |
+| 5k | 55,322 us | 52,801 us | -4.6% | 130,275 us | 127,728 us | -2.0% |
+| 10k | 117,946 us | 107,405 us | -8.9% | 162,157 us | 151,454 us | -6.6% |
+
+Notes:
+- The improvement is real at the sizes that matter, but smaller than the viewport/culling win because FST construction still dominates the high end.
+- `1k` is within debug-benchmark noise, so I do not treat that row as a meaningful regression signal by itself.
+- This was still worth landing because it removes duplicate build-time bookkeeping and keeps the same search semantics for duplicate labels.
+
 ## Phase 2: Kill More Full Recommits
 
 **Goal:** Reserve full `clear -> add all -> commit` for true rebuilds only.

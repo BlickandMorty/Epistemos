@@ -5,10 +5,10 @@
 //! World stores physics hot-path arrays (`px`, `py`, `pvx`, `pvy`, `pfx`, `pfy`)
 //! that serve as those slices directly, avoiding per-tick copy overhead.
 
+use super::World;
 use crate::forces;
 use crate::quadtree;
 use crate::simulation::ForceParams;
-use super::World;
 
 /// Sync transform + velocity components into physics hot-path arrays.
 /// Call before running physics tick.
@@ -182,15 +182,23 @@ pub fn tick(
         }
 
         // Safety: reset NaN/Inf positions to origin.
-        if !world.px[i].is_finite() { world.px[i] = 0.0; world.pvx[i] = 0.0; }
-        if !world.py[i].is_finite() { world.py[i] = 0.0; world.pvy[i] = 0.0; }
+        if !world.px[i].is_finite() {
+            world.px[i] = 0.0;
+            world.pvx[i] = 0.0;
+        }
+        if !world.py[i].is_finite() {
+            world.py[i] = 0.0;
+            world.pvy[i] = 0.0;
+        }
     }
 
     // 5. Sync back to transform + velocity components.
     sync_physics_to_transforms(world);
 
     // 6. Rebuild spatial grid from updated positions.
-    world.spatial_grid.rebuild(&world.entities, &world.transform);
+    world
+        .spatial_grid
+        .rebuild(&world.entities, &world.transform);
 }
 
 #[cfg(test)]
@@ -208,8 +216,16 @@ mod tests {
         // Two nodes slightly overlapping — repulsion + collision should push them apart.
         // Not exactly coincident (coincident nodes have zero displacement vector,
         // so forces have no direction to push in — same behavior as d3-force).
-        world.spawn(TransformComponent { x: -1.0, y: 0.0, scale: 1.0 });
-        world.spawn(TransformComponent { x: 1.0, y: 0.0, scale: 1.0 });
+        world.spawn(TransformComponent {
+            x: -1.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        world.spawn(TransformComponent {
+            x: 1.0,
+            y: 0.0,
+            scale: 1.0,
+        });
         sync_transforms_to_physics(&mut world);
 
         let mut params = make_params();
@@ -222,21 +238,39 @@ mod tests {
 
         let dist_before = (world.transform[1].x - world.transform[0].x).abs();
 
-        tick(&mut world, &mut params, &edges, &edge_weights, &degrees,
-             &collision_radii, &mut bodies, &mut grid);
+        tick(
+            &mut world,
+            &mut params,
+            &edges,
+            &edge_weights,
+            &degrees,
+            &collision_radii,
+            &mut bodies,
+            &mut grid,
+        );
 
         // After one tick, nodes should be pushed further apart by repulsion + collision.
         let dist_after = (world.transform[1].x - world.transform[0].x).abs();
-        assert!(dist_after > dist_before,
-            "overlapping nodes should separate: before={dist_before}, after={dist_after}");
+        assert!(
+            dist_after > dist_before,
+            "overlapping nodes should separate: before={dist_before}, after={dist_after}"
+        );
     }
 
     #[test]
     fn test_tick_link_attraction() {
         let mut world = World::new();
         // Two linked nodes far apart — spring should pull them closer.
-        world.spawn(TransformComponent { x: -500.0, y: 0.0, scale: 1.0 });
-        world.spawn(TransformComponent { x: 500.0, y: 0.0, scale: 1.0 });
+        world.spawn(TransformComponent {
+            x: -500.0,
+            y: 0.0,
+            scale: 1.0,
+        });
+        world.spawn(TransformComponent {
+            x: 500.0,
+            y: 0.0,
+            scale: 1.0,
+        });
         sync_transforms_to_physics(&mut world);
 
         let mut params = make_params();
@@ -252,21 +286,39 @@ mod tests {
 
         for _ in 0..5 {
             sync_transforms_to_physics(&mut world);
-            tick(&mut world, &mut params, &edges, &edge_weights, &degrees,
-                 &collision_radii, &mut bodies, &mut grid);
+            tick(
+                &mut world,
+                &mut params,
+                &edges,
+                &edge_weights,
+                &degrees,
+                &collision_radii,
+                &mut bodies,
+                &mut grid,
+            );
         }
 
         let dist_before = (x1_before - x0_before).abs();
         let dist_after = (world.transform[1].x - world.transform[0].x).abs();
-        assert!(dist_after < dist_before,
-            "linked nodes should move closer: before={dist_before}, after={dist_after}");
+        assert!(
+            dist_after < dist_before,
+            "linked nodes should move closer: before={dist_before}, after={dist_after}"
+        );
     }
 
     #[test]
     fn test_tick_settled() {
         let mut world = World::new();
-        world.spawn(TransformComponent { x: 10.0, y: 10.0, scale: 1.0 });
-        world.spawn(TransformComponent { x: -10.0, y: -10.0, scale: 1.0 });
+        world.spawn(TransformComponent {
+            x: 10.0,
+            y: 10.0,
+            scale: 1.0,
+        });
+        world.spawn(TransformComponent {
+            x: -10.0,
+            y: -10.0,
+            scale: 1.0,
+        });
         sync_transforms_to_physics(&mut world);
 
         let mut params = make_params();
@@ -280,24 +332,43 @@ mod tests {
         // Run many ticks — alpha should decay below floor and velocities zero out.
         for _ in 0..500 {
             sync_transforms_to_physics(&mut world);
-            tick(&mut world, &mut params, &edges, &edge_weights, &degrees,
-                 &collision_radii, &mut bodies, &mut grid);
+            tick(
+                &mut world,
+                &mut params,
+                &edges,
+                &edge_weights,
+                &degrees,
+                &collision_radii,
+                &mut bodies,
+                &mut grid,
+            );
         }
 
-        assert!(params.alpha <= 0.001,
-            "alpha should have decayed to floor: {}", params.alpha);
-        let total_v: f32 = world.velocity.iter()
-            .map(|v| v.vx.abs() + v.vy.abs())
-            .sum();
-        assert!(total_v < 0.01,
-            "velocities should be near zero when settled: {total_v}");
+        assert!(
+            params.alpha <= 0.001,
+            "alpha should have decayed to floor: {}",
+            params.alpha
+        );
+        let total_v: f32 = world.velocity.iter().map(|v| v.vx.abs() + v.vy.abs()).sum();
+        assert!(
+            total_v < 0.01,
+            "velocities should be near zero when settled: {total_v}"
+        );
     }
 
     #[test]
     fn test_sync_round_trip() {
         let mut world = World::new();
-        world.spawn(TransformComponent { x: 42.0, y: -17.0, scale: 1.0 });
-        world.spawn(TransformComponent { x: 100.0, y: 200.0, scale: 1.0 });
+        world.spawn(TransformComponent {
+            x: 42.0,
+            y: -17.0,
+            scale: 1.0,
+        });
+        world.spawn(TransformComponent {
+            x: 100.0,
+            y: 200.0,
+            scale: 1.0,
+        });
 
         sync_transforms_to_physics(&mut world);
 

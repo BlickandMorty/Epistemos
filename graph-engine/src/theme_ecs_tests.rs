@@ -5,9 +5,9 @@
 
 #[cfg(test)]
 mod theme_ecs_tests {
+    use crate::ecs::World;
     use crate::ecs::components::*;
     use crate::ecs::spatial_grid::SpatialGrid;
-    use crate::ecs::World;
     use crate::types::{Graph, NodeType, VisualTheme};
 
     // ── Theme Switching ──────────────────────────────────────────────────────
@@ -37,7 +37,10 @@ mod theme_ecs_tests {
     fn theme_classic_colors_valid() {
         for nt in 0..=7u8 {
             let color = NodeType::from_u8(nt).color();
-            assert_eq!(color[3], 1.0, "classic mode node colors should be fully opaque");
+            assert_eq!(
+                color[3], 1.0,
+                "classic mode node colors should be fully opaque"
+            );
         }
     }
 
@@ -77,8 +80,11 @@ mod theme_ecs_tests {
 
         // All remaining entities should still be findable
         for i in 500..1000 {
-            assert!(world.index_of(entities[i]).is_some(),
-                "entity {} should still exist", entities[i]);
+            assert!(
+                world.index_of(entities[i]).is_some(),
+                "entity {} should still exist",
+                entities[i]
+            );
         }
     }
 
@@ -120,7 +126,10 @@ mod theme_ecs_tests {
         let nearby = grid.query_candidates(0.0, 0.0, 110.0);
         assert!(nearby.contains(&0), "entity 0 at origin should be found");
         assert!(nearby.contains(&1), "entity 1 at (50,50) should be found");
-        assert!(nearby.contains(&4), "entity 4 at (-100,-100) should be found");
+        assert!(
+            nearby.contains(&4),
+            "entity 4 at (-100,-100) should be found"
+        );
         // Entity 2 at (200,200) is too far
         assert!(!nearby.contains(&2), "entity 2 should be too far");
         assert!(!nearby.contains(&3), "entity 3 should be too far");
@@ -130,9 +139,21 @@ mod theme_ecs_tests {
     fn spatial_grid_rebuild_from_transforms() {
         let entities: Vec<u32> = vec![0, 1, 2];
         let transforms = vec![
-            TransformComponent { x: 0.0, y: 0.0, scale: 1.0 },
-            TransformComponent { x: 10.0, y: 10.0, scale: 1.0 },
-            TransformComponent { x: 500.0, y: 500.0, scale: 1.0 },
+            TransformComponent {
+                x: 0.0,
+                y: 0.0,
+                scale: 1.0,
+            },
+            TransformComponent {
+                x: 10.0,
+                y: 10.0,
+                scale: 1.0,
+            },
+            TransformComponent {
+                x: 500.0,
+                y: 500.0,
+                scale: 1.0,
+            },
         ];
 
         let mut grid = SpatialGrid::new(50.0);
@@ -214,9 +235,15 @@ mod theme_ecs_tests {
 
         for i in 0..50u32 {
             let entity = world.node_id_to_entity.get(&i);
-            assert!(entity.is_some(), "graph node id {i} should have a mapped entity");
+            assert!(
+                entity.is_some(),
+                "graph node id {i} should have a mapped entity"
+            );
             let idx = world.index_of(*entity.unwrap());
-            assert!(idx.is_some(), "entity for graph node {i} should exist in world");
+            assert!(
+                idx.is_some(),
+                "entity for graph node {i} should exist in world"
+            );
         }
     }
 

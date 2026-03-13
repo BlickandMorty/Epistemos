@@ -41,7 +41,7 @@ mod tests {
         for h in handles {
             h.join().unwrap();
         }
-        
+
         let lock = sim.lock().unwrap();
         assert!(lock.x.len() <= 1); // Only the very last `load_from_graph` remains
     }

@@ -308,8 +308,8 @@ struct VaultIndexActorTests {
 
         let verifyContext = ModelContext(container)
         let pageId = page.id
-        let desc = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == pageId })
-        let updated = try verifyContext.fetch(desc).first
+        let updated = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == pageId })
         #expect(updated?.filePath == newURL.path)
     }
 
@@ -338,8 +338,40 @@ struct VaultIndexActorTests {
 
         let verifyContext = ModelContext(container)
         let pageId = page.id
-        let desc = FetchDescriptor<SDPage>(predicate: #Predicate<SDPage> { $0.id == pageId })
-        let updated = try verifyContext.fetch(desc).first
+        let updated = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == pageId })
         #expect(updated?.filePath == dedupedURL.path)
+    }
+
+    @Test("importVault marks imported pages clean and synced")
+    func importVaultMarksImportedPagesSynced() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let fileURL = vaultURL.appendingPathComponent("Imported.md")
+        try """
+        ---
+        title: Imported Title
+        tags: [alpha, beta]
+        ---
+
+        Imported body
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        try await actor.importVault(from: vaultURL)
+
+        let verifyContext = ModelContext(container)
+        guard let page = try verifyContext.fetch(FetchDescriptor<SDPage>()).first else {
+            Issue.record("Expected imported page")
+            return
+        }
+
+        #expect(page.title == "Imported Title")
+        #expect(page.loadBody() == "Imported body")
+        #expect(page.needsVaultSync == false)
+        #expect(page.lastSyncedBodyHash == SDPage.bodyHash("Imported body"))
+        #expect(page.lastSyncedAt != nil)
     }
 }

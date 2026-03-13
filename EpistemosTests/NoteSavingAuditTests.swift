@@ -111,19 +111,33 @@ struct NoteSavingEdgeCaseTests {
 
     @Test("pageBodyDidChange notification carries correct pageId")
     @MainActor func pageBodyDidChangeNotification() async throws {
+        actor NotificationCapture {
+            private var received = false
+            private var pageId = ""
+
+            func record(pageId: String) {
+                self.pageId = pageId
+                received = true
+            }
+
+            func snapshot() -> (received: Bool, pageId: String) {
+                (received, pageId)
+            }
+        }
+
         let pageId = UUID().uuidString
         NoteFileStorage.writeBody(pageId: pageId, content: "Original content")
 
         // Listen for the notification
-        var received = false
-        var receivedPageId = ""
+        let capture = NotificationCapture()
         let token = NotificationCenter.default.addObserver(
             forName: NoteFileStorage.pageBodyDidChange,
             object: nil, queue: .main
         ) { notification in
             if let pid = notification.userInfo?["pageId"] as? String {
-                receivedPageId = pid
-                received = true
+                Task {
+                    await capture.record(pageId: pid)
+                }
             }
         }
         defer { NotificationCenter.default.removeObserver(token) }
@@ -135,8 +149,9 @@ struct NoteSavingEdgeCaseTests {
         // Give RunLoop a tick to deliver the notification
         try await Task.sleep(for: .milliseconds(100))
 
-        #expect(received, "Notification should have been received")
-        #expect(receivedPageId == pageId, "Notification should carry the correct pageId")
+        let snapshot = await capture.snapshot()
+        #expect(snapshot.received, "Notification should have been received")
+        #expect(snapshot.pageId == pageId, "Notification should carry the correct pageId")
 
         // Verify disk state matches the restored content
         let disk = NoteFileStorage.readBody(pageId: pageId)

@@ -231,4 +231,26 @@ struct SearchIndexServiceIntegrationTests {
         #expect(!oldResults.contains { $0.pageId == staleId })
         #expect(!oldResults.contains { $0.pageId == updatedId })
     }
+
+    @Test("async rebuild indexes full page snapshots")
+    func asyncRebuildIndexesFullPageSnapshots() async throws {
+        let setup = try makeService()
+        let service = setup.service
+        let pageId = uniqueId("rebuild")
+        let token = uniqueToken("rebuild")
+        defer { cleanup(service, ids: [pageId]) }
+
+        try await service.rebuildFromSwiftDataAsync([
+            (
+                id: pageId,
+                title: "Rebuild \(token)",
+                body: "Body \(token)",
+                tags: "fresh",
+                updatedAt: .now
+            ),
+        ])
+
+        let results = try withRetry { try service.search(query: token, limit: 20) }
+        #expect(results.contains { $0.pageId == pageId })
+    }
 }

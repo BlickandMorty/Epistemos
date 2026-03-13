@@ -8,14 +8,15 @@
 //! - Render thread (main): locks `Simulation` briefly to copy positions, then releases.
 //! - `parking_lot::Mutex` for low-overhead, non-poisoning locks.
 
-use std::ffi::{c_void, CString};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::ffi::{CString, c_void};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashSet;
 
+use crate::block_kernel::{BlockTree, OpLog};
 use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
@@ -24,7 +25,6 @@ use crate::simulation::Simulation;
 use crate::spatial::SpatialIndex;
 use crate::types::{Graph, VisualTheme};
 use crate::version::VersionStore;
-use crate::block_kernel::{BlockTree, OpLog};
 use std::collections::HashMap;
 
 /// Adaptive physics tick rate scaled by node count.
@@ -41,6 +41,8 @@ fn adaptive_physics_hz(node_count: usize) -> f64 {
 const SETTLED_SLEEP_MS: u64 = 50;
 /// Above this threshold, use cheap spatial clustering instead of Louvain.
 const LOUVAIN_MAX_NODES: usize = 10_000;
+const INTERACTION_MOTION_HOLD: Duration = Duration::from_secs(30);
+const INTERACTION_MOTION_ALPHA_TARGET: f32 = 0.015;
 
 fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Duration) {
     if !entrance {
@@ -160,6 +162,8 @@ pub struct Engine {
     cluster_cache: ClusterCache,
     /// Scratch buffer for GPU N-body position collection (avoids per-frame alloc).
     gpu_positions_scratch: Vec<[f32; 2]>,
+    /// Scratch buffer for search-highlight node IDs (avoids per-query alloc).
+    search_highlight_ids_scratch: Vec<u32>,
 }
 
 impl Engine {
@@ -189,7 +193,7 @@ impl Engine {
             semantic_neighbors: Vec::new(),
             time_filter: None,
             version_store: VersionStore::new(),
-            quality_level: 0,  // Cinematic
+            quality_level: 0, // Cinematic
             btk_trees: HashMap::new(),
             btk_logs: HashMap::new(),
             world: World::new(),
@@ -198,6 +202,7 @@ impl Engine {
             highlight_dirty: true,
             cluster_cache: ClusterCache::new(),
             gpu_positions_scratch: Vec::new(),
+            search_highlight_ids_scratch: Vec::new(),
         })
     }
 
@@ -246,7 +251,9 @@ impl Engine {
             // Sort roots by degree descending (hubs first).
             let mut roots: Vec<usize> = (0..n).collect();
             roots.sort_unstable_by(|&a, &b| {
-                self.graph.nodes[b].link_count.cmp(&self.graph.nodes[a].link_count)
+                self.graph.nodes[b]
+                    .link_count
+                    .cmp(&self.graph.nodes[a].link_count)
             });
 
             let mut placed = vec![false; n];
@@ -255,7 +262,9 @@ impl Engine {
             let mut component_max_x: f32;
 
             for &root in &roots {
-                if placed[root] { continue; }
+                if placed[root] {
+                    continue;
+                }
 
                 // Place component root.
                 self.graph.nodes[root].x = component_offset_x;
@@ -271,14 +280,17 @@ impl Engine {
                     let py = self.graph.nodes[parent].y;
 
                     // Collect unplaced children.
-                    let children: Vec<usize> = adj[parent].iter()
+                    let children: Vec<usize> = adj[parent]
+                        .iter()
                         .filter(|&&c| !placed[c])
                         .copied()
                         .collect();
 
                     let child_count = children.len();
                     for (i, child) in children.into_iter().enumerate() {
-                        if placed[child] { continue; }
+                        if placed[child] {
+                            continue;
+                        }
 
                         // Golden-angle fan around parent — avoids overlap patterns.
                         let angle = i as f32 * golden_angle;
@@ -335,6 +347,12 @@ impl Engine {
                         }
                     }
                 }
+                if !entrance {
+                    sim.sustain_interaction_motion_for(
+                        INTERACTION_MOTION_HOLD,
+                        INTERACTION_MOTION_ALPHA_TARGET,
+                    );
+                }
             }
         }
 
@@ -346,7 +364,8 @@ impl Engine {
 
         {
             let sim = self.sim.lock();
-            self.world.sync_clusters(&sim.cluster_ids, &sim.graph_indices);
+            self.world
+                .sync_clusters(&sim.cluster_ids, &sim.graph_indices);
             self.renderer.link_distance = sim.params.link_distance;
         }
 
@@ -391,7 +410,8 @@ impl Engine {
     }
 
     fn ensure_cluster_assignments(cluster_cache: &mut ClusterCache, sim: &mut Simulation) {
-        let topology_fingerprint = ClusterCache::topology_fingerprint(&sim.graph_indices, &sim.edges);
+        let topology_fingerprint =
+            ClusterCache::topology_fingerprint(&sim.graph_indices, &sim.edges);
         if cluster_cache.is_valid(topology_fingerprint)
             && let Some(level1) = cluster_cache.level1_assignments()
         {
@@ -435,6 +455,10 @@ impl Engine {
             if !sim.static_layout {
                 sim.params.alpha = 0.10;
                 sim.is_settled = false;
+                sim.sustain_interaction_motion_for(
+                    INTERACTION_MOTION_HOLD,
+                    INTERACTION_MOTION_ALPHA_TARGET,
+                );
             }
         }
 
@@ -442,7 +466,8 @@ impl Engine {
         self.world = World::from_graph(&self.graph);
         {
             let sim = self.sim.lock();
-            self.world.sync_clusters(&sim.cluster_ids, &sim.graph_indices);
+            self.world
+                .sync_clusters(&sim.cluster_ids, &sim.graph_indices);
             self.renderer.link_distance = sim.params.link_distance;
         }
 
@@ -505,7 +530,8 @@ impl Engine {
         self.world = World::from_graph(&self.graph);
         {
             let sim = self.sim.lock();
-            self.world.sync_clusters(&sim.cluster_ids, &sim.graph_indices);
+            self.world
+                .sync_clusters(&sim.cluster_ids, &sim.graph_indices);
         }
 
         // Re-upload ECS world to renderer (only visible nodes are drawn).
@@ -547,55 +573,59 @@ impl Engine {
     /// Extrapolates positions using velocity * time-since-last-tick for smooth
     /// sub-tick motion at display refresh rate (120Hz renders, 40Hz physics).
     fn sync_all_positions(&mut self) {
-        let sim = self.sim.lock();
-        let n = sim.x.len();
+        {
+            let sim = self.sim.lock();
+            let n = sim.x.len();
 
-        // Time since last physics tick — used to extrapolate positions forward.
-        // Clamped to prevent overshoot if physics thread stalls.
-        let dt = sim.last_tick_instant.elapsed().as_secs_f32().min(0.05);
+            // Time since last physics tick — used to extrapolate positions forward.
+            // Clamped to prevent overshoot if physics thread stalls.
+            let dt = sim.last_tick_instant.elapsed().as_secs_f32().min(0.05);
 
-        // Graph nodes (indexed by graph_indices mapping)
-        for (si, &gi) in sim.graph_indices.iter().enumerate() {
-            if gi < self.graph.nodes.len() {
-                self.graph.nodes[gi].x = sim.x[si] + sim.vx[si] * dt;
-                self.graph.nodes[gi].y = sim.y[si] + sim.vy[si] * dt;
-                self.graph.nodes[gi].vx = sim.vx[si];
-                self.graph.nodes[gi].vy = sim.vy[si];
+            // Graph nodes (indexed by graph_indices mapping)
+            for (si, &gi) in sim.graph_indices.iter().enumerate() {
+                if gi < self.graph.nodes.len() {
+                    self.graph.nodes[gi].x = sim.x[si] + sim.vx[si] * dt;
+                    self.graph.nodes[gi].y = sim.y[si] + sim.vy[si] * dt;
+                    self.graph.nodes[gi].vx = sim.vx[si];
+                    self.graph.nodes[gi].vy = sim.vy[si];
+                }
+            }
+
+            // ECS World (direct index) — size mismatch means commit() hasn't rebuilt yet.
+            if self.world.len() != n {
+                return;
+            }
+
+            // Flat physics arrays — extrapolated positions for renderer, raw for physics.
+            self.world.px.resize(n, 0.0);
+            self.world.py.resize(n, 0.0);
+            self.world.pvx.resize(n, 0.0);
+            self.world.pvy.resize(n, 0.0);
+            // Minimum speed² below which extrapolation is skipped (avoids noise amplification).
+            const EXTRAP_THRESHOLD_SQ: f32 = 0.25; // 0.5 px/tick
+            for i in 0..n {
+                let vx = sim.vx[i];
+                let vy = sim.vy[i];
+                let speed_sq = vx * vx + vy * vy;
+                let (ex, ey) = if speed_sq > EXTRAP_THRESHOLD_SQ {
+                    (sim.x[i] + vx * dt, sim.y[i] + vy * dt)
+                } else {
+                    (sim.x[i], sim.y[i])
+                };
+                self.world.transform[i].x = ex;
+                self.world.transform[i].y = ey;
+                self.world.velocity[i].vx = vx;
+                self.world.velocity[i].vy = vy;
+                self.world.px[i] = ex;
+                self.world.py[i] = ey;
+                self.world.pvx[i] = vx;
+                self.world.pvy[i] = vy;
             }
         }
 
-        // ECS World (direct index) — size mismatch means commit() hasn't rebuilt yet.
-        if self.world.len() != n {
-            return;
-        }
-
-        // Flat physics arrays — extrapolated positions for renderer, raw for physics.
-        self.world.px.resize(n, 0.0);
-        self.world.py.resize(n, 0.0);
-        self.world.pvx.resize(n, 0.0);
-        self.world.pvy.resize(n, 0.0);
-        // Minimum speed² below which extrapolation is skipped (avoids noise amplification).
-        const EXTRAP_THRESHOLD_SQ: f32 = 0.25; // 0.5 px/tick
-        for i in 0..n {
-            let vx = sim.vx[i];
-            let vy = sim.vy[i];
-            let speed_sq = vx * vx + vy * vy;
-            let (ex, ey) = if speed_sq > EXTRAP_THRESHOLD_SQ {
-                (sim.x[i] + vx * dt, sim.y[i] + vy * dt)
-            } else {
-                (sim.x[i], sim.y[i])
-            };
-            self.world.transform[i].x = ex;
-            self.world.transform[i].y = ey;
-            self.world.velocity[i].vx = vx;
-            self.world.velocity[i].vy = vy;
-            self.world.px[i] = ex;
-            self.world.py[i] = ey;
-            self.world.pvx[i] = vx;
-            self.world.pvy[i] = vy;
-        }
-
-        self.world.spatial_grid.rebuild(&self.world.entities, &self.world.transform);
+        self.world
+            .spatial_grid
+            .rebuild(&self.world.entities, &self.world.transform);
     }
 
     /// Render one frame. Returns 1 if another frame is needed, 0 if GPU can idle.
@@ -637,15 +667,26 @@ impl Engine {
             self.gpu_positions_scratch.clear();
             self.gpu_positions_scratch.reserve(n);
             for i in 0..n {
-                self.gpu_positions_scratch.push([self.world.transform[i].x, self.world.transform[i].y]);
+                self.gpu_positions_scratch
+                    .push([self.world.transform[i].x, self.world.transform[i].y]);
             }
             let (charge, alpha, dmax) = {
                 let sim = self.sim.lock();
-                (sim.params.charge_strength, sim.params.alpha, sim.params.charge_range)
+                (
+                    sim.params.charge_strength,
+                    sim.params.alpha,
+                    sim.params.charge_range,
+                )
             };
             let dmin = 1.0_f32;
 
-            if let Some(forces) = self.renderer.dispatch_gpu_nbody(&self.gpu_positions_scratch, charge, alpha, dmax, dmin) {
+            if let Some(forces) = self.renderer.dispatch_gpu_nbody(
+                &self.gpu_positions_scratch,
+                charge,
+                alpha,
+                dmax,
+                dmin,
+            ) {
                 let mut sim = self.sim.lock();
                 sim.gpu_nbody_forces = Some(forces);
             }
@@ -663,9 +704,14 @@ impl Engine {
         let camera_moving = self.renderer.is_animating;
         let camera_refresh_due = self.camera_rebuild_pending && !camera_moving;
         let instance_buffers_changed = positions_changed || viewport_changed || camera_refresh_due;
-        let dialogue_animating = self.renderer.dialogue.active && self.renderer.dialogue.is_streaming;
-        let needs_frame =
-            sim_active || camera_moving || viewport_changed || camera_refresh_due || self.highlight_dirty || dialogue_animating;
+        let dialogue_animating =
+            self.renderer.dialogue.active && self.renderer.dialogue.is_streaming;
+        let needs_frame = sim_active
+            || camera_moving
+            || viewport_changed
+            || camera_refresh_due
+            || self.highlight_dirty
+            || dialogue_animating;
 
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
@@ -711,7 +757,8 @@ impl Engine {
             self.renderer.dialogue.active,
         ) {
             let time = self.renderer.start_time.elapsed().as_secs_f32();
-            self.renderer.update_field_lines(self.hovered_id, &self.world, time);
+            self.renderer
+                .update_field_lines(self.hovered_id, &self.world, time);
         } else if self.renderer.field_line_count > 0 {
             self.renderer.update_field_lines(None, &self.world, 0.0);
         }
@@ -739,7 +786,9 @@ impl Engine {
     pub fn node_screen_pos(&self, uuid: &str) -> Option<[f32; 2]> {
         let &id = self.graph.uuid_to_id.get(uuid)?;
         let index = self.world.index_of_node_id(id)?;
-        if index >= self.world.len() { return None; }
+        if index >= self.world.len() {
+            return None;
+        }
         let wx = self.world.transform[index].x;
         let wy = self.world.transform[index].y;
         let w = self.viewport_width as f32;
@@ -852,7 +901,9 @@ impl Engine {
             let dvy = wy - prev_world[1];
 
             let drag = self.drag.as_mut().unwrap();
-            if is_real_drag { drag.moved = true; }
+            if is_real_drag {
+                drag.moved = true;
+            }
             drag.last_world = [wx, wy];
 
             let mut sim = self.sim.lock();
@@ -880,6 +931,12 @@ impl Engine {
             let mut sim = self.sim.lock();
             sim.unfix_node(drag.sim_index);
             sim.params.alpha_target = 0.0; // Resume normal cooldown
+            if drag.moved {
+                sim.sustain_interaction_motion_for(
+                    INTERACTION_MOTION_HOLD,
+                    INTERACTION_MOTION_ALPHA_TARGET,
+                );
+            }
             drop(sim);
 
             // Click (not a drag) → highlight node + neighbors (no camera zoom).
@@ -1040,21 +1097,17 @@ impl Engine {
             return;
         }
 
-        let query_lower = query.to_lowercase();
-        let mut ids = FxHashSet::default();
+        let ids = &mut self.renderer.highlight.highlighted_ids;
+        ids.clear();
+        self.search_index
+            .collect_contains_match_node_ids(query, &mut self.search_highlight_ids_scratch);
 
-        for node in &self.graph.nodes {
-            if node.label.to_lowercase().contains(&query_lower) {
-                ids.insert(node.id);
-            }
-        }
-
-        if ids.is_empty() {
+        if self.search_highlight_ids_scratch.is_empty() {
             // No matches — keep highlight active but with empty set (dims everything).
-            self.renderer.highlight.highlighted_ids.clear();
             self.renderer.highlight.active = true;
         } else {
-            self.renderer.highlight.highlighted_ids = ids;
+            ids.reserve(self.search_highlight_ids_scratch.len());
+            ids.extend(self.search_highlight_ids_scratch.iter().copied());
             self.renderer.highlight.active = true;
         }
         self.highlight_dirty = true;
@@ -1234,7 +1287,8 @@ impl Engine {
     pub fn sync_semantic_neighbors(&mut self) {
         let mut sim = self.sim.lock();
         // Build graph_index → sim_index reverse map
-        let mut graph_to_sim: rustc_hash::FxHashMap<usize, usize> = rustc_hash::FxHashMap::default();
+        let mut graph_to_sim: rustc_hash::FxHashMap<usize, usize> =
+            rustc_hash::FxHashMap::default();
         for (si, &gi) in sim.graph_indices.iter().enumerate() {
             graph_to_sim.insert(gi, si);
         }
@@ -1388,7 +1442,6 @@ impl Engine {
         self.renderer.visual_theme = VisualTheme::from_u8(theme);
     }
 
-
     /// Set per-node color override by UUID. Pass alpha=0 to clear.
     /// Updates both Graph node and ECS RenderComponent for theme-agnostic rendering.
     pub fn set_node_color_override(&mut self, uuid: &str, r: f32, g: f32, b: f32, a: f32) {
@@ -1516,10 +1569,8 @@ impl Engine {
             if let Some(idx) = self.world.index_of_node_id(id) {
                 self.renderer.dialogue.active = true;
                 self.renderer.dialogue.node_index = Some(idx);
-                self.renderer.dialogue.look_target_world = [
-                    self.world.transform[idx].x,
-                    self.world.transform[idx].y,
-                ];
+                self.renderer.dialogue.look_target_world =
+                    [self.world.transform[idx].x, self.world.transform[idx].y];
                 self.idle_frame_count = 0;
             }
         }
@@ -1762,8 +1813,14 @@ mod tests {
         let g1 = make_graph();
         let mut g2 = g1.clone();
         g2.nodes[0].x = 999.0;
-        assert!((g1.nodes[0].x - (-50.0)).abs() < f32::EPSILON, "original unchanged");
-        assert!((g2.nodes[0].x - 999.0).abs() < f32::EPSILON, "clone modified");
+        assert!(
+            (g1.nodes[0].x - (-50.0)).abs() < f32::EPSILON,
+            "original unchanged"
+        );
+        assert!(
+            (g2.nodes[0].x - 999.0).abs() < f32::EPSILON,
+            "clone modified"
+        );
     }
 
     // ── Deep Stress Tests ──────────────────────────────────────────────
@@ -1806,7 +1863,10 @@ mod tests {
         for _ in 0..600 {
             sim.tick();
         }
-        assert!(sim.is_settled, "500-node sim should settle within 600 ticks");
+        assert!(
+            sim.is_settled,
+            "500-node sim should settle within 600 ticks"
+        );
     }
 
     #[test]
@@ -1822,8 +1882,18 @@ mod tests {
         for i in 0..sim.x.len() {
             assert!(sim.x[i].is_finite(), "x[{}] is not finite: {}", i, sim.x[i]);
             assert!(sim.y[i].is_finite(), "y[{}] is not finite: {}", i, sim.y[i]);
-            assert!(sim.vx[i].is_finite(), "vx[{}] is not finite: {}", i, sim.vx[i]);
-            assert!(sim.vy[i].is_finite(), "vy[{}] is not finite: {}", i, sim.vy[i]);
+            assert!(
+                sim.vx[i].is_finite(),
+                "vx[{}] is not finite: {}",
+                i,
+                sim.vx[i]
+            );
+            assert!(
+                sim.vy[i].is_finite(),
+                "vy[{}] is not finite: {}",
+                i,
+                sim.vy[i]
+            );
         }
     }
 
@@ -1914,13 +1984,22 @@ mod tests {
         spatial.build(&graph.nodes);
 
         // Test hit detection on node "a".
-        let (wx, wy) = ((sx - viewport_w as f32 * 0.5) / zoom + offset[0], (sy - viewport_h as f32 * 0.5) / zoom + offset[1]);
+        let (wx, wy) = (
+            (sx - viewport_w as f32 * 0.5) / zoom + offset[0],
+            (sy - viewport_h as f32 * 0.5) / zoom + offset[1],
+        );
         let hit = spatial.query_point(wx, wy);
         assert_eq!(hit, Some(0), "should hit node 'a' (id=0)");
 
         // Test miss on background.
-        let (bx, by) = ((-300.0 - offset[0]) * zoom + viewport_w as f32 * 0.5, (300.0 - offset[1]) * zoom + viewport_h as f32 * 0.5);
-        let (bwx, bwy) = ((bx - viewport_w as f32 * 0.5) / zoom + offset[0], (by - viewport_h as f32 * 0.5) / zoom + offset[1]);
+        let (bx, by) = (
+            (-300.0 - offset[0]) * zoom + viewport_w as f32 * 0.5,
+            (300.0 - offset[1]) * zoom + viewport_h as f32 * 0.5,
+        );
+        let (bwx, bwy) = (
+            (bx - viewport_w as f32 * 0.5) / zoom + offset[0],
+            (by - viewport_h as f32 * 0.5) / zoom + offset[1],
+        );
         let bg_hit = spatial.query_point(bwx, bwy);
         assert_eq!(bg_hit, None, "background click should miss all nodes");
     }
@@ -2088,7 +2167,10 @@ mod tests {
     #[test]
     fn entrance_presettle_budget_is_bounded() {
         let (ticks, budget) = presettle_limits(1_900, true);
-        assert!(ticks < 1_200, "entrance pre-settle should no longer block on 1200 ticks");
+        assert!(
+            ticks < 1_200,
+            "entrance pre-settle should no longer block on 1200 ticks"
+        );
         assert!(budget <= Duration::from_millis(6));
     }
 
@@ -2286,16 +2368,25 @@ mod tests {
         assert_eq!(sim.params.alpha, 0.0, "alpha should be 0 for static layout");
 
         // Edges should NOT be in simulation (skipped for performance).
-        assert!(sim.edges.is_empty(), "static layout should not load physics edges");
+        assert!(
+            sim.edges.is_empty(),
+            "static layout should not load physics edges"
+        );
 
         // Degrees should still be computed (needed for node radius sizing).
         let total_deg: u32 = sim.degrees.iter().sum();
-        assert!(total_deg > 0, "degrees should be computed for static layout");
+        assert!(
+            total_deg > 0,
+            "degrees should be computed for static layout"
+        );
 
         // tick() should be a no-op.
         let x_before: Vec<f32> = sim.x.clone();
         sim.tick();
-        assert_eq!(sim.x, x_before, "tick() should not modify positions in static layout");
+        assert_eq!(
+            sim.x, x_before,
+            "tick() should not modify positions in static layout"
+        );
 
         // Verify no NaN/Inf in positions.
         for i in 0..sim.x.len() {
@@ -2304,7 +2395,10 @@ mod tests {
         }
 
         // All velocities should be zero.
-        assert!(sim.vx.iter().all(|&v| v == 0.0), "velocities should be zero");
+        assert!(
+            sim.vx.iter().all(|&v| v == 0.0),
+            "velocities should be zero"
+        );
     }
 
     // ── Anime aesthetic feature tests ────────────────────────────────

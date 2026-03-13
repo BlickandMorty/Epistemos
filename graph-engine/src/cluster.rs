@@ -13,11 +13,10 @@ use rustc_hash::FxHashMap;
 ///
 /// Max iterations scale with graph size to keep commit() responsive:
 /// <500 nodes → 20 passes, 500-2000 → 10, 2000+ → 5.
-pub fn detect_communities(
-    n: usize,
-    edges: &[(usize, usize)],
-) -> Vec<u32> {
-    if n == 0 { return Vec::new(); }
+pub fn detect_communities(n: usize, edges: &[(usize, usize)]) -> Vec<u32> {
+    if n == 0 {
+        return Vec::new();
+    }
     if edges.is_empty() {
         return (0..n as u32).collect();
     }
@@ -37,7 +36,15 @@ pub fn detect_communities(
 
     // Scale max iterations with graph size to keep commit() responsive.
     // Above 5K we skip Louvain entirely (handled in engine.rs), but guard here too.
-    let max_passes = if n < 500 { 20 } else if n < 2000 { 10 } else if n < 5000 { 5 } else { 2 };
+    let max_passes = if n < 500 {
+        20
+    } else if n < 2000 {
+        10
+    } else if n < 5000 {
+        5
+    } else {
+        2
+    };
 
     for _ in 0..max_passes {
         let mut improved = false;
@@ -66,7 +73,9 @@ pub fn detect_communities(
             let mut best_gain = 0.0f64;
 
             for (&comm, &ki_in_c) in &ki_to {
-                if comm == current { continue; }
+                if comm == current {
+                    continue;
+                }
                 let sigma_c = sigma.get(&comm).copied().unwrap_or(0.0);
 
                 // ΔQ = (k_{i,C} - k_{i,current}) / 2m
@@ -89,7 +98,9 @@ pub fn detect_communities(
             }
         }
 
-        if !improved { break; }
+        if !improved {
+            break;
+        }
     }
 
     // Renumber communities to be contiguous (0, 1, 2, ...).
@@ -128,9 +139,13 @@ mod tests {
     #[test]
     fn two_cliques_detected() {
         let edges = vec![
-            (0, 1), (1, 2), (0, 2),  // clique A
-            (3, 4), (4, 5), (3, 5),  // clique B
-            (2, 3),                    // bridge
+            (0, 1),
+            (1, 2),
+            (0, 2), // clique A
+            (3, 4),
+            (4, 5),
+            (3, 5), // clique B
+            (2, 3), // bridge
         ];
         let result = detect_communities(6, &edges);
         assert_eq!(result.len(), 6);
@@ -138,19 +153,22 @@ mod tests {
         assert_eq!(result[1], result[2]);
         assert_eq!(result[3], result[4]);
         assert_eq!(result[4], result[5]);
-        assert_ne!(result[0], result[3], "two cliques should be different clusters");
+        assert_ne!(
+            result[0], result[3],
+            "two cliques should be different clusters"
+        );
     }
 
     #[test]
     fn single_component_one_cluster() {
-        let edges = vec![(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)];
+        let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
         let result = detect_communities(4, &edges);
         assert!(result.iter().all(|&c| c == result[0]));
     }
 
     #[test]
     fn ring_graph() {
-        let edges = vec![(0,1),(1,2),(2,3),(3,4),(4,5),(5,0)];
+        let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)];
         let result = detect_communities(6, &edges);
         assert_eq!(result.len(), 6);
         let max_cluster = *result.iter().max().unwrap();
@@ -247,7 +265,7 @@ mod tests {
         let n = 5;
         let mut edges = vec![];
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -268,19 +286,19 @@ mod tests {
         let mut edges = vec![];
         // Clique A: nodes 0-4
         for i in 0..5 {
-            for j in (i+1)..5 {
+            for j in (i + 1)..5 {
                 edges.push((i, j));
             }
         }
         // Clique B: nodes 5-9
         for i in 5..10 {
-            for j in (i+1)..10 {
+            for j in (i + 1)..10 {
                 edges.push((i, j));
             }
         }
         // Single bridge edge
         edges.push((4, 5));
-        
+
         let result = detect_communities(10, &edges);
         assert_eq!(result.len(), 10);
         // Should detect two communities
@@ -292,9 +310,14 @@ mod tests {
     #[test]
     fn louvain_with_multiple_bridges() {
         let edges = vec![
-            (0, 1), (1, 2), (2, 0), // Triangle A
-            (3, 4), (4, 5), (5, 3), // Triangle B
-            (0, 3), (1, 4), // Two bridges
+            (0, 1),
+            (1, 2),
+            (2, 0), // Triangle A
+            (3, 4),
+            (4, 5),
+            (5, 3), // Triangle B
+            (0, 3),
+            (1, 4), // Two bridges
         ];
         let result = detect_communities(6, &edges);
         assert_eq!(result.len(), 6);
@@ -306,8 +329,12 @@ mod tests {
     #[test]
     fn louvain_converges() {
         let edges = vec![
-            (0, 1), (1, 2), (2, 3), (3, 0), // Square with cross
-            (0, 2), (1, 3),
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0), // Square with cross
+            (0, 2),
+            (1, 3),
         ];
         let result = detect_communities(4, &edges);
         assert_eq!(result.len(), 4);
@@ -318,7 +345,8 @@ mod tests {
     #[test]
     fn louvain_renumbers_contiguous() {
         let edges = vec![
-            (0, 1), (2, 3), // Two separate edges
+            (0, 1),
+            (2, 3), // Two separate edges
         ];
         let result = detect_communities(4, &edges);
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
@@ -331,7 +359,8 @@ mod tests {
     fn louvain_handles_self_loops() {
         // Self-loops should not affect clustering
         let edges = vec![
-            (0, 1), (1, 0),
+            (0, 1),
+            (1, 0),
             (0, 0), // Self-loop
         ];
         let result = detect_communities(2, &edges);
@@ -344,7 +373,7 @@ mod tests {
         let n = 20;
         let mut edges = vec![];
         for i in 0..n {
-            for j in (i+1)..n {
+            for j in (i + 1)..n {
                 edges.push((i, j));
             }
         }
@@ -357,9 +386,15 @@ mod tests {
     fn louvain_balanced_bipartite() {
         // Complete bipartite graph K_{3,3}
         let edges = vec![
-            (0, 3), (0, 4), (0, 5),
-            (1, 3), (1, 4), (1, 5),
-            (2, 3), (2, 4), (2, 5),
+            (0, 3),
+            (0, 4),
+            (0, 5),
+            (1, 3),
+            (1, 4),
+            (1, 5),
+            (2, 3),
+            (2, 4),
+            (2, 5),
         ];
         let result = detect_communities(6, &edges);
         assert_eq!(result.len(), 6);
@@ -370,13 +405,16 @@ mod tests {
     #[test]
     fn louvain_chain_graph() {
         let n = 10;
-        let edges: Vec<(usize, usize)> = (0..n-1).map(|i| (i, i+1)).collect();
+        let edges: Vec<(usize, usize)> = (0..n - 1).map(|i| (i, i + 1)).collect();
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), n);
         // Chain should be mostly connected
         let unique: std::collections::HashSet<u32> = result.iter().copied().collect();
         // Chain is connected, but Louvain may split it into several communities
-        assert!(unique.len() <= n, "should have reasonable number of clusters");
+        assert!(
+            unique.len() <= n,
+            "should have reasonable number of clusters"
+        );
     }
 
     #[test]
@@ -394,12 +432,18 @@ mod tests {
     fn louvain_grid_graph() {
         // 3x3 grid
         let edges = vec![
-            (0, 1), (1, 2),
-            (3, 4), (4, 5),
-            (6, 7), (7, 8),
-            (0, 3), (3, 6),
-            (1, 4), (4, 7),
-            (2, 5), (5, 8),
+            (0, 1),
+            (1, 2),
+            (3, 4),
+            (4, 5),
+            (6, 7),
+            (7, 8),
+            (0, 3),
+            (3, 6),
+            (1, 4),
+            (4, 7),
+            (2, 5),
+            (5, 8),
         ];
         let result = detect_communities(9, &edges);
         assert_eq!(result.len(), 9);
@@ -458,7 +502,12 @@ mod tests {
     fn cluster_assignment_contiguous_ids() {
         let edges = vec![(0, 1), (2, 3), (4, 5)];
         let result = detect_communities(6, &edges);
-        let mut unique: Vec<u32> = result.iter().copied().collect::<std::collections::HashSet<_>>().into_iter().collect();
+        let mut unique: Vec<u32> = result
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
         unique.sort();
         // IDs should be 0, 1, 2, ...
         for (i, &c) in unique.iter().enumerate() {
@@ -495,13 +544,13 @@ mod tests {
         let mut edges = vec![];
         // Cluster 1: dense connections
         for i in 0..10 {
-            for j in (i+1)..10 {
+            for j in (i + 1)..10 {
                 edges.push((i, j));
             }
         }
         // Cluster 2: dense connections
         for i in 10..20 {
-            for j in (i+1)..20 {
+            for j in (i + 1)..20 {
                 edges.push((i, j));
             }
         }
@@ -515,9 +564,13 @@ mod tests {
     fn cluster_assignment_bridge_node() {
         // Two cliques connected by a single node
         let edges = vec![
-            (0, 1), (1, 2), (2, 0), // Clique A
+            (0, 1),
+            (1, 2),
+            (2, 0), // Clique A
             (2, 3), // Bridge through node 2
-            (3, 4), (4, 5), (5, 3), // Clique B
+            (3, 4),
+            (4, 5),
+            (5, 3), // Clique B
         ];
         let result = detect_communities(6, &edges);
         assert_eq!(result.len(), 6);
@@ -527,7 +580,9 @@ mod tests {
     #[test]
     fn cluster_assignment_out_of_order_edges() {
         let edges = vec![
-            (5, 4), (3, 2), (1, 0),
+            (5, 4),
+            (3, 2),
+            (1, 0),
             (2, 1), // Creates chain: 0-1-2-3
         ];
         let result = detect_communities(6, &edges);
@@ -561,10 +616,7 @@ mod tests {
 
     #[test]
     fn modularity_complete_bipartite() {
-        let edges = vec![
-            (0, 2), (0, 3),
-            (1, 2), (1, 3),
-        ];
+        let edges = vec![(0, 2), (0, 3), (1, 2), (1, 3)];
         let result = detect_communities(4, &edges);
         assert_eq!(result.len(), 4);
         // K_{2,2} should form appropriate clusters
@@ -574,8 +626,12 @@ mod tests {
     fn modularity_gain_positive() {
         // When moving improves modularity
         let edges = vec![
-            (0, 1), (0, 2), (1, 2), // Triangle
-            (3, 4), (3, 5), (4, 5), // Another triangle
+            (0, 1),
+            (0, 2),
+            (1, 2), // Triangle
+            (3, 4),
+            (3, 5),
+            (4, 5), // Another triangle
             (2, 3), // Single bridge
         ];
         let result = detect_communities(6, &edges);
@@ -588,7 +644,9 @@ mod tests {
     fn modularity_with_weights() {
         // Edge weights affect modularity
         let edges = vec![
-            (0, 1), (1, 2), (2, 0), // Strong triangle
+            (0, 1),
+            (1, 2),
+            (2, 0), // Strong triangle
             (3, 4), // Weak connection
         ];
         let result = detect_communities(5, &edges);
@@ -599,8 +657,12 @@ mod tests {
     fn modularity_two_equivalent_clusters() {
         // Two identical clusters should be detected
         let edges = vec![
-            (0, 1), (1, 2), (2, 0), // Triangle 1
-            (3, 4), (4, 5), (5, 3), // Triangle 2
+            (0, 1),
+            (1, 2),
+            (2, 0), // Triangle 1
+            (3, 4),
+            (4, 5),
+            (5, 3), // Triangle 2
         ];
         let result = detect_communities(6, &edges);
         assert_eq!(result[0], result[1]);
@@ -622,13 +684,13 @@ mod tests {
         let mut edges = vec![];
         // Dense cluster 1
         for i in 0..5 {
-            for j in (i+1)..5 {
+            for j in (i + 1)..5 {
                 edges.push((i, j));
             }
         }
         // Dense cluster 2
         for i in 5..10 {
-            for j in (i+1)..10 {
+            for j in (i + 1)..10 {
                 edges.push((i, j));
             }
         }
@@ -642,8 +704,12 @@ mod tests {
     fn modularity_converges_to_local_optimum() {
         // Louvain finds local optimum, not necessarily global
         let edges = vec![
-            (0, 1), (1, 2), (2, 0), // Triangle
-            (0, 3), (3, 4), (4, 0), // Another triangle sharing node 0
+            (0, 1),
+            (1, 2),
+            (2, 0), // Triangle
+            (0, 3),
+            (3, 4),
+            (4, 0), // Another triangle sharing node 0
         ];
         let result = detect_communities(5, &edges);
         assert_eq!(result.len(), 5);
@@ -654,8 +720,12 @@ mod tests {
     fn modularity_symmetric_structure() {
         // Symmetric graph should give symmetric clustering
         let edges = vec![
-            (0, 1), (1, 2), (0, 2), // Left triangle
-            (3, 4), (4, 5), (3, 5), // Right triangle
+            (0, 1),
+            (1, 2),
+            (0, 2), // Left triangle
+            (3, 4),
+            (4, 5),
+            (3, 5), // Right triangle
             (2, 3), // Center connection
         ];
         let result = detect_communities(6, &edges);
@@ -680,7 +750,7 @@ mod tests {
     fn iterations_medium_graph() {
         // 500-2000 nodes get max 10 passes
         let n = 1000;
-        let edges: Vec<(usize, usize)> = (0..n-1).map(|i| (i, i+1)).collect();
+        let edges: Vec<(usize, usize)> = (0..n - 1).map(|i| (i, i + 1)).collect();
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), n);
     }
@@ -689,7 +759,7 @@ mod tests {
     fn iterations_large_graph() {
         // 2000+ nodes get max 5 passes
         let n = 2500;
-        let edges: Vec<(usize, usize)> = (0..n-1).map(|i| (i, i+1)).collect();
+        let edges: Vec<(usize, usize)> = (0..n - 1).map(|i| (i, i + 1)).collect();
         let result = detect_communities(n, &edges);
         assert_eq!(result.len(), n);
     }
@@ -704,10 +774,7 @@ mod tests {
 
     #[test]
     fn convergence_stable_result() {
-        let edges = vec![
-            (0, 1), (1, 2), (2, 0),
-            (3, 4), (4, 5), (5, 3),
-        ];
+        let edges = vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)];
         let result1 = detect_communities(6, &edges);
         let result2 = detect_communities(6, &edges);
         // Multiple runs should give same result
@@ -719,8 +786,9 @@ mod tests {
         // More complex graph requires more iterations
         let mut edges = vec![];
         for i in 0..20 {
-            for j in (i+1)..20 {
-                if j - i <= 3 { // Local connections
+            for j in (i + 1)..20 {
+                if j - i <= 3 {
+                    // Local connections
                     edges.push((i, j));
                 }
             }
@@ -732,8 +800,14 @@ mod tests {
     #[test]
     fn convergence_with_cycles() {
         let edges = vec![
-            (0, 1), (1, 2), (2, 3), (3, 0), // Cycle 1
-            (4, 5), (5, 6), (6, 7), (7, 4), // Cycle 2
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0), // Cycle 1
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4), // Cycle 2
             (0, 4), // Bridge
         ];
         let result = detect_communities(8, &edges);
@@ -744,8 +818,16 @@ mod tests {
     fn convergence_random_graph() {
         // Random-like connections
         let edges: Vec<(usize, usize)> = vec![
-            (0, 3), (0, 7), (1, 5), (1, 9), (2, 4),
-            (2, 8), (3, 6), (4, 7), (5, 9), (6, 8),
+            (0, 3),
+            (0, 7),
+            (1, 5),
+            (1, 9),
+            (2, 4),
+            (2, 8),
+            (3, 6),
+            (4, 7),
+            (5, 9),
+            (6, 8),
         ];
         let result = detect_communities(10, &edges);
         assert_eq!(result.len(), 10);
@@ -753,9 +835,7 @@ mod tests {
 
     #[test]
     fn convergence_multiple_components() {
-        let edges = vec![
-            (0, 1), (2, 3), (4, 5), (6, 7),
-        ];
+        let edges = vec![(0, 1), (2, 3), (4, 5), (6, 7)];
         let result = detect_communities(8, &edges);
         assert_eq!(result.len(), 8);
         // Four pairs, each in separate cluster

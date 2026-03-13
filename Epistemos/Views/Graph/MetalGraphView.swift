@@ -4,6 +4,145 @@ import os
 import Synchronization
 import SwiftData
 
+struct GraphNodeBatchPayload {
+    var ids: [String] = []
+    var xs: [Float] = []
+    var ys: [Float] = []
+    var types: [UInt8] = []
+    var linkCounts: [UInt32] = []
+    var labels: [String] = []
+
+    var isEmpty: Bool { ids.isEmpty }
+}
+
+struct GraphEdgeBatchPayload {
+    var sourceIds: [String] = []
+    var targetIds: [String] = []
+    var weights: [Float] = []
+    var types: [UInt8] = []
+
+    var isEmpty: Bool { sourceIds.isEmpty }
+}
+
+@MainActor
+func makeVisibleNodeBatchPayload<Nodes: Collection>(
+    from nodes: Nodes,
+    store: GraphStore,
+    filter: FilterEngine
+) -> GraphNodeBatchPayload where Nodes.Element == GraphNodeRecord {
+    var payload = GraphNodeBatchPayload()
+    payload.ids.reserveCapacity(nodes.count)
+    payload.xs.reserveCapacity(nodes.count)
+    payload.ys.reserveCapacity(nodes.count)
+    payload.types.reserveCapacity(nodes.count)
+    payload.linkCounts.reserveCapacity(nodes.count)
+    payload.labels.reserveCapacity(nodes.count)
+
+    for node in nodes {
+        guard filter.isNodeVisible(node) else { continue }
+        payload.ids.append(node.id)
+        payload.xs.append(node.position.x)
+        payload.ys.append(node.position.y)
+        payload.types.append(node.type.rustIndex)
+        payload.linkCounts.append(store.linkCount(for: node.id))
+        payload.labels.append(node.label)
+    }
+    return payload
+}
+
+@MainActor
+func makeVisibleEdgeBatchPayload<Edges: Collection>(
+    from edges: Edges,
+    store: GraphStore,
+    filter: FilterEngine
+) -> GraphEdgeBatchPayload where Edges.Element == GraphEdgeRecord {
+    var payload = GraphEdgeBatchPayload()
+    payload.sourceIds.reserveCapacity(edges.count)
+    payload.targetIds.reserveCapacity(edges.count)
+    payload.weights.reserveCapacity(edges.count)
+    payload.types.reserveCapacity(edges.count)
+
+    for edge in edges {
+        let srcVisible = store.nodes[edge.sourceNodeId].map { filter.isNodeVisible($0) } ?? false
+        let tgtVisible = store.nodes[edge.targetNodeId].map { filter.isNodeVisible($0) } ?? false
+        guard filter.isEdgeVisible(edge, sourceVisible: srcVisible, targetVisible: tgtVisible) else { continue }
+        payload.sourceIds.append(edge.sourceNodeId)
+        payload.targetIds.append(edge.targetNodeId)
+        payload.weights.append(Float(edge.weight))
+        payload.types.append(edge.type.rustIndex)
+    }
+    return payload
+}
+
+func sendNodeBatch(_ payload: GraphNodeBatchPayload, to engine: OpaquePointer) {
+    guard !payload.isEmpty else { return }
+    withStableCStringArray(payload.ids) { uuidPtrs in
+        withStableCStringArray(payload.labels) { labelPtrs in
+            payload.xs.withUnsafeBufferPointer { xs in
+                payload.ys.withUnsafeBufferPointer { ys in
+                    payload.types.withUnsafeBufferPointer { types in
+                        payload.linkCounts.withUnsafeBufferPointer { linkCounts in
+                            graph_engine_add_nodes_batch(
+                                engine,
+                                uuidPtrs.baseAddress,
+                                xs.baseAddress,
+                                ys.baseAddress,
+                                types.baseAddress,
+                                linkCounts.baseAddress,
+                                labelPtrs.baseAddress,
+                                UInt32(payload.ids.count)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+func sendEdgeBatch(_ payload: GraphEdgeBatchPayload, to engine: OpaquePointer) {
+    guard !payload.isEmpty else { return }
+    withStableCStringArray(payload.sourceIds) { sourcePtrs in
+        withStableCStringArray(payload.targetIds) { targetPtrs in
+            payload.weights.withUnsafeBufferPointer { weights in
+                payload.types.withUnsafeBufferPointer { types in
+                    graph_engine_add_edges_batch(
+                        engine,
+                        sourcePtrs.baseAddress,
+                        targetPtrs.baseAddress,
+                        weights.baseAddress,
+                        types.baseAddress,
+                        UInt32(payload.sourceIds.count)
+                    )
+                }
+            }
+        }
+    }
+}
+
+func sendNodeRemovalBatch(_ nodeIds: [String], to engine: OpaquePointer) {
+    guard !nodeIds.isEmpty else { return }
+    withStableCStringArray(nodeIds) { uuidPtrs in
+        graph_engine_remove_nodes_batch(engine, uuidPtrs.baseAddress, UInt32(nodeIds.count))
+    }
+}
+
+func withStableCStringArray(
+    _ strings: [String],
+    body: (UnsafeMutableBufferPointer<UnsafePointer<CChar>?>) -> Void
+) {
+    let cStrings = strings.compactMap { strdup($0) }
+    guard cStrings.count == strings.count else {
+        cStrings.forEach { free($0) }
+        return
+    }
+    defer { cStrings.forEach { free($0) } }
+    var pointers: [UnsafePointer<CChar>?] = cStrings.map { UnsafePointer($0) }
+    pointers.withUnsafeMutableBufferPointer { buffer in
+        body(buffer)
+    }
+}
+
 // MARK: - MetalGraphView
 // NSViewRepresentable wrapping a CAMetalLayer for the Rust graph engine.
 // Bridges SwiftUI ↔ Metal ↔ Rust FFI. The engine owns the render loop;
@@ -107,11 +246,6 @@ final class MetalGraphNSView: NSView {
     private var cachedColorTheme: GraphVisualTheme = .dialogue
     private var cachedDepthColors: [String: DialogueDepthColor] = [:]
 
-    /// Callback for background tap (click without drag). Used for click-outside dismiss.
-    var onBackgroundTap: (() -> Void)?
-    /// Optional callback for when a node is tapped. Receives the node's sourceId.
-    /// Used by in-note graph mode to navigate to the tapped note.
-    var onNodeTap: ((String) -> Void)?
     private var mouseDownLocation: CGPoint?
     private var isDraggingNode = false
     private var isPanning = false
@@ -122,6 +256,8 @@ final class MetalGraphNSView: NSView {
 
     // Track whether graph data has been committed.
     private(set) var isCommitted = false
+
+    var currentEngineHandle: OpaquePointer? { engine }
 
     /// When true, uses transparent clear color so blur shows through (hologram overlay mode).
     /// Setting this automatically applies the transparent clear color to the Rust engine.
@@ -179,8 +315,6 @@ final class MetalGraphNSView: NSView {
         let devicePtr = Unmanaged.passUnretained(device).toOpaque()
         let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
         engine = graph_engine_create(devicePtr, layerPtr)
-
-        // Share the engine handle with GraphState for Rust-side search/queries.
         graphState?.engineHandle = engine
 
         startDisplayLink()
@@ -248,112 +382,19 @@ final class MetalGraphNSView: NSView {
 
         graph_engine_clear(engine)
 
-        // Collect visible nodes into batch arrays.
-        var nodeIds: [String] = []
-        var nodeXs: [Float] = []
-        var nodeYs: [Float] = []
-        var nodeTypes: [UInt8] = []
-        var nodeLinkCounts: [UInt32] = []
-        var nodeLabels: [String] = []
+        let nodePayload = makeVisibleNodeBatchPayload(
+            from: store.nodes.values,
+            store: store,
+            filter: filter
+        )
+        sendNodeBatch(nodePayload, to: engine)
 
-        for (_, node) in store.nodes {
-            guard filter.isNodeVisible(node) else { continue }
-            nodeIds.append(node.id)
-            nodeXs.append(node.position.x)
-            nodeYs.append(node.position.y)
-            nodeTypes.append(node.type.rustIndex)
-            nodeLinkCounts.append(store.linkCount(for: node.id))
-            nodeLabels.append(node.label)
-        }
-
-        // Batch-add all nodes in a single FFI call.
-        if !nodeIds.isEmpty {
-            // strdup keeps C strings alive until free() — safe across FFI boundary.
-            let uuidCPtrs: [UnsafeMutablePointer<CChar>] = nodeIds.compactMap { strdup($0) }
-            let labelCPtrs: [UnsafeMutablePointer<CChar>] = nodeLabels.compactMap { strdup($0) }
-            guard uuidCPtrs.count == nodeIds.count, labelCPtrs.count == nodeLabels.count else {
-                uuidCPtrs.forEach { free($0) }
-                labelCPtrs.forEach { free($0) }
-                return
-            }
-            defer {
-                uuidCPtrs.forEach { free($0) }
-                labelCPtrs.forEach { free($0) }
-            }
-            var uuidPtrs: [UnsafePointer<CChar>?] = uuidCPtrs.map { UnsafePointer($0) }
-            var labelPtrs: [UnsafePointer<CChar>?] = labelCPtrs.map { UnsafePointer($0) }
-            uuidPtrs.withUnsafeMutableBufferPointer { uPtrs in
-                labelPtrs.withUnsafeMutableBufferPointer { lPtrs in
-                    nodeXs.withUnsafeBufferPointer { xs in
-                        nodeYs.withUnsafeBufferPointer { ys in
-                            nodeTypes.withUnsafeBufferPointer { types in
-                                nodeLinkCounts.withUnsafeBufferPointer { links in
-                                    graph_engine_add_nodes_batch(
-                                        engine,
-                                        uPtrs.baseAddress,
-                                        xs.baseAddress,
-                                        ys.baseAddress,
-                                        types.baseAddress,
-                                        links.baseAddress,
-                                        lPtrs.baseAddress,
-                                        UInt32(nodeIds.count)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Collect visible edges into batch arrays.
-        var edgeSrcs: [String] = []
-        var edgeTgts: [String] = []
-        var edgeWeights: [Float] = []
-        var edgeTypes: [UInt8] = []
-
-        for (_, edge) in store.edges {
-            let srcVisible = store.nodes[edge.sourceNodeId].map { filter.isNodeVisible($0) } ?? false
-            let tgtVisible = store.nodes[edge.targetNodeId].map { filter.isNodeVisible($0) } ?? false
-            guard filter.isEdgeVisible(edge, sourceVisible: srcVisible, targetVisible: tgtVisible) else { continue }
-            edgeSrcs.append(edge.sourceNodeId)
-            edgeTgts.append(edge.targetNodeId)
-            edgeWeights.append(Float(edge.weight))
-            edgeTypes.append(edge.type.rustIndex)
-        }
-
-        // Batch-add all edges in a single FFI call.
-        if !edgeSrcs.isEmpty {
-            let srcCPtrs: [UnsafeMutablePointer<CChar>] = edgeSrcs.compactMap { strdup($0) }
-            let tgtCPtrs: [UnsafeMutablePointer<CChar>] = edgeTgts.compactMap { strdup($0) }
-            guard srcCPtrs.count == edgeSrcs.count, tgtCPtrs.count == edgeTgts.count else {
-                srcCPtrs.forEach { free($0) }
-                tgtCPtrs.forEach { free($0) }
-                return
-            }
-            defer {
-                srcCPtrs.forEach { free($0) }
-                tgtCPtrs.forEach { free($0) }
-            }
-            var srcPtrs: [UnsafePointer<CChar>?] = srcCPtrs.map { UnsafePointer($0) }
-            var tgtPtrs: [UnsafePointer<CChar>?] = tgtCPtrs.map { UnsafePointer($0) }
-            srcPtrs.withUnsafeMutableBufferPointer { sPtrs in
-                tgtPtrs.withUnsafeMutableBufferPointer { tPtrs in
-                    edgeWeights.withUnsafeBufferPointer { wts in
-                        edgeTypes.withUnsafeBufferPointer { types in
-                            graph_engine_add_edges_batch(
-                                engine,
-                                sPtrs.baseAddress,
-                                tPtrs.baseAddress,
-                                wts.baseAddress,
-                                types.baseAddress,
-                                UInt32(edgeSrcs.count)
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        let edgePayload = makeVisibleEdgeBatchPayload(
+            from: store.edges.values,
+            store: store,
+            filter: filter
+        )
+        sendEdgeBatch(edgePayload, to: engine)
 
         // Entrance animation: always play for small graphs (under static threshold),
         // skip for large graphs or when already committed (mid-session recommit).
@@ -447,37 +488,24 @@ final class MetalGraphNSView: NSView {
         let store = graphState.store
         let filter = graphState.filter
 
-        for node in graphState.pendingNodeAdds {
-            guard filter.isNodeVisible(node) else { continue }
-            let linkCount = store.linkCount(for: node.id)
-            node.id.withCString { uuidPtr in
-                node.label.withCString { labelPtr in
-                    graph_engine_add_node(
-                        engine, uuidPtr,
-                        node.position.x, node.position.y,
-                        node.type.rustIndex, linkCount,
-                        labelPtr
-                    )
-                }
-            }
-        }
+        let nodePayload = makeVisibleNodeBatchPayload(
+            from: graphState.pendingNodeAdds,
+            store: store,
+            filter: filter
+        )
+        sendNodeBatch(nodePayload, to: engine)
 
-        for edge in graphState.pendingEdgeAdds {
-            let srcVisible = store.nodes[edge.sourceNodeId].map { filter.isNodeVisible($0) } ?? false
-            let tgtVisible = store.nodes[edge.targetNodeId].map { filter.isNodeVisible($0) } ?? false
-            guard filter.isEdgeVisible(edge, sourceVisible: srcVisible, targetVisible: tgtVisible) else { continue }
-            edge.sourceNodeId.withCString { srcPtr in
-                edge.targetNodeId.withCString { tgtPtr in
-                    graph_engine_add_edge(engine, srcPtr, tgtPtr, Float(edge.weight), edge.type.rustIndex)
-                }
-            }
-        }
+        let edgePayload = makeVisibleEdgeBatchPayload(
+            from: graphState.pendingEdgeAdds,
+            store: store,
+            filter: filter
+        )
+        sendEdgeBatch(edgePayload, to: engine)
 
-        if !graphState.pendingNodeAdds.isEmpty || !graphState.pendingEdgeAdds.isEmpty {
+        if !nodePayload.isEmpty || !edgePayload.isEmpty {
             graph_engine_commit_incremental(engine)
-            let pendingIds = graphState.pendingNodeAdds.map(\.id)
-            if !pendingIds.isEmpty {
-                applyDialogueDepthPalette(for: pendingIds)
+            if !nodePayload.ids.isEmpty {
+                applyDialogueDepthPalette(for: nodePayload.ids)
             }
         }
 
@@ -490,11 +518,7 @@ final class MetalGraphNSView: NSView {
     private func commitIncrementalRemovals(graphState: GraphState) {
         guard let engine else { return }
 
-        for nodeId in graphState.pendingNodeRemovals {
-            nodeId.withCString { uuid in
-                graph_engine_remove_node(engine, uuid)
-            }
-        }
+        sendNodeRemovalBatch(graphState.pendingNodeRemovals, to: engine)
 
         for (srcId, tgtId) in graphState.pendingEdgeRemovals {
             srcId.withCString { srcPtr in
@@ -511,8 +535,6 @@ final class MetalGraphNSView: NSView {
         graphState.pendingNodeRemovals.removeAll()
         graphState.pendingEdgeRemovals.removeAll()
     }
-
-    // MARK: - Lightweight Filter Sync
 
     /// Toggle node visibility in Rust to match the current filter state.
     /// Much cheaper than commitGraphData() — no clear/re-add/commit cycle.
@@ -541,6 +563,7 @@ final class MetalGraphNSView: NSView {
     var lastClusterConfigVersion: Int = -1
     var lastSemanticClusterVersion: Int = -1
     var lastFilterVersion: Int = 0
+    var lastModeVersion: Int = 0
     var lastPhysicsFrozenVersion: Int = 0
     var lastLabConfigVersion: Int = -1
 
@@ -752,16 +775,19 @@ final class MetalGraphNSView: NSView {
             pushSemanticClusters()
         }
 
-        // Minimize request: post notification for the overlay to handle.
-        if let graphState, graphState.pendingMinimize {
-            graphState.pendingMinimize = false
-            NotificationCenter.default.post(name: .graphMinimizeRequested, object: nil)
-        }
-
-        // Close request: post notification for the overlay to handle.
-        if let graphState, graphState.pendingClose {
-            graphState.pendingClose = false
-            NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
+        if let graphState, lastModeVersion != graphState.modeVersion {
+            lastModeVersion = graphState.modeVersion
+            let isPageMode: Bool = {
+                if case .page = graphState.mode { return true }
+                return false
+            }()
+            setGraphMode(isPageMode ? 1 : 0)
+            if isPageMode {
+                zoomInClose()
+            } else {
+                graph_engine_zoom_to_fit(engine)
+            }
+            needsRender = true
         }
 
         // Lightweight filter sync: toggle node visibility in Rust without full recommit.
@@ -774,13 +800,6 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastPhysicsFrozenVersion != graphState.physicsFrozenVersion {
             lastPhysicsFrozenVersion = graphState.physicsFrozenVersion
             graph_engine_set_user_frozen(engine, graphState.isPhysicsFrozen ? 1 : 0)
-            needsRender = true
-        }
-
-        // Reset view: zoom to fit all visible nodes.
-        if let graphState, graphState.pendingResetView {
-            graphState.pendingResetView = false
-            graph_engine_zoom_to_fit(engine)
             needsRender = true
         }
 
@@ -819,6 +838,7 @@ final class MetalGraphNSView: NSView {
                 if case .page = graphState.mode { return true }
                 return false
             }()
+            lastModeVersion = graphState.modeVersion
             setGraphMode(isPageMode ? 1 : 0)
             commitGraphData()
             if isPageMode {
@@ -973,23 +993,8 @@ final class MetalGraphNSView: NSView {
             if graphState?.isPhysicsFrozen == true {
                 centerOnNode(uuid)
             }
-
-            // Notify in-note graph mode about the tap (if callback is set).
-            if let onNodeTap, let sourceId = graphState?.store.nodes[uuid]?.sourceId {
-                onNodeTap(sourceId)
-            }
         } else {
             graphState?.selectNode(nil)
-
-            // Background tap: if mouse barely moved, treat as click-outside dismiss.
-            // Disabled in mini mode — mini graph stays open.
-            if !isMiniMode, let down = mouseDownLocation {
-                let up = convert(event.locationInWindow, from: nil)
-                let dx = up.x - down.x, dy = up.y - down.y
-                if dx * dx + dy * dy < 25 { // 5px threshold
-                    onBackgroundTap?()
-                }
-            }
         }
 
         // Reset cursor based on hover state.
@@ -1419,6 +1424,7 @@ final class MetalGraphNSView: NSView {
 
 extension Notification.Name {
     static let graphMinimizeRequested = Notification.Name("EpistemosGraphMinimizeRequested")
+    static let graphResetRequested = Notification.Name("EpistemosGraphResetRequested")
     static let graphRestoreRequested = Notification.Name("EpistemosGraphRestoreRequested")
     static let graphCloseRequested = Notification.Name("EpistemosGraphCloseRequested")
 }

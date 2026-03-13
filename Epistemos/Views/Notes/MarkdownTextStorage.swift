@@ -52,6 +52,16 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         if let theme { return Self.nsColor(hex: theme.headingAccentHex) }
         return Self.accentColor(isDark: isDark)
     }
+    private var resolvedMarkdownHeadingAccentColor: NSColor {
+        if let theme { return Self.nsColor(hex: theme.markdownHeadingAccentHex) }
+        return resolvedAccentColor
+    }
+    private var resolvedPreferredMarkdownLinkColor: NSColor {
+        if let theme, let preferredMarkdownLinkHex = theme.preferredMarkdownLinkHex {
+            return Self.nsColor(hex: preferredMarkdownLinkHex)
+        }
+        return resolvedAccentColor
+    }
     private var resolvedMutedColor: NSColor {
         if let theme { return Self.nsColor(hex: theme.mutedForegroundHex) }
         return Self.mutedColor(isDark: isDark)
@@ -320,37 +330,50 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         guard range.location + range.length <= backing.length else { return }
         let t = line.trimmingCharacters(in: .whitespaces)
         let accentColor = resolvedAccentColor
+        let headingAccentColor = resolvedMarkdownHeadingAccentColor
         let mutedColor = resolvedMutedColor
         let foregroundColor = resolvedForegroundColor
+        let h1Color = theme.map { Self.nsColor(hex: MarkdownHeadingDisplay.foregroundHex(for: $0, level: 1)) }
+            ?? headingAccentColor
 
         if t.hasPrefix("# ") && !t.hasPrefix("## ") {
             backing.addAttributes([
                 .font: displayFont(size: baseFontSize + 31, weight: .bold),
-                .foregroundColor: accentColor,
+                .foregroundColor: h1Color,
                 .paragraphStyle: leadingDocumentContentIsEmpty(before: range.location)
                     ? Self.leadingH1Style
                     : Self.h1Style
             ], range: range)
             // Ulysses-style: override # prefix with tiny font + muted color
-            dimH1Prefix(in: line, lineStart: range.location)
+            dimH1Prefix(in: line, lineStart: range.location, color: h1Color.withAlphaComponent(0.55))
 
         } else if t.hasPrefix("## ") && !t.hasPrefix("### ") {
             backing.addAttributes([
                 .font: displayFont(size: baseFontSize + 5, weight: .bold),
-                .foregroundColor: accentColor,
+                .foregroundColor: headingAccentColor,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
-                .underlineColor: accentColor.withAlphaComponent(0.18),
+                .underlineColor: headingAccentColor.withAlphaComponent(0.18),
                 .paragraphStyle: Self.h2Style
             ], range: range)
-            dimPrefix(in: line, prefix: "## ", lineStart: range.location, color: accentColor.withAlphaComponent(0.5))
+            dimPrefix(
+                in: line,
+                prefix: "## ",
+                lineStart: range.location,
+                color: headingAccentColor.withAlphaComponent(0.5)
+            )
 
         } else if t.hasPrefix("### ") && !t.hasPrefix("#### ") {
             backing.addAttributes([
                 .font: displayFont(size: baseFontSize + 1, weight: .semibold),
-                .foregroundColor: accentColor,
+                .foregroundColor: headingAccentColor,
                 .paragraphStyle: Self.h3Style
             ], range: range)
-            dimPrefix(in: line, prefix: "### ", lineStart: range.location, color: accentColor.withAlphaComponent(0.45))
+            dimPrefix(
+                in: line,
+                prefix: "### ",
+                lineStart: range.location,
+                color: headingAccentColor.withAlphaComponent(0.45)
+            )
 
         } else if t.hasPrefix("#### ") && !t.hasPrefix("##### ") {
             backing.addAttributes([
@@ -626,6 +649,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         let utf8ToUtf16 = Self.buildUtf8ToUtf16Map(substring)
 
         let accentColor = resolvedAccentColor
+        let linkAccentColor = resolvedPreferredMarkdownLinkColor
         let mutedColor = resolvedMutedColor
         let ghostMarker: [NSAttributedString.Key: Any] = [
             .foregroundColor: isDark
@@ -658,7 +682,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
             applySpanStyle(
                 span.style, group: span.group, range: spanRange,
-                ghost: ghostMarker, accent: accentColor, muted: mutedColor
+                ghost: ghostMarker, accent: accentColor, linkAccent: linkAccentColor, muted: mutedColor
             )
         }
     }
@@ -667,10 +691,15 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private func applySpanStyle(
         _ style: UInt8, group: UInt8, range: NSRange,
         ghost: [NSAttributedString.Key: Any],
-        accent: NSColor, muted: NSColor
+        accent: NSColor, linkAccent: NSColor, muted: NSColor
     ) {
         let existingFont = backing.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont
             ?? NSFont.systemFont(ofSize: baseFontSize)
+        let existingForeground = backing.attribute(
+            .foregroundColor,
+            at: range.location,
+            effectiveRange: nil
+        ) as? NSColor ?? resolvedForegroundColor
         let size = existingFont.pointSize
 
         switch style {
@@ -679,20 +708,26 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             if range.length > 4 {
                 let content = NSRange(location: range.location + 2, length: range.length - 4)
                 backing.addAttributes([
-                    .font: displayFont(size: size, weight: .bold)
+                    .font: AppDisplayTypography.preservingFamilyFont(
+                        from: existingFont,
+                        size: size,
+                        bold: true
+                    ),
+                    .foregroundColor: existingForeground
                 ], range: content)
             }
 
-        case 5: // Italic — ghost markers, RetroGaming italic content
+        case 5: // Italic — ghost markers, italic content preserving the current family
             backing.addAttributes(ghost, range: range)
             if range.length > 2 {
                 let content = NSRange(location: range.location + 1, length: range.length - 2)
-                let retroItalic = NSFontManager.shared.convert(
-                    displayFont(size: size, weight: .regular),
-                    toHaveTrait: .italicFontMask
-                )
                 backing.addAttributes([
-                    .font: retroItalic
+                    .font: AppDisplayTypography.preservingFamilyFont(
+                        from: existingFont,
+                        size: size,
+                        italic: true
+                    ),
+                    .foregroundColor: existingForeground
                 ], range: content)
             }
 
@@ -720,13 +755,20 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         case 15: // Wikilink content — accent pill with native link handling
             let linkTitle = (backing.string as NSString).substring(with: range)
             let linkBg: NSColor = isDark
-                ? accent.withAlphaComponent(0.10)
-                : accent.withAlphaComponent(0.08)
+                ? linkAccent.withAlphaComponent(0.10)
+                : linkAccent.withAlphaComponent(0.08)
+            let existingTraits = NSFontManager.shared.traits(of: existingFont)
             backing.addAttributes([
-                .foregroundColor: accent,
+                .font: AppDisplayTypography.preservingFamilyFont(
+                    from: existingFont,
+                    size: size,
+                    bold: existingTraits.contains(.boldFontMask),
+                    italic: existingTraits.contains(.italicFontMask)
+                ),
+                .foregroundColor: linkAccent,
                 .backgroundColor: linkBg,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
-                .underlineColor: accent.withAlphaComponent(0.35),
+                .underlineColor: linkAccent.withAlphaComponent(0.35),
                 .link: "wikilink://\(linkTitle)" as NSString,
                 .cursor: NSCursor.pointingHand
             ], range: range)
@@ -746,13 +788,13 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                     if textLen > 0 {
                         let textRange = NSRange(location: range.location + 1, length: textLen)
                         let linkBg: NSColor = isDark
-                            ? accent.withAlphaComponent(0.08)
-                            : accent.withAlphaComponent(0.06)
+                            ? linkAccent.withAlphaComponent(0.08)
+                            : linkAccent.withAlphaComponent(0.06)
                         backing.addAttributes([
-                            .foregroundColor: accent,
+                            .foregroundColor: linkAccent,
                             .backgroundColor: linkBg,
                             .underlineStyle: NSUnderlineStyle.single.rawValue,
-                            .underlineColor: accent.withAlphaComponent(0.30)
+                            .underlineColor: linkAccent.withAlphaComponent(0.30)
                         ], range: textRange)
                     }
                 }
@@ -773,10 +815,10 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         case 24: // BlockReference content — accent + tinted background + native link
             let blockId = (backing.string as NSString).substring(with: range)
             backing.addAttributes([
-                .foregroundColor: accent,
-                .backgroundColor: accent.withAlphaComponent(isDark ? 0.10 : 0.08),
+                .foregroundColor: linkAccent,
+                .backgroundColor: linkAccent.withAlphaComponent(isDark ? 0.10 : 0.08),
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
-                .underlineColor: accent.withAlphaComponent(0.35),
+                .underlineColor: linkAccent.withAlphaComponent(0.35),
                 .link: "blockref://\(blockId)" as NSString,
                 .cursor: NSCursor.pointingHand
             ], range: range)
@@ -889,12 +931,12 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
     /// Ulysses-style H1 prefix: renders the `# ` marker as tiny + muted alongside the large title.
     /// Applied after the full-line H1 style so it overrides font size on just those 2 chars.
-    private func dimH1Prefix(in line: String, lineStart: Int) {
+    private func dimH1Prefix(in line: String, lineStart: Int, color: NSColor) {
         let leadingSpaces = line.prefix(while: { $0 == " " }).count
         let dimRange = NSRange(location: lineStart + leadingSpaces, length: 2) // "# "
         guard dimRange.location + dimRange.length <= backing.length else { return }
         backing.addAttributes([
-            .foregroundColor: resolvedAccentColor.withAlphaComponent(0.55),
+            .foregroundColor: color,
             .font: NSFont.systemFont(ofSize: max(baseFontSize - 5, 9), weight: .regular)
         ], range: dimRange)
     }

@@ -171,17 +171,19 @@ final class ProseTextView2: NSTextView {
                 as? NSTextContentStorage
         else { return }
 
+        let str = string as NSString
+        let paragraphRange = Self.paragraphNeighborhoodRange(in: str, around: lastEditLocation)
+
         markdownDelegate.reparse(text: string)
         updateVisibleLineRange()
 
         // Apply .link attributes directly to textStorage for wikilinks and block refs.
         // The delegate-provided NSTextParagraph attributes don't flow back to storage,
         // so NSTextView's clickedOnLink delegate never fires without this.
-        applyLinkAttributesToStorage()
+        applyLinkAttributesToStorage(in: paragraphRange, string: str)
+        lastEditLocation = nil
 
-        // Invalidate the full document so delegate re-provides all paragraphs.
-        let fullRange = contentStorage.documentRange
-        textLayoutManager?.invalidateLayout(for: fullRange)
+        invalidateLayout(in: contentStorage, nsRange: paragraphRange, stringLength: str.length)
     }
 
     /// Scan textStorage for wikilinks ([[...]]) and block refs (((...))) and apply
@@ -194,26 +196,33 @@ final class ProseTextView2: NSTextView {
         let str = storage.string as NSString
         guard str.length > 0 else { return }
 
-        // Scope: on edits, scan only the edited paragraph ± 1 line.
-        // On initial load / reparse-all (lastEditLocation == nil), scan full doc.
-        let scanRange: NSRange
-        if let editLoc = lastEditLocation, editLoc < str.length {
-            let paraRange = str.paragraphRange(for: NSRange(location: editLoc, length: 0))
-            let start =
-                paraRange.location > 0
-                ? str.paragraphRange(for: NSRange(location: paraRange.location - 1, length: 0))
-                    .location
-                : 0
-            let paraEnd = NSMaxRange(paraRange)
-            let end =
-                paraEnd < str.length
-                ? NSMaxRange(str.paragraphRange(for: NSRange(location: paraEnd, length: 0)))
-                : str.length
-            scanRange = NSRange(location: start, length: end - start)
-        } else {
-            scanRange = NSRange(location: 0, length: str.length)
-        }
+        let scanRange = Self.paragraphNeighborhoodRange(in: str, around: lastEditLocation)
+        applyLinkAttributesToStorage(in: scanRange, string: str)
         lastEditLocation = nil
+    }
+
+    static func paragraphNeighborhoodRange(in text: NSString, around editLocation: Int?) -> NSRange {
+        guard text.length > 0, let editLocation, editLocation < text.length else {
+            return NSRange(location: 0, length: text.length)
+        }
+
+        let paragraphRange = text.paragraphRange(for: NSRange(location: editLocation, length: 0))
+        let start =
+            paragraphRange.location > 0
+            ? text.paragraphRange(for: NSRange(location: paragraphRange.location - 1, length: 0))
+                .location
+            : 0
+        let paragraphEnd = NSMaxRange(paragraphRange)
+        let end =
+            paragraphEnd < text.length
+            ? NSMaxRange(text.paragraphRange(for: NSRange(location: paragraphEnd, length: 0)))
+            : text.length
+        return NSRange(location: start, length: end - start)
+    }
+
+    private func applyLinkAttributesToStorage(in scanRange: NSRange, string str: NSString) {
+        guard let storage = textStorage else { return }
+        guard str.length > 0 else { return }
 
         // Clear old wikilink/blockref links in scan range
         storage.enumerateAttribute(.link, in: scanRange, options: []) { val, range, _ in
@@ -244,6 +253,30 @@ final class ProseTextView2: NSTextView {
                     .link, value: "blockref://\(blockId)" as NSString, range: innerRange)
             }
         }
+    }
+
+    private func invalidateLayout(
+        in contentStorage: NSTextContentStorage,
+        nsRange: NSRange,
+        stringLength: Int
+    ) {
+        guard let textLayoutManager else { return }
+        guard stringLength > 0,
+              !(nsRange.location == 0 && nsRange.length == stringLength),
+              let startLoc = contentStorage.location(
+                contentStorage.documentRange.location,
+                offsetBy: nsRange.location
+              ),
+              let endLoc = contentStorage.location(
+                startLoc,
+                offsetBy: nsRange.length
+              ),
+              let textRange = NSTextRange(location: startLoc, end: endLoc) else {
+            textLayoutManager.invalidateLayout(for: contentStorage.documentRange)
+            return
+        }
+
+        textLayoutManager.invalidateLayout(for: textRange)
     }
 
     // MARK: - Viewport Tracking (Phase 6)
