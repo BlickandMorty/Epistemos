@@ -559,6 +559,12 @@ final class VaultSyncService {
             Log.vault.error("Failed to save before page export (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
         }
 
+        let expectedBodyHash = if let page = try? context.fetch(descriptor).first {
+            SDPage.bodyHash(page.loadBody(mapped: true))
+        } else {
+            ""
+        }
+
         Task {
             do {
                 let exportedPath = try await self.exportPage(pageId: pageId, to: vaultURL)
@@ -566,15 +572,20 @@ final class VaultSyncService {
                 await MainActor.run {
                     let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
                     if let page = try? context.fetch(desc).first {
-                        page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody())
-                        page.lastSyncedAt = .now
-                        page.needsVaultSync = false
+                        let currentHash = SDPage.bodyHash(page.loadBody(mapped: true))
+                        if currentHash == expectedBodyHash {
+                            page.lastSyncedBodyHash = currentHash
+                            page.lastSyncedAt = .now
+                            page.needsVaultSync = false
+                            SpotlightIndexer.index(page)
+                        } else {
+                            page.needsVaultSync = true
+                        }
                         do {
                             try context.save()
                         } catch {
                             Log.vault.error("Failed to save sync tracking for page (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
                         }
-                        SpotlightIndexer.index(page)
                     }
                 }
 

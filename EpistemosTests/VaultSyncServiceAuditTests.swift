@@ -20,13 +20,15 @@ struct VaultSyncServiceAuditTests {
 
     actor ExportGate {
         private var didStart = false
-        private var waiters: [CheckedContinuation<Void, Never>] = []
+        private var didFinish = false
+        private var startWaiters: [CheckedContinuation<Void, Never>] = []
+        private var finishWaiters: [CheckedContinuation<Void, Never>] = []
 
         func markStarted() {
             guard !didStart else { return }
             didStart = true
-            let waiters = self.waiters
-            self.waiters.removeAll()
+            let waiters = self.startWaiters
+            self.startWaiters.removeAll()
             for waiter in waiters {
                 waiter.resume()
             }
@@ -38,7 +40,27 @@ struct VaultSyncServiceAuditTests {
             }
 
             await withCheckedContinuation { continuation in
-                waiters.append(continuation)
+                startWaiters.append(continuation)
+            }
+        }
+
+        func markFinished() {
+            guard !didFinish else { return }
+            didFinish = true
+            let waiters = self.finishWaiters
+            self.finishWaiters.removeAll()
+            for waiter in waiters {
+                waiter.resume()
+            }
+        }
+
+        func waitUntilFinished() async {
+            if didFinish {
+                return
+            }
+
+            await withCheckedContinuation { continuation in
+                finishWaiters.append(continuation)
             }
         }
     }
@@ -235,6 +257,61 @@ struct VaultSyncServiceAuditTests {
         #expect(savedPage?.needsVaultSync == false)
         #expect(savedPage?.lastSyncedAt != oldDate)
         #expect(savedPage?.lastSyncedBodyHash == SDPage.bodyHash("body after export started"))
+    }
+
+    @Test("savePage keeps newer edits dirty when export finishes with stale content")
+    func savePageKeepsNewerEditsDirty() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        let oldDate = Date(timeIntervalSince1970: 1_000)
+        let page = SDPage(title: "Manual Save Race")
+        page.body = "body before save"
+        page.lastSyncedBodyHash = "old-save-hash"
+        page.lastSyncedAt = oldDate
+        page.needsVaultSync = true
+        context.insert(page)
+        try context.save()
+
+        let pageID = page.id
+        let gate = ExportGate()
+
+        service.setExportPageOverrideForTesting { _, _ in
+            await gate.markStarted()
+            try? await Task.sleep(for: .milliseconds(50))
+            await gate.markFinished()
+            return "/tmp/\(pageID).md"
+        }
+
+        service.savePage(pageId: pageID)
+        await gate.waitUntilStarted()
+
+        let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageID })
+        guard let mutatedPage = try context.fetch(desc).first else {
+            Issue.record("Missing page during save mutation")
+            return
+        }
+
+        mutatedPage.body = "body after save started"
+        mutatedPage.needsVaultSync = true
+        try context.save()
+
+        await gate.waitUntilFinished()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        guard let savedPage = try context.fetch(desc).first else {
+            Issue.record("Missing page after save")
+            return
+        }
+
+        #expect(savedPage.needsVaultSync)
+        #expect(savedPage.lastSyncedAt == oldDate)
+        #expect(savedPage.lastSyncedBodyHash == "old-save-hash")
     }
 
     @Test("movePage relocates the markdown file into the target vault subfolder")
