@@ -175,10 +175,17 @@ actor SearchIndexService {
     }
 
     private nonisolated static func detectFeatures(_ db: DatabaseQueue) throws -> SearchIndexFeatures {
-        try db.read { db in
-            SearchIndexFeatures(
-                pageFTS5: try tableExists("page_search", db: db),
-                blockFTS5: try tableExists("block_search", db: db)
+        try db.write { db in
+            let fts5Available = try isFTS5Available(db)
+            if !fts5Available {
+                try dropFTSDependentTriggers(db)
+            }
+
+            let pageFTS5 = fts5Available ? try tableExists("page_search", db: db) : false
+            let blockFTS5 = fts5Available ? try tableExists("block_search", db: db) : false
+            return SearchIndexFeatures(
+                pageFTS5: pageFTS5,
+                blockFTS5: blockFTS5
             )
         }
     }
@@ -193,6 +200,26 @@ actor SearchIndexService {
 
     private nonisolated static func isMissingFTS5Module(_ error: Error) -> Bool {
         String(describing: error).localizedCaseInsensitiveContains("no such module: fts5")
+    }
+
+    private nonisolated static func isFTS5Available(_ db: Database) throws -> Bool {
+        do {
+            try db.execute(sql: "CREATE VIRTUAL TABLE temp.fts5_probe USING fts5(content)")
+            try db.execute(sql: "DROP TABLE temp.fts5_probe")
+            return true
+        } catch {
+            guard isMissingFTS5Module(error) else { throw error }
+            return false
+        }
+    }
+
+    private nonisolated static func dropFTSDependentTriggers(_ db: Database) throws {
+        try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_pages_ai")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_pages_ad")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_pages_au")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_blocks_ai")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_blocks_ad")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_blocks_au")
     }
 
     // MARK: - Search

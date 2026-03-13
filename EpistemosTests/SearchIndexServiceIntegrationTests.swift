@@ -51,6 +51,50 @@ struct SearchIndexServiceIntegrationTests {
         throw lastError ?? SearchIndexError.noAppSupportDirectory
     }
 
+    private func makeLegacyFTSDatabase(_ databaseURL: URL) throws {
+        try FileManager.default.createDirectory(
+            at: databaseURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        let schema = """
+        CREATE TABLE IF NOT EXISTS indexed_pages (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            tags TEXT,
+            updatedAt REAL NOT NULL
+        );
+        CREATE VIRTUAL TABLE IF NOT EXISTS page_search USING fts5(
+            title, body, tags,
+            content='indexed_pages',
+            content_rowid='rowid',
+            tokenize='unicode61'
+        );
+        CREATE TRIGGER IF NOT EXISTS indexed_pages_ai AFTER INSERT ON indexed_pages BEGIN
+            INSERT INTO page_search(rowid, title, body, tags)
+            VALUES (new.rowid, new.title, new.body, new.tags);
+        END;
+        CREATE TRIGGER IF NOT EXISTS indexed_pages_ad AFTER DELETE ON indexed_pages BEGIN
+            INSERT INTO page_search(page_search, rowid, title, body, tags)
+            VALUES ('delete', old.rowid, old.title, old.body, old.tags);
+        END;
+        CREATE TRIGGER IF NOT EXISTS indexed_pages_au AFTER UPDATE ON indexed_pages BEGIN
+            INSERT INTO page_search(page_search, rowid, title, body, tags)
+            VALUES ('delete', old.rowid, old.title, old.body, old.tags);
+            INSERT INTO page_search(rowid, title, body, tags)
+            VALUES (new.rowid, new.title, new.body, new.tags);
+        END;
+        """
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = [databaseURL.path, schema]
+        try process.run()
+        process.waitUntilExit()
+        #expect(process.terminationStatus == 0)
+    }
+
     @Test("upsert + search returns inserted page")
     func upsertAndSearchRoundTrip() throws {
         let setup = try makeService()
@@ -273,6 +317,30 @@ struct SearchIndexServiceIntegrationTests {
         ])
 
         let results = try withRetry { try service.search(query: token, limit: 20) }
+        #expect(results.contains { $0.pageId == pageId })
+    }
+
+    @Test("stale FTS schema falls back to plain-table search when module is unavailable")
+    func staleFTSSchemaFallsBackCleanly() throws {
+        let databaseURL = makeDatabaseURL()
+        let pageId = uniqueId("legacy-fts")
+        let token = uniqueToken("legacy")
+        try makeLegacyFTSDatabase(databaseURL)
+
+        let service = try SearchIndexService(databaseURL: databaseURL)
+        defer { cleanup(service, ids: [pageId]) }
+
+        try withRetry {
+            try service.upsert(
+                id: pageId,
+                title: "Legacy \(token)",
+                body: "Body \(token)",
+                tags: "fallback",
+                updatedAt: .now
+            )
+        }
+
+        let results = try withRetry { try service.search(query: token, limit: 10) }
         #expect(results.contains { $0.pageId == pageId })
     }
 }
