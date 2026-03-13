@@ -1221,24 +1221,29 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		BFF77836948D94BB5B886FF4 /* Build Rust Engine */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Build Rust Engine";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\"";
-		};
+			BFF77836948D94BB5B886FF4 /* Build Rust Engine */ = {
+				isa = PBXShellScriptBuildPhase;
+				buildActionMask = 2147483647;
+				files = (
+				);
+				inputFileListPaths = (
+				);
+				inputPaths = (
+					"$(SRCROOT)/build-rust.sh",
+					"$(SRCROOT)/graph-engine/Cargo.lock",
+					"$(SRCROOT)/graph-engine/Cargo.toml",
+					"$(SRCROOT)/graph-engine/src",
+				);
+				name = "Build Rust Engine";
+				outputFileListPaths = (
+				);
+				outputPaths = (
+					"$(SRCROOT)/build-rust/libgraph_engine.a",
+				);
+				runOnlyForDeploymentPostprocessing = 0;
+				shellPath = /bin/sh;
+				shellScript = "bash \"${SRCROOT}/build-rust.sh\"";
+			};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1555,12 +1560,14 @@
 			};
 			name = Debug;
 		};
-		72E220BA400328AE00D4CE85 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;
-				CODE_SIGN_IDENTITY = "-";
+			72E220BA400328AE00D4CE85 /* Release */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					ALWAYS_SEARCH_USER_PATHS = NO;
+					ALWAYS_USE_SEPARATE_HEADERMAPS = YES;
+					ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+					CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;
+					CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1581,12 +1588,14 @@
 			};
 			name = Release;
 		};
-		751706468F2EF5B25E04473B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;
-				CODE_SIGN_IDENTITY = "-";
+			751706468F2EF5B25E04473B /* Debug */ = {
+				isa = XCBuildConfiguration;
+				buildSettings = {
+					ALWAYS_SEARCH_USER_PATHS = NO;
+					ALWAYS_USE_SEPARATE_HEADERMAPS = YES;
+					ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+					CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos.entitlements;
+					CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
