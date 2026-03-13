@@ -91,6 +91,7 @@ final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> String?
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
+    fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
     private nonisolated static let defaultRecoveryVaultURL = URL(
         fileURLWithPath: "/Users/jojo/My mind",
         isDirectory: true
@@ -116,6 +117,7 @@ final class VaultSyncService {
     private var appSupportDirectoryURLOverride: URL?
     private var preferencesFileURLOverride: URL?
     private var recoverySnapshotRootURLOverride: URL?
+    private var defaults = UserDefaults.standard
 
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
@@ -123,7 +125,7 @@ final class VaultSyncService {
     /// Whether the vault is being imported/indexed. Starts true if a vault
     /// bookmark exists so the landing page shows a vault sync message on the
     /// very first frame, before the import Task even begins.
-    var isIndexing: Bool = UserDefaults.standard.data(forKey: "epistemos.vaultBookmark") != nil
+    var isIndexing = false
     var recoveryIssue: VaultRecoveryIssue?
     var isRecoveringLocalState = false
 
@@ -154,8 +156,11 @@ final class VaultSyncService {
     private let fileWatcherClock = ContinuousClock()
     private var fileWatcherIgnoreUntil: ContinuousClock.Instant?
 
-    init(modelContainer: ModelContainer) {
+    init(modelContainer: ModelContainer, userDefaults: UserDefaults = .standard) {
         self.modelContainer = modelContainer
+        self.defaults = userDefaults
+        self.isIndexing = userDefaults.data(forKey: Self.bookmarkKey) != nil
+        self.autoSaveInterval = userDefaults.double(forKey: Self.autoSaveIntervalKey)
     }
 
     func setVaultURLForTesting(_ vaultURL: URL?) {
@@ -189,6 +194,12 @@ final class VaultSyncService {
         recoverySnapshotRootURLOverride = url
     }
 
+    func setUserDefaultsForTesting(_ userDefaults: UserDefaults) {
+        defaults = userDefaults
+        isIndexing = userDefaults.data(forKey: Self.bookmarkKey) != nil
+        autoSaveInterval = userDefaults.double(forKey: Self.autoSaveIntervalKey)
+    }
+
     func setInitialImportCompletedForTesting(_ value: Bool) {
         initialImportCompleted = value
     }
@@ -210,16 +221,21 @@ final class VaultSyncService {
             includingResourceValuesForKeys: nil,
             relativeTo: nil
         ) {
-            UserDefaults.standard.set(bookmark, forKey: Self.bookmarkKey)
+            defaults.set(bookmark, forKey: Self.bookmarkKey)
         }
-        UserDefaults.standard.set(url.path, forKey: Self.lastVaultPathKey)
+        defaults.set(url.path, forKey: Self.lastVaultPathKey)
         recoveryIssue = nil
+    }
+
+    func clearPersistedVaultSelection() {
+        defaults.removeObject(forKey: Self.bookmarkKey)
+        defaults.removeObject(forKey: Self.lastVaultPathKey)
     }
 
     func shouldRunBodyCleanup(candidateVaultURL: URL?) async -> Bool {
         let snapshot = await buildVaultHealthSnapshot(
             candidateVaultURL: candidateVaultURL,
-            bookmarkExists: UserDefaults.standard.data(forKey: Self.bookmarkKey) != nil,
+            bookmarkExists: defaults.data(forKey: Self.bookmarkKey) != nil,
             restoreFailed: false
         )
         guard snapshot.initialImportCompleted else { return false }
@@ -317,7 +333,7 @@ final class VaultSyncService {
             initialImportCompleted: initialImportCompleted,
             hadPriorLocalState: !pages.isEmpty
                 || NoteFileStorage.managedBodyCount() > 0
-                || UserDefaults.standard.string(forKey: Self.lastVaultPathKey) != nil
+                || defaults.string(forKey: Self.lastVaultPathKey) != nil
         )
     }
 
@@ -328,7 +344,7 @@ final class VaultSyncService {
         if let vaultURL {
             return vaultURL
         }
-        if let hintedPath = UserDefaults.standard.string(forKey: Self.lastVaultPathKey),
+        if let hintedPath = defaults.string(forKey: Self.lastVaultPathKey),
            !hintedPath.isEmpty {
             return URL(fileURLWithPath: hintedPath, isDirectory: true)
         }
@@ -536,7 +552,7 @@ final class VaultSyncService {
         // 1. Brainiac.epistemos (rename session stored "epistemos.vaultBookmark" there)
         // 2. com.lucid.app (v2 stored "epistemos.vaultBookmark" there)
         // After bundle ID reverted to Brainiac.lucid-v3, those domains are orphaned.
-        var data = UserDefaults.standard.data(forKey: Self.bookmarkKey)
+        var data = defaults.data(forKey: Self.bookmarkKey)
         if let data {
             log.info("📦 Vault bookmark found in current domain (\(data.count) bytes)")
         } else {
@@ -553,7 +569,7 @@ final class VaultSyncService {
                     )
                     if let oldData {
                         data = oldData
-                        UserDefaults.standard.set(oldData, forKey: Self.bookmarkKey)
+                        defaults.set(oldData, forKey: Self.bookmarkKey)
                         oldSuite.removeObject(forKey: key)
                         log.info(
                             "📦 Migrated vault bookmark from \(suite, privacy: .public) (\(oldData.count) bytes)"
@@ -609,7 +625,7 @@ final class VaultSyncService {
             }
         }
         guard let url else {
-            UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
+            defaults.removeObject(forKey: Self.bookmarkKey)
             handleRestoreFailure(
                 reason: "📦 Failed to resolve vault bookmark",
                 bookmarkExists: true
@@ -632,12 +648,12 @@ final class VaultSyncService {
                     options: .withSecurityScope, includingResourceValuesForKeys: nil,
                     relativeTo: nil)
             {
-                UserDefaults.standard.set(fresh, forKey: Self.bookmarkKey)
+                defaults.set(fresh, forKey: Self.bookmarkKey)
                 log.info("Created fresh security-scoped bookmark for vault")
             }
         }
         if !gained {
-            UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
+            defaults.removeObject(forKey: Self.bookmarkKey)
             handleRestoreFailure(
                 reason: "Security scope not granted for vault bookmark",
                 bookmarkExists: true
@@ -648,7 +664,7 @@ final class VaultSyncService {
         let exists = FileManager.default.fileExists(atPath: url.path)
         if !exists {
             url.stopAccessingSecurityScopedResource()
-            UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
+            defaults.removeObject(forKey: Self.bookmarkKey)
             handleRestoreFailure(
                 reason: "Vault directory not found at \(url.path)",
                 bookmarkExists: true
@@ -660,7 +676,7 @@ final class VaultSyncService {
             if let fresh = try? url.bookmarkData(
                 options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
             {
-                UserDefaults.standard.set(fresh, forKey: Self.bookmarkKey)
+                defaults.set(fresh, forKey: Self.bookmarkKey)
             }
         }
 
@@ -698,7 +714,7 @@ final class VaultSyncService {
         self.isWatching = true
         self.initialImportCompleted = false
         self.recoveryIssue = nil
-        UserDefaults.standard.set(vaultURL.path, forKey: Self.lastVaultPathKey)
+        defaults.set(vaultURL.path, forKey: Self.lastVaultPathKey)
 
         // Create background indexer
         indexActor = VaultIndexActor(modelContainer: modelContainer)
@@ -1147,9 +1163,9 @@ final class VaultSyncService {
 
     /// Auto-save interval in seconds. 0 = disabled.
     /// Stored property so @Observable tracks it and SwiftUI re-renders on change.
-    var autoSaveInterval: TimeInterval = UserDefaults.standard.double(forKey: "epistemos.autoSaveInterval") {
+    var autoSaveInterval: TimeInterval = 0 {
         didSet {
-            UserDefaults.standard.set(autoSaveInterval, forKey: "epistemos.autoSaveInterval")
+            defaults.set(autoSaveInterval, forKey: Self.autoSaveIntervalKey)
             restartAutoSaveTimer()
         }
     }
@@ -1635,8 +1651,7 @@ enum VaultConnectionActions {
         notesUI.resetForVaultSwitch()
         vaultSync.stopWatching()
         vaultSync.dismissRecoveryIssue()
-        UserDefaults.standard.removeObject(forKey: VaultSyncService.bookmarkKey)
-        UserDefaults.standard.removeObject(forKey: VaultSyncService.lastVaultPathKey)
+        vaultSync.clearPersistedVaultSelection()
         AppBootstrap.shared?.ambientManifest = nil
     }
 }

@@ -84,6 +84,16 @@ struct VaultSyncServiceAuditTests {
         return dir
     }
 
+    private func makeIsolatedDefaults() -> UserDefaults {
+        let suiteName = "VaultSyncServiceAuditTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+
+    private let vaultBookmarkKey = "epistemos.vaultBookmark"
+    private let lastVaultPathKey = "epistemos.lastVaultPath"
+
     private func waitUntil(
         timeout: Duration = .seconds(12),
         condition: @escaping @MainActor () async -> Bool
@@ -111,6 +121,26 @@ struct VaultSyncServiceAuditTests {
         #expect(
             VaultSyncService.shouldRestoreVaultFromBookmark(processInfoEnvironment: [:])
         )
+    }
+
+    @Test("vault sync test hooks do not overwrite live vault defaults")
+    func testHooksDoNotOverwriteLiveVaultDefaults() throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let isolatedDefaults = makeIsolatedDefaults()
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let liveBookmark = UserDefaults.standard.data(forKey: vaultBookmarkKey)
+        let livePath = UserDefaults.standard.string(forKey: lastVaultPathKey)
+
+        service.setUserDefaultsForTesting(isolatedDefaults)
+        service.persistVaultSelection(vaultURL)
+
+        #expect(UserDefaults.standard.data(forKey: vaultBookmarkKey) == liveBookmark)
+        #expect(UserDefaults.standard.string(forKey: lastVaultPathKey) == livePath)
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
+        #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) != nil)
     }
 
     @discardableResult
