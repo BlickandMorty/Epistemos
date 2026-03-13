@@ -3128,16 +3128,25 @@ private struct NoteBookPreviewPage: View {
 private struct TransitionGreetingView: View {
     let message: String
     let theme: EpistemosTheme
+    @State private var rippleTrigger = 0
 
     var body: some View {
         ZStack {
             theme.background.ignoresSafeArea()
-            Text(message)
-                .font(.custom("RetroGaming", size: 44))
-                .foregroundStyle(theme.fontAccent)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-                .shadow(color: theme.fontAccent.opacity(theme.isDark ? 0.18 : 0.10), radius: 8)
+            ASCIIRippleText(
+                text: message,
+                font: .custom("RetroGaming", size: 44),
+                color: theme.fontAccent,
+                shadowColor: theme.fontAccent.opacity(theme.isDark ? 0.18 : 0.10),
+                shadowRadius: 8,
+                manualTrigger: rippleTrigger,
+                interactive: false
+            )
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 32)
+        }
+        .task(id: message) {
+            rippleTrigger += 1
         }
     }
 }

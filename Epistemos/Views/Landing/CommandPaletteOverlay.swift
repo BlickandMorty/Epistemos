@@ -326,9 +326,11 @@ struct CommandPaletteOverlay: View {
 
                         Spacer()
 
-                        Text("\u{2325}Space")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
-                            .foregroundStyle(theme.textTertiary.opacity(0.5))
+                        ASCIIRippleText(
+                            text: "\u{2325}Space",
+                            font: .system(size: 10, weight: .medium, design: .monospaced),
+                            color: theme.textTertiary.opacity(0.5)
+                        )
                     }
                     .padding(.top, 6)
                 }
