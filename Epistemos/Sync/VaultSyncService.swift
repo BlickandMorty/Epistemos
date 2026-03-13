@@ -78,6 +78,13 @@ final class VaultSyncService {
         self.vaultURL = vaultURL
     }
 
+    func importVaultForTesting(from vaultURL: URL) async throws {
+        self.vaultURL = vaultURL
+        let actor = VaultIndexActor(modelContainer: modelContainer)
+        indexActor = actor
+        try await actor.importVault(from: vaultURL)
+    }
+
     func setExportPageOverrideForTesting(_ exportPageOverride: ExportPageOperation?) {
         self.exportPageOverride = exportPageOverride
     }

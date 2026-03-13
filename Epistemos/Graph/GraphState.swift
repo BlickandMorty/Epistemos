@@ -667,9 +667,15 @@ final class GraphState {
 
     // MARK: - Loading
 
+    private var isLoadingGraph = false
+
     /// Load the graph from SwiftData on a background thread to avoid blocking the UI.
     /// Uses BackgroundGraphActor (@ModelActor) for Swift 6 safe background SwiftData access.
     func loadGraph(container: ModelContainer) async {
+        guard !isLoaded, !isLoadingGraph else { return }
+        isLoadingGraph = true
+        defer { isLoadingGraph = false }
+
         let hints = store.positionHints
         let actor = BackgroundGraphActor(modelContainer: container)
         let records: (nodes: [GraphNodeRecord], edges: [GraphEdgeRecord])
@@ -682,14 +688,16 @@ final class GraphState {
 
         store.loadFromRecords(nodeRecords: records.nodes, edgeRecords: records.edges)
 
-        // If empty and not already building, auto-build from structural data.
-        // Building stays on @MainActor since GraphBuilder uses @Model types.
+        // If empty, rebuild structural data through the background actor path too.
         if store.nodeCount == 0, !isBuildingStructural {
-            buildStructuralGraph(context: container.mainContext)
-            return
+            _ = await refreshStructuralDataAsync(container: container)
+        } else {
+            isLoaded = true
         }
 
-        isLoaded = true
+        if isLoaded {
+            requestRecommit()
+        }
     }
 
     /// Synchronous load for callers that already have a main-thread ModelContext.

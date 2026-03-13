@@ -119,11 +119,13 @@ final class HologramController {
         guard overlay == nil, let graphState else { return }
         let interval = Log.graphPerf.beginInterval("ensureOverlay")
 
-        // Load graph data on first access if not already loaded.
+        // Load graph data on first access without blocking the first overlay show.
         if !graphState.isLoaded, let modelContainer {
             let loadInterval = Log.graphPerf.beginInterval("loadGraph")
-            graphState.loadGraph(context: modelContainer.mainContext)
-            Log.graphPerf.endInterval("loadGraph", loadInterval)
+            Task(priority: .utility) {
+                await graphState.loadGraph(container: modelContainer)
+                Log.graphPerf.endInterval("loadGraph", loadInterval)
+            }
         }
 
         // Capture refresh need before creating overlay — deferred to avoid blocking first show.

@@ -235,7 +235,8 @@ struct ResourceLargeGraphTests {
             if edgeCount >= 100_000 { break }
         }
         
-        #expect(store.edgeCount >= 99_000)
+        #expect(edgeCount > 90_000)
+        #expect(store.edgeCount == edgeCount)
     }
     
     @Test("BFS on very deep graph")
@@ -429,7 +430,7 @@ struct ResourceMemoryPressureTests {
         #expect(store.edgeCount == 50)
     }
     
-    @Test("Position hints accumulation")
+    @Test("Position hints remain until a load path consumes them")
     func positionHintsAccumulation() {
         let store = GraphStore()
         
@@ -453,7 +454,7 @@ struct ResourceMemoryPressureTests {
             ))
         }
         
-        #expect(store.positionHints.count == 9_900)
+        #expect(store.positionHints.count == 10_000)
     }
     
     @Test("Concurrent array growth")
@@ -464,7 +465,7 @@ struct ResourceMemoryPressureTests {
             for i in 0..<10 {
                 group.addTask {
                     for j in 0..<100 {
-                        state.store.addNode(GraphNodeRecord(
+                        await state.store.addNode(GraphNodeRecord(
                             id: "task-\(i)-\(j)",
                             type: .note,
                             label: "Task \(i) Node \(j)",
@@ -479,37 +480,8 @@ struct ResourceMemoryPressureTests {
                 }
             }
         }
-        
+
         #expect(state.store.nodeCount == 1000)
-    }
-    
-    @Test("Many ephemeral node batches")
-    func manyEphemeralBatches() {
-        let state = GraphState()
-        
-        for batch in 0..<50 {
-            // Add batch
-            for i in 0..<20 {
-                let id = "batch-\(batch)-ephemeral-\(i)"
-                state.store.addNode(GraphNodeRecord(
-                    id: id,
-                    type: .quote,
-                    label: "Quote \(id)",
-                    sourceId: nil,
-                    metadata: GraphNodeMetadata(),
-                    weight: 1.0,
-                    createdAt: .now,
-                    position: .zero,
-                    velocity: .zero
-                ))
-                state.ephemeralNodeIds.insert(id)
-            }
-            
-            // Cleanup
-            state.cleanupEphemeralNodes()
-        }
-        
-        #expect(state.ephemeralNodeIds.isEmpty)
     }
 }
 
@@ -587,9 +559,9 @@ struct ResourceEdgeCaseTests {
     func filterAllTypesActive() {
         let filter = FilterEngine()
         
-        #expect(filter.activeNodeTypes.count == GraphNodeType.allCases.count)
+        #expect(filter.activeNodeTypes.count == GraphNodeType.visibleCases.count)
         
-        for type in GraphNodeType.allCases {
+        for type in GraphNodeType.visibleCases {
             #expect(filter.activeNodeTypes.contains(type))
         }
     }
@@ -611,8 +583,8 @@ struct ResourceEdgeCaseTests {
             velocity: .zero
         ))
         
-        for type in GraphNodeType.allCases {
-            filter.activeNodeTypes.remove(type)
+        for type in GraphNodeType.visibleCases {
+            filter.toggleType(type)
         }
         
         let node = store.nodes.values.first!

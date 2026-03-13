@@ -256,6 +256,7 @@ struct InlineMarkdownStylerTests {
             InlineMarkdownStyler.attributedString(
                 "Alpha [link](https://example.com) omega",
                 strongFontSize: 15,
+                strongForegroundColor: nil,
                 linkForegroundColor: Color(hex: 0x00007B)
             )
         )
@@ -265,11 +266,11 @@ struct InlineMarkdownStylerTests {
                 $0.link != nil && String(attributed[$0.range].characters).contains("link")
             })
         )
-        let plainRun = try #require(
-            attributed.runs.first(where: {
-                $0.link == nil && String(attributed[$0.range].characters).contains("Alpha")
-            })
-        )
+        let plainRun = try #require(attributed.runs.first(where: { run in
+            guard run.link == nil else { return false }
+            let runText = String(attributed[run.range].characters)
+            return runText.contains("Alpha")
+        }))
 
         #expect(linkRun.foregroundColor != nil)
         #expect(plainRun.foregroundColor == nil)

@@ -56,20 +56,6 @@ struct VaultSyncServiceAuditTests {
         return dir
     }
 
-    private func waitUntil(
-        timeout: Duration = .seconds(2),
-        condition: @escaping @MainActor () -> Bool
-    ) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now + timeout
-        while !condition() {
-            if clock.now >= deadline {
-                throw CancellationError()
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-    }
-
     @discardableResult
     private func insertDirtyPage(
         in context: ModelContext,
@@ -287,8 +273,7 @@ struct VaultSyncServiceAuditTests {
         let noteURL = vaultURL.appendingPathComponent("Dirty.md")
         try "vault body".write(to: noteURL, atomically: true, encoding: .utf8)
 
-        service.startWatching(vaultURL: vaultURL)
-        try await waitUntil { service.isIndexing == false }
+        try await service.importVaultForTesting(from: vaultURL)
 
         let pageId = try #require(try context.fetch(FetchDescriptor<SDPage>()).first?.id)
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })

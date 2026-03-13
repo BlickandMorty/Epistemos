@@ -283,7 +283,8 @@ struct NoteSavingStressTests {
         // WHEN: All pages being edited concurrently
         await withTaskGroup(of: Void.self) { group in
             for pageId in pageIds {
-                group.addTask {
+                let finalContent = expectedContent[pageId]
+                group.addTask { [pageId, finalContent] in
                     for edit in 0..<editsPerPage {
                         let content = "Page \(pageId) edit \(edit)"
                         await Task.detached {
@@ -293,7 +294,7 @@ struct NoteSavingStressTests {
                     }
                     
                     // Final save
-                    if let finalContent = expectedContent[pageId] {
+                    if let finalContent {
                         await Task.detached {
                             NoteFileStorage.writeBody(pageId: pageId, content: finalContent)
                         }.value

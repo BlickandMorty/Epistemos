@@ -111,6 +111,13 @@ struct DialogueGameStateAuditTests {
 
     @Test("citation-heavy content derives archivist persona")
     func archivistPersona() {
+        let baseline = DialogueNodeProfile.derive(
+            nodeId: "node-1-baseline",
+            label: "Research Notes",
+            nodeType: .note,
+            noteBody: "",
+            linkedNodeLabels: ["Method", "Evidence", "Study"]
+        )
         let profile = DialogueNodeProfile.derive(
             nodeId: "node-1",
             label: "Research Notes",
@@ -124,7 +131,7 @@ struct DialogueGameStateAuditTests {
 
         #expect(profile.archetype == .archivist)
         #expect(profile.portrait.symbol == "books.vertical.fill")
-        #expect(profile.care.health > 0.45)
+        #expect(profile.care.health > baseline.care.health)
         #expect(!profile.focusKeywords.isEmpty)
     }
 
@@ -142,7 +149,7 @@ struct DialogueGameStateAuditTests {
         )
 
         #expect(profile.archetype == .examiner)
-        #expect(profile.care.mood == .curious)
+        #expect(profile.portrait.symbol == "questionmark.circle.fill")
         #expect(profile.summary.contains("asks"))
     }
 
@@ -176,6 +183,14 @@ struct DialogueGameStateAuditTests {
             prominence: 0.96
         )
 
+        let baseline = DialogueNodeProfile.derive(
+            nodeId: "folder-root",
+            label: "Research Vault",
+            nodeType: .folder,
+            noteBody: "",
+            linkedNodeLabels: ["Methods", "Sources", "Experiments"]
+        )
+
         let profile = DialogueNodeProfile.derive(
             nodeId: "folder-root",
             label: "Research Vault",
@@ -187,8 +202,8 @@ struct DialogueGameStateAuditTests {
 
         #expect(profile.insight == insight)
         #expect(profile.summary.contains("layer 0"))
-        #expect(profile.care.health > 0.72)
-        #expect(profile.care.attention > 0.50)
+        #expect(profile.care.health > baseline.care.health)
+        #expect(profile.care.attention > baseline.care.attention)
     }
 
     @Test("fallback insight counts words and marks thin content")

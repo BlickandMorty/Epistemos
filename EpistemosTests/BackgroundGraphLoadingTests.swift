@@ -195,6 +195,47 @@ struct BackgroundGraphLoadingTests {
         #expect(graphState.isLoaded)
         #expect(graphState.store.nodeCount == 2)
         #expect(graphState.store.edgeCount == 1)
+        #expect(graphState.graphDataVersion == 1)
+    }
+
+    @Test("async loadGraph rebuilds structural graph when persisted graph is empty")
+    @MainActor
+    func asyncLoadGraphBuildsStructuralGraphWhenStoreIsEmpty() async throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+
+        let page = SDPage(title: "Cold Open Note")
+        context.insert(page)
+        try context.save()
+
+        let graphState = GraphState()
+        await graphState.loadGraph(container: container)
+
+        #expect(graphState.isLoaded)
+        #expect(graphState.store.nodeCount == 1)
+        #expect(graphState.store.nodes.values.first?.label == "Cold Open Note")
+        #expect(graphState.graphDataVersion == 1)
+    }
+
+    @Test("concurrent async loadGraph callers coalesce to one recommit")
+    @MainActor
+    func concurrentAsyncLoadGraphCallsCoalesce() async throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+
+        let page = SDPage(title: "Concurrent Graph Load")
+        context.insert(page)
+        try context.save()
+
+        let graphState = GraphState()
+
+        async let first: Void = graphState.loadGraph(container: container)
+        async let second: Void = graphState.loadGraph(container: container)
+        _ = await (first, second)
+
+        #expect(graphState.isLoaded)
+        #expect(graphState.store.nodeCount == 1)
+        #expect(graphState.graphDataVersion == 1)
     }
 
     // MARK: - Edge Cases (Gate 4)

@@ -44,7 +44,12 @@ struct QueryRuntimeTests {
             searchIndex: makeSearchIndex()
         )
 
-        let basePlan = QueryPlan(steps: [.inMemoryLabelFilter("")], combiner: .single)
+        #expect(store.nodeCount == 2)
+
+        let basePlan = QueryPlan(
+            steps: [.graphStoreFilter(NodeFilter(limit: 10))],
+            combiner: .single
+        )
         let descending = runtime.execute(QueryPlan(inner: basePlan, limit: nil, offset: nil, orderBy: .updated(ascending: false)))
         let ascending = runtime.execute(QueryPlan(inner: basePlan, limit: nil, offset: nil, orderBy: .updated(ascending: true)))
 

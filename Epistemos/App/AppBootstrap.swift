@@ -225,6 +225,11 @@ final class AppBootstrap {
     // MARK: - Database Recovery
 
     func resetDatabaseAndRelaunch() {
+        guard !Self.isRunningTests else {
+            Log.app.info("Skipping database reset relaunch under tests")
+            return
+        }
+
         let fm = FileManager.default
         let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
 
