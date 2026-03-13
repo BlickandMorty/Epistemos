@@ -106,6 +106,7 @@ final class HologramOverlay {
     // Fullscreen transition observers
     private var fullscreenEnterObserver: Any?
     private var fullscreenExitObserver: Any?
+    private var fullscreenDidEnterObserver: Any?
     // Parent window miniaturize observers
     private var parentMiniaturizeObserver: Any?
     private var parentDeminiaturizeObserver: Any?
@@ -825,7 +826,7 @@ final class HologramOverlay {
         }
 
         // Re-attach and re-show after entering fullscreen
-        NotificationCenter.default.addObserver(
+        fullscreenDidEnterObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didEnterFullScreenNotification,
             object: nil,
             queue: .main
@@ -921,8 +922,10 @@ final class HologramOverlay {
         // Remove fullscreen transition observers.
         if let obs = fullscreenEnterObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = fullscreenExitObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = fullscreenDidEnterObserver { NotificationCenter.default.removeObserver(obs) }
         fullscreenEnterObserver = nil
         fullscreenExitObserver = nil
+        fullscreenDidEnterObserver = nil
         // Remove parent miniaturize observers.
         if let obs = parentMiniaturizeObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = parentDeminiaturizeObserver { NotificationCenter.default.removeObserver(obs) }
