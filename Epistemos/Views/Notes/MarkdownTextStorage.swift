@@ -19,6 +19,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     private let backing = NSMutableAttributedString()
     var isDark: Bool = true
     var theme: EpistemosTheme?
+    var usesRenderedTableOverlays = false
 
     /// Base font size for the editor (15pt).
     /// All element sizes (headings, code, etc.) scale relative to this.
@@ -543,7 +544,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 backing.addAttributes([
                     .font: NSFont.systemFont(ofSize: isHeader ? baseFontSize : baseFontSize - 1,
                                              weight: isHeader ? .semibold : .regular),
-                    .foregroundColor: NSColor.labelColor,
+                    .foregroundColor: usesRenderedTableOverlays ? NSColor.clear : NSColor.labelColor,
                     .paragraphStyle: Self.tableStyle
                 ], range: range)
 
@@ -690,6 +691,33 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 span.style, group: span.group, range: spanRange,
                 ghost: ghostMarker, accent: accentColor, linkAccent: linkAccentColor, muted: mutedColor
             )
+        }
+
+        if usesRenderedTableOverlays {
+            hideRenderedTableSourceText(in: fullRange)
+        }
+    }
+
+    private func hideRenderedTableSourceText(in range: NSRange) {
+        let text = backing.string as NSString
+        let boundedRange = NSIntersectionRange(
+            NSRange(location: 0, length: text.length),
+            range
+        )
+        guard boundedRange.length > 0 else { return }
+
+        var cursor = text.lineRange(for: NSRange(location: boundedRange.location, length: 0)).location
+        let end = min(text.length, NSMaxRange(boundedRange))
+
+        while cursor < end {
+            let lineRange = text.lineRange(for: NSRange(location: cursor, length: 0))
+            let trimmedLine = text.substring(with: lineRange)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedLine.hasPrefix("|"), trimmedLine.hasSuffix("|"), trimmedLine.count >= 3,
+               lineRange.location + lineRange.length <= backing.length {
+                backing.addAttributes([.foregroundColor: NSColor.clear], range: lineRange)
+            }
+            cursor = NSMaxRange(lineRange)
         }
     }
 

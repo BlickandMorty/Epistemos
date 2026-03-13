@@ -43,6 +43,7 @@ final class PageStoragePool {
         theme: EpistemosTheme
     ) -> PageSlot {
         if var existing = slots[pageId] {
+            existing.storage.usesRenderedTableOverlays = true
             let contentChanged = existing.storage.string != bodyText
             let themeChanged = existing.theme != theme
             if themeChanged {
@@ -79,6 +80,7 @@ final class PageStoragePool {
         let storage = MarkdownTextStorage()
         storage.isDark = theme.isDark
         storage.theme = theme
+        storage.usesRenderedTableOverlays = true
 
         // Progressive styling: line-level first, inline deferred
         storage.skipInlineStyles = true

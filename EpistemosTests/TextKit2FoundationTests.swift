@@ -175,6 +175,30 @@ struct MarkdownContentStorageTests {
         storage.theme = .light
         #expect(storage.theme == .light)
     }
+
+    @Test("overlay-backed table markdown source text is hidden in TextKit 2")
+    func renderedTableOverlaysHideTextKit2SourceText() throws {
+        let storage = MarkdownContentStorage()
+        storage.theme = .light
+        storage.usesRenderedTableOverlays = true
+
+        let line = "| Name | Count |"
+        let attributed = NSMutableAttributedString(string: line)
+        storage.applyStructuralStyleForTest(
+            to: attributed,
+            range: NSRange(location: 0, length: attributed.length),
+            paraType: 7,
+            metadata: 0
+        )
+
+        let text = attributed.string as NSString
+        let nameRange = try #require(text.range(of: "Name").location != NSNotFound ? text.range(of: "Name") : nil)
+        let color = try #require(
+            attributed.attribute(.foregroundColor, at: nameRange.location, effectiveRange: nil) as? NSColor
+        )
+
+        #expect(color.alphaComponent == 0)
+    }
 }
 
 @Suite("Data Detection Service")

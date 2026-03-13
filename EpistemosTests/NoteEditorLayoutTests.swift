@@ -95,4 +95,28 @@ struct NoteEditorLayoutTests {
 
         #expect(allocatedHeight >= overlayHeight)
     }
+
+    @Test("overlay-backed table markdown source text is hidden in TextKit 1")
+    func renderedTableOverlaysHideTextKit1SourceText() throws {
+        let storage = MarkdownTextStorage()
+        storage.isDark = false
+        storage.theme = .light
+        storage.usesRenderedTableOverlays = true
+        storage.replaceCharacters(
+            in: NSRange(location: 0, length: storage.length),
+            with: """
+            | Name | Count |
+            | --- | --- |
+            | Pens | 12 |
+            """
+        )
+
+        let text = storage.string as NSString
+        let nameRange = try #require(text.range(of: "Name").location != NSNotFound ? text.range(of: "Name") : nil)
+        let color = try #require(
+            storage.attribute(.foregroundColor, at: nameRange.location, effectiveRange: nil) as? NSColor
+        )
+
+        #expect(color.alphaComponent == 0)
+    }
 }

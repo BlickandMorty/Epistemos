@@ -71,6 +71,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         let storage = MarkdownTextStorage()
         storage.isDark = theme.isDark
         storage.theme = theme
+        storage.usesRenderedTableOverlays = true
 
         let layoutManager = NSLayoutManager()
         // Only lay out visible text — skip everything below the fold.
@@ -366,6 +367,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 // Swap storage — detach old, attach new
                 coord.storage?.removeLayoutManager(layoutManager)
                 slot.storage.addLayoutManager(layoutManager)
+                slot.storage.usesRenderedTableOverlays = true
                 coord.storage = slot.storage
 
                 // Swap per-page undo manager
@@ -425,6 +427,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             coord.lastTheme = theme
             coord.storage?.isDark = theme.isDark
             coord.storage?.theme = theme
+            coord.storage?.usesRenderedTableOverlays = true
             let baseColor = NSColor(theme.foreground)
             tv.textColor = baseColor
             tv.typingAttributes[.foregroundColor] = baseColor

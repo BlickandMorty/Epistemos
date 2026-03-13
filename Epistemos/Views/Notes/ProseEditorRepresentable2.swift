@@ -53,6 +53,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         tv.isEditable = isEditable
         tv.delegate = coord
         tv.usesRenderedTableOverlays = true
+        tv.markdownDelegate.usesRenderedTableOverlays = true
         tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
 
         tv.applyTheme(theme)
@@ -283,6 +284,7 @@ extension ProseEditorRepresentable2 {
 
         func handleUpdate() {
             guard let tv = textView else { return }
+            tv.markdownDelegate.usesRenderedTableOverlays = true
 
             // Page swap
             if parent.pageId != currentPageId {

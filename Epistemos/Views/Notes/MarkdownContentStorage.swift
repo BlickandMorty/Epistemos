@@ -89,6 +89,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             }
         }
     }
+    var usesRenderedTableOverlays = false
 
     #if DEBUG
         var cachedTypesForTesting: [(paraType: UInt8, metadata: UInt16)] { cachedTypes }
@@ -208,6 +209,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         } else if entry.paraType != 8 && entry.paraType != 9 {
             applyInlineStyles(
                 to: styled, fullRange: fullRange, sourceText: paraText, isActive: isActive)
+        }
+
+        if usesRenderedTableOverlays, entry.paraType == 7 {
+            hideRenderedTableSourceText(in: styled, range: fullRange)
         }
 
         return NSTextParagraph(attributedString: styled)
@@ -426,7 +431,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             attrStr.addAttributes(
                 [
                     .font: NSFont.systemFont(ofSize: baseFontSize - 1, weight: .regular),
-                    .foregroundColor: foreground,
+                    .foregroundColor: usesRenderedTableOverlays ? NSColor.clear : foreground,
                     .paragraphStyle: MarkdownTextStorage.tableParagraphStyle(),
                 ], range: range)
 
@@ -456,6 +461,14 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     .paragraphStyle: bodyParagraph,
                 ], range: range)
         }
+    }
+
+    private func hideRenderedTableSourceText(
+        in attrStr: NSMutableAttributedString,
+        range: NSRange
+    ) {
+        guard range.location + range.length <= attrStr.length else { return }
+        attrStr.addAttribute(.foregroundColor, value: NSColor.clear, range: range)
     }
 
     // MARK: - Inline Styling (Phase 2)
