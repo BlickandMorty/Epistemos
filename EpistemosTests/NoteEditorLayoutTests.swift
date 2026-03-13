@@ -24,6 +24,21 @@ struct NoteEditorLayoutTests {
     }
 
     @MainActor
+    @Test("editor re-entry prefers the captured live body over an older persisted body")
+    func editorReentryPrefersLiveBodySnapshot() {
+        let page = SDPage(title: "Preview Toggle")
+        page.saveBody("# Persisted\n\nOlder body")
+
+        let snapshot = ProseEditorView.initialBodySnapshot(
+            for: page,
+            preferredBody: "# Persisted\n\nNewly pasted paragraph"
+        )
+
+        #expect(snapshot.bodyText == "# Persisted\n\nNewly pasted paragraph")
+        #expect(snapshot.lastPersistedBody == "# Persisted\n\nNewly pasted paragraph")
+    }
+
+    @MainActor
     @Test("rendered tables reserve enough editor height to avoid overlapping following prose")
     func renderedTablesReserveEnoughHeight() throws {
         let markdown = """

@@ -544,6 +544,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
+    @State private var modeBodySnapshot: String?
 
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
@@ -775,12 +776,15 @@ struct NoteDetailWorkspaceView: View {
                     let previewRenderer = NotePreviewRenderer.resolved(
                         useTK2Editor: notesUI.useTK2Editor
                     )
-                    let pageBody = page.loadBody()
                     VStack(spacing: 0) {
                         if showPreview {
-                            notePreview(body: pageBody, renderer: previewRenderer)
+                            notePreview(body: displayBody(for: page), renderer: previewRenderer)
                         } else {
-                            ProseEditorView(page: page, isEditable: true)
+                            ProseEditorView(
+                                page: page,
+                                isEditable: true,
+                                initialBodyOverride: modeBodySnapshot
+                            )
                         }
                     }
                     .frame(minWidth: 400, minHeight: 300)
@@ -1297,21 +1301,24 @@ struct NoteDetailWorkspaceView: View {
         PageStoragePool.shared.remove(pageId: pageId)
     }
 
+    private func displayBody(for page: SDPage) -> String {
+        modeBodySnapshot ?? currentEditorBody(for: page) ?? page.loadBody()
+    }
+
+    private func currentEditorBody(for page: SDPage) -> String? {
+        if !notesUI.useTK2Editor, let poolText = PageStoragePool.shared.bodyText(for: pageId) {
+            return poolText
+        }
+        if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
+            return responder.string
+        }
+        return showPreview ? modeBodySnapshot ?? page.loadBody() : nil
+    }
+
     private func flushCurrentEditor() {
         guard let page = pages.first else { return }
-        let fullText: String
-        if !notesUI.useTK2Editor,
-            let poolText = PageStoragePool.shared.bodyText(for: pageId)
-        {
-            // TK1: read from PageStoragePool (reliable, pre-styled storage).
-            fullText = poolText
-        } else if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
-            // TK2 (or TK1 fallback): read NSTextView.string directly.
-            // Works for both ProseTextView2 (TK2) and ClickableTextView (TK1).
-            fullText = responder.string
-        } else {
-            return
-        }
+        let fullText = currentEditorBody(for: page) ?? page.loadBody()
+        modeBodySnapshot = fullText
         if fullText != page.loadBody() {
             page.saveBody(fullText)
             BlockMirror.sync(pageId: page.id, body: fullText, modelContext: modelContext)

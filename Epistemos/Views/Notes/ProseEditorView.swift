@@ -22,6 +22,7 @@ import SwiftUI
 struct ProseEditorView: View {
     let page: SDPage
     var isEditable: Bool = true
+    let initialBodyOverride: String?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(UIState.self) private var ui
@@ -37,16 +38,21 @@ struct ProseEditorView: View {
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
 
-    init(page: SDPage, isEditable: Bool = true) {
+    init(page: SDPage, isEditable: Bool = true, initialBodyOverride: String? = nil) {
         self.page = page
         self.isEditable = isEditable
-        let snapshot = Self.initialBodySnapshot(for: page)
+        self.initialBodyOverride = initialBodyOverride
+        let snapshot = Self.initialBodySnapshot(for: page, preferredBody: initialBodyOverride)
         _bodyText = State(initialValue: snapshot.bodyText)
         _lastPersistedBody = State(initialValue: snapshot.lastPersistedBody)
     }
 
     static func initialBodySnapshot(for page: SDPage) -> (bodyText: String, lastPersistedBody: String) {
-        let body = page.loadBody()
+        initialBodySnapshot(for: page, preferredBody: nil)
+    }
+
+    static func initialBodySnapshot(for page: SDPage, preferredBody: String? = nil) -> (bodyText: String, lastPersistedBody: String) {
+        let body = preferredBody ?? page.loadBody()
         return (body, body)
     }
 
@@ -100,7 +106,7 @@ struct ProseEditorView: View {
             }
         }
         .onAppear {
-            let body = page.loadBody()
+            let body = initialBodyOverride ?? page.loadBody()
             bodyText = body
             lastPersistedBody = body
             syncBlocks(body: body)
