@@ -13,13 +13,24 @@ struct HologramNodeInspector: View {
     let modelContext: ModelContext
 
     enum Section: CaseIterable { case profile, summary, relationships, chat }
-    enum EditorDisplay: String { case raw, formatted }
+    enum EditorDisplay: String, CaseIterable {
+        case raw
+        case formatted
+
+        var label: String {
+            switch self {
+            case .raw: "Edit"
+            case .formatted: "Preview"
+            }
+        }
+    }
     @State private var expandedSection: Section = .profile
     @State private var editorText = ""
     @State private var lastPersistedBody = ""
     @State private var editorSaveTask: Task<Void, Never>?
     @State private var isEditorExpanded = false
     @State private var editorDisplay: EditorDisplay = .raw
+    @State private var editorDisplayTrigger = 0
 
     var body: some View {
         // Read selectedNodeId in body to establish @Observable tracking in NSHostingView.
@@ -93,12 +104,36 @@ struct HologramNodeInspector: View {
         VStack(spacing: 0) {
             // Toolbar
             HStack(spacing: 8) {
-                Picker("", selection: $editorDisplay) {
-                    Text("Edit").tag(EditorDisplay.raw)
-                    Text("Preview").tag(EditorDisplay.formatted)
+                HStack(spacing: 4) {
+                    ForEach(EditorDisplay.allCases, id: \.self) { display in
+                        Button {
+                            guard editorDisplay != display else { return }
+                            editorDisplay = display
+                            editorDisplayTrigger += 1
+                        } label: {
+                            ASCIIRippleText(
+                                text: display.label,
+                                font: .system(size: 12, weight: .semibold),
+                                color: editorDisplay == display ? .primary : .secondary,
+                                manualTrigger: editorDisplay == display ? editorDisplayTrigger : 0
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(editorDisplay == display ? Color.primary.opacity(0.12) : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 140)
+                .padding(4)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(0.06))
+                )
+                .frame(width: 164)
 
                 Spacer()
             }

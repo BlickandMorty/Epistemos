@@ -43,10 +43,13 @@ struct LiquidGreeting: View {
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
             // Text — directly rendered in theme color, no material masking
-            Text(displayText)
-                .font(greetingFont)
-                .foregroundStyle(theme.fontAccent)
-                .fixedSize(horizontal: true, vertical: true)
+            ASCIIRippleText(
+                text: displayText,
+                font: greetingFont,
+                color: theme.fontAccent,
+                shadowColor: theme.fontAccent.opacity(0.12),
+                shadowRadius: compact ? 0 : 8
+            )
 
             // Block cursor — always present, blinks via Task loop.
             Rectangle()

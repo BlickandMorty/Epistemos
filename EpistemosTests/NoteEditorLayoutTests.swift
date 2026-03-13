@@ -119,4 +119,68 @@ struct NoteEditorLayoutTests {
 
         #expect(color.alphaComponent == 0)
     }
+
+    @Test("ascii ripple preserves spaces while scrambling the active wave front")
+    func asciiRipplePreservesSpaces() {
+        let configuration = ASCIIRippleConfiguration(
+            duration: 1,
+            characters: Array("~!"),
+            preserveSpaces: true,
+            spread: 1
+        )
+        let output = ASCIIRippleEngine.displayText(
+            original: "A B",
+            now: 0.2,
+            waves: [ASCIIRippleWave(startIndex: 0, startTime: 0)],
+            configuration: configuration
+        )
+
+        let characters = Array(output)
+        #expect(characters.count == 3)
+        #expect(characters[1] == " ")
+    }
+
+    @Test("ascii ripple maps hover x positions into stable character indices")
+    func asciiRippleMapsHoverPositions() {
+        #expect(ASCIIRippleEngine.characterIndex(forX: 0, width: 120, textLength: 6) == 0)
+        #expect(ASCIIRippleEngine.characterIndex(forX: 60, width: 120, textLength: 6) == 3)
+        #expect(ASCIIRippleEngine.characterIndex(forX: 120, width: 120, textLength: 6) == 5)
+    }
+
+    @Test("ascii frame animation cycles preview frames deterministically")
+    func asciiFrameAnimationCyclesDeterministically() {
+        let configuration = ASCIIFrameAnimationConfiguration(
+            frames: ["[>]", "[>>]", "[>>>]"],
+            frameDuration: 0.1
+        )
+
+        #expect(
+            ASCIIFrameAnimationEngine.frame(
+                now: 0,
+                startTime: 0,
+                configuration: configuration
+            ) == "[>]"
+        )
+        #expect(
+            ASCIIFrameAnimationEngine.frame(
+                now: 0.12,
+                startTime: 0,
+                configuration: configuration
+            ) == "[>>]"
+        )
+        #expect(
+            ASCIIFrameAnimationEngine.frame(
+                now: 0.24,
+                startTime: 0,
+                configuration: configuration
+            ) == "[>>>]"
+        )
+        #expect(
+            ASCIIFrameAnimationEngine.frame(
+                now: 0.34,
+                startTime: 0,
+                configuration: configuration
+            ) == "[>]"
+        )
+    }
 }

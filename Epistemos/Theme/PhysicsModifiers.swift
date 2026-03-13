@@ -277,3 +277,301 @@ extension View {
         modifier(GraphReactiveModifier(nodeId: nodeId))
     }
 }
+
+struct ASCIIRippleWave: Equatable {
+    let startIndex: Int
+    let startTime: TimeInterval
+}
+
+struct ASCIIRippleConfiguration: Equatable {
+    var duration: TimeInterval = 0.8
+    var characters: [Character] = Array(#".,·-─~+:;=*π""┐┌┘┴┬╗╔╝╚╬╠╣╩╦║░▒▓█▄▀▌▐■!?&#$@0123456789*"#)
+    var preserveSpaces = true
+    var spread: CGFloat = 1.0
+    var waveThreshold: CGFloat = 3
+    var characterMultiplier = 3
+    var animationStep: TimeInterval = 0.04
+    var waveBuffer: CGFloat = 5
+}
+
+enum ASCIIRippleEngine {
+    static func characterIndex(forX x: CGFloat, width: CGFloat, textLength: Int) -> Int {
+        guard textLength > 0 else { return 0 }
+        guard width > 0 else { return textLength / 2 }
+        let position = Int(round((x / width) * CGFloat(textLength)))
+        return max(0, min(position, textLength - 1))
+    }
+
+    static func displayText(
+        original: String,
+        now: TimeInterval,
+        waves: [ASCIIRippleWave],
+        configuration: ASCIIRippleConfiguration
+    ) -> String {
+        let originalChars = Array(original)
+        guard !originalChars.isEmpty, !waves.isEmpty else { return original }
+
+        var output = originalChars
+        for index in output.indices {
+            let originalChar = originalChars[index]
+            if configuration.preserveSpaces && originalChar == " " {
+                continue
+            }
+
+            let effect = waveEffect(
+                charIndex: index,
+                originalChars: originalChars,
+                now: now,
+                waves: waves,
+                configuration: configuration
+            )
+            if effect.shouldAnimate {
+                output[index] = effect.character
+            }
+        }
+
+        return String(output)
+    }
+
+    static func activeWaves(
+        _ waves: [ASCIIRippleWave],
+        now: TimeInterval,
+        configuration: ASCIIRippleConfiguration
+    ) -> [ASCIIRippleWave] {
+        waves.filter { now - $0.startTime < configuration.duration }
+    }
+
+    private static func waveEffect(
+        charIndex: Int,
+        originalChars: [Character],
+        now: TimeInterval,
+        waves: [ASCIIRippleWave],
+        configuration: ASCIIRippleConfiguration
+    ) -> (shouldAnimate: Bool, character: Character) {
+        var shouldAnimate = false
+        var resultChar = originalChars[charIndex]
+
+        for wave in waves {
+            let age = now - wave.startTime
+            guard age >= 0, age < configuration.duration else { continue }
+
+            let progress = min(age / configuration.duration, 1)
+            let distance = CGFloat(abs(charIndex - wave.startIndex))
+            let maxDistance = CGFloat(max(wave.startIndex, originalChars.count - wave.startIndex - 1))
+            let radius = (progress * (maxDistance + configuration.waveBuffer)) / configuration.spread
+
+            guard distance <= radius else { continue }
+            shouldAnimate = true
+
+            let intensity = max(0, radius - distance)
+            if intensity <= configuration.waveThreshold, intensity > 0 {
+                let scrambleIndex = (Int(distance) * configuration.characterMultiplier
+                    + Int(age / configuration.animationStep)) % configuration.characters.count
+                resultChar = configuration.characters[scrambleIndex]
+            }
+        }
+
+        return (shouldAnimate, resultChar)
+    }
+}
+
+struct ASCIIRippleText: View {
+    let text: String
+    var font: Font
+    var color: Color
+    var shadowColor: Color = .clear
+    var shadowRadius: CGFloat = 0
+    var configuration = ASCIIRippleConfiguration()
+    var manualTrigger = 0
+    var interactive = true
+
+    @State private var measuredWidth: CGFloat = 1
+    @State private var waves: [ASCIIRippleWave] = []
+    @State private var lastHoveredIndex: Int?
+    @State private var cleanupTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        styledText(text)
+            .hidden()
+            .overlay(alignment: .leading) {
+                animatedText
+            }
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { measuredWidth = max(proxy.size.width, 1) }
+                        .onChange(of: proxy.size.width) { _, newValue in
+                            measuredWidth = max(newValue, 1)
+                        }
+                }
+            }
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                guard interactive, !reduceMotion else { return }
+                switch phase {
+                case .active(let location):
+                    let index = ASCIIRippleEngine.characterIndex(
+                        forX: location.x,
+                        width: measuredWidth,
+                        textLength: text.count
+                    )
+                    guard index != lastHoveredIndex else { return }
+                    lastHoveredIndex = index
+                    startWave(at: index)
+                case .ended:
+                    lastHoveredIndex = nil
+                }
+            }
+            .onChange(of: manualTrigger) { _, _ in
+                guard manualTrigger > 0, !reduceMotion, !text.isEmpty else { return }
+                startWave(at: text.count / 2)
+            }
+            .onChange(of: text) { _, _ in
+                lastHoveredIndex = nil
+            }
+            .onDisappear {
+                cleanupTask?.cancel()
+            }
+    }
+
+    @ViewBuilder
+    private var animatedText: some View {
+        if reduceMotion || waves.isEmpty || text.isEmpty {
+            styledText(text)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                let now = context.date.timeIntervalSinceReferenceDate
+                let active = ASCIIRippleEngine.activeWaves(
+                    waves,
+                    now: now,
+                    configuration: configuration
+                )
+                styledText(
+                    ASCIIRippleEngine.displayText(
+                        original: text,
+                        now: now,
+                        waves: active,
+                        configuration: configuration
+                    )
+                )
+            }
+        }
+    }
+
+    private func styledText(_ value: String) -> some View {
+        Text(value)
+            .font(font)
+            .foregroundStyle(color)
+            .shadow(color: shadowColor, radius: shadowRadius)
+            .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private func startWave(at index: Int) {
+        let clampedIndex = max(0, min(index, max(text.count - 1, 0)))
+        waves.append(
+            ASCIIRippleWave(
+                startIndex: clampedIndex,
+                startTime: Date.timeIntervalSinceReferenceDate
+            )
+        )
+        if waves.count > 8 {
+            waves.removeFirst(waves.count - 8)
+        }
+        scheduleCleanup()
+    }
+
+    private func scheduleCleanup() {
+        cleanupTask?.cancel()
+        cleanupTask = Task { @MainActor in
+            while !Task.isCancelled {
+                let active = ASCIIRippleEngine.activeWaves(
+                    waves,
+                    now: Date.timeIntervalSinceReferenceDate,
+                    configuration: configuration
+                )
+                if active.count == waves.count, !active.isEmpty {
+                    try? await Task.sleep(for: .milliseconds(50))
+                    continue
+                }
+                waves = active
+                guard !waves.isEmpty else { break }
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+    }
+}
+
+struct ASCIIFrameAnimationConfiguration: Equatable {
+    var frames: [String]
+    var frameDuration: TimeInterval
+
+    static let previewScanner = ASCIIFrameAnimationConfiguration(
+        frames: [
+            "[>    ]",
+            "[>>   ]",
+            "[>>>  ]",
+            "[ >>> ]",
+            "[  >>>]",
+            "[   >>]",
+            "[    >]",
+            "[     ]",
+        ],
+        frameDuration: 0.08
+    )
+}
+
+enum ASCIIFrameAnimationEngine {
+    static func frame(
+        now: TimeInterval,
+        startTime: TimeInterval,
+        configuration: ASCIIFrameAnimationConfiguration
+    ) -> String {
+        guard !configuration.frames.isEmpty else { return "" }
+        guard configuration.frameDuration > 0 else { return configuration.frames[0] }
+        let elapsed = max(0, now - startTime)
+        let frameIndex = Int(elapsed / configuration.frameDuration) % configuration.frames.count
+        return configuration.frames[frameIndex]
+    }
+}
+
+struct ASCIIFrameAnimationText: View {
+    var configuration: ASCIIFrameAnimationConfiguration
+    var font: Font
+    var color: Color
+
+    @State private var startTime = Date.timeIntervalSinceReferenceDate
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(UIState.self) private var ui
+
+    private var shouldAnimate: Bool {
+        !reduceMotion && !ui.windowOccluded && configuration.frames.count > 1
+    }
+
+    var body: some View {
+        if shouldAnimate {
+            TimelineView(.animation(minimumInterval: configuration.frameDuration)) { context in
+                Text(
+                    ASCIIFrameAnimationEngine.frame(
+                        now: context.date.timeIntervalSinceReferenceDate,
+                        startTime: startTime,
+                        configuration: configuration
+                    )
+                )
+                .font(font)
+                .foregroundStyle(color)
+                .monospacedDigit()
+                .fixedSize(horizontal: true, vertical: true)
+            }
+            .onAppear {
+                startTime = Date.timeIntervalSinceReferenceDate
+            }
+        } else {
+            Text(configuration.frames.first ?? "")
+                .font(font)
+                .foregroundStyle(color)
+                .monospacedDigit()
+                .fixedSize(horizontal: true, vertical: true)
+        }
+    }
+}

@@ -3063,7 +3063,38 @@ private struct AdaptiveNotePreviewView2: View {
                 }
             }
             .background(theme.background)
+            .overlay(alignment: .topTrailing) {
+                notePreviewBadge
+                    .padding(.top, NoteDualPreviewLayout.outerPadding.top)
+                    .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
+            }
         }
+    }
+
+    private var notePreviewBadge: some View {
+        HStack(spacing: 8) {
+            ASCIIFrameAnimationText(
+                configuration: .previewScanner,
+                font: .system(size: 10, weight: .semibold, design: .monospaced),
+                color: theme.fontAccent.opacity(0.78)
+            )
+            Text("Preview")
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(theme.textTertiary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule(style: .continuous)
+                .fill(theme.isDark ? Color.white.opacity(0.045) : Color.black.opacity(0.03))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(
+                    theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06),
+                    lineWidth: 0.5
+                )
+        )
     }
 }
 

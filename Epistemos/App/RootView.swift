@@ -331,9 +331,11 @@ private struct PrincipalToolbarContent: View {
                     }
                 }
             } label: {
-                Text("\(inference.apiProvider.displayName) · \(inference.activeModelDisplayName)")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.secondary)
+                ASCIIRippleText(
+                    text: "\(inference.apiProvider.displayName) · \(inference.activeModelDisplayName)",
+                    font: .system(size: 14, weight: .medium),
+                    color: .secondary
+                )
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
