@@ -58,6 +58,38 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
+    @Test("Navigation state can retarget a missing current note to a recovered page ID")
+    func navigationStateRetargetsMissingCurrentPage() {
+        let state = NoteNavigationState(rootPageId: "root", rootTitle: "Root")
+        state.push(pageId: "missing", title: "Recovered Title")
+
+        let changed = state.retargetCurrentPage(
+            missingPageId: "missing",
+            replacementPageId: "recovered",
+            replacementTitle: "Recovered Title"
+        )
+
+        #expect(changed)
+        #expect(state.currentPageId == "recovered")
+        #expect(state.stack.map(\.id) == ["root", "recovered"])
+        #expect(state.stack.last?.title == "Recovered Title")
+    }
+
+    @MainActor
+    @Test("Navigation state discards a missing current note without preserving broken forward history")
+    func navigationStateDiscardsMissingCurrentPage() {
+        let state = NoteNavigationState(rootPageId: "root", rootTitle: "Root")
+        state.push(pageId: "missing", title: "Missing")
+
+        let changed = state.discardCurrentPageIfMissing("missing")
+
+        #expect(changed)
+        #expect(state.currentPageId == "root")
+        #expect(state.stack.map(\.id) == ["root"])
+        #expect(!state.canGoForward)
+    }
+
+    @MainActor
     @Test("Modular window policy keeps zoom and disables desktop fullscreen")
     func modularWindowPolicyDisablesDesktopFullscreen() throws {
         let window = NSPanel(

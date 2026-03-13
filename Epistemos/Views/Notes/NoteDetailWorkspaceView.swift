@@ -554,6 +554,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var tocItems: [TOCItem] = []
     @State private var wordCountDebounce: Task<Void, Never>?
     @State private var metricsTask: Task<Void, Never>?
+    @State private var missingPageRecoveryTask: Task<Void, Never>?
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
     @State private var blockPropertyLineRange = NSRange(location: 0, length: 0)
@@ -868,12 +869,24 @@ struct NoteDetailWorkspaceView: View {
                         body: page.loadBody(),
                         includeMarkdownHeadings: true
                     )
+                } else {
+                    queueMissingPageRecovery()
                 }
             }
             .onDisappear {
                 wordCountDebounce?.cancel()
                 metricsTask?.cancel()
+                missingPageRecoveryTask?.cancel()
+                missingPageRecoveryTask = nil
                 noteChatState.clear()
+            }
+            .onChange(of: pages.isEmpty) { _, isEmpty in
+                if isEmpty {
+                    queueMissingPageRecovery()
+                } else {
+                    missingPageRecoveryTask?.cancel()
+                    missingPageRecoveryTask = nil
+                }
             }
             .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
                 if wasStreaming && !isNowStreaming, let page = pages.first {
@@ -1005,6 +1018,41 @@ struct NoteDetailWorkspaceView: View {
     private func refreshTabCount() {
         let count = NSApp.keyWindow?.tabbedWindows?.count ?? 1
         hasMultipleTabs = count > 1
+    }
+
+    private func queueMissingPageRecovery() {
+        guard let navState else { return }
+
+        missingPageRecoveryTask?.cancel()
+        let missingPageId = pageId
+        let missingTitle = navState.currentPageTitle
+
+        missingPageRecoveryTask = Task { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            guard pages.isEmpty else { return }
+
+            if let recovered = recoveredPageForMissingTitle(missingTitle) {
+                _ = navState.retargetCurrentPage(
+                    missingPageId: missingPageId,
+                    replacementPageId: recovered.id,
+                    replacementTitle: recovered.title
+                )
+            } else {
+                _ = navState.discardCurrentPageIfMissing(missingPageId)
+            }
+
+            missingPageRecoveryTask = nil
+        }
+    }
+
+    private func recoveredPageForMissingTitle(_ title: String?) -> SDPage? {
+        guard let title else { return nil }
+        let descriptor = FetchDescriptor<SDPage>()
+        guard let allPages = try? modelContext.fetch(descriptor) else { return nil }
+        let matches = allPages.filter { NoteTitleDisplay.resolvedTitle($0.title) == title }
+        guard matches.count == 1 else { return nil }
+        return matches[0]
     }
 
     private func refreshVisibleEditorMetrics() {

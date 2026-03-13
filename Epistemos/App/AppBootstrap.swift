@@ -178,9 +178,14 @@ final class AppBootstrap {
             Task(priority: .utility) { await llm.checkOllama() }
         }
 
-        // One-time migration: move note bodies from inline SQLite to file storage.
-        // Do the fetch/write/save cycle off the main actor to avoid launch hitching.
-        Task(priority: .utility) { await migrateBodiesToFileStorage() }
+        // Body-file maintenance runs off-main to avoid launch hitching.
+        // Migration is one-time; orphan cleanup runs every app launch.
+        Task(priority: .utility) {
+            await migrateBodiesToFileStorage()
+            if !Self.isRunningTests {
+                await cleanupOrphanBodyFiles()
+            }
+        }
 
         // Graph loads asynchronously — no launch stall. QueryEngine holds a reference
         // to GraphStore (a class), so it sees data as soon as the background load populates it.
@@ -334,6 +339,17 @@ final class AppBootstrap {
             Log.app.error("Body migration: failed — will retry on next launch: \(error.localizedDescription, privacy: .public)")
         }
     }
+
+    private func cleanupOrphanBodyFiles() async {
+        do {
+            let removed = try await BodyMigrationActor(modelContainer: modelContainer).cleanupOrphanBodies()
+            if removed > 0 {
+                Log.app.info("Body file cleanup: removed \(removed) orphan note bodies")
+            }
+        } catch {
+            Log.app.error("Body file cleanup failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
 }
 
 @ModelActor
@@ -350,5 +366,10 @@ private actor BodyMigrationActor {
             try modelContext.save()
         }
         return migrated
+    }
+
+    func cleanupOrphanBodies() throws -> Int {
+        let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
+        return NoteFileStorage.cleanupOrphanBodies(validPageIds: pages.map(\.id)).count
     }
 }

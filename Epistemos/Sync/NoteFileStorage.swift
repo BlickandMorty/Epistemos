@@ -40,6 +40,13 @@ enum NoteFileStorage {
         storageDirectory().appendingPathComponent("\(pageId).rtfd")
     }
 
+    private nonisolated static func managedBodyPageId(for url: URL) -> String? {
+        let ext = url.pathExtension.lowercased()
+        guard ext == "md" || ext == "rtfd" else { return nil }
+        let pageId = url.deletingPathExtension().lastPathComponent
+        return isValidPageId(pageId) ? pageId : nil
+    }
+
     @discardableResult
     private nonisolated static func persistBody(_ content: String, to url: URL, pageId: String) -> Bool {
         do {
@@ -163,6 +170,42 @@ enum NoteFileStorage {
         guard isValidPageId(pageId) else { return false }
         let url = bodyURL(pageId: pageId)
         return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    @discardableResult
+    nonisolated static func cleanupOrphanBodies<S: Sequence>(
+        in directory: URL? = nil,
+        validPageIds: S
+    ) -> [String]
+    where S.Element == String {
+        let validIds = Set(validPageIds.filter { isValidPageId($0) })
+        let storageURL = directory ?? storageDirectory()
+        var removed: [String] = []
+
+        mutationQueue.performSync {
+            guard let contents = try? FileManager.default.contentsOfDirectory(
+                at: storageURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            ) else {
+                return
+            }
+
+            for fileURL in contents {
+                guard let pageId = managedBodyPageId(for: fileURL) else { continue }
+                guard !validIds.contains(pageId) else { continue }
+                do {
+                    try FileManager.default.removeItem(at: fileURL)
+                    removed.append(pageId)
+                } catch {
+                    logger.error(
+                        "Failed to remove orphan body for \(pageId, privacy: .private): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
+        }
+
+        return removed.sorted()
     }
 
     // MARK: - External Body Change Notification

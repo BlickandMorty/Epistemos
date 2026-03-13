@@ -127,6 +127,36 @@ struct NoteFileStorageTests {
         #expect(NoteFileStorage.readBody(pageId: pageId).isEmpty)
     }
 
+    @Test("orphan cleanup removes only body files for missing pages")
+    func orphanCleanupRemovesOnlyMissingPages() throws {
+        let keepId = makePageId()
+        let orphanId = makePageId()
+        let tempDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "note-storage-tests-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        let keepURL = tempDirectory.appendingPathComponent("\(keepId).md")
+        let orphanURL = tempDirectory.appendingPathComponent("\(orphanId).md")
+        let nonMarkdownURL = tempDirectory.appendingPathComponent(
+            "note-storage-ignore-\(UUID().uuidString).txt"
+        )
+        defer {
+            try? FileManager.default.removeItem(at: tempDirectory)
+        }
+
+        try "keep".write(to: keepURL, atomically: true, encoding: .utf8)
+        try "orphan".write(to: orphanURL, atomically: true, encoding: .utf8)
+        try "ignore".write(to: nonMarkdownURL, atomically: true, encoding: .utf8)
+
+        let removed = NoteFileStorage.cleanupOrphanBodies(in: tempDirectory, validPageIds: [keepId])
+
+        #expect(removed == [orphanId])
+        #expect(FileManager.default.fileExists(atPath: keepURL.path))
+        #expect(!FileManager.default.fileExists(atPath: orphanURL.path))
+        #expect(FileManager.default.fileExists(atPath: nonMarkdownURL.path))
+    }
+
     @Test("readBody migrates legacy rtfd bundle to markdown")
     func readBodyMigratesLegacyRTFD() throws {
         let pageId = makePageId()

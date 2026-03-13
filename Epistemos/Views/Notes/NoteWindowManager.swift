@@ -76,6 +76,10 @@ final class NoteNavigationState {
         stack.last?.id ?? rootPageId
     }
 
+    var currentPageTitle: String? {
+        stack.last?.title
+    }
+
     /// True when there's a navigation trail worth showing (2+ items or forward history).
     var hasBreadcrumb: Bool { stack.count > 1 || !forwardStack.isEmpty }
 
@@ -138,6 +142,37 @@ final class NoteNavigationState {
         if let idx = forwardStack.firstIndex(where: { $0.id == pageId }) {
             forwardStack[idx].title = title
         }
+    }
+
+    @discardableResult
+    func retargetCurrentPage(
+        missingPageId: String,
+        replacementPageId: String,
+        replacementTitle: String
+    ) -> Bool {
+        guard stack.last?.id == missingPageId else { return false }
+        guard !replacementPageId.isEmpty else { return false }
+
+        let resolvedTitle = NoteTitleDisplay.resolvedTitle(replacementTitle)
+        stack.removeLast()
+        forwardStack.removeAll()
+
+        if let existingIndex = stack.firstIndex(where: { $0.id == replacementPageId }) {
+            stack = Array(stack[...existingIndex])
+            syncTitle(pageId: replacementPageId, title: resolvedTitle)
+        } else {
+            stack.append(BreadcrumbItem(id: replacementPageId, title: resolvedTitle))
+        }
+        return true
+    }
+
+    @discardableResult
+    func discardCurrentPageIfMissing(_ missingPageId: String) -> Bool {
+        guard stack.count > 1 else { return false }
+        guard stack.last?.id == missingPageId else { return false }
+        stack.removeLast()
+        forwardStack.removeAll()
+        return true
     }
 }
 
