@@ -143,6 +143,22 @@ struct VaultSyncServiceAuditTests {
         #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) != nil)
     }
 
+    @Test("vault sync defaults are isolated automatically under test hosts")
+    func defaultTestInitDoesNotOverwriteLiveVaultDefaults() throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let liveBookmark = UserDefaults.standard.data(forKey: vaultBookmarkKey)
+        let livePath = UserDefaults.standard.string(forKey: lastVaultPathKey)
+
+        service.persistVaultSelection(vaultURL)
+
+        #expect(UserDefaults.standard.data(forKey: vaultBookmarkKey) == liveBookmark)
+        #expect(UserDefaults.standard.string(forKey: lastVaultPathKey) == livePath)
+    }
+
     @discardableResult
     private func insertDirtyPage(
         in context: ModelContext,

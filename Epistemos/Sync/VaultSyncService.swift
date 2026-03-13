@@ -92,6 +92,7 @@ final class VaultSyncService {
     fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
     fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
     fileprivate nonisolated static let autoSaveIntervalKey = "epistemos.autoSaveInterval"
+    fileprivate nonisolated static let testDefaultsSuitePrefix = "com.epistemos.tests.VaultSyncService."
     private nonisolated static let defaultRecoveryVaultURL = URL(
         fileURLWithPath: "/Users/jojo/My mind",
         isDirectory: true
@@ -101,6 +102,18 @@ final class VaultSyncService {
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
         processInfoEnvironment["XCTestConfigurationFilePath"] == nil
+    }
+
+    nonisolated private static func makeDefaultUserDefaults(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> UserDefaults {
+        guard shouldRestoreVaultFromBookmark(processInfoEnvironment: processInfoEnvironment) else {
+            let suiteName = "\(testDefaultsSuitePrefix)\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            defaults.removePersistentDomain(forName: suiteName)
+            return defaults
+        }
+        return .standard
     }
 
     private struct DirtySaveBatch {
@@ -156,11 +169,12 @@ final class VaultSyncService {
     private let fileWatcherClock = ContinuousClock()
     private var fileWatcherIgnoreUntil: ContinuousClock.Instant?
 
-    init(modelContainer: ModelContainer, userDefaults: UserDefaults = .standard) {
+    init(modelContainer: ModelContainer, userDefaults: UserDefaults? = nil) {
+        let resolvedDefaults = userDefaults ?? Self.makeDefaultUserDefaults()
         self.modelContainer = modelContainer
-        self.defaults = userDefaults
-        self.isIndexing = userDefaults.data(forKey: Self.bookmarkKey) != nil
-        self.autoSaveInterval = userDefaults.double(forKey: Self.autoSaveIntervalKey)
+        self.defaults = resolvedDefaults
+        self.isIndexing = resolvedDefaults.data(forKey: Self.bookmarkKey) != nil
+        self.autoSaveInterval = resolvedDefaults.double(forKey: Self.autoSaveIntervalKey)
     }
 
     func setVaultURLForTesting(_ vaultURL: URL?) {
