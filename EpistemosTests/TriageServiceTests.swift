@@ -86,9 +86,9 @@ struct TriageServiceTests {
     @Test("operations have correct complexity ordering")
     func complexityOrdering() {
         #expect(NotesOperation.grammarFix.baseComplexity < NotesOperation.summarize.baseComplexity)
-        #expect(NotesOperation.summarize.baseComplexity < NotesOperation.rewrite.baseComplexity)
+        #expect(NotesOperation.summarize.baseComplexity <= NotesOperation.ask(query: "test").baseComplexity)
+        #expect(NotesOperation.ask(query: "test").baseComplexity < NotesOperation.rewrite.baseComplexity)
         #expect(NotesOperation.rewrite.baseComplexity < NotesOperation.continueWriting.baseComplexity)
-        #expect(NotesOperation.continueWriting.baseComplexity < NotesOperation.ask(query: "test").baseComplexity)
         #expect(NotesOperation.ask(query: "test").baseComplexity < NotesOperation.outline.baseComplexity)
         #expect(NotesOperation.outline.baseComplexity < NotesOperation.expand.baseComplexity)
         #expect(NotesOperation.expand.baseComplexity < NotesOperation.analyze.baseComplexity)
@@ -195,6 +195,12 @@ struct TriageServiceIntegrationTests {
         #expect(triage.triage(operation: .grammarFix, contentLength: 240) == .appleIntelligence)
         #expect(triage.triage(operation: .summarize, contentLength: 240) == .appleIntelligence)
         #expect(triage.triage(operation: .rewrite, contentLength: 240) == .appleIntelligence)
+        #expect(
+            triage.triage(
+                operation: .ask(query: "Summarize the core point of this note."),
+                contentLength: 240
+            ) == .appleIntelligence
+        )
     }
 
     @Test("notes triage routes complex operations to cloud when key is configured")
@@ -202,7 +208,14 @@ struct TriageServiceIntegrationTests {
         let triage = makeService(apiProvider: .anthropic, apiKey: "key", appleAvailable: true)
 
         #expect(triage.triage(operation: .continueWriting, contentLength: 100) == .apiProvider)
-        #expect(triage.triage(operation: .ask(query: "How does this mechanism work in detail?"), contentLength: 100) == .apiProvider)
+        #expect(
+            triage.triage(
+                operation: .ask(
+                    query: "Compare the causal relationship between Bayesian updating, coherence, and evidential decision theory across conflicting studies."
+                ),
+                contentLength: 100
+            ) == .apiProvider
+        )
         #expect(triage.triage(operation: .outline, contentLength: 100) == .apiProvider)
         #expect(triage.triage(operation: .expand, contentLength: 100) == .apiProvider)
         #expect(triage.triage(operation: .analyze, contentLength: 100) == .apiProvider)

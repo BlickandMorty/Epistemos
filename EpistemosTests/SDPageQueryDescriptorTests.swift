@@ -253,4 +253,60 @@ struct SDPageQueryDescriptorTests {
 
         #expect(page.ideas.map(\.title) == ["Second"])
     }
+
+    @Test("chat message mapping preserves research timing and reasoning metadata")
+    func chatMessageMappingPreservesResearchMetadata() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let chat = SDChat(title: "Research", chatType: "research")
+        let message = SDMessage(role: "assistant", content: "Answer")
+        let start = Date(timeIntervalSince1970: 1_234)
+
+        message.reasoningText = "Thinking..."
+        message.reasoningDuration = 2.5
+        message.isResearchResult = true
+        message.researchStartTime = start
+        message.researchDuration = 42
+        message.chat = chat
+
+        context.insert(chat)
+        context.insert(message)
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first)
+        let mapped = fetched.chatMessage(chatId: chat.id)
+
+        #expect(mapped.reasoningText == "Thinking...")
+        #expect(mapped.reasoningDuration == 2.5)
+        #expect(mapped.isResearchResult)
+        #expect(mapped.researchStartTime == start)
+        #expect(mapped.researchDuration == 42)
+    }
+
+    @Test("chat message mapping preserves an in-flight research timer before enrichment completes")
+    func chatMessageMappingPreservesRunningResearchTimer() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let chat = SDChat(title: "Research", chatType: "research")
+        let message = SDMessage(role: "assistant", content: "Streaming answer")
+        let start = Date(timeIntervalSince1970: 5_678)
+
+        message.isResearchResult = true
+        message.researchStartTime = start
+        message.researchDuration = nil
+        message.chat = chat
+
+        context.insert(chat)
+        context.insert(message)
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first)
+        let mapped = fetched.chatMessage(chatId: chat.id)
+
+        #expect(mapped.isResearchResult)
+        #expect(mapped.researchStartTime == start)
+        #expect(mapped.researchDuration == nil)
+    }
 }

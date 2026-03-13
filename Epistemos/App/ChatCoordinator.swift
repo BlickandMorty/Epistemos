@@ -133,7 +133,8 @@ final class ChatCoordinator {
                             chatId: capturedChatId,
                             messageId: pendingAssistantId,
                             dualMessage: dual,
-                            truthAssessment: truth
+                            truthAssessment: truth,
+                            message: chatState.messages.first(where: { $0.id == pendingAssistantId })
                         )
                     }
                     if !dual.rawAnalysis.isEmpty {
@@ -205,6 +206,7 @@ final class ChatCoordinator {
                                 confidence: confidence,
                                 grade: grade,
                                 mode: mode,
+                                assistantMessage: chatState.messages.last,
                                 isResearch: isResearch,
                                 isNotes: hasVault
                             )
@@ -441,6 +443,7 @@ final class ChatCoordinator {
         confidence: Double,
         grade: EvidenceGrade,
         mode: InferenceMode,
+        assistantMessage: ChatMessage?,
         isResearch: Bool = false,
         isNotes: Bool = false
     ) {
@@ -468,13 +471,18 @@ final class ChatCoordinator {
         context.insert(userMsg)
 
         let assistantMsg = SDMessage(role: "assistant", content: answer)
-        assistantMsg.confidenceScore = confidence
-        assistantMsg.evidenceGrade = grade.rawValue
-        assistantMsg.inferenceMode = mode.rawValue
-        do { assistantMsg.dualMessageData = try JSONEncoder().encode(dual) }
-        catch { Log.db.error("Failed to encode DualMessage: \(error.localizedDescription)") }
-        do { assistantMsg.truthAssessmentData = try JSONEncoder().encode(truth) }
-        catch { Log.db.error("Failed to encode TruthAssessment: \(error.localizedDescription)") }
+        assistantMsg.updateAnalysis(
+            dualMessage: dual,
+            truthAssessment: truth,
+            confidence: confidence,
+            evidenceGrade: grade,
+            mode: mode,
+            reasoningText: assistantMessage?.reasoningText,
+            reasoningDuration: assistantMessage?.reasoningDuration,
+            isResearchResult: assistantMessage?.isResearchResult ?? isResearch,
+            researchDuration: assistantMessage?.researchDuration,
+            researchStartTime: assistantMessage?.researchStartTime
+        )
         assistantMsg.chat = chat
         context.insert(assistantMsg)
 
@@ -497,7 +505,8 @@ final class ChatCoordinator {
         chatId: String?,
         messageId: String,
         dualMessage: DualMessage,
-        truthAssessment: TruthAssessment
+        truthAssessment: TruthAssessment,
+        message: ChatMessage?
     ) {
         guard let chatId else { return }
         let context = modelContainer.mainContext
@@ -511,13 +520,19 @@ final class ChatCoordinator {
             return
         }
 
-        do { lastAssistant.dualMessageData = try JSONEncoder().encode(dualMessage) }
-        catch { Log.db.error("Failed to encode DualMessage for enrichment: \(error.localizedDescription)") }
-        do { lastAssistant.truthAssessmentData = try JSONEncoder().encode(truthAssessment) }
-        catch { Log.db.error("Failed to encode TruthAssessment for enrichment: \(error.localizedDescription)") }
-        lastAssistant.confidenceScore = truthAssessment.overallTruthLikelihood
         let grade = Self.gradeFromConfidence(truthAssessment.overallTruthLikelihood)
-        lastAssistant.evidenceGrade = grade.rawValue
+        lastAssistant.updateAnalysis(
+            dualMessage: dualMessage,
+            truthAssessment: truthAssessment,
+            confidence: truthAssessment.overallTruthLikelihood,
+            evidenceGrade: grade,
+            mode: message?.mode ?? lastAssistant.inferenceMode.flatMap(InferenceMode.init(rawValue:)),
+            reasoningText: message?.reasoningText ?? lastAssistant.reasoningText,
+            reasoningDuration: message?.reasoningDuration ?? lastAssistant.reasoningDuration,
+            isResearchResult: message?.isResearchResult ?? lastAssistant.isResearchResult,
+            researchDuration: message?.researchDuration ?? lastAssistant.researchDuration,
+            researchStartTime: message?.researchStartTime ?? lastAssistant.researchStartTime
+        )
 
         do {
             try context.save()

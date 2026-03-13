@@ -12,7 +12,7 @@ nonisolated enum NotesOperation: Sendable {
     case summarize         // 0.20 — focused extraction
     case rewrite           // 0.25 — focused transformation
     case continueWriting   // 0.30 — needs tone matching
-    case ask(query: String)// 0.35 — depends on query; uses QueryAnalyzer
+    case ask(query: String)// 0.20 + query complexity — short note questions fit on-device
     case outline           // 0.40 — structural analysis
     case expand            // 0.50 — needs creative depth
     case analyze           // 0.60 — deep reasoning
@@ -24,7 +24,7 @@ nonisolated enum NotesOperation: Sendable {
         case .summarize:       0.20
         case .rewrite:         0.25
         case .continueWriting: 0.30
-        case .ask:             0.35
+        case .ask:             0.20
         case .outline:         0.40
         case .expand:          0.50
         case .analyze:         0.60
@@ -250,7 +250,7 @@ final class TriageService {
 
         if case .ask(let q) = operation, !q.isEmpty {
             let analysis = QueryAnalyzer.analyze(query: q)
-            effectiveComplexity += analysis.complexity * 0.30
+            effectiveComplexity += analysis.complexity * 0.20
         }
 
         effectiveComplexity = min(1.0, effectiveComplexity)

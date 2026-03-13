@@ -37,6 +37,19 @@ struct ProseEditorView: View {
     @State private var isFocused = true
     @State private var saveTask: Task<Void, Never>?
 
+    init(page: SDPage, isEditable: Bool = true) {
+        self.page = page
+        self.isEditable = isEditable
+        let snapshot = Self.initialBodySnapshot(for: page)
+        _bodyText = State(initialValue: snapshot.bodyText)
+        _lastPersistedBody = State(initialValue: snapshot.lastPersistedBody)
+    }
+
+    static func initialBodySnapshot(for page: SDPage) -> (bodyText: String, lastPersistedBody: String) {
+        let body = page.loadBody()
+        return (body, body)
+    }
+
     var body: some View {
         let flush: (String, String) -> Void = { oldPageId, currentText in
             guard !oldPageId.isEmpty else { return }

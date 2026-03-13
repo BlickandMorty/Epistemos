@@ -1162,7 +1162,9 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     /// Table row spacing — enough padding for a clean rendered look.
     private nonisolated(unsafe) static let tableStyle: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
-        ps.lineSpacing = 4
+        ps.minimumLineHeight = 26
+        ps.maximumLineHeight = 26
+        ps.lineSpacing = 0
         ps.paragraphSpacing = 1
         ps.paragraphSpacingBefore = 1
         ps.firstLineHeadIndent = bodyIndent

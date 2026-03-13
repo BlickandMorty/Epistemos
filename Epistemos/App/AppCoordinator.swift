@@ -243,23 +243,7 @@ final class AppCoordinator {
         )
         guard let sdChat = try? modelContainer.mainContext.fetch(descriptor).first else { return }
         let sorted = sdChat.sortedMessages
-        let messages = sorted.map { msg in
-            let dual = msg.dualMessageData.flatMap { try? JSONDecoder().decode(DualMessage.self, from: $0) }
-            let isResearch = dual?.laymanSummary != nil
-            return ChatMessage(
-                id: msg.id,
-                chatId: sdChat.id,
-                role: msg.role == "user" ? .user : .assistant,
-                content: msg.content,
-                dualMessage: dual,
-                truthAssessment: msg.truthAssessmentData.flatMap { try? JSONDecoder().decode(TruthAssessment.self, from: $0) },
-                confidence: msg.confidenceScore,
-                evidenceGrade: msg.evidenceGrade.flatMap { EvidenceGrade(rawValue: $0) },
-                mode: msg.inferenceMode.flatMap { InferenceMode(rawValue: $0) },
-                createdAt: msg.createdAt,
-                isResearchResult: isResearch
-            )
-        }
+        let messages = sorted.map { $0.chatMessage(chatId: sdChat.id) }
         chatState.setCurrentChat(sdChat.id)
         chatState.chatTitle = sdChat.title
         chatState.loadMessages(messages)
