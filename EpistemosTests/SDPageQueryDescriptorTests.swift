@@ -227,5 +227,30 @@ struct SDPageQueryDescriptorTests {
         #expect(result.count == 1)
         #expect(result.first?.title == "Notes Chat")
     }
-}
 
+    @Test("frontMatter invalidates cached value when backing data changes")
+    func frontMatterInvalidatesWhenBackingDataChanges() throws {
+        let page = SDPage(title: "Front Matter")
+        page.frontMatter = ["title": "Original"]
+        #expect(page.frontMatter["title"] == "Original")
+
+        page.frontMatterData = try JSONEncoder().encode(["title": "Updated"])
+
+        #expect(page.frontMatter["title"] == "Updated")
+    }
+
+    @Test("ideas invalidates cached value when backing data changes")
+    func ideasInvalidateWhenBackingDataChanges() throws {
+        let page = SDPage(title: "Ideas")
+        page.ideas = [
+            NoteIdea(type: .idea, title: "First", body: "first")
+        ]
+        #expect(page.ideas.map(\.title) == ["First"])
+
+        page.ideasData = try JSONEncoder().encode([
+            NoteIdea(type: .brainDump, title: "Second", body: "second")
+        ])
+
+        #expect(page.ideas.map(\.title) == ["Second"])
+    }
+}

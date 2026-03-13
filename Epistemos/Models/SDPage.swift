@@ -51,11 +51,23 @@ final class SDPage {
 
     // MARK: - Front-matter
     // Stored as JSON-encoded Data for flexibility (arbitrary key-value pairs beyond typed fields)
-    var frontMatterData: Data?
+    var frontMatterData: Data? {
+        didSet {
+            if frontMatterData != oldValue {
+                _frontMatterCache = nil
+            }
+        }
+    }
 
     // MARK: - Ideas & Brain Dumps
     // JSON-encoded array of NoteIdea — ideas and brain dumps registered to this page.
-    var ideasData: Data?
+    var ideasData: Data? {
+        didSet {
+            if ideasData != oldValue {
+                _ideasCache = nil
+            }
+        }
+    }
 
     // MARK: - Timestamps
     var createdAt: Date = Date.now
@@ -112,18 +124,24 @@ final class SDPage {
     /// Cached front-matter dictionary — avoids JSON decode/encode on every access.
     /// Invalidated on set; lazily decoded on first get after Data changes.
     @Transient private var _frontMatterCache: [String: String]?
+    @Transient private var _frontMatterCacheData: Data?
 
     var frontMatter: [String: String] {
         get {
-            if let cached = _frontMatterCache { return cached }
+            if let cached = _frontMatterCache, _frontMatterCacheData == frontMatterData {
+                return cached
+            }
             guard let data = frontMatterData else { return [:] }
             let decoded = (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
             _frontMatterCache = decoded
+            _frontMatterCacheData = data
             return decoded
         }
         set {
+            let encoded = try? JSONEncoder().encode(newValue)
+            frontMatterData = encoded
             _frontMatterCache = newValue
-            frontMatterData = try? JSONEncoder().encode(newValue)
+            _frontMatterCacheData = encoded
         }
     }
 
@@ -134,18 +152,24 @@ final class SDPage {
 
     /// Cached ideas array — avoids JSON decode/encode on every access.
     @Transient private var _ideasCache: [NoteIdea]?
+    @Transient private var _ideasCacheData: Data?
 
     var ideas: [NoteIdea] {
         get {
-            if let cached = _ideasCache { return cached }
+            if let cached = _ideasCache, _ideasCacheData == ideasData {
+                return cached
+            }
             guard let data = ideasData else { return [] }
             let decoded = (try? JSONDecoder().decode([NoteIdea].self, from: data)) ?? []
             _ideasCache = decoded
+            _ideasCacheData = data
             return decoded
         }
         set {
+            let encoded = try? JSONEncoder().encode(newValue)
+            ideasData = encoded
             _ideasCache = newValue
-            ideasData = try? JSONEncoder().encode(newValue)
+            _ideasCacheData = encoded
         }
     }
 
