@@ -167,6 +167,7 @@ enum NoteDualPreviewLayout {
     static let defaultSinglePageMaxWidth: CGFloat = 920
     static let tableSinglePageMaxWidth: CGFloat = 840
     static let tableReadableMaxWidth: CGFloat = 740
+    static let tableEditorReadableMaxWidth: CGFloat = 520
     static let outerPadding = EdgeInsets(top: 28, leading: 32, bottom: 40, trailing: 32)
     static let pagePadding = EdgeInsets(top: 34, leading: 38, bottom: 36, trailing: 38)
     static let sectionTargetCharacterCount = 900
@@ -205,6 +206,10 @@ enum NoteDualPreviewLayout {
 
     static func readableWidth(for markdown: String, defaultWidth: CGFloat) -> CGFloat {
         containsTable(in: markdown) ? min(defaultWidth, tableReadableMaxWidth) : defaultWidth
+    }
+
+    static func editorReadableWidth(for markdown: String, defaultWidth: CGFloat) -> CGFloat {
+        containsTable(in: markdown) ? min(defaultWidth, tableEditorReadableMaxWidth) : defaultWidth
     }
 
     static func paragraphBlocks(in markdown: String) -> [String] {

@@ -554,7 +554,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     private static func updateCenteringInsets(for tv: NSTextView) {
         guard let scrollView = tv.enclosingScrollView else { return }
         let availableWidth = scrollView.contentSize.width
-        let readableWidth = NoteDualPreviewLayout.readableWidth(
+        let readableWidth = NoteDualPreviewLayout.editorReadableWidth(
             for: tv.string,
             defaultWidth: maxReadableWidth
         )
