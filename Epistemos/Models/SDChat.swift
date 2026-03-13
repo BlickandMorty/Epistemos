@@ -43,4 +43,9 @@ final class SDChat {
     var sortedMessages: [SDMessage] {
         (messages ?? []).sorted { $0.createdAt < $1.createdAt }
     }
+
+    @MainActor
+    var loadedMessages: [ChatMessage] {
+        sortedMessages.map { $0.chatMessage(chatId: id) }
+    }
 }

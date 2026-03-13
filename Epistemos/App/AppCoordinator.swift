@@ -242,11 +242,9 @@ final class AppCoordinator {
             predicate: #Predicate<SDChat> { $0.id == chatId }
         )
         guard let sdChat = try? modelContainer.mainContext.fetch(descriptor).first else { return }
-        let sorted = sdChat.sortedMessages
-        let messages = sorted.map { $0.chatMessage(chatId: sdChat.id) }
         chatState.setCurrentChat(sdChat.id)
         chatState.chatTitle = sdChat.title
-        chatState.loadMessages(messages)
+        chatState.loadMessages(sdChat.loadedMessages)
         uiState.setActivePanel(.home)
         uiState.homeTab = .home
         if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import UserNotifications
 import os
 
 // MARK: - Chat Coordinator
@@ -8,6 +9,15 @@ import os
 
 @MainActor
 final class ChatCoordinator {
+    struct ResearchCompletionNotificationPayload {
+        let identifier: String
+        let title: String
+        let subtitle: String
+        let body: String
+        let userInfo: [AnyHashable: Any]
+    }
+
+    private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private unowned let bootstrap: AppBootstrap
     private let chatState: ChatState
     private let pipelineService: PipelineService
@@ -135,6 +145,11 @@ final class ChatCoordinator {
                             dualMessage: dual,
                             truthAssessment: truth,
                             message: chatState.messages.first(where: { $0.id == pendingAssistantId })
+                        )
+                        self.postResearchCompletionNotification(
+                            chatId: capturedChatId,
+                            fallbackQuery: query,
+                            dualMessage: dual
                         )
                     }
                     if !dual.rawAnalysis.isEmpty {
@@ -471,6 +486,10 @@ final class ChatCoordinator {
         context.insert(userMsg)
 
         let assistantMsg = SDMessage(role: "assistant", content: answer)
+        if let assistantMessage {
+            assistantMsg.id = assistantMessage.id
+            assistantMsg.createdAt = assistantMessage.createdAt
+        }
         assistantMsg.updateAnalysis(
             dualMessage: dual,
             truthAssessment: truth,
@@ -539,6 +558,126 @@ final class ChatCoordinator {
             Log.db.info("Persisted enrichment for chat \(chatId, privacy: .public)")
         } catch {
             Log.db.error("Failed to persist enrichment: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    static func makeResearchCompletionNotificationPayload(
+        chatId: String,
+        chatTitle: String,
+        hasFullResearch: Bool
+    ) -> ResearchCompletionNotificationPayload {
+        let title = hasFullResearch ? "Full Research Complete" : "Enrichment Complete"
+        return ResearchCompletionNotificationPayload(
+            identifier: "research-complete-\(chatId)",
+            title: title,
+            subtitle: chatTitle,
+            body: "\(chatTitle) is ready. Click to open the chat.",
+            userInfo: ["chatId": chatId]
+        )
+    }
+
+    private func postResearchCompletionNotification(
+        chatId: String?,
+        fallbackQuery: String,
+        dualMessage: DualMessage
+    ) {
+        guard let chatId else { return }
+        let chatTitle = resolvedChatTitle(chatId: chatId, fallbackQuery: fallbackQuery)
+        let payload = Self.makeResearchCompletionNotificationPayload(
+            chatId: chatId,
+            chatTitle: chatTitle,
+            hasFullResearch: !dualMessage.rawAnalysis.isEmpty
+        )
+        Self.scheduleResearchCompletionNotification(payload)
+    }
+
+    private func resolvedChatTitle(chatId: String, fallbackQuery: String) -> String {
+        let context = modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDChat>(
+            predicate: #Predicate<SDChat> { $0.id == chatId }
+        )
+        if let chat = try? context.fetch(descriptor).first,
+           !chat.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return chat.title
+        }
+        if let title = chatState.chatTitle,
+           !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return title
+        }
+        let trimmed = fallbackQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count > 50 {
+            return String(trimmed.prefix(50)) + "…"
+        }
+        return trimmed.isEmpty ? "Research Chat" : trimmed
+    }
+
+    private static func scheduleResearchCompletionNotification(
+        _ payload: ResearchCompletionNotificationPayload
+    ) {
+        guard !isRunningTests else { return }
+
+        let center = UNUserNotificationCenter.current()
+        Task {
+            let authorizationStatus = await notificationAuthorizationStatus(center: center)
+            let isAuthorized: Bool
+
+            switch authorizationStatus {
+            case .notDetermined:
+                isAuthorized = await requestNotificationAuthorization(center: center)
+            case .authorized, .provisional, .ephemeral:
+                isAuthorized = true
+            case .denied:
+                isAuthorized = false
+            @unknown default:
+                isAuthorized = false
+            }
+
+            guard isAuthorized else {
+                Log.pipeline.info("Research completion notification skipped — notifications not authorized")
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = payload.title
+            content.subtitle = payload.subtitle
+            content.body = payload.body
+            content.sound = .default
+            content.userInfo = payload.userInfo
+
+            let request = UNNotificationRequest(
+                identifier: payload.identifier,
+                content: content,
+                trigger: nil
+            )
+
+            center.add(request) { error in
+                if let error {
+                    Log.pipeline.error("Failed to schedule research completion notification: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+    }
+
+    private static func notificationAuthorizationStatus(
+        center: UNUserNotificationCenter
+    ) async -> UNAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            center.getNotificationSettings { settings in
+                continuation.resume(returning: settings.authorizationStatus)
+            }
+        }
+    }
+
+    private static func requestNotificationAuthorization(
+        center: UNUserNotificationCenter
+    ) async -> Bool {
+        await withCheckedContinuation { continuation in
+            center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+                if let error {
+                    Log.pipeline.error("Failed to request notification authorization: \(error.localizedDescription, privacy: .public)")
+                }
+                continuation.resume(returning: granted)
+            }
         }
     }
 

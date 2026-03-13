@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Epistemos
 
@@ -582,5 +583,164 @@ struct NetworkProcessActivityTests {
         }
 
         #expect(activityField == nil)
+    }
+}
+
+@Suite("ChatCoordinator Research Persistence", .serialized)
+@MainActor
+struct ChatCoordinatorResearchPersistenceTests {
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema(EpistemosSchema.models)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    private func makeCoordinator(container: ModelContainer) -> ChatCoordinator {
+        let bootstrap = AppBootstrap()
+        let chatState = ChatState()
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        let llmService = LLMService(inference: inference)
+        let triage = TriageService(inference: inference, llmService: llmService)
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: llmService,
+            triageService: triage,
+            eventBus: eventBus
+        )
+
+        return ChatCoordinator(
+            bootstrap: bootstrap,
+            chatState: chatState,
+            pipelineService: pipeline,
+            inferenceState: inference,
+            soarState: SOARState(),
+            vaultSync: VaultSyncService(modelContainer: container),
+            modelContainer: container,
+            eventBus: eventBus,
+            llmService: llmService,
+            researchState: ResearchState(),
+            notesUI: NotesUIState()
+        )
+    }
+
+    private func makeLaymanDualMessage() -> DualMessage {
+        DualMessage(
+            rawAnalysis: "Full raw analysis",
+            uncertaintyTags: [],
+            modelVsDataFlags: [],
+            laymanSummary: LaymanSummary(
+                whatWasTried: "Compared the evidence",
+                whatIsLikelyTrue: "The claim is likely true",
+                confidenceExplanation: "Multiple signals aligned",
+                whatCouldChange: "New contradictory data",
+                whoShouldTrust: "Researchers familiar with the topic",
+                sectionLabels: nil
+            ),
+            reflection: nil,
+            arbitration: nil
+        )
+    }
+
+    private func makeTruthAssessment() -> TruthAssessment {
+        TruthAssessment(
+            overallTruthLikelihood: 0.84,
+            signalInterpretation: "Strongly supported",
+            weaknesses: [],
+            improvements: [],
+            blindSpots: [],
+            confidenceCalibration: "Calibrated",
+            dataVsModelBalance: "Balanced",
+            recommendedActions: []
+        )
+    }
+
+    @Test("persistEnrichment updates the same saved assistant message by id")
+    func persistEnrichmentUpdatesSavedAssistantMessageById() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let coordinator = makeCoordinator(container: container)
+
+        let chatId = "chat-research"
+        let assistantId = "assistant-research"
+        let start = Date(timeIntervalSince1970: 2_468)
+
+        let completedMessage = ChatMessage(
+            id: assistantId,
+            chatId: chatId,
+            role: .assistant,
+            content: "Initial answer",
+            mode: .api,
+            reasoningText: "Thinking...",
+            reasoningDuration: 1.25,
+            isResearchResult: true,
+            researchStartTime: start
+        )
+
+        coordinator.persistChatCompletion(
+            chatId: chatId,
+            query: "What does the evidence show?",
+            answer: "Initial answer",
+            dual: nil,
+            truth: nil,
+            confidence: 0.5,
+            grade: .c,
+            mode: .api,
+            assistantMessage: completedMessage,
+            isResearch: true
+        )
+
+        let enrichedMessage = ChatMessage(
+            id: assistantId,
+            chatId: chatId,
+            role: .assistant,
+            content: "Initial answer",
+            dualMessage: makeLaymanDualMessage(),
+            truthAssessment: makeTruthAssessment(),
+            confidence: 0.84,
+            evidenceGrade: .b,
+            mode: .api,
+            reasoningText: "Thinking...",
+            reasoningDuration: 1.25,
+            isResearchResult: true,
+            researchDuration: 33,
+            researchStartTime: start
+        )
+
+        coordinator.persistEnrichment(
+            chatId: chatId,
+            messageId: assistantId,
+            dualMessage: makeLaymanDualMessage(),
+            truthAssessment: makeTruthAssessment(),
+            message: enrichedMessage
+        )
+
+        let chats = try context.fetch(FetchDescriptor<SDChat>())
+        let chat = try #require(chats.first)
+        let assistantMessages = (chat.messages ?? []).filter { $0.role == "assistant" }
+        let savedAssistant = try #require(assistantMessages.first)
+
+        #expect(assistantMessages.count == 1)
+        #expect(savedAssistant.id == assistantId)
+        #expect(savedAssistant.dualMessageData != nil)
+        #expect(savedAssistant.truthAssessmentData != nil)
+        #expect(savedAssistant.researchDuration == 33)
+        #expect(savedAssistant.researchStartTime == start)
+    }
+
+    @Test("research completion notification payload includes chat title and deep link id")
+    func researchCompletionNotificationPayloadIncludesChatTitleAndDeepLink() {
+        let payload = ChatCoordinator.makeResearchCompletionNotificationPayload(
+            chatId: "chat-42",
+            chatTitle: "Bayesian Updating",
+            hasFullResearch: true
+        )
+
+        #expect(payload.title == "Full Research Complete")
+        #expect(payload.subtitle == "Bayesian Updating")
+        #expect(payload.body.contains("Bayesian Updating"))
+        #expect(payload.userInfo["chatId"] as? String == "chat-42")
     }
 }

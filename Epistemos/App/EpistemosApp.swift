@@ -2,6 +2,7 @@ import AppKit
 import CoreSpotlight
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 // MARK: - App Entry Point
 
@@ -93,7 +94,7 @@ struct EpistemosApp: App {
 
 // MARK: - App Delegate (Dock Menu + Native Hooks)
 
-final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
+final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var mainWindowObservers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -111,6 +112,8 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        UNUserNotificationCenter.current().delegate = self
+
         Task { @MainActor in
             NSApp.windows.forEach(Self.applyMainWindowPolicyIfNeeded(to:))
         }
@@ -126,6 +129,30 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate {
     private static func applyMainWindowPolicyIfNeeded(to window: NSWindow) {
         guard window.title == "Epistemos" else { return }
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard let chatId = response.notification.request.content.userInfo["chatId"] as? String else {
+            return
+        }
+
+        await MainActor.run {
+            NSApp.activate(ignoringOtherApps: true)
+            AppBootstrap.shared?.loadChat(chatId: chatId)
+            if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
+                main.makeKeyAndOrderFront(nil)
+            }
+        }
     }
 
     /// Native macOS dock menu — right-click the dock icon for quick actions.

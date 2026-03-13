@@ -309,4 +309,68 @@ struct SDPageQueryDescriptorTests {
         #expect(mapped.researchStartTime == start)
         #expect(mapped.researchDuration == nil)
     }
+
+    @Test("sd chat loaded messages preserve enriched research metadata")
+    func sdChatLoadedMessagesPreserveResearchMetadata() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let chat = SDChat(title: "Research Chat", chatType: "chat")
+        let message = SDMessage(role: "assistant", content: "Answer")
+        let start = Date(timeIntervalSince1970: 9_999)
+
+        let dual = DualMessage(
+            rawAnalysis: "Raw analysis",
+            uncertaintyTags: [],
+            modelVsDataFlags: [],
+            laymanSummary: LaymanSummary(
+                whatWasTried: "Tried",
+                whatIsLikelyTrue: "True",
+                confidenceExplanation: "Confident",
+                whatCouldChange: "More data",
+                whoShouldTrust: "Experts",
+                sectionLabels: nil
+            ),
+            reflection: nil,
+            arbitration: nil
+        )
+        let truth = TruthAssessment(
+            overallTruthLikelihood: 0.82,
+            signalInterpretation: "Strong",
+            weaknesses: [],
+            improvements: [],
+            blindSpots: [],
+            confidenceCalibration: "Calibrated",
+            dataVsModelBalance: "Balanced",
+            recommendedActions: []
+        )
+
+        message.updateAnalysis(
+            dualMessage: dual,
+            truthAssessment: truth,
+            confidence: 0.82,
+            evidenceGrade: .b,
+            mode: .api,
+            reasoningText: "Thinking...",
+            reasoningDuration: 3.5,
+            isResearchResult: true,
+            researchDuration: 42,
+            researchStartTime: start
+        )
+        message.chat = chat
+
+        context.insert(chat)
+        context.insert(message)
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<SDChat>()).first)
+        let mapped = try #require(fetched.loadedMessages.first)
+
+        #expect(mapped.dualMessage?.laymanSummary?.whatWasTried == "Tried")
+        #expect(mapped.reasoningText == "Thinking...")
+        #expect(mapped.reasoningDuration == 3.5)
+        #expect(mapped.isResearchResult)
+        #expect(mapped.researchStartTime == start)
+        #expect(mapped.researchDuration == 42)
+    }
 }

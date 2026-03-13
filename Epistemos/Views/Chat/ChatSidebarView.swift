@@ -248,31 +248,15 @@ struct ChatSidebarView: View {
     }
 
     private func loadChatIntoSession(_ sdChat: SDChat) {
-        let sorted = sdChat.sortedMessages
-        let messages = sorted.map { msg in
-            let dual = msg.dualMessageData.flatMap { try? JSONDecoder().decode(DualMessage.self, from: $0) }
-            // Infer research result from enrichment data — laymanSummary only exists for research mode
-            let isResearch = dual?.laymanSummary != nil
-            return ChatMessage(
-                id: msg.id,
-                chatId: sdChat.id,
-                role: msg.role == "user" ? .user : .assistant,
-                content: msg.content,
-                dualMessage: dual,
-                truthAssessment: msg.truthAssessmentData.flatMap { try? JSONDecoder().decode(TruthAssessment.self, from: $0) },
-                confidence: msg.confidenceScore,
-                evidenceGrade: msg.evidenceGrade.flatMap { EvidenceGrade(rawValue: $0) },
-                mode: msg.inferenceMode.flatMap { InferenceMode(rawValue: $0) },
-                createdAt: msg.createdAt,
-                isResearchResult: isResearch
-            )
+        if let bootstrap = AppBootstrap.shared {
+            bootstrap.loadChat(chatId: sdChat.id)
+        } else {
+            chat.setCurrentChat(sdChat.id)
+            chat.chatTitle = sdChat.title
+            chat.loadMessages(sdChat.loadedMessages)
+            ui.setActivePanel(.home)
         }
-        chat.setCurrentChat(sdChat.id)
-        chat.chatTitle = sdChat.title
-        chat.loadMessages(messages)
         ui.dismissChatSidebar()
-        // Ensure Home panel is active so the chat is visible
-        ui.setActivePanel(.home)
     }
 }
 
