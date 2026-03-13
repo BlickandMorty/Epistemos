@@ -38,6 +38,13 @@ struct NoteEditorLayoutTests {
         #expect(snapshot.lastPersistedBody == "# Persisted\n\nNewly pasted paragraph")
     }
 
+    @Test("preview handoff never reuses another note's captured body")
+    func previewHandoffIgnoresOtherNotes() {
+        let snapshot = NoteModeBodySnapshot(pageId: "note-a", body: "Body from note A")
+
+        #expect(snapshot.body(ifMatches: "note-b") == nil)
+    }
+
     @MainActor
     @Test("rendered tables reserve enough editor height to avoid overlapping following prose")
     func renderedTablesReserveEnoughHeight() throws {

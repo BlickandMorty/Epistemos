@@ -11,6 +11,16 @@ private struct EditorMetricsSnapshot: Sendable {
     let headings: [TOCItem]
 }
 
+struct NoteModeBodySnapshot: Equatable {
+    let pageId: String
+    let body: String
+
+    func body(ifMatches currentPageId: String) -> String? {
+        guard pageId == currentPageId else { return nil }
+        return body
+    }
+}
+
 enum NoteEditorViewFinder {
     static func findEditorTextView(for pageId: String? = nil) -> NSTextView? {
         if let tv = noteEditorTextView(
@@ -544,7 +554,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
     @State private var showPreview = false
-    @State private var modeBodySnapshot: String?
+    @State private var modeBodySnapshot: NoteModeBodySnapshot?
 
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
@@ -783,7 +793,7 @@ struct NoteDetailWorkspaceView: View {
                             ProseEditorView(
                                 page: page,
                                 isEditable: true,
-                                initialBodyOverride: modeBodySnapshot
+                                initialBodyOverride: currentModeBodySnapshot(for: page.id)
                             )
                         }
                     }
@@ -1302,7 +1312,11 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func displayBody(for page: SDPage) -> String {
-        modeBodySnapshot ?? currentEditorBody(for: page) ?? page.loadBody()
+        currentModeBodySnapshot(for: page.id) ?? currentEditorBody(for: page) ?? page.loadBody()
+    }
+
+    private func currentModeBodySnapshot(for pageId: String) -> String? {
+        modeBodySnapshot?.body(ifMatches: pageId)
     }
 
     private func currentEditorBody(for page: SDPage) -> String? {
@@ -1312,13 +1326,13 @@ struct NoteDetailWorkspaceView: View {
         if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
             return responder.string
         }
-        return showPreview ? modeBodySnapshot ?? page.loadBody() : nil
+        return showPreview ? currentModeBodySnapshot(for: page.id) ?? page.loadBody() : nil
     }
 
     private func flushCurrentEditor() {
         guard let page = pages.first else { return }
         let fullText = currentEditorBody(for: page) ?? page.loadBody()
-        modeBodySnapshot = fullText
+        modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: fullText)
         if fullText != page.loadBody() {
             page.saveBody(fullText)
             BlockMirror.sync(pageId: page.id, body: fullText, modelContext: modelContext)
