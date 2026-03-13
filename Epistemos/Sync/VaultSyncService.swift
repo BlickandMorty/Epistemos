@@ -43,6 +43,7 @@ final class VaultSyncService {
     private var indexActor: VaultIndexActor?
     private let modelContainer: ModelContainer
     var exportPageOverride: ExportPageOperation?
+    private var searchDatabaseURLOverride: URL?
 
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
@@ -93,6 +94,10 @@ final class VaultSyncService {
 
     func setExportPageOverrideForTesting(_ exportPageOverride: ExportPageOperation?) {
         self.exportPageOverride = exportPageOverride
+    }
+
+    func setSearchDatabaseURLForTesting(_ databaseURL: URL?) {
+        searchDatabaseURLOverride = databaseURL
     }
 
     private func exportPage(pageId: String, to vaultURL: URL) async throws -> String? {
@@ -282,7 +287,7 @@ final class VaultSyncService {
 
         // Create FTS5 search index
         do {
-            let svc = try SearchIndexService()
+            let svc = try SearchIndexService(databaseURL: searchDatabaseURLOverride)
             self.searchService = svc
         } catch {
             log.error("Failed to create SearchIndexService: \(error.localizedDescription, privacy: .public)")
@@ -803,7 +808,7 @@ final class VaultSyncService {
 
             log.info("File watcher: vault changed externally — re-importing")
             do {
-                try await actor.importVault(from: vaultURL)
+                try await actor.importVault(from: vaultURL, deleteMissingFiles: false)
                 log.info("File watcher: re-import complete")
 
                 // Rebuild graph with new/changed data

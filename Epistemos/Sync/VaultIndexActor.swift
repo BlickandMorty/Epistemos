@@ -28,7 +28,7 @@ actor VaultIndexActor {
 
     /// Import vault incrementally: only process new, modified, or deleted files.
     /// Compares file modification dates against stored SDPage.updatedAt to skip unchanged files.
-    func importVault(from url: URL) throws {
+    func importVault(from url: URL, deleteMissingFiles: Bool = true) throws {
         let fm = FileManager.default
 
         guard fm.fileExists(atPath: url.path) else {
@@ -81,97 +81,111 @@ actor VaultIndexActor {
         var changeCount = 0
         var unreadableCount = 0
         let batchSize = 200
+        var completedScan = !Task.isCancelled
 
-        for case let fileURL as URL in enumerator {
-            // Allow cooperative cancellation during large vault imports
-            guard !Task.isCancelled else {
-                log.info("Vault import cancelled — indexed \(insertCount + updateCount) files before cancellation")
-                break
-            }
-            // Skip developer artifact and system directory subtrees entirely
-            let name = fileURL.lastPathComponent
-            if excludedDirs.contains(name)
-                || excludedSuffixes.contains(where: { name.hasSuffix($0) }) {
-                enumerator.skipDescendants()
-                continue
-            }
+        if !completedScan {
+            log.info("Vault import cancelled before enumeration started — skipping deletion pass")
+        }
 
-            let ext = fileURL.pathExtension.lowercased()
-            guard ext == "md" || ext == "markdown" || ext == "txt" else { continue }
+        if completedScan {
+            for case let fileURL as URL in enumerator {
+                // Allow cooperative cancellation during large vault imports
+                guard !Task.isCancelled else {
+                    completedScan = false
+                    log.info("Vault import cancelled — indexed \(insertCount + updateCount) files before cancellation")
+                    break
+                }
+                // Skip developer artifact and system directory subtrees entirely
+                let name = fileURL.lastPathComponent
+                if excludedDirs.contains(name)
+                    || excludedSuffixes.contains(where: { name.hasSuffix($0) }) {
+                    enumerator.skipDescendants()
+                    continue
+                }
 
-            let filePath = fileURL.path
-            diskPaths.insert(filePath)
+                let ext = fileURL.pathExtension.lowercased()
+                guard ext == "md" || ext == "markdown" || ext == "txt" else { continue }
 
-            // Get file modification date
-            let fileModDate: Date
-            if let resourceValues = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
-               let modDate = resourceValues.contentModificationDate {
-                fileModDate = modDate
-            } else {
-                // Can't read mod date — treat as changed to be safe
-                fileModDate = .distantFuture
-            }
+                let filePath = fileURL.path
+                diskPaths.insert(filePath)
 
-            // Pre-check readability to count unreadable files separately.
-            guard fm.isReadableFile(atPath: filePath) else {
-                log.warning("Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public)")
-                unreadableCount += 1
-                continue
-            }
+                // Get file modification date
+                let fileModDate: Date
+                if let resourceValues = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
+                   let modDate = resourceValues.contentModificationDate {
+                    fileModDate = modDate
+                } else {
+                    // Can't read mod date — treat as changed to be safe
+                    fileModDate = .distantFuture
+                }
 
-            if let existingPage = existingByPath[filePath] {
-                // File exists in DB — check if it changed
-                if fileModDate > existingPage.updatedAt {
-                    // File was modified externally — re-read and update
+                // Pre-check readability to count unreadable files separately.
+                guard fm.isReadableFile(atPath: filePath) else {
+                    log.warning("Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public)")
+                    unreadableCount += 1
+                    continue
+                }
+
+                if let existingPage = existingByPath[filePath] {
+                    // File exists in DB — check if it changed
+                    if fileModDate > existingPage.updatedAt {
+                        // File was modified externally — re-read and update
+                        autoreleasepool {
+                            do {
+                                let changed = try upsertPage(from: fileURL, vaultURL: url)
+                                if changed {
+                                    updateCount += 1
+                                    changeCount += 1
+                                } else {
+                                    skipCount += 1
+                                }
+                            } catch {
+                                log.error(
+                                    "Failed to update \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                )
+                            }
+                        }
+                    } else {
+                        // Unchanged — skip entirely (no disk read, no body load)
+                        skipCount += 1
+                    }
+                } else {
+                    // New file — insert
                     autoreleasepool {
                         do {
-                            let changed = try upsertPage(from: fileURL, vaultURL: url)
-                            if changed {
-                                updateCount += 1
-                                changeCount += 1
-                            } else {
-                                skipCount += 1
-                            }
+                            _ = try upsertPage(from: fileURL, vaultURL: url)
+                            insertCount += 1
+                            changeCount += 1
                         } catch {
                             log.error(
-                                "Failed to update \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                "Failed to index \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
                             )
                         }
                     }
-                } else {
-                    // Unchanged — skip entirely (no disk read, no body load)
-                    skipCount += 1
                 }
-            } else {
-                // New file — insert
-                autoreleasepool {
-                    do {
-                        _ = try upsertPage(from: fileURL, vaultURL: url)
-                        insertCount += 1
-                        changeCount += 1
-                    } catch {
-                        log.error(
-                            "Failed to index \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                }
-            }
 
-            if changeCount > 0 && changeCount.isMultiple(of: batchSize) {
-                try modelContext.save()
-                log.info("Vault import progress: \(changeCount, privacy: .public) changes")
+                if changeCount > 0 && changeCount.isMultiple(of: batchSize) {
+                    try modelContext.save()
+                    log.info("Vault import progress: \(changeCount, privacy: .public) changes")
+                }
             }
         }
 
         // ── 3. Delete pages whose files no longer exist on disk ──
-        let deletedPaths = allExistingPaths.subtracting(diskPaths)
         var deleteCount = 0
-        for path in deletedPaths {
-            if let page = existingByPath[path] {
-                SpotlightIndexer.deindex(page.id)
-                modelContext.delete(page)
-                deleteCount += 1
+        if completedScan && deleteMissingFiles {
+            let deletedPaths = allExistingPaths.subtracting(diskPaths)
+            for path in deletedPaths {
+                if let page = existingByPath[path] {
+                    SpotlightIndexer.deindex(page.id)
+                    modelContext.delete(page)
+                    deleteCount += 1
+                }
             }
+        } else if !completedScan {
+            log.info("Vault import incomplete — skipping deletion pass for tracked pages")
+        } else {
+            log.info("Vault import ran in non-destructive mode — skipping deletion pass for tracked pages")
         }
 
         if changeCount > 0 || deleteCount > 0 {
@@ -193,7 +207,7 @@ actor VaultIndexActor {
         log.info(
             "Vault import complete: \(diskPaths.count) files on disk, \(dbPageCount) pages in DB → \(insertCount) new, \(updateCount) updated, \(skipCount) unchanged, \(deleteCount) deleted, \(unreadableCount) unreadable"
         )
-        if diskPaths.count != dbPageCount {
+        if completedScan && deleteMissingFiles && diskPaths.count != dbPageCount {
             log.warning(
                 "Vault import mismatch: \(diskPaths.count) disk files vs \(dbPageCount) DB pages (delta: \(dbPageCount - diskPaths.count))"
             )

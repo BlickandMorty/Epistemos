@@ -382,6 +382,35 @@ struct VaultIndexActorTests {
         #expect(page.lastSyncedAt != nil)
     }
 
+    @Test("cancelled import does not delete tracked pages from a partial scan")
+    func cancelledImportSkipsDeletionPass() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let fileURL = vaultURL.appendingPathComponent("Tracked.md")
+        try "Tracked body".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let page = insertPage(in: context, title: "Tracked", body: "Tracked body")
+        page.filePath = fileURL.path
+        try context.save()
+
+        let importTask = Task {
+            withUnsafeCurrentTask { task in
+                task?.cancel()
+            }
+            try await actor.importVault(from: vaultURL)
+        }
+        try await importTask.value
+
+        let verifyContext = ModelContext(container)
+        let trackedPages = try verifyContext.fetch(FetchDescriptor<SDPage>())
+        #expect(trackedPages.contains { $0.id == page.id })
+        #expect(trackedPages.first(where: { $0.id == page.id })?.filePath == fileURL.path)
+    }
+
     @Test("exportPage refreshes search index so graph queries see saved body text")
     func exportPageRefreshesSearchIndexForGraphQueries() async throws {
         let container = try makeContainer()

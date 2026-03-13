@@ -78,6 +78,23 @@ struct VaultSyncServiceAuditTests {
         return dir
     }
 
+    private func waitUntil(
+        timeout: Duration = .seconds(3),
+        condition: @escaping @MainActor () async -> Bool
+    ) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if await condition() {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+
+        Issue.record("Timed out waiting for condition")
+    }
+
     @Test("restoreVaultFromBookmark is disabled under test hosts")
     func restoreVaultFromBookmarkDisabledUnderTests() {
         #expect(
@@ -314,6 +331,43 @@ struct VaultSyncServiceAuditTests {
         #expect(savedPage.lastSyncedBodyHash == "old-save-hash")
     }
 
+    @Test("searchFullAsync sees newly saved note bodies immediately")
+    func searchFullAsyncSeesSavedBodiesImmediately() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let searchURL = vaultURL.appendingPathComponent("search.sqlite")
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        service.setSearchDatabaseURLForTesting(searchURL)
+        service.startWatching(vaultURL: vaultURL)
+        try await waitUntil {
+            service.isWatching && !service.isIndexing
+        }
+
+        let token = "vaultsearch\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        let page = SDPage(title: "Searchable Chat Note")
+        page.saveBody("Body text with \(token)")
+        page.needsVaultSync = true
+        context.insert(page)
+        try context.save()
+
+        service.savePage(pageId: page.id)
+
+        try await waitUntil {
+            let hits = await service.searchFullAsync(query: token, limit: 5)
+            return hits.contains { $0.pageId == page.id }
+        }
+
+        let hits = await service.searchFullAsync(query: token, limit: 5)
+        #expect(hits.contains { $0.pageId == page.id })
+        #expect(hits.first(where: { $0.pageId == page.id })?.snippet.isEmpty == false)
+    }
+
     @Test("movePage relocates the markdown file into the target vault subfolder")
     func movePageRelocatesFileIntoTargetSubfolder() throws {
         let container = try makeContainer()
@@ -391,5 +445,39 @@ struct VaultSyncServiceAuditTests {
         #expect(refreshed.needsVaultSync)
         #expect(refreshed.lastSyncedBodyHash == "prior-sync-hash")
         #expect(refreshed.lastSyncedAt == oldSyncedAt)
+    }
+
+    @Test("file watcher re-import does not delete tracked pages after disk removal")
+    func fileWatcherImportIsNonDestructive() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        let fileURL = vaultURL.appendingPathComponent("Watched.md")
+        try """
+        ---
+        title: Watched
+        ---
+
+        body
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        service.startWatching(vaultURL: vaultURL)
+        try await waitUntil {
+            service.isWatching && !service.isIndexing
+        }
+
+        let pageId = try #require(try context.fetch(FetchDescriptor<SDPage>()).first?.id)
+
+        try FileManager.default.removeItem(at: fileURL)
+        try? await Task.sleep(for: .seconds(4))
+
+        let pages = try context.fetch(FetchDescriptor<SDPage>())
+        #expect(pages.contains { $0.id == pageId })
     }
 }
