@@ -1285,6 +1285,84 @@ struct TextKit2TableDetectionTests {
     }
 }
 
+@Suite("Markdown Table Model")
+struct MarkdownTableModelTests {
+
+    @Test("Parser builds rows and header count from markdown table block")
+    func parsesMarkdownTableBlock() {
+        let table = MarkdownTableModel.parse(
+            """
+            | Name | Count |
+            | --- | --- |
+            | Pens | 12 |
+            | Paper | 4 |
+            """
+        )
+
+        #expect(table?.headerCount == 1)
+        #expect(table?.rows.count == 3)
+        #expect(table?.rows.first == ["Name", "Count"])
+        #expect(table?.rows.last == ["Paper", "4"])
+    }
+
+    @Test("Parser rejects non-table content")
+    func rejectsNonTableContent() {
+        #expect(MarkdownTableModel.parse("Just prose") == nil)
+    }
+}
+
+@Suite("Markdown Table Block Ranges")
+struct MarkdownTableBlockRangeTests {
+
+    @Test("Visible slice expands to the full markdown table block")
+    func expandsVisibleSliceToFullTable() throws {
+        let text = """
+        Intro
+
+        | Name | Count |
+        | --- | --- |
+        | Pens | 12 |
+        | Paper | 4 |
+
+        Outro
+        """ as NSString
+        let visibleSlice = NSRange(location: 34, length: 12)
+
+        let ranges = MarkdownTableBlockRanges.ranges(in: text, intersecting: visibleSlice)
+        let range = try #require(ranges.first)
+
+        #expect(ranges.count == 1)
+        #expect(
+            text.substring(with: range).trimmingCharacters(in: .newlines)
+                == """
+                | Name | Count |
+                | --- | --- |
+                | Pens | 12 |
+                | Paper | 4 |
+                """
+        )
+    }
+
+    @Test("Multiple visible rows from the same table collapse into one range")
+    func deduplicatesVisibleRowsFromSameTable() {
+        let text = """
+        | A | B |
+        | --- | --- |
+        | 1 | 2 |
+        | 3 | 4 |
+        """ as NSString
+
+        let ranges = MarkdownTableBlockRanges.ranges(
+            in: text,
+            intersecting: NSRange(location: 0, length: text.length)
+        )
+
+        #expect(ranges.count == 1)
+        #expect(ranges[0].location == 0)
+        #expect(ranges[0].length == text.length)
+    }
+}
+
 // MARK: - Phase 4: Table Drawing Tests
 
 @Suite("TextKit 2 - Table Drawing")

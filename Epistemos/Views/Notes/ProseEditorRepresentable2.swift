@@ -34,8 +34,12 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     static let minHorizontalInset: CGFloat = 60
     static let verticalInset: CGFloat = 40
 
-    static func horizontalInset(for availableWidth: CGFloat) -> CGFloat {
-        max(minHorizontalInset, (availableWidth - maxReadableWidth) / 2)
+    static func horizontalInset(for availableWidth: CGFloat, markdown: String) -> CGFloat {
+        let readableWidth = NoteDualPreviewLayout.readableWidth(
+            for: markdown,
+            defaultWidth: maxReadableWidth
+        )
+        return max(minHorizontalInset, (availableWidth - readableWidth) / 2)
     }
 
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }
@@ -48,6 +52,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
         tv.isEditable = isEditable
         tv.delegate = coord
+        tv.usesRenderedTableOverlays = true
         tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
 
         tv.applyTheme(theme)
@@ -71,6 +76,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastTheme = theme
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
+        coord.renderedTableOverlayManager = RenderedTableOverlayManager2(textView: tv, theme: theme)
 
         // Wire AI chat callbacks
         coord.wireNoteChatCallbacks()
@@ -164,6 +170,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         ) { [weak coord] _ in
             MainActor.assumeIsolated {
                 coord?.transclusionManager?.refreshForScroll()
+                coord?.renderedTableOverlayManager?.refreshForScroll()
             }
         }
 
@@ -176,6 +183,7 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
         // Centering
         coord.updateCentering()
+        coord.renderedTableOverlayManager?.refresh()
 
         return scrollView
     }
@@ -254,6 +262,7 @@ extension ProseEditorRepresentable2 {
         // Overlay subsystems (Phase 9)
         var blockRefAutocomplete: BlockRefAutocomplete2?
         var transclusionManager: TransclusionOverlayManager2?
+        var renderedTableOverlayManager: RenderedTableOverlayManager2?
         var scrollObserver: (any NSObjectProtocol)?
 
         // Per-page state
@@ -344,6 +353,7 @@ extension ProseEditorRepresentable2 {
                 lastPersistedText = newBody
                 let safeLoc = min(sel.location, (tv.string as NSString).length)
                 tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
+                renderedTableOverlayManager?.refreshAfterTextChange()
             }
         }
 
@@ -387,6 +397,7 @@ extension ProseEditorRepresentable2 {
             tableAlignTask?.cancel()
             dataDetectionTask?.cancel()
             transclusionManager?.removeAll()
+            renderedTableOverlayManager?.removeAll()
             blockRefAutocomplete?.dismiss()
 
             // 4. Load new page
@@ -437,6 +448,8 @@ extension ProseEditorRepresentable2 {
             lastIsEditable = parent.isEditable
             tv.isEditable = parent.isEditable
             updateCentering()
+            renderedTableOverlayManager?.setTheme(parent.theme)
+            renderedTableOverlayManager?.refreshAfterTextChange()
             tv.window?.makeFirstResponder(tv)
 
             // 9. BTK: Initialize block edit translator for new page
@@ -464,6 +477,7 @@ extension ProseEditorRepresentable2 {
             guard let tv = textView else { return }
             lastTheme = parent.theme
             tv.applyTheme(parent.theme)
+            renderedTableOverlayManager?.setTheme(parent.theme)
         }
 
         // MARK: - Centering
@@ -471,7 +485,10 @@ extension ProseEditorRepresentable2 {
         func updateCentering() {
             guard let tv = textView, let sv = scrollView else { return }
             let viewWidth = sv.contentSize.width
-            let finalInset = ProseEditorRepresentable2.horizontalInset(for: viewWidth)
+            let finalInset = ProseEditorRepresentable2.horizontalInset(
+                for: viewWidth,
+                markdown: tv.string
+            )
             let newInset = NSSize(
                 width: finalInset,
                 height: ProseEditorRepresentable2.verticalInset
@@ -479,6 +496,7 @@ extension ProseEditorRepresentable2 {
             if tv.textContainerInset != newInset {
                 tv.textContainerInset = newInset
             }
+            renderedTableOverlayManager?.refresh()
         }
 
         // MARK: - AI Chat (v2 — inline response streaming)
@@ -629,6 +647,8 @@ extension ProseEditorRepresentable2 {
             blockEditTranslator = nil
             transclusionManager?.removeAll()
             transclusionManager = nil
+            renderedTableOverlayManager?.removeAll()
+            renderedTableOverlayManager = nil
             blockRefAutocomplete?.dismiss()
             blockRefAutocomplete = nil
             if let obs = scrollObserver {
@@ -742,6 +762,7 @@ extension ProseEditorRepresentable2 {
 
             // Refresh transclusion overlays
             transclusionManager?.refreshAfterTextChange()
+            renderedTableOverlayManager?.refreshAfterTextChange()
 
             scheduleTableAlignment(tv)
             scheduleDataDetection(newText)
@@ -1157,10 +1178,8 @@ extension ProseEditorRepresentable2 {
             let pageId = currentPageId
             directSaveTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(3))
-                guard !Task.isCancelled, let self else { return }
-                await Task.detached(priority: .utility) {
-                    NoteFileStorage.writeBody(pageId: pageId, content: newText)
-                }.value
+                guard !Task.isCancelled, self != nil else { return }
+                await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newText)
             }
         }
     }

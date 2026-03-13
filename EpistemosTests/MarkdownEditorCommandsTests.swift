@@ -171,6 +171,24 @@ struct MarkdownEditorCommandsTests {
         #expect(edit?.replacementText.contains("| xx     | y") == true)
     }
 
+    @Test("Table read-only detection matches markdown table rows")
+    func detectsReadOnlyTableSelection() {
+        let text = """
+        Before
+
+        | Name | Score |
+        | ---- | ----- |
+        | Ada  | 10    |
+
+        After
+        """
+        let cell = NSRange(location: (text as NSString).range(of: "Ada").location, length: 0)
+        let outside = NSRange(location: (text as NSString).range(of: "After").location, length: 0)
+
+        #expect(MarkdownEditorCommands.isSelectionInsideTable(in: text, selection: cell))
+        #expect(!MarkdownEditorCommands.isSelectionInsideTable(in: text, selection: outside))
+    }
+
     @Test("Callout insertion preserves the selected text instead of replacing it with an empty template")
     func insertCalloutWrapsSelectedText() {
         let text = "Alpha\nBeta"

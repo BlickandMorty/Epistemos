@@ -195,54 +195,49 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func anthropicStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    var body = AnthropicRequest(
-                        model: self.inference.anthropicModel,
-                        maxTokens: maxTokens,
-                        system: systemPrompt,
-                        messages: [AnthropicMessage(role: "user", content: prompt)]
-                    )
-                    body.stream = true
-                    let encoded = try JSONEncoder().encode(body)
-                    var request = URLRequest(url: Self.anthropicURL, timeoutInterval: Self.requestTimeout)
-                    request.httpMethod = "POST"
-                    request.httpBody = encoded
-                    request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-api-key")
-                    request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-                    request.setValue("application/json", forHTTPHeaderField: "content-type")
+        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+            do {
+                var body = AnthropicRequest(
+                    model: self.inference.anthropicModel,
+                    maxTokens: maxTokens,
+                    system: systemPrompt,
+                    messages: [AnthropicMessage(role: "user", content: prompt)]
+                )
+                body.stream = true
+                let encoded = try JSONEncoder().encode(body)
+                var request = URLRequest(url: Self.anthropicURL, timeoutInterval: Self.requestTimeout)
+                request.httpMethod = "POST"
+                request.httpBody = encoded
+                request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-api-key")
+                request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
 
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
-                    // Check HTTP status — streaming responses can also be errors
-                    if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-                        // Read the error body from the stream
-                        var errorBody = ""
-                        for try await line in bytes.lines {
-                            errorBody += line
-                            if errorBody.count > 500 { break }
-                        }
-                        throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
-                    }
-
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    var errorBody = ""
                     for try await line in bytes.lines {
-                        if line.hasPrefix("data: ") {
-                            let json = String(line.dropFirst(6))
-                            if json == "[DONE]" { break }
-                            if let d = json.data(using: .utf8),
-                               let event = try? JSONDecoder().decode(AnthropicStreamEvent.self, from: d),
-                               let text = event.delta?.text {
-                                continuation.yield(text)
-                            }
+                        errorBody += line
+                        if errorBody.count > 500 { break }
+                    }
+                    throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
+                }
+
+                for try await line in bytes.lines {
+                    if line.hasPrefix("data: ") {
+                        let json = String(line.dropFirst(6))
+                        if json == "[DONE]" { break }
+                        if let d = json.data(using: .utf8),
+                           let event = try? JSONDecoder().decode(AnthropicStreamEvent.self, from: d),
+                           let text = event.delta?.text {
+                            continuation.yield(text)
                         }
                     }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
                 }
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -267,47 +262,44 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func openAIStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    var messages: [OpenAIMessage] = []
-                    if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
-                    messages.append(OpenAIMessage(role: "user", content: prompt))
-                    let body = OpenAIRequest(model: self.inference.openaiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
-                    let encoded = try JSONEncoder().encode(body)
-                    var request = URLRequest(url: Self.openaiURL, timeoutInterval: Self.requestTimeout)
-                    request.httpMethod = "POST"
-                    request.httpBody = encoded
-                    request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
-                    request.setValue("application/json", forHTTPHeaderField: "content-type")
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+            do {
+                var messages: [OpenAIMessage] = []
+                if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
+                messages.append(OpenAIMessage(role: "user", content: prompt))
+                let body = OpenAIRequest(model: self.inference.openaiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
+                let encoded = try JSONEncoder().encode(body)
+                var request = URLRequest(url: Self.openaiURL, timeoutInterval: Self.requestTimeout)
+                request.httpMethod = "POST"
+                request.httpBody = encoded
+                request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
-                    if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-                        var errorBody = ""
-                        for try await line in bytes.lines {
-                            errorBody += line
-                            if errorBody.count > 500 { break }
-                        }
-                        throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
-                    }
-
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    var errorBody = ""
                     for try await line in bytes.lines {
-                        if line.hasPrefix("data: ") {
-                            let json = String(line.dropFirst(6))
-                            if json == "[DONE]" { break }
-                            if let d = json.data(using: .utf8),
-                               let event = try? JSONDecoder().decode(OpenAIStreamEvent.self, from: d),
-                               let text = event.choices.first?.delta.content {
-                                continuation.yield(text)
-                            }
+                        errorBody += line
+                        if errorBody.count > 500 { break }
+                    }
+                    throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
+                }
+
+                for try await line in bytes.lines {
+                    if line.hasPrefix("data: ") {
+                        let json = String(line.dropFirst(6))
+                        if json == "[DONE]" { break }
+                        if let d = json.data(using: .utf8),
+                           let event = try? JSONDecoder().decode(OpenAIStreamEvent.self, from: d),
+                           let text = event.choices.first?.delta.content {
+                            continuation.yield(text)
                         }
                     }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
                 }
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -332,61 +324,55 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func geminiStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    // Real streaming via streamGenerateContent SSE endpoint
-                    let urlStr = "\(Self.geminiBaseURL)\(self.inference.googleModel):streamGenerateContent?alt=sse"
-                    guard let url = URL(string: urlStr) else {
-                        continuation.finish(throwing: LLMError.apiError(statusCode: 0, body: "Invalid Gemini stream URL"))
-                        return
-                    }
-                    var parts: [GeminiPart] = []
-                    if let sys = systemPrompt { parts.append(GeminiPart(text: "System: \(sys)\n\n")) }
-                    parts.append(GeminiPart(text: prompt))
-                    let body = GeminiRequest(
-                        contents: [GeminiContent(parts: parts)],
-                        generationConfig: GeminiGenerationConfig(maxOutputTokens: maxTokens)
-                    )
-                    let encoded = try JSONEncoder().encode(body)
-
-                    var request = URLRequest(url: url, timeoutInterval: Self.requestTimeout)
-                    request.httpMethod = "POST"
-                    request.httpBody = encoded
-                    request.setValue("application/json", forHTTPHeaderField: "content-type")
-                    request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-goog-api-key")
-
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
-
-                    if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-                        var errorBody = ""
-                        for try await line in bytes.lines {
-                            errorBody += line
-                            if errorBody.count > 500 { break }
-                        }
-                        throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
-                    }
-
-                    for try await line in bytes.lines {
-                        guard !Task.isCancelled else { break }
-                        // SSE: skip empty lines and comment lines (per spec)
-                        if line.isEmpty || line.hasPrefix(":") { continue }
-                        guard line.hasPrefix("data: ") else { continue }
-                        let json = String(line.dropFirst(6))
-                        // SSE: [DONE] sentinel signals end of stream
-                        if json.trimmingCharacters(in: .whitespaces) == "[DONE]" { break }
-                        if let d = json.data(using: .utf8),
-                           let chunk = try? JSONDecoder().decode(GeminiResponse.self, from: d),
-                           let text = chunk.candidates.first?.content.parts.first?.text {
-                            continuation.yield(text)
-                        }
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
+        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+            do {
+                let urlStr = "\(Self.geminiBaseURL)\(self.inference.googleModel):streamGenerateContent?alt=sse"
+                guard let url = URL(string: urlStr) else {
+                    continuation.finish(throwing: LLMError.apiError(statusCode: 0, body: "Invalid Gemini stream URL"))
+                    return
                 }
+                var parts: [GeminiPart] = []
+                if let sys = systemPrompt { parts.append(GeminiPart(text: "System: \(sys)\n\n")) }
+                parts.append(GeminiPart(text: prompt))
+                let body = GeminiRequest(
+                    contents: [GeminiContent(parts: parts)],
+                    generationConfig: GeminiGenerationConfig(maxOutputTokens: maxTokens)
+                )
+                let encoded = try JSONEncoder().encode(body)
+
+                var request = URLRequest(url: url, timeoutInterval: Self.requestTimeout)
+                request.httpMethod = "POST"
+                request.httpBody = encoded
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
+                request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-goog-api-key")
+
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    var errorBody = ""
+                    for try await line in bytes.lines {
+                        errorBody += line
+                        if errorBody.count > 500 { break }
+                    }
+                    throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
+                }
+
+                for try await line in bytes.lines {
+                    guard !Task.isCancelled else { break }
+                    if line.isEmpty || line.hasPrefix(":") { continue }
+                    guard line.hasPrefix("data: ") else { continue }
+                    let json = String(line.dropFirst(6))
+                    if json.trimmingCharacters(in: .whitespaces) == "[DONE]" { break }
+                    if let d = json.data(using: .utf8),
+                       let chunk = try? JSONDecoder().decode(GeminiResponse.self, from: d),
+                       let text = chunk.candidates.first?.content.parts.first?.text {
+                        continuation.yield(text)
+                    }
+                }
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -412,47 +398,44 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func kimiStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    var messages: [OpenAIMessage] = []
-                    if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
-                    messages.append(OpenAIMessage(role: "user", content: prompt))
-                    let body = OpenAIRequest(model: self.inference.kimiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
-                    let encoded = try JSONEncoder().encode(body)
-                    var request = URLRequest(url: Self.kimiURL, timeoutInterval: Self.requestTimeout)
-                    request.httpMethod = "POST"
-                    request.httpBody = encoded
-                    request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
-                    request.setValue("application/json", forHTTPHeaderField: "content-type")
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+            do {
+                var messages: [OpenAIMessage] = []
+                if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
+                messages.append(OpenAIMessage(role: "user", content: prompt))
+                let body = OpenAIRequest(model: self.inference.kimiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
+                let encoded = try JSONEncoder().encode(body)
+                var request = URLRequest(url: Self.kimiURL, timeoutInterval: Self.requestTimeout)
+                request.httpMethod = "POST"
+                request.httpBody = encoded
+                request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
+                let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
-                    if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-                        var errorBody = ""
-                        for try await line in bytes.lines {
-                            errorBody += line
-                            if errorBody.count > 500 { break }
-                        }
-                        throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
-                    }
-
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    var errorBody = ""
                     for try await line in bytes.lines {
-                        if line.hasPrefix("data: ") {
-                            let json = String(line.dropFirst(6))
-                            if json == "[DONE]" { break }
-                            if let d = json.data(using: .utf8),
-                               let event = try? JSONDecoder().decode(OpenAIStreamEvent.self, from: d),
-                               let text = event.choices.first?.delta.content {
-                                continuation.yield(text)
-                            }
+                        errorBody += line
+                        if errorBody.count > 500 { break }
+                    }
+                    throw LLMError.apiError(statusCode: http.statusCode, body: String(errorBody.prefix(300)))
+                }
+
+                for try await line in bytes.lines {
+                    if line.hasPrefix("data: ") {
+                        let json = String(line.dropFirst(6))
+                        if json == "[DONE]" { break }
+                        if let d = json.data(using: .utf8),
+                           let event = try? JSONDecoder().decode(OpenAIStreamEvent.self, from: d),
+                           let text = event.choices.first?.delta.content {
+                            continuation.yield(text)
                         }
                     }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
                 }
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
@@ -469,60 +452,57 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func ollamaStream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    let body = OllamaRequest(model: self.inference.ollamaModel, prompt: prompt, system: systemPrompt, stream: true)
-                    let encoded = try JSONEncoder().encode(body)
-                    guard let ollamaURL = URL(string: "\(self.inference.ollamaBaseUrl)/api/generate") else {
-                        continuation.finish(throwing: LLMError.apiError(statusCode: 0, body: "Invalid Ollama base URL"))
-                        return
-                    }
-                    var request = URLRequest(url: ollamaURL, timeoutInterval: Self.requestTimeout)
-                    request.httpMethod = "POST"
-                    request.httpBody = encoded
-                    request.setValue("application/json", forHTTPHeaderField: "content-type")
-                    let (bytes, _) = try await URLSession.shared.bytes(for: request)
-                    for try await line in bytes.lines {
-                        if let d = line.data(using: .utf8),
-                           let event = try? JSONDecoder().decode(OllamaStreamChunk.self, from: d) {
-                            continuation.yield(event.response)
-                            if event.done { break }
-                        }
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
+        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+            do {
+                let body = OllamaRequest(model: self.inference.ollamaModel, prompt: prompt, system: systemPrompt, stream: true)
+                let encoded = try JSONEncoder().encode(body)
+                guard let ollamaURL = URL(string: "\(self.inference.ollamaBaseUrl)/api/generate") else {
+                    continuation.finish(throwing: LLMError.apiError(statusCode: 0, body: "Invalid Ollama base URL"))
+                    return
                 }
+                var request = URLRequest(url: ollamaURL, timeoutInterval: Self.requestTimeout)
+                request.httpMethod = "POST"
+                request.httpBody = encoded
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
+                let (bytes, _) = try await URLSession.shared.bytes(for: request)
+                for try await line in bytes.lines {
+                    if let d = line.data(using: .utf8),
+                       let event = try? JSONDecoder().decode(OllamaStreamChunk.self, from: d) {
+                        continuation.yield(event.response)
+                        if event.done { break }
+                    }
+                }
+                continuation.finish()
+            } catch {
+                continuation.finish(throwing: error)
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
     // MARK: - Shared HTTP helper
 
     private func postJSON<T: Encodable>(url: URL, body: T, headers: [String: String]) async throws -> Data {
-        let encoded = try JSONEncoder().encode(body)
-        // Single retry for transient errors (429, 529, 502, 503)
-        for attempt in 0..<2 {
-            var request = URLRequest(url: url, timeoutInterval: Self.requestTimeout)
-            request.httpMethod = "POST"
-            request.httpBody = encoded
-            for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-                let err = LLMError.apiError(statusCode: http.statusCode, body: String((String(data: data, encoding: .utf8) ?? "").prefix(300)))
-                if attempt == 0 && err.isTransient {
-                    Log.pipeline.info("Transient API error \(http.statusCode), retrying in 2s…")
-                    try? await Task.sleep(for: .seconds(2))
-                    continue
+        try await NetworkProcessActivity.withActivityOnMainActor(reason: "Epistemos AI request") {
+            let encoded = try JSONEncoder().encode(body)
+            for attempt in 0..<2 {
+                var request = URLRequest(url: url, timeoutInterval: Self.requestTimeout)
+                request.httpMethod = "POST"
+                request.httpBody = encoded
+                for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    let err = LLMError.apiError(statusCode: http.statusCode, body: String((String(data: data, encoding: .utf8) ?? "").prefix(300)))
+                    if attempt == 0 && err.isTransient {
+                        Log.pipeline.info("Transient API error \(http.statusCode), retrying in 2s…")
+                        try? await Task.sleep(for: .seconds(2))
+                        continue
+                    }
+                    throw err
                 }
-                throw err
+                return data
             }
-            return data
+            throw LLMError.apiError(statusCode: 0, body: "Unexpected retry exhaustion")
         }
-        // Should never reach here, but satisfy compiler
-        throw LLMError.apiError(statusCode: 0, body: "Unexpected retry exhaustion")
     }
 }
 
@@ -716,25 +696,95 @@ extension LLMService {
     /// Nonisolated HTTP helper — same logic as postJSON but callable from any context.
     /// `timeout` overrides the default 60s request timeout (enrichment passes use 25s).
     nonisolated private static func postJSONStatic<T: Encodable>(url: URL, body: T, headers: [String: String], timeout: TimeInterval = requestTimeout) async throws -> Data {
-        let encoded = try JSONEncoder().encode(body)
-        for attempt in 0..<2 {
-            var request = URLRequest(url: url, timeoutInterval: timeout)
-            request.httpMethod = "POST"
-            request.httpBody = encoded
-            for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-                let err = LLMError.apiError(statusCode: http.statusCode, body: String((String(data: data, encoding: .utf8) ?? "").prefix(300)))
-                if attempt == 0 && err.isTransient {
-                    Log.pipeline.info("Transient API error \(http.statusCode), retrying in 2s…")
-                    try? await Task.sleep(for: .seconds(2))
-                    continue
+        try await NetworkProcessActivity.withActivity(reason: "Epistemos AI request") {
+            let encoded = try JSONEncoder().encode(body)
+            for attempt in 0..<2 {
+                var request = URLRequest(url: url, timeoutInterval: timeout)
+                request.httpMethod = "POST"
+                request.httpBody = encoded
+                for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                    let err = LLMError.apiError(statusCode: http.statusCode, body: String((String(data: data, encoding: .utf8) ?? "").prefix(300)))
+                    if attempt == 0 && err.isTransient {
+                        Log.pipeline.info("Transient API error \(http.statusCode), retrying in 2s…")
+                        try? await Task.sleep(for: .seconds(2))
+                        continue
+                    }
+                    throw err
                 }
-                throw err
+                return data
             }
-            return data
+            throw LLMError.apiError(statusCode: 0, body: "Unexpected retry exhaustion")
         }
-        throw LLMError.apiError(statusCode: 0, body: "Unexpected retry exhaustion")
+    }
+}
+
+nonisolated struct ProcessActivityToken: @unchecked Sendable {
+    fileprivate let raw: NSObjectProtocol
+
+    init(raw: NSObjectProtocol) {
+        self.raw = raw
+    }
+}
+
+nonisolated struct NetworkProcessActivityManager: Sendable {
+    let begin: @Sendable (String, ProcessInfo.ActivityOptions) -> ProcessActivityToken
+    let end: @Sendable (ProcessActivityToken) -> Void
+
+    static let live = NetworkProcessActivityManager(
+        begin: { reason, options in
+            ProcessActivityToken(
+                raw: ProcessInfo.processInfo.beginActivity(options: options, reason: reason)
+            )
+        },
+        end: { token in
+            ProcessInfo.processInfo.endActivity(token.raw)
+        }
+    )
+}
+
+nonisolated enum NetworkProcessActivity {
+    @MainActor
+    static func withActivityOnMainActor<T>(
+        reason: String,
+        options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
+        manager: NetworkProcessActivityManager = .live,
+        _ operation: () async throws -> T
+    ) async rethrows -> T {
+        let token = manager.begin(reason, options)
+        defer { manager.end(token) }
+        return try await operation()
+    }
+
+    static func withActivity<T>(
+        reason: String,
+        options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
+        manager: NetworkProcessActivityManager = .live,
+        _ operation: () async throws -> T
+    ) async rethrows -> T {
+        let token = manager.begin(reason, options)
+        defer { manager.end(token) }
+        return try await operation()
+    }
+
+    @MainActor
+    static func makeStream<Element>(
+        reason: String,
+        options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
+        manager: NetworkProcessActivityManager = .live,
+        _ operation: @escaping (AsyncThrowingStream<Element, Error>.Continuation) async -> Void
+    ) -> AsyncThrowingStream<Element, Error> {
+        AsyncThrowingStream { continuation in
+            let token = manager.begin(reason, options)
+            let task = Task { @MainActor in
+                defer { manager.end(token) }
+                await operation(continuation)
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
     }
 }
 

@@ -41,6 +41,10 @@ impl OpLog {
     pub fn latest_seq(&self) -> u64 {
         self.next_seq - 1
     }
+
+    pub fn entries(&self) -> &[(u64, Op)] {
+        &self.ops
+    }
 }
 
 impl Default for OpLog {

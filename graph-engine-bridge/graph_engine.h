@@ -359,6 +359,17 @@ void graph_engine_set_node_confidence(
     float confidence
 );
 
+/// Batch-set timestamps and confidence in one FFI crossing.
+/// All arrays must have length `count`.
+void graph_engine_set_node_metadata_batch(
+    Engine* engine,
+    const char** uuids,
+    const double* created_ats,
+    const double* updated_ats,
+    const float* confidences,
+    uint32_t count
+);
+
 // ── Version Chain ──────────────────────────────────────────────────────────
 
 /// Add a version to a node's hash-linked version chain.
@@ -491,6 +502,38 @@ typedef struct {
     uint32_t order;
 } BlockFFI;
 
+/// Owned byte buffer returned by BTK subscription/snapshot FFI.
+/// Ownership: Rust allocates, Swift must release with graph_engine_free_bytes.
+typedef struct {
+    uint8_t* ptr;
+    uint64_t len;
+    uint64_t capacity;
+} GraphEngineByteBuffer;
+
+/// Borrowed UTF-8 slice into an archived BTK subscription buffer.
+/// Lifetime: valid only while the owning GraphEngineByteBuffer remains alive.
+typedef struct {
+    const uint8_t* ptr;
+    uint32_t len;
+} GraphEngineStringSlice;
+
+/// One row inside an archived BTK subscription payload.
+typedef struct {
+    GraphEngineStringSlice page_id;
+    GraphEngineStringSlice block_id;
+    GraphEngineStringSlice parent_id;
+    GraphEngineStringSlice target_id;
+    GraphEngineStringSlice content;
+    GraphEngineStringSlice property_key;
+    GraphEngineStringSlice property_value;
+    GraphEngineStringSlice task_marker;
+    GraphEngineStringSlice order_key;
+    uint16_t depth;
+    uint8_t ref_type;
+    uint8_t task_done;
+    uint8_t hop_count;
+} BtkSubscriptionRowFFI;
+
 /// Initialize BTK for a page. Call once when a page is opened.
 uint8_t graph_engine_btk_init(Engine* engine, const char* page_id);
 
@@ -548,6 +591,71 @@ const char* graph_engine_btk_query_depth(
     Engine* engine,
     uint8_t op,
     uint32_t depth
+);
+
+/// Free a byte buffer returned by graph_engine_btk_take_subscription_update or
+/// graph_engine_btk_snapshot_subscription.
+void graph_engine_free_bytes(GraphEngineByteBuffer buffer);
+
+/// Register an outline subscription for a page.
+/// Returns 0 on failure, otherwise a stable subscription id.
+uint64_t graph_engine_btk_subscribe_outline(Engine* engine, const char* page_id);
+
+/// Register a property subscription.
+/// Pass NULL for `value` to match any value for the key.
+uint64_t graph_engine_btk_subscribe_property(
+    Engine* engine,
+    const char* key,
+    const char* value
+);
+
+/// Register a link traversal subscription rooted at `block_id`.
+uint64_t graph_engine_btk_subscribe_links(
+    Engine* engine,
+    const char* block_id,
+    uint8_t max_depth
+);
+
+/// Remove a BTK subscription. Returns 1 if removed, 0 if not found.
+uint8_t graph_engine_btk_unsubscribe(Engine* engine, uint64_t subscription_id);
+
+/// Take the latest archived subscription diff and clear the pending state.
+/// Ownership: caller must release the returned buffer with graph_engine_free_bytes.
+GraphEngineByteBuffer graph_engine_btk_take_subscription_update(
+    Engine* engine,
+    uint64_t subscription_id
+);
+
+/// Query a historical snapshot for a subscription at a BTK transaction version.
+/// Ownership: caller must release the returned buffer with graph_engine_free_bytes.
+GraphEngineByteBuffer graph_engine_btk_snapshot_subscription(
+    Engine* engine,
+    uint64_t subscription_id,
+    uint64_t version
+);
+
+/// Latest BTK fact-runtime transaction version.
+uint64_t graph_engine_btk_latest_subscription_seq(Engine* engine);
+
+/// Inspect archived subscription payload metadata.
+uint64_t graph_engine_btk_payload_version(const uint8_t* data, uint64_t len);
+uint8_t graph_engine_btk_payload_kind(const uint8_t* data, uint64_t len);
+
+/// Row count for payload sections: 0=added, 1=updated, 2=removed.
+uint32_t graph_engine_btk_payload_row_count(
+    const uint8_t* data,
+    uint64_t len,
+    uint8_t section
+);
+
+/// Read one payload row into `out`.
+/// Returns 1 on success, 0 on invalid section/index/buffer.
+uint8_t graph_engine_btk_payload_row(
+    const uint8_t* data,
+    uint64_t len,
+    uint8_t section,
+    uint32_t index,
+    BtkSubscriptionRowFFI* out
 );
 
 // ── Dialogue ────────────────────────────────────────────────────────────────

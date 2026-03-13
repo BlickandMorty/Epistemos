@@ -207,8 +207,8 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarMetrics.buttonSide == 28)
         #expect(NoteToolbarMetrics.buttonSide == NoteToolbarMetrics.iconSide * 2)
         #expect(NoteToolbarMetrics.chatFieldWidth == 180)
-        #expect(NoteToolbarMetrics.stripGlowBlurRadius == 8)
-        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0.018)
+        #expect(NoteToolbarMetrics.stripGlowBlurRadius == 6)
+        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0.012)
     }
 
     @Test("Preview mode follows the active editor stack and preserves uppercase heading display")
@@ -226,6 +226,54 @@ struct NoteWindowManagerTests {
                 "## Sub Heading\n### Third Level\nBody",
                 renderer: .textKit2
             ) == "## Sub Heading\n### Third Level\nBody"
+        )
+    }
+
+    @Test("Table-heavy notes keep a wider single-page preview and compact editor column")
+    func tableHeavyNotesUseWiderPreviewWidth() {
+        let tableMarkdown = """
+            # Inventory
+
+            | Name | Count |
+            | --- | --- |
+            | Pens | 12 |
+            """
+        let proseMarkdown = """
+            # Inventory
+
+            Pens, paper, and folders.
+            """
+
+        #expect(
+            NoteDualPreviewLayout.singlePageMaxWidth(for: tableMarkdown)
+                == NoteDualPreviewLayout.tableSinglePageMaxWidth
+        )
+        #expect(
+            NoteDualPreviewLayout.singlePageMaxWidth(for: proseMarkdown)
+                == NoteDualPreviewLayout.defaultSinglePageMaxWidth
+        )
+        #expect(NoteDualPreviewLayout.defaultSinglePageMaxWidth >= 880)
+        #expect(NoteDualPreviewLayout.tableSinglePageMaxWidth >= 800)
+        #expect(
+            NoteDualPreviewLayout.tableSinglePageMaxWidth < NoteDualPreviewLayout.defaultSinglePageMaxWidth
+        )
+        #expect(
+            NoteDualPreviewLayout.singlePageWidth(for: tableMarkdown, availableWidth: 1600)
+                == NoteDualPreviewLayout.tableSinglePageMaxWidth
+        )
+        #expect(
+            NoteDualPreviewLayout.readableWidth(for: tableMarkdown, defaultWidth: 800)
+                == NoteDualPreviewLayout.tableReadableMaxWidth
+        )
+        #expect(NoteDualPreviewLayout.readableWidth(for: proseMarkdown, defaultWidth: 800) == 800)
+    }
+
+    @Test("Dual preview pages keep a stable readable width instead of collapsing skinny")
+    func dualPreviewPagesUseStableReadableWidth() {
+        #expect(NoteDualPreviewLayout.dualPageWidth(for: 1180) >= 520)
+        #expect(NoteDualPreviewLayout.dualPageWidth(for: 1320) > NoteDualPreviewLayout.dualPageWidth(for: 1180))
+        #expect(
+            NoteDualPreviewLayout.dualPageWidth(for: 1800) == NoteDualPreviewLayout.pageMaxWidth
         )
     }
 
@@ -256,6 +304,62 @@ struct NoteWindowManagerTests {
         #expect(blocks[1] == "First paragraph\nstill first")
         #expect(blocks[2].contains("```swift"))
         #expect(blocks[3] == "Last paragraph")
+    }
+
+    @Test("Book preview groups short prose blocks into fuller reading sections")
+    func bookPreviewGroupsShortProseBlocks() {
+        let sections = NoteDualPreviewLayout.bookSections(
+            in: """
+            # Title
+
+            First paragraph.
+
+            Second paragraph.
+
+            - Bullet one
+            - Bullet two
+
+            ```swift
+            let x = 1
+            ```
+
+            Closing paragraph.
+            """,
+            targetCharacterCount: 80
+        )
+
+        #expect(sections.count == 3)
+        #expect(sections[0].contains("# Title"))
+        #expect(sections[0].contains("Second paragraph."))
+        #expect(sections[1].contains("```swift"))
+        #expect(sections[2] == "Closing paragraph.")
+    }
+
+    @Test("Book preview keeps dual pages contiguous and balanced")
+    func bookPreviewSplitsIntoContiguousPages() {
+        let pages = NoteDualPreviewLayout.columnContents(
+            in: """
+            # Intro
+
+            Alpha
+
+            Beta
+
+            Gamma
+
+            Delta
+            """,
+            targetCharacterCount: 12
+        )
+
+        #expect(pages.count == 2)
+        #expect(pages[0].contains("# Intro"))
+        #expect(pages[0].contains("Alpha"))
+        #expect(!pages[0].contains("Delta"))
+        #expect(!pages[1].contains("# Intro"))
+        #expect(pages[1].contains("Beta"))
+        #expect(pages[1].contains("Gamma"))
+        #expect(pages[1].contains("Delta"))
     }
 
     @Test("Landing shortcuts render uppercase at the stronger display size")
@@ -307,5 +411,39 @@ struct NoteWindowManagerTests {
         #expect(frame.maxX <= visible.maxX - GraphMiniPanelLayout.screenPadding)
         #expect(frame.minX >= visible.minX + GraphMiniPanelLayout.screenPadding)
         #expect(frame.minY >= visible.minY + GraphMiniPanelLayout.screenPadding)
+    }
+}
+
+@Suite("Notes Sidebar Delete Planner")
+struct NotesSidebarDeletePlannerTests {
+
+    @Test("Folder tree deletion includes descendants and nested pages")
+    func folderTreeDeletionIncludesDescendants() {
+        let plan = NotesSidebarDeletePlanner.folderTreeDeletion(
+            rootId: "root",
+            childFolderIdsById: [
+                "root": ["child-a", "child-b"],
+                "child-a": ["grandchild"],
+                "child-b": [],
+                "grandchild": [],
+            ],
+            pageIdsByFolderId: [
+                "root": ["page-root"],
+                "child-a": ["page-a"],
+                "child-b": ["page-b"],
+                "grandchild": ["page-grandchild"],
+            ]
+        )
+
+        #expect(plan.folderIds == ["root", "child-a", "child-b", "grandchild"])
+        #expect(plan.pageIds == ["page-root", "page-a", "page-b", "page-grandchild"])
+    }
+
+    @Test("Page deletion plan targets only the requested page")
+    func pageDeletionTargetsOnlyTheRequestedPage() {
+        let plan = NotesSidebarDeletePlanner.pageDeletion(pageId: "page-1")
+
+        #expect(plan.folderIds.isEmpty)
+        #expect(plan.pageIds == ["page-1"])
     }
 }

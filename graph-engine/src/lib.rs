@@ -69,6 +69,54 @@ use std::ffi::{CStr, CString, c_char, c_void};
 
 use crate::engine::Engine;
 
+#[repr(C)]
+pub struct GraphEngineByteBuffer {
+    /// Pointer to an owned byte region allocated by Rust.
+    pub ptr: *mut u8,
+    /// Number of initialized bytes available at `ptr`.
+    pub len: u64,
+    /// Allocation capacity for reconstructing the Rust Vec during free.
+    pub capacity: u64,
+}
+
+#[repr(C)]
+pub struct GraphEngineStringSlice {
+    /// Borrowed UTF-8 pointer into an archived payload buffer.
+    pub ptr: *const u8,
+    /// Byte length of the borrowed string.
+    pub len: u32,
+}
+
+#[repr(C)]
+pub struct BtkSubscriptionRowFFI {
+    /// Page identifier for the row.
+    pub page_id: GraphEngineStringSlice,
+    /// Block identifier for the row.
+    pub block_id: GraphEngineStringSlice,
+    /// Parent block identifier when applicable.
+    pub parent_id: GraphEngineStringSlice,
+    /// Linked target identifier when applicable.
+    pub target_id: GraphEngineStringSlice,
+    /// Block content for outline/link rows.
+    pub content: GraphEngineStringSlice,
+    /// Property key for property rows.
+    pub property_key: GraphEngineStringSlice,
+    /// Property value for property rows.
+    pub property_value: GraphEngineStringSlice,
+    /// Task marker such as TODO or DONE.
+    pub task_marker: GraphEngineStringSlice,
+    /// Fractional sort key or block order key.
+    pub order_key: GraphEngineStringSlice,
+    /// Outline depth for hierarchical rows.
+    pub depth: u16,
+    /// Link reference type when the row comes from a link traversal.
+    pub ref_type: u8,
+    /// Nonzero when the task is completed.
+    pub task_done: u8,
+    /// Traversal hop count for link rows.
+    pub hop_count: u8,
+}
+
 /// Null-guard for engine pointer in void-returning FFI functions.
 macro_rules! ffi_engine {
     ($ptr:ident) => {
@@ -100,6 +148,51 @@ macro_rules! ffi_cstr {
             unsafe { CStr::from_ptr($ptr) }.to_str().unwrap_or("")
         }
     }};
+}
+
+fn empty_byte_buffer() -> GraphEngineByteBuffer {
+    GraphEngineByteBuffer {
+        ptr: std::ptr::null_mut(),
+        len: 0,
+        capacity: 0,
+    }
+}
+
+fn byte_buffer_from_vec(mut bytes: Vec<u8>) -> GraphEngineByteBuffer {
+    let buffer = GraphEngineByteBuffer {
+        ptr: bytes.as_mut_ptr(),
+        len: bytes.len() as u64,
+        capacity: bytes.capacity() as u64,
+    };
+    std::mem::forget(bytes);
+    buffer
+}
+
+fn sync_btk_query_kernel(engine: &mut Engine, page_id: &str) {
+    if let (Some(tree), Some(log)) = (engine.btk_trees.get(page_id), engine.btk_logs.get(page_id)) {
+        engine.btk_query_kernel.sync_page(page_id, tree, log);
+    }
+}
+
+fn with_subscription_payload<T>(
+    data: *const u8,
+    len: u64,
+    f: impl FnOnce(&crate::block_kernel::query_kernel::ArchivedSubscriptionPayload) -> T,
+) -> Option<T> {
+    if data.is_null() || len == 0 {
+        return None;
+    }
+    // SAFETY: Caller provides a stable byte slice produced by graph_engine_btk_*_subscription().
+    let bytes = unsafe { std::slice::from_raw_parts(data, len as usize) };
+    let payload =
+        rkyv::access::<crate::block_kernel::query_kernel::ArchivedSubscriptionPayload, rkyv::rancor::Error>(bytes)
+            .ok()?;
+    Some(f(payload))
+}
+
+fn fill_string_slice(out: &mut GraphEngineStringSlice, value: &str) {
+    out.ptr = value.as_ptr();
+    out.len = value.len() as u32;
 }
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
@@ -988,6 +1081,49 @@ pub extern "C" fn graph_engine_set_node_confidence(
     engine.set_node_confidence(uuid_str, confidence);
 }
 
+/// Batch-set node timestamps + confidence from parallel arrays.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_node_metadata_batch(
+    engine: *mut Engine,
+    uuids: *const *const c_char,
+    created_ats: *const f64,
+    updated_ats: *const f64,
+    confidences: *const f32,
+    count: u32,
+) {
+    ffi_engine!(engine);
+    let count = count as usize;
+    if count == 0
+        || uuids.is_null()
+        || created_ats.is_null()
+        || updated_ats.is_null()
+        || confidences.is_null()
+    {
+        return;
+    }
+
+    // SAFETY: caller guarantees parallel arrays of `count` items.
+    let uuid_ptrs = unsafe { std::slice::from_raw_parts(uuids, count) };
+    // SAFETY: caller guarantees parallel arrays of `count` items.
+    let created = unsafe { std::slice::from_raw_parts(created_ats, count) };
+    // SAFETY: caller guarantees parallel arrays of `count` items.
+    let updated = unsafe { std::slice::from_raw_parts(updated_ats, count) };
+    // SAFETY: caller guarantees parallel arrays of `count` items.
+    let confidences = unsafe { std::slice::from_raw_parts(confidences, count) };
+
+    for i in 0..count {
+        let uuid_str = if uuid_ptrs[i].is_null() {
+            ""
+        } else {
+            // SAFETY: caller guarantees null-terminated UTF-8 strings.
+            unsafe { CStr::from_ptr(uuid_ptrs[i]) }
+                .to_str()
+                .unwrap_or("")
+        };
+        engine.set_node_metadata(uuid_str, created[i], updated[i], confidences[i]);
+    }
+}
+
 /// Semantic search: find nodes most similar to a query embedding.
 /// Returns a C array of SearchResult (same type as text search).
 /// Caller must free with `graph_engine_free_search_results`.
@@ -1167,6 +1303,8 @@ pub extern "C" fn graph_engine_btk_load_blocks(
         log.append(op);
     }
 
+    sync_btk_query_kernel(engine, page_id_str);
+
     1
 }
 
@@ -1203,6 +1341,8 @@ pub extern "C" fn graph_engine_btk_translate_edit(
             }
         }
     }
+
+    sync_btk_query_kernel(engine, page_id_str);
 
     count
 }
@@ -1274,6 +1414,7 @@ pub extern "C" fn graph_engine_btk_update_block(
         if let Some(log) = engine.btk_logs.get_mut(page_id_str) {
             log.append(op);
         }
+        sync_btk_query_kernel(engine, page_id_str);
         1
     } else {
         0
@@ -1360,6 +1501,195 @@ pub extern "C" fn graph_engine_btk_query_depth(
         Ok(cs) => cs.into_raw(),
         Err(_) => std::ptr::null(),
     }
+}
+
+/// Free a byte buffer returned by graph_engine_btk_take_subscription_update or snapshot APIs.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_free_bytes(buffer: GraphEngineByteBuffer) {
+    if buffer.ptr.is_null() || buffer.capacity == 0 {
+        return;
+    }
+    // SAFETY: Buffer originates from Vec::into_raw_parts-equivalent in byte_buffer_from_vec.
+    unsafe {
+        let _ = Vec::from_raw_parts(
+            buffer.ptr,
+            buffer.len as usize,
+            buffer.capacity as usize,
+        );
+    }
+}
+
+/// Register an outline subscription for a page.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_subscribe_outline(
+    engine: *mut Engine,
+    page_id: *const c_char,
+) -> u64 {
+    ffi_engine_or!(engine, 0);
+    let page_id = ffi_cstr!(page_id);
+    if page_id.is_empty() {
+        return 0;
+    }
+    engine.btk_query_kernel.subscribe_outline(page_id)
+}
+
+/// Register a property subscription. Pass NULL for `value` to match any value for the key.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_subscribe_property(
+    engine: *mut Engine,
+    key: *const c_char,
+    value: *const c_char,
+) -> u64 {
+    ffi_engine_or!(engine, 0);
+    let key = ffi_cstr!(key);
+    if key.is_empty() {
+        return 0;
+    }
+    let value = (!value.is_null()).then(|| ffi_cstr!(value));
+    engine
+        .btk_query_kernel
+        .subscribe_property_equals(key, value)
+}
+
+/// Register a link traversal subscription rooted at `block_id`.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_subscribe_links(
+    engine: *mut Engine,
+    block_id: *const c_char,
+    max_depth: u8,
+) -> u64 {
+    ffi_engine_or!(engine, 0);
+    let block_id = ffi_cstr!(block_id);
+    if block_id.is_empty() {
+        return 0;
+    }
+    engine
+        .btk_query_kernel
+        .subscribe_links(block_id, max_depth.max(1))
+}
+
+/// Remove a BTK subscription.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_unsubscribe(engine: *mut Engine, subscription_id: u64) -> u8 {
+    ffi_engine_or!(engine, 0);
+    if engine.btk_query_kernel.unsubscribe(subscription_id) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Return the latest archived diff for a subscription and clear its pending state.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_take_subscription_update(
+    engine: *mut Engine,
+    subscription_id: u64,
+) -> GraphEngineByteBuffer {
+    ffi_engine_or!(engine, empty_byte_buffer());
+    match engine.btk_query_kernel.take_update(subscription_id) {
+        Some(bytes) => byte_buffer_from_vec(bytes),
+        None => empty_byte_buffer(),
+    }
+}
+
+/// Return an archived snapshot of a subscription at a historical BTK transaction version.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_snapshot_subscription(
+    engine: *mut Engine,
+    subscription_id: u64,
+    version: u64,
+) -> GraphEngineByteBuffer {
+    ffi_engine_or!(engine, empty_byte_buffer());
+    match engine
+        .btk_query_kernel
+        .snapshot_bytes(subscription_id, version, &engine.btk_logs)
+    {
+        Some(bytes) => byte_buffer_from_vec(bytes),
+        None => empty_byte_buffer(),
+    }
+}
+
+/// Latest BTK query-kernel transaction sequence.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_latest_subscription_seq(engine: *mut Engine) -> u64 {
+    ffi_engine_or!(engine, 0);
+    engine.btk_query_kernel.latest_seq()
+}
+
+/// Read the archived payload version from a BTK subscription buffer.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_payload_version(data: *const u8, len: u64) -> u64 {
+    with_subscription_payload(data, len, |payload| payload.version.to_native())
+        .unwrap_or(0)
+}
+
+/// Read the archived payload kind from a BTK subscription buffer.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_payload_kind(data: *const u8, len: u64) -> u8 {
+    with_subscription_payload(data, len, |payload| payload.kind)
+        .unwrap_or(0)
+}
+
+/// Row count for section 0=added, 1=updated, 2=removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_payload_row_count(
+    data: *const u8,
+    len: u64,
+    section: u8,
+) -> u32 {
+    with_subscription_payload(data, len, |payload| match section {
+            0 => payload.added.len(),
+            1 => payload.updated.len(),
+            2 => payload.removed.len(),
+            _ => 0,
+        } as u32)
+        .unwrap_or(0)
+}
+
+/// Read one row from section 0=added, 1=updated, 2=removed.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_btk_payload_row(
+    data: *const u8,
+    len: u64,
+    section: u8,
+    index: u32,
+    out: *mut BtkSubscriptionRowFFI,
+) -> u8 {
+    if out.is_null() {
+        return 0;
+    }
+    with_subscription_payload(data, len, |payload| {
+        let archived_row = match section {
+            0 => payload.added.get(index as usize),
+            1 => payload.updated.get(index as usize),
+            2 => payload.removed.get(index as usize),
+            _ => None,
+        };
+        let Some(archived_row) = archived_row else {
+            return 0;
+        };
+
+        // SAFETY: `out` is caller-owned memory for one BtkSubscriptionRowFFI.
+        let out_row = unsafe { &mut *out };
+        fill_string_slice(&mut out_row.page_id, archived_row.page_id.as_str());
+        fill_string_slice(&mut out_row.block_id, archived_row.block_id.as_str());
+        fill_string_slice(&mut out_row.parent_id, archived_row.parent_id.as_str());
+        fill_string_slice(&mut out_row.target_id, archived_row.target_id.as_str());
+        fill_string_slice(&mut out_row.content, archived_row.content.as_str());
+        fill_string_slice(&mut out_row.property_key, archived_row.property_key.as_str());
+        fill_string_slice(
+            &mut out_row.property_value,
+            archived_row.property_value.as_str(),
+        );
+        fill_string_slice(&mut out_row.task_marker, archived_row.task_marker.as_str());
+        fill_string_slice(&mut out_row.order_key, archived_row.order_key.as_str());
+        out_row.depth = archived_row.depth.to_native();
+        out_row.ref_type = archived_row.ref_type;
+        out_row.task_done = u8::from(archived_row.task_done);
+        out_row.hop_count = archived_row.hop_count;
+        1
+    })
+    .unwrap_or(0)
 }
 
 // ── Dialogue ────────────────────────────────────────────────────────────────

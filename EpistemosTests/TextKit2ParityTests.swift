@@ -422,6 +422,40 @@ struct ParagraphTests {
     }
 
     @MainActor
+    @Test("H1 note headings scale down for longer titles but stay above H2")
+    func h1AdaptiveSizingMatchesAcrossStacks() {
+        let shortMarkdown = "# All Things Must Go"
+        let mediumMarkdown = "# A Neuroscientific explanation of determinism in society"
+        let longMarkdown = "# A Neuroscientific explanation of determinism in society across institutions, incentives, and collective mythmaking"
+
+        let shortTK1 = ParityHelpers.tk1Styled(shortMarkdown)
+        let mediumTK1 = ParityHelpers.tk1Styled(mediumMarkdown)
+        let longTK1 = ParityHelpers.tk1Styled(longMarkdown)
+        let h2TK1 = ParityHelpers.tk1Styled("## Sub Heading")
+
+        let shortTK2 = try! #require(ParityHelpers.tk2DisplayParagraphs(shortMarkdown).first)
+        let mediumTK2 = try! #require(ParityHelpers.tk2DisplayParagraphs(mediumMarkdown).first)
+        let longTK2 = try! #require(ParityHelpers.tk2DisplayParagraphs(longMarkdown).first)
+
+        let shortTK1Size = (shortTK1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+        let mediumTK1Size = (mediumTK1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+        let longTK1Size = (longTK1.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+        let h2TK1Size = (h2TK1.attribute(.font, at: 3, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+
+        let shortTK2Size = (shortTK2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+        let mediumTK2Size = (mediumTK2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+        let longTK2Size = (longTK2.attribute(.font, at: 2, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+
+        #expect(shortTK1Size > mediumTK1Size)
+        #expect(mediumTK1Size > longTK1Size)
+        #expect(longTK1Size > h2TK1Size)
+
+        #expect(shortTK1Size == shortTK2Size)
+        #expect(mediumTK1Size == mediumTK2Size)
+        #expect(longTK1Size == longTK2Size)
+    }
+
+    @MainActor
     @Test("TK2 display headings uppercase H1 through H3 without changing source markdown")
     func tk2DisplayHeadingsUppercaseFirstThreeLevels() {
         let markdown = "# Big Heading\n## Sub Heading\n### Third Level"
@@ -1822,9 +1856,19 @@ struct TK2CenteringTests {
 
     @Test("TK2 horizontal inset relaxes on narrower note windows")
     func horizontalInsetCompactsForNarrowWindows() {
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 900) == 90)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000) == 140)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200) == 240)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 900, markdown: "Body") == 90)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, markdown: "Body") == 140)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200, markdown: "Body") == 240)
+        #expect(
+            ProseEditorRepresentable2.horizontalInset(
+                for: 1000,
+                markdown: """
+                    | Name | Count |
+                    | --- | --- |
+                    | Pens | 12 |
+                    """
+            ) == 240
+        )
     }
 }
 

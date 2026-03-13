@@ -53,7 +53,7 @@ private struct SidebarFolderItem: Identifiable, Equatable {
     let isCollection: Bool
     let sortOrder: Int
     let parentId: String?
-    let childFolderIds: [String]
+    var childFolderIds: [String]
     let relativePath: String
     /// Child pages — populated from folder.pages (primary) or subfolder match (fallback).
     var childPages: [SidebarPageItem]
@@ -134,6 +134,38 @@ private enum SidebarAction {
 
 private enum SidebarSpecialFolders {
     static let dailyNotes = "Daily Notes"
+}
+
+struct NotesSidebarDeletePlan: Equatable {
+    let pageIds: Set<String>
+    let folderIds: Set<String>
+}
+
+enum NotesSidebarDeletePlanner {
+    static func pageDeletion(pageId: String) -> NotesSidebarDeletePlan {
+        NotesSidebarDeletePlan(pageIds: [pageId], folderIds: [])
+    }
+
+    static func folderTreeDeletion(
+        rootId: String,
+        childFolderIdsById: [String: [String]],
+        pageIdsByFolderId: [String: [String]]
+    ) -> NotesSidebarDeletePlan {
+        var folderIds: Set<String> = []
+        var stack = [rootId]
+
+        while let folderId = stack.popLast() {
+            guard folderIds.insert(folderId).inserted else { continue }
+            stack.append(contentsOf: childFolderIdsById[folderId] ?? [])
+        }
+
+        var pageIds: Set<String> = []
+        for folderId in folderIds {
+            pageIds.formUnion(pageIdsByFolderId[folderId] ?? [])
+        }
+
+        return NotesSidebarDeletePlan(pageIds: pageIds, folderIds: folderIds)
+    }
 }
 
 enum NotesSidebarMetrics {
@@ -696,6 +728,28 @@ struct NotesSidebar: View {
         }
     }
 
+    private func applyDeletePlan(_ plan: NotesSidebarDeletePlan) {
+        guard !plan.pageIds.isEmpty || !plan.folderIds.isEmpty else { return }
+
+        cachedPageItems.removeAll { plan.pageIds.contains($0.id) }
+        cachedPageById = Dictionary(
+            cachedPageItems.map { ($0.id, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+
+        cachedFolderItems = cachedFolderItems.compactMap { folder in
+            guard !plan.folderIds.contains(folder.id) else { return nil }
+            var folder = folder
+            folder.childFolderIds.removeAll { plan.folderIds.contains($0) }
+            folder.childPages.removeAll { plan.pageIds.contains($0.id) }
+            return folder
+        }
+        cachedFolderById = Dictionary(
+            cachedFolderItems.map { ($0.id, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+    }
+
     private func rootFolder(named name: String) -> SDFolder? {
         allFolders.first { $0.parent == nil && $0.relativePath == name }
     }
@@ -1062,11 +1116,13 @@ struct NotesSidebar: View {
 
     private func performPageDelete() {
         guard let item = pendingDeletePage else { return }
+        let deletePlan = NotesSidebarDeletePlanner.pageDeletion(pageId: item.id)
         if let page = fetchPage(item.id) {
             deletePageRecord(page, removeVaultFile: true)
         }
+        applyDeletePlan(deletePlan)
         pendingDeletePage = nil
-        saveSidebarChanges()
+        saveSidebarChanges(rebuild: false)
     }
 
     private func performFolderDelete() {
@@ -1076,12 +1132,18 @@ struct NotesSidebar: View {
             pendingDeleteFolder = nil
             return
         }
+        let deletePlan = NotesSidebarDeletePlanner.folderTreeDeletion(
+            rootId: item.id,
+            childFolderIdsById: cachedFolderById.mapValues(\.childFolderIds),
+            pageIdsByFolderId: cachedFolderById.mapValues { $0.childPages.map(\.id) }
+        )
         closeFolderTabs(folder)
         vaultSync.deleteDirectory(relativePath: folder.relativePath)
         deletePagesInFolder(folder)
         modelContext.delete(folder)
+        applyDeletePlan(deletePlan)
         pendingDeleteFolder = nil
-        saveSidebarChanges()
+        saveSidebarChanges(rebuild: false)
     }
 
     private func closeFolderTabs(_ folder: SDFolder) {

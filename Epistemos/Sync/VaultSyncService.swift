@@ -27,6 +27,12 @@ private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> String?
 
+    nonisolated static func shouldRestoreVaultFromBookmark(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        processInfoEnvironment["XCTestConfigurationFilePath"] == nil
+    }
+
     private struct DirtySaveBatch {
         let context: ModelContext
         let vaultURL: URL
@@ -101,6 +107,15 @@ final class VaultSyncService {
     /// Restore vault from saved bookmark on app launch.
     /// Call from RootView.onAppear (after NSApp is alive).
     func restoreVaultFromBookmark() {
+        guard Self.shouldRestoreVaultFromBookmark() else {
+            isIndexing = false
+            log.info("Skipping vault bookmark restore under tests")
+            return
+        }
+
+        let interval = Log.vaultPerf.beginInterval("restoreVaultFromBookmark")
+        defer { Log.vaultPerf.endInterval("restoreVaultFromBookmark", interval) }
+
         // Migration: check old domains for vault bookmark data.
         // 1. Brainiac.epistemos (rename session stored "epistemos.vaultBookmark" there)
         // 2. com.lucid.app (v2 stored "epistemos.vaultBookmark" there)
@@ -237,6 +252,9 @@ final class VaultSyncService {
     /// - Parameter scopeAlreadyAcquired: If true, the caller has already called
     ///   `startAccessingSecurityScopedResource()` — we track it but don't call again.
     func startWatching(vaultURL: URL, scopeAlreadyAcquired: Bool = false) {
+        let interval = Log.vaultPerf.beginInterval("startWatching")
+        defer { Log.vaultPerf.endInterval("startWatching", interval) }
+
         // If already watching, stop first (allows re-selection of vault folder)
         if isWatching {
             stopWatching()
@@ -276,6 +294,8 @@ final class VaultSyncService {
         let svc = searchService
         isIndexing = true
         importTask = Task {
+            let importInterval = Log.vaultPerf.beginInterval("initialVaultImport")
+
             // Inject search service into actor before import
             if let svc { await actor?.setSearchService(svc) }
             do {
@@ -293,9 +313,11 @@ final class VaultSyncService {
                 log.error(
                     "Initial vault import failed: \(error.localizedDescription, privacy: .public)")
             }
+            Log.vaultPerf.endInterval("initialVaultImport", importInterval)
 
             // Diff-sync FTS5 index with SwiftData (catches stale/missing search.sqlite)
             if let svc, let actor {
+                let diffSyncInterval = Log.vaultPerf.beginInterval("initialVaultDiffSync")
                 let timestamps = await actor.allPageTimestamps()
                 do {
                     try await svc.diffSync(
@@ -305,6 +327,7 @@ final class VaultSyncService {
                 } catch {
                     log.error("FTS5 diff-sync failed: \(error.localizedDescription, privacy: .public)")
                 }
+                Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval)
             }
             await MainActor.run { self.isIndexing = false }
         }
@@ -465,6 +488,8 @@ final class VaultSyncService {
         guard let actor = indexActor, let svc = searchService else { return }
         isIndexing = true
         Task {
+            let interval = Log.vaultPerf.beginInterval("rebuildIndex")
+            defer { Log.vaultPerf.endInterval("rebuildIndex", interval) }
             let pages = await actor.allPagesForRebuild()
             do {
                 try await svc.rebuildFromSwiftDataAsync(pages)
@@ -484,6 +509,8 @@ final class VaultSyncService {
     /// Returns conflicts (both sides changed) for the UI to resolve.
     func syncFromVault() async -> [VaultSyncConflict] {
         guard let vaultURL, let actor = indexActor else { return [] }
+        let interval = Log.vaultPerf.beginInterval("syncFromVault")
+        defer { Log.vaultPerf.endInterval("syncFromVault", interval) }
 
         let context = modelContainer.mainContext
         do {
@@ -618,7 +645,9 @@ final class VaultSyncService {
     }
 
     private func runDirtySaveLoop(startingWith initialBatch: DirtySaveBatch) async {
+        let interval = Log.vaultPerf.beginInterval("saveAllDirtyPages")
         defer {
+            Log.vaultPerf.endInterval("saveAllDirtyPages", interval)
             inFlightDirtySaveTask = nil
             pendingDirtySaveRequest = false
         }

@@ -39,7 +39,11 @@ final class ResearchService {
         var request = URLRequest(url: url)
         request.setValue("Epistemos/4.0 (research-assistant)", forHTTPHeaderField: "User-Agent")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await NetworkProcessActivity.withActivityOnMainActor(
+            reason: "Epistemos research lookup"
+        ) {
+            try await URLSession.shared.data(for: request)
+        }
         guard let http = response as? HTTPURLResponse else {
             throw ResearchError.apiError("No HTTP response from Semantic Scholar")
         }
@@ -74,7 +78,11 @@ final class ResearchService {
               let url = URL(string: "https://api.semanticscholar.org/graph/v1/paper/DOI:\(encodedDOI)?fields=title,authors,year,journal,abstract,citationCount") else {
             throw ResearchError.invalidQuery
         }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await NetworkProcessActivity.withActivityOnMainActor(
+            reason: "Epistemos research lookup"
+        ) {
+            try await URLSession.shared.data(from: url)
+        }
 
         if let http = response as? HTTPURLResponse, http.statusCode == 200 {
             do {

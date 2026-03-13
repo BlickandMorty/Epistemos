@@ -48,6 +48,8 @@ final class ClickableTextView: NSTextView {
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
 
+    nonisolated(unsafe) var usesRenderedTableOverlays = false
+
     /// When true, dim all paragraphs except the one containing the insertion point.
     nonisolated(unsafe) var isFocusMode = false
 
@@ -100,9 +102,20 @@ final class ClickableTextView: NSTextView {
 
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
-        drawTableFills(in: rect)
-        drawTableGridLines(in: rect)
+        if !usesRenderedTableOverlays {
+            drawTableFills(in: rect)
+            drawTableGridLines(in: rect)
+        }
         drawFoldIndicators(in: rect)
+    }
+
+    override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?)
+        -> Bool
+    {
+        if MarkdownEditorCommands.isSelectionInsideTable(in: string, selection: affectedCharRange) {
+            return false
+        }
+        return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
     }
 
     private func drawTableFills(in dirtyRect: NSRect) {
@@ -912,6 +925,100 @@ final class ClickableTextView: NSTextView {
         guard let ts = textStorage, ts.length > 0 else { return }
         layoutManager?.removeTemporaryAttribute(.foregroundColor,
             forCharacterRange: NSRange(location: 0, length: ts.length))
+    }
+}
+
+@MainActor
+final class RenderedTableOverlayManager {
+    private weak var textView: ClickableTextView?
+    private var overlays: [String: NoteEditorRenderedTableHostingView] = [:]
+    private var theme: EpistemosTheme
+
+    init(textView: ClickableTextView, theme: EpistemosTheme) {
+        self.textView = textView
+        self.theme = theme
+    }
+
+    func setTheme(_ theme: EpistemosTheme) {
+        guard self.theme != theme else { return }
+        self.theme = theme
+        refresh()
+    }
+
+    func refresh() {
+        guard let textView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer,
+              let storage = textView.textStorage
+        else { return }
+
+        let text = storage.string as NSString
+        guard text.length > 0 else {
+            removeAll()
+            return
+        }
+
+        let visibleGlyphRange = layoutManager.glyphRange(
+            forBoundingRect: textView.visibleRect,
+            in: textContainer
+        )
+        let visibleCharRange = layoutManager.characterRange(
+            forGlyphRange: visibleGlyphRange,
+            actualGlyphRange: nil
+        )
+        let tableRanges = MarkdownTableBlockRanges.ranges(in: text, intersecting: visibleCharRange)
+        let origin = textView.textContainerOrigin
+        let overlayWidth = max(0, min(textContainer.containerSize.width, textView.bounds.width - origin.x * 2))
+        var activeKeys = Set<String>()
+
+        for tableRange in tableRanges {
+            let key = "\(tableRange.location)"
+            activeKeys.insert(key)
+
+            guard let table = MarkdownTableModel.parse(text.substring(with: tableRange)) else {
+                continue
+            }
+
+            let glyphRange = layoutManager.glyphRange(
+                forCharacterRange: tableRange,
+                actualCharacterRange: nil
+            )
+            let bounds = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+            guard bounds.height > 0, overlayWidth > 0 else { continue }
+
+            let frame = NSRect(
+                x: origin.x,
+                y: origin.y + bounds.minY,
+                width: overlayWidth,
+                height: bounds.height
+            )
+
+            if let overlay = overlays[key] {
+                overlay.update(table: table, theme: theme, frame: frame)
+            } else {
+                let overlay = NoteEditorRenderedTableHostingView(table: table, theme: theme)
+                overlay.update(table: table, theme: theme, frame: frame)
+                textView.addSubview(overlay)
+                overlays[key] = overlay
+            }
+        }
+
+        removeMissingOverlays(activeKeys)
+    }
+
+    func removeAll() {
+        for overlay in overlays.values {
+            overlay.removeFromSuperview()
+        }
+        overlays.removeAll()
+    }
+
+    private func removeMissingOverlays(_ activeKeys: Set<String>) {
+        let staleKeys = overlays.keys.filter { !activeKeys.contains($0) }
+        for key in staleKeys {
+            overlays[key]?.removeFromSuperview()
+            overlays.removeValue(forKey: key)
+        }
     }
 }
 

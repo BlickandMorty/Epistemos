@@ -16,6 +16,9 @@ nonisolated enum Log {
     /// General app lifecycle events
     static let app = Logger(subsystem: subsystem, category: "app")
 
+    /// Signpost log for app lifecycle / launch instrumentation
+    static let appPerf = OSSignposter(subsystem: subsystem, category: "app-perf")
+
     /// Database / SwiftData operations
     static let db = Logger(subsystem: subsystem, category: "database")
 
@@ -25,8 +28,14 @@ nonisolated enum Log {
     /// Notes & vault file operations
     static let notes = Logger(subsystem: subsystem, category: "notes")
 
+    /// Signpost log for note editor instrumentation
+    static let notesPerf = OSSignposter(subsystem: subsystem, category: "notes-perf")
+
     /// Vault file system access
     static let vault = Logger(subsystem: subsystem, category: "vault")
+
+    /// Signpost log for vault attach/import/export instrumentation
+    static let vaultPerf = OSSignposter(subsystem: subsystem, category: "vault-perf")
 
     /// Learning protocol & scheduler
     static let learning = Logger(subsystem: subsystem, category: "learning")

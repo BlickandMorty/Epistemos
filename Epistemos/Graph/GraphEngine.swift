@@ -1,4 +1,6 @@
+import Foundation
 import Metal
+import Observation
 import QuartzCore
 
 /// Type-safe Swift wrapper around the Rust graph engine FFI.
@@ -437,5 +439,270 @@ final class GraphEngine {
                 graph_engine_set_cluster_ids(h, uuidBuf.baseAddress, idsBuf.baseAddress!, UInt32(uuids.count))
             }
         }
+    }
+}
+
+extension GraphEngine {
+    enum BTKSubscriptionKind: UInt8, Sendable {
+        case outline = 0
+        case property = 1
+        case links = 2
+    }
+
+    struct BTKSubscriptionRow: Equatable, Sendable {
+        let pageId: String
+        let blockId: String
+        let parentId: String
+        let targetId: String
+        let content: String
+        let propertyKey: String
+        let propertyValue: String
+        let taskMarker: String
+        let orderKey: String
+        let depth: UInt16
+        let refType: UInt8
+        let taskDone: Bool
+        let hopCount: UInt8
+
+        var identity: String {
+            [
+                pageId,
+                blockId,
+                parentId,
+                targetId,
+                propertyKey,
+                String(hopCount),
+            ].joined(separator: "|")
+        }
+    }
+
+    struct BTKSubscriptionPayload: Equatable, Sendable {
+        let version: UInt64
+        let kind: BTKSubscriptionKind
+        let added: [BTKSubscriptionRow]
+        let updated: [BTKSubscriptionRow]
+        let removed: [BTKSubscriptionRow]
+    }
+
+    func btkSubscribeOutline(pageId: String) -> UInt64? {
+        guard let h = handle else { return nil }
+        let id = pageId.withCString { graph_engine_btk_subscribe_outline(h, $0) }
+        return id == 0 ? nil : id
+    }
+
+    func btkSubscribeProperty(key: String, value: String? = nil) -> UInt64? {
+        guard let h = handle else { return nil }
+        let id = key.withCString { keyPtr in
+            if let value {
+                return value.withCString { valuePtr in
+                    graph_engine_btk_subscribe_property(h, keyPtr, valuePtr)
+                }
+            } else {
+                return graph_engine_btk_subscribe_property(h, keyPtr, nil)
+            }
+        }
+        return id == 0 ? nil : id
+    }
+
+    func btkSubscribeLinks(blockId: String, maxDepth: UInt8) -> UInt64? {
+        guard let h = handle else { return nil }
+        let id = blockId.withCString { graph_engine_btk_subscribe_links(h, $0, maxDepth) }
+        return id == 0 ? nil : id
+    }
+
+    @discardableResult
+    func btkUnsubscribe(id: UInt64) -> Bool {
+        guard let h = handle else { return false }
+        return graph_engine_btk_unsubscribe(h, id) != 0
+    }
+
+    func btkTakeSubscriptionUpdate(id: UInt64) -> BTKSubscriptionPayload? {
+        guard let h = handle else { return nil }
+        return decodeBTKPayload(buffer: graph_engine_btk_take_subscription_update(h, id))
+    }
+
+    func btkSnapshotSubscription(id: UInt64, version: UInt64) -> BTKSubscriptionPayload? {
+        guard let h = handle else { return nil }
+        return decodeBTKPayload(
+            buffer: graph_engine_btk_snapshot_subscription(h, id, version)
+        )
+    }
+
+    var btkLatestSubscriptionSeq: UInt64 {
+        guard let h = handle else { return 0 }
+        return graph_engine_btk_latest_subscription_seq(h)
+    }
+
+    private func decodeBTKPayload(buffer: GraphEngineByteBuffer) -> BTKSubscriptionPayload? {
+        guard let data = takeBTKBuffer(buffer) else { return nil }
+        return data.withUnsafeBytes { bytes in
+            guard let base = bytes.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return nil }
+            let version = graph_engine_btk_payload_version(base, UInt64(bytes.count))
+            let rawKind = graph_engine_btk_payload_kind(base, UInt64(bytes.count))
+            guard let kind = BTKSubscriptionKind(rawValue: rawKind) else { return nil }
+            let added = decodeBTKRows(section: 0, base: base, count: bytes.count)
+            let updated = decodeBTKRows(section: 1, base: base, count: bytes.count)
+            let removed = decodeBTKRows(section: 2, base: base, count: bytes.count)
+            return BTKSubscriptionPayload(
+                version: version,
+                kind: kind,
+                added: added,
+                updated: updated,
+                removed: removed
+            )
+        }
+    }
+
+    private func decodeBTKRows(
+        section: UInt8,
+        base: UnsafePointer<UInt8>,
+        count: Int
+    ) -> [BTKSubscriptionRow] {
+        let rowCount = graph_engine_btk_payload_row_count(base, UInt64(count), section)
+        guard rowCount > 0 else { return [] }
+
+        var rows: [BTKSubscriptionRow] = []
+        rows.reserveCapacity(Int(rowCount))
+        for index in 0..<rowCount {
+            var ffiRow = BtkSubscriptionRowFFI()
+            guard graph_engine_btk_payload_row(base, UInt64(count), section, index, &ffiRow) != 0 else {
+                continue
+            }
+            rows.append(BTKSubscriptionRow(
+                pageId: decode(slice: ffiRow.page_id),
+                blockId: decode(slice: ffiRow.block_id),
+                parentId: decode(slice: ffiRow.parent_id),
+                targetId: decode(slice: ffiRow.target_id),
+                content: decode(slice: ffiRow.content),
+                propertyKey: decode(slice: ffiRow.property_key),
+                propertyValue: decode(slice: ffiRow.property_value),
+                taskMarker: decode(slice: ffiRow.task_marker),
+                orderKey: decode(slice: ffiRow.order_key),
+                depth: ffiRow.depth,
+                refType: ffiRow.ref_type,
+                taskDone: ffiRow.task_done != 0,
+                hopCount: ffiRow.hop_count
+            ))
+        }
+        return rows
+    }
+
+    private func takeBTKBuffer(_ buffer: GraphEngineByteBuffer) -> Data? {
+        guard let ptr = buffer.ptr, buffer.len > 0 else {
+            if buffer.capacity > 0 {
+                graph_engine_free_bytes(buffer)
+            }
+            return nil
+        }
+        return Data(
+            bytesNoCopy: ptr,
+            count: Int(buffer.len),
+            deallocator: .custom { _, _ in
+                graph_engine_free_bytes(buffer)
+            }
+        )
+    }
+
+    private func decode(slice: GraphEngineStringSlice) -> String {
+        guard let ptr = slice.ptr, slice.len > 0 else { return "" }
+        let buffer = UnsafeBufferPointer(start: ptr, count: Int(slice.len))
+        return String(decoding: buffer, as: UTF8.self)
+    }
+}
+
+@MainActor
+@Observable
+final class BTKSubscriptionState {
+    private let engine: GraphEngine
+    private let subscriptionId: UInt64
+    private var rowMap: [String: GraphEngine.BTKSubscriptionRow]
+
+    private(set) var version: UInt64
+    private(set) var kind: GraphEngine.BTKSubscriptionKind
+    private(set) var rows: [GraphEngine.BTKSubscriptionRow]
+
+    private var pollTask: Task<Void, Never>?
+
+    init?(engine: GraphEngine, outlinePageId: String) {
+        guard let subscriptionId = engine.btkSubscribeOutline(pageId: outlinePageId),
+              let initial = engine.btkTakeSubscriptionUpdate(id: subscriptionId) else {
+            return nil
+        }
+        self.engine = engine
+        self.subscriptionId = subscriptionId
+        self.version = initial.version
+        self.kind = initial.kind
+        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.identity, $0) })
+        self.rows = initial.added.sorted { $0.identity < $1.identity }
+    }
+
+    init?(engine: GraphEngine, propertyKey: String, propertyValue: String? = nil) {
+        guard let subscriptionId = engine.btkSubscribeProperty(key: propertyKey, value: propertyValue),
+              let initial = engine.btkTakeSubscriptionUpdate(id: subscriptionId) else {
+            return nil
+        }
+        self.engine = engine
+        self.subscriptionId = subscriptionId
+        self.version = initial.version
+        self.kind = initial.kind
+        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.identity, $0) })
+        self.rows = initial.added.sorted { $0.identity < $1.identity }
+    }
+
+    init?(engine: GraphEngine, linkedBlockId: String, maxDepth: UInt8) {
+        guard let subscriptionId = engine.btkSubscribeLinks(blockId: linkedBlockId, maxDepth: maxDepth),
+              let initial = engine.btkTakeSubscriptionUpdate(id: subscriptionId) else {
+            return nil
+        }
+        self.engine = engine
+        self.subscriptionId = subscriptionId
+        self.version = initial.version
+        self.kind = initial.kind
+        self.rowMap = Dictionary(uniqueKeysWithValues: initial.added.map { ($0.identity, $0) })
+        self.rows = initial.added.sorted { $0.identity < $1.identity }
+    }
+
+    func startPolling(interval: Duration = .milliseconds(150)) {
+        stopPolling()
+        pollTask = Task(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                self?.pollNow()
+            }
+        }
+    }
+
+    func stopPolling() {
+        pollTask?.cancel()
+        pollTask = nil
+    }
+
+    func pollNow() {
+        guard let payload = engine.btkTakeSubscriptionUpdate(id: subscriptionId) else { return }
+        apply(payload)
+    }
+
+    func snapshot(at version: UInt64) -> GraphEngine.BTKSubscriptionPayload? {
+        engine.btkSnapshotSubscription(id: subscriptionId, version: version)
+    }
+
+    func close() {
+        stopPolling()
+        _ = engine.btkUnsubscribe(id: subscriptionId)
+    }
+
+    private func apply(_ payload: GraphEngine.BTKSubscriptionPayload) {
+        for row in payload.removed {
+            rowMap.removeValue(forKey: row.identity)
+        }
+        for row in payload.added {
+            rowMap[row.identity] = row
+        }
+        for row in payload.updated {
+            rowMap[row.identity] = row
+        }
+        version = payload.version
+        kind = payload.kind
+        rows = rowMap.values.sorted { $0.identity < $1.identity }
     }
 }

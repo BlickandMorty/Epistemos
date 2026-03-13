@@ -7,9 +7,13 @@ edition = "2024"
 crate-type = ["staticlib"]
 
 [dependencies]
+cozo = "0.7.6"
 metal = "0.31"
+memchr = "2.7"
 objc = "0.2"
 parking_lot = "0.12"
+rayon = "=1.10.0"
+rkyv = { version = "0.8.15", features = ["std"] }
 rustc-hash = "2.1"
 png = "0.17"
 serde = { version = "1", features = ["derive"] }

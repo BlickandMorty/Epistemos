@@ -24,6 +24,70 @@ struct GraphEdgeBatchPayload {
     var isEmpty: Bool { sourceIds.isEmpty }
 }
 
+struct GraphNodeMetadataBatchPayload {
+    var ids: [String] = []
+    var createdAts: [Double] = []
+    var updatedAts: [Double] = []
+    var confidences: [Float] = []
+
+    var isEmpty: Bool { ids.isEmpty }
+}
+
+struct GraphRenderWakeSignature: Equatable {
+    let graphStateIdentity: ObjectIdentifier
+    let graphDataVersion: Int
+    let filterVersion: Int
+    let modeVersion: Int
+    let visualThemeVersion: Int
+    let forceConfigVersion: Int
+    let extendedForceConfigVersion: Int
+    let clusterConfigVersion: Int
+    let semanticForceConfigVersion: Int
+    let semanticClusterVersion: Int
+    let labConfigVersion: Int
+    let physicsFrozenVersion: Int
+    let pendingCenterNodeId: String?
+    let pendingRebuild: Bool
+    let selectedNodeId: String?
+
+    @MainActor
+    init(graphState: GraphState) {
+        self.graphStateIdentity = ObjectIdentifier(graphState)
+        self.graphDataVersion = graphState.graphDataVersion
+        self.filterVersion = graphState.filterVersion
+        self.modeVersion = graphState.modeVersion
+        self.visualThemeVersion = graphState.visualThemeVersion
+        self.forceConfigVersion = graphState.forceConfigVersion
+        self.extendedForceConfigVersion = graphState.extendedForceConfigVersion
+        self.clusterConfigVersion = graphState.clusterConfigVersion
+        self.semanticForceConfigVersion = graphState.semanticForceConfigVersion
+        self.semanticClusterVersion = graphState.semanticClusterVersion
+        self.labConfigVersion = graphState.labConfigVersion
+        self.physicsFrozenVersion = graphState.physicsFrozenVersion
+        self.pendingCenterNodeId = graphState.pendingCenterNodeId
+        self.pendingRebuild = graphState.pendingRebuild
+        self.selectedNodeId = graphState.selectedNodeId
+    }
+}
+
+enum GraphDisplayLinkTransition: Equatable {
+    case none
+    case start
+    case stop
+}
+
+func graphDisplayLinkTransition(
+    needsRender: Bool,
+    hasDisplayLink: Bool,
+    isPaused: Bool
+) -> GraphDisplayLinkTransition {
+    guard !isPaused else { return .none }
+    if needsRender {
+        return hasDisplayLink ? .none : .start
+    }
+    return hasDisplayLink ? .stop : .none
+}
+
 @MainActor
 func makeVisibleNodeBatchPayload<Nodes: Collection>(
     from nodes: Nodes,
@@ -74,6 +138,45 @@ func makeVisibleEdgeBatchPayload<Edges: Collection>(
     return payload
 }
 
+func graphEvidenceConfidence(_ evidenceGrade: String?) -> Float {
+    switch evidenceGrade?.uppercased() {
+    case "A":
+        return 1.0
+    case "B":
+        return 0.8
+    case "C":
+        return 0.6
+    case "D":
+        return 0.4
+    case "F":
+        return 0.2
+    default:
+        return 0.0
+    }
+}
+
+@MainActor
+func makeVisibleNodeMetadataBatchPayload<Nodes: Collection>(
+    from nodes: Nodes,
+    filter: FilterEngine
+) -> GraphNodeMetadataBatchPayload where Nodes.Element == GraphNodeRecord {
+    var payload = GraphNodeMetadataBatchPayload()
+    payload.ids.reserveCapacity(nodes.count)
+    payload.createdAts.reserveCapacity(nodes.count)
+    payload.updatedAts.reserveCapacity(nodes.count)
+    payload.confidences.reserveCapacity(nodes.count)
+
+    for node in nodes {
+        guard filter.isNodeVisible(node) else { continue }
+        payload.ids.append(node.id)
+        payload.createdAts.append(node.createdAt.timeIntervalSince1970)
+        payload.updatedAts.append(node.updatedAt.timeIntervalSince1970)
+        payload.confidences.append(graphEvidenceConfidence(node.metadata.evidenceGrade))
+    }
+
+    return payload
+}
+
 func sendNodeBatch(_ payload: GraphNodeBatchPayload, to engine: OpaquePointer) {
     guard !payload.isEmpty else { return }
     withStableCStringArray(payload.ids) { uuidPtrs in
@@ -94,6 +197,26 @@ func sendNodeBatch(_ payload: GraphNodeBatchPayload, to engine: OpaquePointer) {
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+func sendNodeMetadataBatch(_ payload: GraphNodeMetadataBatchPayload, to engine: OpaquePointer) {
+    guard !payload.isEmpty else { return }
+    withStableCStringArray(payload.ids) { uuidPtrs in
+        payload.createdAts.withUnsafeBufferPointer { createdAts in
+            payload.updatedAts.withUnsafeBufferPointer { updatedAts in
+                payload.confidences.withUnsafeBufferPointer { confidences in
+                    graph_engine_set_node_metadata_batch(
+                        engine,
+                        uuidPtrs.baseAddress,
+                        createdAts.baseAddress,
+                        updatedAts.baseAddress,
+                        confidences.baseAddress,
+                        UInt32(payload.ids.count)
+                    )
                 }
             }
         }
@@ -168,10 +291,9 @@ struct MetalGraphView: NSViewRepresentable {
         nsView.physicsCoordinator = physicsCoordinator
         nsView.dialogueChatState = dialogueChatState
         nsView.uiState = uiState
-        // Wake the render loop whenever SwiftUI detects a GraphState change.
-        // This ensures version-based syncs in renderFrame() (lite mode, force params,
-        // cluster params, etc.) fire even when physics is settled and renderNeeded=false.
-        // Cost: one atomic store + at most one extra render frame per SwiftUI update.
+        let signature = GraphRenderWakeSignature(graphState: graphState)
+        guard nsView.lastRenderWakeSignature != signature else { return }
+        nsView.lastRenderWakeSignature = signature
         nsView.needsRender = true
     }
 }
@@ -209,11 +331,27 @@ final class MetalGraphNSView: NSView {
     /// a destroyed engine. Checked in renderFrame() before any FFI call.
     nonisolated(unsafe) private let isInvalidated = Atomic<Bool>(false)
 
+    private var isEnginePaused = false
+
     /// Convenience wrapper for main-thread code. Background thread should
     /// use renderNeeded directly for thread safety.
     fileprivate var needsRender: Bool {
         get { renderNeeded.load(ordering: .relaxed) }
-        set { renderNeeded.store(newValue, ordering: .relaxed) }
+        set {
+            renderNeeded.store(newValue, ordering: .relaxed)
+            switch graphDisplayLinkTransition(
+                needsRender: newValue,
+                hasDisplayLink: displayLink != nil,
+                isPaused: isEnginePaused
+            ) {
+            case .none:
+                break
+            case .start:
+                startDisplayLink()
+            case .stop:
+                stopDisplayLink()
+            }
+        }
     }
 
     var graphState: GraphState? {
@@ -232,6 +370,7 @@ final class MetalGraphNSView: NSView {
     nonisolated(unsafe) var physicsCoordinator: PhysicsCoordinator?
     nonisolated(unsafe) var dialogueChatState: DialogueChatState?
     nonisolated(unsafe) var uiState: UIState?
+    var lastRenderWakeSignature: GraphRenderWakeSignature?
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
     var lastVisualThemeVersion: Int = -1
@@ -356,14 +495,15 @@ final class MetalGraphNSView: NSView {
 
     /// Pause rendering and physics. Call when overlay is hidden.
     func pauseEngine() {
+        isEnginePaused = true
         stopDisplayLink()
         if let engine { graph_engine_pause(engine) }
     }
 
     /// Resume rendering and physics. Call when overlay is shown.
     func resumeEngine() {
+        isEnginePaused = false
         if let engine { graph_engine_resume(engine) }
-        if displayLink == nil { startDisplayLink() }
         needsRender = true
     }
 
@@ -455,27 +595,16 @@ final class MetalGraphNSView: NSView {
             guard let self, let engine = self.engine, let graphState = self.graphState else { return }
             let store = graphState.store
             let filter = graphState.filter
+            let interval = Log.graphPerf.beginInterval("pushNodeMetadataBatch")
 
-            for (_, node) in store.nodes {
-                guard filter.isNodeVisible(node) else { continue }
-                let createdAt = node.createdAt.timeIntervalSince1970
-                let confidence: Float = switch node.metadata.evidenceGrade?.uppercased() {
-                case "A": 1.0
-                case "B": 0.8
-                case "C": 0.6
-                case "D": 0.4
-                case "F": 0.2
-                default: 0.0
-                }
-                node.id.withCString { uuidPtr in
-                    graph_engine_set_node_time(engine, uuidPtr, createdAt, createdAt)
-                    if confidence > 0.0 {
-                        graph_engine_set_node_confidence(engine, uuidPtr, confidence)
-                    }
-                }
-            }
+            let payload = makeVisibleNodeMetadataBatchPayload(
+                from: store.nodes.values,
+                filter: filter
+            )
+            sendNodeMetadataBatch(payload, to: engine)
 
             graphState.embeddingService.computeAndPush(store: store)
+            Log.graphPerf.endInterval("pushNodeMetadataBatch", interval)
         }
     }
 

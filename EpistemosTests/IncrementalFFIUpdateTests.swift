@@ -266,6 +266,141 @@ struct IncrementalFFIUpdateTests {
         #expect(state.pendingEdgeAdds.isEmpty)
     }
 
+    @Test("visible node metadata batch filters hidden nodes and preserves ordering")
+    func visibleNodeMetadataBatchFiltersHiddenNodes() {
+        let filter = FilterEngine()
+        let visible = GraphNodeRecord(
+            id: "visible",
+            type: .note,
+            label: "Visible",
+            sourceId: nil,
+            metadata: GraphNodeMetadata(evidenceGrade: "B"),
+            weight: 1.0,
+            createdAt: Date(timeIntervalSince1970: 100),
+            updatedAt: Date(timeIntervalSince1970: 150),
+            position: .zero,
+            velocity: .zero
+        )
+        let alsoVisible = GraphNodeRecord(
+            id: "also-visible",
+            type: .tag,
+            label: "Also Visible",
+            sourceId: nil,
+            metadata: GraphNodeMetadata(evidenceGrade: nil),
+            weight: 1.0,
+            createdAt: Date(timeIntervalSince1970: 200),
+            updatedAt: Date(timeIntervalSince1970: 250),
+            position: .zero,
+            velocity: .zero
+        )
+        let hidden = GraphNodeRecord(
+            id: "hidden",
+            type: .block,
+            label: "Hidden",
+            sourceId: nil,
+            metadata: GraphNodeMetadata(evidenceGrade: "A"),
+            weight: 1.0,
+            createdAt: Date(timeIntervalSince1970: 300),
+            updatedAt: Date(timeIntervalSince1970: 350),
+            position: .zero,
+            velocity: .zero
+        )
+
+        let payload = makeVisibleNodeMetadataBatchPayload(
+            from: [visible, alsoVisible, hidden],
+            filter: filter
+        )
+
+        #expect(payload.ids == ["visible", "also-visible"])
+        #expect(payload.createdAts == [100, 200])
+        #expect(payload.updatedAts == [150, 250])
+        #expect(payload.confidences.count == 2)
+        #expect(abs(payload.confidences[0] - 0.8) < 0.0001)
+        #expect(payload.confidences[1] == 0.0)
+    }
+
+    @Test("graph evidence grades map to rust confidence values")
+    func graphEvidenceGradeConfidenceMapping() {
+        #expect(graphEvidenceConfidence("A") == 1.0)
+        #expect(graphEvidenceConfidence("b") == 0.8)
+        #expect(graphEvidenceConfidence("C") == 0.6)
+        #expect(graphEvidenceConfidence("d") == 0.4)
+        #expect(graphEvidenceConfidence("F") == 0.2)
+        #expect(graphEvidenceConfidence(nil) == 0.0)
+        #expect(graphEvidenceConfidence("unknown") == 0.0)
+    }
+
+    @Test("graph render wake signature changes for render-driving graph requests")
+    func graphRenderWakeSignatureTracksRenderRequests() {
+        let state = GraphState()
+        let baseline = GraphRenderWakeSignature(graphState: state)
+
+        state.pendingCenterNodeId = "node-1"
+        #expect(GraphRenderWakeSignature(graphState: state) != baseline)
+
+        state.pendingCenterNodeId = nil
+        state.pendingRebuild = true
+        let rebuild = GraphRenderWakeSignature(graphState: state)
+        #expect(rebuild != baseline)
+
+        state.pendingRebuild = false
+        state.selectNode("node-2")
+        #expect(GraphRenderWakeSignature(graphState: state) != baseline)
+    }
+
+    @Test("graph render wake signature ignores selected node screen point churn")
+    func graphRenderWakeSignatureIgnoresSelectionScreenPoint() {
+        let state = GraphState()
+        let baseline = GraphRenderWakeSignature(graphState: state)
+
+        state.selectedNodeScreenPoint = CGPoint(x: 12, y: 34)
+
+        #expect(GraphRenderWakeSignature(graphState: state) == baseline)
+    }
+
+    @Test("graph display link stops once rendering settles")
+    func graphDisplayLinkStopsWhenSettled() {
+        #expect(
+            graphDisplayLinkTransition(
+                needsRender: false,
+                hasDisplayLink: true,
+                isPaused: false
+            ) == .stop
+        )
+        #expect(
+            graphDisplayLinkTransition(
+                needsRender: false,
+                hasDisplayLink: false,
+                isPaused: false
+            ) == .none
+        )
+    }
+
+    @Test("graph display link restarts only for active render demand")
+    func graphDisplayLinkRestartsOnlyWhenActive() {
+        #expect(
+            graphDisplayLinkTransition(
+                needsRender: true,
+                hasDisplayLink: false,
+                isPaused: false
+            ) == .start
+        )
+        #expect(
+            graphDisplayLinkTransition(
+                needsRender: true,
+                hasDisplayLink: false,
+                isPaused: true
+            ) == .none
+        )
+        #expect(
+            graphDisplayLinkTransition(
+                needsRender: true,
+                hasDisplayLink: true,
+                isPaused: false
+            ) == .none
+        )
+    }
+
     @Test("all node types work with incremental add")
     func allNodeTypes() throws {
         let container = try makeContainer()

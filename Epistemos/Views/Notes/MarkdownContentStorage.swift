@@ -234,7 +234,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         switch paraType {
         case 1:  // Heading
             let level = Int(metadata & 0xFF)
-            let (fontSize, weight): (CGFloat, NSFont.Weight) =
+            let (baseHeadingSize, weight): (CGFloat, NSFont.Weight) =
                 switch level {
                 case 1: (baseFontSize + 31, .bold)
                 case 2: (baseFontSize + 5, .bold)
@@ -242,6 +242,12 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 case 4: (baseFontSize, .semibold)
                 default: (max(baseFontSize - 1, 9), .medium)
                 }
+            let fontSize = MarkdownHeadingDisplay.fontSize(
+                for: level,
+                text: line,
+                baseSize: baseHeadingSize,
+                nextLevelSize: baseFontSize + 5
+            )
             let headingParagraph = MarkdownTextStorage.headingParagraphStyle(
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading

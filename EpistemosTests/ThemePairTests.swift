@@ -100,6 +100,41 @@ struct ThemePairTests {
         #expect(AppHeadingRole.section.fontSize == 12)
     }
 
+    @Test("Markdown H1 sizing eases down for longer titles without collapsing into H2")
+    func markdownH1AdaptiveSizing() {
+        let shortSize = MarkdownHeadingDisplay.fontSize(
+            for: 1,
+            text: "All Things Must Go",
+            baseSize: AppHeadingRole.h1.fontSize,
+            nextLevelSize: AppHeadingRole.h2.fontSize
+        )
+        let mediumSize = MarkdownHeadingDisplay.fontSize(
+            for: 1,
+            text: "A Neuroscientific explanation of determinism in society",
+            baseSize: AppHeadingRole.h1.fontSize,
+            nextLevelSize: AppHeadingRole.h2.fontSize
+        )
+        let longSize = MarkdownHeadingDisplay.fontSize(
+            for: 1,
+            text: "A Neuroscientific explanation of determinism in society across institutions, incentives, and collective mythmaking",
+            baseSize: AppHeadingRole.h1.fontSize,
+            nextLevelSize: AppHeadingRole.h2.fontSize
+        )
+
+        #expect(shortSize == AppHeadingRole.h1.fontSize)
+        #expect(shortSize > mediumSize)
+        #expect(mediumSize > longSize)
+        #expect(longSize > AppHeadingRole.h2.fontSize)
+    }
+
+    @Test("Markdown heading display uppercases H1 through H3 only")
+    func markdownHeadingDisplayUppercasesFirstThreeLevels() {
+        #expect(MarkdownHeadingDisplay.displayText("All Things Must Go", level: 1) == "ALL THINGS MUST GO")
+        #expect(MarkdownHeadingDisplay.displayText("Sub Heading", level: 2) == "SUB HEADING")
+        #expect(MarkdownHeadingDisplay.displayText("Third Level", level: 3) == "THIRD LEVEL")
+        #expect(MarkdownHeadingDisplay.displayText("Fourth Level", level: 4) == "Fourth Level")
+    }
+
     @Test("Icon composer package carries dark and tinted variants")
     func iconComposerSupportsDarkAndTinted() throws {
         let json = try loadIconComposerJSON()

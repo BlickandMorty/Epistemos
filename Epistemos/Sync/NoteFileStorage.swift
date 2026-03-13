@@ -2,6 +2,27 @@ import AppKit
 import Foundation
 import os
 
+final class NoteFileMutationQueue: @unchecked Sendable {
+    private let queue: DispatchQueue
+
+    nonisolated init(label: String = "com.epistemos.NoteFileStorage.mutation") {
+        self.queue = DispatchQueue(label: label, qos: .utility)
+    }
+
+    nonisolated func performSync(_ operation: () -> Void) {
+        queue.sync(execute: operation)
+    }
+
+    nonisolated func performAsync(_ operation: @escaping @Sendable () -> Void) async {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                operation()
+                continuation.resume()
+            }
+        }
+    }
+}
+
 /// File-based storage for note bodies. Bodies are stored as .md files in Application Support,
 /// keyed by page ID. This keeps SQLite rows small — FetchDescriptor only loads metadata.
 ///
@@ -9,6 +30,7 @@ import os
 /// This allows calling from any actor: MainActor, VaultIndexActor, SDPage (nonisolated), etc.
 enum NoteFileStorage {
     private nonisolated static let logger = Logger(subsystem: "com.epistemos", category: "NoteFileStorage")
+    private nonisolated static let mutationQueue = NoteFileMutationQueue()
 
     private nonisolated static func bodyURL(pageId: String) -> URL {
         storageDirectory().appendingPathComponent("\(pageId).md")
@@ -110,14 +132,30 @@ enum NoteFileStorage {
         // Empty writes are legitimate (user cleared the note). The original zero-byte
         // bug is fixed by textDidChange restructure + NSNotFound bounds checks + direct
         // file save bypassing the SwiftUI binding chain. No need to block empty writes here.
-        _ = persistBody(content, to: url, pageId: pageId)
+        mutationQueue.performSync {
+            _ = persistBody(content, to: url, pageId: pageId)
+        }
+    }
+
+    /// Write a note body off the caller actor while preserving global file mutation order.
+    nonisolated static func writeBodyAsync(pageId: String, content: String) async {
+        guard isValidPageId(pageId) else {
+            logger.error("Invalid pageId rejected in writeBodyAsync: \(pageId.prefix(20))")
+            return
+        }
+        let url = bodyURL(pageId: pageId)
+        await mutationQueue.performAsync {
+            _ = persistBody(content, to: url, pageId: pageId)
+        }
     }
 
     /// Delete a note body file.
     nonisolated static func deleteBody(pageId: String) {
         guard isValidPageId(pageId) else { return }
         let url = bodyURL(pageId: pageId)
-        try? FileManager.default.removeItem(at: url)
+        mutationQueue.performSync {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     /// Check if a body file exists on disk.

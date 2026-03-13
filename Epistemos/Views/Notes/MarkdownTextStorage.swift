@@ -337,8 +337,14 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             ?? headingAccentColor
 
         if t.hasPrefix("# ") && !t.hasPrefix("## ") {
+            let h1Size = MarkdownHeadingDisplay.fontSize(
+                for: 1,
+                text: line,
+                baseSize: baseFontSize + 31,
+                nextLevelSize: baseFontSize + 5
+            )
             backing.addAttributes([
-                .font: displayFont(size: baseFontSize + 31, weight: .bold),
+                .font: displayFont(size: h1Size, weight: .bold),
                 .foregroundColor: h1Color,
                 .paragraphStyle: leadingDocumentContentIsEmpty(before: range.location)
                     ? Self.leadingH1Style

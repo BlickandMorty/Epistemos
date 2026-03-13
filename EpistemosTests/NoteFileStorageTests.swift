@@ -5,6 +5,27 @@ import Testing
 
 @Suite("NoteFileStorage")
 struct NoteFileStorageTests {
+    private final class EventSink: @unchecked Sendable {
+        private let lock = NSLock()
+        private let continuation: AsyncStream<String>.Continuation
+
+        nonisolated init(continuation: AsyncStream<String>.Continuation) {
+            self.continuation = continuation
+        }
+
+        nonisolated func yield(_ value: String) {
+            lock.lock()
+            continuation.yield(value)
+            lock.unlock()
+        }
+
+        nonisolated func finish() {
+            lock.lock()
+            continuation.finish()
+            lock.unlock()
+        }
+    }
+
     private func makePageId() -> String {
         "test-note-\(UUID().uuidString)"
     }
@@ -140,5 +161,73 @@ struct NoteFileStorageTests {
         NoteFileStorage.writeBody(pageId: invalidId, content: "should-not-write")
         #expect(!NoteFileStorage.bodyExists(pageId: invalidId))
         #expect(NoteFileStorage.readBody(pageId: invalidId).isEmpty)
+    }
+
+    @Test("mutation queue serializes async writes")
+    func mutationQueueSerializesAsyncWrites() async {
+        let queue = NoteFileMutationQueue(label: "test.note-storage.async.\(UUID().uuidString)")
+        let releaseFirst = DispatchSemaphore(value: 0)
+        var continuation: AsyncStream<String>.Continuation!
+        let stream = AsyncStream<String> { continuation = $0 }
+        var iterator = stream.makeAsyncIterator()
+        let sink = EventSink(continuation: continuation)
+
+        let first = Task {
+            await queue.performAsync {
+                sink.yield("first-start")
+                releaseFirst.wait()
+                sink.yield("first-end")
+            }
+        }
+
+        #expect(await iterator.next() == "first-start")
+
+        let second = Task {
+            await queue.performAsync {
+                sink.yield("second")
+            }
+        }
+
+        releaseFirst.signal()
+        await first.value
+        await second.value
+        sink.finish()
+
+        #expect(await iterator.next() == "first-end")
+        #expect(await iterator.next() == "second")
+    }
+
+    @Test("mutation queue serializes sync flush behind async write")
+    func mutationQueueSerializesSyncAfterAsync() async {
+        let queue = NoteFileMutationQueue(label: "test.note-storage.sync.\(UUID().uuidString)")
+        let releaseFirst = DispatchSemaphore(value: 0)
+        var continuation: AsyncStream<String>.Continuation!
+        let stream = AsyncStream<String> { continuation = $0 }
+        var iterator = stream.makeAsyncIterator()
+        let sink = EventSink(continuation: continuation)
+
+        let first = Task {
+            await queue.performAsync {
+                sink.yield("first-start")
+                releaseFirst.wait()
+                sink.yield("first-end")
+            }
+        }
+
+        #expect(await iterator.next() == "first-start")
+
+        let second = Task {
+            queue.performSync {
+                sink.yield("sync")
+            }
+        }
+
+        releaseFirst.signal()
+        await first.value
+        await second.value
+        sink.finish()
+
+        #expect(await iterator.next() == "first-end")
+        #expect(await iterator.next() == "sync")
     }
 }

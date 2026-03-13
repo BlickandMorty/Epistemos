@@ -1227,12 +1227,9 @@
 				files = (
 				);
 				inputFileListPaths = (
+					"$(SRCROOT)/graph-engine-build-inputs.xcfilelist",
 				);
 				inputPaths = (
-					"$(SRCROOT)/build-rust.sh",
-					"$(SRCROOT)/graph-engine/Cargo.lock",
-					"$(SRCROOT)/graph-engine/Cargo.toml",
-					"$(SRCROOT)/graph-engine/src",
 				);
 				name = "Build Rust Engine";
 				outputFileListPaths = (

@@ -22,6 +22,8 @@ final class ProseTextView2: NSTextView {
     /// When nil, falls back to NSTextView's default undo manager.
     var pageUndoManager: UndoManager?
 
+    nonisolated(unsafe) var usesRenderedTableOverlays = false
+
     /// Page ID for scoping notifications to the correct tab.
     var pageId: String?
 
@@ -144,6 +146,9 @@ final class ProseTextView2: NSTextView {
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?)
         -> Bool
     {
+        if MarkdownEditorCommands.isSelectionInsideTable(in: string, selection: affectedCharRange) {
+            return false
+        }
         markdownDelegate.markDirty()
         lastEditLocation = affectedCharRange.location
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
@@ -394,8 +399,10 @@ final class ProseTextView2: NSTextView {
         guard NSGraphicsContext.current?.cgContext != nil else { return }
         super.drawBackground(in: rect)
         drawCalloutBackgrounds(in: rect)
-        drawTableFills(in: rect)
-        drawTableGridLines(in: rect)
+        if !usesRenderedTableOverlays {
+            drawTableFills(in: rect)
+            drawTableGridLines(in: rect)
+        }
         drawFoldIndicators(in: rect)
     }
 
@@ -1628,6 +1635,208 @@ final class ProseTextView2: NSTextView {
             didChangeText()
             setSelectedRange(NSRange(location: sel.location + 4, length: 0))
         }
+    }
+}
+
+@MainActor
+final class RenderedTableOverlayManager2 {
+    private weak var textView: ProseTextView2?
+    private var overlays: [String: NoteEditorRenderedTableHostingView] = [:]
+    private var theme: EpistemosTheme
+    private var scrollRefreshTask: Task<Void, Never>?
+
+    init(textView: ProseTextView2, theme: EpistemosTheme) {
+        self.textView = textView
+        self.theme = theme
+    }
+
+    func setTheme(_ theme: EpistemosTheme) {
+        guard self.theme != theme else { return }
+        self.theme = theme
+        refresh()
+    }
+
+    func refreshAfterTextChange() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
+        refresh()
+    }
+
+    func refreshForScroll() {
+        guard scrollRefreshTask == nil else { return }
+        scrollRefreshTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.scrollRefreshTask = nil
+            self.refresh()
+        }
+    }
+
+    func refresh() {
+        guard let textView,
+              let textLayoutManager = textView.textLayoutManager,
+              let contentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
+              let storage = textView.textStorage
+        else { return }
+
+        let text = storage.string as NSString
+        guard text.length > 0 else {
+            removeAll()
+            return
+        }
+
+        let visibleCharRange = Self.visibleCharacterRange(
+            in: textView,
+            textLayoutManager: textLayoutManager,
+            contentStorage: contentStorage,
+            length: text.length
+        )
+        guard visibleCharRange.length > 0 else {
+            removeAll()
+            return
+        }
+
+        let tableRanges = MarkdownTableBlockRanges.ranges(in: text, intersecting: visibleCharRange)
+        let origin = textView.textContainerOrigin
+        let overlayWidth = max(0, textView.bounds.width - origin.x * 2)
+        let documentStart = contentStorage.documentRange.location
+        var activeKeys = Set<String>()
+
+        for tableRange in tableRanges {
+            let key = "\(tableRange.location)"
+            activeKeys.insert(key)
+
+            guard let table = MarkdownTableModel.parse(text.substring(with: tableRange)),
+                  let frame = Self.frame(
+                    for: tableRange,
+                    in: textView,
+                    textLayoutManager: textLayoutManager,
+                    contentStorage: contentStorage,
+                    documentStart: documentStart,
+                    overlayWidth: overlayWidth
+                  )
+            else {
+                continue
+            }
+
+            if let overlay = overlays[key] {
+                overlay.update(table: table, theme: theme, frame: frame)
+            } else {
+                let overlay = NoteEditorRenderedTableHostingView(table: table, theme: theme)
+                overlay.update(table: table, theme: theme, frame: frame)
+                textView.addSubview(overlay)
+                overlays[key] = overlay
+            }
+        }
+
+        removeMissingOverlays(activeKeys)
+    }
+
+    func removeAll() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
+        for overlay in overlays.values {
+            overlay.removeFromSuperview()
+        }
+        overlays.removeAll()
+    }
+
+    private func removeMissingOverlays(_ activeKeys: Set<String>) {
+        let staleKeys = overlays.keys.filter { !activeKeys.contains($0) }
+        for key in staleKeys {
+            overlays[key]?.removeFromSuperview()
+            overlays.removeValue(forKey: key)
+        }
+    }
+
+    private static func visibleCharacterRange(
+        in textView: ProseTextView2,
+        textLayoutManager: NSTextLayoutManager,
+        contentStorage: NSTextContentStorage,
+        length: Int
+    ) -> NSRange {
+        let visibleRect = textView.visibleRect
+        let origin = textView.textContainerOrigin
+        let topPoint = CGPoint(x: 0, y: max(visibleRect.minY - origin.y, 0))
+        guard let startFragment = textLayoutManager.textLayoutFragment(for: topPoint),
+              let startLocation = startFragment.textElement?.elementRange?.location
+        else {
+            return NSRange(location: 0, length: 0)
+        }
+
+        let documentStart = contentStorage.documentRange.location
+        var visibleStart = 0
+        var visibleEnd = 0
+        var foundStart = false
+
+        textLayoutManager.enumerateTextLayoutFragments(
+            from: startLocation,
+            options: [.ensuresLayout, .estimatesSize]
+        ) { fragment in
+            let frame = fragment.layoutFragmentFrame
+            let viewY = origin.y + frame.origin.y
+            if viewY > visibleRect.maxY {
+                return false
+            }
+
+            if let elementRange = fragment.textElement?.elementRange {
+                let start = contentStorage.offset(from: documentStart, to: elementRange.location)
+                let end = contentStorage.offset(from: documentStart, to: elementRange.endLocation)
+                if !foundStart {
+                    visibleStart = start
+                    foundStart = true
+                }
+                visibleEnd = max(visibleEnd, end)
+            }
+
+            return true
+        }
+
+        guard foundStart, visibleEnd > visibleStart else {
+            return NSRange(location: 0, length: 0)
+        }
+
+        return NSRange(
+            location: visibleStart,
+            length: min(visibleEnd - visibleStart, max(0, length - visibleStart))
+        )
+    }
+
+    private static func frame(
+        for tableRange: NSRange,
+        in textView: ProseTextView2,
+        textLayoutManager: NSTextLayoutManager,
+        contentStorage: NSTextContentStorage,
+        documentStart: NSTextLocation,
+        overlayWidth: CGFloat
+    ) -> NSRect? {
+        guard overlayWidth > 0 else { return nil }
+
+        let text = textView.string as NSString
+        let origin = textView.textContainerOrigin
+        var cursor = tableRange.location
+        var unionRect = NSRect.null
+
+        while cursor < NSMaxRange(tableRange) {
+            let lineRange = text.lineRange(for: NSRange(location: cursor, length: 0))
+            guard let location = contentStorage.location(documentStart, offsetBy: lineRange.location),
+                  let fragment = textLayoutManager.textLayoutFragment(for: location)
+            else {
+                cursor = NSMaxRange(lineRange)
+                continue
+            }
+
+            unionRect = unionRect.union(fragment.layoutFragmentFrame)
+            cursor = NSMaxRange(lineRange)
+        }
+
+        guard !unionRect.isNull, unionRect.height > 0 else { return nil }
+        return NSRect(
+            x: origin.x,
+            y: origin.y + unionRect.minY,
+            width: overlayWidth,
+            height: unionRect.height
+        )
     }
 }
 

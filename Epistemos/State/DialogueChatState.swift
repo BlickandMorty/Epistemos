@@ -261,7 +261,13 @@ struct ContentPersonalitySignals: Sendable, Equatable {
         let formalityScore = min(1.0, (Double(nounCount + adjCount) / Double(total)) * 1.8)
         let vocabDiversity = Double(uniqueWords.count) / Double(total)
 
-        let topNouns = nounFreq.sorted { $0.value > $1.value }.prefix(5).map(\.key)
+        let topNouns = nounFreq
+            .sorted { lhs, rhs in
+                if lhs.value != rhs.value { return lhs.value > rhs.value }
+                return lhs.key < rhs.key
+            }
+            .prefix(5)
+            .map(\.key)
 
         return ContentPersonalitySignals(
             sentiment: sentiment,

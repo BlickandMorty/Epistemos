@@ -76,6 +76,20 @@ struct ContentPersonalitySignalsTests {
         #expect(!signals.dominantTopics.isEmpty)
     }
 
+    @Test("Topic noun extraction is deterministic when counts tie")
+    func topicNounsDeterministic() {
+        let text = """
+        Albert Einstein developed the theory of relativity at Princeton University.
+        Isaac Newton formulated the laws of motion in Cambridge.
+        """
+        let first = ContentPersonalitySignals.analyze(text).dominantTopics
+        #expect(!first.isEmpty)
+
+        for _ in 0..<10 {
+            #expect(ContentPersonalitySignals.analyze(text).dominantTopics == first)
+        }
+    }
+
     @Test("Entity keywords capped at 6")
     func entityCap() {
         // Lots of named entities
@@ -178,6 +192,136 @@ struct SDNoteInsightModelTests {
         #expect(insight.relatedNoteIds.isEmpty)
         #expect(insight.relatednessScores.isEmpty)
         #expect(insight.relatednessReasons.isEmpty)
+    }
+}
+
+// MARK: - NoteInsightService Lifecycle Tests
+
+@Suite("NoteInsightService")
+struct NoteInsightServiceLifecycleTests {
+
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema(EpistemosSchema.models)
+        return try ModelContainer(
+            for: schema,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(3),
+        condition: @escaping () async throws -> Bool
+    ) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if try await condition() { return }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    private func fetchInsight(pageId: String, from container: ModelContainer) throws -> SDNoteInsight? {
+        let verifyContext = ModelContext(container)
+        let descriptor = FetchDescriptor<SDNoteInsight>(
+            predicate: #Predicate { $0.pageId == pageId }
+        )
+        return try verifyContext.fetch(descriptor).first
+    }
+
+    @Test("reindex updates the service instance that launched the task")
+    func reindexUpdatesOwnInstance() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let page = SDPage(title: "Direct Service")
+        context.insert(page)
+        try context.save()
+
+        let service = await MainActor.run { NoteInsightService(modelContainer: container) }
+        await MainActor.run { service.reindex() }
+
+        try await waitUntil {
+            await MainActor.run { !service.isIndexing }
+        }
+
+        let insights = try context.fetch(FetchDescriptor<SDNoteInsight>())
+        let counters = await MainActor.run {
+            (total: service.totalCount, indexed: service.indexedCount, indexing: service.isIndexing)
+        }
+        #expect(counters.total == 1)
+        #expect(counters.indexed == 1)
+        #expect(counters.indexing == false)
+        #expect(insights.count == 1)
+        #expect(insights.first?.pageId == page.id)
+    }
+
+    @Test("reanalyze schedules relatedness on the same service instance")
+    func reanalyzeSchedulesOwnRelatedness() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let body = """
+        Albert Einstein developed the theory of relativity at Princeton University.
+        Isaac Newton formulated the laws of motion in Cambridge.
+        """
+        let peerSignals = ContentPersonalitySignals.analyze(body)
+        #expect(!peerSignals.entityKeywords.isEmpty)
+        #expect(!peerSignals.dominantTopics.isEmpty)
+
+        let page = SDPage(title: "Target")
+        context.insert(page)
+        let pageId = page.id
+
+        let peerInsight = SDNoteInsight(pageId: "peer")
+        peerInsight.contentHash = SDNoteInsight.hash(of: "peer")
+        peerInsight.entityKeywords = peerSignals.entityKeywords
+        peerInsight.topicNouns = peerSignals.dominantTopics
+        peerInsight.sentiment = peerSignals.sentiment
+        peerInsight.formality = peerSignals.formalityScore
+        context.insert(peerInsight)
+        try context.save()
+
+        NoteFileStorage.writeBody(pageId: pageId, content: body)
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        let service = await MainActor.run { NoteInsightService(modelContainer: container) }
+        await MainActor.run { service.reanalyze(pageId: pageId) }
+
+        try await waitUntil {
+            try fetchInsight(pageId: pageId, from: container)?.relatedNoteIds.contains("peer") == true
+        }
+
+        let targetInsight = try fetchInsight(pageId: pageId, from: container)
+        #expect(targetInsight != nil)
+        #expect(targetInsight?.contentHash == SDNoteInsight.hash(of: body))
+        #expect(targetInsight?.topicNouns == peerSignals.dominantTopics)
+        #expect(targetInsight?.sentiment == peerSignals.sentiment)
+        #expect(targetInsight?.formality == peerSignals.formalityScore)
+        #expect(targetInsight?.relatedNoteIds.contains("peer") == true)
+    }
+
+    @Test("reanalyze releases completed task handles")
+    func reanalyzeReleasesCompletedTaskHandles() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let page = SDPage(title: "Task Cleanup")
+        context.insert(page)
+        let pageId = page.id
+        try context.save()
+
+        let body = String(repeating: "Einstein relativity Princeton theory motion laws. ", count: 4)
+        NoteFileStorage.writeBody(pageId: pageId, content: body)
+        defer { NoteFileStorage.deleteBody(pageId: pageId) }
+
+        let service = await MainActor.run { NoteInsightService(modelContainer: container) }
+        await MainActor.run { service.reanalyze(pageId: pageId) }
+
+        try await waitUntil {
+            try fetchInsight(pageId: pageId, from: container)?.contentHash == SDNoteInsight.hash(of: body)
+        }
+        try? await Task.sleep(for: .milliseconds(100))
+
+        let pendingTasks = await MainActor.run { service.debugPendingReanalyzeTaskCount() }
+        #expect(pendingTasks == 0)
     }
 }
 

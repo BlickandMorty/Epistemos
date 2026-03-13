@@ -675,6 +675,8 @@ final class GraphState {
         guard !isLoaded, !isLoadingGraph else { return }
         isLoadingGraph = true
         defer { isLoadingGraph = false }
+        let interval = Log.graphPerf.beginInterval("loadGraphAsync")
+        defer { Log.graphPerf.endInterval("loadGraphAsync", interval) }
 
         let hints = store.positionHints
         let actor = BackgroundGraphActor(modelContainer: container)
@@ -749,6 +751,8 @@ final class GraphState {
         guard !isBuildingStructural else { return false }
         isBuildingStructural = true
         needsRefresh = false
+        let interval = Log.graphPerf.beginInterval("refreshStructuralDataAsync")
+        defer { Log.graphPerf.endInterval("refreshStructuralDataAsync", interval) }
 
         let hints = store.positionHints
         let actor = BackgroundGraphActor(modelContainer: container)

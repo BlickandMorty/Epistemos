@@ -164,9 +164,7 @@ struct HologramNodeInspector: View {
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled else { return }
             guard text != lastPersistedBody else { return }
-            await Task.detached(priority: .utility) {
-                NoteFileStorage.writeBody(pageId: pageId, content: text)
-            }.value
+            await NoteFileStorage.writeBodyAsync(pageId: pageId, content: text)
             lastPersistedBody = text
             markPageDirty(pageId: pageId, body: text)
             NoteFileStorage.notifyBodyChanged(pageId: pageId)

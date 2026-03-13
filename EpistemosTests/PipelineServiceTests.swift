@@ -502,3 +502,85 @@ struct PipelineContractTests {
     }
 
 }
+
+private final class ActivityProbe: @unchecked Sendable {
+    nonisolated(unsafe) private let lock = NSLock()
+    nonisolated(unsafe) private var events: [String] = []
+
+    nonisolated func begin(reason: String) -> ProcessActivityToken {
+        lock.lock()
+        events.append("begin:\(reason)")
+        lock.unlock()
+        return ProcessActivityToken(raw: NSObject())
+    }
+
+    nonisolated func end() {
+        lock.lock()
+        events.append("end")
+        lock.unlock()
+    }
+
+    nonisolated func snapshot() -> [String] {
+        lock.lock()
+        let events = self.events
+        lock.unlock()
+        return events
+    }
+}
+
+@Suite("Network Process Activity")
+struct NetworkProcessActivityTests {
+    @Test("scoped activity pairs begin and end around async work")
+    @MainActor func scopedActivityPairsBeginAndEnd() async {
+        let probe = ActivityProbe()
+        let manager = NetworkProcessActivityManager(
+            begin: { reason, _ in probe.begin(reason: reason) },
+            end: { _ in probe.end() }
+        )
+
+        let value = await NetworkProcessActivity.withActivityOnMainActor(
+            reason: "Epistemos AI request",
+            manager: manager
+        ) {
+            "ok"
+        }
+
+        #expect(value == "ok")
+        #expect(probe.snapshot() == ["begin:Epistemos AI request", "end"])
+    }
+
+    @Test("stream activity stays open until the stream finishes")
+    @MainActor func streamActivityEndsAfterCompletion() async throws {
+        let probe = ActivityProbe()
+        let manager = NetworkProcessActivityManager(
+            begin: { reason, _ in probe.begin(reason: reason) },
+            end: { _ in probe.end() }
+        )
+
+        let stream = NetworkProcessActivity.makeStream(
+            reason: "Epistemos AI stream",
+            manager: manager
+        ) { continuation in
+            continuation.yield("hello")
+            continuation.finish()
+        }
+
+        var chunks: [String] = []
+        for try await chunk in stream {
+            chunks.append(chunk)
+        }
+
+        #expect(chunks == ["hello"])
+        #expect(probe.snapshot() == ["begin:Epistemos AI stream", "end"])
+    }
+
+    @Test("bootstrap no longer keeps a session-wide App Nap override")
+    @MainActor func bootstrapDoesNotKeepSessionWideActivity() {
+        let bootstrap = AppBootstrap()
+        let activityField = Mirror(reflecting: bootstrap).children.first {
+            $0.label == "antiNapActivity"
+        }
+
+        #expect(activityField == nil)
+    }
+}

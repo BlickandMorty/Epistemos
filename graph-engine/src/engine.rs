@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use rustc_hash::FxHashSet;
 
-use crate::block_kernel::{BlockTree, OpLog};
+use crate::block_kernel::{BlockTree, BtkQueryKernel, OpLog};
 use crate::cluster_cache::ClusterCache;
 use crate::ecs::World;
 use crate::embedding::EmbeddingStore;
@@ -150,6 +150,8 @@ pub struct Engine {
     pub btk_trees: HashMap<String, BlockTree>,
     /// Block Transaction Kernel: page_id → op log
     pub btk_logs: HashMap<String, OpLog>,
+    /// Cozo-backed BTK fact/query runtime for subscriptions and snapshots.
+    pub btk_query_kernel: BtkQueryKernel,
 
     /// ECS mirror of graph data, synced from Simulation each frame.
     world: World,
@@ -196,6 +198,7 @@ impl Engine {
             quality_level: 0, // Cinematic
             btk_trees: HashMap::new(),
             btk_logs: HashMap::new(),
+            btk_query_kernel: BtkQueryKernel::new(),
             world: World::new(),
             last_sim_active: false,
             camera_rebuild_pending: false,
@@ -1502,14 +1505,18 @@ impl Engine {
 
     // ── Temporal Index ──────────────────────────────────────────────
 
+    fn node_indices_for_uuid(&self, uuid: &str) -> Option<(usize, Option<usize>)> {
+        let id = *self.graph.uuid_to_id.get(uuid)?;
+        let graph_index = *self.graph.id_to_index.get(&id)?;
+        Some((graph_index, self.world.index_of_node_id(id)))
+    }
+
     /// Set timestamps for a node by UUID.
     pub fn set_node_time(&mut self, uuid: &str, created_at: f64, updated_at: f64) {
-        if let Some(&id) = self.graph.uuid_to_id.get(uuid)
-            && let Some(&idx) = self.graph.id_to_index.get(&id)
-        {
-            self.graph.nodes[idx].created_at = created_at;
-            self.graph.nodes[idx].updated_at = updated_at;
-            if let Some(world_index) = self.world.index_of_node_id(id) {
+        if let Some((graph_index, world_index)) = self.node_indices_for_uuid(uuid) {
+            self.graph.nodes[graph_index].created_at = created_at;
+            self.graph.nodes[graph_index].updated_at = updated_at;
+            if let Some(world_index) = world_index {
                 self.world.graph_node[world_index].created_at = created_at;
                 self.world.graph_node[world_index].updated_at = updated_at;
             }
@@ -1550,12 +1557,31 @@ impl Engine {
 
     /// Set a node's confidence score (0.0–1.0).
     pub fn set_node_confidence(&mut self, uuid: &str, confidence: f32) {
-        if let Some(&id) = self.graph.uuid_to_id.get(uuid)
-            && let Some(&idx) = self.graph.id_to_index.get(&id)
-        {
+        if let Some((graph_index, world_index)) = self.node_indices_for_uuid(uuid) {
             let clamped = confidence.clamp(0.0, 1.0);
-            self.graph.nodes[idx].confidence = clamped;
-            if let Some(world_index) = self.world.index_of_node_id(id) {
+            self.graph.nodes[graph_index].confidence = clamped;
+            if let Some(world_index) = world_index {
+                self.world.graph_node[world_index].confidence = clamped;
+            }
+        }
+    }
+
+    /// Set timestamps and confidence in one node lookup.
+    pub fn set_node_metadata(
+        &mut self,
+        uuid: &str,
+        created_at: f64,
+        updated_at: f64,
+        confidence: f32,
+    ) {
+        if let Some((graph_index, world_index)) = self.node_indices_for_uuid(uuid) {
+            let clamped = confidence.clamp(0.0, 1.0);
+            self.graph.nodes[graph_index].created_at = created_at;
+            self.graph.nodes[graph_index].updated_at = updated_at;
+            self.graph.nodes[graph_index].confidence = clamped;
+            if let Some(world_index) = world_index {
+                self.world.graph_node[world_index].created_at = created_at;
+                self.world.graph_node[world_index].updated_at = updated_at;
                 self.world.graph_node[world_index].confidence = clamped;
             }
         }

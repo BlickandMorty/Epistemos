@@ -3,20 +3,23 @@ import NaturalLanguage
 import OSLog
 import SwiftData
 
-nonisolated(unsafe) private let log = Logger(subsystem: "Epistemos", category: "NoteInsightService")
-
 // MARK: - NoteInsightService
 
 @MainActor @Observable
 final class NoteInsightService {
+    nonisolated private static let log = Logger(subsystem: "Epistemos", category: "NoteInsightService")
 
     private(set) var isIndexing = false
     private(set) var indexedCount = 0
     private(set) var totalCount = 0
 
+    @ObservationIgnored
     nonisolated(unsafe) private var reindexTask: Task<Void, Never>?
     private var reindexGeneration: Int = 0
+    @ObservationIgnored
     nonisolated(unsafe) private var reanalyzeTasks: [String: Task<Void, Never>] = [:]
+    private var reanalyzeTaskTokens: [String: UUID] = [:]
+    @ObservationIgnored
     nonisolated(unsafe) private var relatednessTask: Task<Void, Never>?
 
     private let modelContainer: ModelContainer
@@ -41,16 +44,17 @@ final class NoteInsightService {
         indexedCount = 0
 
         let container = modelContainer
-        reindexTask = Task.detached(priority: .utility) {
+        reindexTask = Task.detached(priority: .utility) { [weak self] in
             let result = NoteInsightService.runReindex(container: container)
-            await MainActor.run { [result] in
-                // Only update UI if this is still the latest reindex generation
-                guard AppBootstrap.shared?.noteInsightService.reindexGeneration == gen else { return }
-                AppBootstrap.shared?.noteInsightService.indexedCount = result.analyzed
-                AppBootstrap.shared?.noteInsightService.totalCount = result.total
-                AppBootstrap.shared?.noteInsightService.isIndexing = false
-            }
+            await self?.applyReindexResult(result, generation: gen)
         }
+    }
+
+    private func applyReindexResult(_ result: (analyzed: Int, total: Int), generation: Int) {
+        guard reindexGeneration == generation else { return }
+        indexedCount = result.analyzed
+        totalCount = result.total
+        isIndexing = false
     }
 
     private nonisolated static func runReindex(container: ModelContainer) -> (analyzed: Int, total: Int) {
@@ -101,7 +105,7 @@ final class NoteInsightService {
             try? context.save()
 
             let phase1Time = CFAbsoluteTimeGetCurrent() - start
-            log.info("Phase 1 complete: \(analyzed) notes (\(skipped) skipped) in \(String(format: "%.1f", phase1Time))s")
+            Self.log.info("Phase 1 complete: \(analyzed) notes (\(skipped) skipped) in \(String(format: "%.1f", phase1Time))s")
 
             // Phase 2: Cross-note relatedness
             guard !Task.isCancelled else { return (analyzed, total) }
@@ -112,11 +116,11 @@ final class NoteInsightService {
 
             let totalTime = CFAbsoluteTimeGetCurrent() - start
             let phase2Time = CFAbsoluteTimeGetCurrent() - phase2Start
-            log.info("Phase 2 (relatedness) in \(String(format: "%.1f", phase2Time))s — total: \(String(format: "%.1f", totalTime))s")
+            Self.log.info("Phase 2 (relatedness) in \(String(format: "%.1f", phase2Time))s — total: \(String(format: "%.1f", totalTime))s")
 
             return (analyzed, total)
         } catch {
-            log.error("Reindex failed: \(error.localizedDescription, privacy: .public)")
+            Self.log.error("Reindex failed: \(error.localizedDescription, privacy: .public)")
             return (0, 0)
         }
     }
@@ -128,7 +132,11 @@ final class NoteInsightService {
         reanalyzeTasks[pageId]?.cancel()
         let container = modelContainer
         let targetId = pageId
-        reanalyzeTasks[pageId] = Task.detached(priority: .utility) {
+        let taskToken = UUID()
+        reanalyzeTaskTokens[pageId] = taskToken
+        reanalyzeTasks[pageId] = Task.detached(priority: .utility) { [weak self] in
+            defer { Task { @MainActor [weak self] in self?.finishReanalyzeTask(pageId: targetId, token: taskToken) } }
+
             // Debounce: wait 500ms so rapid autosaves coalesce
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
@@ -157,16 +165,25 @@ final class NoteInsightService {
             insight.topicNouns = signals.dominantTopics
 
             if existing == nil { context.insert(insight) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Self.log.error("Re-analyze save failed for \(targetId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return
+            }
             guard !Task.isCancelled else { return }
 
-            log.info("Re-analyzed note \(targetId.prefix(8))")
+            Self.log.info("Re-analyzed note \(targetId.prefix(8))")
 
             // Schedule coalesced Phase 2 — multiple page saves within 300ms share one recompute
-            await MainActor.run {
-                AppBootstrap.shared?.noteInsightService.scheduleRelatedness()
-            }
+            await self?.scheduleRelatedness()
         }
+    }
+
+    private func finishReanalyzeTask(pageId: String, token: UUID) {
+        guard reanalyzeTaskTokens[pageId] == token else { return }
+        reanalyzeTaskTokens.removeValue(forKey: pageId)
+        reanalyzeTasks.removeValue(forKey: pageId)
     }
 
     /// Coalesces Phase 2 relatedness recomputes. Multiple per-page Phase 1 completions
@@ -180,9 +197,13 @@ final class NoteInsightService {
 
             let context = ModelContext(container)
             context.autosaveEnabled = false
-            try? NoteInsightService.computeRelatedness(context: context)
-            try? context.save()
-            log.info("Coalesced relatedness recompute complete")
+            do {
+                try NoteInsightService.computeRelatedness(context: context)
+                try context.save()
+                Self.log.info("Coalesced relatedness recompute complete")
+            } catch {
+                Self.log.error("Coalesced relatedness recompute failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -192,6 +213,10 @@ final class NoteInsightService {
         return try? context.fetch(
             FetchDescriptor<SDNoteInsight>(predicate: #Predicate { $0.pageId == targetId })
         ).first
+    }
+
+    func debugPendingReanalyzeTaskCount() -> Int {
+        reanalyzeTasks.count
     }
 
     // MARK: - Phase 2: Relatedness

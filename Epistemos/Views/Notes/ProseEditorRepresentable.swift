@@ -157,6 +157,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         tv.layoutManager?.delegate = context.coordinator
         context.coordinator.textView = tv
         context.coordinator.storage = storage
+        tv.usesRenderedTableOverlays = true
 
         // Transclusion overlays — editable inline block-ref content
         let transclusionMgr = TransclusionOverlayManager(textView: tv)
@@ -167,6 +168,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             context?.handleTransclusionEdit(blockId: blockId, newContent: newContent)
         }
         context.coordinator.transclusionManager = transclusionMgr
+
+        let renderedTableMgr = RenderedTableOverlayManager(textView: tv, theme: theme)
+        context.coordinator.renderedTableOverlayManager = renderedTableMgr
 
         // Block ref autocomplete — triggered by typing ((
         if let mc = modelContext {
@@ -198,6 +202,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             guard let tv else { return }
             MainActor.assumeIsolated {
                 Self.updateCenteringInsets(for: tv)
+                context.coordinator.renderedTableOverlayManager?.refresh()
             }
         }
 
@@ -221,6 +226,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 )
                 // Reposition transclusion overlays on scroll
                 coord.transclusionManager?.refresh()
+                coord.renderedTableOverlayManager?.refresh()
             }
         }
 
@@ -287,6 +293,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         // Apply initial centering after content loads
         DispatchQueue.main.async {
             Self.updateCenteringInsets(for: tv)
+            context.coordinator.renderedTableOverlayManager?.refresh()
         }
 
         return scrollView
@@ -299,6 +306,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
               let pageId = coordinator.lastPageId, !pageId.isEmpty
         else { return }
 
+        coordinator.renderedTableOverlayManager?.removeAll()
         let scrollY = scrollView.contentView.bounds.origin.y
         let selection = tv.selectedRange()
 
@@ -318,6 +326,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
         // === PAGE SWAP via storage swap ===
         if coord.lastPageId != pageId {
+            let interval = Log.notesPerf.beginInterval("pageSwap")
+            defer { Log.notesPerf.endInterval("pageSwap", interval) }
             coord.isSwappingPage = true
 
             // Force binding sync before page swap so debouncedSave has current text
@@ -384,6 +394,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Clear transclusion overlays from previous page
             coord.transclusionManager?.removeAll()
+            coord.renderedTableOverlayManager?.removeAll()
             coord.blockRefAutocomplete?.dismiss()
 
             // BTK: Initialize block edit translator for real-time block tracking.
@@ -419,6 +430,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             tv.typingAttributes[.foregroundColor] = baseColor
             Self.progressiveRestyle(coord.storage)
             PageStoragePool.shared.invalidateExcept(activePageId: pageId)
+            coord.renderedTableOverlayManager?.setTheme(theme)
 
         }
 
@@ -460,6 +472,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             storage.replaceCharacters(in: fullRange, with: text)
             let safeLoc = min(sel.location, tv.string.utf16.count)
             tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
+            coord.renderedTableOverlayManager?.refresh()
         }
 
         // Focus management (Pitfall #4)
@@ -507,6 +520,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         if abs(coord.lastAvailableWidth - currentWidth) > 0.5 {
             coord.lastAvailableWidth = currentWidth
             Self.updateCenteringInsets(for: tv)
+            coord.renderedTableOverlayManager?.refresh()
         }
     }
 
@@ -540,8 +554,11 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     private static func updateCenteringInsets(for tv: NSTextView) {
         guard let scrollView = tv.enclosingScrollView else { return }
         let availableWidth = scrollView.contentSize.width
-
-        let horizontalInset = max(minHorizontalInset, (availableWidth - maxReadableWidth) / 2)
+        let readableWidth = NoteDualPreviewLayout.readableWidth(
+            for: tv.string,
+            defaultWidth: maxReadableWidth
+        )
+        let horizontalInset = max(minHorizontalInset, (availableWidth - readableWidth) / 2)
         let vInset = verticalInset
 
         let currentInset = tv.textContainerInset
@@ -560,6 +577,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         weak var textView: ClickableTextView?
         var storage: MarkdownTextStorage?
         var transclusionManager: TransclusionOverlayManager?
+        var renderedTableOverlayManager: RenderedTableOverlayManager?
 
         var blockRefAutocomplete: BlockRefAutocomplete?
 
@@ -718,10 +736,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             let saveContent = tv.string
             directSaveTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(3))
-                guard let self, !Task.isCancelled else { return }
-                Task.detached(priority: .utility) {
-                    NoteFileStorage.writeBody(pageId: savePageId, content: saveContent)
-                }
+                guard self != nil, !Task.isCancelled else { return }
+                await NoteFileStorage.writeBodyAsync(pageId: savePageId, content: saveContent)
             }
 
             // ═══════════════════════════════════════════════════════════
@@ -780,6 +796,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
             // Refresh transclusion overlays
             transclusionManager?.refresh()
+            renderedTableOverlayManager?.refresh()
 
             // Data detection (1s debounce — scans full document for dates, addresses, etc.)
             scheduleDataDetection(tv)

@@ -170,9 +170,7 @@ struct ProseEditorView: View {
             }
             // File write FIRST — disk is source of truth. Must complete before
             // modelContext.save() so any @Query cascade reads correct content.
-            await Task.detached(priority: .utility) {
-                NoteFileStorage.writeBody(pageId: pageId, content: newValue)
-            }.value
+            await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newValue)
             BlockMirror.sync(pageId: pageId, body: newValue, modelContext: modelContext)
             lastPersistedBody = newValue
             // Persist dirty flag AFTER file write. This ensures loadBody() returns

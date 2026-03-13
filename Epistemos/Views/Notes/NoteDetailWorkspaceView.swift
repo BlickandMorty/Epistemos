@@ -103,15 +103,15 @@ enum NoteToolbarMetrics {
     static let buttonSide: CGFloat = 28
     static let spacing: CGFloat = 6
     static let chatFieldWidth: CGFloat = 180
-    static let stripGlowBlurRadius: CGFloat = 8
+    static let stripGlowBlurRadius: CGFloat = 6
 }
 
 enum NoteToolbarPalette {
     static func stripGlowOpacity(for theme: EpistemosTheme) -> Double {
         if theme.usesNativeWindowBlur {
-            return theme.isDark ? 0.045 : 0.018
+            return theme.isDark ? 0.028 : 0.010
         }
-        return theme.isDark ? 0.050 : 0.018
+        return theme.isDark ? 0.032 : 0.012
     }
 
     static func iconOpacity(for theme: EpistemosTheme, isActive: Bool) -> Double {
@@ -162,13 +162,49 @@ enum NotePreviewDisplay {
 
 enum NoteDualPreviewLayout {
     static let minimumWidth: CGFloat = 1180
-    static let columnSpacing: CGFloat = 28
-    static let blockSpacing: CGFloat = 22
-    static let outerPadding = EdgeInsets(top: 32, leading: 32, bottom: 32, trailing: 32)
-    static let blockPadding = EdgeInsets(top: 18, leading: 18, bottom: 18, trailing: 18)
+    static let pageSpacing: CGFloat = 28
+    static let pageMaxWidth: CGFloat = 580
+    static let defaultSinglePageMaxWidth: CGFloat = 920
+    static let tableSinglePageMaxWidth: CGFloat = 840
+    static let tableReadableMaxWidth: CGFloat = 740
+    static let outerPadding = EdgeInsets(top: 28, leading: 32, bottom: 40, trailing: 32)
+    static let pagePadding = EdgeInsets(top: 34, leading: 38, bottom: 36, trailing: 38)
+    static let sectionTargetCharacterCount = 900
+    static let sectionSoftOverflowFloor = 160
+
+    private enum PreviewBlockKind {
+        case heading
+        case prose
+        case isolated
+    }
 
     static func usesDualColumns(for availableWidth: CGFloat) -> Bool {
         availableWidth >= minimumWidth
+    }
+
+    static func containsTable(in markdown: String) -> Bool {
+        paragraphBlocks(in: markdown).contains(where: isTableBlock)
+    }
+
+    static func singlePageMaxWidth(for markdown: String) -> CGFloat {
+        containsTable(in: markdown) ? tableSinglePageMaxWidth : defaultSinglePageMaxWidth
+    }
+
+    static func singlePageWidth(for markdown: String, availableWidth: CGFloat) -> CGFloat {
+        let usableWidth = max(0, availableWidth - outerPadding.leading - outerPadding.trailing)
+        return min(singlePageMaxWidth(for: markdown), usableWidth)
+    }
+
+    static func dualPageWidth(for availableWidth: CGFloat) -> CGFloat {
+        let usableWidth = max(
+            0,
+            availableWidth - outerPadding.leading - outerPadding.trailing - pageSpacing
+        )
+        return min(pageMaxWidth, usableWidth / 2)
+    }
+
+    static func readableWidth(for markdown: String, defaultWidth: CGFloat) -> CGFloat {
+        containsTable(in: markdown) ? min(defaultWidth, tableReadableMaxWidth) : defaultWidth
     }
 
     static func paragraphBlocks(in markdown: String) -> [String] {
@@ -201,6 +237,150 @@ enum NoteDualPreviewLayout {
 
         flushCurrent()
         return blocks
+    }
+
+    static func bookSections(
+        in markdown: String,
+        targetCharacterCount: Int = sectionTargetCharacterCount
+    ) -> [String] {
+        let blocks = paragraphBlocks(in: markdown)
+        guard !blocks.isEmpty else { return [] }
+
+        var sections: [String] = []
+        var current: [String] = []
+        var currentWeight = 0
+
+        func flushCurrent() {
+            let section = current.joined(separator: "\n\n").trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+            if !section.isEmpty {
+                sections.append(section)
+            }
+            current.removeAll(keepingCapacity: true)
+            currentWeight = 0
+        }
+
+        for block in blocks {
+            let kind = classify(block)
+            let blockWeight = sectionWeight(block)
+
+            switch kind {
+            case .heading:
+                flushCurrent()
+                current = [block]
+                currentWeight = blockWeight
+
+            case .prose:
+                if current.isEmpty {
+                    current = [block]
+                    currentWeight = blockWeight
+                } else if shouldAppend(
+                    blockWeight: blockWeight,
+                    to: current,
+                    currentWeight: currentWeight,
+                    targetCharacterCount: targetCharacterCount
+                ) {
+                    current.append(block)
+                    currentWeight += blockWeight
+                } else {
+                    flushCurrent()
+                    current = [block]
+                    currentWeight = blockWeight
+                }
+
+            case .isolated:
+                if current.count == 1, classify(current[0]) == .heading {
+                    current.append(block)
+                    flushCurrent()
+                } else {
+                    flushCurrent()
+                    sections.append(block)
+                }
+            }
+        }
+
+        flushCurrent()
+        return sections
+    }
+
+    static func columnContents(
+        in markdown: String,
+        targetCharacterCount: Int = sectionTargetCharacterCount
+    ) -> [String] {
+        let sections = bookSections(in: markdown, targetCharacterCount: targetCharacterCount)
+        guard !sections.isEmpty else { return [] }
+        guard sections.count > 1 else { return sections }
+
+        let weights = sections.map(sectionWeight)
+        let target = weights.reduce(0, +) / 2
+        var running = 0
+        var bestSplit = 1
+        var bestDelta = Int.max
+
+        for index in 0..<(sections.count - 1) {
+            running += weights[index]
+            let delta = abs(target - running)
+            if delta < bestDelta {
+                bestDelta = delta
+                bestSplit = index + 1
+            }
+        }
+
+        return [
+            sections[..<bestSplit].joined(separator: "\n\n"),
+            sections[bestSplit...].joined(separator: "\n\n"),
+        ]
+    }
+
+    private static func classify(_ block: String) -> PreviewBlockKind {
+        let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("#") {
+            return .heading
+        }
+        if trimmed.hasPrefix("```")
+            || trimmed == "---"
+            || trimmed == "***"
+            || trimmed == "___"
+            || isTableBlock(trimmed)
+        {
+            return .isolated
+        }
+        return .prose
+    }
+
+    private static func isTableBlock(_ block: String) -> Bool {
+        let lines = block.split(separator: "\n", omittingEmptySubsequences: true)
+        guard !lines.isEmpty else { return false }
+        return lines.allSatisfy { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            return trimmed.hasPrefix("|") && trimmed.hasSuffix("|")
+        }
+    }
+
+    private static func sectionWeight(_ section: String) -> Int {
+        let lineCount = section.split(separator: "\n", omittingEmptySubsequences: false).count
+        return section.count + max(0, lineCount - 1) * 20
+    }
+
+    private static func shouldAppend(
+        blockWeight: Int,
+        to current: [String],
+        currentWeight: Int,
+        targetCharacterCount: Int
+    ) -> Bool {
+        let combinedWeight = currentWeight + blockWeight
+        if combinedWeight <= targetCharacterCount {
+            return true
+        }
+        if current.count == 1, classify(current[0]) == .heading {
+            return true
+        }
+        if currentWeight < targetCharacterCount {
+            let overflowAllowance = max(targetCharacterCount / 3, sectionSoftOverflowFloor)
+            return combinedWeight <= targetCharacterCount + overflowAllowance
+        }
+        return false
     }
 }
 
@@ -1105,15 +1285,10 @@ struct NoteDetailWorkspaceView: View {
 
     @ViewBuilder
     private func notePreview(body: String, renderer: NotePreviewRenderer) -> some View {
-        switch renderer {
-        case .textKit1:
-            NotePreviewView(
-                body: NotePreviewDisplay.renderedMarkdown(body, renderer: renderer),
-                theme: ui.theme
-            )
-        case .textKit2:
-            AdaptiveNotePreviewView2(content: body, theme: ui.theme)
-        }
+        AdaptiveNotePreviewView2(
+            content: NotePreviewDisplay.renderedMarkdown(body, renderer: renderer),
+            theme: ui.theme
+        )
     }
 
     private func navigateToWikilink(title: String) {
@@ -2777,54 +2952,67 @@ private struct AdaptiveNotePreviewView2: View {
     let content: String
     let theme: EpistemosTheme
 
-    private var blocks: [String] {
-        NoteDualPreviewLayout.paragraphBlocks(in: content)
+    private var pageContents: [String] {
+        NoteDualPreviewLayout.columnContents(in: content)
     }
 
     var body: some View {
         GeometryReader { proxy in
-            if NoteDualPreviewLayout.usesDualColumns(for: proxy.size.width), blocks.count > 1 {
-                ScrollView {
-                    LazyVGrid(
-                        columns: [
-                            GridItem(.flexible(), spacing: NoteDualPreviewLayout.columnSpacing, alignment: .top),
-                            GridItem(.flexible(), spacing: NoteDualPreviewLayout.columnSpacing, alignment: .top),
-                        ],
-                        alignment: .leading,
-                        spacing: NoteDualPreviewLayout.blockSpacing
-                    ) {
-                        ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                            NoteDualPreviewBlock(markdown: block, theme: theme)
+            let usesDualColumns = NoteDualPreviewLayout.usesDualColumns(for: proxy.size.width)
+                && pageContents.count > 1
+            let dualPageWidth = NoteDualPreviewLayout.dualPageWidth(for: proxy.size.width)
+
+            ScrollView {
+                if usesDualColumns {
+                    HStack(alignment: .top, spacing: NoteDualPreviewLayout.pageSpacing) {
+                        ForEach(Array(pageContents.enumerated()), id: \.offset) { _, pageContent in
+                            NoteBookPreviewPage(markdown: pageContent, theme: theme)
+                                .frame(
+                                    width: dualPageWidth,
+                                    alignment: .topLeading
+                                )
                         }
                     }
                     .padding(NoteDualPreviewLayout.outerPadding)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                } else {
+                    NoteBookPreviewPage(markdown: content, theme: theme)
+                        .frame(
+                            maxWidth: NoteDualPreviewLayout.singlePageWidth(
+                                for: content,
+                                availableWidth: proxy.size.width
+                            ),
+                            alignment: .topLeading
+                        )
+                        .padding(NoteDualPreviewLayout.outerPadding)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .background(theme.background)
-            } else {
-                NotePreviewView2(body: content, theme: theme)
             }
+            .background(theme.background)
         }
     }
 }
 
-private struct NoteDualPreviewBlock: View {
+private struct NoteBookPreviewPage: View {
     let markdown: String
     let theme: EpistemosTheme
 
     var body: some View {
         MarkdownTextView(content: markdown, theme: theme)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(NoteDualPreviewLayout.blockPadding)
+            .padding(NoteDualPreviewLayout.pagePadding)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(theme.isDark ? Color.white.opacity(0.03) : Color.black.opacity(0.025))
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(theme.isDark ? Color.white.opacity(0.035) : Color.black.opacity(0.018))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(theme.isDark ? Color.white.opacity(0.05) : Color.black.opacity(0.06), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(
+                        theme.isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.055),
+                        lineWidth: 0.6
+                    )
             )
-        }
+    }
 }
 
 // MARK: - Transition Greeting View

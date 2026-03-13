@@ -56,6 +56,18 @@ struct VaultSyncServiceAuditTests {
         return dir
     }
 
+    @Test("restoreVaultFromBookmark is disabled under test hosts")
+    func restoreVaultFromBookmarkDisabledUnderTests() {
+        #expect(
+            VaultSyncService.shouldRestoreVaultFromBookmark(
+                processInfoEnvironment: ["XCTestConfigurationFilePath": "/tmp/test.xctest"]
+            ) == false
+        )
+        #expect(
+            VaultSyncService.shouldRestoreVaultFromBookmark(processInfoEnvironment: [:])
+        )
+    }
+
     @discardableResult
     private func insertDirtyPage(
         in context: ModelContext,

@@ -261,6 +261,10 @@ enum MarkdownEditorCommands {
         return rebuiltTableEdit(from: table, rows: table.rows, selectedRow: table.cursorRow, selectedColumn: table.cursorColumn)
     }
 
+    static func isSelectionInsideTable(in text: String, selection: NSRange) -> Bool {
+        parseTable(in: text as NSString, selection: selection) != nil
+    }
+
     static func insertTableRowBelow(in text: String, selection: NSRange) -> TableEdit? {
         guard let table = parseTable(in: text as NSString, selection: selection) else { return nil }
         let columnCount = table.columnCount

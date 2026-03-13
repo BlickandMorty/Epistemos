@@ -229,53 +229,20 @@ struct TaggedMarkdownTextView: View {
 
     @ViewBuilder
     private func renderTable(rows: [[String]], headerCount: Int) -> some View {
-        let borderColor = theme.isDark ? Color.white.opacity(0.15) : Color.black.opacity(0.12)
-        let headerBg = theme.isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.04)
-        let altRowBg = theme.isDark ? Color.white.opacity(0.02) : Color.black.opacity(0.02)
-        let colCount = rows.map(\.count).max() ?? 1
         let bodyForeground = theme.assistantBubbleForeground
-
-        VStack(spacing: 0) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { rowIdx, cells in
-                HStack(spacing: 0) {
-                    ForEach(0..<colCount, id: \.self) { colIdx in
-                        let cell = colIdx < cells.count ? cells[colIdx] : ""
-                        taggedInlineMarkdown(
-                            cell,
-                            baseFontSize: 13,
-                            strongForegroundColor: theme.chatStrongForeground
-                        )
-                            .font(.system(size: 13))
-                            .foregroundStyle(bodyForeground.opacity(rowIdx < headerCount ? 1.0 : 0.85))
-                            .fontWeight(rowIdx < headerCount ? .semibold : .regular)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .overlay(alignment: .trailing) {
-                                if colIdx < colCount - 1 {
-                                    Rectangle().fill(borderColor).frame(width: 1)
-                                }
-                            }
-                    }
-                }
-                .background(
-                    rowIdx < headerCount ? headerBg :
-                    rowIdx % 2 != 0 ? altRowBg : Color.clear
-                )
-
-                if rowIdx < rows.count - 1 {
-                    Rectangle()
-                        .fill(borderColor)
-                        .frame(height: rowIdx < headerCount ? 1.5 : 0.5)
-                }
-            }
+        MarkdownTableSurfaceView(
+            table: MarkdownTableModel(rows: rows, headerCount: headerCount),
+            theme: theme
+        ) { cell, isHeader in
+            taggedInlineMarkdown(
+                cell,
+                baseFontSize: 13,
+                strongForegroundColor: theme.chatStrongForeground
+            )
+            .font(.system(size: 13))
+            .foregroundStyle(bodyForeground.opacity(isHeader ? 1.0 : 0.85))
+            .fontWeight(isHeader ? .semibold : .regular)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(borderColor, lineWidth: 1)
-        )
-        .padding(.vertical, 6)
     }
 
     // MARK: - Block Rendering
@@ -382,13 +349,21 @@ struct TaggedMarkdownTextView: View {
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
         let retroRole = AppHeadingRole.markdownRole(level: level)
-        let font: Font = retroRole?.font ?? {
+        let baseFontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
+        let fontSize = MarkdownHeadingDisplay.fontSize(
+            for: level,
+            text: text,
+            baseSize: baseFontSize,
+            nextLevelSize: AppHeadingRole.h2.fontSize
+        )
+        let font: Font = retroRole.map { _ in
+            AppDisplayTypography.font(size: fontSize)
+        } ?? {
             switch level {
             case 4: .system(size: 15, weight: .medium)
             default: .system(size: 14, weight: .medium)
             }
         }()
-        let fontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
         let topPad = retroRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level)

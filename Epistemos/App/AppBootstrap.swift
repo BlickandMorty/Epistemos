@@ -41,9 +41,6 @@ final class AppBootstrap {
     /// Nil when no vault is attached. Shared across all AI surfaces (main chat, MiniChat, graph inspector).
     var ambientManifest: VaultManifest?
 
-    // MARK: - App Nap Prevention
-    private var antiNapActivity: NSObjectProtocol?
-
     // MARK: - Active Query Task
     var queryTask: Task<Void, Never>?
 
@@ -60,15 +57,11 @@ final class AppBootstrap {
     private(set) var coordinator: AppCoordinator!
 
     init() {
+        let interval = Log.appPerf.beginInterval("bootstrapInit")
+        defer { Log.appPerf.endInterval("bootstrapInit", interval) }
+
         // Register custom fonts (RetroGaming, etc.)
         EpistemosFont.registerFonts()
-
-        // Prevent App Nap for the entire session. Without this, macOS throttles
-        // URLSession network calls when the app loses focus — breaking enrichment.
-        antiNapActivity = ProcessInfo.processInfo.beginActivity(
-            options: .userInitiatedAllowingIdleSystemSleep,
-            reason: "Epistemos — keep AI pipelines alive when app loses focus"
-        )
 
         // Create model container with implicit lightweight migration.
         // SwiftData auto-handles adding defaulted properties without an explicit MigrationPlan.
@@ -329,6 +322,8 @@ final class AppBootstrap {
     private func migrateBodiesToFileStorage() async {
         let migrationKey = "v2_body_migration_complete"
         guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        let interval = Log.appPerf.beginInterval("migrateBodiesToFileStorage")
+        defer { Log.appPerf.endInterval("migrateBodiesToFileStorage", interval) }
         do {
             let migrated = try await BodyMigrationActor(modelContainer: modelContainer).migrateInlineBodiesToFiles()
             UserDefaults.standard.set(true, forKey: migrationKey)
