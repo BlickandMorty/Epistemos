@@ -412,6 +412,7 @@ actor VaultIndexActor {
         // Without this save, the filePath only exists in the background actor's memory
         // and the mainContext never sees it — causing duplicate file creation.
         try modelContext.save()
+        upsertSearchIndex(page: page, body: page.loadBody(mapped: true))
 
         log.debug("Exported: \(fileURL.lastPathComponent, privacy: .public)")
         return fileURL.path
@@ -596,14 +597,7 @@ actor VaultIndexActor {
                 }
 
                 let indexBody = preserveBody ? currentBody : body
-                do {
-                    try searchService?.upsert(
-                        id: page.id, title: page.title, body: indexBody,
-                        tags: page.tags.joined(separator: " "), updatedAt: page.updatedAt
-                    )
-                } catch {
-                    log.error("FTS5 upsert failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                }
+                upsertSearchIndex(page: page, body: indexBody)
                 return true
             }
             return false
@@ -657,14 +651,7 @@ actor VaultIndexActor {
             page.templateId = frontMatter["template"]
 
             modelContext.insert(page)
-            do {
-                try searchService?.upsert(
-                    id: page.id, title: page.title, body: body,
-                    tags: page.tags.joined(separator: " "), updatedAt: page.updatedAt
-                )
-            } catch {
-                log.error("FTS5 insert failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            }
+            upsertSearchIndex(page: page, body: body)
             return true
         }
     }
@@ -807,6 +794,20 @@ actor VaultIndexActor {
     }
 
     // MARK: - Search Index Helpers
+
+    private func upsertSearchIndex(page: SDPage, body: String) {
+        do {
+            try searchService?.upsert(
+                id: page.id,
+                title: page.title,
+                body: body,
+                tags: page.tags.joined(separator: " "),
+                updatedAt: page.updatedAt
+            )
+        } catch {
+            log.error("FTS5 upsert failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
 
     /// All page (id, updatedAt) pairs for diff sync.
     func allPageTimestamps() -> [(id: String, updatedAt: Date)] {

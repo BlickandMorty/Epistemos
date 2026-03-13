@@ -12,6 +12,13 @@ struct VaultIndexActorTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
+    private func makeSearchIndex() throws -> SearchIndexService {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vault-index-search-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("search.sqlite")
+        return try SearchIndexService(databaseURL: dbURL)
+    }
+
     private func makeTempDirectory() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("vault-index-actor-\(UUID().uuidString)", isDirectory: true)
@@ -373,5 +380,52 @@ struct VaultIndexActorTests {
         #expect(page.needsVaultSync == false)
         #expect(page.lastSyncedBodyHash == SDPage.bodyHash("Imported body"))
         #expect(page.lastSyncedAt != nil)
+    }
+
+    @Test("exportPage refreshes search index so graph queries see saved body text")
+    func exportPageRefreshesSearchIndexForGraphQueries() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let searchIndex = try makeSearchIndex()
+        await actor.setSearchService(searchIndex)
+
+        let token = "bodytoken\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        let page = insertPage(in: context, title: "Indexed Note", body: "Body with \(token)")
+        try context.save()
+
+        #expect(try searchIndex.search(query: token).isEmpty)
+
+        let store = GraphStore()
+        let graphNode = GraphNodeRecord(
+            id: "graph-\(page.id)",
+            type: .note,
+            label: page.title,
+            sourceId: page.id,
+            metadata: GraphNodeMetadata(),
+            weight: 1.0,
+            createdAt: page.createdAt,
+            updatedAt: page.updatedAt
+        )
+        store.addNode(graphNode)
+
+        let exportedPath = try await actor.exportPage(pageId: page.id, to: vaultURL)
+        #expect(exportedPath != nil)
+
+        let noteHits = try searchIndex.search(query: token)
+        #expect(noteHits.contains { $0.pageId == page.id })
+
+        let runtime = QueryRuntime(
+            graphStore: store,
+            graphState: GraphState(),
+            searchIndex: searchIndex
+        )
+        let queryResult = runtime.query(token)
+
+        #expect(queryResult.nodes.map(\.id) == [graphNode.id])
+        #expect(queryResult.nodes.first?.snippet?.isEmpty == false)
     }
 }
