@@ -43,6 +43,7 @@ final class AppBootstrap {
 
     // MARK: - Active Query Task
     var queryTask: Task<Void, Never>?
+    private var healthyVaultBodyCleanupTask: Task<Void, Never>?
 
     // MARK: - Services
     let llmService: LLMService
@@ -178,13 +179,10 @@ final class AppBootstrap {
             Task(priority: .utility) { await llm.checkOllama() }
         }
 
-        // Body-file maintenance runs off-main to avoid launch hitching.
-        // Migration is one-time; orphan cleanup runs every app launch.
+        // Body-file migration runs off-main to avoid launch hitching.
+        // Orphan cleanup now waits for a confirmed healthy vault attach/import.
         Task(priority: .utility) {
             await migrateBodiesToFileStorage()
-            if !Self.isRunningTests {
-                await cleanupOrphanBodyFiles()
-            }
         }
 
         // Graph loads asynchronously — no launch stall. QueryEngine holds a reference
@@ -348,6 +346,19 @@ final class AppBootstrap {
             }
         } catch {
             Log.app.error("Body file cleanup failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func scheduleHealthyVaultBodyCleanup() {
+        guard !Self.isRunningTests else { return }
+        healthyVaultBodyCleanupTask?.cancel()
+        healthyVaultBodyCleanupTask = Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            guard await vaultSync.shouldRunBodyCleanup(candidateVaultURL: vaultSync.vaultURL) else {
+                Log.app.info("Body file cleanup skipped until vault health is confirmed")
+                return
+            }
+            await cleanupOrphanBodyFiles()
         }
     }
 }

@@ -90,6 +90,23 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
+    @Test("Vault rebuild reset clears stale note navigation state")
+    func vaultRebuildResetClearsNavigationState() {
+        let manager = NoteWindowManager.shared
+        manager.resetForVaultRebuild()
+
+        let state = NoteNavigationState(rootPageId: "root", rootTitle: "Root")
+        state.push(pageId: "missing", title: "Missing")
+        manager.registerNavState(state, forTab: "root")
+
+        #expect(manager.currentPageId(forTab: "root") == "missing")
+
+        manager.resetForVaultRebuild()
+
+        #expect(manager.currentPageId(forTab: "root") == "root")
+    }
+
+    @MainActor
     @Test("Modular window policy keeps zoom and disables desktop fullscreen")
     func modularWindowPolicyDisablesDesktopFullscreen() throws {
         let window = NSPanel(

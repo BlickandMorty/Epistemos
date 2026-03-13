@@ -31,6 +31,7 @@ final class NoteFileMutationQueue: @unchecked Sendable {
 enum NoteFileStorage {
     private nonisolated static let logger = Logger(subsystem: "com.epistemos", category: "NoteFileStorage")
     private nonisolated static let mutationQueue = NoteFileMutationQueue()
+    private nonisolated(unsafe) static var storageDirectoryOverride: URL?
 
     private nonisolated static func bodyURL(pageId: String) -> URL {
         storageDirectory().appendingPathComponent("\(pageId).md")
@@ -100,7 +101,18 @@ enum NoteFileStorage {
         return dir
     }()
 
-    nonisolated static func storageDirectory() -> URL { _storageDirectory }
+    nonisolated static func setStorageDirectoryOverrideForTesting(_ url: URL?) {
+        storageDirectoryOverride = url
+        if let url {
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        }
+    }
+
+    nonisolated static func storageDirectory() -> URL {
+        let dir = storageDirectoryOverride ?? _storageDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
 
     /// Read a note body from disk. Returns empty string if file doesn't exist or pageId is invalid.
     ///
@@ -200,6 +212,53 @@ enum NoteFileStorage {
                 } catch {
                     logger.error(
                         "Failed to remove orphan body for \(pageId, privacy: .private): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
+        }
+
+        return removed.sorted()
+    }
+
+    nonisolated static func managedBodyPageIds(in directory: URL? = nil) -> [String] {
+        let storageURL = directory ?? storageDirectory()
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: storageURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return contents.compactMap(managedBodyPageId(for:)).sorted()
+    }
+
+    nonisolated static func managedBodyCount(in directory: URL? = nil) -> Int {
+        managedBodyPageIds(in: directory).count
+    }
+
+    @discardableResult
+    nonisolated static func removeAllManagedBodies(in directory: URL? = nil) -> [String] {
+        let storageURL = directory ?? storageDirectory()
+        var removed: [String] = []
+
+        mutationQueue.performSync {
+            guard let contents = try? FileManager.default.contentsOfDirectory(
+                at: storageURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            ) else {
+                return
+            }
+
+            for fileURL in contents {
+                guard let pageId = managedBodyPageId(for: fileURL) else { continue }
+                do {
+                    try FileManager.default.removeItem(at: fileURL)
+                    removed.append(pageId)
+                } catch {
+                    logger.error(
+                        "Failed to remove managed body for \(pageId, privacy: .private): \(error.localizedDescription, privacy: .public)"
                     )
                 }
             }

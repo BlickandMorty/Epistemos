@@ -10,6 +10,7 @@ struct RootView: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
+    @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
 
     /// Set by EpistemosApp when AppBootstrap detected a database error.
@@ -174,6 +175,25 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
+        .overlay {
+            if let issue = vaultSync.recoveryIssue {
+                VaultRecoveryOverlay(
+                    issue: issue,
+                    isRecovering: vaultSync.isRecoveringLocalState,
+                    rebuildAction: {
+                        guard let vaultURL = issue.snapshot.vaultURL else { return }
+                        Task { _ = await vaultSync.recoverFromVault(at: vaultURL) }
+                    },
+                    chooseVaultAction: {
+                        VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+                    },
+                    disconnectAction: {
+                        VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
         .animation(Motion.smooth, value: ui.needsSetup)
         .onAppear {
             if databaseError != nil { showDatabaseAlert = true }
@@ -184,6 +204,53 @@ struct RootView: View {
             Button("Quit") { NSApp.terminate(nil) }
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
+        }
+    }
+}
+
+private struct VaultRecoveryOverlay: View {
+    let issue: VaultRecoveryIssue
+    let isRecovering: Bool
+    let rebuildAction: () -> Void
+    let chooseVaultAction: () -> Void
+    let disconnectAction: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.26)
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Vault Rebuild Needed")
+                    .font(.system(size: 22, weight: .semibold))
+
+                Text(issue.detailText)
+                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                HStack(spacing: 12) {
+                    Button(isRecovering ? "Rebuilding…" : "Rebuild Local State") {
+                        rebuildAction()
+                    }
+                    .disabled(isRecovering || !issue.snapshot.isVaultReadable)
+
+                    Button("Choose Vault Folder") {
+                        chooseVaultAction()
+                    }
+                    .disabled(isRecovering)
+
+                    Button("Disconnect Vault", role: .destructive) {
+                        disconnectAction()
+                    }
+                    .disabled(isRecovering)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 620, alignment: .leading)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: .black.opacity(0.16), radius: 28, y: 12)
+            .padding(32)
         }
     }
 }

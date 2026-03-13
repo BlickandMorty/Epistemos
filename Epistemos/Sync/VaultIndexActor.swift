@@ -16,12 +16,52 @@ nonisolated let vaultFoldersRepairedNotification = Notification.Name("VaultFolde
 @ModelActor
 actor VaultIndexActor {
     private let log = Logger(subsystem: "com.epistemos", category: "VaultIndex")
+    nonisolated private static let excludedDirs: Set<String> = [
+        "node_modules", ".git", ".build", "Pods", "DerivedData", ".svn", ".venv", "venv",
+        "__pycache__", ".pytest_cache", ".mypy_cache",
+    ]
+    nonisolated private static let excludedSuffixes: Set<String> = [
+        ".photoslibrary", ".app", ".framework", ".xcodeproj", ".xcworkspace",
+    ]
 
     // MARK: - FTS5 Search Index (GRDB)
     private var searchService: SearchIndexService?
 
     func setSearchService(_ service: SearchIndexService) {
         self.searchService = service
+    }
+
+    nonisolated static func shouldSkipDescendants(for name: String) -> Bool {
+        excludedDirs.contains(name) || excludedSuffixes.contains(where: { name.hasSuffix($0) })
+    }
+
+    nonisolated static func isImportableNoteFile(_ fileURL: URL) -> Bool {
+        let ext = fileURL.pathExtension.lowercased()
+        return ext == "md" || ext == "markdown" || ext == "txt"
+    }
+
+    nonisolated static func countImportableNoteFiles(in url: URL) -> Int {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path), fm.isReadableFile(atPath: url.path) else { return 0 }
+        guard let enumerator = fm.enumerator(
+            at: url,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return 0
+        }
+
+        var count = 0
+        for case let fileURL as URL in enumerator {
+            let name = fileURL.lastPathComponent
+            if shouldSkipDescendants(for: name) {
+                enumerator.skipDescendants()
+                continue
+            }
+            guard isImportableNoteFile(fileURL) else { continue }
+            count += 1
+        }
+        return count
     }
 
     // MARK: - Full Vault Import
@@ -66,14 +106,6 @@ actor VaultIndexActor {
             return
         }
 
-        // Directories that should never be indexed (developer artifacts, system data, not user notes)
-        let excludedDirs: Set<String> = [
-            "node_modules", ".git", ".build", "Pods", "DerivedData", ".svn", ".venv", "venv",
-            "__pycache__", ".pytest_cache", ".mypy_cache",
-        ]
-        // Package/system directories that contain thousands of non-note files
-        let excludedSuffixes: Set<String> = [".photoslibrary", ".app", ".framework", ".xcodeproj", ".xcworkspace"]
-
         var diskPaths = Set<String>()
         var insertCount = 0
         var updateCount = 0
@@ -97,14 +129,12 @@ actor VaultIndexActor {
                 }
                 // Skip developer artifact and system directory subtrees entirely
                 let name = fileURL.lastPathComponent
-                if excludedDirs.contains(name)
-                    || excludedSuffixes.contains(where: { name.hasSuffix($0) }) {
+                if Self.shouldSkipDescendants(for: name) {
                     enumerator.skipDescendants()
                     continue
                 }
 
-                let ext = fileURL.pathExtension.lowercased()
-                guard ext == "md" || ext == "markdown" || ext == "txt" else { continue }
+                guard Self.isImportableNoteFile(fileURL) else { continue }
 
                 let filePath = fileURL.path
                 diskPaths.insert(filePath)

@@ -463,6 +463,21 @@ final class NoteWindowManager {
             windows[rootPageId]?.close()
         }
     }
+
+    func resetForVaultRebuild() {
+        let openWindows = Array(windows.values)
+        for observer in observers.values {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        observers.removeAll()
+        windows.removeAll()
+        navigationStates.removeAll()
+        activeUserActivity?.resignCurrent()
+        activeUserActivity = nil
+        for window in openWindows {
+            window.close()
+        }
+    }
 }
 
 // MARK: - Tab Delegate

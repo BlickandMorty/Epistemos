@@ -21,11 +21,80 @@ struct VaultSyncConflict: Identifiable {
     let diskBody: String
 }
 
+struct VaultHealthSnapshot: Sendable {
+    let vaultURL: URL?
+    let isVaultReadable: Bool
+    let vaultMarkdownCount: Int
+    let indexedPageCount: Int
+    let indexedPagesWithFilePath: Int
+    let localBodyFileCount: Int
+    let bookmarkExists: Bool
+    let restoreFailed: Bool
+    let initialImportCompleted: Bool
+    let hadPriorLocalState: Bool
+
+    var displayPath: String {
+        vaultURL?.path ?? "No readable vault path detected"
+    }
+
+    var hasSevereIndexMismatch: Bool {
+        guard isVaultReadable, vaultMarkdownCount > 0 else { return false }
+        guard indexedPagesWithFilePath > 0 else { return true }
+        if vaultMarkdownCount >= 50 {
+            return indexedPageCount < max(10, vaultMarkdownCount / 10)
+        }
+        return indexedPageCount < max(1, vaultMarkdownCount / 2)
+    }
+
+    var hasCollapsedBodyCache: Bool {
+        guard localBodyFileCount > 0, indexedPageCount > 0 else { return false }
+        return localBodyFileCount < min(indexedPageCount, 3) && indexedPagesWithFilePath == 0
+    }
+
+    var requiresRecovery: Bool {
+        if restoreFailed && hadPriorLocalState {
+            return true
+        }
+        guard initialImportCompleted else { return false }
+        return hasSevereIndexMismatch || hasCollapsedBodyCache
+    }
+}
+
+struct VaultRecoveryIssue: Identifiable, Sendable {
+    let id: String
+    let snapshot: VaultHealthSnapshot
+    let reason: String
+
+    init(snapshot: VaultHealthSnapshot, reason: String) {
+        self.id = UUID().uuidString
+        self.snapshot = snapshot
+        self.reason = reason
+    }
+
+    var detailText: String {
+        """
+        \(reason)
+
+        Vault path: \(snapshot.displayPath)
+        Vault notes on disk: \(snapshot.vaultMarkdownCount)
+        Indexed notes in app: \(snapshot.indexedPageCount)
+        Indexed notes with file paths: \(snapshot.indexedPagesWithFilePath)
+        Local note-body files: \(snapshot.localBodyFileCount)
+        """
+    }
+}
+
 private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 
 @MainActor @Observable
 final class VaultSyncService {
     typealias ExportPageOperation = @Sendable (String, URL) async throws -> String?
+    fileprivate nonisolated static let bookmarkKey = "epistemos.vaultBookmark"
+    fileprivate nonisolated static let lastVaultPathKey = "epistemos.lastVaultPath"
+    private nonisolated static let defaultRecoveryVaultURL = URL(
+        fileURLWithPath: "/Users/jojo/My mind",
+        isDirectory: true
+    )
 
     nonisolated static func shouldRestoreVaultFromBookmark(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
@@ -44,6 +113,9 @@ final class VaultSyncService {
     private let modelContainer: ModelContainer
     var exportPageOverride: ExportPageOperation?
     private var searchDatabaseURLOverride: URL?
+    private var appSupportDirectoryURLOverride: URL?
+    private var preferencesFileURLOverride: URL?
+    private var recoverySnapshotRootURLOverride: URL?
 
     private(set) var vaultURL: URL?
     private(set) var isWatching = false
@@ -52,6 +124,8 @@ final class VaultSyncService {
     /// bookmark exists so the landing page shows a vault sync message on the
     /// very first frame, before the import Task even begins.
     var isIndexing: Bool = UserDefaults.standard.data(forKey: "epistemos.vaultBookmark") != nil
+    var recoveryIssue: VaultRecoveryIssue?
+    var isRecoveringLocalState = false
 
     /// FTS5 search index (GRDB). Created in startWatching, nil'd in stopWatching.
     private(set) var searchService: SearchIndexService?
@@ -71,6 +145,7 @@ final class VaultSyncService {
     private var manifestRefreshTask: Task<Void, Never>?
     private var inFlightDirtySaveTask: Task<Void, Never>?
     private var pendingDirtySaveRequest = false
+    private var initialImportCompleted = false
 
     // MARK: - File Watching
     private var fileWatcherSource: DispatchSourceFileSystemObject?
@@ -102,11 +177,345 @@ final class VaultSyncService {
         searchDatabaseURLOverride = databaseURL
     }
 
+    func setAppSupportDirectoryURLForTesting(_ url: URL?) {
+        appSupportDirectoryURLOverride = url
+    }
+
+    func setPreferencesFileURLForTesting(_ url: URL?) {
+        preferencesFileURLOverride = url
+    }
+
+    func setRecoverySnapshotRootURLForTesting(_ url: URL?) {
+        recoverySnapshotRootURLOverride = url
+    }
+
+    func setInitialImportCompletedForTesting(_ value: Bool) {
+        initialImportCompleted = value
+    }
+
     private func exportPage(pageId: String, to vaultURL: URL) async throws -> String? {
         if let exportPageOverride {
             return try await exportPageOverride(pageId, vaultURL)
         }
         return try await indexActor?.exportPage(pageId: pageId, to: vaultURL)
+    }
+
+    func dismissRecoveryIssue() {
+        recoveryIssue = nil
+    }
+
+    func persistVaultSelection(_ url: URL) {
+        if let bookmark = try? url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        ) {
+            UserDefaults.standard.set(bookmark, forKey: Self.bookmarkKey)
+        }
+        UserDefaults.standard.set(url.path, forKey: Self.lastVaultPathKey)
+        recoveryIssue = nil
+    }
+
+    func shouldRunBodyCleanup(candidateVaultURL: URL?) async -> Bool {
+        let snapshot = await buildVaultHealthSnapshot(
+            candidateVaultURL: candidateVaultURL,
+            bookmarkExists: UserDefaults.standard.data(forKey: Self.bookmarkKey) != nil,
+            restoreFailed: false
+        )
+        guard snapshot.initialImportCompleted else { return false }
+        guard snapshot.isVaultReadable, snapshot.vaultMarkdownCount > 0 else { return false }
+        guard snapshot.indexedPagesWithFilePath > 0 else { return false }
+        return !snapshot.requiresRecovery
+    }
+
+    func detectRecoveryIssue(
+        candidateVaultURL: URL?,
+        bookmarkExists: Bool,
+        restoreFailed: Bool
+    ) async -> VaultRecoveryIssue? {
+        let snapshot = await buildVaultHealthSnapshot(
+            candidateVaultURL: candidateVaultURL,
+            bookmarkExists: bookmarkExists,
+            restoreFailed: restoreFailed
+        )
+        guard snapshot.requiresRecovery else { return nil }
+        return VaultRecoveryIssue(snapshot: snapshot, reason: recoveryReason(for: snapshot))
+    }
+
+    @discardableResult
+    func recoverFromVault(at vaultURL: URL) async -> Bool {
+        guard !isRecoveringLocalState else { return false }
+        isRecoveringLocalState = true
+        recoveryIssue = nil
+        isIndexing = true
+        initialImportCompleted = false
+
+        do {
+            try snapshotLocalState()
+            stopWatching(preserveData: true)
+            clearDerivedLocalStateForRecovery()
+            persistVaultSelection(vaultURL)
+            startWatching(vaultURL: vaultURL)
+            await importTask?.value
+            let issue = await detectRecoveryIssue(
+                candidateVaultURL: vaultURL,
+                bookmarkExists: true,
+                restoreFailed: false
+            )
+            recoveryIssue = issue
+            isRecoveringLocalState = false
+            return issue == nil
+        } catch {
+            isRecoveringLocalState = false
+            isIndexing = false
+            let snapshot = await buildVaultHealthSnapshot(
+                candidateVaultURL: vaultURL,
+                bookmarkExists: true,
+                restoreFailed: true
+            )
+            recoveryIssue = VaultRecoveryIssue(
+                snapshot: snapshot,
+                reason: "Epistemos could not rebuild its local vault state: \(error.localizedDescription)"
+            )
+            return false
+        }
+    }
+
+    private func buildVaultHealthSnapshot(
+        candidateVaultURL: URL?,
+        bookmarkExists: Bool,
+        restoreFailed: Bool
+    ) async -> VaultHealthSnapshot {
+        let resolvedVaultURL = resolvedRecoveryVaultURL(from: candidateVaultURL)
+        let isVaultReadable = resolvedVaultURL.map(isReadableVaultURL(_:)) ?? false
+        let vaultMarkdownCount: Int
+        if let resolvedVaultURL, isVaultReadable {
+            vaultMarkdownCount = await Task.detached(priority: .utility) {
+                VaultIndexActor.countImportableNoteFiles(in: resolvedVaultURL)
+            }.value
+        } else {
+            vaultMarkdownCount = 0
+        }
+
+        let context = modelContainer.mainContext
+        let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
+        let indexedPagesWithFilePath = pages.reduce(into: 0) { partial, page in
+            if let filePath = page.filePath, !filePath.isEmpty {
+                partial += 1
+            }
+        }
+
+        return VaultHealthSnapshot(
+            vaultURL: resolvedVaultURL,
+            isVaultReadable: isVaultReadable,
+            vaultMarkdownCount: vaultMarkdownCount,
+            indexedPageCount: pages.count,
+            indexedPagesWithFilePath: indexedPagesWithFilePath,
+            localBodyFileCount: NoteFileStorage.managedBodyCount(),
+            bookmarkExists: bookmarkExists,
+            restoreFailed: restoreFailed,
+            initialImportCompleted: initialImportCompleted,
+            hadPriorLocalState: !pages.isEmpty
+                || NoteFileStorage.managedBodyCount() > 0
+                || UserDefaults.standard.string(forKey: Self.lastVaultPathKey) != nil
+        )
+    }
+
+    private func resolvedRecoveryVaultURL(from candidateVaultURL: URL?) -> URL? {
+        if let candidateVaultURL {
+            return candidateVaultURL
+        }
+        if let vaultURL {
+            return vaultURL
+        }
+        if let hintedPath = UserDefaults.standard.string(forKey: Self.lastVaultPathKey),
+           !hintedPath.isEmpty {
+            return URL(fileURLWithPath: hintedPath, isDirectory: true)
+        }
+        return Self.defaultRecoveryVaultURL
+    }
+
+    private func isReadableVaultURL(_ url: URL) -> Bool {
+        let fm = FileManager.default
+        return fm.fileExists(atPath: url.path) && fm.isReadableFile(atPath: url.path)
+    }
+
+    private func recoveryReason(for snapshot: VaultHealthSnapshot) -> String {
+        if snapshot.restoreFailed {
+            return "Epistemos could not reconnect to the vault and the local index is no longer trustworthy."
+        }
+        if snapshot.indexedPagesWithFilePath == 0 && snapshot.vaultMarkdownCount > 0 {
+            return "Epistemos can read the vault on disk, but the local index lost every file-path mapping."
+        }
+        if snapshot.hasSevereIndexMismatch {
+            return "Epistemos indexed only a small fraction of the readable vault."
+        }
+        if snapshot.hasCollapsedBodyCache {
+            return "Epistemos kept only a collapsed local note-body cache after the vault stayed readable."
+        }
+        return "Epistemos detected a vault mismatch and needs to rebuild its local state."
+    }
+
+    private func appSupportDirectoryURL() -> URL? {
+        if let appSupportDirectoryURLOverride {
+            return appSupportDirectoryURLOverride
+        }
+        guard let appSupportBase = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+        return appSupportBase.appendingPathComponent("Epistemos", isDirectory: true)
+    }
+
+    private func preferencesFileURL() -> URL? {
+        if let preferencesFileURLOverride {
+            return preferencesFileURLOverride
+        }
+        guard let library = FileManager.default.urls(
+            for: .libraryDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+        return library
+            .appendingPathComponent("Preferences", isDirectory: true)
+            .appendingPathComponent("com.epistemos.app.plist")
+    }
+
+    private func recoverySnapshotRootURL() -> URL? {
+        if let recoverySnapshotRootURLOverride {
+            return recoverySnapshotRootURLOverride
+        }
+        guard let appSupportBase = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+        return appSupportBase.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
+    }
+
+    private func defaultSearchDatabaseURL() -> URL? {
+        searchDatabaseURLOverride ?? appSupportDirectoryURL()?.appendingPathComponent("search.sqlite")
+    }
+
+    private func snapshotLocalState() throws {
+        let fm = FileManager.default
+        guard let snapshotRoot = recoverySnapshotRootURL() else { return }
+        try fm.createDirectory(at: snapshotRoot, withIntermediateDirectories: true)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let snapshotURL = snapshotRoot.appendingPathComponent(
+            "snapshot-\(formatter.string(from: .now))-\(UUID().uuidString.prefix(8))",
+            isDirectory: true
+        )
+        try fm.createDirectory(at: snapshotURL, withIntermediateDirectories: true)
+
+        if let appSupportURL = appSupportDirectoryURL(), fm.fileExists(atPath: appSupportURL.path) {
+            try fm.copyItem(
+                at: appSupportURL,
+                to: snapshotURL.appendingPathComponent(appSupportURL.lastPathComponent, isDirectory: true)
+            )
+        }
+
+        if let preferencesURL = preferencesFileURL(), fm.fileExists(atPath: preferencesURL.path) {
+            try fm.copyItem(
+                at: preferencesURL,
+                to: snapshotURL.appendingPathComponent(preferencesURL.lastPathComponent)
+            )
+        }
+    }
+
+    private func clearDerivedLocalStateForRecovery() {
+        clearVaultData()
+        _ = NoteFileStorage.removeAllManagedBodies()
+        clearSearchIndexFiles()
+        clearDerivedFilesystemCaches()
+        sanitizeTransientSelectionsForVaultRebuild()
+        AppBootstrap.shared?.ambientManifest = nil
+    }
+
+    private func clearSearchIndexFiles() {
+        guard let databaseURL = defaultSearchDatabaseURL() else { return }
+        let fm = FileManager.default
+        let urls = [
+            databaseURL,
+            URL(fileURLWithPath: databaseURL.path + "-shm"),
+            URL(fileURLWithPath: databaseURL.path + "-wal"),
+        ]
+        for url in urls where fm.fileExists(atPath: url.path) {
+            try? fm.removeItem(at: url)
+        }
+    }
+
+    private func clearDerivedFilesystemCaches() {
+        let fm = FileManager.default
+        if let styleCacheURL = appSupportDirectoryURL()?.appendingPathComponent("style-cache", isDirectory: true),
+           fm.fileExists(atPath: styleCacheURL.path) {
+            try? fm.removeItem(at: styleCacheURL)
+            try? fm.createDirectory(at: styleCacheURL, withIntermediateDirectories: true)
+        }
+    }
+
+    private func sanitizeTransientSelectionsForVaultRebuild() {
+        AppBootstrap.shared?.notesUI.resetForVaultSwitch()
+        NoteWindowManager.shared.resetForVaultRebuild()
+        if let graphState = AppBootstrap.shared?.graphState {
+            graphState.selectNode(nil)
+            graphState.selectedNodeScreenPoint = nil
+        }
+    }
+
+    private func schedulePostImportMaintenance(vaultURL: URL, bookmarkExists: Bool, restoreFailed: Bool) async {
+        initialImportCompleted = true
+        let issue = await detectRecoveryIssue(
+            candidateVaultURL: vaultURL,
+            bookmarkExists: bookmarkExists,
+            restoreFailed: restoreFailed
+        )
+        recoveryIssue = issue
+        guard issue == nil else { return }
+
+        AppBootstrap.shared?.refreshAmbientManifest()
+        AppBootstrap.shared?.scheduleHealthyVaultBodyCleanup()
+        if let bootstrap = AppBootstrap.shared {
+            Task(priority: .utility) {
+                let refreshed = await bootstrap.graphState.refreshStructuralDataAsync(
+                    container: bootstrap.modelContainer
+                )
+                if !refreshed {
+                    await MainActor.run {
+                        bootstrap.graphState.requestRecommit()
+                    }
+                }
+            }
+        }
+    }
+
+    private func handleRestoreFailure(
+        reason: String,
+        bookmarkExists: Bool
+    ) {
+        isIndexing = false
+        initialImportCompleted = false
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let issue = await self.detectRecoveryIssue(
+                candidateVaultURL: nil,
+                bookmarkExists: bookmarkExists,
+                restoreFailed: true
+            )
+            if let issue {
+                self.recoveryIssue = issue
+            } else {
+                self.recoveryIssue = nil
+                self.clearVaultData()
+            }
+            log.warning("\(reason, privacy: .public)")
+        }
     }
 
     // MARK: - Lifecycle
@@ -127,7 +536,7 @@ final class VaultSyncService {
         // 1. Brainiac.epistemos (rename session stored "epistemos.vaultBookmark" there)
         // 2. com.lucid.app (v2 stored "epistemos.vaultBookmark" there)
         // After bundle ID reverted to Brainiac.lucid-v3, those domains are orphaned.
-        var data = UserDefaults.standard.data(forKey: "epistemos.vaultBookmark")
+        var data = UserDefaults.standard.data(forKey: Self.bookmarkKey)
         if let data {
             log.info("📦 Vault bookmark found in current domain (\(data.count) bytes)")
         } else {
@@ -144,7 +553,7 @@ final class VaultSyncService {
                     )
                     if let oldData {
                         data = oldData
-                        UserDefaults.standard.set(oldData, forKey: "epistemos.vaultBookmark")
+                        UserDefaults.standard.set(oldData, forKey: Self.bookmarkKey)
                         oldSuite.removeObject(forKey: key)
                         log.info(
                             "📦 Migrated vault bookmark from \(suite, privacy: .public) (\(oldData.count) bytes)"
@@ -157,9 +566,11 @@ final class VaultSyncService {
             }
         }
         guard let data else {
-            log.info("📦 No bookmark data found anywhere — clearing vault data")
-            isIndexing = false
-            clearVaultData()
+            log.info("📦 No bookmark data found anywhere")
+            handleRestoreFailure(
+                reason: "Vault bookmark missing on launch",
+                bookmarkExists: false
+            )
             return
         }
         log.info("📦 Resolving bookmark (\(data.count) bytes)")
@@ -198,10 +609,11 @@ final class VaultSyncService {
             }
         }
         guard let url else {
-            log.warning("📦 Failed to resolve vault bookmark — clearing stale data")
-            UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
-            isIndexing = false
-            clearVaultData()
+            UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
+            handleRestoreFailure(
+                reason: "📦 Failed to resolve vault bookmark",
+                bookmarkExists: true
+            )
             return
         }
 
@@ -220,26 +632,27 @@ final class VaultSyncService {
                     options: .withSecurityScope, includingResourceValuesForKeys: nil,
                     relativeTo: nil)
             {
-                UserDefaults.standard.set(fresh, forKey: "epistemos.vaultBookmark")
+                UserDefaults.standard.set(fresh, forKey: Self.bookmarkKey)
                 log.info("Created fresh security-scoped bookmark for vault")
             }
         }
         if !gained {
-            log.warning("Security scope not granted for vault bookmark — clearing")
-            UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
-            isIndexing = false
-            clearVaultData()
+            UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
+            handleRestoreFailure(
+                reason: "Security scope not granted for vault bookmark",
+                bookmarkExists: true
+            )
             return
         }
 
         let exists = FileManager.default.fileExists(atPath: url.path)
         if !exists {
-            log.warning(
-                "Vault directory not found at \(url.path, privacy: .private) — clearing bookmark")
             url.stopAccessingSecurityScopedResource()
-            UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
-            isIndexing = false
-            clearVaultData()
+            UserDefaults.standard.removeObject(forKey: Self.bookmarkKey)
+            handleRestoreFailure(
+                reason: "Vault directory not found at \(url.path)",
+                bookmarkExists: true
+            )
             return
         }
 
@@ -247,7 +660,7 @@ final class VaultSyncService {
             if let fresh = try? url.bookmarkData(
                 options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
             {
-                UserDefaults.standard.set(fresh, forKey: "epistemos.vaultBookmark")
+                UserDefaults.standard.set(fresh, forKey: Self.bookmarkKey)
             }
         }
 
@@ -283,6 +696,9 @@ final class VaultSyncService {
 
         self.vaultURL = vaultURL
         self.isWatching = true
+        self.initialImportCompleted = false
+        self.recoveryIssue = nil
+        UserDefaults.standard.set(vaultURL.path, forKey: Self.lastVaultPathKey)
 
         // Create background indexer
         indexActor = VaultIndexActor(modelContainer: modelContainer)
@@ -336,7 +752,14 @@ final class VaultSyncService {
                 }
                 Log.vaultPerf.endInterval("initialVaultDiffSync", diffSyncInterval)
             }
-            await MainActor.run { self.isIndexing = false }
+            await MainActor.run {
+                self.isIndexing = false
+            }
+            await self.schedulePostImportMaintenance(
+                vaultURL: url,
+                bookmarkExists: true,
+                restoreFailed: false
+            )
         }
 
 
@@ -351,7 +774,7 @@ final class VaultSyncService {
         startManifestRefreshTimer()
         startFileWatcher()
 
-        // Build ambient manifest eagerly after import completes
+        // Build ambient manifest optimistically; a second refresh runs after import settles.
         AppBootstrap.shared?.refreshAmbientManifest()
 
         log.info("VaultSyncService started for: \(vaultURL.lastPathComponent, privacy: .public)")
@@ -386,6 +809,8 @@ final class VaultSyncService {
 
         vaultURL = nil
         isWatching = false
+        isIndexing = false
+        initialImportCompleted = false
         log.info("VaultSyncService stopped (preserveData=\(preserveData))")
     }
 
@@ -1201,22 +1626,17 @@ enum VaultConnectionActions {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        if let bookmark = try? url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        ) {
-            UserDefaults.standard.set(bookmark, forKey: "epistemos.vaultBookmark")
-        }
-
         notesUI.resetForVaultSwitch()
+        vaultSync.persistVaultSelection(url)
         vaultSync.startWatching(vaultURL: url)
     }
 
     static func disconnect(notesUI: NotesUIState, vaultSync: VaultSyncService) {
         notesUI.resetForVaultSwitch()
         vaultSync.stopWatching()
-        UserDefaults.standard.removeObject(forKey: "epistemos.vaultBookmark")
+        vaultSync.dismissRecoveryIssue()
+        UserDefaults.standard.removeObject(forKey: VaultSyncService.bookmarkKey)
+        UserDefaults.standard.removeObject(forKey: VaultSyncService.lastVaultPathKey)
         AppBootstrap.shared?.ambientManifest = nil
     }
 }

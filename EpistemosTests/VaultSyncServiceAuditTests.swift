@@ -71,6 +71,12 @@ struct VaultSyncServiceAuditTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
+    private func makeRecoveryContainer() throws -> ModelContainer {
+        let schema = Schema(EpistemosSchema.models)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
     private func makeTempDirectory() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("vault-sync-audit-\(UUID().uuidString)", isDirectory: true)
@@ -487,5 +493,171 @@ struct VaultSyncServiceAuditTests {
 
         let pages = try context.fetch(FetchDescriptor<SDPage>())
         #expect(pages.contains { $0.id == pageId })
+    }
+
+    @Test("disconnected local vault state triggers a prompted recovery issue")
+    func disconnectedVaultStateTriggersRecoveryIssue() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        try """
+        ---
+        id: vault-a
+        title: Vault A
+        ---
+
+        body
+        """.write(
+            to: vaultURL.appendingPathComponent("Vault A.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        ---
+        id: vault-b
+        title: Vault B
+        ---
+
+        body
+        """.write(
+            to: vaultURL.appendingPathComponent("Vault B.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let disconnected = SDPage(title: "Disconnected")
+        disconnected.saveBody("orphaned local body")
+        disconnected.filePath = nil
+        context.insert(disconnected)
+        try context.save()
+        service.setInitialImportCompletedForTesting(true)
+
+        let issue = await service.detectRecoveryIssue(
+            candidateVaultURL: vaultURL,
+            bookmarkExists: true,
+            restoreFailed: false
+        )
+
+        let snapshot = try #require(issue?.snapshot)
+        #expect(snapshot.vaultMarkdownCount == 2)
+        #expect(snapshot.indexedPageCount == 1)
+        #expect(snapshot.indexedPagesWithFilePath == 0)
+    }
+
+    @Test("launch body cleanup is skipped while the vault index is clearly disconnected")
+    func launchBodyCleanupSkipsDisconnectedState() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        try "body".write(
+            to: vaultURL.appendingPathComponent("Readable.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let disconnected = SDPage(title: "Disconnected")
+        disconnected.saveBody("body")
+        disconnected.filePath = nil
+        context.insert(disconnected)
+        try context.save()
+
+        let shouldRun = await service.shouldRunBodyCleanup(candidateVaultURL: vaultURL)
+        #expect(shouldRun == false)
+    }
+
+    @Test("recovery snapshots local state and rebuilds pages, bodies, and search from the vault")
+    func recoverySnapshotsAndRebuildsDerivedState() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let vaultURL = root.appendingPathComponent("Vault", isDirectory: true)
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let noteBodiesURL = appSupportURL.appendingPathComponent("note-bodies", isDirectory: true)
+        let recoverySnapshotsURL = root.appendingPathComponent("Epistemos-Recovery", isDirectory: true)
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        let searchURL = appSupportURL.appendingPathComponent("search.sqlite")
+        defer {
+            service.stopWatching(preserveData: true)
+            NoteFileStorage.setStorageDirectoryOverrideForTesting(nil)
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: vaultURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: noteBodiesURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+
+        try """
+        ---
+        id: recovered-a
+        title: Recovered A
+        ---
+
+        Body token: recover-alpha
+        """.write(
+            to: vaultURL.appendingPathComponent("Recovered A.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        ---
+        id: recovered-b
+        title: Recovered B
+        ---
+
+        Body token: recover-beta
+        """.write(
+            to: vaultURL.appendingPathComponent("Recovered B.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let stalePage = SDPage(title: "Broken Local Page")
+        stalePage.saveBody("stale body")
+        context.insert(stalePage)
+        try context.save()
+
+        NoteFileStorage.setStorageDirectoryOverrideForTesting(noteBodiesURL)
+        NoteFileStorage.writeBody(pageId: "orphan-body", content: "stale orphan")
+        try "stale-search".write(to: searchURL, atomically: true, encoding: .utf8)
+
+        service.setSearchDatabaseURLForTesting(searchURL)
+        service.setAppSupportDirectoryURLForTesting(appSupportURL)
+        service.setPreferencesFileURLForTesting(preferencesURL)
+        service.setRecoverySnapshotRootURLForTesting(recoverySnapshotsURL)
+
+        let recovered = await service.recoverFromVault(at: vaultURL)
+        #expect(recovered)
+
+        let pages = try context.fetch(FetchDescriptor<SDPage>())
+        #expect(pages.count == 2)
+        #expect(pages.allSatisfy { ($0.filePath?.isEmpty == false) })
+        #expect(pages.contains { $0.id == "recovered-a" })
+        #expect(pages.contains { $0.id == "recovered-b" })
+        #expect(NoteFileStorage.bodyExists(pageId: "recovered-a"))
+        #expect(NoteFileStorage.bodyExists(pageId: "recovered-b"))
+        #expect(!NoteFileStorage.bodyExists(pageId: "orphan-body"))
+
+        let searchHits = await service.searchFullAsync(query: "recover-alpha", limit: 5)
+        #expect(searchHits.contains { $0.pageId == "recovered-a" })
+
+        let snapshotDirs = try FileManager.default.contentsOfDirectory(
+            at: recoverySnapshotsURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        #expect(snapshotDirs.isEmpty == false)
+        let latestSnapshot = try #require(snapshotDirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).last)
+        let snapshottedPrefs = latestSnapshot.appendingPathComponent(preferencesURL.lastPathComponent)
+        let snapshottedAppSupport = latestSnapshot.appendingPathComponent(appSupportURL.lastPathComponent, isDirectory: true)
+        #expect(FileManager.default.fileExists(atPath: snapshottedPrefs.path))
+        #expect(FileManager.default.fileExists(atPath: snapshottedAppSupport.path))
     }
 }
