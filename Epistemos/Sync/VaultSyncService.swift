@@ -76,6 +76,8 @@ final class VaultSyncService {
     private var fileWatcherSource: DispatchSourceFileSystemObject?
     private var fileWatcherFD: Int32 = -1
     private var fileWatchDebounceTask: Task<Void, Never>?
+    private let fileWatcherClock = ContinuousClock()
+    private var fileWatcherIgnoreUntil: ContinuousClock.Instant?
 
     init(modelContainer: ModelContainer) {
         self.modelContainer = modelContainer
@@ -546,17 +548,18 @@ final class VaultSyncService {
     // MARK: - Explicit Save (Apple Notes Hybrid)
 
     /// Save a single page to its vault .md file and update sync tracking fields.
-    func savePage(pageId: String) {
+    @discardableResult
+    func savePage(pageId: String) -> Task<Void, Never>? {
         captureVersionIfNeeded(pageId: pageId)
 
         guard let vaultURL else {
             log.warning("Cannot save page: no vault URL")
-            return
+            return nil
         }
 
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard (try? context.fetch(descriptor).first) != nil else { return }
+        guard (try? context.fetch(descriptor).first) != nil else { return nil }
 
         do {
             try context.save()
@@ -570,7 +573,9 @@ final class VaultSyncService {
             ""
         }
 
-        Task {
+        suppressFileWatcherForSelfOriginatedChange()
+
+        let task = Task {
             do {
                 let exportedPath = try await self.exportPage(pageId: pageId, to: vaultURL)
 
@@ -605,6 +610,7 @@ final class VaultSyncService {
                 log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
         }
+        return task
     }
 
     /// Save all dirty pages to their vault .md files.
@@ -679,6 +685,7 @@ final class VaultSyncService {
 
             for pageId in batch.dirtyIds {
                 do {
+                    suppressFileWatcherForSelfOriginatedChange()
                     _ = try await exportPage(pageId: pageId, to: batch.vaultURL)
                     successfulIds.append(pageId)
                 } catch {
@@ -790,11 +797,31 @@ final class VaultSyncService {
     private func stopFileWatcher() {
         fileWatchDebounceTask?.cancel()
         fileWatchDebounceTask = nil
+        fileWatcherIgnoreUntil = nil
         if let source = fileWatcherSource {
             source.cancel()
             fileWatcherSource = nil
             fileWatcherFD = -1
         }
+    }
+
+    private func suppressFileWatcherForSelfOriginatedChange(window: Duration = .seconds(3)) {
+        guard isWatching else { return }
+        let deadline = fileWatcherClock.now + window
+        if let existingDeadline = fileWatcherIgnoreUntil, existingDeadline > deadline {
+            return
+        }
+        fileWatcherIgnoreUntil = deadline
+    }
+
+    private func shouldIgnoreFileWatcherChange() -> Bool {
+        guard let deadline = fileWatcherIgnoreUntil else { return false }
+        let now = fileWatcherClock.now
+        if now < deadline {
+            return true
+        }
+        fileWatcherIgnoreUntil = nil
+        return false
     }
 
     /// Debounced handler for file system change events.
@@ -805,6 +832,10 @@ final class VaultSyncService {
         fileWatchDebounceTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled, let self, let vaultURL, let actor = indexActor else { return }
+            guard !shouldIgnoreFileWatcherChange() else {
+                log.info("File watcher: skipping self-originated vault change")
+                return
+            }
 
             log.info("File watcher: vault changed externally — re-importing")
             do {
@@ -966,6 +997,7 @@ final class VaultSyncService {
 
         // Export to disk in background
         let pageId = page.id
+        suppressFileWatcherForSelfOriginatedChange()
         Task { [weak self] in
             do {
                 _ = try await self?.exportPage(pageId: pageId, to: vaultURL)
@@ -985,6 +1017,7 @@ final class VaultSyncService {
     // MARK: - Directory Operations
 
     private func removeVaultItem(at url: URL, label: String) {
+        suppressFileWatcherForSelfOriginatedChange()
         do {
             var trashedURL: NSURL?
             try FileManager.default.trashItem(at: url, resultingItemURL: &trashedURL)
@@ -1028,6 +1061,7 @@ final class VaultSyncService {
         }
         let dirURL = vaultURL.appendingPathComponent(relativePath, isDirectory: true)
         do {
+            suppressFileWatcherForSelfOriginatedChange()
             try FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
             log.info("Created directory: \(relativePath, privacy: .public)")
         } catch {
@@ -1045,6 +1079,7 @@ final class VaultSyncService {
             return
         }
         let actor = indexActor
+        suppressFileWatcherForSelfOriginatedChange()
         Task {
             do {
                 try await actor?.renamePageFile(pageId: pageId, newTitle: newTitle, vaultURL: vaultURL)
@@ -1072,6 +1107,7 @@ final class VaultSyncService {
         do {
             // Ensure parent of new path exists
             let parentURL = newURL.deletingLastPathComponent()
+            suppressFileWatcherForSelfOriginatedChange()
             try FileManager.default.createDirectory(
                 at: parentURL, withIntermediateDirectories: true)
             try FileManager.default.moveItem(at: oldURL, to: newURL)
@@ -1105,6 +1141,7 @@ final class VaultSyncService {
             ?? vaultURL
 
         do {
+            suppressFileWatcherForSelfOriginatedChange()
             try FileManager.default.createDirectory(
                 at: targetParentURL,
                 withIntermediateDirectories: true

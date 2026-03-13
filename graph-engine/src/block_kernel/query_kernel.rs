@@ -718,8 +718,10 @@ fn property_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
 
 fn links_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
     let db = DbInstance::new("mem", "", "").expect("Cozo mem DB should initialize");
-    db.run_default(":create link {page: String, block: String => target: String, ref_type: Int}")
-        .expect("link relation should create");
+    db.run_default(
+        ":create link {page: String, block: String, target: String => ref_type: Int}",
+    )
+    .expect("link relation should create");
     if !rows.is_empty() {
         let mut to_import = BTreeMap::new();
         to_import.insert(

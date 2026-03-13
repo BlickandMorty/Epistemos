@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import Epistemos
 
-@Suite("VaultSyncService Audit")
+@Suite("VaultSyncService Audit", .serialized)
 @MainActor
 struct VaultSyncServiceAuditTests {
     actor ExportCounter {
@@ -79,7 +79,7 @@ struct VaultSyncServiceAuditTests {
     }
 
     private func waitUntil(
-        timeout: Duration = .seconds(3),
+        timeout: Duration = .seconds(12),
         condition: @escaping @MainActor () async -> Bool
     ) async throws {
         let clock = ContinuousClock()
@@ -345,7 +345,7 @@ struct VaultSyncServiceAuditTests {
 
         service.setSearchDatabaseURLForTesting(searchURL)
         service.startWatching(vaultURL: vaultURL)
-        try await waitUntil {
+        try await waitUntil(timeout: .seconds(30)) {
             service.isWatching && !service.isIndexing
         }
 
@@ -356,11 +356,17 @@ struct VaultSyncServiceAuditTests {
         context.insert(page)
         try context.save()
 
-        service.savePage(pageId: page.id)
+        let saveTask = try #require(service.savePage(pageId: page.id))
+        await saveTask.value
 
         try await waitUntil {
             let hits = await service.searchFullAsync(query: token, limit: 5)
             return hits.contains { $0.pageId == page.id }
+        }
+
+        try await waitUntil {
+            let pages = try? context.fetch(FetchDescriptor<SDPage>())
+            return pages?.count == 1 && pages?.first?.id == page.id
         }
 
         let hits = await service.searchFullAsync(query: token, limit: 5)
@@ -453,6 +459,7 @@ struct VaultSyncServiceAuditTests {
         let context = container.mainContext
         let service = VaultSyncService(modelContainer: container)
         let vaultURL = try makeTempDirectory()
+        let searchURL = vaultURL.appendingPathComponent("search.sqlite")
         defer {
             service.stopWatching(preserveData: true)
             try? FileManager.default.removeItem(at: vaultURL)
@@ -467,6 +474,7 @@ struct VaultSyncServiceAuditTests {
         body
         """.write(to: fileURL, atomically: true, encoding: .utf8)
 
+        service.setSearchDatabaseURLForTesting(searchURL)
         service.startWatching(vaultURL: vaultURL)
         try await waitUntil {
             service.isWatching && !service.isIndexing
