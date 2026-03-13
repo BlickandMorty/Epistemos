@@ -109,6 +109,23 @@ struct BlockSearchTests {
         #expect(results.allSatisfy { blockIds.contains($0.blockId) })
     }
 
+    @Test("async block search returns matching block")
+    func asyncSearchReturnsMatchingBlock() async throws {
+        let setup = try makeService()
+        let service = setup.service
+        let blockId = uniqueId("async-block")
+        let pageId = uniqueId("async-page")
+        let token = uniqueToken("async")
+        defer { cleanupBlocks(service, ids: [blockId]) }
+
+        try withRetry {
+            try service.upsertBlock(blockId: blockId, pageId: pageId, content: "Block \(token)")
+        }
+
+        let results = try await service.searchBlocksAsync(query: token, limit: 10)
+        #expect(results.contains { $0.blockId == blockId })
+    }
+
     @Test("block update changes indexed content")
     func updateChangesContent() throws {
         let setup = try makeService()

@@ -166,6 +166,28 @@ struct SearchIndexServiceIntegrationTests {
         #expect(results.allSatisfy { ids.contains($0.pageId) })
     }
 
+    @Test("async search returns inserted page")
+    func asyncSearchRoundTrip() async throws {
+        let setup = try makeService()
+        let service = setup.service
+        let pageId = uniqueId("async-page")
+        let token = uniqueToken("async")
+        defer { cleanup(service, ids: [pageId]) }
+
+        try withRetry {
+            try service.upsert(
+                id: pageId,
+                title: "Async \(token)",
+                body: "Body \(token)",
+                tags: "async",
+                updatedAt: .now
+            )
+        }
+
+        let results = try await service.searchAsync(query: token, limit: 10)
+        #expect(results.contains { $0.pageId == pageId })
+    }
+
     @Test("diffSync updates changed pages and deletes stale entries")
     func diffSyncUpdatesAndDeletes() async throws {
         let setup = try makeService()

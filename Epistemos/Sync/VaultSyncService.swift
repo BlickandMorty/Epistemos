@@ -447,7 +447,7 @@ final class VaultSyncService {
     func searchIndex(query: String) async -> [String] {
         guard let svc = searchService else { return [] }
         do {
-            return try svc.search(query: query).map(\.pageId)
+            return try await svc.searchAsync(query: query).map(\.pageId)
         } catch {
             log.error("FTS5 search failed: \(error.localizedDescription, privacy: .public)")
             return []

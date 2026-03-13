@@ -23,7 +23,10 @@ enum SearchIndexError: Error {
 
 actor SearchIndexService {
     private let log = Logger(subsystem: "com.epistemos", category: "SearchIndex")
-    private let dbQueue: DatabaseQueue
+    nonisolated private let dbQueue: DatabaseQueue
+    nonisolated private let workQueue: DispatchQueue
+    nonisolated private let supportsPageFTS5: Bool
+    nonisolated private let supportsBlockFTS5: Bool
 
     init(databaseURL: URL? = nil) throws {
         let dbPath: String
@@ -42,13 +45,27 @@ actor SearchIndexService {
             dbPath = appSupport.appendingPathComponent("search.sqlite").path
         }
 
-        dbQueue = try DatabaseQueue(path: dbPath)
-
+        let dbQueue = try DatabaseQueue(path: dbPath)
+        let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .utility)
         try Self.setupSchema(dbQueue)
-        log.info("SearchIndexService initialized at \(dbPath, privacy: .public)")
+        let features = try Self.detectFeatures(dbQueue)
+
+        self.dbQueue = dbQueue
+        self.workQueue = workQueue
+        supportsPageFTS5 = features.pageFTS5
+        supportsBlockFTS5 = features.blockFTS5
+
+        log.info(
+            "SearchIndexService initialized at \(dbPath, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5)"
+        )
     }
 
     // MARK: - Schema Migration
+
+    private struct SearchIndexFeatures: Sendable {
+        let pageFTS5: Bool
+        let blockFTS5: Bool
+    }
 
     private nonisolated static func setupSchema(_ db: DatabaseQueue) throws {
         var migrator = DatabaseMigrator()
@@ -63,37 +80,7 @@ actor SearchIndexService {
                 )
             """)
 
-            try db.execute(sql: """
-                CREATE VIRTUAL TABLE IF NOT EXISTS page_search USING fts5(
-                    title, body, tags,
-                    content='indexed_pages',
-                    content_rowid='rowid',
-                    tokenize='unicode61'
-                )
-            """)
-
-            try db.execute(sql: """
-                CREATE TRIGGER IF NOT EXISTS indexed_pages_ai AFTER INSERT ON indexed_pages BEGIN
-                    INSERT INTO page_search(rowid, title, body, tags)
-                    VALUES (new.rowid, new.title, new.body, new.tags);
-                END
-            """)
-
-            try db.execute(sql: """
-                CREATE TRIGGER IF NOT EXISTS indexed_pages_ad AFTER DELETE ON indexed_pages BEGIN
-                    INSERT INTO page_search(page_search, rowid, title, body, tags)
-                    VALUES ('delete', old.rowid, old.title, old.body, old.tags);
-                END
-            """)
-
-            try db.execute(sql: """
-                CREATE TRIGGER IF NOT EXISTS indexed_pages_au AFTER UPDATE ON indexed_pages BEGIN
-                    INSERT INTO page_search(page_search, rowid, title, body, tags)
-                    VALUES ('delete', old.rowid, old.title, old.body, old.tags);
-                    INSERT INTO page_search(rowid, title, body, tags)
-                    VALUES (new.rowid, new.title, new.body, new.tags);
-                END
-            """)
+            try createPageSearchArtifactsIfAvailable(db)
         }
         migrator.registerMigration("v2_block_search") { db in
             try db.execute(sql: """
@@ -104,6 +91,52 @@ actor SearchIndexService {
                 )
             """)
 
+            try createBlockSearchArtifactsIfAvailable(db)
+        }
+        try migrator.migrate(db)
+    }
+
+    private nonisolated static func createPageSearchArtifactsIfAvailable(_ db: Database) throws {
+        do {
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE IF NOT EXISTS page_search USING fts5(
+                    title, body, tags,
+                    content='indexed_pages',
+                    content_rowid='rowid',
+                    tokenize='unicode61'
+                )
+            """)
+        } catch {
+            guard isMissingFTS5Module(error) else { throw error }
+            return
+        }
+
+        try db.execute(sql: """
+            CREATE TRIGGER IF NOT EXISTS indexed_pages_ai AFTER INSERT ON indexed_pages BEGIN
+                INSERT INTO page_search(rowid, title, body, tags)
+                VALUES (new.rowid, new.title, new.body, new.tags);
+            END
+        """)
+
+        try db.execute(sql: """
+            CREATE TRIGGER IF NOT EXISTS indexed_pages_ad AFTER DELETE ON indexed_pages BEGIN
+                INSERT INTO page_search(page_search, rowid, title, body, tags)
+                VALUES ('delete', old.rowid, old.title, old.body, old.tags);
+            END
+        """)
+
+        try db.execute(sql: """
+            CREATE TRIGGER IF NOT EXISTS indexed_pages_au AFTER UPDATE ON indexed_pages BEGIN
+                INSERT INTO page_search(page_search, rowid, title, body, tags)
+                VALUES ('delete', old.rowid, old.title, old.body, old.tags);
+                INSERT INTO page_search(rowid, title, body, tags)
+                VALUES (new.rowid, new.title, new.body, new.tags);
+            END
+        """)
+    }
+
+    private nonisolated static func createBlockSearchArtifactsIfAvailable(_ db: Database) throws {
+        do {
             try db.execute(sql: """
                 CREATE VIRTUAL TABLE IF NOT EXISTS block_search USING fts5(
                     content,
@@ -112,106 +145,139 @@ actor SearchIndexService {
                     tokenize='unicode61'
                 )
             """)
-
-            try db.execute(sql: """
-                CREATE TRIGGER IF NOT EXISTS indexed_blocks_ai AFTER INSERT ON indexed_blocks BEGIN
-                    INSERT INTO block_search(rowid, content)
-                    VALUES (new.rowid, new.content);
-                END
-            """)
-
-            try db.execute(sql: """
-                CREATE TRIGGER IF NOT EXISTS indexed_blocks_ad AFTER DELETE ON indexed_blocks BEGIN
-                    INSERT INTO block_search(block_search, rowid, content)
-                    VALUES ('delete', old.rowid, old.content);
-                END
-            """)
-
-            try db.execute(sql: """
-                CREATE TRIGGER IF NOT EXISTS indexed_blocks_au AFTER UPDATE ON indexed_blocks BEGIN
-                    INSERT INTO block_search(block_search, rowid, content)
-                    VALUES ('delete', old.rowid, old.content);
-                    INSERT INTO block_search(rowid, content)
-                    VALUES (new.rowid, new.content);
-                END
-            """)
+        } catch {
+            guard isMissingFTS5Module(error) else { throw error }
+            return
         }
-        try migrator.migrate(db)
+
+        try db.execute(sql: """
+            CREATE TRIGGER IF NOT EXISTS indexed_blocks_ai AFTER INSERT ON indexed_blocks BEGIN
+                INSERT INTO block_search(rowid, content)
+                VALUES (new.rowid, new.content);
+            END
+        """)
+
+        try db.execute(sql: """
+            CREATE TRIGGER IF NOT EXISTS indexed_blocks_ad AFTER DELETE ON indexed_blocks BEGIN
+                INSERT INTO block_search(block_search, rowid, content)
+                VALUES ('delete', old.rowid, old.content);
+            END
+        """)
+
+        try db.execute(sql: """
+            CREATE TRIGGER IF NOT EXISTS indexed_blocks_au AFTER UPDATE ON indexed_blocks BEGIN
+                INSERT INTO block_search(block_search, rowid, content)
+                VALUES ('delete', old.rowid, old.content);
+                INSERT INTO block_search(rowid, content)
+                VALUES (new.rowid, new.content);
+            END
+        """)
+    }
+
+    private nonisolated static func detectFeatures(_ db: DatabaseQueue) throws -> SearchIndexFeatures {
+        try db.read { db in
+            SearchIndexFeatures(
+                pageFTS5: try tableExists("page_search", db: db),
+                blockFTS5: try tableExists("block_search", db: db)
+            )
+        }
+    }
+
+    private nonisolated static func tableExists(_ name: String, db: Database) throws -> Bool {
+        try Bool.fetchOne(
+            db,
+            sql: "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?)",
+            arguments: [name]
+        ) ?? false
+    }
+
+    private nonisolated static func isMissingFTS5Module(_ error: Error) -> Bool {
+        String(describing: error).localizedCaseInsensitiveContains("no such module: fts5")
     }
 
     // MARK: - Search
     // nonisolated: DatabaseQueue is Sendable and let-bound, safe to access without actor hop.
 
     nonisolated func search(query: String, limit: Int = 50) throws -> [SearchResult] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
-
-        let sanitized = Self.sanitizeFTS5Query(query)
-        guard !sanitized.isEmpty else { return [] }
+        let terms = Self.normalizedSearchTerms(query)
+        guard !terms.isEmpty else { return [] }
 
         return try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: """
-                SELECT
-                    ip.id,
-                    ip.title,
-                    snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet,
-                    bm25(page_search, 5.0, 1.0, 2.0) AS rank
-                FROM page_search ps
-                JOIN indexed_pages ip ON ip.rowid = ps.rowid
-                WHERE page_search MATCH ?
-                ORDER BY rank
-                LIMIT ?
-            """, arguments: [sanitized, limit])
+            if supportsPageFTS5 {
+                let sanitized = Self.sanitizeFTS5Query(terms)
+                let rows = try Row.fetchAll(db, sql: """
+                    SELECT
+                        ip.id,
+                        ip.title,
+                        snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet,
+                        bm25(page_search, 5.0, 1.0, 2.0) AS rank
+                    FROM page_search ps
+                    JOIN indexed_pages ip ON ip.rowid = ps.rowid
+                    WHERE page_search MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                """, arguments: [sanitized, limit])
 
-            return rows.map { row in
-                SearchResult(
-                    pageId: row["id"],
-                    title: row["title"],
-                    snippet: row["snippet"] ?? "",
-                    rank: row["rank"] ?? 0.0
-                )
+                return rows.map { row in
+                    SearchResult(
+                        pageId: row["id"],
+                        title: row["title"],
+                        snippet: row["snippet"] ?? "",
+                        rank: row["rank"] ?? 0.0
+                    )
+                }
             }
+
+            return try Self.searchPagesFallback(db, terms: terms, limit: limit)
         }
     }
 
-    func searchAsync(query: String, limit: Int = 50) throws -> [SearchResult] {
-        try search(query: query, limit: limit)
+    func searchAsync(query: String, limit: Int = 50) async throws -> [SearchResult] {
+        try await offload { [self] in
+            try search(query: query, limit: limit)
+        }
     }
 
     // MARK: - Block Search
 
     nonisolated func searchBlocks(query: String, limit: Int = 50) throws -> [BlockSearchResult] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
-
-        let sanitized = Self.sanitizeFTS5Query(query)
-        guard !sanitized.isEmpty else { return [] }
+        let terms = Self.normalizedSearchTerms(query)
+        guard !terms.isEmpty else { return [] }
 
         return try dbQueue.read { db in
-            let rows = try Row.fetchAll(db, sql: """
-                SELECT
-                    ib.block_id,
-                    ib.page_id,
-                    snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet,
-                    bm25(block_search) AS rank
-                FROM block_search bs
-                JOIN indexed_blocks ib ON ib.rowid = bs.rowid
-                WHERE block_search MATCH ?
-                ORDER BY rank
-                LIMIT ?
-            """, arguments: [sanitized, limit])
+            if supportsBlockFTS5 {
+                let sanitized = Self.sanitizeFTS5Query(terms)
+                let rows = try Row.fetchAll(db, sql: """
+                    SELECT
+                        ib.block_id,
+                        ib.page_id,
+                        snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet,
+                        bm25(block_search) AS rank
+                    FROM block_search bs
+                    JOIN indexed_blocks ib ON ib.rowid = bs.rowid
+                    WHERE block_search MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                """, arguments: [sanitized, limit])
 
-            return rows.map { row in
-                BlockSearchResult(
-                    blockId: row["block_id"],
-                    pageId: row["page_id"],
-                    snippet: row["snippet"] ?? "",
-                    rank: row["rank"] ?? 0.0
-                )
+                return rows.map { row in
+                    BlockSearchResult(
+                        blockId: row["block_id"],
+                        pageId: row["page_id"],
+                        snippet: row["snippet"] ?? "",
+                        rank: row["rank"] ?? 0.0
+                    )
+                }
             }
+
+            return try Self.searchBlocksFallback(db, terms: terms, limit: limit)
         }
     }
 
-    func searchBlocksAsync(query: String, limit: Int = 50) throws -> [BlockSearchResult] {
-        try searchBlocks(query: query, limit: limit)
+    func searchBlocksAsync(query: String, limit: Int = 50) async throws -> [BlockSearchResult] {
+        try await offload { [self] in
+            try searchBlocks(query: query, limit: limit)
+        }
     }
 
     // MARK: - Block Upsert / Delete
@@ -313,7 +379,9 @@ actor SearchIndexService {
     ) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM indexed_pages")
-            try db.execute(sql: "INSERT INTO page_search(page_search) VALUES('rebuild')")
+            if supportsPageFTS5 {
+                try db.execute(sql: "INSERT INTO page_search(page_search) VALUES('rebuild')")
+            }
 
             for page in pages {
                 try db.execute(
@@ -334,7 +402,9 @@ actor SearchIndexService {
     func rebuildFromSwiftDataAsync(
         _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
     ) async throws {
-        try rebuildFromSwiftData(pages)
+        try await offload { [self] in
+            try rebuildFromSwiftData(pages)
+        }
     }
 
     // MARK: - Diff Sync
@@ -411,17 +481,118 @@ actor SearchIndexService {
 
     // MARK: - FTS5 Query Sanitization
 
-    nonisolated static func sanitizeFTS5Query(_ raw: String) -> String {
-        // Limit input length to prevent DoS via extremely long queries.
+    private func offload<T: Sendable>(_ operation: @Sendable @escaping () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            workQueue.async {
+                do {
+                    continuation.resume(returning: try operation())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private nonisolated static func searchPagesFallback(
+        _ db: Database,
+        terms: [String],
+        limit: Int
+    ) throws -> [SearchResult] {
+        let filter = likeFilter(columns: ["title", "body", "coalesce(tags, '')"], terms: terms)
+        let rows = try Row.fetchAll(db, sql: """
+            SELECT
+                id,
+                title,
+                CASE
+                    WHEN body = '' THEN title
+                    ELSE substr(body, 1, 160)
+                END AS snippet,
+                updatedAt AS rank
+            FROM indexed_pages
+            WHERE \(filter.sql)
+            ORDER BY updatedAt DESC
+            LIMIT ?
+        """, arguments: StatementArguments(filter.arguments + [limit]))
+
+        return rows.map { row in
+            SearchResult(
+                pageId: row["id"],
+                title: row["title"],
+                snippet: row["snippet"] ?? "",
+                rank: row["rank"] ?? 0.0
+            )
+        }
+    }
+
+    private nonisolated static func searchBlocksFallback(
+        _ db: Database,
+        terms: [String],
+        limit: Int
+    ) throws -> [BlockSearchResult] {
+        let filter = likeFilter(columns: ["content"], terms: terms)
+        let rows = try Row.fetchAll(db, sql: """
+            SELECT
+                block_id,
+                page_id,
+                substr(content, 1, 160) AS snippet
+            FROM indexed_blocks
+            WHERE \(filter.sql)
+            ORDER BY rowid DESC
+            LIMIT ?
+        """, arguments: StatementArguments(filter.arguments + [limit]))
+
+        return rows.map { row in
+            BlockSearchResult(
+                blockId: row["block_id"],
+                pageId: row["page_id"],
+                snippet: row["snippet"] ?? "",
+                rank: 0.0
+            )
+        }
+    }
+
+    private nonisolated static func likeFilter(
+        columns: [String],
+        terms: [String]
+    ) -> (sql: String, arguments: [String]) {
+        var clauses: [String] = []
+        var arguments: [String] = []
+        clauses.reserveCapacity(terms.count)
+        arguments.reserveCapacity(terms.count * columns.count)
+
+        for term in terms {
+            let columnClause = columns
+                .map { "lower(\($0)) LIKE ?" }
+                .joined(separator: " OR ")
+            clauses.append("(\(columnClause))")
+            let pattern = "%\(term)%"
+            for _ in columns {
+                arguments.append(pattern)
+            }
+        }
+
+        return (clauses.joined(separator: " AND "), arguments)
+    }
+
+    private nonisolated static func normalizedSearchTerms(_ raw: String) -> [String] {
         let capped = raw.count > 500 ? String(raw.prefix(500)) : raw
-        let words = capped.lowercased()
-            .components(separatedBy: .alphanumerics.inverted)
-            .filter { $0.count >= 2 }
-            .map { $0.replacingOccurrences(of: "\"", with: "") }
-            .filter { !$0.isEmpty }
-            .prefix(20)  // Cap word count to prevent complex FTS5 evaluation
-        guard !words.isEmpty else { return "" }
-        return words.map { "\"\($0)\"*" }.joined(separator: " ")
+        return Array(
+            capped.lowercased()
+                .components(separatedBy: .alphanumerics.inverted)
+                .filter { $0.count >= 2 }
+                .map { $0.replacingOccurrences(of: "\"", with: "") }
+                .filter { !$0.isEmpty }
+                .prefix(20)
+        )
+    }
+
+    nonisolated static func sanitizeFTS5Query(_ raw: String) -> String {
+        sanitizeFTS5Query(normalizedSearchTerms(raw))
+    }
+
+    private nonisolated static func sanitizeFTS5Query(_ terms: [String]) -> String {
+        guard !terms.isEmpty else { return "" }
+        return terms.map { "\"\($0)\"*" }.joined(separator: " ")
     }
 }
 
