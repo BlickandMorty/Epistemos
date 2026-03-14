@@ -1025,6 +1025,8 @@ final class VaultSyncService {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard (try? context.fetch(descriptor).first) != nil else { return nil }
 
+        NoteFileStorage.requestFlush(pageId: pageId)
+
         do {
             try context.save()
         } catch {

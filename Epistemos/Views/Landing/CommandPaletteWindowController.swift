@@ -22,6 +22,46 @@ private class KeyablePanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+enum CommandPaletteWindowTransparency {
+    @MainActor
+    static func apply(to window: NSWindow?) {
+        guard let window else { return }
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        clearBackgroundChain(startingAt: window.contentView)
+    }
+
+    @MainActor
+    static func clearBackgroundChain(startingAt view: NSView?) {
+        var current = view
+        while let view = current {
+            view.wantsLayer = true
+            view.layer?.isOpaque = false
+            view.layer?.backgroundColor = NSColor.clear.cgColor
+            current = view.superview
+        }
+    }
+
+    static func isClear(_ color: CGColor?) -> Bool {
+        guard let color else { return false }
+        return color.alpha <= 0.0001
+    }
+}
+
+private final class TransparentPaletteHostingView<Content: View>: NSHostingView<Content> {
+    override var isOpaque: Bool { false }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        CommandPaletteWindowTransparency.clearBackgroundChain(startingAt: self)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        CommandPaletteWindowTransparency.clearBackgroundChain(startingAt: self)
+    }
+}
+
 @MainActor
 final class CommandPaletteWindowController {
 
@@ -29,7 +69,7 @@ final class CommandPaletteWindowController {
 
     // Search palette
     private var panel: NSPanel?
-    private var hostView: NSHostingView<AnyView>?
+    private var hostView: TransparentPaletteHostingView<AnyView>?
     private var isShowing = false  // Guard against resign during show sequence
 
     // Carbon global hotkey (Option+Space)
@@ -118,13 +158,8 @@ final class CommandPaletteWindowController {
     func syncTheme(isDark: Bool) {
         let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
         panel?.appearance = appearance
-        panel?.isOpaque = false
-        panel?.backgroundColor = .clear
-        panel?.contentView?.wantsLayer = true
-        panel?.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
         hostView?.appearance = appearance
-        hostView?.wantsLayer = true
-        hostView?.layer?.backgroundColor = NSColor.clear.cgColor
+        CommandPaletteWindowTransparency.apply(to: panel)
         panel?.displayIfNeeded()
         panel?.invalidateShadow()
     }
@@ -186,10 +221,12 @@ final class CommandPaletteWindowController {
                 }
             }
 
-        let host = NSHostingView(rootView: AnyView(content))
+        let host = TransparentPaletteHostingView(rootView: AnyView(content))
         host.wantsLayer = true
-        host.layer?.backgroundColor = .clear
+        host.layer?.isOpaque = false
+        host.layer?.backgroundColor = NSColor.clear.cgColor
         p.contentView = host
+        CommandPaletteWindowTransparency.apply(to: p)
         self.hostView = host
         self.panel = p
     }

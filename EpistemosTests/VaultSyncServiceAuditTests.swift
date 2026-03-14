@@ -435,6 +435,58 @@ struct VaultSyncServiceAuditTests {
         #expect(savedPage.lastSyncedBodyHash == "old-save-hash")
     }
 
+    @Test("savePage requests an editor flush before export")
+    func savePageRequestsEditorFlushBeforeExport() async throws {
+        actor FlushCapture {
+            private var pageIds: [String] = []
+
+            func record(_ pageId: String) {
+                pageIds.append(pageId)
+            }
+
+            func snapshot() -> [String] {
+                pageIds
+            }
+        }
+
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        let page = SDPage(title: "Flush Me")
+        page.saveBody("# Flush Me\n\nBody")
+        page.needsVaultSync = true
+        context.insert(page)
+        try context.save()
+
+        let capture = FlushCapture()
+        let token = NotificationCenter.default.addObserver(
+            forName: NoteFileStorage.pageBodyWillRead,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let pageId = notification.userInfo?["pageId"] as? String else { return }
+            Task {
+                await capture.record(pageId)
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        service.setExportPageOverrideForTesting { pageId, _ in
+            "/tmp/\(pageId).md"
+        }
+
+        let task = service.savePage(pageId: page.id)
+        await task?.value
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(await capture.snapshot() == [page.id])
+    }
+
     @Test("searchFullAsync sees newly saved note bodies immediately")
     func searchFullAsyncSeesSavedBodiesImmediately() async throws {
         let container = try makeContainer()

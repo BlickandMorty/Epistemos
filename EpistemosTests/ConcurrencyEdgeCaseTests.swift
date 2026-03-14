@@ -484,7 +484,7 @@ struct ConcurrencySwiftDataTests {
     }
 }
 
-@Suite("Concurrency - Graph State Updates")
+@Suite("Concurrency - Graph State Updates", .serialized)
 @MainActor
 struct ConcurrencyGraphStateTests {
 
@@ -492,10 +492,10 @@ struct ConcurrencyGraphStateTests {
     func overlayPhysicsPolicyDefaults() {
         #expect(GraphOverlayPhysicsPolicy.openingPreset == .crystal)
         #expect(GraphOverlayPhysicsPolicy.restingPreset == .chaos)
-        #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 20)
+        #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
         #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 0) == .crystal)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 19.99) == .crystal)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 20) == .chaos)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
     }
 
     @Test("Overlay interaction warmth window stays extended for 30 seconds")

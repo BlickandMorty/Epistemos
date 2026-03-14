@@ -28,7 +28,7 @@ enum GraphMode: Sendable {
 enum GraphOverlayPhysicsPolicy {
     static let openingPreset: PhysicsPreset = .crystal
     static let restingPreset: PhysicsPreset = .chaos
-    static let chaosDelaySeconds: TimeInterval = 20
+    static let chaosDelaySeconds: TimeInterval = 4
     static let interactionMotionHoldSeconds: TimeInterval = 30
     static let interactionMotionAlphaTarget: Float = 0.015
 
@@ -362,6 +362,15 @@ final class GraphState {
     /// Set to true when the rebuild button is pressed while graph is visible.
     var pendingRebuild = false
 
+    func beginGraphResetCycle() {
+        startOverlayPhysicsCycle()
+    }
+
+    func requestGraphRebuild() {
+        beginGraphResetCycle()
+        pendingRebuild = true
+    }
+
     // MARK: - Quality Level
 
     private static let performanceModeDefaultsKey = "epistemos.graph.performanceMode"
@@ -587,7 +596,11 @@ final class GraphState {
     }
 
     /// Apply a named physics preset.
-    func applyPreset(_ preset: PhysicsPreset, persist: Bool = true) {
+    func applyPreset(
+        _ preset: PhysicsPreset,
+        persist: Bool = true,
+        applyLabOverrides: Bool = true
+    ) {
         cancelOverlayPhysicsCycle()
         selectedPhysicsPreset = preset
         linkDistance = preset.linkDistance
@@ -600,19 +613,20 @@ final class GraphState {
 
         resetPresetSensitiveSettings()
 
-        // Apply lab overrides from preset (nil = baseline default).
-        let lab = preset.labOverrides
-        if let v = lab.enableFluid    { enableFluidDynamics = v }
-        if let v = lab.enableTorsion  { enableTorsionalSprings = v }
-        if let v = lab.enableElastic  { enableElasticEdges = v }
-        if let v = lab.fluidViscosity { fluidViscosity = v }
-        if let v = lab.edgeElasticity { edgeElasticity = v }
-        if let v = lab.torsionRigidity { torsionRigidity = v }
-        if let v = lab.boidsCohesion  { boidsCohesion = v }
-        if let v = lab.windX          { windX = v }
-        if let v = lab.windY          { windY = v }
-        if let v = lab.enableOrbital  { enableOrbital = v }
-        if let v = lab.orbitalSpeed   { orbitalSpeed = v }
+        if applyLabOverrides {
+            let lab = preset.labOverrides
+            if let v = lab.enableFluid    { enableFluidDynamics = v }
+            if let v = lab.enableTorsion  { enableTorsionalSprings = v }
+            if let v = lab.enableElastic  { enableElasticEdges = v }
+            if let v = lab.fluidViscosity { fluidViscosity = v }
+            if let v = lab.edgeElasticity { edgeElasticity = v }
+            if let v = lab.torsionRigidity { torsionRigidity = v }
+            if let v = lab.boidsCohesion  { boidsCohesion = v }
+            if let v = lab.windX          { windX = v }
+            if let v = lab.windY          { windY = v }
+            if let v = lab.enableOrbital  { enableOrbital = v }
+            if let v = lab.orbitalSpeed   { orbitalSpeed = v }
+        }
 
         forceConfigVersion += 1
         extendedForceConfigVersion += 1
@@ -624,16 +638,20 @@ final class GraphState {
         }
     }
 
+    private func applyOverlayPreset(_ preset: PhysicsPreset) {
+        applyPreset(preset, persist: false, applyLabOverrides: false)
+    }
+
     func startOverlayPhysicsCycle() {
         cancelOverlayPhysicsCycle()
-        applyPreset(GraphOverlayPhysicsPolicy.openingPreset, persist: false)
+        applyOverlayPreset(GraphOverlayPhysicsPolicy.openingPreset)
         let delayNs = UInt64(GraphOverlayPhysicsPolicy.chaosDelaySeconds * 1_000_000_000)
         overlayPhysicsTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: delayNs)
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self else { return }
-                self.applyPreset(GraphOverlayPhysicsPolicy.restingPreset, persist: false)
+                self.applyOverlayPreset(GraphOverlayPhysicsPolicy.restingPreset)
             }
         }
     }
@@ -646,7 +664,7 @@ final class GraphState {
     // MARK: - Semantic Clustering
 
     /// When true, uses NLEmbedding-based semantic clusters instead of Louvain topology clusters.
-    var useSemanticClustering = true {
+    var useSemanticClustering = false {
         didSet {
             if !isRestoringPhysicsSettings, useSemanticClustering != oldValue {
                 savePhysicsSettings()

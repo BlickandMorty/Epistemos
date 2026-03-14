@@ -2,7 +2,7 @@ import Testing
 @testable import Epistemos
 import Foundation
 
-@Suite("Graph Physics Settings Audit")
+@Suite("Graph Physics Settings Audit", .serialized)
 @MainActor
 struct GraphPhysicsSettingsAuditTests {
     private let performanceModeKey = "epistemos.graph.performanceMode"
@@ -41,6 +41,21 @@ struct GraphPhysicsSettingsAuditTests {
             defaults.removeObject(forKey: key)
         }
         defaults.removeObject(forKey: performanceModeKey)
+    }
+
+    private func waitForPreset(
+        _ preset: PhysicsPreset,
+        in state: GraphState,
+        timeout: Duration = .seconds(15)
+    ) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while state.selectedPhysicsPreset != preset {
+            if ContinuousClock.now >= deadline {
+                return false
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return true
     }
 
     @Test("Semantic strength change persists even before engine exists")
@@ -95,6 +110,46 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(abs(state.windY) < 0.0001)
         #expect(!state.enableOrbital)
         #expect(abs(state.orbitalSpeed - 0.3) < 0.0001)
+    }
+
+    @Test("Overlay cycle reaches chaos in 4 seconds without enabling fluid wake")
+    func overlayCycleKeepsFluidWakeOffByDefault() async {
+        clearPhysicsDefaults()
+
+        #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .crystal)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
+
+        let state = GraphState()
+        state.startOverlayPhysicsCycle()
+
+        #expect(state.selectedPhysicsPreset == .crystal)
+        #expect(!state.enableFluidDynamics)
+
+        #expect(await waitForPreset(.chaos, in: state))
+        #expect(state.selectedPhysicsPreset == .chaos)
+        #expect(!state.enableFluidDynamics)
+    }
+
+    @Test("Graph rebuild requests restart in crystal and mark rebuild pending")
+    func graphRebuildRequestStartsCrystalCycle() {
+        clearPhysicsDefaults()
+
+        let state = GraphState()
+        state.requestGraphRebuild()
+
+        #expect(state.pendingRebuild)
+        #expect(state.selectedPhysicsPreset == .crystal)
+        #expect(!state.enableFluidDynamics)
+    }
+
+    @Test("Semantic clustering defaults off without saved settings")
+    func semanticClusteringDefaultsOff() {
+        clearPhysicsDefaults()
+
+        let state = GraphState()
+
+        #expect(!state.useSemanticClustering)
     }
 
     @Test("Semantic clustering toggle persists immediately")

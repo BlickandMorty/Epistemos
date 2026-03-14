@@ -47,15 +47,13 @@ struct GraphForceSettings: View {
 
                 if showAdvanced {
                     Divider().opacity(0.3)
-                    advancedSection(gs: $gs)
-                        .opacity(isStatic ? 0.4 : 1.0)
-                        .allowsHitTesting(!isStatic)
-                }
-
-                Divider().opacity(0.3)
-                clusterSection(gs: $gs)
+                    VStack(alignment: .leading, spacing: 16) {
+                        advancedSection(gs: $gs)
+                        clusterSection(gs: $gs)
+                    }
                     .opacity(isStatic ? 0.4 : 1.0)
                     .allowsHitTesting(!isStatic)
+                }
 
                 Divider().opacity(0.3)
                 laboratoryToggle
@@ -122,7 +120,7 @@ struct GraphForceSettings: View {
                     Text("Performance Mode")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
-                    Text("Straight edges, lighter node shading, and no cinematic blur effects.")
+                    Text("Straight edges, near-default node shading, and no cinematic glow or blur effects.")
                         .font(.system(size: 9))
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -227,7 +225,7 @@ struct GraphForceSettings: View {
             HStack(spacing: 4) {
                 Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
-                Text("Advanced Physics")
+                Text("Layout & Clustering")
                     .font(.system(size: 11, weight: .medium))
                 Spacer()
             }
@@ -333,7 +331,7 @@ struct GraphForceSettings: View {
             HStack(spacing: 4) {
                 Image(systemName: showLaboratory ? "chevron.down" : "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
-                Text("The Laboratory")
+                Text("Experimental Motion")
                     .font(.system(size: 11, weight: .medium))
                 Spacer()
             }

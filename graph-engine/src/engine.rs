@@ -907,7 +907,7 @@ impl Engine {
             let dy = screen_y - origin[1];
             let is_real_drag = dx * dx + dy * dy > 25.0;
 
-            // Dragging a node — update fixed position + inject fluid wake.
+            // Dragging a node — update fixed position and inject wake only when enabled.
             let dvx = wx - prev_world[0];
             let dvy = wy - prev_world[1];
 
@@ -918,7 +918,9 @@ impl Engine {
             drag.last_world = [wx, wy];
 
             let mut sim = self.sim.lock();
-            sim.inject_fluid_velocity(wx, wy, dvx, dvy);
+            if sim.params.enable_fluid_dynamics {
+                sim.inject_fluid_velocity(wx, wy, dvx, dvy);
+            }
             sim.fix_node(sim_index, wx, wy);
         } else if self.pan_active {
             // Panning camera.
@@ -1072,6 +1074,9 @@ impl Engine {
         {
             let mut sim = self.sim.lock();
             sim.params.enable_fluid_dynamics = enable_fluid;
+            if !enable_fluid {
+                sim.clear_fluid_velocity();
+            }
             sim.params.enable_torsional_springs = enable_torsion;
             sim.params.fluid_viscosity = fluid_viscosity.clamp(0.0, 1.0);
             sim.params.torsion_rigidity = torsion_rigidity.clamp(0.0, 1.0);

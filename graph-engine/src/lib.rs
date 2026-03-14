@@ -800,8 +800,8 @@ pub extern "C" fn graph_engine_set_light_mode(engine: *mut Engine, enabled: u8) 
     engine.set_light_mode(enabled != 0);
 }
 
-/// Set quality level: 0 = Cinematic (full effects), 1 = Balanced (sphere shading, no glow/breathing),
-/// 2 = Performance (flat circles). Replaces the binary lite_mode for finer control.
+/// Set quality level: 0 = Cinematic (full effects), 1 = Balanced (static depth, no glow/breathing),
+/// 2 = Performance (straight edges, lighter static shading). Replaces the binary lite_mode.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_set_quality_level(engine: *mut Engine, level: u8) {
     ffi_engine!(engine);

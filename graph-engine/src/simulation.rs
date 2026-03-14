@@ -686,7 +686,14 @@ impl Simulation {
     /// Inject drag velocity into the fluid grid at a world position.
     /// Called from Engine::mouse_moved() during active drag.
     pub fn inject_fluid_velocity(&mut self, wx: f32, wy: f32, dvx: f32, dvy: f32) {
+        if !self.params.enable_fluid_dynamics {
+            return;
+        }
         self.fluid_grid.inject(wx, wy, dvx, dvy);
+    }
+
+    pub fn clear_fluid_velocity(&mut self) {
+        self.fluid_grid.clear();
     }
 
     /// One tick of the force simulation.
@@ -1501,6 +1508,25 @@ mod tests {
         assert_eq!(p.collision_iterations, 1);
         assert_eq!(p.cluster_strength, 0.0);
         assert_eq!(p.center_mode, CenterMode::Attract);
+    }
+
+    #[test]
+    fn fluid_injection_noops_when_disabled() {
+        let mut sim = Simulation::new();
+
+        sim.params.enable_fluid_dynamics = false;
+        sim.inject_fluid_velocity(10.0, -5.0, 3.0, 2.0);
+        assert!(
+            !sim.fluid_grid.is_active(),
+            "disabled fluid wake should not accumulate grid velocity"
+        );
+
+        sim.params.enable_fluid_dynamics = true;
+        sim.inject_fluid_velocity(10.0, -5.0, 3.0, 2.0);
+        assert!(
+            sim.fluid_grid.is_active(),
+            "enabled fluid wake should accumulate grid velocity"
+        );
     }
 
     #[test]

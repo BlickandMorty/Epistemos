@@ -56,6 +56,82 @@ struct ProseEditorView: View {
         return (body, body)
     }
 
+    static func syncedNoteTitle(from body: String) -> String? {
+        var activeFence: Character?
+        var extractedTitle: String?
+
+        body.enumerateLines { rawLine, stop in
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+
+            if let fence = activeFence {
+                if (fence == "`" && trimmed.hasPrefix("```"))
+                    || (fence == "~" && trimmed.hasPrefix("~~~"))
+                {
+                    activeFence = nil
+                }
+                return
+            }
+
+            if trimmed.hasPrefix("```") {
+                activeFence = "`"
+                return
+            }
+            if trimmed.hasPrefix("~~~") {
+                activeFence = "~"
+                return
+            }
+
+            guard let title = syncedNoteTitle(inLine: rawLine) else { return }
+            extractedTitle = title
+            stop = true
+        }
+
+        return extractedTitle
+    }
+
+    @MainActor
+    @discardableResult
+    static func syncNoteTitleIfNeeded(
+        from body: String,
+        for page: SDPage,
+        modelContext: ModelContext,
+        renamePageFile: (String, String) -> Void
+    ) -> Bool {
+        guard let syncedTitle = syncedNoteTitle(from: body),
+              syncedTitle != page.title else { return false }
+        page.title = syncedTitle
+        page.updatedAt = .now
+        page.needsVaultSync = true
+        try? modelContext.save()
+        renamePageFile(page.id, syncedTitle)
+        return true
+    }
+
+    private static func syncedNoteTitle(inLine rawLine: String) -> String? {
+        var line = rawLine[...]
+        var leadingSpaces = 0
+        while line.first == " " {
+            leadingSpaces += 1
+            guard leadingSpaces <= 3 else { return nil }
+            line = line.dropFirst()
+        }
+
+        guard line.first == "#" else { return nil }
+        line = line.dropFirst()
+        guard let separator = line.first, separator == " " || separator == "\t" else { return nil }
+
+        let heading = String(line)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(
+                of: #"\s+#+\s*$"#,
+                with: "",
+                options: .regularExpression
+            )
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !heading.isEmpty else { return nil }
+        return VaultIndexActor.sanitizeTitle(heading)
+    }
+
     var body: some View {
         let flush: (String, String) -> Void = { oldPageId, currentText in
             guard !oldPageId.isEmpty else { return }
@@ -65,6 +141,13 @@ struct ProseEditorView: View {
             if let oldPage = try? modelContext.fetch(desc).first {
                 oldPage.saveBody(currentText)
                 BlockMirror.sync(pageId: oldPageId, body: currentText, modelContext: modelContext)
+                Self.syncNoteTitleIfNeeded(
+                    from: currentText,
+                    for: oldPage,
+                    modelContext: modelContext
+                ) { pageId, newTitle in
+                    vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
+                }
                 oldPage.needsVaultSync = true
                 try? modelContext.save()
             }
@@ -160,6 +243,13 @@ struct ProseEditorView: View {
         if lastPersistedBody != bodyText {
             page.saveBody(bodyText)
             BlockMirror.sync(pageId: page.id, body: bodyText, modelContext: modelContext)
+            Self.syncNoteTitleIfNeeded(
+                from: bodyText,
+                for: page,
+                modelContext: modelContext
+            ) { pageId, newTitle in
+                vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
+            }
             lastPersistedBody = bodyText
             page.needsVaultSync = true
             try? modelContext.save()
@@ -178,6 +268,13 @@ struct ProseEditorView: View {
 
     private func debouncedSave(_ newValue: String) {
         saveTask?.cancel()
+        Self.syncNoteTitleIfNeeded(
+            from: newValue,
+            for: page,
+            modelContext: modelContext
+        ) { pageId, newTitle in
+            vaultSync.renamePageFile(pageId: pageId, newTitle: newTitle)
+        }
         let pageId = page.id
         saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(5))

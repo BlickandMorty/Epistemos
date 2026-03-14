@@ -639,13 +639,8 @@ vertex NodeVertexOut node_vertex(
 
     float depth;
     float effective_radius;
-    if (uniforms.lite_mode > 1.5) {
-        // Performance: flat 2D, no breathing, no perspective.
-        depth = 0.0;
-        effective_radius = inst.radius;
-    } else if (uniforms.lite_mode > 0.5) {
-        // Balanced: sphere shading but no breathing/perspective animation.
-        // Use static depth for z-ordering only (no animated parallax).
+    if (uniforms.lite_mode > 0.5) {
+        // Balanced + Performance: keep static depth tiers but skip animated parallax.
         depth = inst.z;
         effective_radius = inst.radius;
     } else {
@@ -712,21 +707,12 @@ fragment float4 node_fragment(
         return float4(glow_rgb, in.color.a * glow * in.highlight_dim);
     }
 
-    // ── Performance: flat colored circle, ~3 ALU ops ──
-    if (in.is_lite > 1.5) {
-        float alpha = 1.0 - smoothstep(0.85, 1.0, dist);
-        if (alpha < 0.01) discard_fragment();
-        float3 perf_rgb = in.color.rgb;
-        if (in.desaturate > 0.5) {
-            float lum = dot(perf_rgb, float3(0.299, 0.587, 0.114));
-            perf_rgb = mix(perf_rgb, float3(lum), 0.85);
-        }
-        return float4(perf_rgb, in.color.a * alpha * in.highlight_dim);
-    }
-
-    // ── Balanced + Cinematic: pixel art + sphere shading ──
-    float pixel_strength = 0.6;
-    float grid = 12.0;
+    // ── Balanced + Cinematic + Performance: shared node shading ──
+    // Performance keeps a lighter static version of the default shading so the
+    // graph reads similarly while still skipping the cinematic extras.
+    bool performance_mode = in.is_lite > 1.5;
+    float pixel_strength = performance_mode ? 0.45 : 0.6;
+    float grid = performance_mode ? 10.0 : 12.0;
     float2 quv = floor(in.uv * grid + 0.5) / grid;
     float2 final_uv = mix(in.uv, quv, pixel_strength);
     float qdist = length(final_uv);
@@ -741,28 +727,34 @@ fragment float4 node_fragment(
     float3 light_dir = normalize(float3(-0.35, -0.5, 0.8));
     float3 normal = float3(final_uv.x, final_uv.y, nz);
     float diffuse = max(dot(normal, light_dir), 0.0);
-    float lighting = 0.45 + 0.55 * diffuse;
+    float lighting = performance_mode ? (0.58 + 0.42 * diffuse) : (0.45 + 0.55 * diffuse);
 
-    float bands = 4.0;
+    float bands = performance_mode ? 3.0 : 4.0;
     float stepped_lighting = floor(lighting * bands + 0.5) / bands;
     lighting = mix(lighting, stepped_lighting, pixel_strength);
 
     float3 view_dir = float3(0, 0, 1);
     float3 half_vec = normalize(light_dir + view_dir);
-    float spec = pow(max(dot(normal, half_vec), 0.0), 32.0);
-
     float2 grid_pos = floor(in.uv * grid + 0.5);
-    bool checker = fmod(grid_pos.x + grid_pos.y, 2.0) < 1.0;
-    float pixel_spec = (spec > 0.3 && checker) ? 0.4 : 0.0;
-    spec = mix(spec * 0.3, pixel_spec, pixel_strength);
+    float spec;
+    if (performance_mode) {
+        float soft_spec = max(dot(normal, half_vec), 0.0);
+        spec = soft_spec * soft_spec * 0.08;
+    } else {
+        spec = pow(max(dot(normal, half_vec), 0.0), 32.0);
+        bool checker = fmod(grid_pos.x + grid_pos.y, 2.0) < 1.0;
+        float pixel_spec = (spec > 0.3 && checker) ? 0.4 : 0.0;
+        spec = mix(spec * 0.3, pixel_spec, pixel_strength);
+    }
 
     float rim = 1.0 - nz;
-    float rim_glow = pow(rim, 3.0) * 0.35;
+    float rim_glow = pow(rim, performance_mode ? 2.2 : 3.0)
+        * (performance_mode ? 0.16 : 0.35);
     float3 lit_color = in.color.rgb * lighting + spec + in.color.rgb * rim_glow;
 
     // Anime outline: dark ring near SDF boundary.
     float outline = smoothstep(0.73, 0.75, dist) * (1.0 - smoothstep(0.85, 0.87, dist));
-    lit_color *= (1.0 - outline * 0.6);
+    lit_color *= (1.0 - outline * (performance_mode ? 0.26 : 0.6));
 
     // ── Pixel art face overlay ──
     // face_type 1-8 = node types. Only visible on highlighted nodes (selected + neighbors).
@@ -1341,8 +1333,8 @@ pub struct Renderer {
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
     pub light_mode: bool,
-    // Quality level: 0 = Cinematic (full effects), 1 = Balanced (sphere shading, no animation),
-    // 2 = Performance (flat circles, no effects). Replaces binary lite_mode.
+    // Quality level: 0 = Cinematic (full effects), 1 = Balanced (static depth, no glow),
+    // 2 = Performance (straight edges, lighter static shading, no glow).
     pub quality_level: u8,
     // Epoch for elapsed time tracking.
     pub start_time: std::time::Instant,
@@ -1902,11 +1894,7 @@ impl Renderer {
         } else {
             self.node_color_for_u8(world.hierarchy[node_index].node_type)
         };
-        let z = if self.quality_level >= 2 {
-            0.0
-        } else {
-            z_for_link_count(world.hierarchy[node_index].link_count)
-        };
+        let z = z_for_link_count(world.hierarchy[node_index].link_count);
         color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
         // face_type: 1-8 maps to NodeType enum + 1 (Note=1, Chat=2, ..., Block=8)
         let face_type = (world.hierarchy[node_index].node_type as f32) + 1.0;
@@ -1996,6 +1984,7 @@ impl Renderer {
         let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
         let visual_theme = self.visual_theme;
         let suppress_motion = self.is_animating;
+        let suppress_node_motion = suppress_motion || self.quality_level >= 1;
         self.collect_visible_node_indices(world, view_bounds, |world, index| {
             dialogue_node_radius(
                 visual_theme,
@@ -2086,7 +2075,7 @@ impl Renderer {
                 self.classic_velocity_scratch.push(render_velocity(
                     cluster.sum_vx * inv_count,
                     cluster.sum_vy * inv_count,
-                    suppress_motion,
+                    suppress_node_motion,
                 ));
             }
 
@@ -2167,7 +2156,7 @@ impl Renderer {
                 self.classic_velocity_scratch.push(render_velocity(
                     world.velocity[node_index].vx,
                     world.velocity[node_index].vy,
-                    suppress_motion,
+                    suppress_node_motion,
                 ));
             }
 
@@ -3866,7 +3855,7 @@ mod tests {
     }
 
     #[test]
-    fn performance_quality_flattens_nodes_and_emits_performance_uniforms() {
+    fn performance_quality_preserves_static_depth_and_emits_performance_uniforms() {
         let world = make_test_world(3, 120.0);
         let mut renderer = make_test_renderer();
         renderer.quality_level = 2;
@@ -3874,8 +3863,25 @@ mod tests {
         let node = renderer.classic_node_instance(&world, 0);
         let uniforms = renderer.uniforms_for_draw(1280.0, 720.0, 1.0, 0.0);
 
-        assert_eq!(node.z, 0.0);
+        assert_ne!(node.z, 0.0);
         assert_eq!(uniforms.lite_mode, 2.0);
+    }
+
+    #[test]
+    fn performance_quality_zeroes_velocity_uploads() {
+        let mut world = make_test_world(3, 120.0);
+        world.velocity[0].vx = 240.0;
+        world.velocity[1].vy = -180.0;
+
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 2;
+        renderer.set_viewport_size(1280, 720);
+        renderer.update_positions(&world);
+
+        assert!(renderer
+            .classic_velocity_scratch
+            .iter()
+            .all(|velocity| *velocity == [0.0, 0.0]));
     }
 
     #[test]

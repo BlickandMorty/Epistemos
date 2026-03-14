@@ -190,7 +190,7 @@ struct GraphFloatingControls: View {
 
     private var rebuildGraphButton: some View {
         Button {
-            graphState.pendingRebuild = true
+            graphState.requestGraphRebuild()
         } label: {
             Image(systemName: "arrow.trianglehead.2.clockwise")
                 .font(.system(size: 12, weight: .medium))

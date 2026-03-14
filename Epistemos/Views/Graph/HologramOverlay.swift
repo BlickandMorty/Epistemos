@@ -789,7 +789,7 @@ final class HologramOverlay {
             forName: .graphResetRequested, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.graphState.startOverlayPhysicsCycle()
+                self?.graphState.beginGraphResetCycle()
                 self?.metalView?.zoomToFit()
             }
         }

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftData
 import Testing
 import SwiftUI
 @testable import Epistemos
@@ -19,6 +20,13 @@ struct NoteEditorLayoutTests {
     @MainActor
     private func retainHostingFixture(_ view: NSView) {
         HostingViewFixtureRetainer.shared.retain(view)
+    }
+
+    @MainActor
+    private func makeContainer() throws -> ModelContainer {
+        let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [config])
     }
 
     @Test("top spacing stays tight below the toolbar")
@@ -397,6 +405,72 @@ struct NoteEditorLayoutTests {
         )
 
         #expect(visible == "Bold and Link with Code")
+    }
+
+    @Test("synced note title extracts the first real H1 and ignores fenced code")
+    func syncedNoteTitleExtractsFirstRealH1() {
+        let title = ProseEditorView.syncedNoteTitle(
+            from: """
+            ```
+            # Not The Title
+            ```
+
+            ## Section
+            # Actual Title ###
+
+            # Later Title
+            """
+        )
+
+        #expect(title == "Actual Title")
+    }
+
+    @MainActor
+    @Test("syncing note title from H1 updates page metadata and requests a rename")
+    func syncingNoteTitleFromH1UpdatesPageMetadataAndRequestsRename() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let page = SDPage(title: "Old Title")
+        context.insert(page)
+        try context.save()
+
+        var renameRequest: (pageId: String, title: String)?
+        let changed = ProseEditorView.syncNoteTitleIfNeeded(
+            from: "# New Title\n\nBody",
+            for: page,
+            modelContext: context
+        ) { pageId, newTitle in
+            renameRequest = (pageId, newTitle)
+        }
+
+        #expect(changed)
+        #expect(page.title == "New Title")
+        #expect(page.needsVaultSync)
+        #expect(renameRequest?.pageId == page.id)
+        #expect(renameRequest?.title == "New Title")
+    }
+
+    @MainActor
+    @Test("syncing note title ignores bodies without an H1")
+    func syncingNoteTitleIgnoresBodiesWithoutH1() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let page = SDPage(title: "Keep Title")
+        context.insert(page)
+        try context.save()
+
+        var renameCount = 0
+        let changed = ProseEditorView.syncNoteTitleIfNeeded(
+            from: "Body only\n\n## Section",
+            for: page,
+            modelContext: context
+        ) { _, _ in
+            renameCount += 1
+        }
+
+        #expect(!changed)
+        #expect(page.title == "Keep Title")
+        #expect(renameCount == 0)
     }
 
     @MainActor
