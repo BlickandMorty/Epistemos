@@ -20,12 +20,25 @@ private struct EmbeddingNodeSnapshot: Sendable {
 
 @MainActor
 final class EmbeddingService {
+    private enum EmbeddingCacheConfig {
+        static let capacity = 4096
+    }
+
+    struct EmbeddingCacheDebugSnapshot {
+        let entryCount: Int
+        let capacity: Int
+        let evictions: Int
+    }
 
     /// Cached embeddings (node UUID → float vector).
     private(set) var embeddings: [String: [Float]] = [:]
 
     /// Embedding dimension (from NLEmbedding — typically 512).
     private(set) var dimension: Int = 0
+
+    private var embeddingCacheOrder: [String] = []
+    private var embeddingCacheEvictionCount = 0
+    private var embeddingCacheCapacityOverride: Int?
 
     /// The compute task handle. Marked nonisolated(unsafe) so deinit can cancel it
     /// synchronously without requiring @MainActor isolation.
@@ -34,6 +47,10 @@ final class EmbeddingService {
     /// Weak reference to owning GraphState — used to read the live engine handle
     /// inside MainActor.run instead of capturing a stale pointer by value.
     weak var graphState: GraphState?
+
+    private var embeddingCacheCapacity: Int {
+        max(0, embeddingCacheCapacityOverride ?? EmbeddingCacheConfig.capacity)
+    }
 
     /// Compute embeddings for all graph nodes and push to the Rust engine.
     /// Call after commitGraphData() when the graph has been loaded.
@@ -51,7 +68,11 @@ final class EmbeddingService {
             }
             return EmbeddingNodeSnapshot(id: node.id, text: text)
         }
-        guard nodeSnapshots.count >= 2 else { return }
+        guard nodeSnapshots.count >= 2 else {
+            clearEmbeddingCache()
+            dimension = 0
+            return
+        }
 
         // Heavy compute on background thread — NLEmbedding word lookups + vector math.
         // Task.detached escapes @MainActor isolation so this doesn't block rendering.
@@ -97,8 +118,8 @@ final class EmbeddingService {
             // If the engine was destroyed, engineHandle will be nil and we skip FFI.
             await MainActor.run { [weak self] in
                 guard let self, !Task.isCancelled else { return }
-                self.embeddings = newEmbeddings
                 self.dimension = dim
+                self.replaceEmbeddingCache(with: newEmbeddings)
 
                 guard let engine = self.graphState?.engineHandle else { return }
                 for (uuid, vector) in newEmbeddings {
@@ -126,7 +147,9 @@ final class EmbeddingService {
 
     /// Get embedding for a specific node (for hybrid search).
     func embedding(for nodeId: String) -> [Float]? {
-        embeddings[nodeId]
+        guard let vector = embeddings[nodeId] else { return nil }
+        touchEmbeddingCacheEntry(nodeId)
+        return vector
     }
 
     // MARK: - Block Embeddings
@@ -183,5 +206,57 @@ final class EmbeddingService {
                 }
             }
         }
+    }
+
+    func embeddingCacheDebugSnapshot() -> EmbeddingCacheDebugSnapshot {
+        EmbeddingCacheDebugSnapshot(
+            entryCount: embeddings.count,
+            capacity: embeddingCacheCapacity,
+            evictions: embeddingCacheEvictionCount
+        )
+    }
+
+    func setEmbeddingCacheCapacityForTesting(_ capacity: Int?) {
+        embeddingCacheCapacityOverride = capacity
+        trimEmbeddingCacheIfNeeded()
+    }
+
+    func replaceEmbeddingCacheForTesting(_ embeddings: [String: [Float]]) {
+        replaceEmbeddingCache(with: embeddings)
+    }
+
+    private func clearEmbeddingCache() {
+        embeddings.removeAll(keepingCapacity: true)
+        embeddingCacheOrder.removeAll(keepingCapacity: true)
+    }
+
+    private func touchEmbeddingCacheEntry(_ nodeId: String) {
+        embeddingCacheOrder.removeAll { $0 == nodeId }
+        embeddingCacheOrder.append(nodeId)
+    }
+
+    private func replaceEmbeddingCache(with newEmbeddings: [String: [Float]]) {
+        var cache = newEmbeddings
+        var ordered = embeddingCacheOrder.filter { cache[$0] != nil }
+        let existing = Set(ordered)
+        ordered.append(
+            contentsOf: cache.keys
+                .filter { !existing.contains($0) }
+                .sorted()
+        )
+
+        while cache.count > embeddingCacheCapacity && !ordered.isEmpty {
+            let evicted = ordered.removeFirst()
+            if cache.removeValue(forKey: evicted) != nil {
+                embeddingCacheEvictionCount += 1
+            }
+        }
+
+        embeddings = cache
+        embeddingCacheOrder = ordered
+    }
+
+    private func trimEmbeddingCacheIfNeeded() {
+        replaceEmbeddingCache(with: embeddings)
     }
 }
