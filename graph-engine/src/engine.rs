@@ -159,6 +159,8 @@ pub struct Engine {
     last_sim_active: bool,
     /// Defers expensive cull/buffer rebuilds until a camera move finishes.
     camera_rebuild_pending: bool,
+    /// Forces a renderer buffer rebuild when render quality changes.
+    quality_rebuild_pending: bool,
     /// Rebuild per-node highlight flags only when highlight state changes.
     highlight_dirty: bool,
     cluster_cache: ClusterCache,
@@ -202,6 +204,7 @@ impl Engine {
             world: World::new(),
             last_sim_active: false,
             camera_rebuild_pending: false,
+            quality_rebuild_pending: false,
             highlight_dirty: true,
             cluster_cache: ClusterCache::new(),
             gpu_positions_scratch: Vec::new(),
@@ -706,13 +709,16 @@ impl Engine {
         // Request next frame only when something is animating.
         let camera_moving = self.renderer.is_animating;
         let camera_refresh_due = self.camera_rebuild_pending && !camera_moving;
-        let instance_buffers_changed = positions_changed || viewport_changed || camera_refresh_due;
+        let quality_refresh_due = self.quality_rebuild_pending;
+        let instance_buffers_changed =
+            positions_changed || viewport_changed || camera_refresh_due || quality_refresh_due;
         let dialogue_animating =
             self.renderer.dialogue.active && self.renderer.dialogue.is_streaming;
         let needs_frame = sim_active
             || camera_moving
             || viewport_changed
             || camera_refresh_due
+            || quality_refresh_due
             || self.highlight_dirty
             || dialogue_animating;
 
@@ -734,6 +740,7 @@ impl Engine {
         if instance_buffers_changed {
             self.renderer.update_positions(&self.world);
             self.camera_rebuild_pending = false;
+            self.quality_rebuild_pending = false;
         }
         if positions_changed {
             self.spatial.build(&self.graph.nodes);
@@ -1426,6 +1433,9 @@ impl Engine {
         self.quality_level = level;
         self.renderer.quality_level = level;
         self.sim.lock().lite_mode = enabled;
+        self.quality_rebuild_pending = true;
+        self.highlight_dirty = true;
+        self.idle_frame_count = 0;
     }
 
     /// Switch renderer between light and dark mode color palettes.
@@ -1439,6 +1449,9 @@ impl Engine {
         self.quality_level = clamped;
         self.renderer.quality_level = clamped;
         self.sim.lock().lite_mode = clamped >= 2;
+        self.quality_rebuild_pending = true;
+        self.highlight_dirty = true;
+        self.idle_frame_count = 0;
     }
 
     /// Set visual theme: 0 = Dialogue (default), 1 = Classic.
@@ -1686,6 +1699,8 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use metal::foreign_types::ForeignType;
+    use metal::{Device, MetalLayer};
     use crate::types::Graph;
 
     fn make_graph() -> Graph {
@@ -1848,6 +1863,36 @@ mod tests {
             (g2.nodes[0].x - 999.0).abs() < f32::EPSILON,
             "clone modified"
         );
+    }
+
+    #[test]
+    fn quality_level_change_marks_renderer_for_buffer_rebuild() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.camera_rebuild_pending = false;
+        engine.quality_rebuild_pending = false;
+        engine.highlight_dirty = false;
+        engine.idle_frame_count = 9;
+
+        engine.set_quality_level(2);
+
+        assert_eq!(engine.quality_level, 2);
+        assert_eq!(engine.renderer.quality_level, 2);
+        assert!(engine.sim.lock().lite_mode);
+        assert!(engine.quality_rebuild_pending);
+        assert!(engine.highlight_dirty);
+        assert_eq!(engine.idle_frame_count, 0);
+
+        engine.set_quality_level(0);
+
+        assert_eq!(engine.quality_level, 0);
+        assert!(!engine.sim.lock().lite_mode);
     }
 
     // ── Deep Stress Tests ──────────────────────────────────────────────

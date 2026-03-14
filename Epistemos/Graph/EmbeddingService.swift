@@ -26,7 +26,10 @@ final class EmbeddingService {
 
     struct EmbeddingCacheDebugSnapshot {
         let entryCount: Int
+        let currentSize: Int
         let capacity: Int
+        let hits: Int
+        let misses: Int
         let evictions: Int
     }
 
@@ -36,7 +39,10 @@ final class EmbeddingService {
     /// Embedding dimension (from NLEmbedding — typically 512).
     private(set) var dimension: Int = 0
 
+    private let defaultEmbeddingCacheCapacity: Int
     private var embeddingCacheOrder: [String] = []
+    private var embeddingCacheHitCount = 0
+    private var embeddingCacheMissCount = 0
     private var embeddingCacheEvictionCount = 0
     private var embeddingCacheCapacityOverride: Int?
 
@@ -48,8 +54,12 @@ final class EmbeddingService {
     /// inside MainActor.run instead of capturing a stale pointer by value.
     weak var graphState: GraphState?
 
+    init(maxCacheEntries: Int = EmbeddingCacheConfig.capacity) {
+        self.defaultEmbeddingCacheCapacity = max(0, maxCacheEntries)
+    }
+
     private var embeddingCacheCapacity: Int {
-        max(0, embeddingCacheCapacityOverride ?? EmbeddingCacheConfig.capacity)
+        max(0, embeddingCacheCapacityOverride ?? defaultEmbeddingCacheCapacity)
     }
 
     /// Compute embeddings for all graph nodes and push to the Rust engine.
@@ -147,7 +157,11 @@ final class EmbeddingService {
 
     /// Get embedding for a specific node (for hybrid search).
     func embedding(for nodeId: String) -> [Float]? {
-        guard let vector = embeddings[nodeId] else { return nil }
+        guard let vector = embeddings[nodeId] else {
+            embeddingCacheMissCount += 1
+            return nil
+        }
+        embeddingCacheHitCount += 1
         touchEmbeddingCacheEntry(nodeId)
         return vector
     }
@@ -211,13 +225,16 @@ final class EmbeddingService {
     func embeddingCacheDebugSnapshot() -> EmbeddingCacheDebugSnapshot {
         EmbeddingCacheDebugSnapshot(
             entryCount: embeddings.count,
+            currentSize: embeddings.count,
             capacity: embeddingCacheCapacity,
+            hits: embeddingCacheHitCount,
+            misses: embeddingCacheMissCount,
             evictions: embeddingCacheEvictionCount
         )
     }
 
     func setEmbeddingCacheCapacityForTesting(_ capacity: Int?) {
-        embeddingCacheCapacityOverride = capacity
+        embeddingCacheCapacityOverride = capacity.map { max(0, $0) }
         trimEmbeddingCacheIfNeeded()
     }
 

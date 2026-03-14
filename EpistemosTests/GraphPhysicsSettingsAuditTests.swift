@@ -5,6 +5,7 @@ import Foundation
 @Suite("Graph Physics Settings Audit")
 @MainActor
 struct GraphPhysicsSettingsAuditTests {
+    private let performanceModeKey = "epistemos.graph.performanceMode"
     private let physicsKeys: [String] = [
         "epistemos.physics.hasSavedSettings",
         "epistemos.physics.version",
@@ -39,6 +40,7 @@ struct GraphPhysicsSettingsAuditTests {
         for key in physicsKeys {
             defaults.removeObject(forKey: key)
         }
+        defaults.removeObject(forKey: performanceModeKey)
     }
 
     @Test("Semantic strength change persists even before engine exists")
@@ -103,6 +105,31 @@ struct GraphPhysicsSettingsAuditTests {
         state.useSemanticClustering = false
 
         #expect(!UserDefaults.standard.bool(forKey: "epistemos.physics.useSemanticClustering"))
+    }
+
+    @Test("Performance mode defaults to off")
+    func performanceModeDefaultsOff() {
+        clearPhysicsDefaults()
+
+        let state = GraphState()
+
+        #expect(!state.performanceModeEnabled)
+        #expect(state.qualityLevel == 0)
+    }
+
+    @Test("Performance mode persists and restores")
+    func performanceModePersists() {
+        clearPhysicsDefaults()
+
+        let state = GraphState()
+        state.performanceModeEnabled = true
+
+        #expect(UserDefaults.standard.bool(forKey: performanceModeKey))
+        #expect(state.qualityLevel == 2)
+
+        let restored = GraphState()
+        #expect(restored.performanceModeEnabled)
+        #expect(restored.qualityLevel == 2)
     }
 }
 

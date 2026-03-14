@@ -38,6 +38,7 @@ struct GraphRenderWakeSignature: Equatable {
     let graphDataVersion: Int
     let filterVersion: Int
     let modeVersion: Int
+    let liteModeVersion: Int
     let visualThemeVersion: Int
     let forceConfigVersion: Int
     let extendedForceConfigVersion: Int
@@ -56,6 +57,7 @@ struct GraphRenderWakeSignature: Equatable {
         self.graphDataVersion = graphState.graphDataVersion
         self.filterVersion = graphState.filterVersion
         self.modeVersion = graphState.modeVersion
+        self.liteModeVersion = graphState.liteModeVersion
         self.visualThemeVersion = graphState.visualThemeVersion
         self.forceConfigVersion = graphState.forceConfigVersion
         self.extendedForceConfigVersion = graphState.extendedForceConfigVersion
@@ -428,6 +430,7 @@ final class MetalGraphNSView: NSView {
     var lastRenderWakeSignature: GraphRenderWakeSignature?
     var lastForceConfigVersion = 0
     var lastGraphDataVersion = 0
+    var lastLiteModeVersion: Int = -1
     var lastVisualThemeVersion: Int = -1
     var lastSemanticForceConfigVersion: Int = -1
     /// Current search query text (bound by the search sidebar).
@@ -617,8 +620,9 @@ final class MetalGraphNSView: NSView {
         pushSemanticForce()
         pushLabParams()
 
-        // Push quality level to Rust (fixed at cinematic).
+        // Push graph render mode to Rust.
         graph_engine_set_quality_level(engine, graphState.qualityLevel)
+        lastLiteModeVersion = graphState.liteModeVersion
 
         // Push visual theme to Rust.
         graph_engine_set_visual_theme(engine, graphState.visualTheme.rawValue)
@@ -932,6 +936,13 @@ final class MetalGraphNSView: NSView {
         if let graphState, lastExtendedForceConfigVersion != graphState.extendedForceConfigVersion {
             lastExtendedForceConfigVersion = graphState.extendedForceConfigVersion
             pushExtendedForceParams()
+        }
+
+        // Sync visual theme when changed.
+        if let graphState, lastLiteModeVersion != graphState.liteModeVersion {
+            lastLiteModeVersion = graphState.liteModeVersion
+            graph_engine_set_quality_level(engine, graphState.qualityLevel)
+            needsRender = true
         }
 
         // Sync visual theme when changed.

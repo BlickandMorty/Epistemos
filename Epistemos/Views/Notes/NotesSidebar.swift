@@ -168,6 +168,73 @@ enum NotesSidebarDeletePlanner {
     }
 }
 
+enum NotesSidebarVisibleTreeEntry: Equatable, Hashable {
+    case folder(id: String, indent: Int)
+    case page(id: String, indent: Int)
+    case emptyFolder(id: String, indent: Int)
+}
+
+enum NotesSidebarVisibleTreeBuilder {
+    static func build(
+        rootFolderIds: [String],
+        expandedFolderIds: Set<String>,
+        childFolderIdsById: [String: [String]],
+        pageIdsByFolderId: [String: [String]]
+    ) -> [NotesSidebarVisibleTreeEntry] {
+        var rows: [NotesSidebarVisibleTreeEntry] = []
+        rows.reserveCapacity(rootFolderIds.count)
+
+        for folderId in rootFolderIds {
+            appendFolder(
+                id: folderId,
+                indent: 0,
+                expandedFolderIds: expandedFolderIds,
+                childFolderIdsById: childFolderIdsById,
+                pageIdsByFolderId: pageIdsByFolderId,
+                rows: &rows
+            )
+        }
+
+        return rows
+    }
+
+    private static func appendFolder(
+        id folderId: String,
+        indent: Int,
+        expandedFolderIds: Set<String>,
+        childFolderIdsById: [String: [String]],
+        pageIdsByFolderId: [String: [String]],
+        rows: inout [NotesSidebarVisibleTreeEntry]
+    ) {
+        rows.append(.folder(id: folderId, indent: indent))
+
+        guard expandedFolderIds.contains(folderId) else { return }
+
+        let childFolderIds = childFolderIdsById[folderId] ?? []
+        let pageIds = pageIdsByFolderId[folderId] ?? []
+
+        if childFolderIds.isEmpty && pageIds.isEmpty {
+            rows.append(.emptyFolder(id: folderId, indent: indent + 1))
+            return
+        }
+
+        for childId in childFolderIds {
+            appendFolder(
+                id: childId,
+                indent: indent + 1,
+                expandedFolderIds: expandedFolderIds,
+                childFolderIdsById: childFolderIdsById,
+                pageIdsByFolderId: pageIdsByFolderId,
+                rows: &rows
+            )
+        }
+
+        for pageId in pageIds {
+            rows.append(.page(id: pageId, indent: indent + 1))
+        }
+    }
+}
+
 enum NotesSidebarMetrics {
     static let headerTopPadding: CGFloat = 14
     static let headerBottomPadding: CGFloat = 2
@@ -242,8 +309,11 @@ struct NotesSidebar: View {
     @State private var cachedPageById: [String: SidebarPageItem] = [:]
     @State private var cachedFolderItems: [SidebarFolderItem] = []
     @State private var cachedFolderById: [String: SidebarFolderItem] = [:]
+    @State private var cachedChildFolderIdsById: [String: [String]] = [:]
+    @State private var cachedPageIdsByFolderId: [String: [String]] = [:]
     @State private var cachedIdeaItems: [SidebarIdeaItem] = []
     @State private var rebuildTask: Task<Void, Never>?
+    @State private var bodySearchTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
     private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
@@ -290,6 +360,8 @@ struct NotesSidebar: View {
 
         cachedFolderById = Dictionary(
             cachedFolderItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+        cachedChildFolderIdsById = cachedFolderById.mapValues(\.childFolderIds)
+        cachedPageIdsByFolderId = cachedFolderById.mapValues { $0.childPages.map(\.id) }
 
         // Collect ideas from all pages (JSON-decoded once per rebuild, not per render)
         var ideaItems: [SidebarIdeaItem] = []
@@ -400,6 +472,10 @@ struct NotesSidebar: View {
         .onChange(of: notesUI.searchQuery) { _, newValue in
             if newValue.isEmpty { bodySearchResults = [] }
         }
+        .onDisappear {
+            rebuildTask?.cancel()
+            bodySearchTask?.cancel()
+        }
     }
 
     // MARK: - Search Bar
@@ -508,10 +584,16 @@ struct NotesSidebar: View {
         // ── COLLECTIONS ── user-created organization folders
         let collections = cachedFolderItems.filter { $0.parentId == nil && $0.isCollection }
         if !collections.isEmpty {
-            ForEach(collections) { folder in
-                FolderRow(
-                    item: folder, indent: 0,
-                    folderItemById: fById, selectedPageId: currentSelectedPageId, onAction: onAction
+            ForEach(
+                visibleFolderRows(
+                    rootFolders: collections
+                ),
+                id: \.self
+            ) { row in
+                folderTreeRow(
+                    row,
+                    folderItemById: fById,
+                    onAction: onAction
                 )
             }
         }
@@ -526,10 +608,16 @@ struct NotesSidebar: View {
                 && $0.id != dailyNotesFolder?.id
         }
         if !folders.isEmpty {
-            ForEach(folders) { folder in
-                FolderRow(
-                    item: folder, indent: 0,
-                    folderItemById: fById, selectedPageId: currentSelectedPageId, onAction: onAction
+            ForEach(
+                visibleFolderRows(
+                    rootFolders: folders
+                ),
+                id: \.self
+            ) { row in
+                folderTreeRow(
+                    row,
+                    folderItemById: fById,
+                    onAction: onAction
                 )
             }
         }
@@ -542,8 +630,19 @@ struct NotesSidebar: View {
                 journals: journals,
                 isExpanded: notesUI.isJournalExpanded,
                 selectedPageId: currentSelectedPageId,
-                onAction: onAction
+                onAction: onAction,
+                renderChildren: false
             )
+            if notesUI.isJournalExpanded {
+                ForEach(journals) { page in
+                    FileRow(
+                        item: page,
+                        indent: 1,
+                        selectedPageId: currentSelectedPageId,
+                        onAction: onAction
+                    )
+                }
+            }
         }
 
         // Ideas section — all ideas across the vault
@@ -551,8 +650,14 @@ struct NotesSidebar: View {
             IdeasFolderRow(
                 ideas: cachedIdeaItems,
                 isExpanded: notesUI.isIdeasExpanded,
-                onAction: onAction
+                onAction: onAction,
+                renderChildren: false
             )
+            if notesUI.isIdeasExpanded {
+                ForEach(cachedIdeaItems.prefix(20)) { idea in
+                    IdeaRow(item: idea, onAction: onAction)
+                }
+            }
         }
 
         // ── FILES SECTION ── loose pages not in any folder.
@@ -619,6 +724,53 @@ struct NotesSidebar: View {
         }
     }
 
+    private func visibleFolderRows(
+        rootFolders: [SidebarFolderItem]
+    ) -> [NotesSidebarVisibleTreeEntry] {
+        NotesSidebarVisibleTreeBuilder.build(
+            rootFolderIds: rootFolders.map(\.id),
+            expandedFolderIds: notesUI.expandedFolderIds,
+            childFolderIdsById: cachedChildFolderIdsById,
+            pageIdsByFolderId: cachedPageIdsByFolderId
+        )
+    }
+
+    @ViewBuilder
+    private func folderTreeRow(
+        _ row: NotesSidebarVisibleTreeEntry,
+        folderItemById: [String: SidebarFolderItem],
+        onAction: @escaping (SidebarAction) -> Void
+    ) -> some View {
+        switch row {
+        case let .folder(id, indent):
+            if let folder = folderItemById[id] {
+                FolderRow(
+                    item: folder,
+                    indent: indent,
+                    folderItemById: folderItemById,
+                    selectedPageId: currentSelectedPageId,
+                    onAction: onAction,
+                    renderChildren: false
+                )
+            }
+        case let .page(id, indent):
+            if let page = cachedPageById[id] {
+                FileRow(
+                    item: page,
+                    indent: indent,
+                    selectedPageId: currentSelectedPageId,
+                    onAction: onAction
+                )
+            }
+        case let .emptyFolder(_, indent):
+            Text("Empty folder")
+                .font(.epSmall)
+                .foregroundStyle(theme.textTertiary)
+                .padding(.leading, CGFloat(indent) * 16 + 24)
+                .padding(.vertical, 4)
+        }
+    }
+
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
@@ -664,13 +816,17 @@ struct NotesSidebar: View {
 
     /// Run body + block search via FTS5 with snippets.
     private func performBodySearch(query: String) {
+        bodySearchTask?.cancel()
         guard !query.isEmpty else {
             bodySearchResults = []
             return
         }
-        Task {
+        let pageById = cachedPageById
+        bodySearchTask = Task {
             let bodyHits = await vaultSync.searchFullAsync(query: query, limit: 30)
+            guard !Task.isCancelled else { return }
             let blockHits = await vaultSync.searchBlocksAsync(query: query, limit: 10)
+            guard !Task.isCancelled else { return }
 
             var results: [SidebarPageItem] = []
             var seenPageIds: Set<String> = []
@@ -680,7 +836,7 @@ struct NotesSidebar: View {
                 let pageId = hit.pageId
                 guard !seenPageIds.contains(pageId) else { continue }
                 seenPageIds.insert(pageId)
-                if var item = cachedPageById[pageId] {
+                if var item = pageById[pageId] {
                     let rawSnippet = hit.snippet
                         .replacingOccurrences(of: "<b>", with: "")
                         .replacingOccurrences(of: "</b>", with: "")
@@ -695,7 +851,7 @@ struct NotesSidebar: View {
                 let pageId = hit.pageId
                 guard !seenPageIds.contains(pageId) else { continue }
                 seenPageIds.insert(pageId)
-                if var item = cachedPageById[pageId] {
+                if var item = pageById[pageId] {
                     let rawSnippet = hit.snippet
                         .replacingOccurrences(of: "<b>", with: "")
                         .replacingOccurrences(of: "</b>", with: "")
@@ -705,7 +861,10 @@ struct NotesSidebar: View {
                 }
             }
 
-            bodySearchResults = results
+            await MainActor.run {
+                guard !Task.isCancelled else { return }
+                bodySearchResults = results
+            }
         }
     }
 
@@ -748,6 +907,8 @@ struct NotesSidebar: View {
             cachedFolderItems.map { ($0.id, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
+        cachedChildFolderIdsById = cachedFolderById.mapValues(\.childFolderIds)
+        cachedPageIdsByFolderId = cachedFolderById.mapValues { $0.childPages.map(\.id) }
     }
 
     private func rootFolder(named name: String) -> SDFolder? {
@@ -1134,8 +1295,8 @@ struct NotesSidebar: View {
         }
         let deletePlan = NotesSidebarDeletePlanner.folderTreeDeletion(
             rootId: item.id,
-            childFolderIdsById: cachedFolderById.mapValues(\.childFolderIds),
-            pageIdsByFolderId: cachedFolderById.mapValues { $0.childPages.map(\.id) }
+            childFolderIdsById: cachedChildFolderIdsById,
+            pageIdsByFolderId: cachedPageIdsByFolderId
         )
         closeFolderTabs(folder)
         vaultSync.deleteDirectory(relativePath: folder.relativePath)
@@ -1286,6 +1447,7 @@ private struct FolderRow: View {
     let folderItemById: [String: SidebarFolderItem]
     let selectedPageId: String?
     let onAction: (SidebarAction) -> Void
+    var renderChildren = true
 
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
@@ -1438,7 +1600,7 @@ private struct FolderRow: View {
             .physicsHover(.subtle)
 
             // Expanded: child folders + child pages
-            if isExpanded {
+            if renderChildren && isExpanded {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(item.childFolderIds, id: \.self) { childId in
                         if let child = folderItemById[childId] {
@@ -1489,6 +1651,7 @@ private struct JournalFolderRow: View {
     let isExpanded: Bool
     let selectedPageId: String?
     let onAction: (SidebarAction) -> Void
+    var renderChildren = true
 
     @Environment(UIState.self) private var ui
 
@@ -1534,7 +1697,7 @@ private struct JournalFolderRow: View {
                 }
             }
 
-            if isExpanded {
+            if renderChildren && isExpanded {
                 ForEach(journals) { page in
                     FileRow(
                         item: page,
@@ -1555,6 +1718,7 @@ private struct IdeasFolderRow: View {
     let ideas: [SidebarIdeaItem]
     let isExpanded: Bool
     let onAction: (SidebarAction) -> Void
+    var renderChildren = true
 
     @Environment(UIState.self) private var ui
 
@@ -1595,7 +1759,7 @@ private struct IdeasFolderRow: View {
             .buttonStyle(.plain)
             .padding(.horizontal, 4)
 
-            if isExpanded {
+            if renderChildren && isExpanded {
                 ForEach(ideas.prefix(20)) { idea in
                     IdeaRow(item: idea, onAction: onAction)
                 }

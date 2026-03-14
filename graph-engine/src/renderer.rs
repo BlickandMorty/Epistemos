@@ -180,6 +180,12 @@ pub(crate) struct LodProfile {
     max_edges_per_node: u16,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EdgeGeometryKind {
+    Curve,
+    Straight,
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 struct DensityCluster {
     sum_x: f32,
@@ -1274,12 +1280,14 @@ pub struct Renderer {
     layer: MetalLayer,
     node_pipeline: RenderPipelineState,
     edge_pipeline: RenderPipelineState,
+    straight_edge_pipeline: RenderPipelineState,
     field_line_pipeline: RenderPipelineState,
     node_instance_buf: Option<Buffer>,
     edge_instance_buf: Option<Buffer>,
     uniform_buf: Buffer,
     node_instance_capacity: usize,
     edge_instance_capacity: usize,
+    edge_instance_stride: usize,
     // Camera state
     pub camera_offset: [f32; 2],
     pub camera_zoom: f32,
@@ -1292,6 +1300,7 @@ pub struct Renderer {
     node_count: usize,
     face_feature_count: usize,
     edge_instance_count: usize,
+    edge_geometry_kind: EdgeGeometryKind,
     edge_highlight_flag_buf: Option<Buffer>,
     edge_highlight_flag_capacity: usize,
     pub use_aggregated_edges: bool,
@@ -1327,6 +1336,7 @@ pub struct Renderer {
     density_clusters: FxHashMap<(i32, i32), DensityCluster>,
     classic_node_scratch: Vec<NodeInstance>,
     classic_edge_scratch: Vec<CurveEdgeInstance>,
+    straight_edge_scratch: Vec<LineEdgeInstance>,
     classic_velocity_scratch: Vec<[f32; 2]>,
     // Background clear color (transparent for hologram overlay)
     pub clear_color: [f64; 4],
@@ -1450,6 +1460,7 @@ impl Renderer {
         let node_frag = library.get_function("node_fragment", None).ok()?;
         let edge_vert = library.get_function("curve_edge_vertex", None).ok()?;
         let edge_frag = library.get_function("line_edge_fragment", None).ok()?;
+        let straight_edge_vert = library.get_function("line_edge_vertex", None).ok()?;
         let field_line_vert = library.get_function("line_edge_vertex", None).ok()?;
         let field_line_frag = library.get_function("line_edge_fragment", None).ok()?;
 
@@ -1471,6 +1482,7 @@ impl Renderer {
 
         let node_pipeline = make_pipeline(&node_vert, &node_frag)?;
         let edge_pipeline = make_pipeline(&edge_vert, &edge_frag)?;
+        let straight_edge_pipeline = make_pipeline(&straight_edge_vert, &edge_frag)?;
         let field_line_pipeline = make_pipeline(&field_line_vert, &field_line_frag)?;
 
         let uniform_buf = device.new_buffer(
@@ -1486,12 +1498,14 @@ impl Renderer {
             layer,
             node_pipeline,
             edge_pipeline,
+            straight_edge_pipeline,
             field_line_pipeline,
             node_instance_buf: None,
             edge_instance_buf: None,
             uniform_buf,
             node_instance_capacity: 0,
             edge_instance_capacity: 0,
+            edge_instance_stride: 0,
             camera_offset: [0.0, 0.0],
             camera_zoom: 1.0,
             target_offset: [0.0, 0.0],
@@ -1502,6 +1516,7 @@ impl Renderer {
             node_count: 0,
             face_feature_count: 0,
             edge_instance_count: 0,
+            edge_geometry_kind: EdgeGeometryKind::Curve,
             edge_highlight_flag_buf: None,
             edge_highlight_flag_capacity: 0,
             use_aggregated_edges: false,
@@ -1527,6 +1542,7 @@ impl Renderer {
             density_clusters: FxHashMap::default(),
             classic_node_scratch: Vec::new(),
             classic_edge_scratch: Vec::new(),
+            straight_edge_scratch: Vec::new(),
             classic_velocity_scratch: Vec::new(),
             edge_highlight_flag_scratch: Vec::new(),
             edge_highlight_pairs: Vec::new(),
@@ -1914,6 +1930,59 @@ impl Renderer {
         color
     }
 
+    #[inline]
+    fn preferred_edge_geometry_kind(&self) -> EdgeGeometryKind {
+        if self.quality_level >= 2 {
+            EdgeGeometryKind::Straight
+        } else {
+            EdgeGeometryKind::Curve
+        }
+    }
+
+    #[inline]
+    fn edge_instance_stride_for(kind: EdgeGeometryKind) -> usize {
+        match kind {
+            EdgeGeometryKind::Curve => std::mem::size_of::<CurveEdgeInstance>(),
+            EdgeGeometryKind::Straight => std::mem::size_of::<LineEdgeInstance>(),
+        }
+    }
+
+    #[inline]
+    fn edge_vertices_per_instance(&self) -> u64 {
+        match self.edge_geometry_kind {
+            EdgeGeometryKind::Curve => (CURVE_EDGE_STRIP_SEGMENTS * 6) as u64,
+            EdgeGeometryKind::Straight => 6,
+        }
+    }
+
+    #[inline]
+    fn uniforms_for_draw(
+        &self,
+        viewport_width: f32,
+        viewport_height: f32,
+        elapsed: f32,
+        pulse_t: f32,
+    ) -> Uniforms {
+        Uniforms {
+            viewport_size: [viewport_width, viewport_height],
+            camera_offset: self.camera_offset,
+            camera_zoom: self.camera_zoom,
+            time: elapsed,
+            pulse_origin: self.pulse_origin,
+            pulse_time: pulse_t,
+            focal_length: 2.0,
+            camera_velocity: [0.0, 0.0],
+            zoom_velocity: 0.0,
+            lite_mode: self.quality_level as f32,
+            impact_intensity: self.impact_intensity,
+            dialogue_theme: if self.visual_theme == VisualTheme::Dialogue {
+                1.0
+            } else {
+                0.0
+            },
+        }
+    }
+
     fn rebuild_classic_buffers(&mut self, world: &World) {
         #[cfg(any(test, debug_assertions))]
         {
@@ -1955,6 +2024,7 @@ impl Renderer {
         self.classic_node_scratch.clear();
         self.classic_velocity_scratch.clear();
         self.classic_edge_scratch.clear();
+        self.straight_edge_scratch.clear();
         self.edge_highlight_pairs.clear();
 
         if lod.cluster_nodes && !self.highlight.active {
@@ -2287,6 +2357,8 @@ impl Renderer {
         let should_draw_edges = lod.draw_edges
             && !lod.cluster_nodes
             && !(self.edges_hidden && self.edge_filter_node.is_none());
+        let edge_geometry_kind = self.preferred_edge_geometry_kind();
+        self.edge_geometry_kind = edge_geometry_kind;
         self.clear_aggregated_edges();
         if should_draw_edges {
             // When filtering to a single node, only collect that node's edges (O(degree) not O(E)).
@@ -2332,20 +2404,32 @@ impl Renderer {
                 }
 
                 let color = self.classic_edge_instance_color(edge);
-                let v0 = [world.velocity[src_index].vx, world.velocity[src_index].vy];
-                let v1 = [world.velocity[tgt_index].vx, world.velocity[tgt_index].vy];
-                let ideal_length = self.link_distance / edge.weight.max(0.01);
-                let (c0, c1) = string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
-                if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
-                    continue;
+                match edge_geometry_kind {
+                    EdgeGeometryKind::Curve => {
+                        let v0 = [world.velocity[src_index].vx, world.velocity[src_index].vy];
+                        let v1 = [world.velocity[tgt_index].vx, world.velocity[tgt_index].vy];
+                        let ideal_length = self.link_distance / edge.weight.max(0.01);
+                        let (c0, c1) =
+                            string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
+                        if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
+                            continue;
+                        }
+                        self.classic_edge_scratch.push(CurveEdgeInstance {
+                            p0,
+                            c0,
+                            c1,
+                            p1,
+                            color,
+                        });
+                    }
+                    EdgeGeometryKind::Straight => {
+                        if !view_bounds.is_none_or(|view| segment_intersects_bounds(view, p0, p1)) {
+                            continue;
+                        }
+                        self.straight_edge_scratch
+                            .push(LineEdgeInstance { p0, p1, color });
+                    }
                 }
-                self.classic_edge_scratch.push(CurveEdgeInstance {
-                    p0,
-                    c0,
-                    c1,
-                    p1,
-                    color,
-                });
                 self.edge_highlight_pairs.push([
                     world.graph_node[src_index].node_id,
                     world.graph_node[tgt_index].node_id,
@@ -2353,31 +2437,48 @@ impl Renderer {
             }
         }
 
-        self.edge_instance_count = self.classic_edge_scratch.len();
+        self.edge_instance_count = match edge_geometry_kind {
+            EdgeGeometryKind::Curve => self.classic_edge_scratch.len(),
+            EdgeGeometryKind::Straight => self.straight_edge_scratch.len(),
+        };
         #[cfg(any(test, debug_assertions))]
         {
             self.debug_counters.last_visible_edges = self.edge_instance_count;
         }
         if self.edge_instance_count > 0 {
+            let required_stride = Self::edge_instance_stride_for(edge_geometry_kind);
             if self.edge_instance_count > self.edge_instance_capacity
                 || self.edge_instance_buf.is_none()
+                || self.edge_instance_stride != required_stride
             {
                 let capacity = (self.edge_instance_count * 3 / 2).max(64);
-                let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
+                let buf_size = (capacity * required_stride) as u64;
                 self.edge_instance_buf = Some(
                     self.device
                         .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
                 );
                 self.edge_instance_capacity = capacity;
+                self.edge_instance_stride = required_stride;
             }
 
             if let Some(buf) = &self.edge_instance_buf {
                 unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        self.classic_edge_scratch.as_ptr(),
-                        buf.contents() as *mut CurveEdgeInstance,
-                        self.edge_instance_count,
-                    );
+                    match edge_geometry_kind {
+                        EdgeGeometryKind::Curve => {
+                            std::ptr::copy_nonoverlapping(
+                                self.classic_edge_scratch.as_ptr(),
+                                buf.contents() as *mut CurveEdgeInstance,
+                                self.edge_instance_count,
+                            );
+                        }
+                        EdgeGeometryKind::Straight => {
+                            std::ptr::copy_nonoverlapping(
+                                self.straight_edge_scratch.as_ptr(),
+                                buf.contents() as *mut LineEdgeInstance,
+                                self.edge_instance_count,
+                            );
+                        }
+                    }
                 }
             }
         } else {
@@ -2399,47 +2500,80 @@ impl Renderer {
         };
 
         self.classic_edge_scratch.clear();
+        self.straight_edge_scratch.clear();
+        self.edge_geometry_kind = self.preferred_edge_geometry_kind();
         let curvature = (self.edge_curvature() * 0.8).max(0.10);
         for edge in edges {
-            let (c0, c1) = string_edge_control_points(
-                edge.p0,
-                edge.p1,
-                [0.0, 0.0],
-                [0.0, 0.0],
-                ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2)).sqrt(),
-                curvature,
-            );
-            self.classic_edge_scratch.push(CurveEdgeInstance {
-                p0: edge.p0,
-                c0,
-                c1,
-                p1: edge.p1,
-                color: [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha],
-            });
+            let color = [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha];
+            match self.edge_geometry_kind {
+                EdgeGeometryKind::Curve => {
+                    let (c0, c1) = string_edge_control_points(
+                        edge.p0,
+                        edge.p1,
+                        [0.0, 0.0],
+                        [0.0, 0.0],
+                        ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2))
+                            .sqrt(),
+                        curvature,
+                    );
+                    self.classic_edge_scratch.push(CurveEdgeInstance {
+                        p0: edge.p0,
+                        c0,
+                        c1,
+                        p1: edge.p1,
+                        color,
+                    });
+                }
+                EdgeGeometryKind::Straight => {
+                    self.straight_edge_scratch.push(LineEdgeInstance {
+                        p0: edge.p0,
+                        p1: edge.p1,
+                        color,
+                    });
+                }
+            }
             self.edge_highlight_pairs.push([u32::MAX, u32::MAX]);
         }
-        self.aggregated_edge_count = self.classic_edge_scratch.len();
+        self.aggregated_edge_count = match self.edge_geometry_kind {
+            EdgeGeometryKind::Curve => self.classic_edge_scratch.len(),
+            EdgeGeometryKind::Straight => self.straight_edge_scratch.len(),
+        };
 
+        let required_stride = Self::edge_instance_stride_for(self.edge_geometry_kind);
         if self.aggregated_edge_count > self.edge_instance_capacity
             || self.edge_instance_buf.is_none()
+            || self.edge_instance_stride != required_stride
         {
             let capacity = (self.aggregated_edge_count * 3 / 2).max(64);
-            let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
+            let buf_size = (capacity * required_stride) as u64;
             self.edge_instance_buf = Some(
                 self.device
                     .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.edge_instance_capacity = capacity;
+            self.edge_instance_stride = required_stride;
         }
 
         if let Some(buf) = &self.edge_instance_buf {
             unsafe {
-                let ptr = buf.contents() as *mut CurveEdgeInstance;
-                std::ptr::copy_nonoverlapping(
-                    self.classic_edge_scratch.as_ptr(),
-                    ptr,
-                    self.aggregated_edge_count,
-                );
+                match self.edge_geometry_kind {
+                    EdgeGeometryKind::Curve => {
+                        let ptr = buf.contents() as *mut CurveEdgeInstance;
+                        std::ptr::copy_nonoverlapping(
+                            self.classic_edge_scratch.as_ptr(),
+                            ptr,
+                            self.aggregated_edge_count,
+                        );
+                    }
+                    EdgeGeometryKind::Straight => {
+                        let ptr = buf.contents() as *mut LineEdgeInstance;
+                        std::ptr::copy_nonoverlapping(
+                            self.straight_edge_scratch.as_ptr(),
+                            ptr,
+                            self.aggregated_edge_count,
+                        );
+                    }
+                }
             }
         }
     }
@@ -2475,14 +2609,19 @@ impl Renderer {
             self.node_instance_capacity = capacity;
         }
 
-        if edge_count > self.edge_instance_capacity || self.edge_instance_buf.is_none() {
+        let required_stride = Self::edge_instance_stride_for(self.preferred_edge_geometry_kind());
+        if edge_count > self.edge_instance_capacity
+            || self.edge_instance_buf.is_none()
+            || self.edge_instance_stride != required_stride
+        {
             let capacity = (edge_count * 3 / 2).max(64);
-            let buf_size = (capacity * std::mem::size_of::<CurveEdgeInstance>()) as u64;
+            let buf_size = (capacity * required_stride) as u64;
             self.edge_instance_buf = Some(
                 self.device
                     .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
             );
             self.edge_instance_capacity = capacity;
+            self.edge_instance_stride = required_stride;
         }
 
         self.upload_graph(world);
@@ -3192,24 +3331,8 @@ impl Renderer {
             if self.impact_intensity > 0.0 {
                 self.impact_intensity = (self.impact_intensity - dt * 3.0).max(0.0);
             }
-            let uniforms = Uniforms {
-                viewport_size: [viewport_width as f32, viewport_height as f32],
-                camera_offset: self.camera_offset,
-                camera_zoom: self.camera_zoom,
-                time: elapsed,
-                pulse_origin: self.pulse_origin,
-                pulse_time: pulse_t,
-                focal_length: 2.0,
-                camera_velocity: [0.0, 0.0],
-                zoom_velocity: 0.0,
-                lite_mode: self.quality_level as f32,
-                impact_intensity: self.impact_intensity,
-                dialogue_theme: if self.visual_theme == VisualTheme::Dialogue {
-                    1.0
-                } else {
-                    0.0
-                },
-            };
+            let uniforms =
+                self.uniforms_for_draw(viewport_width as f32, viewport_height as f32, elapsed, pulse_t);
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;
                 *ptr = uniforms;
@@ -3240,7 +3363,14 @@ impl Renderer {
             {
                 // Clamp to buffer capacity to prevent Metal validation crash.
                 let edge_draw = effective_edge_count.min(self.edge_instance_capacity);
-                encoder.set_render_pipeline_state(&self.edge_pipeline);
+                match self.edge_geometry_kind {
+                    EdgeGeometryKind::Curve => {
+                        encoder.set_render_pipeline_state(&self.edge_pipeline);
+                    }
+                    EdgeGeometryKind::Straight => {
+                        encoder.set_render_pipeline_state(&self.straight_edge_pipeline);
+                    }
+                }
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
                 if self.edge_highlight_flag_buf.is_none()
@@ -3264,7 +3394,7 @@ impl Renderer {
                 encoder.draw_primitives_instanced(
                     MTLPrimitiveType::Triangle,
                     0,
-                    (CURVE_EDGE_STRIP_SEGMENTS * 6) as u64,
+                    self.edge_vertices_per_instance(),
                     edge_draw as u64,
                 );
             }
@@ -3694,6 +3824,70 @@ mod tests {
             first_allocations
         );
         assert!(renderer.debug_counters.field_line_buffer_reuses >= 1);
+    }
+
+    #[test]
+    fn cinematic_quality_keeps_curved_edge_geometry() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 0;
+        renderer.set_viewport_size(1280, 720);
+        renderer.update_positions(&world);
+
+        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Curve);
+        assert!(!renderer.classic_edge_scratch.is_empty());
+        assert!(renderer.straight_edge_scratch.is_empty());
+    }
+
+    #[test]
+    fn cinematic_quality_preserves_cinematic_uniforms_and_depth() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 0;
+
+        let node = renderer.classic_node_instance(&world, 0);
+        let uniforms = renderer.uniforms_for_draw(1280.0, 720.0, 1.0, 0.0);
+
+        assert_ne!(node.z, 0.0);
+        assert_eq!(uniforms.lite_mode, 0.0);
+    }
+
+    #[test]
+    fn performance_quality_switches_to_straight_edge_geometry() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 2;
+        renderer.set_viewport_size(1280, 720);
+        renderer.update_positions(&world);
+
+        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Straight);
+        assert!(!renderer.straight_edge_scratch.is_empty());
+        assert!(renderer.classic_edge_scratch.is_empty());
+    }
+
+    #[test]
+    fn performance_quality_flattens_nodes_and_emits_performance_uniforms() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 2;
+
+        let node = renderer.classic_node_instance(&world, 0);
+        let uniforms = renderer.uniforms_for_draw(1280.0, 720.0, 1.0, 0.0);
+
+        assert_eq!(node.z, 0.0);
+        assert_eq!(uniforms.lite_mode, 2.0);
+    }
+
+    #[test]
+    fn culling_padding_keeps_near_boundary_nodes_visible() {
+        let world = make_test_world(2, 320.0);
+        let mut renderer = make_test_renderer();
+        renderer.camera_offset = [0.0, 0.0];
+        renderer.camera_zoom = 1.0;
+        renderer.set_viewport_size(640, 360);
+        renderer.update_positions(&world);
+
+        assert_eq!(renderer.rendered_node_indices.len(), 2);
     }
 
     #[test]

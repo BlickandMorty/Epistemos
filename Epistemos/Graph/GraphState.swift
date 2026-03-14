@@ -364,8 +364,29 @@ final class GraphState {
 
     // MARK: - Quality Level
 
-    /// Graph rendering quality is fixed to cinematic (0).
-    let qualityLevel: UInt8 = 0
+    private static let performanceModeDefaultsKey = "epistemos.graph.performanceMode"
+
+    /// Graph-only runtime render mode. Default remains the polished cinematic path.
+    var performanceModeEnabled: Bool = {
+        UserDefaults.standard.bool(forKey: "epistemos.graph.performanceMode")
+    }() {
+        didSet {
+            guard performanceModeEnabled != oldValue else { return }
+            UserDefaults.standard.set(performanceModeEnabled, forKey: Self.performanceModeDefaultsKey)
+            liteModeVersion += 1
+        }
+    }
+
+    /// Incremented when the graph render quality mode changes, so MetalGraphView can
+    /// re-sync the renderer without a full recommit.
+    var liteModeVersion: Int = 0
+
+    /// Runtime quality level forwarded to Rust.
+    /// 0 = cinematic default, 2 = performance mode.
+    var qualityLevel: UInt8 {
+        get { performanceModeEnabled ? 2 : 0 }
+        set { performanceModeEnabled = newValue >= 2 }
+    }
 
     // MARK: - Visual Theme
 

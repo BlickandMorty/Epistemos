@@ -141,6 +141,92 @@ struct GraphSingleNodeEdgeCaseTests {
     }
 }
 
+@Suite("Hologram Search Sidebar Tree")
+@MainActor
+struct HologramSearchSidebarTreeTests {
+    private func makeNode(id: String, type: GraphNodeType, label: String) -> GraphNodeRecord {
+        GraphNodeRecord(
+            id: id,
+            type: type,
+            label: label,
+            sourceId: nil,
+            metadata: GraphNodeMetadata(),
+            weight: 1.0,
+            createdAt: .now,
+            position: .zero,
+            velocity: .zero
+        )
+    }
+
+    private func makeEdge(id: String, source: String, target: String) -> GraphEdgeRecord {
+        GraphEdgeRecord(
+            id: id,
+            sourceNodeId: source,
+            targetNodeId: target,
+            type: .contains,
+            weight: 1.0,
+            createdAt: .now
+        )
+    }
+
+    @Test("Snapshot derives roots, loose notes, and recursive note counts from contains edges")
+    func snapshotBuildsFolderTree() {
+        let store = GraphStore()
+        store.addNode(makeNode(id: "root", type: .folder, label: "Root"))
+        store.addNode(makeNode(id: "child", type: .folder, label: "Child"))
+        store.addNode(makeNode(id: "alpha", type: .note, label: "Alpha"))
+        store.addNode(makeNode(id: "beta", type: .note, label: "Beta"))
+        store.addNode(makeNode(id: "loose", type: .note, label: "Loose"))
+        store.addEdge(makeEdge(id: "edge-root-child", source: "root", target: "child"))
+        store.addEdge(makeEdge(id: "edge-root-alpha", source: "root", target: "alpha"))
+        store.addEdge(makeEdge(id: "edge-child-beta", source: "child", target: "beta"))
+
+        let snapshot = HologramSidebarNotesTreeBuilder.build(store: store)
+
+        #expect(snapshot.rootFolderIds == ["root"])
+        #expect(snapshot.childFolderIdsById["root"] == ["child"])
+        #expect(snapshot.noteIdsByFolderId["root"] == ["alpha"])
+        #expect(snapshot.noteIdsByFolderId["child"] == ["beta"])
+        #expect(snapshot.looseNoteIds == ["loose"])
+        #expect(snapshot.noteCountByFolderId["root"] == 2)
+        #expect(snapshot.noteCountByFolderId["child"] == 1)
+    }
+
+    @Test("Visible rows only include expanded descendants for the graph sidebar tree")
+    func visibleRowsFollowExpansionState() {
+        let store = GraphStore()
+        store.addNode(makeNode(id: "root", type: .folder, label: "Root"))
+        store.addNode(makeNode(id: "child", type: .folder, label: "Child"))
+        store.addNode(makeNode(id: "note", type: .note, label: "Note"))
+        store.addEdge(makeEdge(id: "edge-root-child", source: "root", target: "child"))
+        store.addEdge(makeEdge(id: "edge-child-note", source: "child", target: "note"))
+
+        let snapshot = HologramSidebarNotesTreeBuilder.build(store: store)
+
+        let collapsed = NotesSidebarVisibleTreeBuilder.build(
+            rootFolderIds: snapshot.rootFolderIds,
+            expandedFolderIds: [],
+            childFolderIdsById: snapshot.childFolderIdsById,
+            pageIdsByFolderId: snapshot.noteIdsByFolderId
+        )
+        #expect(collapsed == [
+            .folder(id: "root", indent: 0),
+        ])
+
+        let expanded = NotesSidebarVisibleTreeBuilder.build(
+            rootFolderIds: snapshot.rootFolderIds,
+            expandedFolderIds: ["root", "child"],
+            childFolderIdsById: snapshot.childFolderIdsById,
+            pageIdsByFolderId: snapshot.noteIdsByFolderId
+        )
+        #expect(expanded == [
+            .folder(id: "root", indent: 0),
+            .folder(id: "child", indent: 1),
+            .page(id: "note", indent: 2),
+        ])
+    }
+}
+
 @Suite("Graph Edge Cases - Two Node Topologies")
 @MainActor
 struct GraphTwoNodeEdgeCaseTests {

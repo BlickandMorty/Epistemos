@@ -547,14 +547,21 @@ struct ConcurrencyGraphStateTests {
         }
     }
     
-    @Test("Quality level stays cinematic")
+    @Test("Quality level tracks graph performance mode")
     func qualityLevelChanges() {
         let state = GraphState()
-        
-        for level: UInt8 in [0, 1, 2] {
-            state.qualityLevel = level
-            #expect(state.qualityLevel == 0)
-        }
+
+        state.qualityLevel = 0
+        #expect(state.qualityLevel == 0)
+        #expect(!state.performanceModeEnabled)
+
+        state.qualityLevel = 2
+        #expect(state.qualityLevel == 2)
+        #expect(state.performanceModeEnabled)
+
+        state.qualityLevel = 1
+        #expect(state.qualityLevel == 0)
+        #expect(!state.performanceModeEnabled)
     }
     
     @Test("Extended force config version")
@@ -582,6 +589,12 @@ struct ConcurrencyGraphStateTests {
         let initialVersion = state.liteModeVersion
         state.qualityLevel = 2
         #expect(state.liteModeVersion == initialVersion + 1)
+
+        state.qualityLevel = 2
+        #expect(state.liteModeVersion == initialVersion + 1)
+
+        state.qualityLevel = 0
+        #expect(state.liteModeVersion == initialVersion + 2)
     }
 }
 

@@ -24,6 +24,10 @@ struct GraphForceSettings: View {
                     staticLayoutBanner
                 }
 
+                performanceSection(gs: $gs)
+
+                Divider().opacity(0.3)
+
                 // ── Presets ──
                 presetSection
                     .opacity(isStatic ? 0.4 : 1.0)
@@ -108,6 +112,26 @@ struct GraphForceSettings: View {
     }
 
     // MARK: - Presets
+
+    private func performanceSection(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Rendering", icon: "speedometer")
+
+            Toggle(isOn: gs.performanceModeEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Performance Mode")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text("Straight edges, lighter node shading, and no cinematic blur effects.")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+        }
+    }
 
     private var presetSection: some View {
         VStack(alignment: .leading, spacing: 8) {

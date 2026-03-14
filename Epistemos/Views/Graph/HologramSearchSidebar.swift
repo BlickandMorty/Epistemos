@@ -1,5 +1,128 @@
 import SwiftUI
 
+struct HologramSidebarNotesTreeSnapshot {
+    let folderById: [String: GraphNodeRecord]
+    let noteById: [String: GraphNodeRecord]
+    let rootFolderIds: [String]
+    let childFolderIdsById: [String: [String]]
+    let noteIdsByFolderId: [String: [String]]
+    let looseNoteIds: [String]
+    let noteCountByFolderId: [String: Int]
+}
+
+enum HologramSidebarNotesTreeBuilder {
+    static func build(store: GraphStore) -> HologramSidebarNotesTreeSnapshot {
+        let folderById = Dictionary(
+            uniqueKeysWithValues: store.nodes.values
+                .filter { $0.type == .folder }
+                .map { ($0.id, $0) }
+        )
+        let noteById = Dictionary(
+            uniqueKeysWithValues: store.nodes.values
+                .filter { $0.type == .note }
+                .map { ($0.id, $0) }
+        )
+
+        var childFolderIdsById: [String: [String]] = [:]
+        var noteIdsByFolderId: [String: [String]] = [:]
+        for folderId in folderById.keys {
+            childFolderIdsById[folderId] = []
+            noteIdsByFolderId[folderId] = []
+        }
+
+        var childFolderIds = Set<String>()
+        var containedNoteIds = Set<String>()
+
+        for edge in store.edges.values where edge.type == .contains {
+            guard folderById[edge.sourceNodeId] != nil else { continue }
+
+            if folderById[edge.targetNodeId] != nil {
+                childFolderIdsById[edge.sourceNodeId, default: []].append(edge.targetNodeId)
+                childFolderIds.insert(edge.targetNodeId)
+            } else if noteById[edge.targetNodeId] != nil {
+                noteIdsByFolderId[edge.sourceNodeId, default: []].append(edge.targetNodeId)
+                containedNoteIds.insert(edge.targetNodeId)
+            }
+        }
+
+        for folderId in folderById.keys {
+            childFolderIdsById[folderId]?.sort { lhs, rhs in
+                let lhsLabel = folderById[lhs]?.label ?? ""
+                let rhsLabel = folderById[rhs]?.label ?? ""
+                return lhsLabel.localizedCaseInsensitiveCompare(rhsLabel) == .orderedAscending
+            }
+            noteIdsByFolderId[folderId]?.sort { lhs, rhs in
+                let lhsLabel = noteById[lhs]?.label ?? ""
+                let rhsLabel = noteById[rhs]?.label ?? ""
+                return lhsLabel.localizedCaseInsensitiveCompare(rhsLabel) == .orderedAscending
+            }
+        }
+
+        let rootFolderIds = folderById.keys.sorted { lhs, rhs in
+            let lhsLabel = folderById[lhs]?.label ?? ""
+            let rhsLabel = folderById[rhs]?.label ?? ""
+            return lhsLabel.localizedCaseInsensitiveCompare(rhsLabel) == .orderedAscending
+        }.filter { !childFolderIds.contains($0) }
+
+        let looseNoteIds = noteById.keys.sorted { lhs, rhs in
+            let lhsLabel = noteById[lhs]?.label ?? ""
+            let rhsLabel = noteById[rhs]?.label ?? ""
+            return lhsLabel.localizedCaseInsensitiveCompare(rhsLabel) == .orderedAscending
+        }.filter { !containedNoteIds.contains($0) }
+
+        var noteCountByFolderId: [String: Int] = [:]
+        for folderId in folderById.keys {
+            noteCountByFolderId[folderId] = recursiveNoteCount(
+                folderId: folderId,
+                childFolderIdsById: childFolderIdsById,
+                noteIdsByFolderId: noteIdsByFolderId,
+                cache: &noteCountByFolderId
+            )
+        }
+
+        return HologramSidebarNotesTreeSnapshot(
+            folderById: folderById,
+            noteById: noteById,
+            rootFolderIds: rootFolderIds,
+            childFolderIdsById: childFolderIdsById,
+            noteIdsByFolderId: noteIdsByFolderId,
+            looseNoteIds: looseNoteIds,
+            noteCountByFolderId: noteCountByFolderId
+        )
+    }
+
+    private static func recursiveNoteCount(
+        folderId: String,
+        childFolderIdsById: [String: [String]],
+        noteIdsByFolderId: [String: [String]],
+        cache: inout [String: Int],
+        visiting: Set<String> = []
+    ) -> Int {
+        if let cached = cache[folderId] {
+            return cached
+        }
+
+        var visiting = visiting
+        guard visiting.insert(folderId).inserted else {
+            return noteIdsByFolderId[folderId]?.count ?? 0
+        }
+
+        let localCount = noteIdsByFolderId[folderId]?.count ?? 0
+        let nestedCount = (childFolderIdsById[folderId] ?? []).reduce(0) { partial, childId in
+            partial + recursiveNoteCount(
+                folderId: childId,
+                childFolderIdsById: childFolderIdsById,
+                noteIdsByFolderId: noteIdsByFolderId,
+                cache: &cache,
+                visiting: visiting
+            )
+        }
+        let totalCount = localCount + nestedCount
+        cache[folderId] = totalCount
+        return totalCount
+    }
+}
+
 // MARK: - HologramSidebar
 // Floating left panel for the graph overlay.
 // Two tabs: Notes (folder tree — note nodes only) and Query (AI-powered graph queries).
@@ -69,99 +192,40 @@ struct HologramSearchSidebar: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Notes Content (mirrors NotesSidebar: recursive folder tree)
+    // MARK: - Notes Content (flat visible rows for lazy rendering)
 
-    /// All folder nodes in the graph.
-    private var allFolderNodes: [String: GraphNodeRecord] {
-        Dictionary(
-            graphState.store.nodes.values
-                .filter { $0.type == .folder }
-                .map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-    }
-
-    /// Children of a folder (subfolders and notes) via directed "contains" edges.
-    /// Contains edges: source=parent, target=child.
-    private func containsChildrenOf(_ folderId: String) -> (folders: [GraphNodeRecord], notes: [GraphNodeRecord]) {
-        let edgeIds = graphState.store.edgesByNode[folderId] ?? []
-        var folders: [GraphNodeRecord] = []
-        var notes: [GraphNodeRecord] = []
-
-        for edgeId in edgeIds {
-            guard let edge = graphState.store.edges[edgeId],
-                  edge.sourceNodeId == folderId,
-                  edge.type == .contains else { continue }
-            guard let child = graphState.store.nodes[edge.targetNodeId] else { continue }
-
-            if child.type == .folder {
-                folders.append(child)
-            } else if child.type == .note {
-                notes.append(child)
-            }
-        }
-
-        folders.sort { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
-        notes.sort { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
-        return (folders, notes)
-    }
-
-    /// Root folders: folders that are NOT the target of any "contains" edge from another folder.
-    private var rootFolders: [GraphNodeRecord] {
-        let folderIds = allFolderNodes
-        var childFolderIds = Set<String>()
-
-        for (_, edge) in graphState.store.edges {
-            guard edge.type == .contains,
-                  folderIds[edge.sourceNodeId] != nil,
-                  folderIds[edge.targetNodeId] != nil else { continue }
-            childFolderIds.insert(edge.targetNodeId)
-        }
-
-        return folderIds.values
-            .filter { !childFolderIds.contains($0.id) }
-            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
-    }
-
-    /// Notes not contained in any folder.
-    private var looseNotes: [GraphNodeRecord] {
-        let folderIds = Set(allFolderNodes.keys)
-        return graphState.store.nodes.values
-            .filter { node in
-                guard node.type == .note else { return false }
-                // Check if any "contains" edge from a folder targets this note
-                let edgeIds = graphState.store.edgesByNode[node.id] ?? []
-                for edgeId in edgeIds {
-                    guard let edge = graphState.store.edges[edgeId] else { continue }
-                    if edge.type == .contains && edge.targetNodeId == node.id && folderIds.contains(edge.sourceNodeId) {
-                        return false
-                    }
-                }
-                return true
-            }
-            .sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
+    private var notesTreeSnapshot: HologramSidebarNotesTreeSnapshot {
+        HologramSidebarNotesTreeBuilder.build(store: graphState.store)
     }
 
     private var notesContent: some View {
-        ScrollView {
+        let snapshot = notesTreeSnapshot
+        let visibleRows = NotesSidebarVisibleTreeBuilder.build(
+            rootFolderIds: snapshot.rootFolderIds,
+            expandedFolderIds: expandedFolders,
+            childFolderIdsById: snapshot.childFolderIdsById,
+            pageIdsByFolderId: snapshot.noteIdsByFolderId
+        )
+        return ScrollView {
             LazyVStack(alignment: .leading, spacing: 4) {
-                // Recursive folder tree
-                ForEach(rootFolders, id: \.id) { folder in
-                    recursiveFolderRow(folder, indent: 0)
+                ForEach(visibleRows, id: \.self) { row in
+                    notesTreeRow(row, snapshot: snapshot)
                 }
 
                 // Loose notes (not in any folder)
-                if !looseNotes.isEmpty {
+                if !snapshot.looseNoteIds.isEmpty {
                     sectionHeader("Files")
-                    ForEach(looseNotes.prefix(50), id: \.id) { node in
-                        nodeRow(node)
+                    ForEach(Array(snapshot.looseNoteIds.prefix(50)), id: \.self) { noteId in
+                        if let node = snapshot.noteById[noteId] {
+                            nodeRow(node)
+                        }
                     }
-                    if looseNotes.count > 50 {
-                        hintText("\(looseNotes.count - 50) more…")
+                    if snapshot.looseNoteIds.count > 50 {
+                        hintText("\(snapshot.looseNoteIds.count - 50) more…")
                     }
                 }
 
-                if rootFolders.isEmpty && looseNotes.isEmpty {
+                if snapshot.rootFolderIds.isEmpty && snapshot.looseNoteIds.isEmpty {
                     emptyState("No notes in graph", icon: "doc.text")
                 }
             }
@@ -169,94 +233,77 @@ struct HologramSearchSidebar: View {
         }
     }
 
-    // MARK: - Recursive Folder Row
-
-    /// Recursive total count of notes in this folder and all subfolders.
-    private func recursiveNoteCount(_ folderId: String, visited: Set<String> = []) -> Int {
-        guard !visited.contains(folderId) else { return 0 }
-        var visited = visited
-        visited.insert(folderId)
-        let (subfolders, notes) = containsChildrenOf(folderId)
-        return notes.count + subfolders.reduce(0) { $0 + recursiveNoteCount($1.id, visited: visited) }
-    }
-
     @ViewBuilder
-    private func recursiveFolderRow(_ folder: GraphNodeRecord, indent: Int) -> some View {
-        if indent >= 20 {
-            EmptyView()
-        } else {
-            folderRowContent(folder, indent: indent)
+    private func notesTreeRow(
+        _ row: NotesSidebarVisibleTreeEntry,
+        snapshot: HologramSidebarNotesTreeSnapshot
+    ) -> some View {
+        switch row {
+        case let .folder(id, indent):
+            if let folder = snapshot.folderById[id] {
+                folderRow(
+                    folder,
+                    indent: indent,
+                    noteCount: snapshot.noteCountByFolderId[id] ?? 0
+                )
+            }
+        case let .page(id, indent):
+            if let note = snapshot.noteById[id] {
+                nodeRow(note, indent: indent)
+            }
+        case let .emptyFolder(_, indent):
+            Text("Empty folder")
+                .font(.system(size: 11))
+                .foregroundStyle(.primary.opacity(0.25))
+                .padding(.leading, CGFloat(indent) * 16 + 34)
+                .padding(.vertical, 4)
         }
     }
 
-    @ViewBuilder
-    private func folderRowContent(_ folder: GraphNodeRecord, indent: Int) -> some View {
+    private func folderRow(_ folder: GraphNodeRecord, indent: Int, noteCount: Int) -> some View {
         let isExpanded = expandedFolders.contains(folder.id)
-        let (subfolders, notes) = containsChildrenOf(folder.id)
-        let count = recursiveNoteCount(folder.id)
-
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(.smooth(duration: 0.2)) {
-                    if expandedFolders.contains(folder.id) {
-                        expandedFolders.remove(folder.id)
-                    } else {
-                        expandedFolders.insert(folder.id)
-                    }
+        return Button {
+            withAnimation(.smooth(duration: 0.2)) {
+                if expandedFolders.contains(folder.id) {
+                    expandedFolders.remove(folder.id)
+                } else {
+                    expandedFolders.insert(folder.id)
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.35))
-                        .frame(width: 12)
-
-                    Image(systemName: isExpanded ? "folder.fill" : "folder")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(GraphNodeType.folder.swiftUIColor)
-                        .frame(width: 14)
-
-                    Text(folder.label.isEmpty ? "Untitled Folder" : folder.label)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.85))
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    if count > 0 {
-                        Text("\(count)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.primary.opacity(0.25))
-                    }
-                }
-                .padding(.leading, CGFloat(indent) * 16 + 12)
-                .padding(.trailing, 12)
-                .padding(.vertical, 8)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .simultaneousGesture(TapGesture(count: 2).onEnded {
-                onSelectNode(folder.id)
-            })
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.35))
+                    .frame(width: 12)
 
-            if isExpanded {
-                ForEach(subfolders, id: \.id) { subfolder in
-                    AnyView(recursiveFolderRow(subfolder, indent: indent + 1))
-                }
+                Image(systemName: isExpanded ? "folder.fill" : "folder")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(GraphNodeType.folder.swiftUIColor)
+                    .frame(width: 14)
 
-                ForEach(notes, id: \.id) { note in
-                    nodeRow(note, indent: indent + 1)
-                }
+                Text(folder.label.isEmpty ? "Untitled Folder" : folder.label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .lineLimit(1)
 
-                if subfolders.isEmpty && notes.isEmpty {
-                    Text("Empty folder")
-                        .font(.system(size: 11))
+                Spacer()
+
+                if noteCount > 0 {
+                    Text("\(noteCount)")
+                        .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.25))
-                        .padding(.leading, CGFloat(indent + 1) * 16 + 34)
-                        .padding(.vertical, 4)
                 }
             }
+            .padding(.leading, CGFloat(indent) * 16 + 12)
+            .padding(.trailing, 12)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            onSelectNode(folder.id)
+        })
     }
 
     // MARK: - Query Content

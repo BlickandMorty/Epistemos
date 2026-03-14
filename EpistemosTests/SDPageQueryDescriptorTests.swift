@@ -36,6 +36,14 @@ struct SDPageQueryDescriptorTests {
         #expect(result.map(\.title) == ["Newest", "Old"])
     }
 
+    @Test("activePagesDescriptor prefetches folder relationship")
+    func activePagesDescriptorPrefetchesFolder() {
+        let descriptor = SDPage.activePagesDescriptor
+
+        #expect(descriptor.relationshipKeyPathsForPrefetching.count == 1)
+        #expect(descriptor.relationshipKeyPathsForPrefetching.contains(where: { $0 == \SDPage.folder }))
+    }
+
     @Test("pinnedPagesDescriptor returns pinned non-archived pages sorted by sortOrder")
     func pinnedPagesDescriptorFiltersAndSorts() throws {
         let container = try makeContainer()
@@ -189,6 +197,15 @@ struct SDPageQueryDescriptorTests {
 
         let result = try context.fetch(SDFolder.topLevelFoldersDescriptor)
         #expect(result.map(\.name) == ["A", "B"])
+    }
+
+    @Test("GraphBuilder folder descriptor prefetches pages and children")
+    func graphBuilderFolderDescriptorPrefetchesRelationships() {
+        let descriptor = GraphBuilder.folderDescriptor()
+
+        #expect(descriptor.relationshipKeyPathsForPrefetching.count == 2)
+        #expect(descriptor.relationshipKeyPathsForPrefetching.contains(where: { $0 == \SDFolder.pages }))
+        #expect(descriptor.relationshipKeyPathsForPrefetching.contains(where: { $0 == \SDFolder.children }))
     }
 
     @Test("recentChatsDescriptor sorts chats by updatedAt desc")

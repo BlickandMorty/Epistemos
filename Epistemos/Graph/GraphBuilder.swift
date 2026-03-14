@@ -62,6 +62,12 @@ final class GraphBuilder: @unchecked Sendable {
         return blocks
     }
 
+    nonisolated static func folderDescriptor() -> FetchDescriptor<SDFolder> {
+        var descriptor = FetchDescriptor<SDFolder>()
+        descriptor.relationshipKeyPathsForPrefetching = [\.pages, \.children]
+        return descriptor
+    }
+
     // MARK: - Build
 
     /// Scan all structured data and return graph nodes + edges (not yet persisted).
@@ -179,9 +185,7 @@ final class GraphBuilder: @unchecked Sendable {
         // ────────────────────────────────────────────
         let folders: [SDFolder]
         do {
-            var folderDescriptor = FetchDescriptor<SDFolder>()
-            folderDescriptor.relationshipKeyPathsForPrefetching = [\.pages, \.children]
-            folders = try context.fetch(folderDescriptor)
+            folders = try context.fetch(Self.folderDescriptor())
         } catch {
             Log.app.error("GraphBuilder: failed to fetch folders: \(error.localizedDescription, privacy: .public)")
             folders = []

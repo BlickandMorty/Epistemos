@@ -519,3 +519,70 @@ struct NotesSidebarDeletePlannerTests {
         #expect(plan.pageIds == ["page-1"])
     }
 }
+
+@Suite("Notes Sidebar Visible Tree")
+struct NotesSidebarVisibleTreeBuilderTests {
+
+    @Test("Visible tree emits expanded descendants in render order")
+    func visibleTreeExpandedOrder() {
+        let rows = NotesSidebarVisibleTreeBuilder.build(
+            rootFolderIds: ["root"],
+            expandedFolderIds: ["root", "child"],
+            childFolderIdsById: [
+                "root": ["child"],
+                "child": [],
+            ],
+            pageIdsByFolderId: [
+                "root": ["page-root"],
+                "child": ["page-child-a", "page-child-b"],
+            ]
+        )
+
+        #expect(rows == [
+            .folder(id: "root", indent: 0),
+            .folder(id: "child", indent: 1),
+            .page(id: "page-child-a", indent: 2),
+            .page(id: "page-child-b", indent: 2),
+            .page(id: "page-root", indent: 1),
+        ])
+    }
+
+    @Test("Visible tree keeps collapsed descendants virtualized")
+    func visibleTreeCollapsedOrder() {
+        let rows = NotesSidebarVisibleTreeBuilder.build(
+            rootFolderIds: ["root"],
+            expandedFolderIds: [],
+            childFolderIdsById: [
+                "root": ["child"],
+                "child": [],
+            ],
+            pageIdsByFolderId: [
+                "root": ["page-root"],
+                "child": ["page-child"],
+            ]
+        )
+
+        #expect(rows == [
+            .folder(id: "root", indent: 0),
+        ])
+    }
+
+    @Test("Visible tree emits empty-folder placeholder only for expanded leaf folders")
+    func visibleTreeEmptyFolderPlaceholder() {
+        let rows = NotesSidebarVisibleTreeBuilder.build(
+            rootFolderIds: ["leaf"],
+            expandedFolderIds: ["leaf"],
+            childFolderIdsById: [
+                "leaf": [],
+            ],
+            pageIdsByFolderId: [
+                "leaf": [],
+            ]
+        )
+
+        #expect(rows == [
+            .folder(id: "leaf", indent: 0),
+            .emptyFolder(id: "leaf", indent: 1),
+        ])
+    }
+}

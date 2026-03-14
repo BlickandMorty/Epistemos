@@ -98,6 +98,7 @@ struct BlockEmbeddingTests {
 
         #expect(snapshot.capacity == 3)
         #expect(snapshot.entryCount == 3)
+        #expect(snapshot.currentSize == 3)
         #expect(snapshot.evictions == 2)
         #expect(await service.embedding(for: "a") == nil)
     }
@@ -126,6 +127,24 @@ struct BlockEmbeddingTests {
         #expect(await service.embedding(for: "d") == [4.0])
     }
 
+    @Test("embedding cache reports hit and miss metrics")
+    func embeddingCacheReportsMetrics() async {
+        let service = await EmbeddingService(maxCacheEntries: 2)
+        await service.replaceEmbeddingCacheForTesting([
+            "a": [1.0],
+            "b": [2.0],
+        ])
+
+        #expect(await service.embedding(for: "a") == [1.0])
+        #expect(await service.embedding(for: "missing") == nil)
+
+        let snapshot = await service.embeddingCacheDebugSnapshot()
+        #expect(snapshot.capacity == 2)
+        #expect(snapshot.currentSize == 2)
+        #expect(snapshot.hits == 1)
+        #expect(snapshot.misses == 1)
+    }
+
     @Test("computeAndPush clears stale cache when the graph is too small")
     func computeAndPushClearsCacheForSmallGraph() async {
         let service = await EmbeddingService()
@@ -142,6 +161,7 @@ struct BlockEmbeddingTests {
 
         let snapshot = await service.embeddingCacheDebugSnapshot()
         #expect(snapshot.entryCount == 0)
+        #expect(snapshot.currentSize == 0)
         #expect(await service.embedding(for: "stale-a") == nil)
     }
 }
