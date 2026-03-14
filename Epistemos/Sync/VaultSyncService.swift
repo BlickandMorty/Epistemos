@@ -130,6 +130,7 @@ final class VaultSyncService {
     private var appSupportDirectoryURLOverride: URL?
     private var preferencesFileURLOverride: URL?
     private var recoverySnapshotRootURLOverride: URL?
+    private var managedBodyCountProvider: (@Sendable () -> Int)?
     private var defaults = UserDefaults.standard
 
     private(set) var vaultURL: URL?
@@ -206,6 +207,10 @@ final class VaultSyncService {
 
     func setRecoverySnapshotRootURLForTesting(_ url: URL?) {
         recoverySnapshotRootURLOverride = url
+    }
+
+    func setManagedBodyCountProviderForTesting(_ provider: (@Sendable () -> Int)?) {
+        managedBodyCountProvider = provider
     }
 
     func setUserDefaultsForTesting(_ userDefaults: UserDefaults) {
@@ -326,6 +331,10 @@ final class VaultSyncService {
         } else {
             vaultMarkdownCount = 0
         }
+        let managedBodyCountProvider = self.managedBodyCountProvider
+        let localBodyFileCount = await Task.detached(priority: .utility) {
+            managedBodyCountProvider?() ?? NoteFileStorage.managedBodyCount()
+        }.value
 
         let context = modelContainer.mainContext
         let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []
@@ -341,12 +350,12 @@ final class VaultSyncService {
             vaultMarkdownCount: vaultMarkdownCount,
             indexedPageCount: pages.count,
             indexedPagesWithFilePath: indexedPagesWithFilePath,
-            localBodyFileCount: NoteFileStorage.managedBodyCount(),
+            localBodyFileCount: localBodyFileCount,
             bookmarkExists: bookmarkExists,
             restoreFailed: restoreFailed,
             initialImportCompleted: initialImportCompleted,
             hadPriorLocalState: !pages.isEmpty
-                || NoteFileStorage.managedBodyCount() > 0
+                || localBodyFileCount > 0
                 || defaults.string(forKey: Self.lastVaultPathKey) != nil
         )
     }

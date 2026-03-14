@@ -35,11 +35,9 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     static let verticalInset: CGFloat = 40
 
     static func horizontalInset(for availableWidth: CGFloat, markdown: String) -> CGFloat {
-        let readableWidth = NoteDualPreviewLayout.editorReadableWidth(
-            for: markdown,
-            defaultWidth: maxReadableWidth
-        )
-        return max(minHorizontalInset, (availableWidth - readableWidth) / 2)
+        _ = availableWidth
+        _ = markdown
+        return minHorizontalInset
     }
 
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }

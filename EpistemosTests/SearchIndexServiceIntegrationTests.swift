@@ -51,7 +51,18 @@ struct SearchIndexServiceIntegrationTests {
         throw lastError ?? SearchIndexError.noAppSupportDirectory
     }
 
-    private func makeLegacyFTSDatabase(_ databaseURL: URL) throws {
+    private func runSQLiteProcess(databaseURL: URL, schema: String) async throws -> Int32 {
+        try await Task.detached {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+            process.arguments = [databaseURL.path, schema]
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus
+        }.value
+    }
+
+    private func makeLegacyFTSDatabase(_ databaseURL: URL) async throws {
         try FileManager.default.createDirectory(
             at: databaseURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -87,12 +98,8 @@ struct SearchIndexServiceIntegrationTests {
         END;
         """
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = [databaseURL.path, schema]
-        try process.run()
-        process.waitUntilExit()
-        #expect(process.terminationStatus == 0)
+        let terminationStatus = try await runSQLiteProcess(databaseURL: databaseURL, schema: schema)
+        #expect(terminationStatus == 0)
     }
 
     @Test("upsert + search returns inserted page")
@@ -321,11 +328,11 @@ struct SearchIndexServiceIntegrationTests {
     }
 
     @Test("stale FTS schema falls back to plain-table search when module is unavailable")
-    func staleFTSSchemaFallsBackCleanly() throws {
+    func staleFTSSchemaFallsBackCleanly() async throws {
         let databaseURL = makeDatabaseURL()
         let pageId = uniqueId("legacy-fts")
         let token = uniqueToken("legacy")
-        try makeLegacyFTSDatabase(databaseURL)
+        try await makeLegacyFTSDatabase(databaseURL)
 
         let service = try SearchIndexService(databaseURL: databaseURL)
         defer { cleanup(service, ids: [pageId]) }

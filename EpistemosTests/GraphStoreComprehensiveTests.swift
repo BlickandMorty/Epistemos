@@ -985,6 +985,88 @@ struct GraphStoreFuzzySearchTests {
         
         #expect(results.count == 5)
     }
+
+    @Test("fuzzySearch cache hits on repeated identical query")
+    func fuzzySearchCacheHitOnRepeatQuery() {
+        let store = GraphStore()
+        for i in 0..<200 {
+            store.addNode(makeNode(id: "n\(i)", label: "Graph Node \(i) Topic"))
+        }
+
+        let first = store.fuzzySearch(query: "graph node", limit: 12)
+        let second = store.fuzzySearch(query: "graph node", limit: 12)
+        let snapshot = store.searchCacheDebugSnapshot()
+
+        #expect(first.map(\.id) == second.map(\.id))
+        #expect(snapshot.misses == 1)
+        #expect(snapshot.hits == 1)
+        #expect(snapshot.entryCount == 1)
+    }
+
+    @Test("fuzzySearch cache expires after TTL")
+    func fuzzySearchCacheExpiresAfterTTL() {
+        let store = GraphStore()
+        var now = Date(timeIntervalSince1970: 1_000)
+        store.setSearchCacheNowProviderForTesting { now }
+        store.addNode(makeNode(id: "n1", label: "Temporal Cache Node"))
+
+        _ = store.fuzzySearch(query: "temporal", limit: 5)
+        now.addTimeInterval(16)
+        _ = store.fuzzySearch(query: "temporal", limit: 5)
+        let snapshot = store.searchCacheDebugSnapshot()
+
+        #expect(snapshot.misses == 2)
+        #expect(snapshot.expired == 1)
+        #expect(snapshot.hits == 0)
+    }
+
+    @Test("fuzzySearch cache invalidates when labels change")
+    func fuzzySearchCacheInvalidatesOnNodeLabelMutation() {
+        let store = GraphStore()
+        store.addNode(makeNode(id: "n1", label: "Old Label"))
+
+        _ = store.fuzzySearch(query: "old", limit: 5)
+        var updated = makeNode(id: "n1", label: "New Label")
+        updated.position = SIMD2<Float>(10, 20)
+        updated.velocity = SIMD2<Float>(1, 1)
+        store.updateNode(updated)
+
+        let oldResults = store.fuzzySearch(query: "old", limit: 5)
+        let newResults = store.fuzzySearch(query: "new", limit: 5)
+        let snapshot = store.searchCacheDebugSnapshot()
+
+        #expect(oldResults.isEmpty)
+        #expect(newResults.map(\.id) == ["n1"])
+        #expect(snapshot.misses == 3)
+    }
+
+    @Test("fuzzySearch cache timing improves on repeat query")
+    func fuzzySearchCacheTimingImprovesOnRepeatQuery() {
+        let store = GraphStore()
+        for i in 0..<12_000 {
+            store.addNode(makeNode(id: "n\(i)", label: "Graph Cache Topic \(i) Alpha Cluster"))
+        }
+
+        let clock = ContinuousClock()
+        let missStart = clock.now
+        _ = store.fuzzySearch(query: "alpha cluster", limit: 20)
+        let missDuration = clock.now - missStart
+
+        let hitPasses = 200
+        let hitStart = clock.now
+        for _ in 0..<hitPasses {
+            _ = store.fuzzySearch(query: "alpha cluster", limit: 20)
+        }
+        let hitDuration = clock.now - hitStart
+        let averageHitMicros = hitDuration.components.attoseconds / 1_000_000_000_000 / Int64(hitPasses)
+        let missMicros = missDuration.components.attoseconds / 1_000_000_000_000
+
+        print("GraphStore fuzzySearch cache miss_us=\(missMicros) avg_hit_us=\(averageHitMicros)")
+
+        let snapshot = store.searchCacheDebugSnapshot()
+        #expect(snapshot.misses == 1)
+        #expect(snapshot.hits == hitPasses)
+    }
     
     @Test("fuzzySearch sorts by score descending")
     func fuzzySearchSortsByScore() {

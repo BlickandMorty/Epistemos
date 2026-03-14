@@ -146,6 +146,61 @@ private enum ParityHelpers {
 @Suite("TextKit 2 Parity Tests")
 enum TextKit2ParityTests {
 
+@Suite("TK2 Parity - Editor Shell")
+struct EditorShellTests {
+
+    @MainActor
+    @Test("TK2 editor headings preserve the original heading text casing")
+    func tk2EditorHeadingsPreserveOriginalCasing() throws {
+        let paragraphs = ParityHelpers.tk2DisplayParagraphs("# Mixed Case Heading")
+        let heading = try #require(paragraphs.first)
+
+        #expect(heading.string == "# Mixed Case Heading")
+    }
+
+    @Test("code blocks, quotes, and callouts carry block chrome markers")
+    func blockChromeMarkersApplyAcrossEditorStacks() {
+        let tk1Code = ParityHelpers.tk1Styled("```\nlet value = 1\n```")
+        let tk1Quote = ParityHelpers.tk1Styled("> quoted")
+        let tk2Callout = ParityHelpers.tk2Styled("> [!note] Title")
+
+        let codeKind = tk1Code.attribute(
+            MarkdownTextStorage.blockChromeKindAttribute,
+            at: 0,
+            effectiveRange: nil
+        ) as? String
+        let quoteKind = tk1Quote.attribute(
+            MarkdownTextStorage.blockChromeKindAttribute,
+            at: 0,
+            effectiveRange: nil
+        ) as? String
+        let calloutKind = tk2Callout.attribute(
+            MarkdownTextStorage.blockChromeKindAttribute,
+            at: 0,
+            effectiveRange: nil
+        ) as? String
+
+        #expect(codeKind == MarkdownBlockChromeKind.codeBlock.rawValue)
+        #expect(quoteKind == MarkdownBlockChromeKind.quote.rawValue)
+        #expect(calloutKind == MarkdownBlockChromeKind.callout.rawValue)
+    }
+
+    @Test("block chrome paragraphs do not rely on per-line background fills")
+    func blockChromeParagraphsDoNotUseBackgroundColor() {
+        let tk1Code = ParityHelpers.tk1Styled("```\nlet value = 1\n```")
+        let tk1Quote = ParityHelpers.tk1Styled("> quoted")
+        let tk2Callout = ParityHelpers.tk2Styled("> [!note] Title")
+
+        let tk1CodeBackground = tk1Code.attribute(.backgroundColor, at: 0, effectiveRange: nil) as? NSColor
+        let tk1QuoteBackground = tk1Quote.attribute(.backgroundColor, at: 0, effectiveRange: nil) as? NSColor
+        let tk2CalloutBackground = tk2Callout.attribute(.backgroundColor, at: 0, effectiveRange: nil) as? NSColor
+
+        #expect(tk1CodeBackground == nil)
+        #expect(tk1QuoteBackground == nil)
+        #expect(tk2CalloutBackground == nil)
+    }
+}
+
 // MARK: - Suite 1: Inline Styling Parity (TK1 vs TK2)
 
 @Suite("TK2 Parity - Inline Styling")
@@ -448,6 +503,8 @@ struct ParagraphTests {
 
         #expect(shortTK1Size > mediumTK1Size)
         #expect(mediumTK1Size > longTK1Size)
+        #expect(shortTK1Size - mediumTK1Size >= 4)
+        #expect(shortTK1Size - longTK1Size >= 8)
         #expect(longTK1Size > h2TK1Size)
 
         #expect(shortTK1Size == shortTK2Size)
@@ -456,8 +513,8 @@ struct ParagraphTests {
     }
 
     @MainActor
-    @Test("TK2 display headings uppercase H1 through H3 without changing source markdown")
-    func tk2DisplayHeadingsUppercaseFirstThreeLevels() {
+    @Test("TK2 display headings preserve source casing through H3")
+    func tk2DisplayHeadingsPreserveSourceCasing() {
         let markdown = "# Big Heading\n## Sub Heading\n### Third Level"
         let (_, textView) = ProseTextView2.makeTextKit2()
         textView.textStorage?.setAttributedString(NSAttributedString(string: markdown))
@@ -467,9 +524,9 @@ struct ParagraphTests {
 
         let paragraphs = ParityHelpers.tk2DisplayParagraphs(markdown)
         #expect(paragraphs.count >= 3)
-        #expect(paragraphs[0].string == "# BIG HEADING\n")
-        #expect(paragraphs[1].string == "## SUB HEADING\n")
-        #expect(paragraphs[2].string == "### THIRD LEVEL")
+        #expect(paragraphs[0].string == "# Big Heading\n")
+        #expect(paragraphs[1].string == "## Sub Heading\n")
+        #expect(paragraphs[2].string == "### Third Level")
     }
 
     @MainActor
@@ -1854,11 +1911,11 @@ struct TK2PageSwapPersistenceTests {
 @Suite("TK2 Parity - Centering")
 struct TK2CenteringTests {
 
-    @Test("TK2 horizontal inset relaxes on narrower note windows")
-    func horizontalInsetCompactsForNarrowWindows() {
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 900, markdown: "Body") == 90)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, markdown: "Body") == 140)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200, markdown: "Body") == 240)
+    @Test("TK2 horizontal inset stays stable instead of recentering the editor body")
+    func horizontalInsetStaysStable() {
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 900, markdown: "Body") == 60)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, markdown: "Body") == 60)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200, markdown: "Body") == 60)
         #expect(
             ProseEditorRepresentable2.horizontalInset(
                 for: 1000,
@@ -1867,7 +1924,7 @@ struct TK2CenteringTests {
                     | --- | --- |
                     | Pens | 12 |
                     """
-            ) == 240
+            ) == 60
         )
     }
 }

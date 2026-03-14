@@ -747,6 +747,7 @@ impl Engine {
         // Skipping this when idle saves O(N) work per frame at 10K nodes.
         if instance_buffers_changed || self.highlight_dirty {
             self.renderer.rebuild_highlight_flags(&self.world);
+            self.renderer.rebuild_edge_highlight_flags();
             self.highlight_dirty = false;
         }
 

@@ -14,6 +14,53 @@ import SwiftData
 /// Safe to use from any actor that owns the passed ModelContext
 /// (@MainActor with mainContext, or @ModelActor with its own context).
 final class GraphBuilder: @unchecked Sendable {
+    private nonisolated static let blockRefFetchBatchSize = 128
+    private nonisolated static let blockRefFetchDiagnosticsLock = NSLock()
+    private nonisolated(unsafe) static var blockRefFetchBatchCount = 0
+
+    nonisolated static func resetBlockRefFetchDiagnosticsForTesting() {
+        blockRefFetchDiagnosticsLock.lock()
+        blockRefFetchBatchCount = 0
+        blockRefFetchDiagnosticsLock.unlock()
+    }
+
+    nonisolated static func blockRefFetchBatchCountForTesting() -> Int {
+        blockRefFetchDiagnosticsLock.lock()
+        let count = blockRefFetchBatchCount
+        blockRefFetchDiagnosticsLock.unlock()
+        return count
+    }
+
+    private nonisolated static func recordBlockRefFetchBatchForTesting() {
+        blockRefFetchDiagnosticsLock.lock()
+        blockRefFetchBatchCount += 1
+        blockRefFetchDiagnosticsLock.unlock()
+    }
+
+    private nonisolated func fetchReferencedBlocks(
+        blockIds: Set<String>,
+        context: ModelContext
+    ) -> [SDBlock] {
+        guard !blockIds.isEmpty else { return [] }
+
+        let orderedIds = Array(blockIds)
+        var blocks: [SDBlock] = []
+        blocks.reserveCapacity(orderedIds.count)
+
+        for start in stride(from: 0, to: orderedIds.count, by: Self.blockRefFetchBatchSize) {
+            let end = min(start + Self.blockRefFetchBatchSize, orderedIds.count)
+            let batch = Array(orderedIds[start..<end])
+            let descriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { batch.contains($0.id) }
+            )
+            if let fetched = try? context.fetch(descriptor) {
+                blocks.append(contentsOf: fetched)
+            }
+            Self.recordBlockRefFetchBatchForTesting()
+        }
+
+        return blocks
+    }
 
     // MARK: - Build
 
@@ -113,13 +160,8 @@ final class GraphBuilder: @unchecked Sendable {
         // Pass 2: fetch only referenced blocks and resolve edges.
         if !blockRefs.isEmpty {
             var blockIdToPageId: [String: String] = [:]
-            for refId in referencedBlockIds {
-                let desc = FetchDescriptor<SDBlock>(
-                    predicate: #Predicate<SDBlock> { $0.id == refId }
-                )
-                if let block = try? context.fetch(desc).first {
-                    blockIdToPageId[block.id] = block.pageId
-                }
+            for block in fetchReferencedBlocks(blockIds: referencedBlockIds, context: context) {
+                blockIdToPageId[block.id] = block.pageId
             }
 
             for ref in blockRefs {

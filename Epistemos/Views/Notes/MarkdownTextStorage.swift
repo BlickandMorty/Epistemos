@@ -1,5 +1,11 @@
 import AppKit
 
+enum MarkdownBlockChromeKind: String, Sendable {
+    case codeBlock
+    case quote
+    case callout
+}
+
 // MARK: - MarkdownTextStorage
 // NSTextStorage subclass that applies live markdown formatting.
 // Styling is purely visual — the underlying string is plain markdown text.
@@ -15,6 +21,15 @@ import AppKit
 // All mutable state (isDark, skipInlineStyles, etc.) is only mutated from MainActor contexts.
 nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     static let noteBaseFontSize: CGFloat = 15
+    static let blockChromeKindAttribute = NSAttributedString.Key("EpistemosBlockChromeKind")
+    static let blockChromeAccentAttribute = NSAttributedString.Key("EpistemosBlockChromeAccent")
+    static let blockChromeFillAttribute = NSAttributedString.Key("EpistemosBlockChromeFill")
+
+    enum TableLineRole {
+        case first
+        case continuation
+        case separator
+    }
 
     private let backing = NSMutableAttributedString()
     var isDark: Bool = true
@@ -284,8 +299,10 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                         : accent.withAlphaComponent(0.04)
                     backing.addAttributes([
                         .foregroundColor: codeColor,
-                        .backgroundColor: codeBg,
-                        .paragraphStyle: Self.codeBlockStyle
+                        .paragraphStyle: Self.codeBlockStyle,
+                        Self.blockChromeKindAttribute: MarkdownBlockChromeKind.codeBlock.rawValue,
+                        Self.blockChromeAccentAttribute: accent,
+                        Self.blockChromeFillAttribute: codeBg,
                     ], range: styleRange)
                 }
             } else {
@@ -336,32 +353,42 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         let foregroundColor = resolvedForegroundColor
         let h1Color = theme.map { Self.nsColor(hex: MarkdownHeadingDisplay.foregroundHex(for: $0, level: 1)) }
             ?? headingAccentColor
+        let h1Shadow = theme.flatMap { MarkdownHeadingDisplay.nsShadow(for: $0, level: 1) }
+        let h2Shadow = theme.flatMap { MarkdownHeadingDisplay.nsShadow(for: $0, level: 2) }
+        let h3Shadow = theme.flatMap { MarkdownHeadingDisplay.nsShadow(for: $0, level: 3) }
 
         if t.hasPrefix("# ") && !t.hasPrefix("## ") {
-            let h1Size = MarkdownHeadingDisplay.fontSize(
+            var attributes: [NSAttributedString.Key: Any] = [
+                .font: displayFont(size: MarkdownHeadingDisplay.fontSize(
                 for: 1,
                 text: line,
                 baseSize: baseFontSize + 31,
                 nextLevelSize: baseFontSize + 5
-            )
-            backing.addAttributes([
-                .font: displayFont(size: h1Size, weight: .bold),
+            ), weight: .bold),
                 .foregroundColor: h1Color,
                 .paragraphStyle: leadingDocumentContentIsEmpty(before: range.location)
                     ? Self.leadingH1Style
                     : Self.h1Style
-            ], range: range)
+            ]
+            if let h1Shadow {
+                attributes[.shadow] = h1Shadow
+            }
+            backing.addAttributes(attributes, range: range)
             // Ulysses-style: override # prefix with tiny font + muted color
             dimH1Prefix(in: line, lineStart: range.location, color: h1Color.withAlphaComponent(0.55))
 
         } else if t.hasPrefix("## ") && !t.hasPrefix("### ") {
-            backing.addAttributes([
+            var attributes: [NSAttributedString.Key: Any] = [
                 .font: displayFont(size: baseFontSize + 5, weight: .bold),
                 .foregroundColor: headingAccentColor,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .underlineColor: headingAccentColor.withAlphaComponent(0.18),
                 .paragraphStyle: Self.h2Style
-            ], range: range)
+            ]
+            if let h2Shadow {
+                attributes[.shadow] = h2Shadow
+            }
+            backing.addAttributes(attributes, range: range)
             dimPrefix(
                 in: line,
                 prefix: "## ",
@@ -370,11 +397,15 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             )
 
         } else if t.hasPrefix("### ") && !t.hasPrefix("#### ") {
-            backing.addAttributes([
+            var attributes: [NSAttributedString.Key: Any] = [
                 .font: displayFont(size: baseFontSize + 1, weight: .semibold),
                 .foregroundColor: headingAccentColor,
                 .paragraphStyle: Self.h3Style
-            ], range: range)
+            ]
+            if let h3Shadow {
+                attributes[.shadow] = h3Shadow
+            }
+            backing.addAttributes(attributes, range: range)
             dimPrefix(
                 in: line,
                 prefix: "### ",
@@ -400,8 +431,15 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("```") {
             // Fenced code block delimiter — dimmed, body font (no monospaced change)
+            let codeBg: NSColor = isDark
+                ? accentColor.withAlphaComponent(0.05)
+                : accentColor.withAlphaComponent(0.04)
             backing.addAttributes([
-                .foregroundColor: mutedColor
+                .foregroundColor: mutedColor,
+                .paragraphStyle: Self.codeBlockStyle,
+                Self.blockChromeKindAttribute: MarkdownBlockChromeKind.codeBlock.rawValue,
+                Self.blockChromeAccentAttribute: accentColor,
+                Self.blockChromeFillAttribute: codeBg,
             ], range: range)
 
         } else if t.hasPrefix("- [x] ") || t.hasPrefix("- [ ] ") {
@@ -442,10 +480,12 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             let calloutType = Self.parseCalloutType(t)
             let colors = Self.calloutColors(for: calloutType, isDark: isDark)
             backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium),
+                .font: NSFont.systemFont(ofSize: baseFontSize, weight: .semibold),
                 .foregroundColor: colors.text,
-                .backgroundColor: colors.bg,
-                .paragraphStyle: Self.calloutStyle
+                .paragraphStyle: Self.calloutStyle,
+                Self.blockChromeKindAttribute: MarkdownBlockChromeKind.callout.rawValue,
+                Self.blockChromeAccentAttribute: colors.accent,
+                Self.blockChromeFillAttribute: colors.bg,
             ], range: range)
             // Dim the > [!type] prefix, show the icon + title portion brighter
             let calloutPrefix: String
@@ -466,8 +506,10 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                 backing.addAttributes([
                     .font: NSFont.systemFont(ofSize: baseFontSize),
                     .foregroundColor: colors.text,
-                    .backgroundColor: colors.bg,
-                    .paragraphStyle: Self.calloutStyle
+                    .paragraphStyle: Self.calloutStyle,
+                    Self.blockChromeKindAttribute: MarkdownBlockChromeKind.callout.rawValue,
+                    Self.blockChromeAccentAttribute: colors.accent,
+                    Self.blockChromeFillAttribute: colors.bg,
                 ], range: range)
                 dimPrefix(in: line, prefix: "> ", lineStart: range.location, color: colors.accent.withAlphaComponent(0.35))
             } else {
@@ -475,9 +517,12 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
                     ? accentColor.withAlphaComponent(0.04)
                     : accentColor.withAlphaComponent(0.03)
                 backing.addAttributes([
-                    .font: NSFont.systemFont(ofSize: baseFontSize).italic,
+                    .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium).italic,
                     .foregroundColor: foregroundColor.withAlphaComponent(isDark ? 0.60 : 0.72),
-                    .backgroundColor: quoteBg
+                    .paragraphStyle: Self.quoteStyle,
+                    Self.blockChromeKindAttribute: MarkdownBlockChromeKind.quote.rawValue,
+                    Self.blockChromeAccentAttribute: accentColor,
+                    Self.blockChromeFillAttribute: quoteBg,
                 ], range: range)
                 dimPrefix(in: line, prefix: "> ", lineStart: range.location, color: accentColor.withAlphaComponent(0.40))
             }
@@ -517,34 +562,38 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             }
 
         } else if t.hasPrefix("|") && t.hasSuffix("|") {
-            // Table row — liquid glass styling. Grid lines drawn in drawBackground()
-            // via NSBezierPath (rounded border, dividers). Text styling here handles:
-            // - Monospace font for column alignment
-            // - Header bold weight
-            // - Muted pipe characters (grid lines replace them visually)
-            // - Alternating row tint for depth
             let lineStr = (backing.string as NSString).substring(with: range)
-            let isSepRow = lineStr.trimmingCharacters(in: .whitespaces)
-                .dropFirst().dropLast()
-                .split(separator: "|", omittingEmptySubsequences: false)
-                .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+            let str = backing.string as NSString
+            let tableLineRole = Self.tableLineRole(at: range, in: str)
 
-            if isSepRow {
-                // Separator row — collapsed to near-zero height
+            if usesRenderedTableOverlays {
+                switch tableLineRole {
+                case .first:
+                    backing.addAttributes([
+                        .font: NSFont.systemFont(ofSize: baseFontSize - 1, weight: .medium),
+                        .foregroundColor: NSColor.clear,
+                        .paragraphStyle: Self.tablePlaceholderStyle
+                    ], range: range)
+                case .continuation, .separator:
+                    backing.addAttributes([
+                        .font: NSFont.monospacedSystemFont(ofSize: 1, weight: .regular),
+                        .foregroundColor: NSColor.clear,
+                        .paragraphStyle: Self.tableCollapsedStyle
+                    ], range: range)
+                }
+            } else if tableLineRole == .separator {
                 backing.addAttributes([
                     .font: NSFont.monospacedSystemFont(ofSize: 1, weight: .regular),
                     .foregroundColor: NSColor.clear,
                     .paragraphStyle: Self.tableSepStyle
                 ], range: range)
             } else {
-                let str = backing.string as NSString
                 let isHeader = Self.isTableHeader(at: range, in: str)
 
-                // Apple Notes style: system font, standard label colors
                 backing.addAttributes([
                     .font: NSFont.systemFont(ofSize: isHeader ? baseFontSize : baseFontSize - 1,
                                              weight: isHeader ? .semibold : .regular),
-                    .foregroundColor: usesRenderedTableOverlays ? NSColor.clear : NSColor.labelColor,
+                    .foregroundColor: NSColor.labelColor,
                     .paragraphStyle: Self.tableStyle
                 ], range: range)
 
@@ -955,6 +1004,30 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
             .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
     }
 
+    private static func isTableLine(_ trimmedLine: String) -> Bool {
+        trimmedLine.hasPrefix("|") && trimmedLine.hasSuffix("|") && trimmedLine.count >= 3
+    }
+
+    private static func isTableSeparatorLine(_ trimmedLine: String) -> Bool {
+        guard isTableLine(trimmedLine) else { return false }
+        return trimmedLine.dropFirst().dropLast()
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .allSatisfy { $0.trimmingCharacters(in: .whitespaces).allSatisfy { $0 == "-" || $0 == ":" } }
+    }
+
+    static func tableLineRole(at range: NSRange, in str: NSString) -> TableLineRole {
+        let trimmedLine = str.substring(with: range)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if isTableSeparatorLine(trimmedLine) {
+            return .separator
+        }
+        guard range.location > 0 else { return .first }
+        let previousLineRange = str.lineRange(for: NSRange(location: range.location - 1, length: 0))
+        let previousTrimmedLine = str.substring(with: previousLineRange)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return isTableLine(previousTrimmedLine) ? .continuation : .first
+    }
+
     private func dimPrefix(in line: String, prefix: String, lineStart: Int, color: NSColor) {
         let leadingSpaces = line.prefix(while: { $0 == " " }).count
         let prefixLen = prefix.utf16.count
@@ -1093,21 +1166,31 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
     /// No monospaced font — visual block via background color + indent (iA Writer style).
     private nonisolated(unsafe) static let calloutStyle: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
-        ps.lineSpacing = 3
-        ps.paragraphSpacing = 1
-        ps.paragraphSpacingBefore = 1
-        ps.headIndent = bodyIndent + 20
-        ps.firstLineHeadIndent = bodyIndent + 20
+        ps.lineSpacing = 4
+        ps.paragraphSpacing = 6
+        ps.paragraphSpacingBefore = 6
+        ps.headIndent = bodyIndent + 26
+        ps.firstLineHeadIndent = bodyIndent + 26
         return ps.copy() as! NSParagraphStyle
     }()
 
     private nonisolated(unsafe) static let codeBlockStyle: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
-        ps.lineSpacing = 3
-        ps.paragraphSpacing = 0
-        ps.paragraphSpacingBefore = 0
-        ps.headIndent = bodyIndent + 16
-        ps.firstLineHeadIndent = bodyIndent + 16
+        ps.lineSpacing = 4
+        ps.paragraphSpacing = 4
+        ps.paragraphSpacingBefore = 4
+        ps.headIndent = bodyIndent + 22
+        ps.firstLineHeadIndent = bodyIndent + 22
+        return ps.copy() as! NSParagraphStyle
+    }()
+
+    private nonisolated(unsafe) static let quoteStyle: NSParagraphStyle = {
+        let ps = NSMutableParagraphStyle()
+        ps.lineSpacing = 4
+        ps.paragraphSpacing = 5
+        ps.paragraphSpacingBefore = 5
+        ps.headIndent = bodyIndent + 22
+        ps.firstLineHeadIndent = bodyIndent + 22
         return ps.copy() as! NSParagraphStyle
     }()
 
@@ -1200,6 +1283,30 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         return ps.copy() as! NSParagraphStyle
     }()
 
+    private nonisolated(unsafe) static let tablePlaceholderStyle: NSParagraphStyle = {
+        let ps = NSMutableParagraphStyle()
+        ps.minimumLineHeight = 22
+        ps.maximumLineHeight = 22
+        ps.lineSpacing = 0
+        ps.paragraphSpacing = 0
+        ps.paragraphSpacingBefore = 0
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
+        return ps.copy() as! NSParagraphStyle
+    }()
+
+    private nonisolated(unsafe) static let tableCollapsedStyle: NSParagraphStyle = {
+        let ps = NSMutableParagraphStyle()
+        ps.minimumLineHeight = 1
+        ps.maximumLineHeight = 1
+        ps.lineSpacing = 0
+        ps.paragraphSpacing = 0
+        ps.paragraphSpacingBefore = 0
+        ps.firstLineHeadIndent = bodyIndent
+        ps.headIndent = bodyIndent
+        return ps.copy() as! NSParagraphStyle
+    }()
+
     /// Separator row — collapsed to near-zero height so it's invisible.
     private nonisolated(unsafe) static let tableSepStyle: NSParagraphStyle = {
         let ps = NSMutableParagraphStyle()
@@ -1232,11 +1339,107 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
     static func codeBlockParagraphStyle() -> NSParagraphStyle { codeBlockStyle }
 
+    static func quoteParagraphStyle() -> NSParagraphStyle { quoteStyle }
+
     static func listParagraphStyle() -> NSParagraphStyle { listStyle }
 
     static func tableParagraphStyle() -> NSParagraphStyle { tableStyle }
 
+    static func tablePlaceholderParagraphStyle() -> NSParagraphStyle { tablePlaceholderStyle }
+
+    static func tableCollapsedParagraphStyle() -> NSParagraphStyle { tableCollapsedStyle }
+
     static func tableSeparatorParagraphStyle() -> NSParagraphStyle { tableSepStyle }
+
+    static func blockChromeFill(
+        from attributes: [NSAttributedString.Key: Any],
+        fallback: NSColor = .controlBackgroundColor
+    ) -> NSColor {
+        (attributes[blockChromeFillAttribute] as? NSColor) ?? fallback
+    }
+
+    static func blockChromeFrame(
+        textContainerOrigin: NSPoint,
+        containerWidth: CGFloat,
+        boundsWidth: CGFloat
+    ) -> NSRect {
+        let leadingInset = max(bodyIndent - 8, 14)
+        let trailingInset: CGFloat = 16
+        let availableWidth = min(containerWidth, max(0, boundsWidth - (textContainerOrigin.x * 2)))
+        let width = max(0, availableWidth - leadingInset - trailingInset)
+        return NSRect(
+            x: textContainerOrigin.x + leadingInset,
+            y: 0,
+            width: width,
+            height: 0
+        )
+    }
+
+    static func drawBlockChrome(
+        kind: MarkdownBlockChromeKind,
+        fill: NSColor,
+        accent: NSColor,
+        in rect: NSRect
+    ) {
+        let radius: CGFloat = kind == .codeBlock ? 14 : 16
+        let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
+
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.07)
+        shadow.shadowBlurRadius = 10
+        shadow.shadowOffset = NSSize(width: 0, height: -1)
+        shadow.set()
+        fill.setFill()
+        path.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        accent.withAlphaComponent(kind == .callout ? 0.28 : 0.14).setStroke()
+        path.lineWidth = 0.8
+        path.stroke()
+
+        let highlightRect = NSRect(
+            x: rect.minX + 1,
+            y: rect.maxY - 7,
+            width: max(0, rect.width - 2),
+            height: 6
+        )
+        let highlightPath = NSBezierPath(
+            roundedRect: highlightRect,
+            xRadius: max(radius - 1, 1),
+            yRadius: max(radius - 1, 1)
+        )
+        fill.withAlphaComponent(0.28).setFill()
+        highlightPath.fill()
+
+        let railWidth: CGFloat
+        let railAlpha: CGFloat
+        switch kind {
+        case .callout:
+            railWidth = 4
+            railAlpha = 0.92
+        case .quote:
+            railWidth = 2.5
+            railAlpha = 0.65
+        case .codeBlock:
+            railWidth = 1.5
+            railAlpha = 0.30
+        }
+
+        let accentRect = NSRect(
+            x: rect.minX + 2,
+            y: rect.minY + 2,
+            width: railWidth,
+            height: max(0, rect.height - 4)
+        )
+        let accentPath = NSBezierPath(
+            roundedRect: accentRect,
+            xRadius: railWidth / 2,
+            yRadius: railWidth / 2
+        )
+        accent.withAlphaComponent(railAlpha).setFill()
+        accentPath.fill()
+    }
 
 }
 

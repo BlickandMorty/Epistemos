@@ -40,9 +40,6 @@ enum NoteEditorViewFinder {
                 return tv
             }
         }
-        if pageId != nil {
-            return findEditorTextView()
-        }
         return nil
     }
 
@@ -219,7 +216,7 @@ enum NoteDualPreviewLayout {
     }
 
     static func editorReadableWidth(for markdown: String, defaultWidth: CGFloat) -> CGFloat {
-        containsTable(in: markdown) ? min(defaultWidth, tableEditorReadableMaxWidth) : defaultWidth
+        defaultWidth
     }
 
     static func paragraphBlocks(in markdown: String) -> [String] {
@@ -837,17 +834,17 @@ struct NoteDetailWorkspaceView: View {
                             Image(systemName: "command")
                                 .font(.system(size: 10, weight: .medium))
                             Text("S")
-                                .font(.custom("RetroGaming", size: 10))
+                                .font(AppDisplayTypography.font(size: 10))
                             Text("Save to Disk")
-                                .font(.custom("RetroGaming", size: 10))
+                                .font(AppDisplayTypography.font(size: 10))
                                 .padding(.leading, 2)
                             Spacer()
                             Image(systemName: "command")
                                 .font(.system(size: 10, weight: .medium))
                             Text("2")
-                                .font(.custom("RetroGaming", size: 10))
+                                .font(AppDisplayTypography.font(size: 10))
                             Text("Note Sidebar")
-                                .font(.custom("RetroGaming", size: 10))
+                                .font(AppDisplayTypography.font(size: 10))
                                 .padding(.leading, 2)
                         }
                         .foregroundStyle(ui.theme.foreground.opacity(0.35))
@@ -3106,7 +3103,7 @@ private struct NoteBookPreviewPage: View {
         MarkdownTextView(
             content: markdown,
             theme: theme,
-            rippleStyle: .headings123
+            rippleStyle: .none
         )
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(NoteDualPreviewLayout.pagePadding)
@@ -3139,15 +3136,15 @@ private struct TransitionGreetingView: View {
             theme.background.ignoresSafeArea()
             ASCIIRippleText(
                 text: message,
-                font: .custom("RetroGaming", size: 44),
+                font: AppDisplayTypography.font(size: 44),
                 color: theme.fontAccent,
                 shadowColor: theme.fontAccent.opacity(theme.isDark ? 0.18 : 0.10),
                 shadowRadius: 8,
                 manualTrigger: rippleTrigger,
                 interactive: false
             )
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 32)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
         }
         .task(id: message) {
             rippleTrigger += 1

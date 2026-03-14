@@ -104,6 +104,20 @@ struct NoteSavingEdgeCaseTests {
         let readContent = NoteFileStorage.readBody(pageId: pageId)
         #expect(contents.contains(readContent))
     }
+
+    @Test("mapped loadBody preserves file and inline fallback semantics")
+    @MainActor func mappedLoadBodyMatchesCurrentSemantics() async throws {
+        let page = SDPage(title: "Mapped")
+        let body = String(repeating: "Mapped body ", count: 64)
+
+        page.saveBody(body)
+        #expect(page.loadBody(mapped: true) == body)
+        #expect(page.loadBody() == body)
+
+        let fallback = SDPage(title: "Fallback")
+        fallback.body = "Inline fallback"
+        #expect(fallback.loadBody(mapped: true) == "Inline fallback")
+    }
     
     // MARK: - External Body Change Notification Tests (P1 fix)
     // Verifies the pageBodyDidChange notification mechanism that replaced

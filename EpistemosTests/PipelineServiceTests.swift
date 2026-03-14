@@ -577,11 +577,15 @@ struct NetworkProcessActivityTests {
 
     @Test("bootstrap no longer keeps a session-wide App Nap override")
     @MainActor func bootstrapDoesNotKeepSessionWideActivity() {
-        let bootstrap = AppBootstrap()
+        let existingBootstrap = AppBootstrap.shared
+        let bootstrap = existingBootstrap ?? AppBootstrap()
         let activityField = Mirror(reflecting: bootstrap).children.first {
             $0.label == "antiNapActivity"
         }
 
+        if let existingBootstrap {
+            #expect(bootstrap === existingBootstrap)
+        }
         #expect(activityField == nil)
     }
 }
@@ -596,7 +600,7 @@ struct ChatCoordinatorResearchPersistenceTests {
     }
 
     private func makeCoordinator(container: ModelContainer) -> ChatCoordinator {
-        let bootstrap = AppBootstrap()
+        let bootstrap = AppBootstrap.shared ?? AppBootstrap()
         let chatState = ChatState()
         let pipelineState = PipelineState()
         let inference = InferenceState()
@@ -655,6 +659,18 @@ struct ChatCoordinatorResearchPersistenceTests {
             dataVsModelBalance: "Balanced",
             recommendedActions: []
         )
+    }
+
+    @Test("research persistence coordinator reuses the shared bootstrap")
+    func researchPersistenceCoordinatorReusesSharedBootstrap() throws {
+        let container = try makeContainer()
+        let existingBootstrap = AppBootstrap.shared
+
+        _ = makeCoordinator(container: container)
+
+        if let existingBootstrap {
+            #expect(AppBootstrap.shared === existingBootstrap)
+        }
     }
 
     @Test("persistEnrichment updates the same saved assistant message by id")
@@ -742,5 +758,165 @@ struct ChatCoordinatorResearchPersistenceTests {
         #expect(payload.subtitle == "Bayesian Updating")
         #expect(payload.body.contains("Bayesian Updating"))
         #expect(payload.userInfo["chatId"] as? String == "chat-42")
+    }
+}
+
+@Suite("Ambient Manifest Refresh Driver", .serialized)
+struct AmbientManifestRefreshDriverTests {
+    @Test("overlapping ambient manifest refresh requests coalesce into one rerun")
+    func overlappingAmbientManifestRefreshRequestsCoalesceIntoOneRerun() async throws {
+        let driver = AmbientManifestRefreshDriver()
+        let probe = RefreshBuildProbe()
+        let manifest = makeManifest(title: "Coalesced")
+        let recorder = AppliedManifestRecorder()
+
+        async let firstRequest: Void = driver.request(
+            build: { await probe.build(result: manifest) },
+            apply: { manifest in
+                await recorder.append(manifest?.entries.first?.title ?? "")
+            }
+        )
+
+        await probe.waitUntilFirstBuildStarts()
+
+        async let secondRequest: Void = driver.request(
+            build: { await probe.build(result: manifest) },
+            apply: { manifest in
+                await recorder.append(manifest?.entries.first?.title ?? "")
+            }
+        )
+        async let thirdRequest: Void = driver.request(
+            build: { await probe.build(result: manifest) },
+            apply: { manifest in
+                await recorder.append(manifest?.entries.first?.title ?? "")
+            }
+        )
+
+        await probe.releaseFirstBuild()
+
+        try await waitUntil(timeout: .seconds(8)) {
+            await recorder.count == 2
+        }
+
+        await firstRequest
+        await secondRequest
+        await thirdRequest
+        #expect(await probe.buildCount == 2)
+        #expect(await recorder.snapshot() == ["Coalesced", "Coalesced"])
+    }
+
+    @Test("ambient manifest refresh starts a fresh build after the prior one completes")
+    func ambientManifestRefreshStartsFreshBuildAfterCompletion() async throws {
+        let driver = AmbientManifestRefreshDriver()
+        let probe = RefreshBuildProbe()
+        let firstManifest = makeManifest(title: "First")
+        let secondManifest = makeManifest(title: "Second")
+        let recorder = AppliedManifestRecorder()
+
+        async let firstRequest: Void = driver.request(
+            build: { await probe.build(result: firstManifest) },
+            apply: { manifest in
+                await recorder.append(manifest?.entries.first?.title ?? "")
+            }
+        )
+        await probe.waitUntilFirstBuildStarts()
+        await probe.releaseFirstBuild()
+
+        try await waitUntil(timeout: .seconds(8)) {
+            await recorder.snapshot() == ["First"]
+        }
+        await firstRequest
+
+        await driver.request(
+            build: { await probe.build(result: secondManifest) },
+            apply: { manifest in
+                await recorder.append(manifest?.entries.first?.title ?? "")
+            }
+        )
+
+        try await waitUntil(timeout: .seconds(8)) {
+            await recorder.snapshot() == ["First", "Second"]
+        }
+
+        #expect(await probe.buildCount == 2)
+    }
+
+    private func makeManifest(title: String) -> VaultManifest {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        return VaultManifest(
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: UUID().uuidString,
+                    title: title,
+                    tags: [],
+                    folderName: nil,
+                    wordCount: 10,
+                    snippet: "",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+    }
+
+    private func waitUntil(
+        timeout: Duration,
+        condition: @escaping @Sendable () async -> Bool
+    ) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while clock.now < deadline {
+            if await condition() { return }
+            await Task.yield()
+        }
+        Issue.record("Timed out waiting for ambient manifest refresh condition")
+    }
+}
+
+private actor RefreshBuildProbe {
+    private var buildCountValue = 0
+    private var firstBuildRelease: CheckedContinuation<Void, Never>?
+    private var firstBuildStarted: CheckedContinuation<Void, Never>?
+
+    var buildCount: Int { buildCountValue }
+
+    func build(result: VaultManifest) async -> VaultManifest? {
+        buildCountValue += 1
+        if buildCountValue == 1 {
+            firstBuildStarted?.resume()
+            firstBuildStarted = nil
+            await withCheckedContinuation { continuation in
+                firstBuildRelease = continuation
+            }
+        }
+        return result
+    }
+
+    func waitUntilFirstBuildStarts() async {
+        guard buildCountValue == 0 else { return }
+        await withCheckedContinuation { continuation in
+            firstBuildStarted = continuation
+        }
+    }
+
+    func releaseFirstBuild() {
+        firstBuildRelease?.resume()
+        firstBuildRelease = nil
+    }
+}
+
+private actor AppliedManifestRecorder {
+    private var titles: [String] = []
+
+    var count: Int { titles.count }
+
+    func append(_ title: String) {
+        titles.append(title)
+    }
+
+    func snapshot() -> [String] {
+        titles
     }
 }

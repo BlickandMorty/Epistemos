@@ -113,10 +113,91 @@ struct ProseTextView2Tests {
         #expect(textView.markdownDelegate.activeLine == 0)
     }
 
+    @MainActor
+    @Test("visible line range updates away from the default viewport sentinel")
+    func visibleLineRangeTracksViewport() {
+        let (scrollView, textView) = ProseTextView2.makeTextKit2()
+        scrollView.frame = NSRect(x: 0, y: 0, width: 420, height: 120)
+        textView.frame = scrollView.bounds
+        textView.textStorage?.setAttributedString(
+            NSAttributedString(
+                string: (0..<40).map { "Line \($0)" }.joined(separator: "\n")
+            )
+        )
+        textView.reparseAndInvalidate()
+        scrollView.layoutSubtreeIfNeeded()
+        textView.layoutSubtreeIfNeeded()
+
+        textView.updateVisibleLineRange()
+
+        #expect(textView.markdownDelegate.visibleLineRange.lowerBound >= 0)
+        #expect(textView.markdownDelegate.visibleLineRange.upperBound < Int.max)
+        #expect(textView.markdownDelegate.visibleLineRange.upperBound > textView.markdownDelegate.visibleLineRange.lowerBound)
+        #expect(textView.markdownDelegate.visibleLineRange.upperBound <= textView.markdownDelegate.lineCount + 1)
+    }
+
     @Test("Initial state has no active line")
     func initialNoActiveLine() {
         let (_, textView) = ProseTextView2.makeTextKit2()
         #expect(textView.markdownDelegate.activeLine == nil)
+    }
+
+    @MainActor
+    @Test("Auto-expanded code fence undo restores the original source")
+    func autoExpandedCodeFenceUndoRestoresSource() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+        textView.pageUndoManager = UndoManager()
+        textView.textStorage?.setAttributedString(NSAttributedString(string: "``"))
+        textView.reparseAndInvalidate()
+        textView.setSelectedRange(NSRange(location: 2, length: 0))
+
+        let handledByDefaultInsertion = textView.shouldChangeText(
+            in: NSRange(location: 2, length: 0),
+            replacementString: "`"
+        )
+
+        #expect(!handledByDefaultInsertion)
+        #expect(textView.string == "```\n\n```")
+        #expect(textView.undoManager?.canUndo == true)
+
+        textView.undoManager?.undo()
+
+        #expect(textView.string == "``")
+    }
+
+    @Test("Structural edit range expands across the full fenced code block")
+    func structuralEditRangeExpandsAcrossFencedCodeBlock() {
+        let text = """
+        Before
+        ```
+        let one = 1
+        let two = 2
+        ```
+        After
+        """
+        let nsText = text as NSString
+        let location = nsText.range(of: "two").location
+
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: nsText, around: location)
+
+        #expect(nsText.substring(with: range) == "```\nlet one = 1\nlet two = 2\n```\n")
+    }
+
+    @Test("Structural edit range expands across the full callout chain")
+    func structuralEditRangeExpandsAcrossCalloutChain() {
+        let text = """
+        Before
+        > [!note] Note
+        > first
+        > second
+        After
+        """
+        let nsText = text as NSString
+        let location = nsText.range(of: "second").location
+
+        let range = ProseTextView2.paragraphNeighborhoodRange(in: nsText, around: location)
+
+        #expect(nsText.substring(with: range) == "> [!note] Note\n> first\n> second\n")
     }
 
     @Test("Paragraph neighborhood range scopes to adjacent paragraphs")

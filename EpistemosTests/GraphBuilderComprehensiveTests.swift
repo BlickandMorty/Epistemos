@@ -998,6 +998,54 @@ struct GraphBuilderEdgeCaseTests {
     }
 }
 
+@Suite("GraphBuilder - Block References")
+@MainActor
+struct GraphBuilderBlockReferenceTests {
+
+    @Test("block references resolve with batched block fetches")
+    func blockReferencesResolveWithBatchedFetches() {
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDBlock.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+
+        do {
+            let container = try ModelContainer(for: schema, configurations: [config])
+            let context = ModelContext(container)
+
+            let sourcePage = GraphBuilderTestHelpers.createMockPage(id: "source-page", title: "Source")
+            var blockRefs: [String] = []
+
+            for index in 0..<130 {
+                let targetPageId = "target-page-\(index)"
+                let targetPage = GraphBuilderTestHelpers.createMockPage(id: targetPageId, title: "Target \(index)")
+                let block = SDBlock(pageId: targetPageId, content: "Block \(index)", depth: 0, order: index)
+                block.id = "block-\(index)"
+                context.insert(targetPage)
+                context.insert(block)
+                blockRefs.append("((\(block.id)))")
+            }
+
+            sourcePage.body = blockRefs.joined(separator: "\n")
+            context.insert(sourcePage)
+            try context.save()
+
+            GraphBuilder.resetBlockRefFetchDiagnosticsForTesting()
+
+            let builder = GraphBuilder()
+            let result = builder.build(context: context)
+
+            let sourceNode = result.nodes.first { $0.sourceId == sourcePage.id }
+            let referenceEdges = result.edges.filter { edge in
+                edge.edgeType == .reference && edge.sourceNodeId == sourceNode?.id
+            }
+
+            #expect(referenceEdges.count == 130)
+            #expect(GraphBuilder.blockRefFetchBatchCountForTesting() == 2)
+        } catch {
+            Issue.record("Test failed: \(error)")
+        }
+    }
+}
+
 @Suite("GraphBuilder - Metadata Preservation")
 @MainActor
 struct GraphBuilderMetadataTests {

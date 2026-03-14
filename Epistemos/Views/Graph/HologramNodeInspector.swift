@@ -8,6 +8,7 @@ import NaturalLanguage
 // Native macOS 26 Liquid Glass styling.
 
 struct HologramNodeInspector: View {
+    @Environment(UIState.self) private var ui
     @Environment(GraphState.self) private var graphState
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext
@@ -31,6 +32,8 @@ struct HologramNodeInspector: View {
     @State private var isEditorExpanded = false
     @State private var editorDisplay: EditorDisplay = .raw
     @State private var editorDisplayTrigger = 0
+
+    private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         // Read selectedNodeId in body to establish @Observable tracking in NSHostingView.
@@ -117,13 +120,13 @@ struct HologramNodeInspector: View {
                                 color: editorDisplay == display ? .primary : .secondary,
                                 manualTrigger: editorDisplay == display ? editorDisplayTrigger : 0
                             )
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(editorDisplay == display ? Color.primary.opacity(0.12) : Color.clear)
-                            )
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(editorDisplay == display ? Color.primary.opacity(0.12) : Color.clear)
+                                )
                         }
                         .buttonStyle(.plain)
                     }
@@ -235,28 +238,26 @@ struct HologramNodeInspector: View {
             previewMarkdownText(
                 markdown: String(trimmed.dropFirst(5)),
                 font: .system(size: 14, weight: .semibold),
-                color: .primary
+                color: .primary,
+                rippleEnabled: false
             )
                 .padding(.top, 4)
         } else if trimmed.hasPrefix("### ") {
-            previewMarkdownText(
-                markdown: String(trimmed.dropFirst(4)),
-                font: .system(size: 15, weight: .semibold),
-                color: .primary
+            previewHeadingText(
+                text: String(trimmed.dropFirst(4)),
+                role: .h3
             )
                 .padding(.top, 6)
         } else if trimmed.hasPrefix("## ") {
-            previewMarkdownText(
-                markdown: String(trimmed.dropFirst(3)),
-                font: .system(size: 17, weight: .bold),
-                color: .primary
+            previewHeadingText(
+                text: String(trimmed.dropFirst(3)),
+                role: .h2
             )
                 .padding(.top, 8)
         } else if trimmed.hasPrefix("# ") {
-            previewMarkdownText(
-                markdown: String(trimmed.dropFirst(2)),
-                font: .system(size: 20, weight: .bold),
-                color: .primary
+            previewHeadingText(
+                text: String(trimmed.dropFirst(2)),
+                role: .h1
             )
                 .padding(.top, 10)
         } else if trimmed.hasPrefix("- [ ] ") {
@@ -268,7 +269,7 @@ struct HologramNodeInspector: View {
                     markdown: String(trimmed.dropFirst(6)),
                     font: .system(size: 13),
                     color: .primary,
-                    rippleEnabled: true
+                    rippleEnabled: false
                 )
             }
         } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
@@ -280,7 +281,7 @@ struct HologramNodeInspector: View {
                     markdown: String(trimmed.dropFirst(6)),
                     font: .system(size: 13),
                     color: .primary,
-                    rippleEnabled: true
+                    rippleEnabled: false
                 )
                     .strikethrough(true, color: .secondary)
             }
@@ -293,7 +294,7 @@ struct HologramNodeInspector: View {
                     markdown: String(trimmed.dropFirst(2)),
                     font: .system(size: 13),
                     color: .primary,
-                    rippleEnabled: true
+                    rippleEnabled: false
                 )
             }
         } else if let match = trimmed.wholeMatch(of: /^(\d+)\.\s+(.+)$/) {
@@ -306,7 +307,7 @@ struct HologramNodeInspector: View {
                     markdown: String(match.2),
                     font: .system(size: 13),
                     color: .primary,
-                    rippleEnabled: true
+                    rippleEnabled: false
                 )
             }
         } else if trimmed.hasPrefix("> ") {
@@ -314,7 +315,7 @@ struct HologramNodeInspector: View {
                 markdown: String(trimmed.dropFirst(2)),
                 font: .system(size: 13).italic(),
                 color: .secondary,
-                rippleEnabled: true
+                rippleEnabled: false
             )
                 .padding(.leading, 12)
                 .overlay(alignment: .leading) {
@@ -335,7 +336,7 @@ struct HologramNodeInspector: View {
                 markdown: trimmed,
                 font: .system(size: 13),
                 color: .primary,
-                rippleEnabled: true
+                rippleEnabled: false
             )
         }
     }
@@ -355,6 +356,27 @@ struct HologramNodeInspector: View {
                 color: color,
                 enabled: rippleEnabled
             )
+    }
+
+    private func previewHeadingText(
+        text: String,
+        role: AppHeadingRole
+    ) -> some View {
+        previewMarkdownText(
+            markdown: MarkdownHeadingDisplay.displayText(text, level: headingLevel(for: role)),
+            font: role.font,
+            color: MarkdownHeadingDisplay.foregroundColor(for: theme, level: headingLevel(for: role)),
+            rippleEnabled: false
+        )
+    }
+
+    private func headingLevel(for role: AppHeadingRole) -> Int {
+        switch role {
+        case .h1: 1
+        case .h2: 2
+        case .h3: 3
+        default: 1
+        }
     }
 
     private func inlineMarkdown(_ text: String) -> AttributedString {
@@ -632,9 +654,14 @@ struct HologramNodeInspector: View {
                 .buttonStyle(.plain)
             }
 
-            Text(node.label)
-                .font(.system(size: 22, weight: .bold))
-                .lineLimit(3)
+            TypewriterHeading(
+                text: MarkdownHeadingDisplay.displayText(node.label, level: 1),
+                role: .h2,
+                color: theme.fontAccent,
+                animateOnAppear: true,
+                animationKey: node.id
+            )
+            .lineLimit(3)
 
             HStack(spacing: 12) {
                 let linkCount = graphState.store.adjacency[node.id]?.count ?? 0

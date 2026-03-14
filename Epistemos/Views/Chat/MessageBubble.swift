@@ -136,6 +136,13 @@ struct MessageBubble: View {
     /// Research results use full-width layout (no avatar, no right spacer).
     private var isResearchLayout: Bool { liveMessage.isResearchResult }
 
+    private var sourceReferences: [AssistantSourceReference] {
+        AssistantSourceReference.extract(
+            from: cleanedText,
+            noteTitles: liveMessage.loadedNoteTitles ?? []
+        )
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             if isUser { Spacer(minLength: 200) }
@@ -172,7 +179,7 @@ struct MessageBubble: View {
             TaggedMarkdownTextView(
                 content: userDisplayContent,
                 theme: theme,
-                rippleStyle: .headings123AndBody,
+                rippleStyle: .none,
                 foregroundOverride: theme.userBubbleText
             )
                 .padding(.horizontal, Spacing.lg)
@@ -257,6 +264,8 @@ struct MessageBubble: View {
                 ConfidenceBar(confidence: confidence, evidenceGrade: liveMessage.evidenceGrade)
             }
 
+            AssistantSourcesFooter(sources: sourceReferences, theme: theme)
+
             // Enrichment cards — non-blocking, fade in when background passes complete
             EpistemicLensPanel(messageId: message.id)
 
@@ -294,26 +303,6 @@ struct MessageBubble: View {
                     .background(theme.accent.opacity(0.1), in: Capsule())
                 }
 
-                // Loaded note chips — show which notes were referenced
-                if let titles = message.loadedNoteTitles, !titles.isEmpty {
-                    FlowLayout(spacing: 6) {
-                        ForEach(titles, id: \.self) { title in
-                            HStack(spacing: 4) {
-                                Image(systemName: "doc.text")
-                                    .font(.epSmall)
-                                Text(title)
-                                    .font(.epSmall)
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(theme.accent.opacity(0.8))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(theme.accent.opacity(0.08), in: Capsule())
-                            .overlay(Capsule().strokeBorder(theme.accent.opacity(0.15), lineWidth: 0.5))
-                        }
-                    }
-                }
-
                 // Thinking accordion — for completed messages with reasoning
                 if let reasoning = message.reasoningText, !reasoning.isEmpty {
                     ThinkingAccordion(
@@ -335,6 +324,8 @@ struct MessageBubble: View {
                 // Confidence bar and ConsensusReportCard are research-only features
                 // and are NOT shown here — regular chat has no real enrichment data.
                 TaggedMarkdownTextView(content: cleanedText, theme: theme)
+
+                AssistantSourcesFooter(sources: sourceReferences, theme: theme)
 
                 // Toolbar — always rendered at fixed height, opacity-only transition
                 MessageToolbar(
@@ -378,7 +369,7 @@ struct MessageBubble: View {
     /// to render as colored badges. Other orphan brackets like [CAUSAL INFERENCE] are
     /// stripped by TaggedMarkdownTextView's inlineMarkdown() safety-net regex.
     private var cleanedText: String {
-        message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        liveMessage.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @ViewBuilder

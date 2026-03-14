@@ -53,6 +53,24 @@ enum GraphOverlayThemeStyle {
     }
 }
 
+enum HologramOverlayHostedViewBuilder {
+    @MainActor
+    static func root<Content: View>(
+        _ content: Content,
+        bootstrap: AppBootstrap? = AppBootstrap.shared
+    ) -> AnyView {
+        guard let bootstrap else {
+            return AnyView(content)
+        }
+
+        return AnyView(
+            content
+                .withAppEnvironment(bootstrap)
+                .modelContainer(bootstrap.modelContainer)
+        )
+    }
+}
+
 // MARK: - HologramOverlay
 // Full-screen borderless NSWindow that renders the knowledge graph
 // on top of a heavy frosted-glass blur. Triggered by a global hotkey.
@@ -584,12 +602,11 @@ final class HologramOverlay {
         // Host the inspector SwiftUI view.
         if let modelContainer {
             let inspectorView = NSHostingView(
-                rootView: AnyView(
+                rootView: HologramOverlayHostedViewBuilder.root(
                     HologramNodeInspector(
                         inspectorState: inspectorState,
                         modelContext: modelContainer.mainContext
                     )
-                    .environment(graphState)
                 )
             )
             inspectorView.autoresizingMask = [.width, .height]
@@ -1013,8 +1030,9 @@ final class HologramOverlay {
 
         // Floating controls (SwiftUI hosted at the bottom).
         let controlsView = NSHostingView(
-            rootView: GraphFloatingControls()
-                .environment(graphState)
+            rootView: HologramOverlayHostedViewBuilder.root(
+                GraphFloatingControls()
+            )
         )
         controlsView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(controlsView)
@@ -1026,15 +1044,12 @@ final class HologramOverlay {
         ])
 
         // Search sidebar (SwiftUI hosted on the left).
+        let sidebarRoot = HologramSearchSidebar { [weak graphView, weak self] uuid in
+            graphView?.isolateNode(uuid)
+            self?.graphState.selectNode(uuid)
+        }
         let sidebarView = NSHostingView(
-            rootView: HologramSearchSidebar(
-                onSelectNode: { [weak graphView, weak self] uuid in
-                    graphView?.isolateNode(uuid)
-                    self?.graphState.selectNode(uuid)
-                }
-            )
-            .environment(graphState)
-            .environment(queryEngine)
+            rootView: HologramOverlayHostedViewBuilder.root(sidebarRoot)
         )
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(sidebarView)
@@ -1047,12 +1062,11 @@ final class HologramOverlay {
         // Node inspector panel (SwiftUI hosted, follows selected node).
         if let modelContainer {
             let inspectorView = NSHostingView(
-                rootView: AnyView(
+                rootView: HologramOverlayHostedViewBuilder.root(
                     HologramNodeInspector(
                         inspectorState: inspectorState,
                         modelContext: modelContainer.mainContext
                     )
-                    .environment(graphState)
                 )
             )
             // Use frame-based positioning (updated by inspectorPositionTask).

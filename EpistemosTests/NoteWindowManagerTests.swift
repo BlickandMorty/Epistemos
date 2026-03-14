@@ -5,6 +5,22 @@ import Testing
 
 @Suite("NoteWindowManager")
 struct NoteWindowManagerTests {
+    @MainActor
+    private final class WindowFixtureRetainer {
+        static let shared = WindowFixtureRetainer()
+
+        private var windows: [NSWindow] = []
+
+        func retain(_ window: NSWindow) {
+            window.orderOut(nil)
+            windows.append(window)
+        }
+    }
+
+    @MainActor
+    private func retainWindowFixture(_ window: NSWindow) {
+        WindowFixtureRetainer.shared.retain(window)
+    }
 
     @Test("Undersized autosaved note frames reset to the sane default")
     func undersizedFrameResetsToDefault() {
@@ -115,6 +131,7 @@ struct NoteWindowManagerTests {
             backing: .buffered,
             defer: false
         )
+        defer { retainWindowFixture(window) }
         window.collectionBehavior.insert(.fullScreenPrimary)
         window.collectionBehavior.insert(.fullScreenAuxiliary)
         window.collectionBehavior.insert(.fullScreenAllowsTiling)
@@ -124,6 +141,7 @@ struct NoteWindowManagerTests {
         #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
         #expect(!window.collectionBehavior.contains(.fullScreenAuxiliary))
         #expect(!window.collectionBehavior.contains(.fullScreenAllowsTiling))
+        #expect(window.contentMinSize == WindowPresentationPolicy.mainWindowMinimumSize)
         let zoomButton = try #require(window.standardWindowButton(.zoomButton))
         #expect(zoomButton.target === window)
         #expect(zoomButton.action == #selector(NSWindow.performZoom(_:)))
@@ -138,6 +156,7 @@ struct NoteWindowManagerTests {
             backing: .buffered,
             defer: false
         )
+        defer { retainWindowFixture(window) }
         window.collectionBehavior.insert(.fullScreenPrimary)
         window.collectionBehavior.insert(.fullScreenAllowsTiling)
 
@@ -167,6 +186,7 @@ struct NoteWindowManagerTests {
             backing: .buffered,
             defer: false
         )
+        defer { retainWindowFixture(window) }
         window.title = "Epistemos"
         window.collectionBehavior.insert(.fullScreenPrimary)
         window.collectionBehavior.insert(.fullScreenAuxiliary)
@@ -194,6 +214,7 @@ struct NoteWindowManagerTests {
             backing: .buffered,
             defer: false
         )
+        defer { retainWindowFixture(window) }
 
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
 
@@ -214,6 +235,7 @@ struct NoteWindowManagerTests {
             backing: .buffered,
             defer: false
         )
+        defer { retainWindowFixture(panel) }
 
         UtilityPanelChrome.applySidebarChrome(to: panel)
 
@@ -234,6 +256,7 @@ struct NoteWindowManagerTests {
             backing: .buffered,
             defer: false
         )
+        defer { retainWindowFixture(window) }
 
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
         NoteWindowThemeStyler.apply(to: window, theme: .platinumDark)

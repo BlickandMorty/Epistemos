@@ -76,6 +76,61 @@ enum GraphDisplayLinkTransition: Equatable {
     case stop
 }
 
+@MainActor
+final class GraphDeferredMetadataDriver {
+    private enum Phase {
+        case idle
+        case scheduled
+        case running
+    }
+
+    private var phase: Phase = .idle
+    private var rerunRequested = false
+    private var task: Task<Void, Never>?
+
+    func request(run: @escaping @MainActor @Sendable () async -> Void) {
+        switch phase {
+        case .idle:
+            phase = .scheduled
+            task = Task { @MainActor [weak self] in
+                guard let self else { return }
+                while true {
+                    await Task.yield()
+                    guard !Task.isCancelled else {
+                        self.phase = .idle
+                        self.rerunRequested = false
+                        self.task = nil
+                        return
+                    }
+
+                    self.phase = .running
+                    await run()
+
+                    guard !Task.isCancelled else {
+                        self.phase = .idle
+                        self.rerunRequested = false
+                        self.task = nil
+                        return
+                    }
+
+                    guard self.rerunRequested else {
+                        self.phase = .idle
+                        self.task = nil
+                        return
+                    }
+
+                    self.rerunRequested = false
+                    self.phase = .scheduled
+                }
+            }
+        case .scheduled:
+            return
+        case .running:
+            rerunRequested = true
+        }
+    }
+}
+
 func graphDisplayLinkTransition(
     needsRender: Bool,
     hasDisplayLink: Bool,
@@ -384,6 +439,7 @@ final class MetalGraphNSView: NSView {
     private var cachedColorTopologyVersion: Int = -1
     private var cachedColorTheme: GraphVisualTheme = .dialogue
     private var cachedDepthColors: [String: DialogueDepthColor] = [:]
+    private let deferredMetadataDriver = GraphDeferredMetadataDriver()
 
     private var mouseDownLocation: CGPoint?
     private var isDraggingNode = false
@@ -587,25 +643,31 @@ final class MetalGraphNSView: NSView {
         isCommitted = true
         needsRender = true
 
-        // Defer per-node metadata push and embedding computation to next main run loop tick.
-        // This unblocks the first render frame immediately after commit, so the graph
-        // appears on screen sooner. The metadata is non-visual (timestamps, confidence,
-        // embeddings) so a single-frame delay is imperceptible.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let engine = self.engine, let graphState = self.graphState else { return }
-            let store = graphState.store
-            let filter = graphState.filter
-            let interval = Log.graphPerf.beginInterval("pushNodeMetadataBatch")
+        scheduleDeferredNodeMetadataPush()
+    }
 
-            let payload = makeVisibleNodeMetadataBatchPayload(
-                from: store.nodes.values,
-                filter: filter
-            )
-            sendNodeMetadataBatch(payload, to: engine)
-
-            graphState.embeddingService.computeAndPush(store: store)
-            Log.graphPerf.endInterval("pushNodeMetadataBatch", interval)
+    @MainActor
+    private func scheduleDeferredNodeMetadataPush() {
+        deferredMetadataDriver.request { [weak self] in
+            self?.pushDeferredNodeMetadata()
         }
+    }
+
+    @MainActor
+    private func pushDeferredNodeMetadata() {
+        guard let engine, let graphState else { return }
+        let store = graphState.store
+        let filter = graphState.filter
+        let interval = Log.graphPerf.beginInterval("pushNodeMetadataBatch")
+
+        let payload = makeVisibleNodeMetadataBatchPayload(
+            from: store.nodes.values,
+            filter: filter
+        )
+        sendNodeMetadataBatch(payload, to: engine)
+
+        graphState.embeddingService.computeAndPush(store: store)
+        Log.graphPerf.endInterval("pushNodeMetadataBatch", interval)
     }
 
     // MARK: - Incremental FFI Adds

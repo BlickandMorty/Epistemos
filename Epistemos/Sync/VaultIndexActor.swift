@@ -15,7 +15,14 @@ nonisolated let vaultFoldersRepairedNotification = Notification.Name("VaultFolde
 
 @ModelActor
 actor VaultIndexActor {
+    struct SpotlightReindexSnapshot: Sendable {
+        let lastIndexDate: Date
+        let changedPageCount: Int
+        let willIndex: Bool
+    }
+
     private let log = Logger(subsystem: "com.epistemos", category: "VaultIndex")
+    nonisolated static let spotlightIndexDateKey = "epistemos.lastSpotlightIndexDate"
     nonisolated private static let excludedDirs: Set<String> = [
         "node_modules", ".git", ".build", "Pods", "DerivedData", ".svn", ".venv", "venv",
         "__pycache__", ".pytest_cache", ".mypy_cache",
@@ -1114,11 +1121,34 @@ actor VaultIndexActor {
 
     // MARK: - Spotlight Indexing (Background)
 
+    private func spotlightReindexSnapshot() -> SpotlightReindexSnapshot {
+        let lastIndexDate =
+            UserDefaults.standard.object(forKey: Self.spotlightIndexDateKey) as? Date
+            ?? .distantPast
+
+        var descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.updatedAt > lastIndexDate },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1000
+
+        let changedPageCount = (try? modelContext.fetchCount(descriptor)) ?? 0
+        return SpotlightReindexSnapshot(
+            lastIndexDate: lastIndexDate,
+            changedPageCount: changedPageCount,
+            willIndex: changedPageCount > 0
+        )
+    }
+
+    func spotlightReindexSnapshotForTesting() -> SpotlightReindexSnapshot {
+        spotlightReindexSnapshot()
+    }
+
     /// Re-index pages into Core Spotlight, skipping pages unchanged since last index.
     /// Only reads .body for pages that actually need reindexing.
     func spotlightReindexAll() {
-        let lastIndexDate = UserDefaults.standard.object(forKey: "epistemos.lastSpotlightIndexDate") as? Date
-            ?? .distantPast
+        let snapshot = spotlightReindexSnapshot()
+        let lastIndexDate = snapshot.lastIndexDate
 
         var descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.updatedAt > lastIndexDate },
@@ -1154,7 +1184,7 @@ actor VaultIndexActor {
         }
 
         // Update last index timestamp
-        UserDefaults.standard.set(Date.now, forKey: "epistemos.lastSpotlightIndexDate")
+        UserDefaults.standard.set(Date.now, forKey: Self.spotlightIndexDateKey)
         log.info("Spotlight indexed \(total) changed notes (skipped unchanged)")
     }
 

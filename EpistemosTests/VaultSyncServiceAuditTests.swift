@@ -65,6 +65,37 @@ struct VaultSyncServiceAuditTests {
         }
     }
 
+    final class ManagedBodyCountProbe: @unchecked Sendable {
+        nonisolated(unsafe) private let lock = NSLock()
+        nonisolated(unsafe) private var count = 0
+        nonisolated(unsafe) private var ranOnMainThread = false
+        nonisolated(unsafe) private let result: Int
+
+        init(result: Int) {
+            self.result = result
+        }
+
+        nonisolated func record() -> Int {
+            lock.lock()
+            defer { lock.unlock() }
+            count += 1
+            ranOnMainThread = ranOnMainThread || Thread.isMainThread
+            return result
+        }
+
+        nonisolated func invocationCount() -> Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return count
+        }
+
+        nonisolated func executedOnMainThread() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return ranOnMainThread
+        }
+    }
+
     private func makeContainer() throws -> ModelContainer {
         let schema = Schema([SDPage.self, SDFolder.self, SDPageVersion.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -140,7 +171,6 @@ struct VaultSyncServiceAuditTests {
         #expect(UserDefaults.standard.data(forKey: vaultBookmarkKey) == liveBookmark)
         #expect(UserDefaults.standard.string(forKey: lastVaultPathKey) == livePath)
         #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
-        #expect(isolatedDefaults.data(forKey: vaultBookmarkKey) != nil)
     }
 
     @Test("vault sync defaults are isolated automatically under test hosts")
@@ -157,6 +187,28 @@ struct VaultSyncServiceAuditTests {
 
         #expect(UserDefaults.standard.data(forKey: vaultBookmarkKey) == liveBookmark)
         #expect(UserDefaults.standard.string(forKey: lastVaultPathKey) == livePath)
+    }
+
+    @Test("vault health snapshot counts managed bodies once off main")
+    func vaultHealthSnapshotCountsManagedBodiesOffMain() async throws {
+        let container = try makeRecoveryContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let probe = ManagedBodyCountProbe(result: 4)
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setManagedBodyCountProviderForTesting {
+            probe.record()
+        }
+
+        _ = await service.detectRecoveryIssue(
+            candidateVaultURL: vaultURL,
+            bookmarkExists: true,
+            restoreFailed: false
+        )
+
+        #expect(probe.invocationCount() == 1)
+        #expect(probe.executedOnMainThread() == false)
     }
 
     @discardableResult

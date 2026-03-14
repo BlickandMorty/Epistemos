@@ -90,6 +90,15 @@ final class DiskStyleCache {
         }
     }
 
+    func clearAll() {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)
+        else { return }
+        for file in files {
+            try? fm.removeItem(at: file)
+        }
+    }
+
     // MARK: - Hashing
 
     private nonisolated static func bodyHash(_ text: String) -> String {

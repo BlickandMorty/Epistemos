@@ -76,6 +76,27 @@ nonisolated struct GraphEdgeRecord: Identifiable, Sendable {
 
 @MainActor
 final class GraphStore {
+    private struct SearchCacheKey: Hashable {
+        let query: String
+        let limit: Int
+    }
+
+    private struct SearchCacheEntry {
+        let hits: [SearchHit]
+        let expiresAt: Date
+    }
+
+    struct SearchCacheDebugSnapshot {
+        let hits: Int
+        let misses: Int
+        let expired: Int
+        let entryCount: Int
+    }
+
+    private enum SearchCacheConfig {
+        static let ttl: TimeInterval = 15
+        static let capacity = 64
+    }
 
     // MARK: - Primary Storage
 
@@ -175,6 +196,13 @@ final class GraphStore {
     /// Used by MetalGraphNSView to skip recomputing depth-color overrides when topology is unchanged.
     private(set) var topologyVersion: Int = 0
 
+    private var searchCache: [SearchCacheKey: SearchCacheEntry] = [:]
+    private var searchCacheOrder: [SearchCacheKey] = []
+    private var searchCacheHitCount = 0
+    private var searchCacheMissCount = 0
+    private var searchCacheExpiredCount = 0
+    private var searchCacheNowProvider: () -> Date = Date.init
+
     // MARK: - Computed Properties
 
     var nodeCount: Int { nodes.count }
@@ -192,6 +220,7 @@ final class GraphStore {
         _neighbors.removeAll()
         _edgesOf.removeAll()
         _trigramIdx.removeAll()
+        clearSearchCache()
         topologyVersion += 1
     }
 
@@ -527,6 +556,7 @@ final class GraphStore {
         nodes[node.id] = node
         let nodeIdx = assignNodeIndex(node.id)
         addToTrigramIndex(nodeIdx: nodeIdx, label: node.label)
+        clearSearchCache()
         topologyVersion += 1
         notifyChange()
     }
@@ -551,6 +581,9 @@ final class GraphStore {
         updated.isVisible = existing.isVisible
         updated.isPinned = existing.isPinned
         nodes[node.id] = updated
+        if existing.label != node.label {
+            clearSearchCache()
+        }
         notifyChange()
     }
 
@@ -611,6 +644,7 @@ final class GraphStore {
         _nodeIds[nodeIdx] = ""  // Tombstone
         _neighbors[nodeIdx] = []
         _edgesOf[nodeIdx] = []
+        clearSearchCache()
         topologyVersion += 1
         notifyChange()
     }
@@ -680,6 +714,20 @@ final class GraphStore {
     func fuzzySearch(query: String, limit: Int = 20) -> [SearchHit] {
         let q = query.lowercased()
         guard !q.isEmpty else { return [] }
+        let key = SearchCacheKey(query: q, limit: limit)
+        let now = searchCacheNowProvider()
+
+        if let cached = searchCache[key] {
+            if cached.expiresAt > now {
+                searchCacheHitCount += 1
+                touchSearchCacheKey(key)
+                return cached.hits
+            }
+            searchCacheExpiredCount += 1
+            removeCachedSearch(for: key)
+        }
+
+        searchCacheMissCount += 1
 
         // Get candidate node indices from trigram index
         let candidates = trigramCandidates(for: q)
@@ -715,7 +763,9 @@ final class GraphStore {
             return lhs.node.label.localizedCaseInsensitiveCompare(rhs.node.label) == .orderedAscending
         }
 
-        return Array(hits.prefix(limit))
+        let result = Array(hits.prefix(limit))
+        storeCachedSearch(result, for: key, now: now)
+        return result
     }
 
     /// Get candidate node indices from the trigram index.
@@ -774,6 +824,47 @@ final class GraphStore {
             labelIdx = label.index(after: found)
         }
         return true
+    }
+
+    private func clearSearchCache() {
+        searchCache.removeAll(keepingCapacity: true)
+        searchCacheOrder.removeAll(keepingCapacity: true)
+    }
+
+    private func touchSearchCacheKey(_ key: SearchCacheKey) {
+        searchCacheOrder.removeAll { $0 == key }
+        searchCacheOrder.append(key)
+    }
+
+    private func removeCachedSearch(for key: SearchCacheKey) {
+        searchCache.removeValue(forKey: key)
+        searchCacheOrder.removeAll { $0 == key }
+    }
+
+    private func storeCachedSearch(_ hits: [SearchHit], for key: SearchCacheKey, now: Date) {
+        searchCache[key] = SearchCacheEntry(
+            hits: hits,
+            expiresAt: now.addingTimeInterval(SearchCacheConfig.ttl)
+        )
+        touchSearchCacheKey(key)
+
+        while searchCacheOrder.count > SearchCacheConfig.capacity {
+            let evicted = searchCacheOrder.removeFirst()
+            searchCache.removeValue(forKey: evicted)
+        }
+    }
+
+    func searchCacheDebugSnapshot() -> SearchCacheDebugSnapshot {
+        SearchCacheDebugSnapshot(
+            hits: searchCacheHitCount,
+            misses: searchCacheMissCount,
+            expired: searchCacheExpiredCount,
+            entryCount: searchCache.count
+        )
+    }
+
+    func setSearchCacheNowProviderForTesting(_ provider: @escaping () -> Date) {
+        searchCacheNowProvider = provider
     }
 
     // MARK: - Link Count (for Rust FFI)

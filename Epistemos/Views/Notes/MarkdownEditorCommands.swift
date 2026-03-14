@@ -197,6 +197,52 @@ enum MarkdownEditorCommands {
         )
     }
 
+    static func autoExpandCodeFence(
+        in text: String,
+        selection: NSRange,
+        replacementString: String?
+    ) -> TextEdit? {
+        guard replacementString == "`" else { return nil }
+
+        let nsText = text as NSString
+        let safeSelection = clampedSelection(selection, textLength: nsText.length)
+        guard safeSelection.length == 0, safeSelection.location >= 2 else { return nil }
+
+        let lineProbe = NSRange(location: min(safeSelection.location, max(nsText.length - 1, 0)), length: 0)
+        let lineRange = nsText.lineRange(for: lineProbe)
+        let lineBodyRange = normalizedLineBodyRange(lineRange, in: nsText)
+
+        let prefixRange = NSRange(
+            location: lineBodyRange.location,
+            length: safeSelection.location - lineBodyRange.location
+        )
+        let suffixRange = NSRange(
+            location: safeSelection.location,
+            length: max(0, NSMaxRange(lineBodyRange) - safeSelection.location)
+        )
+
+        let prefix = nsText.substring(with: prefixRange)
+        let suffix = nsText.substring(with: suffixRange)
+        let indentation = String(prefix.prefix { $0 == " " || $0 == "\t" })
+
+        guard prefix == indentation + "``" else { return nil }
+        guard suffix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+
+        let replacementRange = NSRange(
+            location: safeSelection.location - 2,
+            length: 2 + suffixRange.length
+        )
+        let replacementText = "```\n\(indentation)\n\(indentation)```"
+        return TextEdit(
+            replacementRange: replacementRange,
+            replacementText: replacementText,
+            selectedRange: NSRange(
+                location: replacementRange.location + 4 + indentation.utf16.count,
+                length: 0
+            )
+        )
+    }
+
     static func replace(
         in text: String,
         range: NSRange,
@@ -492,6 +538,16 @@ enum MarkdownEditorCommands {
         let maxLength = max(textLength - safeLocation, 0)
         let safeLength = min(max(selection.length, 0), maxLength)
         return NSRange(location: safeLocation, length: safeLength)
+    }
+
+    private static func normalizedLineBodyRange(_ lineRange: NSRange, in text: NSString) -> NSRange {
+        guard lineRange.length > 0 else { return lineRange }
+        let lineEnd = NSMaxRange(lineRange)
+        let hasTrailingNewline = lineEnd <= text.length && lineEnd > 0 && text.character(at: lineEnd - 1) == 0x0A
+        return NSRange(
+            location: lineRange.location,
+            length: hasTrailingNewline ? max(0, lineRange.length - 1) : lineRange.length
+        )
     }
 
     private static func expandedLineRange(for selection: NSRange, in text: NSString) -> NSRange {

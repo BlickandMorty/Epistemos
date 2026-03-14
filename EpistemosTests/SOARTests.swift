@@ -446,13 +446,13 @@ struct QueryAnalyzerCrashResilienceTests {
     }
 }
 
-@Suite("QueryAnalyzer Performance and Memory")
+@Suite("QueryAnalyzer Performance and Memory", .serialized)
 struct QueryAnalyzerPerformanceAndMemoryTests {
 
     @Test("short-query throughput remains bounded under high iteration counts")
     func shortQueryThroughput() {
         let iterations = 5_000
-        let duration = measure {
+        let duration = measure(iterations: 3) {
             for _ in 0..<iterations {
                 _ = QueryAnalyzer.analyze(
                     query: "What are the causal effects of sleep deprivation on cognition?"
@@ -474,7 +474,7 @@ struct QueryAnalyzerPerformanceAndMemoryTests {
             "Is there a causal link between social isolation and depression?"
         ]
 
-        let duration = measure {
+        let duration = measure(iterations: 3) {
             for i in 0..<12_000 {
                 _ = QueryAnalyzer.analyze(query: queries[i % queries.count])
             }
@@ -511,7 +511,7 @@ struct QueryAnalyzerPerformanceAndMemoryTests {
     func largeQueryPerformance() {
         let large = String(repeating: "meta-analysis heterogeneity evidence contradiction mechanism ", count: 600)
 
-        let duration = measure {
+        let duration = measure(iterations: 3) {
             for _ in 0..<20 {
                 _ = QueryAnalyzer.analyze(query: large)
             }

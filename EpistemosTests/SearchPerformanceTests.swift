@@ -571,3 +571,112 @@ struct SearchPerformanceTests {
         }
     }
 }
+
+@Suite("MiniChat Search Performance")
+@MainActor
+struct MiniChatSearchPerformanceTests {
+    final class BodyProbe {
+        private(set) var loadCount = 0
+        private let body: String
+
+        init(body: String) {
+            self.body = body
+        }
+
+        func load() -> String {
+            loadCount += 1
+            return body
+        }
+
+        func reset() {
+            loadCount = 0
+        }
+    }
+
+    private func legacyVaultSearch(
+        query: String,
+        activeId: String?,
+        pages: [MiniChatSearchCandidate]
+    ) -> [(title: String, snippet: String)] {
+        let terms = query.lowercased()
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count > 2 }
+
+        guard !terms.isEmpty else { return [] }
+
+        var matches = pages.filter { candidate in
+            guard candidate.id != activeId else { return false }
+            let title = candidate.title.lowercased()
+            return terms.contains { title.contains($0) }
+        }
+
+        if matches.count < 3 {
+            let titleIds = Set(matches.map(\.id))
+            let bodyMatches = pages.prefix(30).filter { candidate in
+                guard candidate.id != activeId, !titleIds.contains(candidate.id) else { return false }
+                let body = candidate.bodyProvider().lowercased()
+                return terms.contains { body.contains($0) }
+            }
+            matches.append(contentsOf: bodyMatches)
+        }
+
+        return Array(matches.prefix(3).map { candidate in
+            (title: candidate.title, snippet: String(candidate.bodyProvider().prefix(300)))
+        })
+    }
+
+    @Test("MiniChatNoteSnapshot loads body once and reuses snippets")
+    func noteSnapshotLoadsBodyOnce() {
+        let body = String(repeating: "abc", count: 1000)
+        let probe = BodyProbe(body: body)
+
+        let snapshot = MiniChatNoteSnapshot(title: "Active", tags: ["swift"]) {
+            probe.load()
+        }
+
+        #expect(probe.loadCount == 1)
+        #expect(snapshot.hasBody)
+        #expect(snapshot.shortSnippet == String(body.prefix(300)))
+        #expect(snapshot.promptSnippet == String(body.prefix(2000)))
+    }
+
+    @Test("MiniChat vault search caches body loads for final snippets")
+    func vaultSearchCachesBodyLoads() {
+        let active = BodyProbe(body: "active page should be skipped")
+        let titleMatch = BodyProbe(body: "title match body")
+        let bodyMatchA = BodyProbe(body: "Deep research notes about graph loading and sync reconciliation")
+        let bodyMatchB = BodyProbe(body: "These focus areas cover editor smoothness and graph metadata")
+        let bodyMiss = BodyProbe(body: "completely unrelated")
+
+        let pages = [
+            MiniChatSearchCandidate(id: "active", title: "Active Note", bodyProvider: active.load),
+            MiniChatSearchCandidate(id: "title", title: "Deep Work Summary", bodyProvider: titleMatch.load),
+            MiniChatSearchCandidate(id: "body-a", title: "Graph Notes", bodyProvider: bodyMatchA.load),
+            MiniChatSearchCandidate(id: "body-b", title: "Editor Notes", bodyProvider: bodyMatchB.load),
+            MiniChatSearchCandidate(id: "miss", title: "Random", bodyProvider: bodyMiss.load),
+        ]
+
+        let legacy = legacyVaultSearch(query: "deep focus", activeId: "active", pages: pages)
+        let legacyLoads = [active, titleMatch, bodyMatchA, bodyMatchB, bodyMiss]
+            .map(\.loadCount)
+            .reduce(0, +)
+
+        for probe in [active, titleMatch, bodyMatchA, bodyMatchB, bodyMiss] {
+            probe.reset()
+        }
+
+        let optimized = MiniChatVaultSearch.snippets(query: "deep focus", activeId: "active", pages: pages)
+        let optimizedLoads = [active, titleMatch, bodyMatchA, bodyMatchB, bodyMiss]
+            .map(\.loadCount)
+            .reduce(0, +)
+
+        #expect(optimized.count == legacy.count)
+        #expect(optimized.map(\.title) == legacy.map(\.title))
+        #expect(optimized.map(\.snippet) == legacy.map(\.snippet))
+        #expect(legacyLoads == 6)
+        #expect(optimizedLoads == 4)
+        #expect(bodyMatchA.loadCount == 1)
+        #expect(bodyMatchB.loadCount == 1)
+    }
+}

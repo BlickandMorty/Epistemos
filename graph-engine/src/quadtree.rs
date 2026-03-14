@@ -91,6 +91,8 @@ pub struct BHNode {
     bounds: AABB,
     /// Single body stored in leaf nodes.
     body: Option<Body>,
+    /// Additional bodies that share the exact same coordinate as `body`.
+    coincident_bodies: Vec<Body>,
     /// Children (NW, NE, SW, SE). None = no children.
     children: Option<Box<[Option<BHNode>; 4]>>,
     /// Aggregate: total strength of all bodies in this subtree.
@@ -107,6 +109,7 @@ impl BHNode {
         Self {
             bounds,
             body: None,
+            coincident_bodies: Vec::new(),
             children: None,
             total_strength: 0.0,
             center_x: 0.0,
@@ -144,8 +147,17 @@ impl BHNode {
             return;
         }
 
+        if let Some(existing) = self.body {
+            if existing.x == body.x && existing.y == body.y {
+                self.coincident_bodies.push(body);
+                self.accumulate(body);
+                return;
+            }
+        }
+
         // Leaf collision — subdivide, re-insert existing + new.
         let old = self.body.take().unwrap();
+        let coincident = std::mem::take(&mut self.coincident_bodies);
         self.children = Some(Box::new([None, None, None, None]));
 
         // Reset aggregates — will be recomputed by recursive inserts.
@@ -156,6 +168,9 @@ impl BHNode {
 
         // Re-insert old body.
         self.insert(old, depth);
+        for coincident_body in coincident {
+            self.insert(coincident_body, depth);
+        }
         // Insert new body.
         self.insert(body, depth);
     }
@@ -208,6 +223,8 @@ impl BHNode {
 
         // Can we use the far-field approximation?
         // Condition: cell_size / sqrt(dist_sq) < theta, i.e. cell_size² < theta² * dist_sq
+        let is_leaf = self.children.is_none();
+        let leaf_coincident_count = usize::from(self.body.is_some()) + self.coincident_bodies.len();
         let use_approximation = cell_size * cell_size < THETA * THETA * dist_sq && self.count > 1;
 
         if use_approximation || self.count == 1 {
@@ -229,6 +246,41 @@ impl BHNode {
             let w = self.total_strength * alpha / dist_sq;
             *dvx += dx / dist * w;
             *dvy += dy / dist * w;
+            return;
+        }
+
+        if is_leaf && leaf_coincident_count > 1 {
+            for body in self
+                .body
+                .iter()
+                .chain(self.coincident_bodies.iter())
+                .copied()
+            {
+                if body.index == node_index {
+                    continue;
+                }
+
+                let mut body_dx = body.x - nx;
+                let mut body_dy = body.y - ny;
+                if body_dx.abs() <= f32::EPSILON && body_dy.abs() <= f32::EPSILON {
+                    let jitter = if body.index & 1 == 0 { 1e-6 } else { -1e-6 };
+                    body_dx = jitter;
+                    body_dy = -jitter;
+                }
+
+                let mut body_dist_sq = body_dx * body_dx + body_dy * body_dy;
+                if body_dist_sq > distance_max_sq {
+                    continue;
+                }
+                if body_dist_sq < distance_min_sq {
+                    body_dist_sq = distance_min_sq;
+                }
+
+                let body_dist = body_dist_sq.sqrt();
+                let w = body.strength * alpha / body_dist_sq;
+                *dvx += body_dx / body_dist * w;
+                *dvy += body_dy / body_dist * w;
+            }
             return;
         }
 
@@ -711,6 +763,51 @@ mod tests {
         let tree = build_tree(&bodies).unwrap();
         assert_eq!(tree.count, 100);
         // Should not overflow stack due to max_depth
+    }
+
+    #[test]
+    fn coincident_cluster_stays_bucketed_at_root_leaf() {
+        let bodies: Vec<Body> = (0..8)
+            .map(|i| Body {
+                index: i,
+                x: 12.0,
+                y: -8.0,
+                strength: -1.0,
+            })
+            .collect();
+
+        let tree = build_tree(&bodies).unwrap();
+
+        assert!(tree.children.is_none());
+        assert_eq!(tree.coincident_bodies.len(), 7);
+        assert_eq!(tree.count, 8);
+    }
+
+    #[test]
+    fn coincident_leaf_applies_force_from_other_bodies() {
+        let bodies = vec![
+            Body {
+                index: 0,
+                x: 0.0,
+                y: 0.0,
+                strength: -600.0,
+            },
+            Body {
+                index: 1,
+                x: 0.0,
+                y: 0.0,
+                strength: -600.0,
+            },
+        ];
+        let tree = build_tree(&bodies).unwrap();
+        let mut dvx = 0.0;
+        let mut dvy = 0.0;
+
+        tree.apply_force(0.0, 0.0, 0, 1.0, 1.0, 360000.0, &mut dvx, &mut dvy);
+
+        assert!(dvx.is_finite());
+        assert!(dvy.is_finite());
+        assert!(dvx != 0.0 || dvy != 0.0);
     }
 
     #[test]
@@ -1413,5 +1510,24 @@ mod tests {
         for (i, body) in bodies.iter().enumerate() {
             assert_eq!(body.index, i);
         }
+    }
+
+    #[test]
+    fn identical_position_cluster_stays_in_single_leaf() {
+        let bodies: Vec<Body> = (0..512)
+            .map(|index| Body {
+                index,
+                x: 42.0,
+                y: -13.0,
+                strength: -600.0,
+            })
+            .collect();
+
+        let tree = build_tree(&bodies).unwrap();
+
+        assert!(tree.children.is_none());
+        assert_eq!(tree.count, 512);
+        assert_eq!(tree.coincident_bodies.len(), 511);
+        assert_eq!(tree.body.unwrap().index, 0);
     }
 }

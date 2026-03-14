@@ -4,6 +4,21 @@ import Testing
 
 @Suite("Note Editor View Finder")
 struct NoteEditorViewFinderTests {
+    @MainActor
+    private final class WindowFixtureRetainer {
+        static let shared = WindowFixtureRetainer()
+        private var windows: [NSWindow] = []
+
+        func retain(_ window: NSWindow) {
+            window.orderOut(nil)
+            windows.append(window)
+        }
+    }
+
+    @MainActor
+    private func retainWindowFixture(_ window: NSWindow) {
+        WindowFixtureRetainer.shared.retain(window)
+    }
 
     @Test("findTextView skips generic editable text views")
     @MainActor
@@ -46,6 +61,28 @@ struct NoteEditorViewFinderTests {
         root.addSubview(makeClickableTextView(pageId: "page-a"))
 
         let found = NoteEditorViewFinder.findTextView(in: root, matchingPageId: "page-z")
+
+        #expect(found == nil)
+    }
+
+    @Test("findEditorTextView does not fall back to another note when the requested page is missing")
+    @MainActor
+    func findEditorTextViewDoesNotFallbackToAnotherNote() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.tabbingIdentifier = "epistemos-note-tabs"
+
+        let root = NSView(frame: window.frame)
+        root.addSubview(makeClickableTextView(pageId: "page-a"))
+        window.contentView = root
+        window.makeKeyAndOrderFront(nil)
+        defer { retainWindowFixture(window) }
+
+        let found = NoteEditorViewFinder.findEditorTextView(for: "page-z")
 
         #expect(found == nil)
     }

@@ -11,6 +11,7 @@ import os
 final class AppCoordinator {
     private unowned let bootstrap: AppBootstrap
     let chatCoordinator: ChatCoordinator
+    private let ambientManifestRefreshDriver = AmbientManifestRefreshDriver()
 
     private let eventBus: EventBus
     private let uiState: UIState
@@ -210,9 +211,18 @@ final class AppCoordinator {
     // MARK: - Vault Manifest
 
     func refreshAmbientManifest() {
-        Task {
-            bootstrap.ambientManifest = await vaultSync.buildAmbientManifest()
-            Log.app.info("Ambient manifest refreshed: \(self.bootstrap.ambientManifest?.entries.count ?? 0) entries")
+        Task { [ambientManifestRefreshDriver, vaultSync, bootstrap] in
+            await ambientManifestRefreshDriver.request(
+                build: {
+                    await vaultSync.buildAmbientManifest()
+                },
+                apply: { manifest in
+                    await MainActor.run {
+                        bootstrap.ambientManifest = manifest
+                        Log.app.info("Ambient manifest refreshed: \(manifest?.entries.count ?? 0) entries")
+                    }
+                }
+            )
         }
     }
 
@@ -249,6 +259,42 @@ final class AppCoordinator {
         uiState.homeTab = .home
         if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
             main.makeKeyAndOrderFront(nil)
+        }
+    }
+}
+
+actor AmbientManifestRefreshDriver {
+    private var isRefreshing = false
+    private var pendingRefresh = false
+
+    func request(
+        build: @escaping @Sendable () async -> VaultManifest?,
+        apply: @escaping @Sendable (VaultManifest?) async -> Void
+    ) async {
+        guard !isRefreshing else {
+            pendingRefresh = true
+            return
+        }
+
+        isRefreshing = true
+        await run(build: build, apply: apply)
+    }
+
+    private func run(
+        build: @escaping @Sendable () async -> VaultManifest?,
+        apply: @escaping @Sendable (VaultManifest?) async -> Void
+    ) async {
+        while true {
+            let manifest = await build()
+            await apply(manifest)
+
+            if pendingRefresh {
+                pendingRefresh = false
+                continue
+            }
+
+            isRefreshing = false
+            return
         }
     }
 }

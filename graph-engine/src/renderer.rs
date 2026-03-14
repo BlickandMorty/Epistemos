@@ -191,6 +191,23 @@ struct DensityCluster {
     count: u32,
 }
 
+#[cfg(any(test, debug_assertions))]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct RenderDebugCounters {
+    upload_graph_calls: usize,
+    update_positions_calls: usize,
+    classic_buffer_rebuilds: usize,
+    node_highlight_uploads: usize,
+    edge_highlight_uploads: usize,
+    field_line_buffer_allocations: usize,
+    field_line_buffer_reuses: usize,
+    last_total_nodes: usize,
+    last_visible_nodes: usize,
+    last_total_edges: usize,
+    last_candidate_edges: usize,
+    last_visible_edges: usize,
+}
+
 pub(crate) fn viewport_bounds(
     camera_offset: [f32; 2],
     camera_zoom: f32,
@@ -512,8 +529,6 @@ fn z_for_link_count(link_count: u32) -> f32 {
     }
 }
 
-/// Highlighted edge color: brighter accent.
-const EDGE_HIGHLIGHT_COLOR: [f32; 4] = [0.70, 0.90, 1.00, 0.75];
 /// Base alpha multiplier for all nodes — subtler ambient presence.
 const BASE_NODE_ALPHA: f32 = 0.72;
 /// Dimmed node alpha when highlight is active — near-ghost for unfocused nodes.
@@ -1004,6 +1019,7 @@ fragment float4 node_fragment(
 // ── Edge shaders ───────────────────────────────────────────────────
 
 constant uint CURVE_EDGE_SEGMENTS = 20;
+constant float EDGE_DIM_ALPHA_SCALE = 0.25;
 
 struct CurveEdgeInstance {
     float2 p0;
@@ -1038,7 +1054,8 @@ vertex LineVertexOut curve_edge_vertex(
     uint vertex_id [[vertex_id]],
     uint instance_id [[instance_id]],
     constant CurveEdgeInstance* instances [[buffer(0)]],
-    constant Uniforms& u [[buffer(1)]]
+    constant Uniforms& u [[buffer(1)]],
+    constant uchar* edge_flags [[buffer(2)]]
 ) {
     CurveEdgeInstance inst = instances[instance_id];
     uint segment = vertex_id / 6;
@@ -1073,7 +1090,15 @@ vertex LineVertexOut curve_edge_vertex(
 
     LineVertexOut out;
     out.position = float4(base_ndc[corner], 0.0, 1.0);
-    out.color = inst.color;
+    uchar flag = edge_flags[instance_id];
+    if (flag == 1) {
+        out.color = float4(0.70, 0.90, 1.00, 0.75);
+    } else if (flag == 2) {
+        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
+        out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
+    } else {
+        out.color = inst.color;
+    }
     out.dist_from_center = dist_vals[corner];
     return out;
 }
@@ -1082,7 +1107,8 @@ vertex LineVertexOut line_edge_vertex(
     uint vertex_id [[vertex_id]],
     uint instance_id [[instance_id]],
     constant LineEdgeInstance* instances [[buffer(0)]],
-    constant Uniforms& u [[buffer(1)]]
+    constant Uniforms& u [[buffer(1)]],
+    constant uchar* edge_flags [[buffer(2)]]
 ) {
     LineEdgeInstance inst = instances[instance_id];
 
@@ -1115,7 +1141,15 @@ vertex LineVertexOut line_edge_vertex(
 
     LineVertexOut out;
     out.position = float4(base_ndc[vertex_id], 0.0, 1.0);
-    out.color = inst.color;
+    uchar flag = edge_flags[instance_id];
+    if (flag == 1) {
+        out.color = float4(0.70, 0.90, 1.00, 0.75);
+    } else if (flag == 2) {
+        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
+        out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
+    } else {
+        out.color = inst.color;
+    }
     out.dist_from_center = dist_vals[vertex_id];
     return out;
 }
@@ -1258,6 +1292,8 @@ pub struct Renderer {
     node_count: usize,
     face_feature_count: usize,
     edge_instance_count: usize,
+    edge_highlight_flag_buf: Option<Buffer>,
+    edge_highlight_flag_capacity: usize,
     pub use_aggregated_edges: bool,
     aggregated_edge_count: usize,
     /// When true, edges are hidden unless `edge_filter_node` is set.
@@ -1279,6 +1315,8 @@ pub struct Renderer {
     field_line_scratch: Vec<LineEdgeInstance>,
     // Reusable highlight flag vector (avoids per-frame allocation).
     highlight_flag_scratch: Vec<u8>,
+    edge_highlight_flag_scratch: Vec<u8>,
+    edge_highlight_pairs: Vec<[u32; 2]>,
     // Reusable culled render lists for Classic mode.
     rendered_node_indices: Vec<usize>,
     candidate_entities: Vec<u32>,
@@ -1342,6 +1380,8 @@ pub struct Renderer {
     compute_force_buf: Option<Buffer>,
     compute_position_capacity: usize,
     compute_force_capacity: usize,
+    #[cfg(any(test, debug_assertions))]
+    debug_counters: RenderDebugCounters,
 }
 
 impl Renderer {
@@ -1462,6 +1502,8 @@ impl Renderer {
             node_count: 0,
             face_feature_count: 0,
             edge_instance_count: 0,
+            edge_highlight_flag_buf: None,
+            edge_highlight_flag_capacity: 0,
             use_aggregated_edges: false,
             aggregated_edge_count: 0,
             edges_hidden: false,
@@ -1486,6 +1528,8 @@ impl Renderer {
             classic_node_scratch: Vec::new(),
             classic_edge_scratch: Vec::new(),
             classic_velocity_scratch: Vec::new(),
+            edge_highlight_flag_scratch: Vec::new(),
+            edge_highlight_pairs: Vec::new(),
             light_mode: false,
             clear_color: [0.07, 0.07, 0.09, 1.0],
             quality_level: 0, // Cinematic by default
@@ -1519,6 +1563,8 @@ impl Renderer {
             compute_force_buf: None,
             compute_position_capacity: 0,
             compute_force_capacity: 0,
+            #[cfg(any(test, debug_assertions))]
+            debug_counters: RenderDebugCounters::default(),
         })
     }
 
@@ -1820,33 +1866,6 @@ impl Renderer {
         dialogue_bias + elastic_bias
     }
 
-    fn push_curve_edge_instance(
-        scratch: &mut Vec<CurveEdgeInstance>,
-        p0: [f32; 2],
-        p1: [f32; 2],
-        v0: [f32; 2],
-        v1: [f32; 2],
-        ideal_length: f32,
-        color: [f32; 4],
-        curvature: f32,
-    ) {
-        let dx = p1[0] - p0[0];
-        let dy = p1[1] - p0[1];
-        let length = (dx * dx + dy * dy).sqrt();
-        if length <= f32::EPSILON {
-            return;
-        }
-
-        let (c0, c1) = string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
-        scratch.push(CurveEdgeInstance {
-            p0,
-            c0,
-            c1,
-            p1,
-            color,
-        });
-    }
-
     #[inline]
     fn classic_node_radius(&self, world: &World, node_index: usize) -> f32 {
         dialogue_node_radius(
@@ -1888,38 +1907,22 @@ impl Renderer {
     #[inline]
     fn classic_edge_instance_color(
         &self,
-        world: &World,
         edge: &crate::ecs::EdgeComponent,
-        src_index: usize,
-        tgt_index: usize,
-        _p0: [f32; 2],
-        _p1: [f32; 2],
     ) -> [f32; 4] {
-        let base_edge = self.edge_color(edge.edge_type);
-        if self.highlight.active {
-            let src_lit = self
-                .highlight
-                .highlighted_ids
-                .contains(&world.graph_node[src_index].node_id);
-            let tgt_lit = self
-                .highlight
-                .highlighted_ids
-                .contains(&world.graph_node[tgt_index].node_id);
-            if src_lit && tgt_lit {
-                EDGE_HIGHLIGHT_COLOR
-            } else {
-                // Grayscale: desaturate non-highlighted edges, keep visible
-                let lum = base_edge[0] * 0.299 + base_edge[1] * 0.587 + base_edge[2] * 0.114;
-                [lum, lum, lum, base_edge[3] * 0.18]
-            }
-        } else {
-            let mut color = base_edge;
-            color[3] *= BASE_NODE_ALPHA;
-            color
-        }
+        let mut color = self.edge_color(edge.edge_type);
+        color[3] *= BASE_NODE_ALPHA;
+        color
     }
 
     fn rebuild_classic_buffers(&mut self, world: &World) {
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.classic_buffer_rebuilds += 1;
+            self.debug_counters.last_total_nodes = world.len();
+            self.debug_counters.last_total_edges = world.edges.len();
+            self.debug_counters.last_candidate_edges = 0;
+            self.debug_counters.last_visible_edges = 0;
+        }
         let view_bounds = self.current_view_bounds(Self::CLASSIC_CULL_PADDING_PIXELS);
         let lod = lod_profile_for_zoom(self.camera_zoom, self.quality_level);
         let visual_theme = self.visual_theme;
@@ -1933,6 +1936,10 @@ impl Renderer {
                 world.render[index].color_override[3],
             )
         });
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.last_visible_nodes = self.rendered_node_indices.len();
+        }
 
         // Stable draw order: sort by z-tier (background first → foreground last)
         // so the painter's algorithm renders foreground nodes on top.
@@ -1948,6 +1955,7 @@ impl Renderer {
         self.classic_node_scratch.clear();
         self.classic_velocity_scratch.clear();
         self.classic_edge_scratch.clear();
+        self.edge_highlight_pairs.clear();
 
         if lod.cluster_nodes && !self.highlight.active {
             self.density_clusters.clear();
@@ -2287,6 +2295,10 @@ impl Renderer {
             } else {
                 self.collect_candidate_edges(world);
             }
+            #[cfg(any(test, debug_assertions))]
+            {
+                self.debug_counters.last_candidate_edges = self.edge_candidate_indices.len();
+            }
             self.reset_edge_lod_budget(world, lod);
             let curvature = self.edge_curvature();
             for candidate_index in 0..self.edge_candidate_indices.len() {
@@ -2319,8 +2331,7 @@ impl Renderer {
                     continue;
                 }
 
-                let color =
-                    self.classic_edge_instance_color(world, edge, src_index, tgt_index, p0, p1);
+                let color = self.classic_edge_instance_color(edge);
                 let v0 = [world.velocity[src_index].vx, world.velocity[src_index].vy];
                 let v1 = [world.velocity[tgt_index].vx, world.velocity[tgt_index].vy];
                 let ideal_length = self.link_distance / edge.weight.max(0.01);
@@ -2328,20 +2339,25 @@ impl Renderer {
                 if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
                     continue;
                 }
-                Self::push_curve_edge_instance(
-                    &mut self.classic_edge_scratch,
+                self.classic_edge_scratch.push(CurveEdgeInstance {
                     p0,
+                    c0,
+                    c1,
                     p1,
-                    v0,
-                    v1,
-                    ideal_length,
                     color,
-                    curvature,
-                );
+                });
+                self.edge_highlight_pairs.push([
+                    world.graph_node[src_index].node_id,
+                    world.graph_node[tgt_index].node_id,
+                ]);
             }
         }
 
         self.edge_instance_count = self.classic_edge_scratch.len();
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.last_visible_edges = self.edge_instance_count;
+        }
         if self.edge_instance_count > 0 {
             if self.edge_instance_count > self.edge_instance_capacity
                 || self.edge_instance_buf.is_none()
@@ -2385,16 +2401,22 @@ impl Renderer {
         self.classic_edge_scratch.clear();
         let curvature = (self.edge_curvature() * 0.8).max(0.10);
         for edge in edges {
-            Self::push_curve_edge_instance(
-                &mut self.classic_edge_scratch,
+            let (c0, c1) = string_edge_control_points(
                 edge.p0,
                 edge.p1,
                 [0.0, 0.0],
                 [0.0, 0.0],
                 ((edge.p1[0] - edge.p0[0]).powi(2) + (edge.p1[1] - edge.p0[1]).powi(2)).sqrt(),
-                [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha],
                 curvature,
             );
+            self.classic_edge_scratch.push(CurveEdgeInstance {
+                p0: edge.p0,
+                c0,
+                c1,
+                p1: edge.p1,
+                color: [base_rgb[0], base_rgb[1], base_rgb[2], edge.alpha],
+            });
+            self.edge_highlight_pairs.push([u32::MAX, u32::MAX]);
         }
         self.aggregated_edge_count = self.classic_edge_scratch.len();
 
@@ -2528,12 +2550,20 @@ impl Renderer {
 
     /// Full upload of graph data to GPU buffers.
     pub fn upload_graph(&mut self, world: &World) {
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.upload_graph_calls += 1;
+        }
         self.rebuild_classic_buffers(world);
     }
 
     /// Update positions in-place (called every frame after sync_positions).
     /// Buffer layout: [glow_count glows] [node_count nodes] [highlight rings].
     pub fn update_positions(&mut self, world: &World) {
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.update_positions_calls += 1;
+        }
         self.rebuild_classic_buffers(world);
     }
 
@@ -2677,6 +2707,59 @@ impl Renderer {
                 );
             }
         }
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.node_highlight_uploads += 1;
+        }
+    }
+
+    pub fn rebuild_edge_highlight_flags(&mut self) {
+        if self.edge_instance_count == 0 {
+            self.edge_highlight_flag_scratch.clear();
+            return;
+        }
+
+        self.edge_highlight_flag_scratch.clear();
+        self.edge_highlight_flag_scratch.reserve(self.edge_instance_count);
+
+        if self.highlight.active {
+            for pair in &self.edge_highlight_pairs {
+                if pair[0] == u32::MAX || pair[1] == u32::MAX {
+                    self.edge_highlight_flag_scratch.push(0);
+                    continue;
+                }
+                let src_lit = self.highlight.highlighted_ids.contains(&pair[0]);
+                let tgt_lit = self.highlight.highlighted_ids.contains(&pair[1]);
+                self.edge_highlight_flag_scratch
+                    .push(if src_lit && tgt_lit { 1 } else { 2 });
+            }
+        } else {
+            self.edge_highlight_flag_scratch
+                .resize(self.edge_instance_count, 0);
+        }
+
+        let needed = self.edge_highlight_flag_scratch.len();
+        if needed > self.edge_highlight_flag_capacity || self.edge_highlight_flag_buf.is_none() {
+            let capacity = (needed * 3 / 2).max(64);
+            self.edge_highlight_flag_buf = Some(
+                self.device
+                    .new_buffer(capacity as u64, MTLResourceOptions::StorageModeShared),
+            );
+            self.edge_highlight_flag_capacity = capacity;
+        }
+        if let Some(buf) = &self.edge_highlight_flag_buf {
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.edge_highlight_flag_scratch.as_ptr(),
+                    buf.contents() as *mut u8,
+                    needed,
+                );
+            }
+        }
+        #[cfg(any(test, debug_assertions))]
+        {
+            self.debug_counters.edge_highlight_uploads += 1;
+        }
     }
 
     /// Generate magnetic field lines for a hovered node.
@@ -2778,6 +2861,15 @@ impl Renderer {
                         .new_buffer(buf_size, MTLResourceOptions::StorageModeShared),
                 );
                 self.field_line_capacity = capacity;
+                #[cfg(any(test, debug_assertions))]
+                {
+                    self.debug_counters.field_line_buffer_allocations += 1;
+                }
+            } else {
+                #[cfg(any(test, debug_assertions))]
+                {
+                    self.debug_counters.field_line_buffer_reuses += 1;
+                }
             }
             if let Some(buf) = &self.field_line_buf {
                 unsafe {
@@ -3151,6 +3243,24 @@ impl Renderer {
                 encoder.set_render_pipeline_state(&self.edge_pipeline);
                 encoder.set_vertex_buffer(0, Some(inst_buf), 0);
                 encoder.set_vertex_buffer(1, Some(&self.uniform_buf), 0);
+                if self.edge_highlight_flag_buf.is_none()
+                    || self.edge_highlight_flag_capacity < edge_draw
+                {
+                    let cap = (edge_draw * 3 / 2).max(64);
+                    self.edge_highlight_flag_buf = Some(
+                        self.device
+                            .new_buffer(cap as u64, MTLResourceOptions::StorageModeShared),
+                    );
+                    self.edge_highlight_flag_capacity = cap;
+                    if let Some(flag_buf) = &self.edge_highlight_flag_buf {
+                        unsafe {
+                            std::ptr::write_bytes(flag_buf.contents() as *mut u8, 0, cap);
+                        }
+                    }
+                }
+                if let Some(flag_buf) = &self.edge_highlight_flag_buf {
+                    encoder.set_vertex_buffer(2, Some(flag_buf), 0);
+                }
                 encoder.draw_primitives_instanced(
                     MTLPrimitiveType::Triangle,
                     0,
@@ -3501,5 +3611,102 @@ mod tests {
         let min_top = -450.0 + DIALOGUE_VIEWPORT_MARGIN_SCREEN / zoom;
         let max_top = -40.0;
         assert!((min_top..=max_top).contains(&top));
+    }
+
+    fn make_test_renderer() -> Renderer {
+        let device = Device::system_default().expect("Metal device should exist in renderer tests");
+        let layer = MetalLayer::new();
+        Renderer::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("renderer should initialize")
+    }
+
+    fn make_test_world(node_count: usize, spacing: f32) -> World {
+        let mut graph = crate::types::Graph::new();
+        for index in 0..node_count {
+            graph.add_node(
+                format!("node-{index}"),
+                100.0 + index as f32 * spacing,
+                0.0,
+                0,
+                2,
+                format!("Node {index}"),
+            );
+        }
+        for index in 0..node_count.saturating_sub(1) {
+            graph.add_edge(
+                &format!("node-{index}"),
+                &format!("node-{}", index + 1),
+                1.0,
+                0,
+            );
+        }
+        World::from_graph(&graph)
+    }
+
+    #[test]
+    fn highlight_rebuild_updates_only_flag_buffers() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.set_viewport_size(1280, 720);
+        renderer.allocate_buffers(&world);
+
+        let baseline_rebuilds = renderer.debug_counters.classic_buffer_rebuilds;
+        let baseline_uploads = renderer.debug_counters.upload_graph_calls;
+
+        renderer.highlight.active = true;
+        renderer
+            .highlight
+            .highlighted_ids
+            .insert(world.graph_node[0].node_id);
+        renderer
+            .highlight
+            .highlighted_ids
+            .insert(world.graph_node[1].node_id);
+        renderer.rebuild_highlight_flags(&world);
+        renderer.rebuild_edge_highlight_flags();
+
+        assert_eq!(renderer.debug_counters.classic_buffer_rebuilds, baseline_rebuilds);
+        assert_eq!(renderer.debug_counters.upload_graph_calls, baseline_uploads);
+        assert_eq!(renderer.debug_counters.node_highlight_uploads, 1);
+        assert_eq!(renderer.debug_counters.edge_highlight_uploads, 1);
+        assert_eq!(renderer.edge_highlight_flag_scratch, vec![1, 2]);
+    }
+
+    #[test]
+    fn field_line_buffer_reuses_capacity_for_same_hovered_node() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.set_viewport_size(1280, 720);
+
+        let hovered_id = world.graph_node[1].node_id;
+        renderer.update_field_lines(Some(hovered_id), &world, 0.0);
+        let first_allocations = renderer.debug_counters.field_line_buffer_allocations;
+        let first_count = renderer.field_line_count;
+
+        renderer.update_field_lines(Some(hovered_id), &world, 0.5);
+
+        assert!(first_count > 0);
+        assert_eq!(
+            renderer.debug_counters.field_line_buffer_allocations,
+            first_allocations
+        );
+        assert!(renderer.debug_counters.field_line_buffer_reuses >= 1);
+    }
+
+    #[test]
+    fn update_positions_records_visible_workload_below_total_scene_size() {
+        let world = make_test_world(8, 2_000.0);
+        let mut renderer = make_test_renderer();
+        renderer.camera_offset = [0.0, 0.0];
+        renderer.camera_zoom = 1.0;
+        renderer.set_viewport_size(640, 360);
+        renderer.update_positions(&world);
+
+        assert_eq!(renderer.debug_counters.last_total_nodes, 8);
+        assert!(renderer.debug_counters.last_visible_nodes < 8);
+        assert!(renderer.debug_counters.last_visible_edges < renderer.debug_counters.last_total_edges);
     }
 }

@@ -229,6 +229,70 @@ struct VaultIndexActorTests {
         #expect(rows.first?.id == active.id)
     }
 
+    @Test("spotlight reindex snapshot skips unchanged pages when persisted timestamp is newer")
+    func spotlightReindexSnapshotSkipsUnchangedPages() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        defer {
+            UserDefaults.standard.removeObject(forKey: VaultIndexActor.spotlightIndexDateKey)
+        }
+
+        _ = insertPage(
+            in: context,
+            title: "Stable Note",
+            body: "Body",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        try context.save()
+
+        UserDefaults.standard.set(
+            Date(timeIntervalSince1970: 200),
+            forKey: VaultIndexActor.spotlightIndexDateKey
+        )
+
+        let snapshot = await actor.spotlightReindexSnapshotForTesting()
+
+        #expect(snapshot.lastIndexDate == Date(timeIntervalSince1970: 200))
+        #expect(snapshot.changedPageCount == 0)
+        #expect(snapshot.willIndex == false)
+    }
+
+    @Test("spotlight reindex snapshot includes pages newer than persisted timestamp")
+    func spotlightReindexSnapshotIncludesChangedPages() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        defer {
+            UserDefaults.standard.removeObject(forKey: VaultIndexActor.spotlightIndexDateKey)
+        }
+
+        _ = insertPage(
+            in: context,
+            title: "Old Note",
+            body: "Old",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        _ = insertPage(
+            in: context,
+            title: "Fresh Note",
+            body: "Fresh",
+            updatedAt: Date(timeIntervalSince1970: 300)
+        )
+        try context.save()
+
+        UserDefaults.standard.set(
+            Date(timeIntervalSince1970: 200),
+            forKey: VaultIndexActor.spotlightIndexDateKey
+        )
+
+        let snapshot = await actor.spotlightReindexSnapshotForTesting()
+
+        #expect(snapshot.lastIndexDate == Date(timeIntervalSince1970: 200))
+        #expect(snapshot.changedPageCount == 1)
+        #expect(snapshot.willIndex == true)
+    }
+
     @Test("fullPageData returns joined tags and nil for missing page")
     func fullPageDataBehavior() async throws {
         let container = try makeContainer()

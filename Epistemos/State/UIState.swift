@@ -24,6 +24,12 @@ final class UIState {
     /// The resolved theme for the current system mode — read this everywhere.
     var theme: EpistemosTheme { activePair.resolved(isDark: isSystemDark) }
 
+    var displayMode: AppDisplayMode = .opulent {
+        didSet {
+            UserDefaults.standard.set(displayMode.rawValue, forKey: AppDisplayMode.defaultsKey)
+        }
+    }
+
     // MARK: - Setup
 
     /// When true, the app shows the setup/welcome screen after a full reset.
@@ -67,11 +73,13 @@ final class UIState {
            let pair = ThemePair(rawValue: saved) {
             activePair = pair
         }
+        displayMode = AppDisplayMode.current()
     }
 
     // MARK: - Theme Methods
 
     func setPair(_ pair: ThemePair) { activePair = pair }
+    func setDisplayMode(_ mode: AppDisplayMode) { displayMode = mode }
 
     func cycleTheme() {
         let pairs = ThemePair.allCases

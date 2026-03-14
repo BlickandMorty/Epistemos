@@ -26,7 +26,8 @@ struct LiquidGreeting: View {
     @State private var cursorVisible = true
 
     private var theme: EpistemosTheme { ui.theme }
-    private var greetingFont: Font { .custom("RetroGaming", size: compact ? 22 : 44) }
+    private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
+    private var usesSimplifiedGreeting: Bool { ui.displayMode.reducesASCIIAnimations }
 
     /// Single reactive flag — drives both typewriter and cursor via .task(id:)
     private var shouldAnimate: Bool {
@@ -56,7 +57,7 @@ struct LiquidGreeting: View {
                 .fill(theme.fontAccent.opacity(0.85))
                 .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
-                .opacity(cursorVisible ? 1 : 0)
+                .opacity(!usesSimplifiedGreeting && cursorVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.3), value: cursorVisible)
                 .padding(.leading, 2)
         }
@@ -71,6 +72,12 @@ struct LiquidGreeting: View {
             }
             guard shouldAnimate else {
                 displayText = ""
+                cursorVisible = false
+                return
+            }
+            if usesSimplifiedGreeting {
+                cursorVisible = false
+                displayText = vaultSync.isIndexing ? "syncing vault..." : "welcome back"
                 return
             }
             // Small yield so SwiftUI's initial layout pass finishes before we

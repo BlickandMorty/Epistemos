@@ -1,6 +1,12 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum ChatLayout {
+    static let messageColumnMaxWidth: CGFloat = 760
+    static let mainComposerMaxWidth: CGFloat = 1200
+    static let mainComposerHorizontalPadding: CGFloat = 12
+}
+
 // MARK: - Chat View
 // Full chat interface matching v2's conversation mode.
 // Shows when user has submitted a query from landing page.
@@ -41,7 +47,7 @@ struct ChatView: View {
                                 .frame(height: 1)
                                 .id("bottom-anchor")
                         }
-                        .frame(maxWidth: 760)
+                        .frame(maxWidth: ChatLayout.messageColumnMaxWidth)
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, Spacing.lg)
@@ -321,5 +327,3 @@ private struct StreamingIndicator: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-

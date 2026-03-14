@@ -1,9 +1,26 @@
 import AppKit
 import Testing
+import SwiftUI
 @testable import Epistemos
 
 @Suite("Note Editor Layout")
 struct NoteEditorLayoutTests {
+    @MainActor
+    private final class HostingViewFixtureRetainer {
+        static let shared = HostingViewFixtureRetainer()
+        private var views: [NSView] = []
+
+        func retain(_ view: NSView) {
+            view.removeFromSuperview()
+            views.append(view)
+        }
+    }
+
+    @MainActor
+    private func retainHostingFixture(_ view: NSView) {
+        HostingViewFixtureRetainer.shared.retain(view)
+    }
+
     @Test("top spacing stays tight below the toolbar")
     func topSpacingStaysTightBelowToolbar() {
         #expect(ProseEditorRepresentable.verticalInset == 40)
@@ -46,8 +63,8 @@ struct NoteEditorLayoutTests {
     }
 
     @MainActor
-    @Test("rendered tables reserve enough editor height to avoid overlapping following prose")
-    func renderedTablesReserveEnoughHeight() throws {
+    @Test("editor tables collapse into compact placeholders instead of full inline previews")
+    func editorTablesCollapseIntoCompactPlaceholders() throws {
         let markdown = """
         | Name | Count |
         | --- | --- |
@@ -60,6 +77,7 @@ struct NoteEditorLayoutTests {
         let storage = MarkdownTextStorage()
         storage.isDark = false
         storage.theme = .light
+        storage.usesRenderedTableOverlays = true
 
         let layoutManager = NSLayoutManager()
         let container = NSTextContainer(
@@ -88,12 +106,106 @@ struct NoteEditorLayoutTests {
         ).height
 
         let table = try #require(MarkdownTableModel.parse(text.substring(with: tableRange)))
-        let overlay = NoteEditorRenderedTableHostingView(table: table, theme: .light)
-        overlay.frame = NSRect(x: 0, y: 0, width: 640, height: 1)
-        overlay.layoutSubtreeIfNeeded()
-        let overlayHeight = overlay.fittingSize.height
+        let placeholder = NoteEditorRenderedTableHostingView(table: table, theme: .light)
+        placeholder.update(
+            table: table,
+            theme: .light,
+            frame: NSRect(x: 0, y: 0, width: 640, height: allocatedHeight)
+        )
 
-        #expect(allocatedHeight >= overlayHeight)
+        let popoverPreviewSize = NoteEditorRenderedTablePopoverContent.preferredSize(for: table)
+
+        #expect(allocatedHeight < popoverPreviewSize.height)
+        #expect(placeholder.frame.height < popoverPreviewSize.height)
+        #expect(placeholder.frame.height <= 28)
+        #expect(placeholder.frame.width < 200)
+    }
+
+    @Test("classic editor uses the same readable inset for table and prose notes")
+    func classicEditorUsesSameInsetForTableAndProseNotes() {
+        let proseInset = ProseEditorRepresentable.horizontalInset(
+            for: 1000,
+            markdown: "# Heading\n\nBody"
+        )
+        let tableInset = ProseEditorRepresentable.horizontalInset(
+            for: 1000,
+            markdown: """
+            | Name | Count |
+            | --- | --- |
+            | Pens | 12 |
+            """
+        )
+
+        #expect(tableInset == proseInset)
+    }
+
+    @Test("classic editor typing attributes reset to body style")
+    func classicEditorTypingAttributesResetToBodyStyle() throws {
+        let attributes = ProseEditorRepresentable.typingAttributes(for: .light)
+        let font = try #require(attributes[.font] as? NSFont)
+        let paragraphStyle = try #require(attributes[.paragraphStyle] as? NSParagraphStyle)
+
+        #expect(font.pointSize == MarkdownTextStorage.noteBaseFontSize)
+        #expect(paragraphStyle.firstLineHeadIndent == MarkdownTextStorage.bodyParagraphStyle().firstLineHeadIndent)
+        #expect(paragraphStyle.headIndent == MarkdownTextStorage.bodyParagraphStyle().headIndent)
+    }
+
+    @Test("classic editor notification page matching rejects stale page ids")
+    func classicEditorNotificationPageMatchingRejectsStalePageIds() {
+        #expect(ProseEditorRepresentable.matchesNotificationPageId("page-a", coordinatorPageId: "page-a"))
+        #expect(!ProseEditorRepresentable.matchesNotificationPageId("page-a", coordinatorPageId: "page-b"))
+        #expect(!ProseEditorRepresentable.matchesNotificationPageId(nil, coordinatorPageId: "page-a"))
+        #expect(!ProseEditorRepresentable.matchesNotificationPageId("page-a", coordinatorPageId: nil))
+        #expect(!ProseEditorRepresentable.matchesNotificationPageId("", coordinatorPageId: "page-a"))
+        #expect(!ProseEditorRepresentable.matchesNotificationPageId("page-a", coordinatorPageId: ""))
+    }
+
+    @MainActor
+    @Test("classic editor dismantle unregisters content-view observers before teardown")
+    func classicEditorDismantleUnregistersContentViewObservers() {
+        let editor = ProseEditorRepresentable(
+            text: .constant("Body"),
+            pageId: "page-a",
+            pageBody: "Body",
+            isFocused: false,
+            theme: .light,
+            isEditable: true,
+            isFocusMode: false
+        )
+        let coordinator = editor.makeCoordinator()
+        let scrollView = NSScrollView()
+        let textView = ClickableTextView(frame: .zero, textContainer: nil)
+        scrollView.documentView = textView
+        coordinator.lastPageId = "page-a"
+
+        let clipView = scrollView.contentView
+        var frameNotifications = 0
+        var boundsNotifications = 0
+
+        coordinator.frameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: clipView,
+            queue: nil
+        ) { _ in
+            frameNotifications += 1
+        }
+        coordinator.scrollObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: clipView,
+            queue: nil
+        ) { _ in
+            boundsNotifications += 1
+        }
+
+        ProseEditorRepresentable.dismantleNSView(scrollView, coordinator: coordinator)
+
+        NotificationCenter.default.post(name: NSView.frameDidChangeNotification, object: clipView)
+        NotificationCenter.default.post(name: NSView.boundsDidChangeNotification, object: clipView)
+
+        #expect(frameNotifications == 0)
+        #expect(boundsNotifications == 0)
+        #expect(coordinator.frameObserver == nil)
+        #expect(coordinator.scrollObserver == nil)
     }
 
     @Test("overlay-backed table markdown source text is hidden in TextKit 1")
@@ -118,6 +230,89 @@ struct NoteEditorLayoutTests {
         )
 
         #expect(color.alphaComponent == 0)
+    }
+
+    @Test("table placeholders use the first non-empty header cell as the title")
+    func tablePlaceholderUsesFirstNonEmptyHeaderCell() throws {
+        let table = try #require(
+            MarkdownTableModel.parse(
+                """
+                |   | Δ Count |
+                | --- | --- |
+                | Pens | 12 |
+                """
+            )
+        )
+
+        #expect(table.placeholderLabel == "Table: Δ Count")
+    }
+
+    @MainActor
+    @Test("table popover renders a full-sized table surface")
+    func tablePopoverRendersFullSizedTableSurface() throws {
+        let table = try #require(
+            MarkdownTableModel.parse(
+                """
+                | Subject | Score |
+                | --- | --- |
+                | Pens | 12 |
+                | Paper | 4 |
+                """
+            )
+        )
+
+        let size = NoteEditorRenderedTablePopoverContent.preferredSize(for: table)
+        let host = NSHostingView(
+            rootView: NoteEditorRenderedTablePopoverContent(table: table, theme: .light)
+        )
+        defer { retainHostingFixture(host) }
+        host.frame = NSRect(origin: .zero, size: size)
+        host.layoutSubtreeIfNeeded()
+
+        #expect(host.fittingSize.width >= size.width - 20)
+        #expect(host.fittingSize.height >= 80)
+    }
+
+    @MainActor
+    @Test("table placeholder keeps typing click-through outside the preview hotspot")
+    func tablePlaceholderKeepsTypingClickThroughOutsidePreviewHotspot() throws {
+        let table = try #require(
+            MarkdownTableModel.parse(
+                """
+                | Subject | Score |
+                | --- | --- |
+                | Pens | 12 |
+                """
+            )
+        )
+
+        let host = NoteEditorRenderedTableHostingView(table: table, theme: .light)
+        host.update(
+            table: table,
+            theme: .light,
+            frame: NSRect(x: 0, y: 0, width: 320, height: 26)
+        )
+
+        let textPoint = NSPoint(x: 6, y: host.bounds.midY)
+        let hotspotPoint = NSPoint(x: host.bounds.maxX - 6, y: host.bounds.midY)
+
+        #expect(host.hitTest(textPoint) == nil)
+        #expect(host.hitTest(hotspotPoint) === host)
+    }
+
+    @Test("typing triple backticks expands into a fenced code block")
+    func typingTripleBackticksExpandsIntoFence() throws {
+        let edit = try #require(
+            MarkdownEditorCommands.autoExpandCodeFence(
+                in: "  ``",
+                selection: NSRange(location: 4, length: 0),
+                replacementString: "`"
+            )
+        )
+
+        #expect(edit.replacementRange == NSRange(location: 2, length: 2))
+        #expect(edit.replacementText == "```\n  \n  ```")
+        #expect(edit.selectedRange == NSRange(location: 8, length: 0))
     }
 
     @Test("ascii ripple preserves spaces while scrambling the active wave front")
@@ -186,10 +381,12 @@ struct NoteEditorLayoutTests {
 
     @Test("markdown ripple style scopes headings and body separately")
     func markdownRippleStyleScopesHeadingsAndBodySeparately() {
-        #expect(MarkdownRippleStyle.headings123.ripplesHeading(level: 1))
+        #expect(MarkdownRippleStyle.heading1.ripplesHeading(level: 1))
+        #expect(!MarkdownRippleStyle.heading1.ripplesHeading(level: 2))
+        #expect(!MarkdownRippleStyle.heading1.includesBodyBlocks)
         #expect(MarkdownRippleStyle.headings123.ripplesHeading(level: 3))
         #expect(!MarkdownRippleStyle.headings123.ripplesHeading(level: 4))
-        #expect(!MarkdownRippleStyle.headings123.includesBodyBlocks)
+        #expect(MarkdownRippleStyle.heading1AndBody.includesBodyBlocks)
         #expect(MarkdownRippleStyle.headings123AndBody.includesBodyBlocks)
     }
 
@@ -200,5 +397,37 @@ struct NoteEditorLayoutTests {
         )
 
         #expect(visible == "Bold and Link with Code")
+    }
+
+    @MainActor
+    @Test("graph overlay hosted views resolve required app environment")
+    func graphOverlayHostedViewsResolveRequiredAppEnvironment() {
+        let existingBootstrap = AppBootstrap.shared
+        let bootstrap = existingBootstrap ?? AppBootstrap()
+        let host = NSHostingView(
+            rootView: HologramOverlayHostedViewBuilder.root(
+                GraphOverlayEnvironmentProbe(),
+                bootstrap: bootstrap
+            )
+        )
+        defer { retainHostingFixture(host) }
+
+        host.frame = NSRect(x: 0, y: 0, width: 240, height: 120)
+        host.layoutSubtreeIfNeeded()
+
+        if let existingBootstrap {
+            #expect(bootstrap === existingBootstrap)
+        }
+        #expect(host.fittingSize.width >= 0)
+    }
+}
+
+private struct GraphOverlayEnvironmentProbe: View {
+    @Environment(UIState.self) private var ui
+    @Environment(GraphState.self) private var graphState
+    @Environment(QueryEngine.self) private var queryEngine
+
+    var body: some View {
+        Text(verbatim: "\(ui.theme.displayName) \(graphState.store.nodes.count) \(queryEngine.isProcessing)")
     }
 }

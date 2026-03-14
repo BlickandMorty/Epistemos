@@ -167,6 +167,135 @@ private enum GraphFFIBatchFixture {
     }
 }
 
+private actor DeferredMetadataRunCounter {
+    private var count = 0
+    private var waiters: [Int: [CheckedContinuation<Void, Never>]] = [:]
+
+    func increment() -> Int {
+        count += 1
+        let readyTargets = waiters.keys.filter { $0 <= count }
+        for target in readyTargets {
+            let continuations = waiters.removeValue(forKey: target) ?? []
+            for continuation in continuations {
+                continuation.resume()
+            }
+        }
+        return count
+    }
+
+    func value() -> Int {
+        count
+    }
+
+    func waitUntilValue(_ expected: Int) async {
+        if count >= expected {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters[expected, default: []].append(continuation)
+        }
+    }
+}
+
+private actor DeferredMetadataRunGate {
+    private var started = false
+    private var released = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func markStarted() {
+        guard !started else { return }
+        started = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    func waitUntilStarted() async {
+        if started {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            startWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        guard !released else { return }
+        released = true
+        let waiters = releaseWaiters
+        releaseWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    func waitUntilReleased() async {
+        if released {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            releaseWaiters.append(continuation)
+        }
+    }
+}
+
+@Suite("Graph Deferred Metadata Driver", .serialized)
+struct GraphDeferredMetadataDriverTests {
+    @Test("burst metadata requests before the next run loop tick coalesce")
+    func burstRequestsCoalesce() async {
+        let driver = await MainActor.run { GraphDeferredMetadataDriver() }
+        let counter = DeferredMetadataRunCounter()
+
+        await MainActor.run {
+            driver.request {
+                _ = await counter.increment()
+            }
+            driver.request {
+                _ = await counter.increment()
+            }
+            driver.request {
+                _ = await counter.increment()
+            }
+        }
+
+        await counter.waitUntilValue(1)
+
+        #expect(await counter.value() == 1)
+    }
+
+    @Test("metadata request while a run is active schedules exactly one rerun")
+    func inFlightRequestSchedulesSingleRerun() async {
+        let driver = await MainActor.run { GraphDeferredMetadataDriver() }
+        let counter = DeferredMetadataRunCounter()
+        let gate = DeferredMetadataRunGate()
+
+        let run: @MainActor @Sendable () async -> Void = {
+            let current = await counter.increment()
+            if current == 1 {
+                await gate.markStarted()
+                await gate.waitUntilReleased()
+            }
+        }
+
+        await MainActor.run {
+            driver.request(run: run)
+        }
+        await gate.waitUntilStarted()
+        await MainActor.run {
+            driver.request(run: run)
+            driver.request(run: run)
+        }
+        await gate.release()
+
+        await counter.waitUntilValue(2)
+
+        #expect(await counter.value() == 2)
+    }
+}
+
 // MARK: - Graph Performance Tests
 
 @Suite("Graph Performance")

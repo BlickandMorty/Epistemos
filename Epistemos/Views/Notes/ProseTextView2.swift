@@ -1,6 +1,5 @@
 import AppKit
 import UniformTypeIdentifiers
-import Vision
 
 // MARK: - ProseTextView2
 // NSTextView subclass backed by TextKit 2 (NSTextLayoutManager).
@@ -9,11 +8,23 @@ import Vision
 // Replaces ClickableTextView (TextKit 1) in the new prose editor stack.
 
 final class ProseTextView2: NSTextView {
+    private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
+    @MainActor
+    private final class TestFixtureRetainer {
+        static let shared = TestFixtureRetainer()
+        private var scrollViews: [NSScrollView] = []
+
+        func retain(_ scrollView: NSScrollView) {
+            scrollViews.append(scrollView)
+        }
+    }
 
     /// Delegate that classifies paragraphs via Rust FFI and applies structural styles.
     let markdownDelegate = MarkdownContentStorage()
     private var reparseTask: Task<Void, Never>?
     private var currentActiveLine: Int?
+    private nonisolated(unsafe) var boundsObserver: (any NSObjectProtocol)?
 
     /// When true, dim all paragraphs except the one containing the insertion point.
     nonisolated(unsafe) var isFocusMode = false
@@ -43,6 +54,12 @@ final class ProseTextView2: NSTextView {
 
     override var undoManager: UndoManager? {
         pageUndoManager ?? super.undoManager
+    }
+
+    deinit {
+        if let boundsObserver {
+            NotificationCenter.default.removeObserver(boundsObserver)
+        }
     }
 
     func applyTheme(_ theme: EpistemosTheme) {
@@ -149,9 +166,31 @@ final class ProseTextView2: NSTextView {
         if MarkdownEditorCommands.isSelectionInsideTable(in: string, selection: affectedCharRange) {
             return false
         }
+        if let autoEdit = MarkdownEditorCommands.autoExpandCodeFence(
+            in: string,
+            selection: affectedCharRange,
+            replacementString: replacementString
+        ) {
+            return applyAutomaticMarkdownEdit(autoEdit)
+        }
         markdownDelegate.markDirty()
         lastEditLocation = affectedCharRange.location
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+    }
+
+    private func applyAutomaticMarkdownEdit(_ edit: MarkdownEditorCommands.TextEdit) -> Bool {
+        markdownDelegate.markDirty()
+        lastEditLocation = edit.replacementRange.location
+        guard super.shouldChangeText(
+            in: edit.replacementRange,
+            replacementString: edit.replacementText
+        ) else {
+            return false
+        }
+        textStorage?.replaceCharacters(in: edit.replacementRange, with: edit.replacementText)
+        didChangeText()
+        setSelectedRange(edit.selectedRange)
+        return false
     }
 
     /// Set edit location for programmatic inserts that bypass shouldChangeText.
@@ -207,11 +246,16 @@ final class ProseTextView2: NSTextView {
     }
 
     static func paragraphNeighborhoodRange(in text: NSString, around editLocation: Int?) -> NSRange {
-        guard text.length > 0, let editLocation, editLocation < text.length else {
+        guard text.length > 0, let editLocation else {
             return NSRange(location: 0, length: text.length)
         }
 
-        let paragraphRange = text.paragraphRange(for: NSRange(location: editLocation, length: 0))
+        let clampedLocation = min(max(editLocation, 0), max(text.length - 1, 0))
+        if let structuralRange = structuralEditRange(in: text, around: clampedLocation) {
+            return structuralRange
+        }
+
+        let paragraphRange = text.paragraphRange(for: NSRange(location: clampedLocation, length: 0))
         let start =
             paragraphRange.location > 0
             ? text.paragraphRange(for: NSRange(location: paragraphRange.location - 1, length: 0))
@@ -223,6 +267,106 @@ final class ProseTextView2: NSTextView {
             ? NSMaxRange(text.paragraphRange(for: NSRange(location: paragraphEnd, length: 0)))
             : text.length
         return NSRange(location: start, length: end - start)
+    }
+
+    private static func structuralEditRange(in text: NSString, around editLocation: Int) -> NSRange? {
+        if let fencedBlockRange = fencedCodeBlockRange(in: text, containing: editLocation) {
+            return fencedBlockRange
+        }
+
+        let lineRange = text.lineRange(for: NSRange(location: editLocation, length: 0))
+        let trimmedLine = trimmedLine(in: text, range: lineRange)
+
+        if isQuoteChainLine(trimmedLine) {
+            return contiguousStructuralRange(
+                in: text,
+                startingAt: lineRange,
+                matches: isQuoteChainLine
+            )
+        }
+
+        if isTableLine(trimmedLine) {
+            return contiguousStructuralRange(
+                in: text,
+                startingAt: lineRange,
+                matches: isTableLine
+            )
+        }
+
+        return nil
+    }
+
+    private static func fencedCodeBlockRange(in text: NSString, containing editLocation: Int) -> NSRange? {
+        var location = 0
+        var openFenceStart: Int?
+
+        while location < text.length {
+            let lineRange = text.lineRange(for: NSRange(location: location, length: 0))
+            let trimmedLine = trimmedLine(in: text, range: lineRange)
+
+            if isFenceLine(trimmedLine) {
+                if let activeFenceStart = openFenceStart {
+                    let candidate = NSRange(
+                        location: activeFenceStart,
+                        length: NSMaxRange(lineRange) - activeFenceStart
+                    )
+                    if NSLocationInRange(editLocation, candidate) {
+                        return candidate
+                    }
+                    openFenceStart = nil
+                } else {
+                    openFenceStart = lineRange.location
+                }
+            }
+
+            let nextLocation = NSMaxRange(lineRange)
+            guard nextLocation > location else { break }
+            location = nextLocation
+        }
+
+        if let openFenceStart {
+            let candidate = NSRange(location: openFenceStart, length: text.length - openFenceStart)
+            if NSLocationInRange(editLocation, candidate) || editLocation == NSMaxRange(candidate) {
+                return candidate
+            }
+        }
+
+        return nil
+    }
+
+    private static func contiguousStructuralRange(
+        in text: NSString,
+        startingAt lineRange: NSRange,
+        matches: (String) -> Bool
+    ) -> NSRange {
+        var start = lineRange.location
+        var end = NSMaxRange(lineRange)
+
+        while start > 0 {
+            let previousLine = text.lineRange(for: NSRange(location: start - 1, length: 0))
+            guard matches(trimmedLine(in: text, range: previousLine)) else { break }
+            start = previousLine.location
+        }
+
+        while end < text.length {
+            let nextLine = text.lineRange(for: NSRange(location: end, length: 0))
+            guard matches(trimmedLine(in: text, range: nextLine)) else { break }
+            end = NSMaxRange(nextLine)
+        }
+
+        return NSRange(location: start, length: end - start)
+    }
+
+    private static func trimmedLine(in text: NSString, range: NSRange) -> String {
+        text.substring(with: range).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func isFenceLine(_ line: String) -> Bool {
+        line.hasPrefix("```")
+    }
+
+    private static func isQuoteChainLine(_ line: String) -> Bool {
+        line.hasPrefix(">")
     }
 
     private func applyLinkAttributesToStorage(in scanRange: NSRange, string str: NSString) {
@@ -381,16 +525,28 @@ final class ProseTextView2: NSTextView {
 
         // Track scroll position for viewport-gated code tokenization.
         scrollView.contentView.postsBoundsChangedNotifications = true
-        NotificationCenter.default.addObserver(
-            forName: NSView.boundsDidChangeNotification,
-            object: scrollView.contentView,
-            queue: .main
-        ) { [weak tv] _ in
-            tv?.updateVisibleLineRange()
-        }
+        tv.attachBoundsObserver(to: scrollView.contentView)
 
         scrollView.documentView = tv
+        if Self.isRunningTests {
+            TestFixtureRetainer.shared.retain(scrollView)
+        }
         return (scrollView, tv)
+    }
+
+    private func attachBoundsObserver(to contentView: NSClipView) {
+        if let boundsObserver {
+            NotificationCenter.default.removeObserver(boundsObserver)
+        }
+        boundsObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: contentView,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.updateVisibleLineRange()
+            }
+        }
     }
 
     // MARK: - Custom Drawing (Phase 4)
@@ -398,7 +554,7 @@ final class ProseTextView2: NSTextView {
     override func drawBackground(in rect: NSRect) {
         guard NSGraphicsContext.current?.cgContext != nil else { return }
         super.drawBackground(in: rect)
-        drawCalloutBackgrounds(in: rect)
+        drawBlockChrome(in: rect)
         if !usesRenderedTableOverlays {
             drawTableFills(in: rect)
             drawTableGridLines(in: rect)
@@ -480,71 +636,102 @@ final class ProseTextView2: NSTextView {
         }
     }
 
-    private func drawCalloutBackgrounds(in dirtyRect: NSRect) {
+    private struct BlockChromeRegion {
+        let kind: MarkdownBlockChromeKind
+        let fill: NSColor
+        let accent: NSColor
+        var top: CGFloat
+        var bottom: CGFloat
+    }
+
+    private func drawBlockChrome(in dirtyRect: NSRect) {
         guard
             let contentStorage = textLayoutManager?.textContentManager
                 as? NSTextContentStorage
         else { return }
         guard (string as NSString).length > 0 else { return }
+        var regions: [BlockChromeRegion] = []
+        var current: BlockChromeRegion?
 
         enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
             guard
-                let (_, nsRange) = self.paragraphInfo(
-                    for: fragment, contentStorage: contentStorage
-                )
-            else { return true }
-
-            let lineIdx = self.markdownDelegate.lineIndex(at: nsRange.location)
-            guard self.markdownDelegate.paragraphType(at: lineIdx) == 5 else { return true }
-
-            guard let metadata = self.markdownDelegate.paragraphMetadata(at: lineIdx) else {
-                return true
-            }
-            let calloutTypeId = UInt8((metadata >> 8) & 0xFF)
-            guard let callout = self.markdownDelegate.theme.calloutColors(typeId: calloutTypeId)
+                let textParagraph = fragment.textElement as? NSTextParagraph,
+                self.paragraphInfo(for: fragment, contentStorage: contentStorage) != nil,
+                textParagraph.attributedString.length > 0,
+                let kindRaw = textParagraph.attributedString.attribute(
+                    MarkdownTextStorage.blockChromeKindAttribute,
+                    at: 0,
+                    effectiveRange: nil
+                ) as? String,
+                let kind = MarkdownBlockChromeKind(rawValue: kindRaw)
             else {
+                if let current {
+                    regions.append(current)
+                }
+                current = nil
                 return true
             }
 
-            // Background fill
-            let bgRect = NSRect(
-                x: fragFrame.minX + 16,
-                y: fragFrame.minY,
-                width: fragFrame.width - 16,
-                height: fragFrame.height
+            let fill = MarkdownTextStorage.blockChromeFill(
+                from: textParagraph.attributedString.attributes(at: 0, effectiveRange: nil)
             )
-            callout.background.setFill()
-            bgRect.fill()
+            let accent = (textParagraph.attributedString.attribute(
+                MarkdownTextStorage.blockChromeAccentAttribute,
+                at: 0,
+                effectiveRange: nil
+            ) as? NSColor) ?? fill
 
-            // Left accent border (3pt wide)
-            let borderRect = NSRect(
-                x: fragFrame.minX + 16,
-                y: fragFrame.minY,
-                width: 3,
-                height: fragFrame.height
-            )
-            callout.accent.setFill()
-            borderRect.fill()
-
-            // Callout icon (SF Symbol in gutter, top-left of first line)
-            if let iconImage = NSImage(
-                systemSymbolName: callout.icon, accessibilityDescription: nil)
-            {
-                let iconSize: CGFloat = 14
-                let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .medium)
-                let configured = iconImage.withSymbolConfiguration(config) ?? iconImage
-                let iconRect = NSRect(
-                    x: fragFrame.minX,
-                    y: fragFrame.minY + 4,
-                    width: iconSize,
-                    height: iconSize
+            if var existing = current,
+               existing.kind == kind,
+               existing.fill.isEqual(fill),
+               existing.accent.isEqual(accent) {
+                existing.bottom = fragFrame.maxY
+                current = existing
+            } else {
+                if let current {
+                    regions.append(current)
+                }
+                current = BlockChromeRegion(
+                    kind: kind,
+                    fill: fill,
+                    accent: accent,
+                    top: fragFrame.minY,
+                    bottom: fragFrame.maxY
                 )
-                callout.accent.set()
-                configured.draw(in: iconRect)
             }
-
             return true
         }
+
+        if let current {
+            regions.append(current)
+        }
+
+        let chromeFrame = MarkdownTextStorage.blockChromeFrame(
+            textContainerOrigin: textContainerOrigin,
+            containerWidth: textContainer?.containerSize.width ?? bounds.width,
+            boundsWidth: bounds.width
+        )
+        guard chromeFrame.width > 0 else { return }
+
+        for region in regions {
+            let rect = NSRect(
+                x: chromeFrame.minX,
+                y: region.top - 5,
+                width: chromeFrame.width,
+                height: max(0, region.bottom - region.top + 10)
+            )
+            guard rect.intersects(dirtyRect) else { continue }
+            drawBlockChromeRegion(region, in: rect)
+        }
+    }
+
+    private func drawBlockChromeRegion(_ region: BlockChromeRegion, in rect: NSRect) {
+        MarkdownTextStorage.drawBlockChrome(
+            kind: region.kind,
+            fill: region.fill,
+            accent: region.accent,
+            in: rect
+        )
     }
 
     private func drawTableFills(in dirtyRect: NSRect) {
@@ -1030,8 +1217,7 @@ final class ProseTextView2: NSTextView {
                 if let toggled = Self.toggleCheckbox(in: paraText, at: charIdx) {
                     let lineRange = NSRange(location: paraOffset, length: paraText.utf16.count)
                     if shouldChangeText(in: lineRange, replacementString: toggled) {
-                        (textStorage as? NSTextStorage)?.replaceCharacters(
-                            in: lineRange, with: toggled)
+                        textStorage?.replaceCharacters(in: lineRange, with: toggled)
                         didChangeText()
                     }
                     return
@@ -1229,33 +1415,27 @@ final class ProseTextView2: NSTextView {
     }
 
     func insertImageAttachment(from url: URL) {
-        guard let image = NSImage(contentsOf: url) else { return }
-
-        let attachment = NSTextAttachment()
-        // Scale to fit readable width — max 600px, maintain aspect ratio
-        let maxWidth: CGFloat = 600
-        let imageSize = image.size
-        let displaySize: NSSize
-        if imageSize.width > maxWidth {
-            let scale = maxWidth / imageSize.width
-            displaySize = NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        } else {
-            displaySize = imageSize
-        }
-        image.size = displaySize
-        attachment.image = image
-
-        let attrStr = NSMutableAttributedString(attachment: attachment)
-        attrStr.addAttribute(
-            NSAttributedString.Key("EpistemosImagePath"),
-            value: url.path,
-            range: NSRange(location: 0, length: attrStr.length))
-
         let insertLoc = selectedRange().location
-        let insertRange = NSRange(location: insertLoc, length: 0)
-        if shouldChangeText(in: insertRange, replacementString: attrStr.string) {
-            textStorage?.insert(attrStr, at: insertLoc)
-            didChangeText()
+        Task { @MainActor [weak self] in
+            guard let self,
+                let payload = await NoteImageProcessor.loadDisplayImage(from: url)
+            else { return }
+
+            let attachment = NSTextAttachment()
+            attachment.image = NSImage(cgImage: payload.cgImage, size: payload.displaySize)
+
+            let attrStr = NSMutableAttributedString(attachment: attachment)
+            attrStr.addAttribute(
+                NSAttributedString.Key("EpistemosImagePath"),
+                value: url.path,
+                range: NSRange(location: 0, length: attrStr.length))
+
+            let safeInsertLoc = min(insertLoc, self.string.utf16.count)
+            let insertRange = NSRange(location: safeInsertLoc, length: 0)
+            if self.shouldChangeText(in: insertRange, replacementString: attrStr.string) {
+                self.textStorage?.insert(attrStr, at: safeInsertLoc)
+                self.didChangeText()
+            }
         }
     }
 
@@ -1271,40 +1451,20 @@ final class ProseTextView2: NSTextView {
     }
 
     private func performOCR(on url: URL) {
-        guard
-            let cgImage = NSImage(contentsOf: url)?.cgImage(
-                forProposedRect: nil, context: nil, hints: nil)
-        else { return }
-
-        let request = VNRecognizeTextRequest { [weak self] request, error in
-            guard let self, error == nil,
-                let observations = request.results as? [VNRecognizedTextObservation]
+        let insertLoc = selectedRange().location
+        Task { @MainActor [weak self] in
+            guard let self,
+                let extractedText = await NoteImageProcessor.extractText(from: url)
             else { return }
 
-            let extractedText =
-                observations
-                .compactMap { $0.topCandidates(1).first?.string }
-                .joined(separator: "\n")
-
-            guard !extractedText.isEmpty else { return }
-
-            Task { @MainActor in
-                let text =
-                    "\n\n> **Extracted Text:**\n> \(extractedText.replacingOccurrences(of: "\n", with: "\n> "))\n"
-                let insertLoc = self.selectedRange().location
-                let insertRange = NSRange(location: insertLoc, length: 0)
-                if self.shouldChangeText(in: insertRange, replacementString: text) {
-                    self.textStorage?.replaceCharacters(in: insertRange, with: text)
-                    self.didChangeText()
-                }
+            let text =
+                "\n\n> **Extracted Text:**\n> \(extractedText.replacingOccurrences(of: "\n", with: "\n> "))\n"
+            let safeInsertLoc = min(insertLoc, self.string.utf16.count)
+            let insertRange = NSRange(location: safeInsertLoc, length: 0)
+            if self.shouldChangeText(in: insertRange, replacementString: text) {
+                self.textStorage?.replaceCharacters(in: insertRange, with: text)
+                self.didChangeText()
             }
-        }
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            try? handler.perform([request])
         }
     }
 

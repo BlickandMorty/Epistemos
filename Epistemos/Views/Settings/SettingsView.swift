@@ -437,6 +437,9 @@ private struct SOARDetailView: View {
 
 private struct AppearanceDetailView: View {
     @Environment(UIState.self) private var ui
+    @State private var regularModeDraft = false
+    @State private var pendingDisplayMode: AppDisplayMode?
+    @State private var showDisplayModeAlert = false
     private var theme: EpistemosTheme { ui.theme }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 2)
@@ -488,9 +491,50 @@ private struct AppearanceDetailView: View {
                 Text("System")
             }
 
+            Section {
+                Toggle("Regular Mode", isOn: $regularModeDraft)
+                    .toggleStyle(.switch)
+                    .onChange(of: regularModeDraft) { _, enabled in
+                        let nextMode: AppDisplayMode = enabled ? .regular : .opulent
+                        guard nextMode != ui.displayMode else { return }
+                        pendingDisplayMode = nextMode
+                        showDisplayModeAlert = true
+                    }
+
+                Text(
+                    "Uses standard system fonts for display text, simplifies the landing greeting, and reduces non-ripple ASCII animation. Restart required."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("Display Mode")
+            }
+
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        .onAppear {
+            regularModeDraft = ui.displayMode == .regular
+        }
+        .onChange(of: ui.displayMode) { _, mode in
+            regularModeDraft = mode == .regular
+        }
+        .alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
+            Button("Cancel", role: .cancel) {
+                regularModeDraft = ui.displayMode == .regular
+                pendingDisplayMode = nil
+            }
+            Button("Restart Now") {
+                if let pendingDisplayMode {
+                    AppBootstrap.shared?.applyDisplayModeAndRelaunch(pendingDisplayMode)
+                }
+                pendingDisplayMode = nil
+            }
+        } message: {
+            Text(
+                "Epistemos will relaunch to rebuild style caches and reload fonts safely. Your vault and saved data stay intact."
+            )
+        }
     }
 }
 
@@ -511,6 +555,7 @@ private struct ThemePairCard: View {
         case .warmth: ("sun.max.fill", "sunset.fill")
         case .ember: ("leaf", "flame")
         case .platinum: ("square.grid.2x2", "square.grid.2x2")
+        case .platinumViolet: ("square.grid.2x2", "sparkles")
         }
     }
 

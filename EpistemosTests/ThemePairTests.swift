@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Epistemos
 
@@ -66,17 +67,36 @@ struct ThemePairTests {
         #expect(EpistemosTheme.platinumDark.isDark)
         #expect(EpistemosTheme.platinum.foregroundHex == 0x000000)
         #expect(EpistemosTheme.platinumDark.foregroundHex == 0xFFFFFF)
-        #expect(EpistemosTheme.platinum.markdownHeadingAccentHex == 0x00007B)
-        #expect(EpistemosTheme.platinumDark.markdownHeadingAccentHex == 0x7B68EE)
-        #expect(EpistemosTheme.platinum.preferredMarkdownLinkHex == 0x00007B)
+        #expect(EpistemosTheme.platinum.markdownHeadingAccentHex == 0x111111)
+        #expect(EpistemosTheme.platinumDark.markdownHeadingAccentHex == 0xF2F2F2)
+        #expect(EpistemosTheme.platinum.preferredMarkdownLinkHex == 0x111111)
         #expect(EpistemosTheme.platinumDark.preferredMarkdownLinkHex == nil)
         #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinum, level: 1) == EpistemosTheme.platinum.headingAccentHex)
+        #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinumDark, level: 1) == EpistemosTheme.platinumDark.headingAccentHex)
         #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinum, level: 2) == EpistemosTheme.platinum.markdownHeadingAccentHex)
+        #expect(MarkdownHeadingDisplay.foregroundHex(for: .platinumDark, level: 2) == EpistemosTheme.platinumDark.markdownHeadingAccentHex)
         #expect(EpistemosTheme.platinum.assistantBubbleForegroundHex == EpistemosTheme.platinum.mutedForegroundHex)
         #expect(EpistemosTheme.platinumDark.assistantBubbleForegroundHex == EpistemosTheme.platinumDark.foregroundHex)
         #expect(EpistemosTheme.platinum.assistantBubbleBackgroundHex == nil)
         #expect(EpistemosTheme.platinumDark.assistantBubbleBackgroundHex == nil)
-        #expect(EpistemosTheme.platinum.userBubbleBackgroundHex == 0xD6C2A2)
+        #expect(EpistemosTheme.platinum.userBubbleBackgroundHex == 0x111111)
+        #expect(EpistemosTheme.platinum.userBubbleText == Color(hex: 0xF2F2F2).opacity(0.94))
+        #expect(EpistemosTheme.platinumDark.userBubbleBackgroundHex == 0x2A2A38)
+        #expect(EpistemosTheme.platinumDark.userBubbleText == Color(hex: 0xF2F2F2).opacity(0.94))
+    }
+
+    @Test("Platinum Violet pair preserves the accented blue-violet variant")
+    func platinumVioletPairMapping() {
+        #expect(ThemePair.platinumViolet.lightTheme == .platinumViolet)
+        #expect(ThemePair.platinumViolet.darkTheme == .platinumVioletDark)
+        #expect(ThemePair.platinumViolet.resolved(isDark: false) == .platinumViolet)
+        #expect(ThemePair.platinumViolet.resolved(isDark: true) == .platinumVioletDark)
+        #expect(EpistemosTheme.platinumViolet.markdownHeadingAccentHex == 0x00007B)
+        #expect(EpistemosTheme.platinumVioletDark.markdownHeadingAccentHex == 0x7B68EE)
+        #expect(EpistemosTheme.platinumViolet.preferredMarkdownLinkHex == 0x00007B)
+        #expect(EpistemosTheme.platinumVioletDark.preferredMarkdownLinkHex == nil)
+        #expect(EpistemosTheme.platinumViolet.accent == Color(hex: 0x000080))
+        #expect(EpistemosTheme.platinumVioletDark.accent == Color(hex: 0x7B68EE))
     }
 
     @Test("System appearance state reads the global Apple interface style")
@@ -89,9 +109,9 @@ struct ThemePairTests {
         )
     }
 
-    @Test("App heading roles use the shared RetroGaming display scale")
+    @Test("App heading roles use the shared display scale")
     func appHeadingRolesUseSharedDisplayScale() {
-        #expect(AppHeadingRole.pageTitle.fontName == "RetroGaming")
+        #expect(AppDisplayTypography.displayFontName == "RetroGaming")
         #expect(AppHeadingRole.pageTitle.fontSize == 28)
         #expect(AppHeadingRole.pageTitle.animatesOnFirstAppearance)
         #expect(AppHeadingRole.h1.fontSize == 26)
@@ -124,6 +144,8 @@ struct ThemePairTests {
         #expect(shortSize == AppHeadingRole.h1.fontSize)
         #expect(shortSize > mediumSize)
         #expect(mediumSize > longSize)
+        #expect(shortSize - mediumSize >= 2)
+        #expect(shortSize - longSize >= 3)
         #expect(longSize > AppHeadingRole.h2.fontSize)
     }
 
@@ -133,6 +155,205 @@ struct ThemePairTests {
         #expect(MarkdownHeadingDisplay.displayText("Sub Heading", level: 2) == "SUB HEADING")
         #expect(MarkdownHeadingDisplay.displayText("Third Level", level: 3) == "THIRD LEVEL")
         #expect(MarkdownHeadingDisplay.displayText("Fourth Level", level: 4) == "Fourth Level")
+    }
+
+    @Test("Markdown heading glow tapers from H1 to H3")
+    func markdownHeadingGlowTapersByLevel() {
+        #expect(MarkdownHeadingDisplay.glowRadius(for: 1) == 14)
+        #expect(MarkdownHeadingDisplay.glowRadius(for: 2) == 10)
+        #expect(MarkdownHeadingDisplay.glowRadius(for: 3) == 7)
+        #expect(MarkdownHeadingDisplay.glowRadius(for: 4) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 1) == 0.38)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 2) == 0.24)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 3) == 0.18)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 1) == 0.34)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 2) == 0.22)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 3) == 0.16)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 1) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 2) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 3) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 4) == nil)
+    }
+
+    @Test("Markdown preview heading glow stays softer than the editor heading glow")
+    func markdownPreviewHeadingGlowStaysSoft() {
+        #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 1) == 9)
+        #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 2) == 6)
+        #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 3) == 4)
+        #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 4) == 0)
+        #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 1) < MarkdownHeadingDisplay.glowRadius(for: 1))
+        #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 2) < MarkdownHeadingDisplay.glowRadius(for: 2))
+        #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 3) < MarkdownHeadingDisplay.glowRadius(for: 3))
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 1) == 0.2)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 2) == 0.12)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 3) == 0.09)
+    }
+
+    @Test("Regular display mode keeps ripple-capable surfaces but drops retro display typography")
+    func regularDisplayModePolicy() {
+        #expect(AppDisplayMode.opulent.usesDisplayFont)
+        #expect(!AppDisplayMode.opulent.reducesASCIIAnimations)
+        #expect(!AppDisplayMode.regular.usesDisplayFont)
+        #expect(AppDisplayMode.regular.reducesASCIIAnimations)
+    }
+
+    @Test("Assistant chrome tokens keep the floating surface hierarchy intact")
+    func assistantSurfaceMetricsStayCalm() {
+        let palette = AssistantSurfaceMetrics.commandPalette
+        let popout = AssistantSurfaceMetrics.popout
+
+        #expect(palette.outerRadius == 30)
+        #expect(palette.innerRadius == 24)
+        #expect(palette.controlRadius == 18)
+        #expect(palette.borderWidth == 0.72)
+        #expect(palette.showsOuterStroke)
+        #expect(palette.outerRadius > palette.innerRadius)
+        #expect(palette.innerRadius > palette.controlRadius)
+        #expect(popout.showsOuterStroke)
+        #expect(popout.outerRadius == palette.outerRadius)
+        #expect(popout.contentVerticalPadding > palette.contentVerticalPadding)
+        #expect(popout.shadowRadius >= palette.shadowRadius)
+    }
+
+    @Test("Floating assistant surfaces follow the light and dark shell contrast rules")
+    func floatingAssistantSurfacesUseThemeRelativeTints() {
+        #expect(EpistemosTheme.light.floatingSurfaceTint == Color(hex: 0xF2F2F2))
+        #expect(EpistemosTheme.tan.floatingSurfaceTint == Color(hex: 0xFBF5EB))
+        #expect(EpistemosTheme.sunset.floatingSurfaceTint == Color(hex: 0x161018))
+        #expect(EpistemosTheme.ember.floatingSurfaceTint == Color(hex: 0x16100C))
+        #expect(EpistemosTheme.nocturne.floatingSurfaceTint == Color(hex: 0x141019))
+        #expect(EpistemosTheme.oled.floatingSurfaceTint == Color(hex: 0x2A2A2F))
+        #expect(EpistemosTheme.ember.floatingSurfaceTint != EpistemosTheme.ember.background)
+        #expect(EpistemosTheme.nocturne.floatingSurfaceTint != EpistemosTheme.nocturne.background)
+        #expect(EpistemosTheme.tan.floatingSurfaceTint != EpistemosTheme.tan.glassBg)
+    }
+
+    @Test("Main chat layout keeps the composer wide before it hits the desktop cap")
+    func mainChatLayoutStaysWide() {
+        #expect(ChatLayout.mainComposerMaxWidth == 1200)
+        #expect(ChatLayout.mainComposerHorizontalPadding == 12)
+    }
+
+    @Test("Main chat return key submits only when the composer is ready")
+    func mainChatReturnSubmitsOnlyWhenReady() {
+        #expect(
+            ChatComposerKeyHandling.returnBehavior(
+                modifierFlags: [],
+                trimmedText: "hello",
+                isProcessing: false
+            ) == .submit
+        )
+        #expect(
+            ChatComposerKeyHandling.returnBehavior(
+                modifierFlags: [],
+                trimmedText: "   ",
+                isProcessing: false
+            ) == .ignore
+        )
+        #expect(
+            ChatComposerKeyHandling.returnBehavior(
+                modifierFlags: [],
+                trimmedText: "hello",
+                isProcessing: true
+            ) == .ignore
+        )
+    }
+
+    @Test("Main chat shift return keeps multiline editing and clamps growth")
+    func mainChatShiftReturnKeepsMultilineEditing() {
+        #expect(
+            ChatComposerKeyHandling.returnBehavior(
+                modifierFlags: [.shift],
+                trimmedText: "hello",
+                isProcessing: false
+            ) == .insertNewline
+        )
+        #expect(
+            ChatComposerKeyHandling.returnBehavior(
+                modifierFlags: [.option],
+                trimmedText: "hello",
+                isProcessing: false
+            ) == .systemDefault
+        )
+        #expect(ChatComposerInputMetrics.maxVisibleLines == 6)
+        #expect(ChatComposerInputMetrics.clampedHeight(for: 0) == ChatComposerInputMetrics.minHeight)
+        #expect(
+            ChatComposerInputMetrics.clampedHeight(
+                for: ChatComposerInputMetrics.maxHeight + 40
+            ) == ChatComposerInputMetrics.maxHeight
+        )
+    }
+
+    @Test("Assistant input chrome stays glass-first even without native window blur themes")
+    func assistantInputChromePrefersNativeGlass() {
+        let input = AssistantGlassInputMetrics.default
+
+        #expect(input.prefersGlassEffect)
+        #expect(input.tintOpacity > 0)
+        #expect(input.activeBorderOpacity > input.idleBorderOpacity)
+    }
+
+    @Test("Markdown preview block chrome keeps the same dormant to hover surface hierarchy")
+    func markdownPreviewBlockChromeMatchesHoverGlassSystem() {
+        let metrics = MarkdownPreviewSurfaceMetrics.default
+
+        #expect(metrics.cornerRadius == 14)
+        #expect(metrics.borderWidth == 0.55)
+        #expect(metrics.contentPadding == 12)
+        #expect(metrics.verticalSpacing == 2)
+        #expect(MarkdownPreviewSurfaceStyle.borderOpacity(isDark: true) > MarkdownPreviewSurfaceStyle.borderOpacity(isDark: false))
+    }
+
+    @Test("Assistant composer metrics keep the main and compact chat bars aligned")
+    func assistantComposerMetricsStayConsistent() {
+        let main = AssistantComposerMetrics.mainChat
+        let compact = AssistantComposerMetrics.compactChat
+
+        #expect(main.cornerRadius == 26)
+        #expect(main.sendButtonSize == 40)
+        #expect(main.sendButtonSize > compact.sendButtonSize)
+        #expect(main.shadowRadius >= compact.shadowRadius)
+        #expect(main.borderWidth <= 0.8)
+        #expect(compact.cornerRadius < main.cornerRadius)
+        #expect(compact.horizontalPadding < main.horizontalPadding)
+    }
+
+    @Test("Assistant source extraction keeps notes and links in a stable unique order")
+    func assistantSourceExtractionDeduplicatesNotesAndLinks() {
+        let sources = AssistantSourceReference.extract(
+            from: """
+            See [Paper](https://example.com/paper) and https://example.com/paper plus
+            https://notes.example.org/entry for more context.
+            """,
+            noteTitles: ["Brown Essays", "Brown Essays", "Field Notes"]
+        )
+
+        #expect(sources.count == 4)
+        #expect(sources[0].kind == .note)
+        #expect(sources[0].title == "Brown Essays")
+        #expect(sources[1].title == "Field Notes")
+        #expect(sources[2].url?.absoluteString == "https://example.com/paper")
+        #expect(sources[2].subtitle == "example.com")
+        #expect(sources[3].subtitle == "notes.example.org")
+    }
+
+    @MainActor
+    @Test("UIState restores saved display mode from defaults")
+    func uiStateRestoresDisplayMode() {
+        let defaults = UserDefaults.standard
+        let previous = defaults.string(forKey: AppDisplayMode.defaultsKey)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: AppDisplayMode.defaultsKey)
+            } else {
+                defaults.removeObject(forKey: AppDisplayMode.defaultsKey)
+            }
+        }
+
+        defaults.set(AppDisplayMode.regular.rawValue, forKey: AppDisplayMode.defaultsKey)
+
+        let uiState = UIState()
+        #expect(uiState.displayMode == .regular)
     }
 
     @Test("Icon composer package carries dark and tinted variants")

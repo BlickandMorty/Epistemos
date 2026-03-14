@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -12,11 +13,11 @@ struct ChatInputBar: View {
     let isProcessing: Bool
 
     @Environment(UIState.self) private var ui
-    @Environment(InferenceState.self) private var inference
     @Environment(ChatState.self) private var chat
 
     @State private var text = ""
-    @FocusState private var isFocused: Bool
+    @State private var isFocused = false
+    @State private var composerHeight = ChatComposerInputMetrics.minHeight
 
     // Notes Mode @-mention dropdown
     @State private var showMentionDropdown = false
@@ -24,6 +25,7 @@ struct ChatInputBar: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private let composerMetrics = AssistantComposerMetrics.mainChat
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,7 +55,7 @@ struct ChatInputBar: View {
                         .foregroundStyle(theme.mutedForeground.opacity(0.7))
                     }
                 }
-                .padding(.horizontal, Spacing.lg)
+                .padding(.horizontal, composerMetrics.horizontalPadding)
                 .padding(.top, 6)
                 .padding(.bottom, 4)
             }
@@ -61,7 +63,7 @@ struct ChatInputBar: View {
             .clipped()
             .animation(Motion.quick, value: chat.pendingAttachments.count)
 
-            HStack(spacing: Spacing.sm) {
+            HStack(alignment: .bottom, spacing: 10) {
                 // Attach file
                 Button {
                     openFilePicker()
@@ -98,35 +100,35 @@ struct ChatInputBar: View {
 
                 // Text field — placeholder adapts to research mode
                 // In research mode, hover on the empty placeholder reveals a hint + About button
-                TextField(
-                    isProcessing
-                        ? "Generating response…"
-                        : chat.isResearchMode
-                            ? "Ask a research question..." : "Ask anything...",
-                    text: $text,
-                    axis: .vertical
-                )
-                .font(.epBody)
-                .foregroundStyle(
-                    isProcessing ? theme.mutedForeground.opacity(0.4) : theme.foreground
-                )
-                .textFieldStyle(.plain)
-                .lineLimit(1...6)
-                .focused($isFocused)
-                .writingToolsBehavior(.limited)
-                .accessibilityLabel("Message input")
-                .accessibilityHint(
-                    isProcessing
-                        ? "Waiting for response. Press stop to cancel."
-                        : "Type a question or command"
-                )
-                .disabled(isProcessing)
-                .onSubmit {
-                    if !trimmedText.isEmpty && !isProcessing {
-                        onSubmit(trimmedText)
-                        text = ""
+                ZStack(alignment: .topLeading) {
+                    ChatComposerTextEditor(
+                        text: $text,
+                        height: $composerHeight,
+                        isFocused: $isFocused,
+                        theme: theme,
+                        isProcessing: isProcessing
+                    ) {
+                        submitCurrentText()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: composerHeight)
+                    .accessibilityLabel("Message input")
+                    .accessibilityHint(
+                        isProcessing
+                            ? "You can keep typing while the current response finishes. Press stop to cancel."
+                            : "Type a question or command. Press Shift-Enter for a new line."
+                    )
+
+                    if text.isEmpty {
+                        Text(chat.isResearchMode ? "Ask a research question..." : "Ask anything...")
+                            .font(.epBody)
+                            .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                            .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                            .allowsHitTesting(false)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
                 .onChange(of: text) { _, newVal in
                     // Detect @ trigger for mention dropdown (active when vault is attached)
                     if AppBootstrap.shared?.ambientManifest != nil {
@@ -141,36 +143,29 @@ struct ChatInputBar: View {
                         if showMentionDropdown { showMentionDropdown = false }
                     }
                 }
-                // Send / Stop button
-                if isProcessing {
-                    Button(action: onStop) {
-                        Image(systemName: "stop.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(theme.error)
+                AssistantSendButton(
+                    theme: theme,
+                    isEnabled: !trimmedText.isEmpty,
+                    isProcessing: isProcessing,
+                    metrics: composerMetrics
+                ) {
+                    if isProcessing {
+                        onStop()
+                    } else {
+                        submitCurrentText()
                     }
-                    .buttonStyle(NativeToolbarButtonStyle())
-                    .help("Stop")
-                    .accessibilityLabel("Stop generating")
-                } else if !trimmedText.isEmpty {
-                    Button {
-                        onSubmit(trimmedText)
-                        text = ""
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(theme.accent)
-                    }
-                    .buttonStyle(NativeToolbarButtonStyle())
-                    .help("Send")
-                    .accessibilityLabel("Send message")
-                    .transition(.scale.combined(with: .opacity))
-                    .animation(Motion.quick, value: trimmedText.isEmpty)
                 }
+                .help(isProcessing ? "Stop" : "Send")
+                .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, 10)
+            .padding(.horizontal, composerMetrics.horizontalPadding)
+            .padding(.vertical, composerMetrics.verticalPadding)
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .assistantGlassInputChrome(
+            theme: theme,
+            cornerRadius: composerMetrics.cornerRadius,
+            isActive: isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty
+        )
         .overlay(alignment: .topLeading) {
             // Notes Mode @-mention dropdown — floats above the input bar
             if showMentionDropdown, let manifest = AppBootstrap.shared?.ambientManifest {
@@ -190,9 +185,9 @@ struct ChatInputBar: View {
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
-        .padding(.horizontal, Spacing.lg)
+        .padding(.horizontal, ChatLayout.mainComposerHorizontalPadding)
         .padding(.bottom, Spacing.md)
-        .frame(maxWidth: 860)
+        .frame(maxWidth: ChatLayout.mainComposerMaxWidth)
         .frame(maxWidth: .infinity)
     }
 
@@ -201,57 +196,15 @@ struct ChatInputBar: View {
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
         panel.begin { response in
-            if response == .OK {
-                for url in panel.urls {
-                    let attachment = fileAttachment(from: url)
+            guard response == .OK else { return }
+            let urls = panel.urls
+            Task { @MainActor in
+                let attachments = await FileAttachmentBuilder.buildAll(from: urls)
+                for attachment in attachments {
                     chat.addAttachment(attachment)
                 }
             }
         }
-    }
-
-    private func fileAttachment(from url: URL) -> FileAttachment {
-        let name = url.lastPathComponent
-        let ext = url.pathExtension.lowercased()
-        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
-
-        let type: AttachmentType
-        let mimeType: String
-        switch ext {
-        case "png", "jpg", "jpeg", "gif", "webp", "heic":
-            type = .image
-            mimeType = "image/\(ext == "jpg" ? "jpeg" : ext)"
-        case "pdf":
-            type = .pdf
-            mimeType = "application/pdf"
-        case "csv":
-            type = .csv
-            mimeType = "text/csv"
-        case "txt", "md", "swift", "ts", "js", "py", "json":
-            type = .text
-            mimeType = "text/plain"
-        default:
-            type = .other
-            mimeType = "application/octet-stream"
-        }
-
-        var preview: String?
-        if type == .text || type == .csv {
-            preview = try? String(contentsOf: url, encoding: .utf8)
-            if let p = preview, p.count > 2000 {
-                preview = String(p.prefix(2000)) + "\n...(truncated)"
-            }
-        }
-
-        return FileAttachment(
-            id: UUID().uuidString,
-            name: name,
-            type: type,
-            uri: url.absoluteString,
-            size: size,
-            mimeType: mimeType,
-            preview: preview
-        )
     }
 
     private func iconForType(_ type: AttachmentType) -> String {
@@ -264,6 +217,15 @@ struct ChatInputBar: View {
         }
     }
 
+    private func submitCurrentText() {
+        guard !trimmedText.isEmpty, !isProcessing else { return }
+        onSubmit(trimmedText)
+        text = ""
+        composerHeight = ChatComposerInputMetrics.minHeight
+        showMentionDropdown = false
+        mentionFilter = ""
+    }
+
     private func insertMention(_ entry: VaultManifest.ManifestEntry) {
         // Replace the @filter text with @[Title]
         if let atIdx = text.lastIndex(of: "@") {
@@ -271,6 +233,302 @@ struct ChatInputBar: View {
         }
         showMentionDropdown = false
         mentionFilter = ""
+    }
+}
+
+enum ChatComposerReturnBehavior: Equatable {
+    case submit
+    case insertNewline
+    case systemDefault
+    case ignore
+}
+
+enum ChatComposerKeyHandling {
+    static func isReturnCommand(_ commandSelector: Selector) -> Bool {
+        commandSelector == #selector(NSResponder.insertNewline(_:))
+            || commandSelector == #selector(NSResponder.insertLineBreak(_:))
+    }
+
+    static func returnBehavior(
+        modifierFlags: NSEvent.ModifierFlags,
+        trimmedText: String,
+        isProcessing: Bool
+    ) -> ChatComposerReturnBehavior {
+        let flags = modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let normalizedText = trimmedText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if flags == [.shift] {
+            return .insertNewline
+        }
+        if flags.isEmpty {
+            return (!normalizedText.isEmpty && !isProcessing) ? .submit : .ignore
+        }
+        return .systemDefault
+    }
+}
+
+enum ChatComposerInputMetrics {
+    static let fontSize: CGFloat = 15
+    static let maxVisibleLines = 6
+    static let verticalInset: CGFloat = 4
+    static let placeholderTopPadding: CGFloat = 6
+    static let lineHeight = ceil(
+        NSLayoutManager().defaultLineHeight(for: NSFont.systemFont(ofSize: fontSize))
+    )
+    static let minHeight = lineHeight + (verticalInset * 2)
+    static let maxHeight = (lineHeight * CGFloat(maxVisibleLines)) + (verticalInset * 2)
+
+    static func clampedHeight(for contentHeight: CGFloat) -> CGFloat {
+        min(max(contentHeight, minHeight), maxHeight)
+    }
+}
+
+private struct ChatComposerTextEditor: NSViewRepresentable {
+    @Binding var text: String
+    @Binding var height: CGFloat
+    @Binding var isFocused: Bool
+
+    let theme: EpistemosTheme
+    let isProcessing: Bool
+    let onSubmit: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView(frame: .zero)
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.hasVerticalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .overlay
+        scrollView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        scrollView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        let textView = ChatComposerNativeTextView(frame: .zero)
+        textView.delegate = context.coordinator
+        textView.string = text
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = true
+        textView.minSize = NSSize(width: 0, height: ChatComposerInputMetrics.minHeight)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.drawsBackground = false
+        textView.backgroundColor = .clear
+        textView.textContainerInset = NSSize(width: 0, height: ChatComposerInputMetrics.verticalInset)
+        textView.allowsUndo = true
+        textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        textView.textContainer?.containerSize = NSSize(
+            width: 0,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.onWidthChange = { [weak textView] in
+            guard let textView else { return }
+            context.coordinator.updateHeight(for: textView)
+        }
+
+        context.coordinator.applyTheme(theme, to: textView)
+        scrollView.documentView = textView
+        context.coordinator.updateHeight(for: textView)
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        context.coordinator.parent = self
+        guard let textView = scrollView.documentView as? ChatComposerNativeTextView else { return }
+
+        if textView.string != text {
+            textView.string = text
+        }
+
+        context.coordinator.applyTheme(theme, to: textView)
+        context.coordinator.updateHeight(for: textView)
+
+        guard let window = textView.window else { return }
+        if isFocused, window.firstResponder !== textView {
+            window.makeFirstResponder(textView)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: ChatComposerTextEditor
+
+        init(parent: ChatComposerTextEditor) {
+            self.parent = parent
+        }
+
+        func textDidBeginEditing(_ notification: Notification) {
+            parent.isFocused = true
+        }
+
+        func textDidEndEditing(_ notification: Notification) {
+            parent.isFocused = false
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? ChatComposerNativeTextView else { return }
+            if parent.text != textView.string {
+                parent.text = textView.string
+            }
+            updateHeight(for: textView)
+        }
+
+        func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            guard ChatComposerKeyHandling.isReturnCommand(commandSelector) else { return false }
+
+            let behavior = ChatComposerKeyHandling.returnBehavior(
+                modifierFlags: NSApp.currentEvent?.modifierFlags ?? [],
+                trimmedText: parent.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                isProcessing: parent.isProcessing
+            )
+
+            switch behavior {
+            case .submit:
+                parent.onSubmit()
+                return true
+            case .ignore:
+                return true
+            case .insertNewline, .systemDefault:
+                return false
+            }
+        }
+
+        func applyTheme(_ theme: EpistemosTheme, to textView: ChatComposerNativeTextView) {
+            textView.font = NSFont.systemFont(ofSize: ChatComposerInputMetrics.fontSize)
+            textView.textColor = NSColor(theme.foreground)
+            textView.insertionPointColor = NSColor(theme.foreground)
+        }
+
+        func updateHeight(for textView: ChatComposerNativeTextView) {
+            guard
+                let textContainer = textView.textContainer,
+                let layoutManager = textView.layoutManager
+            else { return }
+
+            layoutManager.ensureLayout(for: textContainer)
+            let usedRect = layoutManager.usedRect(for: textContainer)
+            let contentHeight = ceil(usedRect.height + (textView.textContainerInset.height * 2))
+            let clampedHeight = ChatComposerInputMetrics.clampedHeight(for: contentHeight)
+
+            if parent.height != clampedHeight {
+                parent.height = clampedHeight
+            }
+
+            textView.enclosingScrollView?.hasVerticalScroller =
+                contentHeight > (ChatComposerInputMetrics.maxHeight + 0.5)
+        }
+    }
+}
+
+private final class ChatComposerNativeTextView: NSTextView {
+    var onWidthChange: (() -> Void)?
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = abs(frame.size.width - newSize.width) > 0.5
+        super.setFrameSize(newSize)
+        if widthChanged {
+            onWidthChange?()
+        }
+    }
+}
+
+enum FileAttachmentBuilder {
+    nonisolated static let maxPreviewBytes = 262_144
+    nonisolated static let maxPreviewCharacters = 2_000
+
+    nonisolated static func buildAll(from urls: [URL]) async -> [FileAttachment] {
+        await withTaskGroup(of: (Int, FileAttachment).self, returning: [FileAttachment].self) {
+            group in
+            for (index, url) in urls.enumerated() {
+                group.addTask {
+                    (index, await build(from: url))
+                }
+            }
+
+            var ordered: [(Int, FileAttachment)] = []
+            ordered.reserveCapacity(urls.count)
+
+            for await result in group {
+                ordered.append(result)
+            }
+
+            ordered.sort { $0.0 < $1.0 }
+            return ordered.map(\.1)
+        }
+    }
+
+    nonisolated static func build(from url: URL) async -> FileAttachment {
+        await Task.detached(priority: .utility) {
+            buildSync(from: url)
+        }.value
+    }
+
+    private nonisolated static func buildSync(from url: URL) -> FileAttachment {
+        let name = url.lastPathComponent
+        let ext = url.pathExtension.lowercased()
+        let size = fileSize(for: url)
+        let (type, mimeType) = classify(pathExtension: ext)
+        let preview = previewText(for: url, type: type, size: size)
+
+        return FileAttachment(
+            id: UUID().uuidString,
+            name: name,
+            type: type,
+            uri: url.absoluteString,
+            size: size,
+            mimeType: mimeType,
+            preview: preview
+        )
+    }
+
+    private nonisolated static func fileSize(for url: URL) -> Int {
+        guard
+            let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int
+        else {
+            return 0
+        }
+        return size
+    }
+
+    private nonisolated static func classify(pathExtension ext: String) -> (AttachmentType, String) {
+        switch ext {
+        case "png", "jpg", "jpeg", "gif", "webp", "heic":
+            return (.image, "image/\(ext == "jpg" ? "jpeg" : ext)")
+        case "pdf":
+            return (.pdf, "application/pdf")
+        case "csv":
+            return (.csv, "text/csv")
+        case "txt", "md", "swift", "ts", "js", "py", "json":
+            return (.text, "text/plain")
+        default:
+            return (.other, "application/octet-stream")
+        }
+    }
+
+    private nonisolated static func previewText(for url: URL, type: AttachmentType, size: Int) -> String? {
+        guard type == .text || type == .csv else { return nil }
+        guard size > 0, size <= maxPreviewBytes else { return nil }
+        guard let data = try? previewData(for: url) else { return nil }
+        guard !data.isEmpty else { return nil }
+
+        let preview = String(decoding: data, as: UTF8.self)
+        guard preview.count > maxPreviewCharacters else { return preview }
+        return String(preview.prefix(maxPreviewCharacters)) + "\n...(truncated)"
+    }
+
+    private nonisolated static func previewData(for url: URL) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        return try handle.read(upToCount: maxPreviewBytes) ?? Data()
     }
 }
 

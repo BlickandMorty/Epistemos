@@ -11,40 +11,39 @@ struct MiniChatView: View {
     @State private var showRecentChats = false
 
     private var theme: EpistemosTheme { ui.theme }
+    private let surfaceMetrics = AssistantSurfaceMetrics.popout
 
     var body: some View {
-        VStack(spacing: 0) {
-            MiniChatTabBar(showRecentChats: $showRecentChats)
-            Divider().opacity(0.3)
-            if showRecentChats {
-                MiniChatRecentChats(showRecentChats: $showRecentChats)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            } else {
-                MiniChatThread()
-                    .transition(.opacity)
+        AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics) {
+            VStack(spacing: 0) {
+                MiniChatTabBar(showRecentChats: $showRecentChats)
+                miniChatDivider
+                if showRecentChats {
+                    MiniChatRecentChats(showRecentChats: $showRecentChats)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                } else {
+                    MiniChatThread()
+                        .transition(.opacity)
+                }
+                miniChatDivider
+                MiniChatInputBar()
             }
-            Divider().opacity(0.3)
-            MiniChatInputBar()
         }
         .animation(Motion.snap, value: showRecentChats)
         .frame(width: 400, height: 520)
-        .background {
-            if theme.isDark {
-                // Dark mode: opaque tinted base + thin glass for depth
-                ZStack {
-                    theme.background.opacity(0.92)
-                    Rectangle().fill(.ultraThinMaterial).opacity(0.3)
-                }
-            } else {
-                // Light mode: solid themed background, no blur
-                theme.background
-            }
-        }
         .onAppear {
             if threadState.chatThreads.isEmpty {
                 threadState.createThread(label: "Chat 1")
             }
         }
+    }
+
+    private var miniChatDivider: some View {
+        Rectangle()
+            .fill(theme.glassBorder.opacity(theme.isDark ? 0.72 : 0.5))
+            .frame(height: 0.5)
+            .padding(.horizontal, 2)
+            .padding(.vertical, 8)
     }
 }
 
@@ -67,21 +66,21 @@ private struct MiniChatTabBar: View {
             } label: {
                 Image(systemName: showRecentChats ? "sidebar.left" : "clock.arrow.circlepath")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(showRecentChats ? theme.accent : theme.mutedForeground)
-                    .frame(width: 32, height: 32)
+                    .foregroundStyle(showRecentChats ? theme.foreground : theme.mutedForeground)
+                    .frame(width: 14, height: 14)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
             .help("Recent Chats")
             .accessibilityLabel("Recent Chats")
 
-            Divider()
-                .frame(height: 18)
-                .padding(.horizontal, 4)
-                .opacity(0.5)
+            Rectangle()
+                .fill(theme.glassBorder.opacity(0.55))
+                .frame(width: 0.5, height: 18)
+                .padding(.horizontal, 8)
 
             // Scrollable thread tabs
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
+                HStack(spacing: 6) {
                     ForEach(threadState.chatThreads) { thread in
                         ThreadTab(
                             thread: thread,
@@ -103,14 +102,14 @@ private struct MiniChatTabBar: View {
                 Image(systemName: "plus")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(theme.mutedForeground)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 14, height: 14)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
             .help("New Chat")
             .accessibilityLabel("New Chat")
         }
-        .padding(.horizontal, 8)
-        .frame(height: 40)
+        .padding(.horizontal, 2)
+        .frame(height: 42)
     }
 }
 
@@ -146,18 +145,13 @@ private struct ThreadTab: View {
             .opacity(isActive || isHovered ? 1 : 0)
             .animation(Motion.quick, value: isActive || isHovered)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(
-            isActive
-                ? theme.accent.opacity(0.15)
-                : (isHovered ? theme.foreground.opacity(0.06) : Color.clear),
-            in: RoundedRectangle(cornerRadius: 6)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isActive ? theme.accent.opacity(0.25) : Color.clear, lineWidth: 1)
-        )
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill((isActive ? theme.accent : theme.textSecondary).opacity(isActive || isHovered ? 0.85 : 0))
+                .frame(height: 1)
+        }
         .animation(Motion.quick, value: isActive)
         .onHover { isHovered = $0 }
     }
@@ -218,7 +212,8 @@ private struct MiniChatThread: View {
 
                             Color.clear.frame(height: 1).id("bottom")
                         }
-                        .padding(12)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 16)
                     }
                     .onChange(of: activeThread?.messages.count) { _, _ in
                         withAnimation(Motion.quick) {
@@ -265,20 +260,128 @@ private struct MiniChatBubble: View {
                 Spacer(minLength: 24)
                 Text(message.content)
                     .font(.system(size: 13))
-                    .foregroundStyle(theme.userBubbleText)
+                    .foregroundStyle(theme.foreground)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.vertical, 2)
             }
         } else {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
                 MarkdownTextView(content: message.content, theme: theme)
                     .font(.system(size: 13))
                     .textSelection(.enabled)
+
+                AssistantSourcesFooter(
+                    sources: AssistantSourceReference.extract(from: message.content),
+                    theme: theme,
+                    compact: true
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+struct MiniChatNoteSnapshot: Equatable {
+    let title: String
+    let tags: [String]
+    let body: String
+
+    init(title: String, tags: [String] = [], body: String) {
+        self.title = title
+        self.tags = tags
+        self.body = body
+    }
+
+    init(title: String, tags: [String] = [], bodyProvider: () -> String) {
+        self.init(title: title, tags: tags, body: bodyProvider())
+    }
+
+    init(page: SDPage) {
+        self.init(title: page.title, tags: page.tags) {
+            page.loadBody()
+        }
+    }
+
+    var hasBody: Bool {
+        !body.isEmpty
+    }
+
+    var lowercasedBody: String {
+        body.lowercased()
+    }
+
+    var shortSnippet: String {
+        String(body.prefix(300))
+    }
+
+    var promptSnippet: String {
+        String(body.prefix(2000))
+    }
+}
+
+struct MiniChatSearchCandidate {
+    let id: String
+    let title: String
+    let bodyProvider: () -> String
+
+    init(id: String, title: String, bodyProvider: @escaping () -> String) {
+        self.id = id
+        self.title = title
+        self.bodyProvider = bodyProvider
+    }
+
+    init(page: SDPage) {
+        self.init(id: page.id, title: page.title) {
+            page.loadBody()
+        }
+    }
+}
+
+enum MiniChatVaultSearch {
+    static func snippets(
+        query: String,
+        activeId: String?,
+        pages: [MiniChatSearchCandidate]
+    ) -> [(title: String, snippet: String)] {
+        let terms = query.lowercased()
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count > 2 }
+
+        guard !terms.isEmpty else { return [] }
+
+        var snapshots: [String: MiniChatNoteSnapshot] = [:]
+        snapshots.reserveCapacity(pages.count)
+
+        func snapshot(for candidate: MiniChatSearchCandidate) -> MiniChatNoteSnapshot {
+            if let cached = snapshots[candidate.id] {
+                return cached
+            }
+            let created = MiniChatNoteSnapshot(title: candidate.title, bodyProvider: candidate.bodyProvider)
+            snapshots[candidate.id] = created
+            return created
+        }
+
+        var matches = pages.filter { candidate in
+            guard candidate.id != activeId else { return false }
+            let title = candidate.title.lowercased()
+            return terms.contains { title.contains($0) }
+        }
+
+        if matches.count < 3 {
+            let titleIds = Set(matches.map(\.id))
+            let bodyMatches = pages.prefix(30).filter { candidate in
+                guard candidate.id != activeId, !titleIds.contains(candidate.id) else { return false }
+                let body = snapshot(for: candidate).lowercasedBody
+                return terms.contains { body.contains($0) }
+            }
+            matches.append(contentsOf: bodyMatches)
+        }
+
+        return Array(matches.prefix(3).map { candidate in
+            let page = snapshot(for: candidate)
+            return (title: candidate.title, snippet: page.shortSnippet)
+        })
     }
 }
 
@@ -303,13 +406,14 @@ private struct MiniChatInputBar: View {
     @State private var mentionFilter = ""
 
     private var theme: EpistemosTheme { ui.theme }
+    private let composerMetrics = AssistantComposerMetrics.compactChat
 
     private var canSend: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
             // Quick action chips when a note is active
             if notesUI.activePageId != nil, activePage() != nil, !isProcessing {
                 quickActions
@@ -328,10 +432,10 @@ private struct MiniChatInputBar: View {
                     Spacer()
                 }
                 .padding(.horizontal, 12)
-                .padding(.top, 4)
+                .padding(.vertical, 4)
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 TextField("Ask anything...", text: $text, axis: .vertical)
                     .font(.system(size: 13))
                     .textFieldStyle(.plain)
@@ -354,32 +458,28 @@ private struct MiniChatInputBar: View {
                         }
                     }
 
-                if isProcessing {
-                    Button {
+                AssistantSendButton(
+                    theme: theme,
+                    isEnabled: canSend,
+                    isProcessing: isProcessing,
+                    metrics: composerMetrics
+                ) {
+                    if isProcessing {
                         cancelStream()
-                    } label: {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(theme.accent)
+                    } else {
+                        send()
                     }
-                    .buttonStyle(.plain)
-                    .help("Stop")
-                    .accessibilityLabel("Stop generating")
-                } else {
-                    Button(action: send) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 22))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(canSend ? theme.accent : theme.mutedForeground.opacity(0.35))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canSend)
-                    .help("Send")
-                    .accessibilityLabel("Send message")
                 }
+                .help(isProcessing ? "Stop" : "Send")
+                .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, composerMetrics.horizontalPadding)
+            .padding(.vertical, composerMetrics.verticalPadding)
+            .assistantGlassInputChrome(
+                theme: theme,
+                cornerRadius: composerMetrics.cornerRadius,
+                isActive: isFocused || canSend || isProcessing
+            )
         }
         .overlay(alignment: .topLeading) {
             if showMentionDropdown, let manifest = AppBootstrap.shared?.ambientManifest {
@@ -390,11 +490,11 @@ private struct MiniChatInputBar: View {
                 )
                 .frame(maxWidth: 280)
                 .background {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
+                        .shadow(color: .black.opacity(0.12), radius: 10, y: -2)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .offset(y: -8)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
@@ -443,39 +543,11 @@ private struct MiniChatInputBar: View {
         )
         descriptor.fetchLimit = 200
         guard let pages = try? modelContext.fetch(descriptor) else { return [] }
-
-        let terms = query.lowercased()
-            .split(separator: " ")
-            .map(String.init)
-            .filter { $0.count > 2 }
-
-        guard !terms.isEmpty else { return [] }
-
-        let activeId = notesUI.activePageId
-
-        // Pass 1: title-only (no body access)
-        var matches = pages.filter { page in
-            guard page.id != activeId else { return false }
-            let title = page.title.lowercased()
-            return terms.contains { title.contains($0) }
-        }
-
-        // Pass 2: if few title matches, check body for a small subset
-        if matches.count < 3 {
-            let titleIds = Set(matches.map(\.id))
-            let candidates = pages.prefix(30).filter {
-                $0.id != activeId && !titleIds.contains($0.id)
-            }
-            let bodyMatches = candidates.filter { page in
-                let body = page.loadBody().lowercased()
-                return terms.contains { body.contains($0) }
-            }
-            matches.append(contentsOf: bodyMatches)
-        }
-
-        return Array(matches
-            .prefix(3)
-            .map { (title: $0.title, snippet: String($0.loadBody().prefix(300))) })
+        return MiniChatVaultSearch.snippets(
+            query: query,
+            activeId: notesUI.activePageId,
+            pages: pages.map(MiniChatSearchCandidate.init)
+        )
     }
 
     // MARK: - Quick Action Execution
@@ -484,8 +556,9 @@ private struct MiniChatInputBar: View {
 
     private func runQuickAction(_ action: QuickAction) {
         guard let page = activePage(), !isProcessing else { return }
-        let pageTitle = page.title
-        let snippet = String(page.loadBody().prefix(2000))
+        let snapshot = MiniChatNoteSnapshot(page: page)
+        let pageTitle = snapshot.title
+        let snippet = snapshot.promptSnippet
 
         let actionLabel: String
         let prompt: String
@@ -654,8 +727,13 @@ private struct MiniChatInputBar: View {
                 var contextParts: [String] = []
                 let page = activePage()
 
-                if let page, !page.loadBody().isEmpty {
-                    contextParts.append("## Active Note: \(page.title)\nTags: [\(page.tags.joined(separator: ", "))]\n\(String(page.loadBody().prefix(2000)))")
+                if let page {
+                    let snapshot = MiniChatNoteSnapshot(page: page)
+                    if snapshot.hasBody {
+                        contextParts.append(
+                            "## Active Note: \(snapshot.title)\nTags: [\(snapshot.tags.joined(separator: ", "))]\n\(snapshot.promptSnippet)"
+                        )
+                    }
                 }
 
                 let vaultSnippets = searchVault(query: trimmed)
@@ -885,12 +963,6 @@ private struct QuickActionChip: View {
             .foregroundStyle(isHovered ? color : theme.mutedForeground.opacity(0.6))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(
-                Capsule().fill(isHovered ? color.opacity(0.12) : theme.foreground.opacity(0.04))
-            )
-            .overlay(
-                Capsule().stroke(isHovered ? color.opacity(0.2) : theme.foreground.opacity(0.06), lineWidth: 0.5)
-            )
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }

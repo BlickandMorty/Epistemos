@@ -399,10 +399,6 @@ struct TaggedMarkdownTextView: View {
         taggedInlineMarkdown(displayText, baseFontSize: fontSize)
             .font(font)
             .foregroundStyle(color)
-            .shadow(
-                color: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
-                radius: MarkdownHeadingDisplay.glowRadius(for: level)
-            )
             .asciiRippleOverlay(
                 text: MarkdownRippleTextExtractor.displayText(from: displayText),
                 font: font,

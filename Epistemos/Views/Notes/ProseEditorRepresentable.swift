@@ -63,6 +63,42 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     /// Vertical breathing room inside the text container.
     static let verticalInset: CGFloat = 40
 
+    static func horizontalInset(for availableWidth: CGFloat, markdown: String) -> CGFloat {
+        let readableWidth = NoteDualPreviewLayout.editorReadableWidth(
+            for: markdown,
+            defaultWidth: maxReadableWidth
+        )
+        return max(minHorizontalInset, (availableWidth - readableWidth) / 2)
+    }
+
+    static func typingAttributes(for theme: EpistemosTheme) -> [NSAttributedString.Key: Any] {
+        let paragraph =
+            (MarkdownTextStorage.bodyParagraphStyle().mutableCopy() as? NSMutableParagraphStyle)
+            ?? NSMutableParagraphStyle()
+        return [
+            .font: NSFont.systemFont(ofSize: MarkdownTextStorage.noteBaseFontSize),
+            .foregroundColor: NSColor(theme.foreground),
+            .paragraphStyle: paragraph,
+        ]
+    }
+
+    static func matchesNotificationPageId(_ notificationPageId: String?, coordinatorPageId: String?) -> Bool {
+        guard let notificationPageId, !notificationPageId.isEmpty,
+              let coordinatorPageId, !coordinatorPageId.isEmpty else {
+            return false
+        }
+        return notificationPageId == coordinatorPageId
+    }
+
+    static func applyEditorAppearance(to textView: NSTextView, theme: EpistemosTheme) {
+        let typingAttributes = typingAttributes(for: theme)
+        let foreground = NSColor(theme.foreground)
+        textView.textColor = foreground
+        textView.insertionPointColor = foreground
+        textView.defaultParagraphStyle = typingAttributes[.paragraphStyle] as? NSParagraphStyle
+        textView.typingAttributes = typingAttributes
+    }
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -104,11 +140,11 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         tv.importsGraphics = false
         tv.drawsBackground = false
         tv.backgroundColor = .clear
-        tv.textColor = NSColor(theme.foreground)
 
         // Initial insets — will be recalculated by frame observer for centering.
         tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
         tv.textContainer?.lineFragmentPadding = 0
+        Self.applyEditorAppearance(to: tv, theme: theme)
 
         // Find & Replace — NSTextView's built-in NSTextFinder.
         // usesFindBar embeds it in the scroll view (Cmd+F).
@@ -215,8 +251,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             object: scrollView.contentView,
             queue: .main
         ) { [weak tv, weak coord] _ in
-            guard let tv, let coord, let pageId = coord.lastPageId, !pageId.isEmpty else { return }
+            guard let tv, let coord else { return }
             MainActor.assumeIsolated {
+                guard let pageId = coord.lastPageId, !pageId.isEmpty else { return }
                 let now = CACurrentMediaTime()
                 guard now - coord.lastScrollSaveTime > 0.2 else { return }
                 coord.lastScrollSaveTime = now
@@ -239,9 +276,10 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         ) { [weak tv, weak coord] notification in
             guard let offset = notification.userInfo?["charOffset"] as? Int,
                   let pid = notification.userInfo?["pageId"] as? String,
-                  pid == coord?.lastPageId,
-                  let tv else { return }
+                  let tv,
+                  let coord else { return }
             MainActor.assumeIsolated {
+                guard Self.matchesNotificationPageId(pid, coordinatorPageId: coord.lastPageId) else { return }
                 let safeOffset = min(offset, (tv.string as NSString).length)
                 let range = NSRange(location: safeOffset, length: 0)
                 tv.scrollRangeToVisible(range)
@@ -257,8 +295,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         ) { [weak tv, weak coord] note in
             guard let tv,
                   let pid = note.userInfo?["pageId"] as? String,
-                  pid == coord?.lastPageId else { return }
+                  let coord else { return }
             MainActor.assumeIsolated {
+                guard Self.matchesNotificationPageId(pid, coordinatorPageId: coord.lastPageId) else { return }
                 WritingToolsBridge.present(in: tv)
             }
         }
@@ -303,6 +342,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     // MARK: - Dismantle (Save State to Pool + Disk)
 
     static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator) {
+        coordinator.removeNotificationObservers()
         guard let tv = scrollView.documentView as? ClickableTextView,
               let pageId = coordinator.lastPageId, !pageId.isEmpty
         else { return }
@@ -382,6 +422,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 tv.setSelectedRange(NSRange(location: safeSelLoc, length: safeSelLen))
                 scrollView.contentView.scroll(to: NSPoint(x: 0, y: slot.scrollY))
                 scrollView.reflectScrolledClipView(scrollView.contentView)
+                Self.applyEditorAppearance(to: tv, theme: theme)
+                Self.updateCenteringInsets(for: tv)
+                coord.lastAvailableWidth = scrollView.contentSize.width
             } else {
                 // No page active — clear content
                 if let storage = coord.storage {
@@ -415,6 +458,12 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             } else {
                 coord.blockEditTranslator = nil
             }
+
+            if isFocused {
+                DispatchQueue.main.async {
+                    tv.window?.makeFirstResponder(tv)
+                }
+            }
         }
 
         // === GUARD ALL WORK WITH COORDINATOR CACHE (Pitfall #6) ===
@@ -428,9 +477,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             coord.storage?.isDark = theme.isDark
             coord.storage?.theme = theme
             coord.storage?.usesRenderedTableOverlays = true
-            let baseColor = NSColor(theme.foreground)
-            tv.textColor = baseColor
-            tv.typingAttributes[.foregroundColor] = baseColor
+            Self.applyEditorAppearance(to: tv, theme: theme)
             Self.progressiveRestyle(coord.storage)
             PageStoragePool.shared.invalidateExcept(activePageId: pageId)
             coord.renderedTableOverlayManager?.setTheme(theme)
@@ -475,6 +522,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             storage.replaceCharacters(in: fullRange, with: text)
             let safeLoc = min(sel.location, tv.string.utf16.count)
             tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
+            Self.updateCenteringInsets(for: tv)
             coord.renderedTableOverlayManager?.refresh()
         }
 
@@ -557,11 +605,7 @@ struct ProseEditorRepresentable: NSViewRepresentable {
     private static func updateCenteringInsets(for tv: NSTextView) {
         guard let scrollView = tv.enclosingScrollView else { return }
         let availableWidth = scrollView.contentSize.width
-        let readableWidth = NoteDualPreviewLayout.editorReadableWidth(
-            for: tv.string,
-            defaultWidth: maxReadableWidth
-        )
-        let horizontalInset = max(minHorizontalInset, (availableWidth - readableWidth) / 2)
+        let horizontalInset = horizontalInset(for: availableWidth, markdown: tv.string)
         let vInset = verticalInset
 
         let currentInset = tv.textContainerInset
@@ -664,20 +708,29 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         }
 
         deinit {
+            removeNotificationObservers()
+        }
+
+        nonisolated func removeNotificationObservers() {
             if let observer = frameObserver {
                 NotificationCenter.default.removeObserver(observer)
+                frameObserver = nil
             }
             if let observer = scrollObserver {
                 NotificationCenter.default.removeObserver(observer)
+                scrollObserver = nil
             }
             if let observer = scrollToOffsetObserver {
                 NotificationCenter.default.removeObserver(observer)
+                scrollToOffsetObserver = nil
             }
             if let observer = writingToolsObserver {
                 NotificationCenter.default.removeObserver(observer)
+                writingToolsObserver = nil
             }
             if let observer = replaceRangeObserver {
                 NotificationCenter.default.removeObserver(observer)
+                replaceRangeObserver = nil
             }
         }
 
@@ -1102,9 +1155,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
         /// Schedule table column alignment 500ms after the last keystroke on a table line.
         private func scheduleDataDetection(_ tv: NSTextView) {
             dataDetectionTask?.cancel()
-            dataDetectionTask = Task { @MainActor [weak self] in
+            dataDetectionTask = Task { @MainActor in
                 try? await Task.sleep(for: .seconds(1))
-                guard let self, !Task.isCancelled else { return }
+                guard !Task.isCancelled else { return }
                 guard let storage = tv.textStorage else { return }
                 let text = storage.string
                 let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -1135,9 +1188,9 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                 return
             }
             tableAlignTask?.cancel()
-            tableAlignTask = Task { @MainActor [weak self] in
+            tableAlignTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(500))
-                guard let self, !Task.isCancelled else { return }
+                guard !Task.isCancelled else { return }
                 _ = MarkdownEditorCommands.realignTable(in: tv)
             }
         }

@@ -249,12 +249,20 @@ final class AppBootstrap {
             }
         }
         Log.app.info("Database reset complete — relaunching")
-        let url = Bundle.main.bundleURL
-        let config = NSWorkspace.OpenConfiguration()
-        config.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in
-            DispatchQueue.main.async { NSApp.terminate(nil) }
+        relaunchApp()
+    }
+
+    func applyDisplayModeAndRelaunch(_ mode: AppDisplayMode) {
+        uiState.setDisplayMode(mode)
+        clearVisualCaches()
+
+        guard !Self.isRunningTests else {
+            Log.app.info("Skipping display-mode relaunch under tests")
+            return
         }
+
+        Log.app.info("Display mode updated to \(mode.rawValue, privacy: .public) — relaunching")
+        relaunchApp()
     }
 
     // MARK: - Full Reset
@@ -318,6 +326,20 @@ final class AppBootstrap {
         uiState.needsSetup = true
 
         Log.pipeline.info("Reset: All data cleared. Setup screen shown.")
+    }
+
+    private func clearVisualCaches() {
+        PageStoragePool.shared.removeAll()
+        DiskStyleCache.shared.clearAll()
+    }
+
+    private func relaunchApp() {
+        let url = Bundle.main.bundleURL
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     // MARK: - Body File Storage Migration

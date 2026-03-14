@@ -181,7 +181,14 @@ final class SDPage {
     ///   Use for bulk operations (indexing, hashing, search) that read many notes in a loop.
     ///   Default `false` for interactive use (editing, display) where the String is long-lived.
     func loadBody(mapped: Bool = false) -> String {
-        let diskBody = NoteFileStorage.readBody(pageId: id, mapped: mapped)
+        let diskBody: String
+        if mapped {
+            diskBody = autoreleasepool {
+                NoteFileStorage.readBody(pageId: id, mapped: true)
+            }
+        } else {
+            diskBody = NoteFileStorage.readBody(pageId: id, mapped: false)
+        }
         // Fallback: if no file exists but inline body has content (pre-migration), use inline.
         if diskBody.isEmpty && !body.isEmpty {
             return body

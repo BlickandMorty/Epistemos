@@ -383,13 +383,15 @@ struct ASCIIRippleText: View {
     var shadowRadius: CGFloat = 0
     var configuration = ASCIIRippleConfiguration()
     var manualTrigger = 0
-    var interactive = true
+    var interactive = false
+    var pulseOnAppear = true
     var fixedHorizontal = true
 
     @State private var measuredWidth: CGFloat = 1
     @State private var waves: [ASCIIRippleWave] = []
     @State private var lastHoveredIndex: Int?
     @State private var cleanupTask: Task<Void, Never>?
+    @State private var autoTrigger = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -424,15 +426,21 @@ struct ASCIIRippleText: View {
                     lastHoveredIndex = nil
                 }
             }
-            .onChange(of: manualTrigger) { _, _ in
-                guard manualTrigger > 0, !reduceMotion, !text.isEmpty else { return }
-                startWave(at: text.count / 2)
+            .onChange(of: manualTrigger) { _, newValue in
+                triggerCenterWave(for: newValue)
+            }
+            .onChange(of: autoTrigger) { _, newValue in
+                triggerCenterWave(for: newValue)
             }
             .onChange(of: text) { _, _ in
                 lastHoveredIndex = nil
             }
             .onDisappear {
                 cleanupTask?.cancel()
+            }
+            .task(id: pulseOnAppear ? text : "") {
+                guard pulseOnAppear, !text.isEmpty, !reduceMotion else { return }
+                autoTrigger += 1
             }
     }
 
@@ -482,6 +490,11 @@ struct ASCIIRippleText: View {
         scheduleCleanup()
     }
 
+    private func triggerCenterWave(for trigger: Int) {
+        guard trigger > 0, !reduceMotion, !text.isEmpty else { return }
+        startWave(at: text.count / 2)
+    }
+
     private func scheduleCleanup() {
         cleanupTask?.cancel()
         cleanupTask = Task { @MainActor in
@@ -513,6 +526,7 @@ private struct ASCIIRippleOverlayModifier: ViewModifier {
     let opacity: Double
     let enabled: Bool
     let fixedHorizontal: Bool
+    @State private var initialTrigger = 0
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .topLeading) {
@@ -523,7 +537,8 @@ private struct ASCIIRippleOverlayModifier: ViewModifier {
                     color: color.opacity(opacity),
                     shadowColor: shadowColor.opacity(opacity),
                     shadowRadius: shadowRadius,
-                    interactive: true,
+                    manualTrigger: initialTrigger,
+                    interactive: false,
                     fixedHorizontal: fixedHorizontal
                 )
                 .lineSpacing(lineSpacing)
@@ -532,6 +547,10 @@ private struct ASCIIRippleOverlayModifier: ViewModifier {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+        }
+        .task(id: enabled ? text : "") {
+            guard enabled, !text.isEmpty else { return }
+            initialTrigger += 1
         }
     }
 }
@@ -544,7 +563,7 @@ extension View {
         shadowColor: Color = .clear,
         shadowRadius: CGFloat = 0,
         lineSpacing: CGFloat = 0,
-        opacity: Double = 0.32,
+        opacity: Double = 0.48,
         fixedHorizontal: Bool = false,
         enabled: Bool = true
     ) -> some View {
@@ -607,7 +626,8 @@ struct ASCIIFrameAnimationText: View {
     @Environment(UIState.self) private var ui
 
     private var shouldAnimate: Bool {
-        !reduceMotion && !ui.windowOccluded && configuration.frames.count > 1
+        !reduceMotion && !ui.displayMode.reducesASCIIAnimations && !ui.windowOccluded
+            && configuration.frames.count > 1
     }
 
     var body: some View {

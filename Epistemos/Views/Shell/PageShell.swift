@@ -64,6 +64,7 @@ struct TypewriterHeading: View {
     var animationKey: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(UIState.self) private var ui
     @State private var displayText = ""
     @State private var cursorVisible = false
     @State private var animationRun = 0
@@ -100,7 +101,7 @@ struct TypewriterHeading: View {
     @MainActor
     private func animateIfNeeded() async {
         let shouldAnimate = animateOnAppear ?? role.animatesOnFirstAppearance
-        guard shouldAnimate, !reduceMotion else {
+        guard shouldAnimate, !reduceMotion, !ui.displayMode.reducesASCIIAnimations else {
             displayText = text
             cursorVisible = false
             return

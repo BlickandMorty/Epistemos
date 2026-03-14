@@ -8,7 +8,10 @@ import UserNotifications
 
 @MainActor
 enum WindowPresentationPolicy {
+    static let mainWindowMinimumSize = CGSize(width: 720, height: 520)
+
     static func applyModularZoomBehavior(to window: NSWindow) {
+        window.contentMinSize = mainWindowMinimumSize
         window.collectionBehavior.remove(.fullScreenPrimary)
         window.collectionBehavior.remove(.fullScreenAuxiliary)
         window.collectionBehavior.remove(.fullScreenAllowsTiling)

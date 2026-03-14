@@ -141,7 +141,10 @@ struct RootView: View {
         // Command palette is now a global floating NSPanel (CommandPaletteWindowController).
         // Activated via Option+Space from any app, or Cmd+S in-app.
         // Glass Box overlay removed — research runs in regular chat
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(
+            minWidth: WindowPresentationPolicy.mainWindowMinimumSize.width,
+            minHeight: WindowPresentationPolicy.mainWindowMinimumSize.height
+        )
         // Pause heavy animations when the window is minimized to the Dock.
         // Without this, LiquidGreeting (typewriter loop) keeps running and burns CPU while invisible.
         // Filter by keyWindow to ignore miniaturize events from utility/MiniChat windows.
@@ -422,7 +425,7 @@ struct SetupView: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private let fullText = "Welcome to Epistemos..."
-    private var retroFont: Font { .custom("RetroGaming", size: 38) }
+    private var retroFont: Font { AppDisplayTypography.font(size: 38) }
 
     var body: some View {
         ZStack {
@@ -462,7 +465,7 @@ struct SetupView: View {
                     }
                 } label: {
                     Text("press me to start")
-                        .font(.custom("RetroGaming", size: 14))
+                        .font(AppDisplayTypography.font(size: 14))
                         .foregroundStyle(theme.fontAccent.opacity(0.7))
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
@@ -490,6 +493,13 @@ struct SetupView: View {
             withAnimation(.easeIn(duration: 0.4)) { overlayOpacity = 1 }
         }
         .task {
+            if ui.displayMode.reducesASCIIAnimations {
+                displayText = fullText
+                cursorVisible = false
+                typingDone = true
+                buttonOpacity = 1
+                return
+            }
             // Start cursor blink
             let blinkTask = Task { @MainActor in
                 while !Task.isCancelled {

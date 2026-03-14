@@ -152,6 +152,9 @@ pub fn force_many_body_with_scratch(
 
     // Build Barnes-Hut tree with uniform charge (canonical d3-force behavior).
     bodies.clear();
+    if bodies.capacity() < n {
+        bodies.reserve(n - bodies.capacity());
+    }
     bodies.extend((0..n).map(|i| Body {
         index: i,
         x: x[i],
@@ -228,6 +231,21 @@ pub fn force_collide_with_scratch(
     iterations: u32,
     grid: &mut rustc_hash::FxHashMap<(i32, i32), Vec<usize>>,
 ) {
+    let mut keys = Vec::new();
+    force_collide_with_full_scratch(x, y, radii, fx, fy, iterations, grid, &mut keys);
+}
+
+/// Like `force_collide_with_scratch` but also reuses the occupied-cell key buffer.
+pub fn force_collide_with_full_scratch(
+    x: &mut [f32],
+    y: &mut [f32],
+    radii: &[f32],
+    fx: &[Option<f32>],
+    fy: &[Option<f32>],
+    iterations: u32,
+    grid: &mut rustc_hash::FxHashMap<(i32, i32), Vec<usize>>,
+    keys: &mut Vec<(i32, i32)>,
+) {
     let n = x.len();
     if n < 2 {
         return;
@@ -249,6 +267,12 @@ pub fn force_collide_with_scratch(
 
     // 4 forward-neighbor offsets to avoid double-checking pairs.
     const OFFSETS: [(i32, i32); 4] = [(1, 0), (-1, 1), (0, 1), (1, 1)];
+    if grid.capacity() < n {
+        grid.reserve(n - grid.capacity());
+    }
+    if keys.capacity() < n {
+        keys.reserve(n - keys.capacity());
+    }
 
     for _ in 0..iterations {
         // Clear grid, reusing allocated inner Vecs.
@@ -263,12 +287,11 @@ pub fn force_collide_with_scratch(
             grid.entry((gx, gy)).or_default().push(i);
         }
 
-        // Snapshot occupied cell keys into a stack-allocated-friendly vec.
-        // This decouples grid reads from x/y mutation.
-        // Reuse via retain: only allocates on first call, then capacity persists.
-        let keys: Vec<(i32, i32)> = grid.keys().copied().collect();
+        // Snapshot occupied cell keys once, then reuse the same allocation every tick.
+        keys.clear();
+        keys.extend(grid.keys().copied());
 
-        for key in &keys {
+        for key in keys.iter() {
             let cell = match grid.get(key) {
                 Some(c) if !c.is_empty() => c,
                 _ => continue,
@@ -1648,11 +1671,37 @@ mod tests {
         let fx = vec![None, None, None];
         let fy = vec![None, None, None];
         let mut grid = rustc_hash::FxHashMap::default();
+        let mut keys = Vec::new();
 
-        force_collide_with_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid);
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys,
+        );
 
         // Grid should be reusable
         assert!(grid.is_empty() || grid.values().all(|v| v.is_empty()));
+    }
+
+    #[test]
+    fn collide_with_full_scratch_reuses_key_buffer() {
+        let mut x: Vec<f32> = (0..40).map(|i| i as f32 * 12.0).collect();
+        let mut y = vec![0.0; 40];
+        let radii = vec![26.0; 40];
+        let fx = vec![None; 40];
+        let fy = vec![None; 40];
+        let mut grid = rustc_hash::FxHashMap::default();
+        let mut keys = Vec::new();
+
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys,
+        );
+        let first_capacity = keys.capacity();
+
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys,
+        );
+
+        assert!(first_capacity > 0);
+        assert_eq!(keys.capacity(), first_capacity);
     }
 
     #[test]
@@ -2104,5 +2153,68 @@ mod tests {
 
         // Forces should be equal and opposite
         assert!((vx[0] + vx[1]).abs() < 0.01);
+    }
+
+    #[test]
+    fn many_body_scratch_capacity_stabilizes_after_first_pass() {
+        let x = vec![0.0, 120.0, 240.0, 360.0];
+        let y = vec![0.0, 0.0, 0.0, 0.0];
+        let mut vx = vec![0.0; 4];
+        let mut vy = vec![0.0; 4];
+        let fx = vec![None; 4];
+        let fy = vec![None; 4];
+        let degrees = vec![1; 4];
+        let mut bodies = Vec::new();
+
+        force_many_body_with_scratch(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &fx,
+            &fy,
+            -600.0,
+            600.0,
+            1.0,
+            1.0,
+            &mut bodies,
+            &degrees,
+        );
+        let first_capacity = bodies.capacity();
+
+        force_many_body_with_scratch(
+            &x,
+            &y,
+            &mut vx,
+            &mut vy,
+            &fx,
+            &fy,
+            -600.0,
+            600.0,
+            1.0,
+            1.0,
+            &mut bodies,
+            &degrees,
+        );
+
+        assert_eq!(bodies.capacity(), first_capacity);
+    }
+
+    #[test]
+    fn collision_full_scratch_reuses_key_capacity() {
+        let mut x = vec![0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0];
+        let mut y = vec![0.0; 8];
+        let radii = vec![20.0; 8];
+        let fx = vec![None; 8];
+        let fy = vec![None; 8];
+        let mut grid = rustc_hash::FxHashMap::default();
+        let mut keys = Vec::new();
+
+        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
+        let first_capacity = keys.capacity();
+
+        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
+
+        assert_eq!(keys.capacity(), first_capacity);
     }
 }

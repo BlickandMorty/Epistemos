@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import Quartz
 import UniformTypeIdentifiers
 import Vision
@@ -102,6 +103,7 @@ final class ClickableTextView: NSTextView {
 
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
+        drawBlockChrome(in: rect)
         if !usesRenderedTableOverlays {
             drawTableFills(in: rect)
             drawTableGridLines(in: rect)
@@ -115,7 +117,27 @@ final class ClickableTextView: NSTextView {
         if MarkdownEditorCommands.isSelectionInsideTable(in: string, selection: affectedCharRange) {
             return false
         }
+        if let autoEdit = MarkdownEditorCommands.autoExpandCodeFence(
+            in: string,
+            selection: affectedCharRange,
+            replacementString: replacementString
+        ) {
+            return applyAutomaticMarkdownEdit(autoEdit)
+        }
         return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+    }
+
+    private func applyAutomaticMarkdownEdit(_ edit: MarkdownEditorCommands.TextEdit) -> Bool {
+        guard super.shouldChangeText(
+            in: edit.replacementRange,
+            replacementString: edit.replacementText
+        ) else {
+            return false
+        }
+        textStorage?.replaceCharacters(in: edit.replacementRange, with: edit.replacementText)
+        didChangeText()
+        setSelectedRange(edit.selectedRange)
+        return false
     }
 
     private func drawTableFills(in dirtyRect: NSRect) {
@@ -183,6 +205,116 @@ final class ClickableTextView: NSTextView {
 
             lineStart = NSMaxRange(lineRange)
         }
+    }
+
+    private struct BlockChromeRegion {
+        let kind: MarkdownBlockChromeKind
+        let fill: NSColor
+        let accent: NSColor
+        var top: CGFloat
+        var bottom: CGFloat
+    }
+
+    private func drawBlockChrome(in dirtyRect: NSRect) {
+        guard let lm = layoutManager, let tc = textContainer, let storage = textStorage else { return }
+        let str = storage.string as NSString
+        guard str.length > 0 else { return }
+
+        let visibleGlyphs = lm.glyphRange(forBoundingRect: dirtyRect, in: tc)
+        let charRange = lm.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
+        let origin = textContainerOrigin
+        var regions: [BlockChromeRegion] = []
+        var current: BlockChromeRegion?
+
+        var lineStart = charRange.location
+        while lineStart < NSMaxRange(charRange) {
+            let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
+            let lineEnd = lineRange.location + lineRange.length
+            let hasTrailingNewline = lineEnd > 0 && lineEnd <= str.length && str.character(at: lineEnd - 1) == 0x0A
+            let styleRange = NSRange(
+                location: lineRange.location,
+                length: max(0, hasTrailingNewline ? lineRange.length - 1 : lineRange.length)
+            )
+
+            guard styleRange.length > 0,
+                  let kindRaw = storage.attribute(
+                    MarkdownTextStorage.blockChromeKindAttribute,
+                    at: styleRange.location,
+                    effectiveRange: nil
+                  ) as? String,
+                  let kind = MarkdownBlockChromeKind(rawValue: kindRaw)
+            else {
+                if let current {
+                    regions.append(current)
+                }
+                current = nil
+                lineStart = NSMaxRange(lineRange)
+                continue
+            }
+
+            let attributes = storage.attributes(at: styleRange.location, effectiveRange: nil)
+            let fill = MarkdownTextStorage.blockChromeFill(from: attributes)
+            let accent = (storage.attribute(
+                MarkdownTextStorage.blockChromeAccentAttribute,
+                at: styleRange.location,
+                effectiveRange: nil
+            ) as? NSColor) ?? fill
+            let glyphRange = lm.glyphRange(forCharacterRange: styleRange, actualCharacterRange: nil)
+            let fragmentRect = lm.boundingRect(
+                forGlyphRange: glyphRange,
+                in: tc
+            ).offsetBy(dx: origin.x, dy: origin.y)
+
+            if var existing = current,
+               existing.kind == kind,
+               existing.fill.isEqual(fill),
+               existing.accent.isEqual(accent) {
+                existing.bottom = fragmentRect.maxY
+                current = existing
+            } else {
+                if let current {
+                    regions.append(current)
+                }
+                current = BlockChromeRegion(
+                    kind: kind,
+                    fill: fill,
+                    accent: accent,
+                    top: fragmentRect.minY,
+                    bottom: fragmentRect.maxY
+                )
+            }
+            lineStart = NSMaxRange(lineRange)
+        }
+
+        if let current {
+            regions.append(current)
+        }
+
+        let chromeFrame = MarkdownTextStorage.blockChromeFrame(
+            textContainerOrigin: origin,
+            containerWidth: tc.containerSize.width,
+            boundsWidth: bounds.width
+        )
+        guard chromeFrame.width > 0 else { return }
+
+        for region in regions {
+            let rect = NSRect(
+                x: chromeFrame.minX,
+                y: region.top - 5,
+                width: chromeFrame.width,
+                height: max(0, region.bottom - region.top + 10)
+            )
+            guard rect.intersects(dirtyRect) else { continue }
+            drawBlockChromeRegion(region, in: rect)
+        }
+    }
+    private func drawBlockChromeRegion(_ region: BlockChromeRegion, in rect: NSRect) {
+        MarkdownTextStorage.drawBlockChrome(
+            kind: region.kind,
+            fill: region.fill,
+            accent: region.accent,
+            in: rect
+        )
     }
 
     // MARK: - Table Grid Lines (drawn BEHIND text via NSBezierPath)
@@ -511,13 +643,17 @@ final class ClickableTextView: NSTextView {
     }
 
     nonisolated override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = self
-        panel.delegate = self
+        MainActor.assumeIsolated {
+            panel.dataSource = self
+            panel.delegate = self
+        }
     }
 
     nonisolated override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
-        panel.dataSource = nil
-        panel.delegate = nil
+        MainActor.assumeIsolated {
+            panel.dataSource = nil
+            panel.delegate = nil
+        }
     }
 
     // MARK: - Zoom (native text scaling — crisp at any level)
@@ -574,33 +710,30 @@ final class ClickableTextView: NSTextView {
     }
 
     func insertImageAttachment(from url: URL) {
-        guard let image = NSImage(contentsOf: url) else { return }
-
-        let attachment = NSTextAttachment()
-        // Scale to fit readable width — max 600px, maintain aspect ratio
-        let maxWidth: CGFloat = 600
-        let imageSize = image.size
-        let displaySize: NSSize
-        if imageSize.width > maxWidth {
-            let scale = maxWidth / imageSize.width
-            displaySize = NSSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        } else {
-            displaySize = imageSize
-        }
-        image.size = displaySize
-        let cell = NSTextAttachmentCell(imageCell: image)
-        attachment.attachmentCell = cell
-
-        let attrStr = NSMutableAttributedString(attachment: attachment)
-        attrStr.addAttribute(NSAttributedString.Key("EpistemosImagePath"),
-                             value: url.path,
-                             range: NSRange(location: 0, length: attrStr.length))
-
         let insertLoc = selectedRange().location
-        let insertRange = NSRange(location: insertLoc, length: 0)
-        if shouldChangeText(in: insertRange, replacementString: attrStr.string) {
-            textStorage?.insert(attrStr, at: insertLoc)
-            didChangeText()
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let payload = await NoteImageProcessor.loadDisplayImage(from: url)
+            else { return }
+
+            let attachment = NSTextAttachment()
+            let image = NSImage(cgImage: payload.cgImage, size: payload.displaySize)
+            let cell = NSTextAttachmentCell(imageCell: image)
+            attachment.attachmentCell = cell
+
+            let attrStr = NSMutableAttributedString(attachment: attachment)
+            attrStr.addAttribute(
+                NSAttributedString.Key("EpistemosImagePath"),
+                value: url.path,
+                range: NSRange(location: 0, length: attrStr.length)
+            )
+
+            let safeInsertLoc = min(insertLoc, self.string.utf16.count)
+            let insertRange = NSRange(location: safeInsertLoc, length: 0)
+            if self.shouldChangeText(in: insertRange, replacementString: attrStr.string) {
+                self.textStorage?.insert(attrStr, at: safeInsertLoc)
+                self.didChangeText()
+            }
         }
     }
 
@@ -649,34 +782,19 @@ final class ClickableTextView: NSTextView {
     }
 
     func performOCR(on url: URL) {
-        guard let cgImage = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        let insertLoc = selectedRange().location
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let extractedText = await NoteImageProcessor.extractText(from: url)
+            else { return }
 
-        let request = VNRecognizeTextRequest { [weak self] request, error in
-            guard let self, error == nil,
-                  let observations = request.results as? [VNRecognizedTextObservation] else { return }
-
-            let extractedText = observations
-                .compactMap { $0.topCandidates(1).first?.string }
-                .joined(separator: "\n")
-
-            guard !extractedText.isEmpty else { return }
-
-            DispatchQueue.main.async {
-                let text = "\n\n> **Extracted Text:**\n> \(extractedText.replacingOccurrences(of: "\n", with: "\n> "))\n"
-                let insertLoc = self.selectedRange().location
-                let insertRange = NSRange(location: insertLoc, length: 0)
-                if self.shouldChangeText(in: insertRange, replacementString: text) {
-                    self.textStorage?.replaceCharacters(in: insertRange, with: text)
-                    self.didChangeText()
-                }
+            let text = "\n\n> **Extracted Text:**\n> \(extractedText.replacingOccurrences(of: "\n", with: "\n> "))\n"
+            let safeInsertLoc = min(insertLoc, self.string.utf16.count)
+            let insertRange = NSRange(location: safeInsertLoc, length: 0)
+            if self.shouldChangeText(in: insertRange, replacementString: text) {
+                self.textStorage?.replaceCharacters(in: insertRange, with: text)
+                self.didChangeText()
             }
-        }
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            try? handler.perform([request])
         }
     }
 
@@ -1024,7 +1142,7 @@ final class RenderedTableOverlayManager {
 
 // MARK: - QLPreviewPanel DataSource & Delegate
 
-extension ClickableTextView: @preconcurrency QLPreviewPanelDataSource, @preconcurrency QLPreviewPanelDelegate {
+extension ClickableTextView: QLPreviewPanelDataSource, QLPreviewPanelDelegate {
 
     nonisolated func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
         quickLookURL != nil ? 1 : 0
@@ -1032,5 +1150,83 @@ extension ClickableTextView: @preconcurrency QLPreviewPanelDataSource, @preconcu
 
     nonisolated func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
         quickLookURL as? NSURL
+    }
+}
+
+enum NoteImageProcessor {
+    nonisolated static let maxDisplayWidth: CGFloat = 600
+
+    struct DisplayImage: @unchecked Sendable {
+        let cgImage: CGImage
+        let displaySize: CGSize
+    }
+
+    nonisolated static func loadDisplayImage(from url: URL) async -> DisplayImage? {
+        await Task.detached(priority: .userInitiated) {
+            autoreleasepool {
+                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                      let originalSize = sourceImageSize(source)
+                else { return nil }
+
+                let displaySize = scaledSize(for: originalSize, maxWidth: maxDisplayWidth)
+                let cgImage: CGImage?
+                if originalSize.width > maxDisplayWidth {
+                    let maxPixelSize = Int(ceil(max(displaySize.width, displaySize.height)))
+                    let options: [CFString: Any] = [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+                    ]
+                    cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+                } else {
+                    cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
+                }
+
+                guard let cgImage else { return nil }
+                return DisplayImage(cgImage: cgImage, displaySize: displaySize)
+            }
+        }.value
+    }
+
+    nonisolated static func extractText(from url: URL) async -> String? {
+        await Task.detached(priority: .userInitiated) {
+            autoreleasepool {
+                guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                      let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
+                else { return nil }
+
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.usesLanguageCorrection = true
+
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                try? handler.perform([request])
+
+                let extractedText = request.results?
+                    .compactMap { $0.topCandidates(1).first?.string }
+                    .joined(separator: "\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                guard let extractedText, !extractedText.isEmpty else { return nil }
+                return extractedText
+            }
+        }.value
+    }
+
+    private nonisolated static func sourceImageSize(_ source: CGImageSource) -> CGSize? {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber
+        else { return nil }
+
+        let size = CGSize(width: width.doubleValue, height: height.doubleValue)
+        guard size.width > 0, size.height > 0 else { return nil }
+        return size
+    }
+
+    private nonisolated static func scaledSize(for originalSize: CGSize, maxWidth: CGFloat) -> CGSize {
+        guard originalSize.width > maxWidth else { return originalSize }
+        let scale = maxWidth / originalSize.width
+        return CGSize(width: maxWidth, height: originalSize.height * scale)
     }
 }

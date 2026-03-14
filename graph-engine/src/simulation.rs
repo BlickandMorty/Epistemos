@@ -351,6 +351,7 @@ pub struct Simulation {
 
     // Pre-allocated scratch buffers for physics (avoids per-tick heap allocation).
     collision_grid: FxHashMap<(i32, i32), Vec<usize>>,
+    collision_keys_scratch: Vec<(i32, i32)>,
     bodies_scratch: Vec<quadtree::Body>,
     // Pre-allocated cluster centroid buffers (avoids per-tick allocation in force_cluster).
     cluster_cx: Vec<f32>,
@@ -451,6 +452,7 @@ impl Simulation {
             static_layout: false,
             user_frozen: false,
             collision_grid: FxHashMap::default(),
+            collision_keys_scratch: Vec::new(),
             bodies_scratch: Vec::new(),
             cluster_cx: Vec::new(),
             cluster_cy: Vec::new(),
@@ -520,6 +522,14 @@ impl Simulation {
         // When user focuses on a subset, visible count drops below threshold
         // and physics re-enables automatically via the next load_from_graph().
         let node_count = self.x.len();
+        if self.bodies_scratch.capacity() < node_count {
+            self.bodies_scratch
+                .reserve(node_count - self.bodies_scratch.capacity());
+        }
+        if self.collision_keys_scratch.capacity() < node_count {
+            self.collision_keys_scratch
+                .reserve(node_count - self.collision_keys_scratch.capacity());
+        }
         const STATIC_LAYOUT_THRESHOLD: usize = 9000;
         if node_count > STATIC_LAYOUT_THRESHOLD {
             self.static_layout = true;
@@ -800,7 +810,7 @@ impl Simulation {
                     v.clear();
                 }
             }
-            forces::force_collide_with_scratch(
+            forces::force_collide_with_full_scratch(
                 &mut self.x,
                 &mut self.y,
                 &self.collision_radii,
@@ -808,6 +818,7 @@ impl Simulation {
                 &self.fy,
                 self.params.collision_iterations,
                 &mut self.collision_grid,
+                &mut self.collision_keys_scratch,
             );
         }
 

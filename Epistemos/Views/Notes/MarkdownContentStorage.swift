@@ -183,6 +183,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             entry.paraType == 1
             && (entry.metadata & 0xFF) == 1
             && leadingDocumentContentIsEmpty(before: range.location, in: attrStr.string as NSString)
+        let tableLineRole =
+            entry.paraType == 7
+            ? MarkdownTextStorage.tableLineRole(at: range, in: attrStr.string as NSString)
+            : nil
 
         let styled = NSMutableAttributedString(string: displayText)
         let fullRange = NSRange(location: 0, length: styled.length)
@@ -193,7 +197,8 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             range: fullRange,
             paraType: entry.paraType,
             metadata: entry.metadata,
-            isLeadingDocumentHeading: isLeadingDocumentHeading
+            isLeadingDocumentHeading: isLeadingDocumentHeading,
+            tableLineRole: tableLineRole
         )
 
         // Phase 2+3: inline styles with active line awareness (skip block-level-only types)
@@ -225,7 +230,8 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         range: NSRange,
         paraType: UInt8,
         metadata: UInt16,
-        isLeadingDocumentHeading: Bool = false
+        isLeadingDocumentHeading: Bool = false,
+        tableLineRole: MarkdownTextStorage.TableLineRole? = nil
     ) {
         let line = attrStr.string
         let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -326,8 +332,10 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 [
                     .font: bodyFont,
                     .foregroundColor: codeColor,
-                    .backgroundColor: codeBackground,
                     .paragraphStyle: MarkdownTextStorage.codeBlockParagraphStyle(),
+                    MarkdownTextStorage.blockChromeKindAttribute: MarkdownBlockChromeKind.codeBlock.rawValue,
+                    MarkdownTextStorage.blockChromeAccentAttribute: accent,
+                    MarkdownTextStorage.blockChromeFillAttribute: codeBackground,
                 ], range: range)
 
         case 5:  // BlockQuote (plain or callout)
@@ -335,11 +343,13 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             if let callout = theme.calloutColors(typeId: calloutTypeId) {
                 attrStr.addAttributes(
                     [
-                        .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium),
+                        .font: NSFont.systemFont(ofSize: baseFontSize, weight: .semibold),
                         .foregroundColor: theme.isDark
                             ? callout.accent.withAlphaComponent(0.9) : callout.accent,
-                        .backgroundColor: callout.background,
                         .paragraphStyle: MarkdownTextStorage.calloutParagraphStyle(),
+                        MarkdownTextStorage.blockChromeKindAttribute: MarkdownBlockChromeKind.callout.rawValue,
+                        MarkdownTextStorage.blockChromeAccentAttribute: callout.accent,
+                        MarkdownTextStorage.blockChromeFillAttribute: callout.background,
                     ], range: range)
                 let calloutPrefix: String
                 if let bracketEnd = trimmed.range(of: "] ") {
@@ -361,10 +371,12 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     : accent.withAlphaComponent(0.03)
                 attrStr.addAttributes(
                     [
-                        .font: bodyFont.italic,
+                        .font: NSFont.systemFont(ofSize: baseFontSize, weight: .medium).italic,
                         .foregroundColor: foreground.withAlphaComponent(theme.isDark ? 0.60 : 0.72),
-                        .backgroundColor: quoteBackground,
-                        .paragraphStyle: bodyParagraph,
+                        .paragraphStyle: MarkdownTextStorage.quoteParagraphStyle(),
+                        MarkdownTextStorage.blockChromeKindAttribute: MarkdownBlockChromeKind.quote.rawValue,
+                        MarkdownTextStorage.blockChromeAccentAttribute: accent,
+                        MarkdownTextStorage.blockChromeFillAttribute: quoteBackground,
                     ], range: range)
                 applyPrefixColor(
                     to: attrStr,
@@ -428,12 +440,32 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             }
 
         case 7:  // Table
-            attrStr.addAttributes(
-                [
-                    .font: NSFont.systemFont(ofSize: baseFontSize - 1, weight: .regular),
-                    .foregroundColor: usesRenderedTableOverlays ? NSColor.clear : foreground,
-                    .paragraphStyle: MarkdownTextStorage.tableParagraphStyle(),
-                ], range: range)
+            if usesRenderedTableOverlays {
+                let role = tableLineRole ?? .continuation
+                let paragraphStyle: NSParagraphStyle
+                let font: NSFont
+                switch role {
+                case .first:
+                    paragraphStyle = MarkdownTextStorage.tablePlaceholderParagraphStyle()
+                    font = NSFont.systemFont(ofSize: baseFontSize - 1, weight: .medium)
+                case .continuation, .separator:
+                    paragraphStyle = MarkdownTextStorage.tableCollapsedParagraphStyle()
+                    font = NSFont.monospacedSystemFont(ofSize: 1, weight: .regular)
+                }
+                attrStr.addAttributes(
+                    [
+                        .font: font,
+                        .foregroundColor: NSColor.clear,
+                        .paragraphStyle: paragraphStyle,
+                    ], range: range)
+            } else {
+                attrStr.addAttributes(
+                    [
+                        .font: NSFont.systemFont(ofSize: baseFontSize - 1, weight: .regular),
+                        .foregroundColor: foreground,
+                        .paragraphStyle: MarkdownTextStorage.tableParagraphStyle(),
+                    ], range: range)
+            }
 
         case 8:  // HorizontalRule
             attrStr.addAttributes(
@@ -777,11 +809,9 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         return map
     }
 
-    private func displayText(for paragraphText: String, paraType: UInt8, metadata: UInt16) -> String
+    private func displayText(for paragraphText: String, paraType _: UInt8, metadata _: UInt16) -> String
     {
-        guard paraType == 1 else { return paragraphText }
-        let level = Int(metadata & 0xFF)
-        return MarkdownHeadingDisplay.displayText(paragraphText, level: level)
+        paragraphText
     }
 
     private func leadingDocumentContentIsEmpty(before location: Int, in documentString: NSString)

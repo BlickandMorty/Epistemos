@@ -22,7 +22,9 @@ final class MiniChatWindowController: NSWindowController {
         )
         panel.title = "MiniChat"
         panel.titlebarAppearsTransparent = true
-        panel.backgroundColor = .windowBackgroundColor
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = false
         panel.isMovableByWindowBackground = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -46,10 +48,13 @@ final class MiniChatWindowController: NSWindowController {
     func configure(bootstrap: AppBootstrap) {
         let theme = bootstrap.uiState.theme
         let view = MiniChatView()
+            .padding(22)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
             .preferredColorScheme(theme.colorScheme)
         let host = NSHostingView(rootView: view)
+        host.wantsLayer = true
+        host.layer?.backgroundColor = NSColor.clear.cgColor
         window?.contentView = WindowThemeStyler.themedContentView(host: host, theme: theme)
         if let window {
             WindowThemeStyler.apply(to: window, theme: theme)

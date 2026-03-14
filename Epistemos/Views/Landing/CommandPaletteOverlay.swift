@@ -77,95 +77,51 @@ struct CommandPaletteOverlay: View {
     @FocusState private var isChatFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
+    private let surfaceMetrics = AssistantSurfaceMetrics.commandPalette
+    private let composerMetrics = AssistantComposerMetrics.compactChat
 
     private var showResults: Bool { !searchText.isEmpty }
 
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 0) {
-            searchBar
+        AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics) {
+            VStack(spacing: 0) {
+                searchBar
 
-            ZStack {
-                if mode == .search {
-                    if showResults {
-                        VStack(spacing: 0) {
-                            Rectangle()
-                                .fill(theme.border.opacity(0.3))
-                                .frame(height: 0.5)
-
-                            resultsSection
+                ZStack {
+                    if mode == .search {
+                        if showResults {
+                            VStack(spacing: 0) {
+                                paletteDivider
+                                resultsSection
+                            }
+                            .transition(.opacity.combined(with: .blurReplace))
+                        } else if isExpanded {
+                            VStack(spacing: 0) {
+                                paletteDivider
+                                expandedCommandsSection
+                            }
+                            .transition(.opacity.combined(with: .blurReplace))
                         }
-                        .transition(.opacity.combined(with: .blurReplace))
-                    } else if isExpanded {
+                    } else {
                         VStack(spacing: 0) {
-                            Rectangle()
-                                .fill(theme.border.opacity(0.3))
-                                .frame(height: 0.5)
-
-                            expandedCommandsSection
+                            paletteDivider
+                            chatTabBar
+                            paletteDivider.opacity(0.82)
+                            chatSection
+                            chatInputBar
                         }
                         .transition(.opacity.combined(with: .blurReplace))
                     }
-                } else {
-                    VStack(spacing: 0) {
-                        Rectangle()
-                            .fill(theme.border.opacity(0.3))
-                            .frame(height: 0.5)
-
-                        chatTabBar
-
-                        Rectangle()
-                            .fill(theme.border.opacity(0.2))
-                            .frame(height: 0.5)
-
-                        chatSection
-                        chatInputBar
-                    }
-                    .transition(.opacity.combined(with: .blurReplace))
                 }
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: mode)
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
             }
-            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: mode)
-            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
         }
         .frame(width: 440)
         .frame(maxHeight: mode == .chat ? .infinity : nil)
         .fixedSize(horizontal: false, vertical: mode == .search)
-        .background {
-            ZStack {
-                if theme.isDark {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(theme.background.opacity(0.55))
-                } else {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(theme.glassBg)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                }
-                // Inner top highlight
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(theme.isDark ? 0.15 : 0.5),
-                                .white.opacity(0),
-                            ],
-                            startPoint: .top,
-                            endPoint: .center
-                        ),
-                        lineWidth: 0.5
-                    )
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(theme.border.opacity(theme.isDark ? 0.4 : 0.25), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.03), radius: 1, y: 0.5)
-        .shadow(color: .black.opacity(theme.isDark ? 0.2 : 0.06), radius: 8, y: 3)
-        .shadow(color: .black.opacity(theme.isDark ? 0.35 : 0.10), radius: 30, y: 10)
         .offset(y: appeared ? 0 : -15)
         .opacity(appeared ? 1.0 : 0.0)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showResults)
@@ -195,48 +151,59 @@ struct CommandPaletteOverlay: View {
         }
     }
 
+    private var paletteDivider: some View {
+        Rectangle()
+            .fill(theme.glassBorder.opacity(theme.isDark ? 0.7 : 0.5))
+            .frame(height: 0.5)
+            .padding(.horizontal, 2)
+            .padding(.vertical, 8)
+    }
+
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 10) {
+        Group {
             if mode == .chat {
-                Button {
-                    withAnimation(Motion.smooth) { mode = .search }
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(100))
-                        isSearchFocused = true
+                HStack(spacing: 10) {
+                    Button {
+                        withAnimation(Motion.smooth) { mode = .search }
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(100))
+                            isSearchFocused = true
+                        }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
+                            .frame(width: 14, height: 14)
                     }
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.textSecondary)
-                        .frame(width: 24, height: 24)
-                        .background(theme.muted.opacity(0.5), in: Circle())
-                }
-                .buttonStyle(.plain)
+                    .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
 
-                Spacer()
+                    Spacer()
 
-                // Provider badge
-                HStack(spacing: 4) {
-                    Image(systemName: paletteChatMode == .auto ? "sparkles" : (paletteOverrideProvider?.iconName ?? inference.apiProvider.iconName))
-                        .font(.system(size: 10, weight: .medium))
-                    Text(paletteChatMode == .auto ? "Auto" : (paletteOverrideProvider?.displayName ?? inference.apiProvider.displayName))
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundStyle(theme.textTertiary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(theme.muted.opacity(0.4), in: Capsule())
+                    HStack(spacing: 6) {
+                        Image(systemName: paletteChatMode == .auto ? "sparkles" : (paletteOverrideProvider?.iconName ?? inference.apiProvider.iconName))
+                            .font(.system(size: 10, weight: .medium))
+                        Text(paletteChatMode == .auto ? "Auto" : (paletteOverrideProvider?.displayName ?? inference.apiProvider.displayName))
+                            .font(.system(size: 11, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .assistantInsetChrome(theme: theme, cornerRadius: 15)
 
-                if threadState.paletteIsStreaming {
-                    ProgressView()
-                        .controlSize(.small)
+                    if threadState.paletteIsStreaming {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 28, height: 28)
+                    }
                 }
+                .padding(.bottom, 2)
             } else {
-                VStack(spacing: 0) {
-                    HStack(spacing: 10) {
+                VStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         sparklesIcon
+                            .frame(width: 18, height: 18)
 
                         TextField("Search or ask anything\u{2026}", text: $searchText)
                             .font(.system(size: 15, weight: .regular, design: .rounded))
@@ -251,12 +218,22 @@ struct CommandPaletteOverlay: View {
                                 cachedSearchResults = []
                                 selectedIndex = 0
                             } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(theme.textTertiary)
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .frame(width: 12, height: 12)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
                             .transition(.scale(scale: 0.5).combined(with: .opacity))
+
+                            AssistantSendButton(
+                                theme: theme,
+                                isEnabled: !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                                isProcessing: false,
+                                metrics: composerMetrics
+                            ) {
+                                executeSelected()
+                            }
+                            .transition(.scale.combined(with: .opacity))
                         } else {
                             Button {
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
@@ -265,17 +242,21 @@ struct CommandPaletteOverlay: View {
                             } label: {
                                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(theme.textTertiary)
-                                    .frame(width: 22, height: 22)
-                                    .background(theme.muted.opacity(0.5), in: Circle())
+                                    .frame(width: 12, height: 12)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
                         }
                     }
-                    .frame(height: 30)
+                    .padding(.horizontal, composerMetrics.horizontalPadding)
+                    .padding(.vertical, composerMetrics.verticalPadding)
+                    .assistantInsetChrome(
+                        theme: theme,
+                        cornerRadius: composerMetrics.cornerRadius,
+                        isEmphasized: isSearchFocused || !searchText.isEmpty
+                    )
 
                     if searchText.isEmpty {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 8) {
                             paletteChip(label: "Note", icon: "doc.badge.plus") {
                                 CommandPaletteWindowController.shared.hide()
                                 Task { @MainActor in
@@ -295,21 +276,19 @@ struct CommandPaletteOverlay: View {
                                 )
                             }
                         }
-                        .padding(.top, 8)
                         .transition(.opacity.combined(with: .blurReplace))
                     }
 
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Button {
                             if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
                         } label: {
                             Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
-                                .frame(width: 24, height: 24)
-                                .background(chat.isResearchMode ? theme.accent.opacity(0.15) : .clear, in: Circle())
+                                .frame(width: 14, height: 14)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
                         .help(chat.isResearchMode ? "Research Mode: ON (full pipeline)" : "Research Mode: OFF (direct chat)")
 
                         Button {
@@ -318,10 +297,9 @@ struct CommandPaletteOverlay: View {
                             Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(chat.isIncognito ? .orange : theme.textTertiary)
-                                .frame(width: 24, height: 24)
-                                .background(chat.isIncognito ? Color.orange.opacity(0.15) : .clear, in: Circle())
+                                .frame(width: 14, height: 14)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
                         .help(chat.isIncognito ? "Incognito: ON (not saved)" : "Incognito: OFF")
 
                         Spacer()
@@ -329,15 +307,12 @@ struct CommandPaletteOverlay: View {
                         ASCIIRippleText(
                             text: "\u{2325}Space",
                             font: .system(size: 10, weight: .medium, design: .monospaced),
-                            color: theme.textTertiary.opacity(0.5)
+                            color: theme.textTertiary.opacity(0.6)
                         )
                     }
-                    .padding(.top, 6)
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
     }
 
     // MARK: - Results Section
@@ -348,8 +323,8 @@ struct CommandPaletteOverlay: View {
                 VStack(spacing: 0) {
                     searchResultsView
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 8)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 4)
             }
             .frame(maxHeight: 280)
             .onChange(of: selectedIndex) { _, idx in
@@ -391,15 +366,15 @@ struct CommandPaletteOverlay: View {
                         .padding(.bottom, 4)
 
                         ForEach(items) { cmd in
-                            SpotlightRow(command: cmd, isSelected: false, theme: theme) {
+                            SpotlightRow(command: cmd, isSelected: false, theme: theme, style: .plain) {
                                 cmd.action()
                             }
                         }
                     }
                 }
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 8)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 4)
         }
         .frame(maxHeight: 320)
     }
@@ -429,7 +404,8 @@ struct CommandPaletteOverlay: View {
                     SpotlightRow(
                         command: cmd,
                         isSelected: idx == selectedIndex,
-                        theme: theme
+                        theme: theme,
+                        style: .plain
                     ) {
                         cmd.action()
                     }
@@ -496,7 +472,7 @@ struct CommandPaletteOverlay: View {
             Image(systemName: paletteChatMode == .auto ? "sparkles" : (paletteOverrideProvider?.iconName ?? inference.apiProvider.iconName))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(paletteChatMode == .auto ? theme.textTertiary : theme.accent)
-                .frame(width: 26, height: 26)
+                .frame(width: 30, height: 30)
                 .contentShape(Circle())
         }
         .menuStyle(.borderlessButton)
@@ -514,16 +490,16 @@ struct CommandPaletteOverlay: View {
                     } label: {
                         Text(thread.label)
                             .font(.system(size: 11, weight: activeTabId == thread.id ? .semibold : .regular))
-                            .foregroundStyle(activeTabId == thread.id ? theme.accent : theme.textSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                            .foregroundStyle(activeTabId == thread.id ? theme.foreground : theme.textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
                     }
                     .buttonStyle(.plain)
-                    .background {
-                        if activeTabId == thread.id {
-                            Capsule().fill(theme.accent.opacity(0.12))
-                        }
-                    }
+                    .assistantInsetChrome(
+                        theme: theme,
+                        cornerRadius: 14,
+                        isEmphasized: activeTabId == thread.id
+                    )
                 }
 
                 Button {
@@ -533,14 +509,16 @@ struct CommandPaletteOverlay: View {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(theme.textTertiary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 5)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
                 }
                 .buttonStyle(.plain)
+                .assistantInsetChrome(theme: theme, cornerRadius: 14)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 2)
+            .padding(.vertical, 2)
         }
+        .padding(.bottom, 2)
     }
 
     // MARK: - Chat Section
@@ -592,7 +570,8 @@ struct CommandPaletteOverlay: View {
 
                     Color.clear.frame(height: 1).id("bottom")
                 }
-                .padding(12)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 16)
             }
             .frame(maxWidth: .infinity, minHeight: 350, maxHeight: .infinity)
             .onChange(of: activeThread?.messages.count) { _, _ in
@@ -612,7 +591,7 @@ struct CommandPaletteOverlay: View {
     // MARK: - Chat Input Bar
 
     private var chatInputBar: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 8) {
             // Note context indicator
             if let page = activePage() {
                 HStack(spacing: 4) {
@@ -635,16 +614,15 @@ struct CommandPaletteOverlay: View {
                         Image(systemName: focusedPageId != nil ? "pin.slash" : "pin")
                             .font(.system(size: 9, weight: .medium))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(AssistantUtilityButtonStyle(theme: theme, cornerRadius: 12))
                     .help(focusedPageId != nil ? "Unfocus note" : "Focus on this note")
                 }
                 .foregroundStyle(focusedPageId != nil ? theme.accent : theme.accent.opacity(0.7))
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-                .padding(.bottom, 2)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 // Model/API picker
                 paletteModeMenu
 
@@ -655,33 +633,28 @@ struct CommandPaletteOverlay: View {
                     .focused($isChatFocused)
                     .onSubmit { sendChatMessage() }
 
-                if threadState.paletteIsStreaming {
-                    Button {
+                AssistantSendButton(
+                    theme: theme,
+                    isEnabled: !chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                    isProcessing: threadState.paletteIsStreaming,
+                    metrics: composerMetrics
+                ) {
+                    if threadState.paletteIsStreaming {
                         cancelStream()
-                    } label: {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(theme.accent)
+                    } else {
+                        sendChatMessage()
                     }
-                    .buttonStyle(.plain)
-                } else {
-                    Button(action: sendChatMessage) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 22))
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(
-                                chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    ? theme.mutedForeground.opacity(0.35)
-                                    : theme.accent
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(chatInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.horizontal, composerMetrics.horizontalPadding)
+            .padding(.vertical, composerMetrics.verticalPadding)
+            .assistantGlassInputChrome(
+                theme: theme,
+                cornerRadius: composerMetrics.cornerRadius,
+                isActive: isChatFocused || !chatInput.isEmpty || threadState.paletteIsStreaming
+            )
         }
+        .padding(.top, 10)
     }
 
     // MARK: - Chat Logic
@@ -1252,12 +1225,10 @@ struct CommandPaletteOverlay: View {
             }
             .foregroundStyle(theme.textSecondary)
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background {
-                Capsule().fill(theme.foreground.opacity(0.06))
-            }
+            .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
+        .assistantInsetChrome(theme: theme, cornerRadius: 16)
     }
 
     // MARK: - Helpers
@@ -1316,12 +1287,9 @@ struct CommandPaletteOverlay: View {
                 panel.allowsMultipleSelection = true; panel.allowedContentTypes = [.plainText]
                 panel.begin { response in
                     guard response == .OK else { return }
+                    let urls = panel.urls
                     Task { @MainActor in
-                        var count = 0
-                        for url in panel.urls {
-                            do { try FileManager.default.copyItem(at: url, to: vaultURL.appendingPathComponent(url.lastPathComponent)); count += 1 }
-                            catch { Log.app.error("Import failed for \(url.lastPathComponent): \(error.localizedDescription)") }
-                        }
+                        let count = await VaultImportFileCopier.copy(urls: urls, to: vaultURL)
                         if count > 0 { _ = await vaultSync.syncFromVault(); ui.showToast("Imported \(count) file(s)", type: .success) }
                     }
                 }
@@ -1333,6 +1301,29 @@ struct CommandPaletteOverlay: View {
                 )
             },
         ]
+    }
+}
+
+enum VaultImportFileCopier {
+    nonisolated static func copy(urls: [URL], to destinationDirectory: URL) async -> Int {
+        await Task.detached(priority: .utility) {
+            let fileManager = FileManager.default
+            var count = 0
+
+            for url in urls {
+                do {
+                    try fileManager.copyItem(
+                        at: url,
+                        to: destinationDirectory.appendingPathComponent(url.lastPathComponent)
+                    )
+                    count += 1
+                } catch {
+                    Log.app.error("Import failed for \(url.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+
+            return count
+        }.value
     }
 }
 
@@ -1350,17 +1341,21 @@ private struct PaletteChatBubble: View {
                 Spacer(minLength: 24)
                 Text(message.content)
                     .font(.system(size: 13))
-                    .foregroundStyle(theme.userBubbleText)
+                    .foregroundStyle(theme.foreground)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.vertical, 2)
             }
         } else {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
                 MarkdownTextView(content: message.content, theme: theme)
                     .font(.system(size: 13))
                     .textSelection(.enabled)
+
+                AssistantSourcesFooter(
+                    sources: AssistantSourceReference.extract(from: message.content),
+                    theme: theme,
+                    compact: true
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -1370,42 +1365,44 @@ private struct PaletteChatBubble: View {
 // MARK: - Spotlight Row
 
 private struct SpotlightRow: View {
+    enum Style {
+        case elevated
+        case plain
+    }
+
     let command: LandingCommandItem
     let isSelected: Bool
     let theme: EpistemosTheme
+    let style: Style
     let action: () -> Void
 
     @State private var isHovered = false
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isSelected ? theme.accent.opacity(0.15) : theme.muted.opacity(0.6))
-                    .frame(width: 24, height: 24)
-                    .overlay {
-                        Image(systemName: command.icon)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(isSelected ? theme.accent : theme.textSecondary)
-                    }
+            HStack(spacing: 12) {
+                Image(systemName: command.icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 20, height: 20)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(command.label)
-                        .font(.system(size: 13, weight: .regular))
-                        .foregroundStyle(theme.foreground)
+                        .font(.system(size: 13, weight: style == .plain && (isSelected || isHovered) ? .medium : .regular))
+                        .foregroundStyle(labelColor)
                         .lineLimit(1)
 
                     if let subtitle = command.subtitle {
                         Text(subtitle)
                             .font(.system(size: 11))
-                            .foregroundStyle(theme.textTertiary)
+                            .foregroundStyle(subtitleColor)
                             .lineLimit(1)
                     }
 
                     if let snippet = command.snippet {
                         Text(snippet)
                             .font(.system(size: 11))
-                            .foregroundStyle(theme.textSecondary.opacity(0.7))
+                            .foregroundStyle(snippetColor)
                             .lineLimit(2)
                             .padding(.top, 1)
                     }
@@ -1416,31 +1413,63 @@ private struct SpotlightRow: View {
                 if let badge = command.badge {
                     Text(badge)
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(isSelected ? theme.accent : theme.textTertiary.opacity(0.6))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background {
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(isSelected ? theme.accent.opacity(0.08) : theme.muted.opacity(0.5))
-                        }
+                        .foregroundStyle(style == .plain ? badgeColor : (isSelected ? theme.accent : theme.textTertiary.opacity(0.6)))
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(theme.accent.opacity(0.1))
-            } else if isHovered {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(theme.hoverOverlay)
+        .overlay(alignment: .leading) {
+            if isSelected || isHovered {
+                Capsule()
+                    .fill((isSelected ? theme.accent : theme.textSecondary).opacity(isSelected ? 0.9 : 0.45))
+                    .frame(width: 2, height: 22)
             }
         }
         .animation(Motion.quick, value: isSelected)
         .animation(Motion.micro, value: isHovered)
         .onHover { isHovered = $0 }
+    }
+
+    private var iconColor: Color {
+        switch style {
+        case .elevated:
+            isSelected ? theme.accent : theme.textSecondary
+        case .plain:
+            isSelected || isHovered ? theme.accent : theme.textSecondary
+        }
+    }
+
+    private var labelColor: Color {
+        switch style {
+        case .elevated:
+            theme.foreground
+        case .plain:
+            isSelected || isHovered ? theme.foreground : theme.textSecondary
+        }
+    }
+
+    private var subtitleColor: Color {
+        switch style {
+        case .elevated:
+            theme.textTertiary
+        case .plain:
+            isSelected || isHovered ? theme.textTertiary : theme.textTertiary.opacity(0.8)
+        }
+    }
+
+    private var snippetColor: Color {
+        switch style {
+        case .elevated:
+            theme.textSecondary.opacity(0.7)
+        case .plain:
+            theme.textSecondary.opacity(isSelected || isHovered ? 0.72 : 0.62)
+        }
+    }
+
+    private var badgeColor: Color {
+        isSelected || isHovered ? theme.accent : theme.textTertiary.opacity(0.62)
     }
 }
