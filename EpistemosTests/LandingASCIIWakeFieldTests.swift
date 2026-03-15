@@ -85,6 +85,13 @@ struct LandingASCIIWakeFieldTests {
         #expect(configuration.streamBubbleRadiusScale < 1)
     }
 
+    @Test("landing wake field targets ProMotion refresh rates")
+    func landingWakeFieldTargetsProMotionRefreshRates() {
+        let configuration = LandingASCIIWakeFieldConfiguration()
+
+        #expect(configuration.frameInterval <= (1.0 / 120.0) + 0.0001)
+    }
+
     @Test("normalized vocabulary uppercases, trims, and deduplicates")
     func normalizedVocabularyUppercasesAndDeduplicates() {
         let vocabulary = LandingASCIIWakeFieldEngine.normalizedVocabulary(
@@ -213,6 +220,37 @@ struct LandingASCIIWakeFieldTests {
 
         #expect(delay != nil)
         #expect(abs((delay ?? 0) - 0.25) < 0.0001)
+    }
+
+    @Test("resolved trails precompute bounded active wake states")
+    func resolvedTrailsPrecomputeBoundedActiveWakeStates() {
+        let configuration = LandingASCIIWakeFieldConfiguration(
+            duration: 1,
+            initialRadius: 1.8,
+            maxRadius: 1.8,
+            endRadius: 1.8
+        )
+        let trails = [
+            LandingASCIIWakeTrail(x: 2.2, y: 1.2, startTime: 0, radiusScale: 1),
+            LandingASCIIWakeTrail(x: 4, y: 1, startTime: 1.4, radiusScale: 1),
+        ]
+
+        let resolved = LandingASCIIWakeFieldEngine.resolvedTrails(
+            trails,
+            now: 0.5,
+            configuration: configuration,
+            columns: 5,
+            rows: 3
+        )
+
+        #expect(resolved.count == 1)
+        if let trail = resolved.first {
+            #expect(trail.minColumn == 0)
+            #expect(trail.maxColumn == 4)
+            #expect(trail.minRow == 0)
+            #expect(trail.maxRow == 2)
+            #expect(trail.revealRadius < trail.radius)
+        }
     }
 
     @Test("clamped trail samples stay on grid and dedupe neighbors")

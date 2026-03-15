@@ -833,6 +833,7 @@ struct LandingASCIIWakeTrail: Equatable {
 }
 
 struct LandingASCIIWakeFieldConfiguration: Equatable {
+    var frameInterval: TimeInterval = 1.0 / 120.0
     var interpolationStep: CGFloat = 0.4
     var duration: TimeInterval = 1.14
     var initialRadius: CGFloat = 0.62
@@ -880,6 +881,19 @@ struct LandingASCIIWakeFieldLayout: Equatable {
 }
 
 enum LandingASCIIWakeFieldEngine {
+    struct ResolvedTrail: Equatable {
+        let x: CGFloat
+        let y: CGFloat
+        let radius: CGFloat
+        let radiusSquared: CGFloat
+        let revealRadius: CGFloat
+        let minColumn: Int
+        let maxColumn: Int
+        let minRow: Int
+        let maxRow: Int
+        let scramblePhase: Int
+    }
+
     struct TrailPoint: Equatable {
         let x: CGFloat
         let y: CGFloat
@@ -1258,54 +1272,17 @@ enum LandingASCIIWakeFieldEngine {
         return configuration.maxRadius - shaped * (configuration.maxRadius - configuration.endRadius)
     }
 
-    static func overlayText(
-        layout: LandingASCIIWakeFieldLayout,
+    static func resolvedTrails(
+        _ trails: [LandingASCIIWakeTrail],
         now: TimeInterval,
-        trails: [LandingASCIIWakeTrail],
-        configuration: LandingASCIIWakeFieldConfiguration
-    ) -> String {
-        guard hasActiveTrails(trails, now: now, configuration: configuration) else {
-            return layout.blankText
-        }
+        configuration: LandingASCIIWakeFieldConfiguration,
+        columns: Int,
+        rows: Int
+    ) -> [ResolvedTrail] {
+        guard !trails.isEmpty, columns > 0, rows > 0 else { return [] }
 
-        var output = layout.blankCharacters
-
-        for index in layout.hiddenCharacters.indices {
-            guard let position = layout.cellPositions[index] else { continue }
-            let style = cellStyle(
-                at: position,
-                now: now,
-                trails: trails,
-                configuration: configuration
-            )
-            switch style {
-            case .hidden:
-                continue
-            case .revealed:
-                output[index] = layout.hiddenCharacters[index]
-            case .scrambled(let scrambleIndex):
-                output[index] = configuration.scrambleCharacters[scrambleIndex % configuration.scrambleCharacters.count]
-            }
-        }
-
-        return String(output)
-    }
-
-    private enum CellStyle {
-        case hidden
-        case revealed
-        case scrambled(Int)
-    }
-
-    private static func cellStyle(
-        at position: LandingASCIIWakeFieldLayout.CellPosition,
-        now: TimeInterval,
-        trails: [LandingASCIIWakeTrail],
-        configuration: LandingASCIIWakeFieldConfiguration
-    ) -> CellStyle {
-        var bestReveal = false
-        var bestScramble: Int?
-        var bestStrength: CGFloat = -.greatestFiniteMagnitude
+        var output: [ResolvedTrail] = []
+        output.reserveCapacity(trails.count)
 
         for trail in trails {
             let age = now - trail.startTime
@@ -1313,39 +1290,90 @@ enum LandingASCIIWakeFieldEngine {
 
             let progress = age / configuration.duration
             let radius = radius(progress: progress, configuration: configuration) * trail.radiusScale
+            guard radius > 0 else { continue }
+
             let boundaryThickness = max(0.35, configuration.boundaryThickness * max(trail.radiusScale, 0.7))
             let scrambleShellThickness = max(boundaryThickness, radius * 0.15)
             let revealRadius = max(0, radius - scrambleShellThickness)
-            let dx = CGFloat(position.column) - trail.x
-            let dy = CGFloat(position.row) - trail.y
-            let distance = sqrt(dx * dx + dy * dy)
-            guard distance < radius else { continue }
+            let minColumn = max(0, Int(floor(trail.x - radius)))
+            let maxColumn = min(columns - 1, Int(ceil(trail.x + radius)))
+            let minRow = max(0, Int(floor(trail.y - radius)))
+            let maxRow = min(rows - 1, Int(ceil(trail.y + radius)))
+            guard minColumn <= maxColumn, minRow <= maxRow else { continue }
 
-            if distance >= revealRadius {
-                let scrambleIndex = Int((distance - revealRadius) * 11) + Int(age / 0.035)
-                let strength = radius - distance
-                if strength > bestStrength {
-                    bestStrength = strength
-                    bestReveal = false
-                    bestScramble = scrambleIndex
-                }
-            } else {
-                let strength = revealRadius - distance
-                if strength > bestStrength {
-                    bestStrength = strength
-                    bestReveal = true
-                    bestScramble = nil
+            output.append(
+                ResolvedTrail(
+                    x: trail.x,
+                    y: trail.y,
+                    radius: radius,
+                    radiusSquared: radius * radius,
+                    revealRadius: revealRadius,
+                    minColumn: minColumn,
+                    maxColumn: maxColumn,
+                    minRow: minRow,
+                    maxRow: maxRow,
+                    scramblePhase: Int(age / 0.035)
+                )
+            )
+        }
+
+        return output
+    }
+
+    static func overlayText(
+        layout: LandingASCIIWakeFieldLayout,
+        now: TimeInterval,
+        trails: [LandingASCIIWakeTrail],
+        configuration: LandingASCIIWakeFieldConfiguration
+    ) -> String {
+        let activeTrails = resolvedTrails(
+            trails,
+            now: now,
+            configuration: configuration,
+            columns: layout.columns,
+            rows: layout.rows
+        )
+        guard !activeTrails.isEmpty else {
+            return layout.blankText
+        }
+
+        var output = layout.blankCharacters
+        var bestStrengths = Array(
+            repeating: -CGFloat.greatestFiniteMagnitude,
+            count: output.count
+        )
+
+        for trail in activeTrails {
+            for row in trail.minRow...trail.maxRow {
+                let dy = CGFloat(row) - trail.y
+                let dySquared = dy * dy
+                let rowBase = row * (layout.columns + 1)
+
+                for column in trail.minColumn...trail.maxColumn {
+                    let dx = CGFloat(column) - trail.x
+                    let distanceSquared = dx * dx + dySquared
+                    guard distanceSquared < trail.radiusSquared else { continue }
+
+                    let distance = sqrt(distanceSquared)
+                    let characterIndex = rowBase + column
+
+                    if distance >= trail.revealRadius {
+                        let strength = trail.radius - distance
+                        guard strength > bestStrengths[characterIndex] else { continue }
+                        bestStrengths[characterIndex] = strength
+                        let scrambleIndex = Int((distance - trail.revealRadius) * 11) + trail.scramblePhase
+                        output[characterIndex] = configuration.scrambleCharacters[scrambleIndex % configuration.scrambleCharacters.count]
+                    } else {
+                        let strength = trail.revealRadius - distance
+                        guard strength > bestStrengths[characterIndex] else { continue }
+                        bestStrengths[characterIndex] = strength
+                        output[characterIndex] = layout.hiddenCharacters[characterIndex]
+                    }
                 }
             }
         }
 
-        if bestReveal {
-            return .revealed
-        }
-        if let bestScramble {
-            return .scrambled(bestScramble)
-        }
-        return .hidden
+        return String(output)
     }
 }
 
@@ -1391,7 +1419,7 @@ private struct LandingASCIIWakeField: View {
                 }
 
                 if shouldAnimate, !trails.isEmpty {
-                    TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
+                    TimelineView(.animation(minimumInterval: configuration.frameInterval)) { context in
                         Text(
                             LandingASCIIWakeFieldEngine.overlayText(
                                 layout: layout,
