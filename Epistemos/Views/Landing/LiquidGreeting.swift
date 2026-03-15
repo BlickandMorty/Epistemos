@@ -14,6 +14,75 @@ struct LiquidGreeting: View {
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
 
+    nonisolated static let greetingRippleConfiguration = ASCIIRippleConfiguration(
+        duration: 0.34,
+        characters: Array("·:*+#░▒▓█▄▀▌▐■┐┌┘┴┬╬"),
+        preserveSpaces: true,
+        spread: 1.26,
+        waveThreshold: 1.64,
+        characterMultiplier: 2,
+        animationStep: 0.06,
+        waveBuffer: 1.7
+    )
+    nonisolated static let greetingCharacterDelayRange: ClosedRange<Double> = 28...48
+    nonisolated static let greetingPauseRange = 2200...3200
+    nonisolated static let greetingShortPauseMilliseconds = 1500
+    nonisolated static let greetingInterPhrasePauseRange = 260...380
+    nonisolated static let greetingRippleMilestoneStride = 4
+    nonisolated static let greetingMorphTransitionInterval = 3
+    nonisolated static let greetingMorphFrameDelayRange = 24...42
+
+    nonisolated static func shouldPulseGreetingRipple(atTypedCharacterCount typedCount: Int, totalCount: Int) -> Bool {
+        guard typedCount > 0, totalCount > 0 else { return false }
+        let clampedCount = min(typedCount, totalCount)
+        let initialPulse = min(2, totalCount)
+        if clampedCount == initialPulse || clampedCount == totalCount {
+            return true
+        }
+        guard clampedCount > initialPulse else { return false }
+        return clampedCount.isMultiple(of: greetingRippleMilestoneStride)
+    }
+
+    nonisolated static func shouldMorphGreetingTransition(ordinal: Int, from source: String, to target: String) -> Bool {
+        guard ordinal > 0, ordinal.isMultiple(of: greetingMorphTransitionInterval) else { return false }
+        guard !source.isEmpty, !target.isEmpty, source != target else { return false }
+        return true
+    }
+
+    nonisolated static func morphFrames(from source: String, to target: String) -> [String] {
+        guard !source.isEmpty, !target.isEmpty, source != target else {
+            return target.isEmpty ? [] : [target]
+        }
+
+        let targetCharacters = Array(target)
+        var working = Array(source)
+        var frames: [String] = []
+        frames.reserveCapacity(max(working.count, targetCharacters.count))
+
+        for index in 0..<max(working.count, targetCharacters.count) {
+            if index < targetCharacters.count {
+                if index < working.count {
+                    working[index] = targetCharacters[index]
+                } else {
+                    working.append(targetCharacters[index])
+                }
+            } else if !working.isEmpty {
+                working.removeLast()
+            }
+
+            let frame = String(working)
+            if frame != source, frame != frames.last, !frame.isEmpty {
+                frames.append(frame)
+            }
+        }
+
+        if frames.last != target {
+            frames.append(target)
+        }
+
+        return frames
+    }
+
     // Configuration
     var compact: Bool = false
     @Binding var retractNow: Bool
@@ -24,6 +93,7 @@ struct LiquidGreeting: View {
         UserDefaults.standard.data(forKey: "epistemos.vaultBookmark") != nil ? "syncing vault..." : ""
     }()
     @State private var cursorVisible = true
+    @State private var rippleTrigger = 0
 
     private var theme: EpistemosTheme { ui.theme }
     private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
@@ -49,7 +119,10 @@ struct LiquidGreeting: View {
                 font: greetingFont,
                 color: theme.fontAccent,
                 shadowColor: theme.fontAccent.opacity(0.12),
-                shadowRadius: compact ? 0 : 8
+                shadowRadius: compact ? 0 : 8,
+                configuration: Self.greetingRippleConfiguration,
+                manualTrigger: rippleTrigger,
+                pulseOnAppear: false
             )
 
             // Block cursor — always present, blinks via Task loop.
@@ -144,24 +217,35 @@ struct LiquidGreeting: View {
         }
 
         // === NORMAL GREETING LOOP ===
-        var lastPhrase = ""
         var currentPhrase = ShortPrompts.greetings.randomElement() ?? "Greetings, Researcher"
+        var transitionOrdinal = 0
 
         while !Task.isCancelled {
-            await typePhrase(currentPhrase)
-            guard !Task.isCancelled else { return }
+            if displayText != currentPhrase {
+                await typePhrase(currentPhrase)
+                guard !Task.isCancelled else { return }
+            }
 
-            let pauseTime = currentPhrase.count < 8 ? 1200 : Int.random(in: 2400...3200)
+            let pauseTime = currentPhrase.count < 8
+                ? Self.greetingShortPauseMilliseconds
+                : Int.random(in: Self.greetingPauseRange)
             try? await Task.sleep(for: .milliseconds(pauseTime))
             guard !Task.isCancelled else { return }
 
-            await untypePhrase(currentPhrase)
-            guard !Task.isCancelled else { return }
+            let nextPhrase = ShortPrompts.pickRandom(excluding: currentPhrase)
+            transitionOrdinal += 1
 
-            try? await Task.sleep(for: .milliseconds(Int.random(in: 300...500)))
+            if Self.shouldMorphGreetingTransition(ordinal: transitionOrdinal, from: currentPhrase, to: nextPhrase) {
+                await morphPhrase(from: currentPhrase, to: nextPhrase)
+                guard !Task.isCancelled else { return }
+            } else {
+                await untypePhrase(currentPhrase)
+                guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: .milliseconds(Int.random(in: Self.greetingInterPhrasePauseRange)))
+                guard !Task.isCancelled else { return }
+            }
 
-            currentPhrase = ShortPrompts.pickRandom(excluding: lastPhrase)
-            lastPhrase = currentPhrase
+            currentPhrase = nextPhrase
         }
     }
 
@@ -170,18 +254,21 @@ struct LiquidGreeting: View {
         for i in 1...phrase.count {
             guard !Task.isCancelled else { return }
             displayText = String(phrase.prefix(i))
+            if Self.shouldPulseGreetingRipple(atTypedCharacterCount: i, totalCount: phrase.count) {
+                triggerGreetingRipple()
+            }
 
             let ch = displayText.last ?? " "
-            var delay: Double = Double.random(in: 45...75)
+            var delay: Double = Double.random(in: Self.greetingCharacterDelayRange)
 
-            if ".!?".contains(ch) { delay += Double.random(in: 200...400) }
-            else if ",;:".contains(ch) { delay += Double.random(in: 80...160) }
-            else if ch == " " && Double.random(in: 0...1) < 0.08 { delay += Double.random(in: 60...120) }
+            if ".!?".contains(ch) { delay += Double.random(in: 80...160) }
+            else if ",;:".contains(ch) { delay += Double.random(in: 40...90) }
+            else if ch == " " && Double.random(in: 0...1) < 0.05 { delay += Double.random(in: 30...70) }
 
-            if Double.random(in: 0...1) < 0.10 { delay += Double.random(in: 120...250) }
-            if Double.random(in: 0...1) < 0.03 { delay += Double.random(in: 350...600) }
+            if Double.random(in: 0...1) < 0.04 { delay += Double.random(in: 60...120) }
+            if Double.random(in: 0...1) < 0.01 { delay += Double.random(in: 120...220) }
 
-            if i <= 2 { delay += 100 }
+            if i <= 2 { delay += 40 }
 
             try? await Task.sleep(for: .milliseconds(Int(delay)))
         }
@@ -190,15 +277,31 @@ struct LiquidGreeting: View {
     @MainActor
     private func untypePhrase(_ phrase: String) async {
         var charIdx = phrase.count
-        try? await Task.sleep(for: .milliseconds(80))
+        try? await Task.sleep(for: .milliseconds(40))
         while charIdx > 0 && !Task.isCancelled {
             let progress = 1.0 - Double(charIdx) / Double(phrase.count)
-            let deleteSpeed = max(8, 28 - Int(progress * 20))
+            let deleteSpeed = max(6, 18 - Int(progress * 12))
             let charsToDelete = charIdx > 10 ? min(charIdx, 1 + Int.random(in: 0...1)) : 1
             charIdx = max(0, charIdx - charsToDelete)
             displayText = String(phrase.prefix(charIdx))
             try? await Task.sleep(for: .milliseconds(deleteSpeed))
         }
+    }
+
+    @MainActor
+    private func morphPhrase(from source: String, to target: String) async {
+        for frame in Self.morphFrames(from: source, to: target) {
+            guard !Task.isCancelled else { return }
+            displayText = frame
+            triggerGreetingRipple()
+            try? await Task.sleep(for: .milliseconds(Int.random(in: Self.greetingMorphFrameDelayRange)))
+        }
+    }
+
+    @MainActor
+    private func triggerGreetingRipple() {
+        guard !usesSimplifiedGreeting, !displayText.isEmpty else { return }
+        rippleTrigger += 1
     }
 }
 
