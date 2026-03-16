@@ -12,7 +12,7 @@ import SwiftUI
 
 struct LiquidGreeting: View {
     @Environment(UIState.self) private var ui
-    @Environment(VaultSyncService.self) private var vaultSync
+    nonisolated static let restingGreeting = "welcome back"
 
     nonisolated static let greetingGlyphPool = Array("·:*+#░▒▓█▄▀▌▐■┐┌┘┴┬╬")
     nonisolated static let greetingRippleConfiguration = ASCIIRippleConfiguration(
@@ -147,10 +147,7 @@ struct LiquidGreeting: View {
     @Binding var retractNow: Bool
     var onRetractComplete: (() -> Void)? = nil
 
-    // Typewriter state — pre-fill with a vault sync message if import will start on launch.
-    @State private var displayText: String = {
-        UserDefaults.standard.data(forKey: "epistemos.vaultBookmark") != nil ? "syncing vault..." : ""
-    }()
+    @State private var displayText = Self.restingGreeting
     @State private var cursorVisible = true
     @State private var rippleTrigger = 0
 
@@ -225,13 +222,13 @@ struct LiquidGreeting: View {
                 return
             }
             guard shouldAnimate else {
-                displayText = vaultSync.isIndexing ? "syncing vault..." : "welcome back"
+                displayText = Self.restingGreeting
                 cursorVisible = false
                 return
             }
             if usesSimplifiedGreeting {
                 cursorVisible = false
-                displayText = vaultSync.isIndexing ? "syncing vault..." : "welcome back"
+                displayText = Self.restingGreeting
                 return
             }
             // Small yield so SwiftUI's initial layout pass finishes before we
@@ -279,24 +276,6 @@ struct LiquidGreeting: View {
 
     @MainActor
     private func typewriterLoop() async {
-        // === VAULT SYNC PHASE ===
-        // displayText is pre-filled with "syncing vault..." from init if a vault
-        // bookmark exists, so it's visible on the very first frame.
-        // Just hold until the vault sync finishes, then untype.
-        if vaultSync.isIndexing {
-            displayText = "syncing vault..."
-
-            while vaultSync.isIndexing && !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(200))
-            }
-            guard !Task.isCancelled else { return }
-
-            try? await Task.sleep(for: .milliseconds(400))
-            await untypePhrase("syncing vault...")
-            guard !Task.isCancelled else { return }
-            try? await Task.sleep(for: .milliseconds(300))
-        }
-
         // === NORMAL GREETING LOOP ===
         var currentPhrase = ShortPrompts.greetings.randomElement() ?? "Greetings, Researcher"
         var transitionOrdinal = 0

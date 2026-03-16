@@ -3,6 +3,12 @@ import Testing
 
 @Suite("Landing ASCII Wake Field")
 struct LandingASCIIWakeFieldTests {
+    @Test("landing greeting no longer exposes vault sync copy")
+    func landingGreetingUsesNeutralRestingCopy() {
+        #expect(LiquidGreeting.restingGreeting == "welcome back")
+        #expect(!LiquidGreeting.restingGreeting.localizedCaseInsensitiveContains("syncing vault"))
+    }
+
     @Test("greeting ripple keeps rich glyphs while staying calmer than default")
     func greetingRippleStaysCalmerThanDefault() {
         let defaultConfiguration = ASCIIRippleConfiguration()
