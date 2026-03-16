@@ -7,6 +7,30 @@ enum ChatLayout {
     static let mainComposerHorizontalPadding: CGFloat = 12
 }
 
+struct ChatTranscriptRow: Identifiable, Sendable {
+    let message: ChatMessage
+    let originalQuery: String?
+
+    var id: String { message.id }
+}
+
+nonisolated func makeChatTranscriptRows(from messages: [ChatMessage]) -> [ChatTranscriptRow] {
+    var lastUserQuery: String?
+    var rows: [ChatTranscriptRow] = []
+    rows.reserveCapacity(messages.count)
+
+    for message in messages {
+        if message.role == .user {
+            lastUserQuery = message.content
+            rows.append(ChatTranscriptRow(message: message, originalQuery: nil))
+        } else {
+            rows.append(ChatTranscriptRow(message: message, originalQuery: lastUserQuery))
+        }
+    }
+
+    return rows
+}
+
 // MARK: - Chat View
 // Full chat interface matching v2's conversation mode.
 // Shows when user has submitted a query from landing page.
@@ -22,6 +46,9 @@ struct ChatView: View {
     @State private var lastScrollTime: ContinuousClock.Instant = .now
 
     private var theme: EpistemosTheme { ui.theme }
+    private var transcriptRows: [ChatTranscriptRow] {
+        makeChatTranscriptRows(from: chat.messages)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,9 +58,14 @@ struct ChatView: View {
                     HStack {
                         Spacer(minLength: 0)
                         LazyVStack(spacing: 24) {
-                            ForEach(chat.messages) { message in
-                                MessageBubble(message: message)
-                                    .id(message.id)
+                            ForEach(transcriptRows) { row in
+                                MessageBubble(
+                                    message: row.message,
+                                    originalQuery: row.originalQuery,
+                                    allowsResubmit: !pipeline.isProcessing,
+                                    onResubmit: { chat.submitQuery($0) }
+                                )
+                                .id(row.id)
                             }
 
                             // Streaming indicator
@@ -68,9 +100,7 @@ struct ChatView: View {
                 .onChange(of: chat.messages.count) { _, _ in
                     guard autoFollow.isFollowingBottom else { return }
                     autoFollow.markProgrammaticScrollToBottom()
-                    withAnimation(Motion.quick) {
-                        proxy.scrollTo("bottom-anchor", anchor: .bottom)
-                    }
+                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
                 .onChange(of: chat.streamingText) { _, _ in
                     // Throttle to ~4fps during streaming
@@ -346,10 +376,12 @@ private struct StreamingIndicator: View {
             }
 
             if !chat.streamingText.isEmpty {
-                TaggedMarkdownTextView(
-                    content: chat.streamingText,
-                    theme: theme
-                )
+                Text(chat.streamingText)
+                    .font(.epBody)
+                    .foregroundStyle(theme.foreground)
+                    .textSelection(.enabled)
+                    .lineSpacing(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else if !chat.isReasoning {
                 // Thinking dots — only when not in reasoning phase
                 HStack(spacing: 4) {

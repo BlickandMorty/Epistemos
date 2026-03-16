@@ -352,9 +352,29 @@ struct ThemePairTests {
         #expect(compact.horizontalPadding > main.horizontalPadding)
     }
 
-    @Test("Landing search composer disables decorative glow for a native glass surface")
-    func landingSearchComposerDisablesDecorativeGlow() {
-        #expect(LandingSearchChromePolicy.showsGlow == false)
+    @Test("Landing search composer restores the Apple Intelligence glow")
+    func landingSearchComposerRestoresAppleIntelligenceGlow() {
+        #expect(LandingSearchChromePolicy.showsGlow)
+    }
+
+    @Test("Chat transcript rows capture the previous user query without re-scanning chat state")
+    func chatTranscriptRowsCapturePreviousUserQuery() {
+        let messages = [
+            ChatMessage(chatId: "chat", role: .user, content: "first question"),
+            ChatMessage(chatId: "chat", role: .assistant, content: "first answer"),
+            ChatMessage(chatId: "chat", role: .assistant, content: "follow-up enrichment"),
+            ChatMessage(chatId: "chat", role: .user, content: "second question"),
+            ChatMessage(chatId: "chat", role: .assistant, content: "second answer"),
+        ]
+
+        let rows = makeChatTranscriptRows(from: messages)
+
+        #expect(rows.count == 5)
+        #expect(rows[0].originalQuery == nil)
+        #expect(rows[1].originalQuery == "first question")
+        #expect(rows[2].originalQuery == "first question")
+        #expect(rows[3].originalQuery == nil)
+        #expect(rows[4].originalQuery == "second question")
     }
 
     @Test("Bare until pressed chrome stays invisible until press or active selection")

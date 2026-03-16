@@ -31,7 +31,7 @@ enum LandingSearchLayout {
 }
 
 enum LandingSearchChromePolicy {
-    static let showsGlow = false
+    static let showsGlow = true
 }
 
 // MARK: - Landing View
@@ -304,6 +304,11 @@ struct LandingView: View {
                     theme: theme,
                     cornerRadius: LandingSearchLayout.cornerRadius,
                     isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty
+                )
+                .siriGlow(
+                    cornerRadius: LandingSearchLayout.cornerRadius,
+                    lineWidth: 1.2,
+                    isActive: LandingSearchChromePolicy.showsGlow && showingSearch
                 )
                 .frame(maxWidth: LandingSearchLayout.maxWidth)
 

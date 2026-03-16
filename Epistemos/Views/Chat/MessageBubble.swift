@@ -117,9 +117,11 @@ private func buildFullExport(message: ChatMessage) -> String {
 
 struct MessageBubble: View {
     let message: ChatMessage
+    let originalQuery: String?
+    let allowsResubmit: Bool
+    let onResubmit: (String) -> Void
 
     @Environment(UIState.self) private var ui
-    @Environment(ChatState.self) private var chat
     @State private var copied = false
     @State private var isHovered = false
     @State private var rating: MessageRating? = nil
@@ -127,19 +129,13 @@ struct MessageBubble: View {
     private var theme: EpistemosTheme { ui.theme }
     private var isUser: Bool { message.role == .user }
 
-    /// Live message from ChatState — ensures enrichment updates trigger re-render.
-    /// Falls back to the snapshot passed via init (for safety).
-    private var liveMessage: ChatMessage {
-        chat.messages.first(where: { $0.id == message.id }) ?? message
-    }
-
     /// Research results use full-width layout (no avatar, no right spacer).
-    private var isResearchLayout: Bool { liveMessage.isResearchResult }
+    private var isResearchLayout: Bool { message.isResearchResult }
 
     private var sourceReferences: [AssistantSourceReference] {
         AssistantSourceReference.extract(
             from: cleanedText,
-            noteTitles: liveMessage.loadedNoteTitles ?? []
+            noteTitles: message.loadedNoteTitles ?? []
         )
     }
 
@@ -228,9 +224,9 @@ struct MessageBubble: View {
             // Research mode badge — visible proof this message went through research pipeline
             // with live enrichment timer that ticks every second.
             ResearchBadge(
-                isEnriched: liveMessage.dualMessage?.laymanSummary != nil,
-                researchDuration: liveMessage.researchDuration,
-                researchStartTime: liveMessage.researchStartTime,
+                isEnriched: message.dualMessage?.laymanSummary != nil,
+                researchDuration: message.researchDuration,
+                researchStartTime: message.researchStartTime,
                 theme: theme
             )
 
@@ -258,20 +254,23 @@ struct MessageBubble: View {
 
             // Confidence bar — only shown after enrichment completes.
             // Pre-enrichment value is a placeholder 0.5 from Pass 1; not meaningful.
-            if let confidence = liveMessage.confidence,
-                liveMessage.dualMessage?.laymanSummary != nil
+            if let confidence = message.confidence,
+                message.dualMessage?.laymanSummary != nil
             {
-                ConfidenceBar(confidence: confidence, evidenceGrade: liveMessage.evidenceGrade)
+                ConfidenceBar(confidence: confidence, evidenceGrade: message.evidenceGrade)
             }
 
             AssistantSourcesFooter(sources: sourceReferences, theme: theme)
 
             // Enrichment cards — non-blocking, fade in when background passes complete
-            EpistemicLensPanel(messageId: message.id)
+            EpistemicLensPanel(message: message)
 
             // Toolbar
             MessageToolbar(
                 message: message,
+                originalQuery: originalQuery,
+                allowsResubmit: allowsResubmit,
+                onResubmit: onResubmit,
                 copied: $copied,
                 rating: $rating
             )
@@ -330,6 +329,9 @@ struct MessageBubble: View {
                 // Toolbar — always rendered at fixed height, opacity-only transition
                 MessageToolbar(
                     message: message,
+                    originalQuery: originalQuery,
+                    allowsResubmit: allowsResubmit,
+                    onResubmit: onResubmit,
                     copied: $copied,
                     rating: $rating
                 )
@@ -369,7 +371,7 @@ struct MessageBubble: View {
     /// to render as colored badges. Other orphan brackets like [CAUSAL INFERENCE] are
     /// stripped by TaggedMarkdownTextView's inlineMarkdown() safety-net regex.
     private var cleanedText: String {
-        liveMessage.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        message.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @ViewBuilder
@@ -528,17 +530,13 @@ private struct ResearchBadge: View {
 // in the parent bubble. When Passes 2-6 complete, cards fade in below.
 
 private struct EpistemicLensPanel: View {
-    let messageId: String
+    let message: ChatMessage
 
     @Environment(UIState.self) private var ui
-    @Environment(ChatState.self) private var chat
     private var theme: EpistemosTheme { ui.theme }
 
-    /// Live message from ChatState — ensures enrichment updates trigger re-render.
-    private var message: ChatMessage? { chat.messages.first(where: { $0.id == messageId }) }
-
     /// Enrichment is complete once layman summary has been populated by Passes 2-6.
-    private var isEnriched: Bool { message?.dualMessage?.laymanSummary != nil }
+    private var isEnriched: Bool { message.dualMessage?.laymanSummary != nil }
 
     /// Build a single flowing markdown string from the layman summary sections.
     private func buildResearchMarkdown(from ls: LaymanSummary) -> String {
@@ -549,7 +547,7 @@ private struct EpistemicLensPanel: View {
     var body: some View {
         // Only render when enrichment has completed — no spinner, no blocking.
         // Cards fade in seamlessly below the already-visible answer.
-        if isEnriched, let dual = message?.dualMessage {
+        if isEnriched, let dual = message.dualMessage {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 // Structured summary — layman-friendly breakdown (Pass 3)
                 if let ls = dual.laymanSummary {
@@ -565,7 +563,7 @@ private struct EpistemicLensPanel: View {
                 }
 
                 // Truth Assessment — collapsible card (Pass 6)
-                if let truth = message?.truthAssessment {
+                if let truth = message.truthAssessment {
                     TruthAssessmentCard(assessment: truth, theme: theme)
                 }
 
@@ -1013,14 +1011,14 @@ private struct VoteBar: View {
 
 private struct MessageToolbar: View {
     let message: ChatMessage
+    let originalQuery: String?
+    let allowsResubmit: Bool
+    let onResubmit: (String) -> Void
     @Binding var copied: Bool
     @Binding var rating: MessageRating?
 
     @Environment(UIState.self) private var ui
-    @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(ChatState.self) private var chat
-    @Environment(PipelineState.self) private var pipeline
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
@@ -1078,10 +1076,9 @@ private struct MessageToolbar: View {
             .accessibilityLabel("Export as Markdown")
 
             // Re-ask — resubmit the same query for a fresh analysis (hidden during streaming)
-            if !pipeline.isProcessing {
+            if allowsResubmit {
                 Button {
-                    let query = findOriginalQuery()
-                    chat.submitQuery(query)
+                    onResubmit(originalQuery ?? String(message.content.prefix(200)))
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -1127,18 +1124,6 @@ private struct MessageToolbar: View {
             .replacingOccurrences(of: "\\*\\*|\\*|`|^#+\\s*", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return String(cleaned.prefix(50))
-    }
-
-    /// Find the user query that preceded this assistant message.
-    private func findOriginalQuery() -> String {
-        let messages = chat.messages
-        guard let idx = messages.firstIndex(where: { $0.id == message.id }),
-            idx > 0,
-            messages[idx - 1].role == .user
-        else {
-            return String(message.content.prefix(200))
-        }
-        return messages[idx - 1].content
     }
 }
 

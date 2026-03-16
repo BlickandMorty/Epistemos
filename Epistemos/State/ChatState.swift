@@ -315,8 +315,6 @@ final class ChatState {
         guard !pendingStreamTokens.isEmpty else { return }
         streamingText += pendingStreamTokens
         pendingStreamTokens = ""
-        // Subtle trackpad haptic on each token flush — gives tactile typewriter feel
-        HapticHelper.streamingTick()
     }
 
     // MARK: - Reasoning
