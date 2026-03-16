@@ -657,3 +657,147 @@ struct ASCIIFrameAnimationText: View {
         }
     }
 }
+
+enum ASCIIControlPhase: String, CaseIterable {
+    case inactive
+    case arming
+    case active
+    case cooling
+}
+
+struct ASCIIControlAnimationSet: Equatable {
+    let width: Int
+    let frameDuration: TimeInterval
+    private let inactiveFrames: [String]
+    private let armingFrames: [String]
+    private let activeFrames: [String]
+    private let coolingFrames: [String]
+
+    init(
+        width: Int,
+        frameDuration: TimeInterval,
+        inactiveFrames: [String],
+        armingFrames: [String],
+        activeFrames: [String],
+        coolingFrames: [String]
+    ) {
+        self.width = width
+        self.frameDuration = frameDuration
+        self.inactiveFrames = Self.padded(inactiveFrames, width: width)
+        self.armingFrames = Self.padded(armingFrames, width: width)
+        self.activeFrames = Self.padded(activeFrames, width: width)
+        self.coolingFrames = Self.padded(coolingFrames, width: width)
+    }
+
+    func frames(for phase: ASCIIControlPhase) -> [String] {
+        switch phase {
+        case .inactive: inactiveFrames
+        case .arming: armingFrames
+        case .active: activeFrames
+        case .cooling: coolingFrames
+        }
+    }
+
+    func duration(for phase: ASCIIControlPhase) -> TimeInterval {
+        frameDuration * Double(max(frames(for: phase).count, 1))
+    }
+
+    func configuration(for phase: ASCIIControlPhase) -> ASCIIFrameAnimationConfiguration {
+        ASCIIFrameAnimationConfiguration(
+            frames: frames(for: phase),
+            frameDuration: frameDuration
+        )
+    }
+
+    static let toolbarStatus = ASCIIControlAnimationSet(
+        width: 7,
+        frameDuration: NativeControlSystem.animation.asciiFrameInterval,
+        inactiveFrames: ["[     ]"],
+        armingFrames: [
+            "[ ..> ]",
+            "[ .:> ]",
+            "[ ::: ]",
+            "[  :: ]",
+        ],
+        activeFrames: [
+            "[ ON  ]",
+            "[ ON· ]",
+            "[ ON: ]",
+            "[ ON· ]",
+        ],
+        coolingFrames: [
+            "[ <.. ]",
+            "[ ..  ]",
+            "[ .   ]",
+            "[     ]",
+        ]
+    )
+
+    static let compactToolbarStatus = ASCIIControlAnimationSet(
+        width: 5,
+        frameDuration: NativeControlSystem.animation.asciiFrameInterval,
+        inactiveFrames: ["[   ]"],
+        armingFrames: [
+            "[.> ]",
+            "[:: ]",
+            "[ > ]",
+        ],
+        activeFrames: [
+            "[ON ]",
+            "[ON·]",
+            "[ON:]",
+            "[ON·]",
+        ],
+        coolingFrames: [
+            "[<. ]",
+            "[.. ]",
+            "[   ]",
+        ]
+    )
+
+    private static func padded(_ frames: [String], width: Int) -> [String] {
+        frames.map { frame in
+            if frame.count == width { return frame }
+            if frame.count > width { return String(frame.prefix(width)) }
+            return frame + String(repeating: " ", count: width - frame.count)
+        }
+    }
+}
+
+struct ASCIIStateBadge: View {
+    var phase: ASCIIControlPhase
+    var animationSet: ASCIIControlAnimationSet = .toolbarStatus
+    var font: Font = .system(size: 11, weight: .medium, design: .monospaced)
+    var color: Color = .secondary
+
+    var body: some View {
+        ASCIIFrameAnimationText(
+            configuration: animationSet.configuration(for: phase),
+            font: font,
+            color: color
+        )
+    }
+}
+
+struct ASCIITransitionLabel: View {
+    let text: String
+    var phase: ASCIIControlPhase
+    var animationSet: ASCIIControlAnimationSet = .toolbarStatus
+    var font: Font = .system(size: 13, weight: .semibold)
+    var color: Color = .primary
+    var badgeColor: Color = .secondary
+
+    var body: some View {
+        HStack(spacing: NativeControlSystem.toolbar.labelSpacing) {
+            Text(text)
+                .font(font)
+                .foregroundStyle(color)
+
+            ASCIIStateBadge(
+                phase: phase,
+                animationSet: animationSet,
+                color: badgeColor
+            )
+        }
+    }
+}

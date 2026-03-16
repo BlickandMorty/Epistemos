@@ -807,7 +807,7 @@ enum AppDisplayTypography: Sendable {
     nonisolated static var fontName: String {
         currentMode.usesDisplayFont
             ? displayFontName
-            : NSFont.systemFont(ofSize: NSFont.systemFontSize).fontName
+            : preferredUIFont(size: NSFont.systemFontSize).fontName
     }
 
     static func font(
@@ -817,6 +817,8 @@ enum AppDisplayTypography: Sendable {
     ) -> Font {
         if currentMode.usesDisplayFont {
             .custom(displayFontName, size: size)
+        } else if design == .default {
+            Font(preferredUIFont(size: size, weight: nsFontWeight(weight)))
         } else {
             .system(size: size, weight: weight, design: design)
         }
@@ -827,7 +829,7 @@ enum AppDisplayTypography: Sendable {
             NSFont(name: displayFontName, size: size)
                 ?? NSFont.systemFont(ofSize: size, weight: weight)
         } else {
-            NSFont.systemFont(ofSize: size, weight: weight)
+            preferredUIFont(size: size, weight: weight)
         }
     }
 
@@ -854,6 +856,42 @@ enum AppDisplayTypography: Sendable {
         }
 
         return resolved
+    }
+
+    nonisolated private static func preferredUIFont(
+        size: CGFloat,
+        weight: NSFont.Weight = .regular
+    ) -> NSFont {
+        let descriptor = NSFont.preferredFont(forTextStyle: .body).fontDescriptor
+            .withSize(size)
+            .addingAttributes([
+                .traits: [NSFontDescriptor.TraitKey.weight: weight.rawValue]
+            ])
+        return NSFont(descriptor: descriptor, size: size)
+            ?? NSFont.systemFont(ofSize: size, weight: weight)
+    }
+
+    nonisolated private static func nsFontWeight(_ weight: Font.Weight) -> NSFont.Weight {
+        switch weight {
+        case .ultraLight:
+            .ultraLight
+        case .thin:
+            .thin
+        case .light:
+            .light
+        case .medium:
+            .medium
+        case .semibold:
+            .semibold
+        case .bold:
+            .bold
+        case .heavy:
+            .heavy
+        case .black:
+            .black
+        default:
+            .regular
+        }
     }
 }
 

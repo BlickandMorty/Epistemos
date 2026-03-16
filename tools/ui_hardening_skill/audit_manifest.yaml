@@ -1,0 +1,54 @@
+version: 1
+name: ui-hardening-skill
+reports_root: tools/ui_hardening_skill/reports
+profiles_root: tools/ui_hardening_skill/profiles
+snapshots_root: tools/ui_hardening_skill/snapshots
+focus_areas:
+  - toolbar_dynamics
+  - main_chat_scroll
+  - mini_chat_scroll
+  - notes_scroll
+  - layout_churn
+  - dead_code
+  - accessibility
+  - performance
+  - ffi_shader_contracts
+scripts:
+  - run_full_audit.sh
+  - run_toolbar_audit.sh
+  - run_scroll_audit.sh
+  - run_layout_churn_audit.sh
+  - run_dead_code_audit.sh
+  - run_accessibility_audit.sh
+  - run_perf_audit.sh
+  - run_ffi_shader_audit.sh
+targets:
+  chat:
+    - Epistemos/Views/Chat/ChatView.swift
+    - Epistemos/Views/Chat/ChatInputBar.swift
+    - Epistemos/Views/Chat/MessageBubble.swift
+    - Epistemos/State/ChatState.swift
+  mini_chat:
+    - Epistemos/Views/MiniChat/MiniChatView.swift
+    - Epistemos/State/ThreadState.swift
+  notes:
+    - Epistemos/Views/Notes/ProseEditorRepresentable.swift
+    - Epistemos/Views/Notes/ProseEditorRepresentable2.swift
+    - Epistemos/Views/Notes/TransclusionOverlayManager.swift
+    - Epistemos/Views/Notes/TransclusionOverlayManager2.swift
+    - Epistemos/Views/Notes/ClickableTextView.swift
+    - Epistemos/Views/Notes/ProseTextView2.swift
+    - Epistemos/Views/Notes/NoteChatSidebar.swift
+  toolbar:
+    - Epistemos/Theme/ToolbarMorphSurface.swift
+    - Epistemos/Theme/NativeButtonStyles.swift
+    - Epistemos/App/RootView.swift
+    - Epistemos/Views/Landing/LandingView.swift
+    - Epistemos/Views/Graph/GraphFloatingControls.swift
+    - Epistemos/Views/Notes/NoteDetailWorkspaceView.swift
+  ffi_shader:
+    - graph-engine/src/renderer.rs
+    - graph-engine-bridge/graph_engine.h
+tests:
+  swift:
+    - EpistemosTests/ScrollStabilityTests.swift

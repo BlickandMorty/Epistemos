@@ -110,22 +110,24 @@ enum NoteToolbarMetrics {
     static let buttonSide: CGFloat = 28
     static let spacing: CGFloat = 6
     static let chatFieldWidth: CGFloat = 180
-    static let stripGlowBlurRadius: CGFloat = 6
+    static let compactChatFieldWidth: CGFloat = 132
+    static let containerHorizontalPadding: CGFloat = 8
+    static let containerVerticalPadding: CGFloat = 3
+    static let previewExpandedWidthBonus: CGFloat = 26
+}
+
+private enum NoteToolbarDensity {
+    case full
+    case compact
+    case iconOnly
 }
 
 enum NoteToolbarPalette {
-    static func stripGlowOpacity(for theme: EpistemosTheme) -> Double {
-        if theme.usesNativeWindowBlur {
-            return theme.isDark ? 0.028 : 0.010
-        }
-        return theme.isDark ? 0.032 : 0.012
-    }
-
     static func iconOpacity(for theme: EpistemosTheme, isActive: Bool) -> Double {
         if isActive {
-            return 1
+            return theme.isDark ? 0.94 : 0.88
         }
-        return theme.isDark ? 0.86 : 0.74
+        return theme.isDark ? 0.78 : 0.66
     }
 }
 
@@ -440,10 +442,7 @@ private struct NoteToolbarIcon: View {
     var isActive: Bool = false
 
     private var color: Color {
-        if isActive {
-            return theme.accent.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: true))
-        }
-        return theme.foreground.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: false))
+        theme.foreground.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: isActive))
     }
 
     var body: some View {
@@ -456,75 +455,68 @@ private struct NoteToolbarIcon: View {
             }
         }
         .foregroundStyle(color)
-        .frame(width: NoteToolbarMetrics.iconSide, height: NoteToolbarMetrics.iconSide)
+        .frame(width: NoteToolbarMetrics.buttonSide, height: NativeControlSystem.toolbar.height)
         .accessibilityHidden(true)
+    }
+}
+
+private struct NoteToolbarButtonStyle: ButtonStyle {
+    let theme: EpistemosTheme
+    let isActive: Bool
+    let morphID: String?
+
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        let showsSurface = isActive || configuration.isPressed
+
+        configuration.label
+            .background {
+                if showsSurface {
+                    RoundedRectangle(
+                        cornerRadius: NativeControlSystem.toolbar.cornerRadius,
+                        style: .continuous
+                    )
+                    .fill(
+                        theme.foreground.opacity(
+                            configuration.isPressed
+                                ? (theme.isDark ? 0.10 : 0.065)
+                                : (theme.isDark ? 0.08 : 0.05)
+                        )
+                    )
+                    .overlay {
+                        RoundedRectangle(
+                            cornerRadius: NativeControlSystem.toolbar.cornerRadius,
+                            style: .continuous
+                        )
+                        .strokeBorder(
+                            theme.foreground.opacity(theme.isDark ? 0.11 : 0.075),
+                            lineWidth: 0.55
+                        )
+                    }
+                }
+            }
+            .scaleEffect(configuration.isPressed ? 0.988 : 1.0)
+            .toolbarMorphInteractionSync(
+                id: morphID,
+                isHovered: isHovered,
+                isPressed: configuration.isPressed
+            )
+            .onHover { isHovered = $0 }
     }
 }
 
 private struct NoteToolbarControlCluster<Content: View>: View {
     let content: Content
 
-    @State private var isHovered = false
-    @State private var isPressed = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
-    private var scale: CGFloat {
-        if isPressed { return 0.985 }
-        if isHovered { return 1.012 }
-        return 1
-    }
-
-    private var shadowOpacity: Double {
-        if isPressed { return 0.10 }
-        if isHovered { return 0.08 }
-        return 0
-    }
-
     var body: some View {
-        ControlGroup {
+        HStack(spacing: NoteToolbarMetrics.spacing) {
             content
         }
-            .controlGroupStyle(.automatic)
-            .contentShape(Rectangle())
-            .scaleEffect(scale)
-            .shadow(color: .black.opacity(shadowOpacity), radius: isHovered ? 10 : 4, y: isHovered ? 3 : 1)
-            .animation(.easeOut(duration: 0.12), value: isHovered)
-            .animation(.easeOut(duration: 0.12), value: isPressed)
-            .onHover { hovering in
-                if reduceMotion {
-                    isHovered = hovering
-                } else {
-                    withAnimation(Motion.micro) {
-                        isHovered = hovering
-                    }
-                }
-            }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard !isPressed else { return }
-                        if reduceMotion {
-                            isPressed = true
-                        } else {
-                            withAnimation(Motion.micro) {
-                                isPressed = true
-                            }
-                        }
-                    }
-                    .onEnded { _ in
-                        if reduceMotion {
-                            isPressed = false
-                        } else {
-                            withAnimation(Motion.sharp) {
-                                isPressed = false
-                            }
-                        }
-                    }
-            )
     }
 }
 
@@ -908,76 +900,131 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var noteToolbarStrip: some View {
-        HStack(spacing: NoteToolbarMetrics.spacing) {
-            if !showPreview {
-                toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
-            }
+        ViewThatFits(in: .horizontal) {
+            noteToolbarStripLayout(
+                chatFieldWidth: showPreview ? nil : NoteToolbarMetrics.chatFieldWidth,
+                density: .full
+            )
+            noteToolbarStripLayout(
+                chatFieldWidth: showPreview ? nil : NoteToolbarMetrics.compactChatFieldWidth,
+                density: .compact
+            )
+            noteToolbarStripLayout(chatFieldWidth: nil, density: .iconOnly)
+        }
+    }
 
-            noteToolbarControls
+    private func noteToolbarStripLayout(
+        chatFieldWidth: CGFloat?,
+        density: NoteToolbarDensity
+    ) -> some View {
+        ToolbarMorphHost(style: .notePreviewStrip, baseSurface: .strip) {
+            HStack(spacing: NoteToolbarMetrics.spacing) {
+                if let chatFieldWidth {
+                    toolbarChatField(width: chatFieldWidth)
+                }
+
+                noteToolbarControls(density: density)
+            }
+            .padding(.horizontal, NoteToolbarMetrics.containerHorizontalPadding)
+            .padding(.vertical, NoteToolbarMetrics.containerVerticalPadding)
         }
-        .background {
-            Capsule()
-                .fill(ui.theme.fontAccent.opacity(NoteToolbarPalette.stripGlowOpacity(for: ui.theme)))
-                .blur(radius: NoteToolbarMetrics.stripGlowBlurRadius)
-                .padding(.horizontal, -8)
-                .padding(.vertical, -3)
-        }
-        .fixedSize(horizontal: true, vertical: false)
     }
 
     @ViewBuilder
-    private var noteToolbarControls: some View {
+    private func noteToolbarControls(density: NoteToolbarDensity) -> some View {
         NoteToolbarControlCluster {
-            if !showPreview {
+            if !showPreview && density == .full {
                 formatToolbarMenu
             }
 
-            toolbarIconButton(
-                glyph: showPreview ? .edit : .preview,
-                isActive: showPreview,
-                help: showPreview ? "Editor (⌘E)" : "Preview (⌘E)"
-            ) {
-                togglePreviewMode()
-            }
-
-            moreMenu
-
-            if !showPreview {
-                appleWritingToolsButton
-
-                toolbarIconButton(
-                    glyph: .backlinks,
-                    isActive: showBacklinksPopover,
-                    help: "Backlinks"
-                ) {
-                    showBacklinksPopover.toggle()
+                if density == .iconOnly {
+                    toolbarIconButton(
+                        glyph: showPreview ? .edit : .preview,
+                        isActive: showPreview,
+                        help: showPreview ? "Editor (⌘E)" : "Preview (⌘E)",
+                        morphID: NoteToolbarMorphID.preview.rawValue
+                    ) {
+                    togglePreviewMode()
                 }
-                .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
-                    if let page = pages.first {
-                        NoteBacklinksPopover(
-                            pageTitle: page.title,
-                            onNavigate: { targetId in
-                                showBacklinksPopover = false
-                                navState?.push(pageId: targetId, title: "")
-                            }
-                        )
+            } else {
+                    ExpandingModeButton(
+                        title: "Preview",
+                        systemImage: showPreview ? "pencil" : "eye",
+                        isActive: showPreview,
+                        activeTitle: "Editor",
+                        variant: .toolbar,
+                        helpText: showPreview ? "Editor (⌘E)" : "Preview (⌘E)",
+                        asciiAnimation: .compactToolbarStatus,
+                        asciiFont: .system(size: 10, weight: .medium, design: .monospaced),
+                        stableWidth: NativeControlSystem.reservedWidth(
+                            for: ["Preview", "Editor"],
+                            variant: .toolbar
+                        ) + NoteToolbarMetrics.previewExpandedWidthBonus,
+                        morphID: NoteToolbarMorphID.preview.rawValue
+                    ) {
+                        togglePreviewMode()
                     }
                 }
 
-                toolbarIconButton(
-                    glyph: .history,
-                    isActive: showChatSidebar,
-                    help: "Chat History"
-                ) {
-                    showChatSidebar.toggle()
-                }
-                .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
-                    NoteChatSidebar()
-                        .environment(noteChatState)
-                        .frame(width: 340, height: 380)
+                moreMenu
+
+                if !showPreview {
+                    if density == .full {
+                        appleWritingToolsButton
+                    }
+
+                    backlinksToolbarControl()
+
+                    noteChatToolbarControl()
                 }
             }
+    }
+
+    private func backlinksToolbarControl() -> some View {
+        toolbarIconButton(
+            glyph: .backlinks,
+            isActive: showBacklinksPopover,
+            help: "Backlinks",
+            morphID: NoteToolbarMorphID.backlinks.rawValue
+        ) {
+            showBacklinksPopover.toggle()
         }
+        .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
+            backlinksPopoverContent
+        }
+    }
+
+    private func noteChatToolbarControl() -> some View {
+        toolbarIconButton(
+            glyph: .history,
+            isActive: showChatSidebar,
+            help: "Chat History",
+            morphID: NoteToolbarMorphID.history.rawValue
+        ) {
+            showChatSidebar.toggle()
+        }
+        .popover(isPresented: $showChatSidebar, arrowEdge: .bottom) {
+            noteChatPopoverContent
+        }
+    }
+
+    @ViewBuilder
+    private var backlinksPopoverContent: some View {
+        if let page = pages.first {
+            NoteBacklinksPopover(
+                pageTitle: page.title,
+                onNavigate: { targetId in
+                    showBacklinksPopover = false
+                    navState?.push(pageId: targetId, title: "")
+                }
+            )
+        }
+    }
+
+    private var noteChatPopoverContent: some View {
+        NoteChatSidebar()
+            .environment(noteChatState)
+            .frame(width: 320, height: 380)
     }
 
     private var formatToolbarMenu: some View {
@@ -986,6 +1033,7 @@ struct NoteDetailWorkspaceView: View {
         } label: {
             NoteToolbarIcon(glyph: .format, theme: ui.theme)
         }
+        .menuStyle(.borderlessButton)
         .help("Format")
     }
 
@@ -993,12 +1041,22 @@ struct NoteDetailWorkspaceView: View {
         glyph: NoteToolbarGlyph,
         isActive: Bool = false,
         help: String,
+        morphID: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             NoteToolbarIcon(glyph: glyph, theme: ui.theme, isActive: isActive)
         }
+        .buttonStyle(
+            NoteToolbarButtonStyle(
+                theme: ui.theme,
+                isActive: isActive,
+                morphID: morphID
+            )
+        )
+        .toolbarMorphItem(id: morphID, isActive: isActive)
         .help(help)
+        .accessibilityLabel(help)
     }
 
     // MARK: - Wikilink Navigation
@@ -1537,13 +1595,21 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var appleWritingToolsButton: some View {
-        toolbarIconButton(glyph: .writingTools, help: "Apple Writing Tools") {
-            NotificationCenter.default.post(
-                name: WritingToolsBridge.showNotification,
-                object: nil,
-                userInfo: ["pageId": pageId]
-            )
+        toolbarIconButton(
+            glyph: .writingTools,
+            help: "Apple Writing Tools",
+            morphID: NoteToolbarMorphID.writingTools.rawValue
+        ) {
+            showAppleWritingTools()
         }
+    }
+
+    private func showAppleWritingTools() {
+        NotificationCenter.default.post(
+            name: WritingToolsBridge.showNotification,
+            object: nil,
+            userInfo: ["pageId": pageId]
+        )
     }
 
     // MARK: - Toolbar Chat Field
@@ -1633,6 +1699,20 @@ struct NoteDetailWorkspaceView: View {
 
     private var moreMenu: some View {
         Menu {
+            if !showPreview {
+                Menu("Format") {
+                    formatMenuContent
+                }
+
+                Button {
+                    showAppleWritingTools()
+                } label: {
+                    Label("Apple Writing Tools", systemImage: NoteToolbarGlyph.writingTools.symbolName ?? "apple.intelligence")
+                }
+
+                Divider()
+            }
+
             // Note actions
             if let page = pages.first {
                 Button {
@@ -1746,6 +1826,7 @@ struct NoteDetailWorkspaceView: View {
         } label: {
             NoteToolbarIcon(glyph: .more, theme: ui.theme)
         }
+        .menuStyle(.borderlessButton)
         .help("More")
     }
 
@@ -3060,38 +3141,7 @@ private struct AdaptiveNotePreviewView2: View {
                 }
             }
             .background(theme.background)
-            .overlay(alignment: .topTrailing) {
-                notePreviewBadge
-                    .padding(.top, NoteDualPreviewLayout.outerPadding.top)
-                    .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
-            }
         }
-    }
-
-    private var notePreviewBadge: some View {
-        HStack(spacing: 8) {
-            ASCIIFrameAnimationText(
-                configuration: .previewScanner,
-                font: .system(size: 10, weight: .semibold, design: .monospaced),
-                color: theme.fontAccent.opacity(0.78)
-            )
-            Text("Preview")
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(theme.textTertiary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            Capsule(style: .continuous)
-                .fill(theme.isDark ? Color.white.opacity(0.045) : Color.black.opacity(0.03))
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .strokeBorder(
-                    theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06),
-                    lineWidth: 0.5
-                )
-        )
     }
 }
 

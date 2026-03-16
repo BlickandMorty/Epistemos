@@ -2,6 +2,19 @@ import Foundation
 import Observation
 import os
 
+enum ChatQueryMode: String, CaseIterable {
+    case direct = "Chat"
+    case research = "Research"
+
+    init(isResearch: Bool) {
+        self = isResearch ? .research : .direct
+    }
+
+    var isResearch: Bool {
+        self == .research
+    }
+}
+
 // MARK: - Chat State
 // In-memory streaming and message state for the active chat session.
 // AppBootstrap persists completed messages to SDChat/SDMessage via SwiftData.
@@ -46,6 +59,11 @@ final class ChatState {
     /// Persisted to UserDefaults — this is a user preference, not session state.
     var isResearchMode: Bool {
         didSet { UserDefaults.standard.set(isResearchMode, forKey: "epistemos.researchMode") }
+    }
+
+    var queryMode: ChatQueryMode {
+        get { ChatQueryMode(isResearch: isResearchMode) }
+        set { isResearchMode = newValue.isResearch }
     }
 
     // MARK: - Vault Context (Ambient)

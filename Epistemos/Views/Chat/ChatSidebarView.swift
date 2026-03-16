@@ -6,6 +6,41 @@ import SwiftUI
 // Parent applies .glassEffect for the card background. Search bar, chat rows,
 // and New Chat button use nested .glassEffect / .flatToGlass for depth hierarchy.
 
+enum ChatSidebarFilterMode: String, CaseIterable {
+    case all = "All"
+    case research = "Research"
+    case notes = "Notes"
+
+    var title: String { rawValue }
+
+    var systemImage: String? {
+        switch self {
+        case .all: "line.3.horizontal.decrease.circle"
+        case .research: "flask"
+        case .notes: "book.pages"
+        }
+    }
+
+    func matches(hasResearch: Bool, hasLinkedNote: Bool) -> Bool {
+        switch self {
+        case .all:
+            true
+        case .research:
+            hasResearch
+        case .notes:
+            hasLinkedNote
+        }
+    }
+}
+
+enum ChatSidebarLayout {
+    static let popoverWidth: CGFloat = 340
+    static let popoverHeight: CGFloat = 500
+    static let outerHorizontalPadding: CGFloat = 14
+    static let rowHorizontalPadding: CGFloat = 12
+    static let rowVerticalPadding: CGFloat = 9
+}
+
 struct ChatSidebarView: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
@@ -13,17 +48,15 @@ struct ChatSidebarView: View {
 
     @State private var recentChats: [SDChat] = []
     @State private var searchText = ""
-    @State private var showResearchOnly = false
-    @State private var showNotesOnly = false
+    @State private var filterMode: ChatSidebarFilterMode = .all
     private var theme: EpistemosTheme { ui.theme }
 
     private var filteredChats: [SDChat] {
-        var result = recentChats
-        if showResearchOnly {
-            result = result.filter { $0.hasDeepResearch == true }
-        }
-        if showNotesOnly {
-            result = result.filter { $0.linkedPageId != nil }
+        var result = recentChats.filter {
+            filterMode.matches(
+                hasResearch: $0.hasDeepResearch == true,
+                hasLinkedNote: $0.linkedPageId != nil
+            )
         }
         if !searchText.isEmpty {
             let q = searchText.lowercased()
@@ -36,43 +69,23 @@ struct ChatSidebarView: View {
         VStack(spacing: 0) {
             // Search bar — glass field
             searchBar
-                .padding(.horizontal, 12)
+                .padding(.horizontal, ChatSidebarLayout.outerHorizontalPadding)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
 
             // Filters
-            HStack(spacing: 6) {
-                Button {
-                    withAnimation(Motion.quick) {
-                        showResearchOnly.toggle()
-                        if showResearchOnly { showNotesOnly = false }
-                    }
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "flask")
-                        Text("Research")
-                    }
-                    .font(.epSmall)
-                }
-                .buttonStyle(NativePillButtonStyle(isActive: showResearchOnly, activeColor: theme.accent))
-
-                Button {
-                    withAnimation(Motion.quick) {
-                        showNotesOnly.toggle()
-                        if showNotesOnly { showResearchOnly = false }
-                    }
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "book.pages")
-                        Text("Notes")
-                    }
-                    .font(.epSmall)
-                }
-                .buttonStyle(NativePillButtonStyle(isActive: showNotesOnly, activeColor: theme.accent))
-
-                Spacer()
-            }
-            .padding(.horizontal, 12)
+            ModeChipGroup(
+                options: ChatSidebarFilterMode.allCases.map {
+                    ModeChipOption(
+                        value: $0,
+                        title: $0.title,
+                        systemImage: $0.systemImage
+                    )
+                },
+                selection: $filterMode,
+                variant: .toolbar
+            )
+            .padding(.horizontal, ChatSidebarLayout.outerHorizontalPadding)
             .padding(.bottom, 4)
 
             // Chat list or empty state
@@ -150,7 +163,8 @@ struct ChatSidebarView: View {
                     }
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 12)
         }
     }
 
@@ -162,7 +176,7 @@ struct ChatSidebarView: View {
             .textCase(.uppercase)
             .tracking(0.5)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .padding(.top, 14)
             .padding(.bottom, 4)
     }
@@ -295,6 +309,7 @@ private struct SidebarChatRow: View {
                         .fontWeight(isActive ? .semibold : .medium)
                         .foregroundStyle(isActive ? theme.accent : theme.foreground)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
 
                 if let preview = previewText {
@@ -302,19 +317,19 @@ private struct SidebarChatRow: View {
                         .font(.epSmall)
                         .foregroundStyle(theme.textTertiary)
                         .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Text(sdChat.updatedAt.formatted(.relative(presentation: .named)))
                     .font(.epSmall)
                     .foregroundStyle(theme.textTertiary.opacity(0.6))
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
+            .padding(.horizontal, ChatSidebarLayout.rowHorizontalPadding)
+            .padding(.vertical, ChatSidebarLayout.rowVerticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(NativeCardButtonStyle(cornerRadius: 10))
-        .physicsHover(.subtle)
         .contextMenu {
             Button(role: .destructive) {
                 onDelete()

@@ -50,9 +50,10 @@ struct ProviderDropdown: View {
             }
         } label: {
             Label(inference.activeModelDisplayName, systemImage: "cpu")
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
         .menuStyle(.borderlessButton)
-        .fixedSize()
     }
 
     // MARK: - Helpers

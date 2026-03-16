@@ -1035,6 +1035,10 @@ final class HologramOverlay {
             )
         )
         controlsView.translatesAutoresizingMaskIntoConstraints = false
+        controlsView.setContentHuggingPriority(.required, for: .horizontal)
+        controlsView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        controlsView.setContentHuggingPriority(.required, for: .vertical)
+        controlsView.setContentCompressionResistancePriority(.required, for: .vertical)
         contentView.addSubview(controlsView)
 
         NSLayoutConstraint.activate([

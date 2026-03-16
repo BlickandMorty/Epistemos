@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Root View
 // Top-level container with system toolbar navigation.
@@ -88,21 +89,42 @@ struct RootView: View {
                 (ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding)
                     ? .hidden : .automatic
             )
-            // Chat sidebar toggle — only on Home tab
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 if ui.homeTab == .home {
                     @Bindable var ui = ui
-                    Button {
-                        ui.toggleChatSidebar()
-                    } label: {
-                        Label("History", systemImage: "sidebar.left")
-                    }
-                    .accessibilityLabel("Chat History")
-                    .help("Chat History (⇧⌘H)")
-                    .popover(isPresented: $ui.showChatSidebar) {
+                    AnchoredPopoverButton(
+                        title: "History",
+                        systemImage: "sidebar.left",
+                        isPresented: $ui.showChatSidebar,
+                        isActive: ui.showChatSidebar,
+                        variant: .toolbar,
+                        helpText: "Chat History (⇧⌘H)",
+                        accessibilityLabel: "Chat History",
+                        idealPopoverWidth: ChatSidebarLayout.popoverWidth,
+                        contentPadding: 0,
+                        stableWidth: NativeControlSystem.reservedWidth(
+                            for: "History",
+                            variant: .toolbar,
+                            includesDisclosureGlyph: true
+                        )
+                    ) {
                         ChatSidebarView()
-                            .frame(width: 300, height: 500)
+                            .frame(width: ChatSidebarLayout.popoverWidth, height: ChatSidebarLayout.popoverHeight)
                             .preferredColorScheme(ui.theme.colorScheme)
+                    }
+
+                    if activeHomeChat {
+                        ResearchModeControl()
+
+                        ToolbarCapsuleButton(
+                            title: nil,
+                            systemImage: "square.and.arrow.up",
+                            variant: .toolbar,
+                            helpText: "Export Chat",
+                            accessibilityLabel: "Export chat"
+                        ) {
+                            exportActiveChat()
+                        }
                     }
                 }
             }
@@ -209,6 +231,31 @@ struct RootView: View {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
         }
     }
+
+    private func exportActiveChat() {
+        let lines = chat.messages.map { message in
+            let role = message.role == .user ? "You" : "Assistant"
+            return "## \(role)\n\n\(message.content)"
+        }
+        let markdown = "# Chat Export — \(Date().formatted(date: .abbreviated, time: .omitted))\n\n\(lines.joined(separator: "\n\n---\n\n"))"
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "chat-export-\(Date().formatted(.iso8601.year().month().day())).md"
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                do {
+                    try markdown.write(to: url, atomically: true, encoding: .utf8)
+                } catch {
+                    Log.app.error("Chat export failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+}
+
+enum HomeToolbarMetrics {
+    static let modelLabelMaxWidth: CGFloat = 260
 }
 
 private struct VaultRecoveryOverlay: View {
@@ -337,11 +384,15 @@ private struct PrincipalToolbarContent: View {
                 ASCIIRippleText(
                     text: "\(inference.apiProvider.displayName) · \(inference.activeModelDisplayName)",
                     font: .system(size: 14, weight: .medium),
-                    color: .secondary
+                    color: .secondary,
+                    fixedHorizontal: false
                 )
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: HomeToolbarMetrics.modelLabelMaxWidth)
             }
             .menuStyle(.borderlessButton)
-            .fixedSize()
+            .help("\(inference.apiProvider.displayName) · \(inference.activeModelDisplayName)")
         } else {
             @Bindable var uiBindable = ui
             Picker("", selection: $uiBindable.homeTab) {

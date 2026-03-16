@@ -32,3 +32,12 @@ build-rust/
 # Reference repos
 logseq/
 .superpowers/
+
+# Audit harness outputs
+tools/ui_hardening_skill/reports/
+tools/ui_hardening_skill/profiles/
+tools/v2_hardening_skill/reports/
+tools/v2_hardening_skill/profiles/
+tools/v2_hardening_skill/logs/
+tools/v2_hardening_skill/snapshots/
+tools/v2_hardening_skill/state_blocks/

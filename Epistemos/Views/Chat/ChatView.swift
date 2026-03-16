@@ -1,9 +1,8 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 enum ChatLayout {
     static let messageColumnMaxWidth: CGFloat = 760
-    static let mainComposerMaxWidth: CGFloat = 1200
+    static let mainComposerMaxWidth: CGFloat = 980
     static let mainComposerHorizontalPadding: CGFloat = 12
 }
 
@@ -13,15 +12,11 @@ enum ChatLayout {
 // Layout: header bar + research mode bar + scrolling messages + input bar.
 
 struct ChatView: View {
-    @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(PipelineState.self) private var pipeline
-    @Environment(InferenceState.self) private var inference
-    @State private var scrolledToBottom = true
+    @State private var autoFollow = ScrollAutoFollowState()
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
-
-    private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,7 +49,20 @@ struct ChatView: View {
                     .padding(.bottom, Spacing.lg)
                 }
                 .contentMargins(.top, 0, for: .scrollContent)
+                .onScrollGeometryChange(
+                    for: CGFloat.self,
+                    of: ScrollStability.distanceToBottom(for:)
+                ) { _, distance in
+                    let nextState = ScrollStability.updatedAutoFollowState(
+                        from: autoFollow,
+                        distanceToBottom: distance
+                    )
+                    guard nextState != autoFollow else { return }
+                    autoFollow = nextState
+                }
                 .onChange(of: chat.messages.count) { _, _ in
+                    guard autoFollow.isFollowingBottom else { return }
+                    autoFollow.markProgrammaticScrollToBottom()
                     withAnimation(Motion.quick) {
                         proxy.scrollTo("bottom-anchor", anchor: .bottom)
                     }
@@ -62,8 +70,14 @@ struct ChatView: View {
                 .onChange(of: chat.streamingText) { _, _ in
                     // Throttle to ~4fps during streaming
                     let now = ContinuousClock.now
-                    guard scrolledToBottom, now - lastScrollTime > .milliseconds(250) else { return }
+                    guard autoFollow.isFollowingBottom,
+                          now - lastScrollTime > .milliseconds(250) else { return }
                     lastScrollTime = now
+                    autoFollow.markProgrammaticScrollToBottom()
+                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                }
+                .onAppear {
+                    autoFollow.markProgrammaticScrollToBottom()
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
             }
@@ -82,55 +96,29 @@ struct ChatView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(Motion.smooth, value: pipeline.isProcessing)
         .navigationTitle("")
-        .toolbar {
-            // Right: chat controls (title + nav handled by toolbar)
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button(action: exportChat) {
-                    Label("Export", systemImage: "square.and.arrow.up")
-                }
-                .help("Export Chat")
-
-                if chat.isResearchMode {
-                    ResearchHintButton()
-                }
-            }
-        }
-    }
-
-    private func exportChat() {
-        let lines = chat.messages.map { msg in
-            let role = msg.role == .user ? "You" : "Assistant"
-            return "## \(role)\n\n\(msg.content)"
-        }
-        let md = "# Chat Export — \(Date().formatted(date: .abbreviated, time: .omitted))\n\n\(lines.joined(separator: "\n\n---\n\n"))"
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "chat-export-\(Date().formatted(.iso8601.year().month().day())).md"
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                do { try md.write(to: url, atomically: true, encoding: .utf8) }
-                catch { Log.app.error("Chat export failed: \(error.localizedDescription)") }
-            }
-        }
     }
 }
 
 // ChatHeaderBar removed — buttons now live in the toolbar (see ChatView.body .toolbar {})
 
-// MARK: - Research Hint Button
-// Toolbar button — tap to see API cost + About Lucid Lens pipeline info.
-// Honest about how many API calls each query uses.
+// MARK: - Research Mode Control
+// One-click mode toggle plus an anchored options popover.
+// Preserves the fast workflow while moving secondary explanation into a native popover.
 
-private struct ResearchHintButton: View {
+struct ResearchModeControl: View {
     @Environment(UIState.self) private var ui
+    @Environment(ChatState.self) private var chat
+    var variant: NativeControlVariant = .toolbar
+    var toggleMorphID: String? = nil
+    var optionsMorphID: String? = nil
+
     @State private var showPopover = false
     @State private var showAbout = false
 
     private var theme: EpistemosTheme { ui.theme }
 
     // The 6 passes that run per research query — each with its own specialized focus:
-    private static let pipelineSteps: [(title: String, detail: String)] = [
+    static let pipelineSteps: [(title: String, detail: String)] = [
         ("Pass 1 — Direct Answer", "Streaming response with evidence hierarchy + source citations (1 API call)"),
         ("Pass 2 — Deep Analysis", "Full analytical math: effect sizes, Bradford Hill, meta-analysis, epistemic tagging — the research powerhouse (1 API call)"),
         ("Pass 3 — Layman Summary", "Translates expert analysis into accessible 5-section breakdown — no math noise, pure clarity (1 API call)"),
@@ -140,135 +128,153 @@ private struct ResearchHintButton: View {
     ]
 
     var body: some View {
-        Button { showPopover.toggle() } label: {
-            Label("Research", systemImage: "lightbulb.max")
-        }
-        .help("About Research Mode")
-        .popover(isPresented: $showPopover, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
-                // API cost breakdown
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "server.rack")
-                            .font(.epHeading)
-                            .foregroundStyle(theme.accent)
-                        Text("API Usage Per Query")
-                            .font(.epBodyMedium)
-                            .foregroundStyle(theme.foreground)
-                    }
-
-                    // Regular mode
-                    HStack(spacing: 6) {
-                        Text("1")
-                            .font(.epMono)
-                            .fontWeight(.bold)
-                            .foregroundStyle(theme.success)
-                        Text("API call — Regular Mode")
-                            .font(.epSmall)
-                            .foregroundStyle(theme.textSecondary)
-                    }
-
-                    // Research mode
-                    HStack(spacing: 6) {
-                        Text("6")
-                            .font(.epMono)
-                            .fontWeight(.bold)
-                            .foregroundStyle(theme.warning)
-                        Text("API calls — Research Mode")
-                            .font(.epSmall)
-                            .foregroundStyle(theme.textSecondary)
-                    }
-
-                    Text("Research Mode runs 6 sequential passes with distributed analytical scaffolding. Each pass carries only the math it needs. Expect 1–3 minutes and 6× the token cost.")
-                        .font(.epSmall)
-                        .foregroundStyle(theme.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 6) {
+            ExpandingModeButton(
+                title: "Research",
+                systemImage: chat.isResearchMode ? "flask.fill" : "flask",
+                isActive: chat.isResearchMode,
+                variant: variant,
+                helpText: chat.isResearchMode ? "Research Mode On" : "Enable Research Mode",
+                asciiAnimation: .toolbarStatus,
+                stableWidth: NativeControlSystem.reservedWidth(for: "Research", variant: variant),
+                morphID: toggleMorphID
+            ) {
+                if chat.isResearchMode {
+                    chat.disableResearchMode()
+                } else {
+                    chat.enableResearchMode()
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
+            }
 
-                // Divider
-                Rectangle()
-                    .fill(theme.glassBorder)
-                    .frame(height: 0.5)
-                    .padding(.horizontal, 10)
+            AnchoredPopoverButton(
+                title: "Options",
+                systemImage: "slider.horizontal.3",
+                isPresented: $showPopover,
+                isActive: chat.isResearchMode,
+                variant: variant,
+                helpText: "Research Options",
+                accessibilityLabel: "Research options",
+                idealPopoverWidth: 296,
+                stableWidth: NativeControlSystem.reservedWidth(
+                    for: "Options",
+                    variant: variant,
+                    includesDisclosureGlyph: true
+                ),
+                morphID: optionsMorphID
+            ) {
+                ResearchModePopoverContent(showAbout: $showAbout)
+            }
+        }
+        .help("Research Mode")
+    }
+}
 
-                // About — expandable pipeline breakdown
-                // Always rendered (never if/else) to avoid NSPopover resize crash.
-                // Visibility controlled via opacity + frame height clipping.
-                VStack(alignment: .leading, spacing: 0) {
-                    Button {
-                        showAbout.toggle()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "info.circle.fill")
-                                .font(.epCaption)
-                                .foregroundStyle(theme.accent.opacity(0.7))
+private struct ResearchModePopoverContent: View {
+    @Environment(UIState.self) private var ui
+    @Environment(ChatState.self) private var chat
+    @Binding var showAbout: Bool
 
-                            Text("6-Pass Breakdown")
-                                .font(.epCaption)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(theme.foreground.opacity(0.85))
+    private var theme: EpistemosTheme { ui.theme }
 
-                            Spacer()
+    var body: some View {
+        @Bindable var chat = chat
 
-                            Image(systemName: "chevron.right")
-                                .font(.epSmall)
-                                .fontWeight(.bold)
-                                .foregroundStyle(theme.textTertiary)
-                                .rotationEffect(.degrees(showAbout ? 90 : 0))
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Research")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.foreground)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(Self.pipelineSteps.enumerated()), id: \.offset) { index, step in
-                            HStack(alignment: .top, spacing: 10) {
-                                ZStack {
-                                    Circle()
-                                        .fill(theme.accent.opacity(0.12))
-                                        .frame(width: 24, height: 24)
-                                    Text("\(index + 1)")
-                                        .font(.epMono)
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(theme.accent)
-                                }
+            Picker("Mode", selection: $chat.queryMode) {
+                Text(ChatQueryMode.direct.rawValue).tag(ChatQueryMode.direct)
+                Text(ChatQueryMode.research.rawValue).tag(ChatQueryMode.research)
+            }
+            .pickerStyle(.segmented)
 
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(step.title)
-                                        .font(.epSmall)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(theme.foreground)
-                                    Text(step.detail)
-                                        .font(.epSmall)
-                                        .foregroundStyle(theme.textTertiary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "server.rack")
+                        .font(.epHeading)
+                        .foregroundStyle(theme.accent)
+                    Text("API Usage Per Query")
+                        .font(.epBodyMedium)
+                        .foregroundStyle(theme.foreground)
+                }
+
+                HStack(spacing: 6) {
+                    Text("1")
+                        .font(.epMono)
+                        .fontWeight(.bold)
+                        .foregroundStyle(theme.success)
+                    Text("API call — Chat")
+                        .font(.epSmall)
+                        .foregroundStyle(theme.textSecondary)
+                }
+
+                HStack(spacing: 6) {
+                    Text("6")
+                        .font(.epMono)
+                        .fontWeight(.bold)
+                        .foregroundStyle(theme.warning)
+                    Text("API calls — Research")
+                        .font(.epSmall)
+                        .foregroundStyle(theme.textSecondary)
+                }
+
+                Text("Research Mode runs 6 sequential passes with distributed analytical scaffolding. Expect 1–3 minutes and roughly 6× the token cost.")
+                    .font(.epSmall)
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            ToolbarCapsuleButton(
+                title: showAbout ? "Hide 6-Pass Breakdown" : "6-Pass Breakdown",
+                systemImage: "info.circle",
+                variant: .toolbar,
+                role: .secondaryGhost,
+                isActive: showAbout
+            ) {
+                showAbout.toggle()
+            }
+
+            if showAbout {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(ResearchModeControl.pipelineSteps.enumerated()), id: \.offset) {
+                        index,
+                        step in
+                        HStack(alignment: .top, spacing: 10) {
+                            ZStack {
+                                Circle()
+                                    .fill(theme.accent.opacity(0.12))
+                                    .frame(width: 24, height: 24)
+                                Text("\(index + 1)")
+                                    .font(.epMono)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(theme.accent)
+                            }
+
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(step.title)
+                                    .font(.epSmall)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(theme.foreground)
+                                Text(step.detail)
+                                    .font(.epSmall)
+                                    .foregroundStyle(theme.textTertiary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-
-                        // Additional context
-                        Text("Each pass carries only the math it needs — Pass 2 owns the heavy analytical scaffolding, while Passes 3–6 focus on their specific role without instruction noise. The 10-stage pipeline runs locally before Pass 1 (0 API calls). Title generation adds +1 call on first message.")
-                            .font(.epSmall)
-                            .foregroundStyle(theme.textTertiary.opacity(0.7))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 4)
                     }
-                    .padding(.top, showAbout ? 10 : 0)
-                    .frame(maxHeight: showAbout ? .infinity : 0)
-                    .clipped()
-                    .opacity(showAbout ? 1 : 0)
+
+                    Text("The 10-stage pipeline runs locally before Pass 1 with zero API calls. Title generation still adds one extra cloud call on the first message.")
+                        .font(.epSmall)
+                        .foregroundStyle(theme.textTertiary.opacity(0.8))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            .padding(.bottom, 4)
-            .frame(width: 320)
-            .background(.ultraThinMaterial)
-            .preferredColorScheme(theme.colorScheme)
         }
+        .animation(.easeInOut(duration: NativeControlSystem.animation.popoverDuration), value: showAbout)
     }
 }
 

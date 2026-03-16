@@ -16,47 +16,44 @@ struct GraphFloatingControls: View {
     @State private var showForceSettings = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            typeFilterPills
+        ToolbarMorphHost(style: .graphBar, baseSurface: .strip) {
+            HStack(spacing: 12) {
+                typeFilterPills
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            semanticClusterToggle
+                semanticClusterToggle
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            physicsToggle
+                physicsToggle
 
-            forceSettingsButton
+                forceSettingsButton
 
-            minimizeButton
+                minimizeButton
 
-            resetViewButton
+                resetViewButton
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            rebuildGraphButton
+                rebuildGraphButton
 
-            Divider()
-                .frame(height: 20)
-                .opacity(0.3)
+                Divider()
+                    .frame(height: 20)
+                    .opacity(0.3)
 
-            closeButton
+                closeButton
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .glassEffect(.regular.interactive(), in: Capsule())
-        .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
-        .popover(isPresented: $showForceSettings, arrowEdge: .top) {
-            GraphForceSettings()
-                .environment(graphState)
-        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     // MARK: - Type Filter Pills
@@ -79,30 +76,25 @@ struct GraphFloatingControls: View {
     // MARK: - Semantic Clustering Toggle
 
     private var semanticClusterToggle: some View {
-        Button {
+        ExpandingModeButton(
+            title: "Semantic",
+            systemImage: graphState.useSemanticClustering
+                ? "brain.head.profile.fill" : "brain.head.profile",
+            isActive: graphState.useSemanticClustering,
+            variant: .toolbar,
+            helpText: graphState.useSemanticClustering
+                ? "Semantic Clustering On" : "Enable Semantic Clustering",
+            asciiAnimation: .toolbarStatus,
+            stableWidth: NativeControlSystem.reservedWidth(for: "Semantic", variant: .toolbar),
+            morphID: GraphToolbarMorphID.semantic.rawValue
+        ) {
             graphState.useSemanticClustering.toggle()
             if graphState.useSemanticClustering {
                 graphState.computeSemanticClusters()
             } else {
                 graphState.requestFilterSync()
             }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: graphState.useSemanticClustering ? "brain.head.profile.fill" : "brain.head.profile")
-                    .font(.system(size: 10, weight: .medium))
-                Text("Semantic")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                graphState.useSemanticClustering ? Color.purple.opacity(0.25) : .clear,
-                in: Capsule()
-            )
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.primary.opacity(graphState.useSemanticClustering ? 1.0 : 0.5))
-        .help(graphState.useSemanticClustering ? "Semantic Clustering On" : "Enable Semantic Clustering")
         .accessibilityLabel(graphState.useSemanticClustering ? "Semantic clustering on" : "Enable semantic clustering")
     }
 
@@ -111,118 +103,109 @@ struct GraphFloatingControls: View {
 
     private var physicsToggle: some View {
         let frozen = graphState.isPhysicsFrozen
-        return Button {
+        return ExpandingModeButton(
+            title: "Freeze",
+            systemImage: frozen ? "play.circle.fill" : "pause.circle.fill",
+            isActive: frozen,
+            activeTitle: "Resume",
+            variant: .toolbar,
+            helpText: frozen ? "Resume Physics" : "Freeze Physics",
+            asciiAnimation: .toolbarStatus,
+            stableWidth: NativeControlSystem.reservedWidth(
+                for: ["Freeze", "Resume"],
+                variant: .toolbar
+            ),
+            morphID: GraphToolbarMorphID.physics.rawValue
+        ) {
             graphState.isPhysicsFrozen.toggle()
             graphState.physicsFrozenVersion += 1
             graphState.savePhysicsSettings()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: frozen ? "play.circle.fill" : "pause.circle.fill")
-                    .font(.system(size: 10, weight: .medium))
-                Text(frozen ? "Resume" : "Freeze")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                frozen ? Color.teal.opacity(0.25) : .clear,
-                in: Capsule()
-            )
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(Color.primary.opacity(frozen ? 1.0 : 0.5))
-        .help(frozen ? "Resume Physics" : "Freeze Physics")
         .accessibilityLabel(frozen ? "Resume physics simulation" : "Freeze physics simulation")
     }
 
     // MARK: - Force Settings
 
     private var forceSettingsButton: some View {
-        Button {
-            showForceSettings.toggle()
-        } label: {
-            Image(systemName: "gearshape")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.6))
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
+        AnchoredPopoverButton(
+            title: "Forces",
+            systemImage: "slider.horizontal.3",
+            isPresented: $showForceSettings,
+            variant: .toolbar,
+            helpText: "Force Settings",
+            idealPopoverWidth: GraphForceSettingsLayout.panelWidth,
+            contentPadding: 0,
+            stableWidth: NativeControlSystem.reservedWidth(
+                for: "Forces",
+                variant: .toolbar,
+                includesDisclosureGlyph: true
+            ),
+            morphID: GraphToolbarMorphID.forceSettings.rawValue
+        ) {
+            GraphForceSettings()
+                .environment(graphState)
         }
-        .buttonStyle(.plain)
-        .help("Force Settings")
-        .accessibilityLabel("Force settings")
     }
 
     // MARK: - Minimize
 
     private var minimizeButton: some View {
-        Button {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "rectangle.compress.vertical",
+            variant: .toolbar,
+            helpText: "Minimize to floating window",
+            accessibilityLabel: "Minimize to floating window",
+            morphID: GraphToolbarMorphID.minimize.rawValue
+        ) {
             NotificationCenter.default.post(name: .graphMinimizeRequested, object: nil)
-        } label: {
-            Image(systemName: "rectangle.compress.vertical")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.6))
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
         }
-        .buttonStyle(.plain)
-        .help("Minimize to floating window")
-        .accessibilityLabel("Minimize to floating window")
     }
 
     // MARK: - Reset View
 
     private var resetViewButton: some View {
-        Button {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "arrow.up.left.and.arrow.down.right",
+            variant: .toolbar,
+            helpText: "Zoom to fit",
+            accessibilityLabel: "Zoom to fit",
+            morphID: GraphToolbarMorphID.resetView.rawValue
+        ) {
             NotificationCenter.default.post(name: .graphResetRequested, object: nil)
-        } label: {
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.6))
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
         }
-        .buttonStyle(.plain)
-        .help("Zoom to fit")
-        .accessibilityLabel("Zoom to fit")
     }
 
     // MARK: - Rebuild Graph
 
     private var rebuildGraphButton: some View {
-        Button {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "arrow.trianglehead.2.clockwise",
+            variant: .toolbar,
+            helpText: "Rebuild Graph",
+            accessibilityLabel: "Rebuild graph",
+            morphID: GraphToolbarMorphID.rebuild.rawValue
+        ) {
             graphState.requestGraphRebuild()
-        } label: {
-            Image(systemName: "arrow.trianglehead.2.clockwise")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.6))
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
         }
-        .buttonStyle(.plain)
-        .help("Rebuild Graph")
-        .accessibilityLabel("Rebuild graph")
     }
 
     // MARK: - Close
 
     private var closeButton: some View {
-        Button {
+        ToolbarCapsuleButton(
+            title: "Close",
+            systemImage: "xmark",
+            variant: .toolbar,
+            role: .secondaryGhost,
+            helpText: "Close Graph (Esc)",
+            accessibilityLabel: "Close graph",
+            morphID: GraphToolbarMorphID.close.rawValue
+        ) {
             NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                Text("Close")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .foregroundStyle(.primary.opacity(0.6))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
-        .help("Close Graph (Esc)")
-        .accessibilityLabel("Close graph")
     }
 }
 

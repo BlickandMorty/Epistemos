@@ -165,31 +165,24 @@ struct HologramSearchSidebar: View {
     // MARK: - Tab Pills
 
     private var tabPills: some View {
-        HStack(spacing: 4) {
-            tabButton("Notes", icon: "doc.text", tab: .notes)
-            tabButton("Query", icon: "point.3.connected.trianglepath.dotted", tab: .query)
-            Spacer()
-        }
+        ModeChipGroup(
+            options: [
+                ModeChipOption(
+                    value: SidebarTab.notes,
+                    title: "Notes",
+                    systemImage: "doc.text"
+                ),
+                ModeChipOption(
+                    value: SidebarTab.query,
+                    title: "Query",
+                    systemImage: "point.3.connected.trianglepath.dotted"
+                ),
+            ],
+            selection: $activeTab,
+            variant: .toolbar
+        )
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-    }
-
-    private func tabButton(_ label: String, icon: String, tab: SidebarTab) -> some View {
-        Button {
-            withAnimation(.smooth(duration: 0.2)) { activeTab = tab }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(activeTab == tab ? Color.primary.opacity(0.15) : Color.clear, in: Capsule())
-            .foregroundStyle(Color.primary.opacity(activeTab == tab ? 1.0 : 0.45))
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Notes Content (flat visible rows for lazy rendering)

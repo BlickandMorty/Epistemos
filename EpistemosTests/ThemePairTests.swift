@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import Testing
@@ -197,6 +198,33 @@ struct ThemePairTests {
         #expect(AppDisplayMode.regular.reducesASCIIAnimations)
     }
 
+    @Test("Regular display mode uses the macOS UI font family")
+    func regularDisplayModeUsesMacOSUIFont() throws {
+        let defaults = UserDefaults.standard
+        let previous = defaults.string(forKey: AppDisplayMode.defaultsKey)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: AppDisplayMode.defaultsKey)
+            } else {
+                defaults.removeObject(forKey: AppDisplayMode.defaultsKey)
+            }
+        }
+
+        defaults.set(AppDisplayMode.regular.rawValue, forKey: AppDisplayMode.defaultsKey)
+
+        let preferredBodyFont = NSFont.preferredFont(forTextStyle: .body)
+        let preferredBoldDescriptor = preferredBodyFont.fontDescriptor
+            .withSize(18)
+            .addingAttributes([
+                .traits: [NSFontDescriptor.TraitKey.weight: NSFont.Weight.bold.rawValue]
+            ])
+        let preferredBoldFont = try #require(NSFont(descriptor: preferredBoldDescriptor, size: 18))
+
+        #expect(AppDisplayTypography.fontName == preferredBodyFont.fontName)
+        #expect(AppDisplayTypography.nsFont(size: 15).fontName == preferredBodyFont.fontName)
+        #expect(AppDisplayTypography.nsFont(size: 18, weight: .bold).fontName == preferredBoldFont.fontName)
+    }
+
     @Test("Assistant chrome tokens keep the floating surface hierarchy intact")
     func assistantSurfaceMetricsStayCalm() {
         let palette = AssistantSurfaceMetrics.commandPalette
@@ -230,7 +258,7 @@ struct ThemePairTests {
 
     @Test("Main chat layout keeps the composer wide before it hits the desktop cap")
     func mainChatLayoutStaysWide() {
-        #expect(ChatLayout.mainComposerMaxWidth == 1200)
+        #expect(ChatLayout.mainComposerMaxWidth == 980)
         #expect(ChatLayout.mainComposerHorizontalPadding == 12)
     }
 
@@ -275,7 +303,7 @@ struct ThemePairTests {
                 isProcessing: false
             ) == .systemDefault
         )
-        #expect(ChatComposerInputMetrics.maxVisibleLines == 6)
+        #expect(ChatComposerInputMetrics.maxVisibleLines == 8)
         #expect(ChatComposerInputMetrics.clampedHeight(for: 0) == ChatComposerInputMetrics.minHeight)
         #expect(
             ChatComposerInputMetrics.clampedHeight(
@@ -297,11 +325,31 @@ struct ThemePairTests {
     func markdownPreviewBlockChromeMatchesHoverGlassSystem() {
         let metrics = MarkdownPreviewSurfaceMetrics.default
 
-        #expect(metrics.cornerRadius == 14)
+        #expect(metrics.cornerRadius == 0)
         #expect(metrics.borderWidth == 0.55)
         #expect(metrics.contentPadding == 12)
         #expect(metrics.verticalSpacing == 2)
+        #expect(metrics.topEdgeWidth == 1)
+        #expect(metrics.bottomEdgeWidth == 3)
+        #expect(metrics.rightEdgeWidth == 1)
         #expect(MarkdownPreviewSurfaceStyle.borderOpacity(isDark: true) > MarkdownPreviewSurfaceStyle.borderOpacity(isDark: false))
+    }
+
+    @Test("Editor block chrome frame keeps the trailing edge flush without clipping content")
+    func editorBlockChromeFrameUsesMinimalTrailingInset() {
+        let origin = NSPoint(x: 8, y: 0)
+        let frame = MarkdownTextStorage.blockChromeFrame(
+            textContainerOrigin: origin,
+            containerWidth: 600,
+            boundsWidth: 700
+        )
+
+        let leadingInset = max(MarkdownTextStorage.bodyIndent - 8, 14)
+        let availableWidth = min(600, max(0, 700 - (origin.x * 2)))
+        let expectedWidth = availableWidth - leadingInset - MarkdownPreviewSurfaceMetrics.default.rightEdgeWidth
+
+        #expect(frame.minX == origin.x + leadingInset)
+        #expect(frame.width == expectedWidth)
     }
 
     @Test("Assistant composer metrics keep the main and compact chat bars aligned")
@@ -309,13 +357,18 @@ struct ThemePairTests {
         let main = AssistantComposerMetrics.mainChat
         let compact = AssistantComposerMetrics.compactChat
 
-        #expect(main.cornerRadius == 26)
-        #expect(main.sendButtonSize == 40)
-        #expect(main.sendButtonSize > compact.sendButtonSize)
-        #expect(main.shadowRadius >= compact.shadowRadius)
+        #expect(main.cornerRadius == 20)
+        #expect(main.sendButtonSize == 36)
+        #expect(main.horizontalPadding == 14)
+        #expect(main.verticalPadding == 9)
+        #expect(main.shadowRadius == 14)
+        #expect(main.shadowYOffset == 6)
+        #expect(main.sendIconSize == 14)
+        #expect(main.sendButtonSize >= compact.sendButtonSize)
+        #expect(main.shadowRadius <= compact.shadowRadius)
         #expect(main.borderWidth <= 0.8)
-        #expect(compact.cornerRadius < main.cornerRadius)
-        #expect(compact.horizontalPadding < main.horizontalPadding)
+        #expect(compact.cornerRadius >= main.cornerRadius)
+        #expect(compact.horizontalPadding <= main.horizontalPadding)
     }
 
     @Test("Assistant source extraction keeps notes and links in a stable unique order")
@@ -414,5 +467,264 @@ struct ThemePairTests {
     private func repoRootURL() -> URL {
         let testsFileURL = URL(fileURLWithPath: #filePath)
         return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
+    }
+}
+
+@Suite("Native Control System")
+struct NativeControlSystemTests {
+    @Test("toolbar and content variants keep a stable macOS control density")
+    func controlDensityMetrics() {
+        #expect(NativeControlSystem.toolbar.height == 28)
+        #expect(NativeControlSystem.toolbar.cornerRadius == 10)
+        #expect(NativeControlSystem.toolbar.iconSize == 13)
+        #expect(NativeControlSystem.toolbar.fontSize == 13)
+        #expect(NativeControlSystem.toolbar.minHitWidth >= 28)
+        #expect(NativeControlSystem.toolbar.maxLabelWidth >= 84)
+
+        #expect(NativeControlSystem.content.height == 32)
+        #expect(NativeControlSystem.content.cornerRadius == 12)
+        #expect(NativeControlSystem.content.iconSize == 14)
+        #expect(NativeControlSystem.content.minHitWidth >= 32)
+    }
+
+    @Test("landing search composer keeps the text row above the control row")
+    func landingSearchComposerLayout() {
+        #expect(LandingSearchLayout.maxWidth == 640)
+        #expect(LandingSearchLayout.topRowSpacing == 12)
+        #expect(LandingSearchLayout.controlRowSpacing == 8)
+        #expect(LandingSearchLayout.controlRowTopPadding == 10)
+    }
+
+    @Test("main chat composer keeps a taller stacked input layout")
+    func mainChatComposerLayout() {
+        #expect(MainChatComposerLayout.horizontalPadding == 14)
+        #expect(MainChatComposerLayout.topPadding == 12)
+        #expect(MainChatComposerLayout.bottomPadding == 10)
+        #expect(MainChatComposerLayout.controlRowSpacing == 6)
+        #expect(MainChatComposerLayout.controlRowTopPadding == 8)
+        #expect(ChatComposerInputMetrics.maxVisibleLines == 8)
+        #expect(ChatComposerInputMetrics.fontSize == 15)
+        #expect(ChatComposerInputMetrics.verticalInset == 5)
+        #expect(ChatComposerInputMetrics.placeholderTopPadding == 6)
+    }
+
+    @Test("note and home toolbars step down before they clip")
+    func toolbarFallbackMetrics() {
+        #expect(NoteToolbarMetrics.chatFieldWidth == 180)
+        #expect(NoteToolbarMetrics.compactChatFieldWidth < NoteToolbarMetrics.chatFieldWidth)
+        #expect(NoteToolbarMetrics.buttonSide >= NativeControlSystem.toolbar.minHitWidth)
+        #expect(HomeToolbarMetrics.modelLabelMaxWidth == 260)
+    }
+
+    @Test("control animation timings stay restrained and deterministic")
+    func controlAnimationTimings() {
+        #expect(NativeControlSystem.animation.hoverDuration == 0.12)
+        #expect(NativeControlSystem.animation.pressDuration == 0.08)
+        #expect(NativeControlSystem.animation.expansionDuration == 0.18)
+        #expect(NativeControlSystem.animation.selectionDuration == 0.18)
+        #expect(NativeControlSystem.animation.popoverDuration == 0.16)
+    }
+
+    @Test("toolbar and content popovers stay compact")
+    func popoverWidthRanges() {
+        #expect(NativeControlSystem.toolbarPopoverWidthRange == 220...360)
+        #expect(NativeControlSystem.contentPopoverWidthRange == 240...340)
+    }
+
+    @Test("ASCII control badges keep deterministic widths across all phases")
+    func asciiControlBadgeWidthsAreStable() {
+        let badge = ASCIIControlAnimationSet.toolbarStatus
+
+        for phase in ASCIIControlPhase.allCases {
+            let frames = badge.frames(for: phase)
+            #expect(!frames.isEmpty)
+            #expect(frames.allSatisfy { $0.count == badge.width })
+        }
+    }
+
+    @Test("ASCII control badge uses distinct phase language")
+    func asciiControlBadgeUsesDistinctPhaseLanguage() {
+        let badge = ASCIIControlAnimationSet.toolbarStatus
+
+        #expect(badge.frames(for: .inactive).first == "[     ]")
+        #expect(badge.frames(for: .arming).contains("[ ..> ]"))
+        #expect(badge.frames(for: .active).contains("[ ON  ]"))
+        #expect(badge.frames(for: .cooling).contains("[ <.. ]"))
+    }
+
+    @Test("compact toolbar badge stays smaller than the default toolbar badge")
+    func compactToolbarBadgeStaysSmall() {
+        #expect(ASCIIControlAnimationSet.compactToolbarStatus.width < ASCIIControlAnimationSet.toolbarStatus.width)
+        #expect(ASCIIControlAnimationSet.compactToolbarStatus.frames(for: .active).contains("[ON ]"))
+    }
+
+    @Test("toolbar chrome policy keeps icon-first controls bare until press or selection")
+    func toolbarChromePolicySemantics() {
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: false,
+                isPressed: false,
+                isActive: false
+            ) == false
+        )
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: true,
+                isPressed: false,
+                isActive: false
+            ) == false
+        )
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: true,
+                isPressed: true,
+                isActive: false
+            )
+        )
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: false,
+                isPressed: false,
+                isActive: true
+            )
+        )
+        #expect(
+            NativeControlChromePolicy.alwaysSurface.showsSurface(
+                isHovered: false,
+                isPressed: false,
+                isActive: false
+            )
+        )
+    }
+
+    @Test("toolbar morph styles reserve enough overflow for protrusions")
+    func toolbarMorphStyleOverflow() {
+        #expect(ToolbarMorphSurfaceStyle.graphBar.overflowPadding >= ToolbarMorphSurfaceStyle.graphBar.maxProtrusionDepth)
+        #expect(ToolbarMorphSurfaceStyle.notePreviewStrip.maxProtrusionDepth < ToolbarMorphSurfaceStyle.graphBar.maxProtrusionDepth)
+        #expect(ToolbarMorphSurfaceStyle.composerControls.baseCornerRadius == 0)
+    }
+
+    @MainActor
+    @Test("reduced motion disables continuous morph timeline work")
+    func toolbarMorphReducedMotionFallback() {
+        let coordinator = ToolbarMorphCoordinator()
+
+        #expect(coordinator.animationMode(reduceMotion: true, windowOccluded: false) == .static)
+        #expect(coordinator.animationMode(reduceMotion: false, windowOccluded: true) == .static)
+
+        coordinator.setHovered("graph.semantic", isHovered: true)
+        #expect(coordinator.animationMode(reduceMotion: false, windowOccluded: false) == .displayLinked)
+    }
+
+    @MainActor
+    @Test("toolbar morph progression integrates toward targets instead of snapping")
+    func toolbarMorphProgressionUsesContinuousDynamics() {
+        let coordinator = ToolbarMorphCoordinator()
+        let start = Date(timeIntervalSinceReferenceDate: 10)
+
+        coordinator.setActive("graph.semantic", isActive: true)
+        coordinator.setReveal("graph.semantic", progress: 1)
+
+        #expect(coordinator.expansionProgress == 0)
+        #expect(coordinator.protrusionDepth == 0)
+
+        coordinator.advanceAnimationFrame(
+            to: start,
+            reduceMotion: false,
+            windowOccluded: false
+        )
+
+        #expect(coordinator.expansionProgress > 0)
+        #expect(coordinator.expansionProgress < 1)
+        #expect(coordinator.protrusionDepth > 0)
+        #expect(coordinator.protrusionDepth < 1)
+
+        for step in 1...48 {
+            coordinator.advanceAnimationFrame(
+                to: start.addingTimeInterval(Double(step) / 120.0),
+                reduceMotion: false,
+                windowOccluded: false
+            )
+        }
+
+        #expect(abs(coordinator.expansionProgress - 1) < 0.02)
+        #expect(abs(coordinator.protrusionDepth - 1) < 0.02)
+    }
+
+    @MainActor
+    @Test("toolbar morph keeps animating until collapse fully settles")
+    func toolbarMorphCollapseStaysDisplayLinkedUntilSettled() {
+        let coordinator = ToolbarMorphCoordinator()
+        let start = Date(timeIntervalSinceReferenceDate: 20)
+
+        coordinator.setActive("graph.semantic", isActive: true)
+        coordinator.setReveal("graph.semantic", progress: 1)
+        coordinator.advanceAnimationFrame(
+            to: start,
+            reduceMotion: false,
+            windowOccluded: false
+        )
+
+        coordinator.setActive("graph.semantic", isActive: false)
+        coordinator.setReveal("graph.semantic", progress: 0)
+
+        #expect(coordinator.animationMode(reduceMotion: false, windowOccluded: false) == .displayLinked)
+
+        for step in 1...90 {
+            coordinator.advanceAnimationFrame(
+                to: start.addingTimeInterval(Double(step) / 90.0),
+                reduceMotion: false,
+                windowOccluded: false
+            )
+        }
+
+        #expect(abs(coordinator.expansionProgress) < 0.01)
+        #expect(abs(coordinator.protrusionDepth) < 0.01)
+        #expect(coordinator.animationMode(reduceMotion: false, windowOccluded: false) == .static)
+    }
+
+    @MainActor
+    @Test("reduced motion snaps toolbar morph to its target state")
+    func toolbarMorphReduceMotionSnapsToTarget() {
+        let coordinator = ToolbarMorphCoordinator()
+
+        coordinator.setActive("graph.semantic", isActive: true)
+        coordinator.setReveal("graph.semantic", progress: 1)
+        coordinator.advanceAnimationFrame(
+            to: Date(timeIntervalSinceReferenceDate: 30),
+            reduceMotion: true,
+            windowOccluded: false
+        )
+
+        #expect(coordinator.expansionProgress == 1)
+        #expect(coordinator.protrusionDepth == 1)
+        #expect(coordinator.labelSpread == 1)
+    }
+
+    @Test("toolbar morph identifiers stay stable for anchored controls")
+    func toolbarMorphIdentifiersStayStable() {
+        #expect(GraphToolbarMorphID.semantic.rawValue == "graph.semantic")
+        #expect(GraphToolbarMorphID.forceSettings.rawValue == "graph.forceSettings")
+        #expect(MainChatToolbarMorphID.incognito.rawValue == "chat.incognito")
+        #expect(LandingToolbarMorphID.history.rawValue == "landing.history")
+        #expect(NoteToolbarMorphID.preview.rawValue == "note.preview")
+    }
+
+    @Test("chat sidebar filter mode is mutually exclusive and semantically explicit")
+    func chatSidebarFilterModeSemantics() {
+        #expect(ChatSidebarFilterMode.allCases == [.all, .research, .notes])
+        #expect(ChatSidebarFilterMode.all.matches(hasResearch: false, hasLinkedNote: false))
+        #expect(ChatSidebarFilterMode.research.matches(hasResearch: true, hasLinkedNote: false))
+        #expect(!ChatSidebarFilterMode.research.matches(hasResearch: false, hasLinkedNote: true))
+        #expect(ChatSidebarFilterMode.notes.matches(hasResearch: false, hasLinkedNote: true))
+        #expect(!ChatSidebarFilterMode.notes.matches(hasResearch: true, hasLinkedNote: false))
+    }
+
+    @Test("chat query mode bridges the persisted research toggle")
+    func chatQueryModeBridge() {
+        #expect(ChatQueryMode.direct.isResearch == false)
+        #expect(ChatQueryMode.research.isResearch)
+        #expect(ChatQueryMode(isResearch: false) == .direct)
+        #expect(ChatQueryMode(isResearch: true) == .research)
     }
 }

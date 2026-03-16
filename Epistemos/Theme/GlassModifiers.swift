@@ -332,14 +332,14 @@ struct AssistantComposerMetrics: Equatable {
     let sendIconSize: CGFloat
 
     static let mainChat = AssistantComposerMetrics(
-        cornerRadius: 26,
-        borderWidth: 0.7,
-        horizontalPadding: 16,
-        verticalPadding: 10,
-        shadowRadius: 20,
-        shadowYOffset: 10,
-        sendButtonSize: 40,
-        sendIconSize: 15
+        cornerRadius: 20,
+        borderWidth: 0.6,
+        horizontalPadding: 14,
+        verticalPadding: 9,
+        shadowRadius: 14,
+        shadowYOffset: 6,
+        sendButtonSize: 36,
+        sendIconSize: 14
     )
 
     static let compactChat = AssistantComposerMetrics(

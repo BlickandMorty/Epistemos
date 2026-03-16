@@ -1,3 +1,4 @@
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -272,6 +273,30 @@ struct NotesSidebarHoverTickState {
         guard hovering != isHovering else { return false }
         isHovering = hovering
         return hovering
+    }
+}
+
+struct NotesSidebarHoverHapticRecipe: Sendable {
+    let pattern: NSHapticFeedbackManager.FeedbackPattern
+    let pulseCount: Int
+}
+
+enum NotesSidebarHoverHapticStyle: Sendable {
+    case tick
+    case pump
+
+    var recipe: NotesSidebarHoverHapticRecipe {
+        switch self {
+        case .tick:
+            NotesSidebarHoverHapticRecipe(pattern: .generic, pulseCount: 1)
+        case .pump:
+            NotesSidebarHoverHapticRecipe(pattern: .levelChange, pulseCount: 1)
+        }
+    }
+
+    @MainActor
+    func perform() {
+        HapticHelper.perform(recipe.pattern, pulseCount: recipe.pulseCount)
     }
 }
 
@@ -1598,6 +1623,7 @@ private struct FolderRow: View {
                 }
             }
             .physicsHover(.subtle)
+            .notesSidebarHoverPump()
 
             // Expanded: child folders + child pages
             if renderChildren && isExpanded {
@@ -1696,6 +1722,7 @@ private struct JournalFolderRow: View {
                     onAction(.newJournalEntry)
                 }
             }
+            .notesSidebarHoverPump()
 
             if renderChildren && isExpanded {
                 ForEach(journals) { page in
@@ -1758,6 +1785,7 @@ private struct IdeasFolderRow: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 4)
+            .notesSidebarHoverPump()
 
             if renderChildren && isExpanded {
                 ForEach(ideas.prefix(20)) { idea in
@@ -2215,7 +2243,8 @@ private struct SidebarIconButton: View {
     }
 }
 
-private struct NotesSidebarHoverTickModifier: ViewModifier {
+private struct NotesSidebarHoverModifier: ViewModifier {
+    let style: NotesSidebarHoverHapticStyle
     @State private var tickState = NotesSidebarHoverTickState()
 
     func body(content: Content) -> some View {
@@ -2224,13 +2253,21 @@ private struct NotesSidebarHoverTickModifier: ViewModifier {
             let shouldTick = nextState.update(hovering: hovering)
             tickState = nextState
             guard shouldTick else { return }
-            HapticHelper.softTick()
+            style.perform()
         }
     }
 }
 
 private extension View {
+    func notesSidebarHoverHaptic(_ style: NotesSidebarHoverHapticStyle) -> some View {
+        modifier(NotesSidebarHoverModifier(style: style))
+    }
+
     func notesSidebarHoverTick() -> some View {
-        modifier(NotesSidebarHoverTickModifier())
+        notesSidebarHoverHaptic(.tick)
+    }
+
+    func notesSidebarHoverPump() -> some View {
+        notesSidebarHoverHaptic(.pump)
     }
 }

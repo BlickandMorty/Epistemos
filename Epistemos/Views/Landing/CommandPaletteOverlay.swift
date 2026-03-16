@@ -280,27 +280,21 @@ struct CommandPaletteOverlay: View {
                     }
 
                     HStack(spacing: 6) {
-                        Button {
-                            if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
-                        } label: {
-                            Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
-                                .frame(width: 14, height: 14)
-                        }
-                        .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
-                        .help(chat.isResearchMode ? "Research Mode: ON (full pipeline)" : "Research Mode: OFF (direct chat)")
+                        ResearchModeControl(variant: .toolbar)
 
-                        Button {
+                        ExpandingModeButton(
+                            title: "Incognito",
+                            systemImage: chat.isIncognito ? "eye.slash.fill" : "eye.slash",
+                            isActive: chat.isIncognito,
+                            variant: .toolbar,
+                            helpText: chat.isIncognito ? "Incognito On" : "Enable Incognito",
+                            stableWidth: NativeControlSystem.reservedWidth(
+                                for: "Incognito",
+                                variant: .toolbar
+                            )
+                        ) {
                             chat.isIncognito.toggle()
-                        } label: {
-                            Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(chat.isIncognito ? .orange : theme.textTertiary)
-                                .frame(width: 14, height: 14)
                         }
-                        .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
-                        .help(chat.isIncognito ? "Incognito: ON (not saved)" : "Incognito: OFF")
 
                         Spacer()
 
@@ -477,7 +471,6 @@ struct CommandPaletteOverlay: View {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
-        .fixedSize()
         .help(paletteChatMode == .auto ? "Auto routing" : (paletteOverrideProvider?.displayName ?? "Cloud"))
     }
 

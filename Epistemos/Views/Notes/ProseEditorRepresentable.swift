@@ -263,8 +263,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
                     pageId: pageId, scrollY: scrollY, selection: selection
                 )
                 // Reposition transclusion overlays on scroll
-                coord.transclusionManager?.refresh()
-                coord.renderedTableOverlayManager?.refresh()
+                coord.transclusionManager?.refreshForScroll()
+                coord.renderedTableOverlayManager?.refreshForScroll()
             }
         }
 
@@ -523,7 +523,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
             let safeLoc = min(sel.location, tv.string.utf16.count)
             tv.setSelectedRange(NSRange(location: safeLoc, length: 0))
             Self.updateCenteringInsets(for: tv)
-            coord.renderedTableOverlayManager?.refresh()
+            coord.transclusionManager?.refreshAfterTextChange()
+            coord.renderedTableOverlayManager?.refreshAfterTextChange()
         }
 
         // Focus management (Pitfall #4)
@@ -851,8 +852,8 @@ struct ProseEditorRepresentable: NSViewRepresentable {
 
 
             // Refresh transclusion overlays
-            transclusionManager?.refresh()
-            renderedTableOverlayManager?.refresh()
+            transclusionManager?.refreshAfterTextChange()
+            renderedTableOverlayManager?.refreshAfterTextChange()
 
             // Data detection (1s debounce — scans full document for dates, addresses, etc.)
             scheduleDataDetection(tv)

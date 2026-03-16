@@ -279,8 +279,9 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarMetrics.buttonSide == 28)
         #expect(NoteToolbarMetrics.buttonSide == NoteToolbarMetrics.iconSide * 2)
         #expect(NoteToolbarMetrics.chatFieldWidth == 180)
-        #expect(NoteToolbarMetrics.stripGlowBlurRadius == 6)
-        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0.012)
+        #expect(NoteToolbarMetrics.containerHorizontalPadding == 8)
+        #expect(NoteToolbarMetrics.containerVerticalPadding == 3)
+        #expect(NoteToolbarMetrics.previewExpandedWidthBonus > 0)
     }
 
     @Test("Preview mode follows the active editor stack and preserves uppercase heading display")
@@ -584,5 +585,41 @@ struct NotesSidebarVisibleTreeBuilderTests {
             .folder(id: "leaf", indent: 0),
             .emptyFolder(id: "leaf", indent: 1),
         ])
+    }
+}
+
+@Suite("Notes Sidebar Hover Haptics")
+struct NotesSidebarHoverHapticsTests {
+
+    @Test("File hover stays crisp while folder hover uses a distinct single pump")
+    func folderHoverUsesPumpPattern() {
+        let tick = NotesSidebarHoverHapticStyle.tick.recipe
+        let pump = NotesSidebarHoverHapticStyle.pump.recipe
+
+        #expect(
+            tick.pattern == NSHapticFeedbackManager.FeedbackPattern.generic
+        )
+        #expect(tick.pulseCount == 1)
+        #expect(
+            pump.pattern == NSHapticFeedbackManager.FeedbackPattern.levelChange
+        )
+        #expect(pump.pulseCount == 1)
+    }
+
+    @Test("Hover haptics fire only when the pointer enters a row")
+    func hoverHapticsOnlyTriggerOnEntry() {
+        var state = NotesSidebarHoverTickState()
+
+        let initial = state.update(hovering: false)
+        let firstEntry = state.update(hovering: true)
+        let repeatedHover = state.update(hovering: true)
+        let exit = state.update(hovering: false)
+        let reentry = state.update(hovering: true)
+
+        #expect(!initial)
+        #expect(firstEntry)
+        #expect(!repeatedHover)
+        #expect(!exit)
+        #expect(reentry)
     }
 }

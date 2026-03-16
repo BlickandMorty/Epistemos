@@ -569,17 +569,23 @@ struct NoteEditorRenderedTablePopoverContent: View {
     }
 }
 
-struct MarkdownPreviewSurfaceMetrics: Equatable {
+struct MarkdownPreviewSurfaceMetrics: Equatable, Sendable {
     let cornerRadius: CGFloat
     let borderWidth: CGFloat
     let contentPadding: CGFloat
     let verticalSpacing: CGFloat
+    let topEdgeWidth: CGFloat
+    let bottomEdgeWidth: CGFloat
+    let rightEdgeWidth: CGFloat
 
-    static let `default` = MarkdownPreviewSurfaceMetrics(
-        cornerRadius: 14,
+    nonisolated static let `default` = MarkdownPreviewSurfaceMetrics(
+        cornerRadius: 0,
         borderWidth: 0.55,
         contentPadding: 12,
-        verticalSpacing: 2
+        verticalSpacing: 2,
+        topEdgeWidth: 1,
+        bottomEdgeWidth: 3,
+        rightEdgeWidth: 1
     )
 }
 
@@ -595,26 +601,68 @@ enum MarkdownPreviewSurfaceStyle {
     static func borderColor(for theme: EpistemosTheme) -> Color {
         theme.glassBorder.opacity(borderOpacity(isDark: theme.isDark))
     }
+
+    static func topEdgeColor(for theme: EpistemosTheme) -> Color {
+        Color.black.opacity(theme.isDark ? 0.14 : 0.08)
+    }
+
+    static func bottomEdgeColor(for theme: EpistemosTheme) -> Color {
+        Color.black.opacity(theme.isDark ? 0.22 : 0.14)
+    }
+
+    static func rightEdgeColor(for theme: EpistemosTheme) -> Color {
+        Color.black.opacity(theme.isDark ? 0.14 : 0.08)
+    }
 }
 
 private struct MarkdownPreviewSurfaceModifier: ViewModifier {
     let theme: EpistemosTheme
     let metrics: MarkdownPreviewSurfaceMetrics
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .hoverGlass(
-                flatBackground: MarkdownPreviewSurfaceStyle.flatBackground(for: theme),
-                cornerRadius: metrics.cornerRadius
-            )
-            .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        MarkdownPreviewSurfaceStyle.borderColor(for: theme),
-                        lineWidth: metrics.borderWidth
-                    )
-            }
+        if metrics.cornerRadius == 0 {
+            content
+                .hoverGlass(
+                    flatBackground: MarkdownPreviewSurfaceStyle.flatBackground(for: theme),
+                    cornerRadius: 0
+                )
+                .clipShape(Rectangle())
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(MarkdownPreviewSurfaceStyle.borderColor(for: theme))
+                        .frame(width: metrics.borderWidth)
+                }
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(MarkdownPreviewSurfaceStyle.topEdgeColor(for: theme))
+                        .frame(height: metrics.topEdgeWidth)
+                }
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(MarkdownPreviewSurfaceStyle.bottomEdgeColor(for: theme))
+                        .frame(height: metrics.bottomEdgeWidth)
+                }
+                .overlay(alignment: .trailing) {
+                    Rectangle()
+                        .fill(MarkdownPreviewSurfaceStyle.rightEdgeColor(for: theme))
+                        .frame(width: metrics.rightEdgeWidth)
+                }
+        } else {
+            content
+                .hoverGlass(
+                    flatBackground: MarkdownPreviewSurfaceStyle.flatBackground(for: theme),
+                    cornerRadius: metrics.cornerRadius
+                )
+                .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
+                        .strokeBorder(
+                            MarkdownPreviewSurfaceStyle.borderColor(for: theme),
+                            lineWidth: metrics.borderWidth
+                        )
+                }
+        }
     }
 }
 
@@ -1053,28 +1101,33 @@ struct MarkdownTextView: View {
             }
             .padding(.leading, PreviewTypography.listIndent)
         case .blockquote(let text):
-            HStack(alignment: .top, spacing: 14) {
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(theme.accent.opacity(0.5))
-                    .frame(width: 3)
-                inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
-                    .font(.system(size: PreviewTypography.bodyFontSize))
-                    .lineSpacing(PreviewTypography.bodyLineSpacing)
-                    .italic()
-                    .foregroundStyle(theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .asciiRippleOverlay(
-                        text: MarkdownRippleTextExtractor.displayText(from: text),
-                        font: .system(size: PreviewTypography.bodyFontSize),
-                        color: theme.textSecondary,
-                        lineSpacing: PreviewTypography.bodyLineSpacing,
-                        enabled: rippleStyle.includesBodyBlocks
-                    )
-            }
-            .padding(MarkdownPreviewSurfaceMetrics.default.contentPadding)
+            let metrics = MarkdownPreviewSurfaceMetrics.default
+            let railWidth: CGFloat = 3
+            inlineMarkdown(text, baseFontSize: PreviewTypography.bodyFontSize)
+                .font(.system(size: PreviewTypography.bodyFontSize))
+                .lineSpacing(PreviewTypography.bodyLineSpacing)
+                .italic()
+                .foregroundStyle(theme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, metrics.contentPadding)
+                .padding(.bottom, metrics.contentPadding)
+                .padding(.trailing, metrics.contentPadding)
+                .padding(.leading, metrics.contentPadding + railWidth + 14)
+                .asciiRippleOverlay(
+                    text: MarkdownRippleTextExtractor.displayText(from: text),
+                    font: .system(size: PreviewTypography.bodyFontSize),
+                    color: theme.textSecondary,
+                    lineSpacing: PreviewTypography.bodyLineSpacing,
+                    enabled: rippleStyle.includesBodyBlocks
+                )
             .frame(maxWidth: .infinity, alignment: .leading)
             .markdownPreviewSurface(theme: theme)
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(theme.accent.opacity(0.5))
+                    .frame(width: railWidth)
+            }
             .padding(.vertical, MarkdownPreviewSurfaceMetrics.default.verticalSpacing)
         case .codeBlock(let language, let code):
             VStack(alignment: .leading, spacing: 4) {

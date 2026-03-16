@@ -57,8 +57,35 @@ struct TypewriterPlainText: View {
 
 enum HapticHelper {
     @MainActor
+    static func perform(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
+        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
+    }
+
+    @MainActor
+    static func perform(
+        _ pattern: NSHapticFeedbackManager.FeedbackPattern,
+        pulseCount: Int
+    ) {
+        guard pulseCount > 0 else { return }
+        perform(pattern)
+        guard pulseCount > 1 else { return }
+
+        Task { @MainActor in
+            for _ in 1..<pulseCount {
+                try? await Task.sleep(for: .milliseconds(40))
+                perform(pattern)
+            }
+        }
+    }
+
+    @MainActor
     static func softTick() {
-        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        perform(.generic)
+    }
+
+    @MainActor
+    static func softPump() {
+        perform(.levelChange)
     }
 
     /// Fires a single alignment haptic on the Force Touch trackpad.

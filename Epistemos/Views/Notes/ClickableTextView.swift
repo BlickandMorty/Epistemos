@@ -1051,6 +1051,9 @@ final class RenderedTableOverlayManager {
     private weak var textView: ClickableTextView?
     private var overlays: [String: NoteEditorRenderedTableHostingView] = [:]
     private var theme: EpistemosTheme
+    private var documentMayContainTables = false
+    private var scrollRefreshTask: Task<Void, Never>?
+    var onDidRefresh: (() -> Void)?
 
     init(textView: ClickableTextView, theme: EpistemosTheme) {
         self.textView = textView
@@ -1063,7 +1066,31 @@ final class RenderedTableOverlayManager {
         refresh()
     }
 
+    func refreshAfterTextChange() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
+        refresh(recalculateDocumentState: true)
+    }
+
+    func refreshForScroll() {
+        guard documentMayContainTables || !overlays.isEmpty else { return }
+        guard scrollRefreshTask == nil else { return }
+
+        scrollRefreshTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.scrollRefreshTask = nil
+            self.refresh(recalculateDocumentState: false)
+        }
+    }
+
     func refresh() {
+        refresh(recalculateDocumentState: true)
+    }
+
+    private func refresh(recalculateDocumentState: Bool) {
+        onDidRefresh?()
+
         guard let textView,
               let layoutManager = textView.layoutManager,
               let textContainer = textView.textContainer,
@@ -1071,6 +1098,15 @@ final class RenderedTableOverlayManager {
         else { return }
 
         let text = storage.string as NSString
+        if recalculateDocumentState {
+            documentMayContainTables = storage.string.contains("|")
+            if !documentMayContainTables {
+                removeAll()
+                return
+            }
+        } else if !documentMayContainTables && overlays.isEmpty {
+            return
+        }
         guard text.length > 0 else {
             removeAll()
             return
@@ -1125,6 +1161,8 @@ final class RenderedTableOverlayManager {
     }
 
     func removeAll() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
         for overlay in overlays.values {
             overlay.removeFromSuperview()
         }

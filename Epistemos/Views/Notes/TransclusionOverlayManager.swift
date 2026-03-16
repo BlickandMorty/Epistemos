@@ -18,9 +18,12 @@ final class TransclusionOverlayManager {
     private weak var textView: NSTextView?
     private var overlays: [String: EditableTransclusionView] = [:] // blockId -> overlay
     private var modelContext: ModelContext?
+    private var documentMayContainBlockRefs = false
+    private var scrollRefreshTask: Task<Void, Never>?
 
     /// Callback when a transclusion is edited. (blockId, newContent)
     var onBlockEdit: ((String, String) -> Void)?
+    var onDidRefresh: (() -> Void)?
 
     /// Maximum transclusion depth to prevent circular references.
     private static let maxDepth = 3
@@ -35,13 +38,47 @@ final class TransclusionOverlayManager {
 
     // MARK: - Refresh
 
+    func refreshAfterTextChange() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
+        refresh(recalculateDocumentState: true)
+    }
+
+    func refreshForScroll() {
+        guard documentMayContainBlockRefs || !overlays.isEmpty else { return }
+        guard scrollRefreshTask == nil else { return }
+
+        scrollRefreshTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.scrollRefreshTask = nil
+            self.refresh(recalculateDocumentState: false)
+        }
+    }
+
     /// Scan visible text for ((ref)) markers and position overlays.
     /// Called after text changes and on scroll.
     func refresh() {
+        refresh(recalculateDocumentState: true)
+    }
+
+    private func refresh(recalculateDocumentState: Bool) {
+        onDidRefresh?()
+
         guard let textView, let layoutManager = textView.layoutManager,
               let textContainer = textView.textContainer,
               let storage = textView.textStorage
         else { return }
+
+        if recalculateDocumentState {
+            documentMayContainBlockRefs = storage.string.contains("((")
+            if !documentMayContainBlockRefs {
+                removeAll()
+                return
+            }
+        } else if !documentMayContainBlockRefs && overlays.isEmpty {
+            return
+        }
 
         let visibleRect = textView.visibleRect
         let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
@@ -118,6 +155,8 @@ final class TransclusionOverlayManager {
 
     /// Remove all overlays (called on page switch or dealloc).
     func removeAll() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
         for (_, overlay) in overlays {
             overlay.removeFromSuperview()
         }
