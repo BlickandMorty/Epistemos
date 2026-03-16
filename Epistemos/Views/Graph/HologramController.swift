@@ -105,8 +105,8 @@ final class HologramController {
         prepareOverlayForGlobalMode()
     }
 
-    func syncTheme(_ theme: EpistemosTheme) {
-        overlay?.syncTheme(theme: theme)
+    func syncTheme(_ uiState: UIState) {
+        overlay?.syncTheme(uiState: uiState)
     }
 
     var isVisible: Bool {

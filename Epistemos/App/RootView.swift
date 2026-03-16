@@ -74,8 +74,8 @@ struct RootView: View {
             appearanceObserver.stop()
         }
         .onChange(of: ui.appearanceSyncKey) { _, _ in
-            UtilityWindowManager.shared.syncTheme(isDark: ui.theme.isDark)
-            HologramController.shared.syncTheme(ui.theme)
+            UtilityWindowManager.shared.syncTheme(uiState: ui)
+            HologramController.shared.syncTheme(ui)
         }
         .toolbar {
             // Back button — only during active chat on Home tab

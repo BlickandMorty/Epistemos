@@ -155,10 +155,9 @@ final class CommandPaletteWindowController {
 
     // MARK: - Theme
 
-    func syncTheme(isDark: Bool) {
-        let appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
-        panel?.appearance = appearance
-        hostView?.appearance = appearance
+    func syncTheme(uiState: UIState) {
+        panel?.appearance = uiState.windowAppearance
+        hostView?.appearance = uiState.windowAppearance
         CommandPaletteWindowTransparency.apply(to: panel)
         panel?.displayIfNeeded()
         panel?.invalidateShadow()

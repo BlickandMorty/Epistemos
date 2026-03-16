@@ -42,16 +42,14 @@ enum NoteWindowChrome {
 @MainActor
 enum NoteWindowThemeStyler {
     static func apply(to window: NSWindow, uiState: UIState) {
-        window.appearance = uiState.customThemesEnabled
-            ? NSAppearance(named: uiState.theme.isDark ? .darkAqua : .aqua)
-            : nil
+        window.appearance = uiState.windowAppearance
         window.isOpaque = !uiState.usesNativeWindowBlur
         window.backgroundColor = uiState.windowBackgroundColor
         window.titlebarAppearsTransparent = true
         window.toolbar?.showsBaselineSeparator = false
         window.toolbarStyle = .unified
         if uiState.shouldUseThemeWorkarounds {
-            window.updateGlassToolbarTheme(uiState.theme)
+            window.applyThemedGlassToolbar(configuration: GlassToolbarConfiguration(theme: uiState.theme))
         } else {
             window.removeGlassToolbarTheme()
         }

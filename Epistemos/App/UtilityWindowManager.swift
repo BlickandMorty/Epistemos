@@ -29,9 +29,7 @@ enum WindowThemeStyler {
     }
 
     static func apply(to window: NSWindow, uiState: UIState) {
-        window.appearance = uiState.customThemesEnabled
-            ? NSAppearance(named: uiState.theme.isDark ? .darkAqua : .aqua)
-            : nil
+        window.appearance = uiState.windowAppearance
         window.isOpaque = !uiState.usesNativeWindowBlur
         window.backgroundColor = uiState.windowBackgroundColor
         applyBackdrop(in: window.contentView, uiState: uiState)
@@ -147,15 +145,13 @@ final class UtilityWindowManager {
 
     /// Sync appearance of all open utility windows to the current theme.
     /// Call this whenever the theme changes so live windows update immediately.
-    func syncTheme(isDark: Bool) {
-        if let uiState = AppBootstrap.shared?.uiState {
-            for panel in panels.values {
-                WindowThemeStyler.apply(to: panel, uiState: uiState)
-            }
-            NoteWindowManager.shared.syncTheme(uiState: uiState)
-            MiniChatWindowController.shared.syncTheme(isDark: isDark)
+    func syncTheme(uiState: UIState) {
+        for panel in panels.values {
+            WindowThemeStyler.apply(to: panel, uiState: uiState)
         }
-        CommandPaletteWindowController.shared.syncTheme(isDark: isDark)
+        NoteWindowManager.shared.syncTheme(uiState: uiState)
+        MiniChatWindowController.shared.syncTheme(uiState: uiState)
+        CommandPaletteWindowController.shared.syncTheme(uiState: uiState)
     }
 
     private func windowFor(_ panel: UtilityPanel) -> NSWindow? {

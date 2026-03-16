@@ -5,6 +5,22 @@ import Testing
 
 @Suite("ThemePair Dock Icon")
 struct ThemePairTests {
+    @MainActor
+    private func withPreservedThemeDefaults(_ body: () -> Void) {
+        let defaults = UserDefaults.standard
+        let keys = [ThemeMode.defaultsKey, UIState.themePairDefaultsKey]
+        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
+        defer {
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+        body()
+    }
 
     @Test("Magnolia resolves to the new ash-rose light and nocturne dark themes")
     func magnoliaPairMapping() {
@@ -129,6 +145,55 @@ struct ThemePairTests {
         #expect(uiState.activePair == .platinum)
         #expect(uiState.preferredColorScheme != nil)
         #expect(uiState.shouldUseThemeWorkarounds)
+    }
+
+    @MainActor
+    @Test("Toggling custom themes gates the remembered pair without losing it")
+    func togglingCustomThemesGatesRememberedPair() {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: ThemeMode.defaultsKey)
+            defaults.removeObject(forKey: UIState.themePairDefaultsKey)
+
+            let uiState = UIState()
+
+            uiState.setPair(.magnolia)
+            uiState.setThemeMode(.custom)
+
+            #expect(uiState.customThemesEnabled)
+            #expect(uiState.activePair == .magnolia)
+            #expect(uiState.preferredColorScheme != nil)
+            #expect(uiState.windowAppearance != nil)
+
+            uiState.setCustomThemesEnabled(false)
+
+            #expect(uiState.customThemesEnabled == false)
+            #expect(uiState.activePair == .magnolia)
+            #expect(uiState.preferredColorScheme == nil)
+            #expect(uiState.shouldUseThemeWorkarounds == false)
+            #expect(uiState.windowAppearance == nil)
+        }
+    }
+
+    @MainActor
+    @Test("System default keeps window appearance unforced while custom themes opt in")
+    func windowAppearanceTracksThemeMode() {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: ThemeMode.defaultsKey)
+            defaults.removeObject(forKey: UIState.themePairDefaultsKey)
+
+            let uiState = UIState()
+
+            #expect(uiState.themeMode == .systemDefault)
+            #expect(uiState.windowAppearance == nil)
+
+            uiState.setPair(.platinum)
+            uiState.setThemeMode(.custom)
+            uiState.isSystemDark = true
+
+            #expect(uiState.windowAppearance?.name == .darkAqua)
+        }
     }
 
     @MainActor

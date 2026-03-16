@@ -655,9 +655,7 @@ struct NoteDetailWorkspaceView: View {
         }
         .onChange(of: ui.appearanceSyncKey) { _, _ in
             if let window = NSApp.keyWindow {
-                window.appearance = ui.customThemesEnabled
-                    ? NSAppearance(named: ui.theme.isDark ? .darkAqua : .aqua)
-                    : nil
+                window.appearance = ui.windowAppearance
                 window.backgroundColor = ui.windowBackgroundColor
             }
         }

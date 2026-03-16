@@ -75,11 +75,9 @@ final class MiniChatWindowController: NSWindowController {
     func hide() { window?.orderOut(nil) }
 
     /// Sync NSPanel appearance and background to the current theme.
-    func syncTheme(isDark: Bool) {
+    func syncTheme(uiState: UIState) {
         guard let window else { return }
-        if let uiState = AppBootstrap.shared?.uiState {
-            WindowThemeStyler.apply(to: window, uiState: uiState)
-        }
+        WindowThemeStyler.apply(to: window, uiState: uiState)
     }
 
     private func showPanel() {

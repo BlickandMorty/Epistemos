@@ -77,6 +77,11 @@ final class UIState {
     var customThemesEnabled: Bool { themeMode == .custom }
     var preferredColorScheme: ColorScheme? { customThemesEnabled ? theme.colorScheme : nil }
     var shouldUseThemeWorkarounds: Bool { customThemesEnabled }
+    var windowAppearance: NSAppearance? {
+        customThemesEnabled
+            ? NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+            : nil
+    }
     var usesNativeWindowBlur: Bool { themeMode == .systemDefault || theme.usesNativeWindowBlur }
     var wallpaperBackground: Color {
         customThemesEnabled ? theme.background : Color(nsColor: .windowBackgroundColor)
