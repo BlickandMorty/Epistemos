@@ -7,6 +7,7 @@ import Foundation
 struct GraphPhysicsSettingsAuditTests {
     private let performanceModeKey = "epistemos.graph.performanceMode"
     private let visualThemeKey = "graphVisualTheme"
+    private let visualThemeMigrationKey = "epistemos.graph.visualTheme.migratedClassicDefault"
     private let physicsKeys: [String] = [
         "epistemos.physics.hasSavedSettings",
         "epistemos.physics.version",
@@ -44,6 +45,7 @@ struct GraphPhysicsSettingsAuditTests {
         }
         defaults.removeObject(forKey: performanceModeKey)
         defaults.removeObject(forKey: visualThemeKey)
+        defaults.removeObject(forKey: visualThemeMigrationKey)
     }
 
     private func waitForPreset(
@@ -203,10 +205,23 @@ struct GraphPhysicsSettingsAuditTests {
     func visualThemeRestoresPersistedChoice() {
         clearPhysicsDefaults()
         UserDefaults.standard.set(Int(GraphVisualTheme.dialogue.rawValue), forKey: visualThemeKey)
+        UserDefaults.standard.set(true, forKey: visualThemeMigrationKey)
 
         let state = GraphState()
 
         #expect(state.visualTheme == .dialogue)
+    }
+
+    @Test("Legacy dialogue visual theme migrates to classic when no explicit choice remains")
+    func legacyDialogueVisualThemeMigratesToClassic() {
+        clearPhysicsDefaults()
+        UserDefaults.standard.set(Int(GraphVisualTheme.dialogue.rawValue), forKey: visualThemeKey)
+
+        let state = GraphState()
+
+        #expect(state.visualTheme == .classic)
+        #expect(UserDefaults.standard.integer(forKey: visualThemeKey) == Int(GraphVisualTheme.classic.rawValue))
+        #expect(UserDefaults.standard.bool(forKey: visualThemeMigrationKey))
     }
 }
 

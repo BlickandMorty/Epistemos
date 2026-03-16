@@ -254,6 +254,16 @@ final class GraphState {
     let filter = FilterEngine()
 
     private static let visualThemeDefaultsKey = "graphVisualTheme"
+    private static let visualThemeMigrationDefaultsKey =
+        "epistemos.graph.visualTheme.migratedClassicDefault"
+
+    private static func persistVisualThemeMigration(
+        _ theme: GraphVisualTheme,
+        defaults: UserDefaults
+    ) {
+        defaults.set(Int(theme.rawValue), forKey: visualThemeDefaultsKey)
+        defaults.set(true, forKey: visualThemeMigrationDefaultsKey)
+    }
 
     private static func restoredVisualTheme(defaults: UserDefaults = .standard) -> GraphVisualTheme {
         guard let storedValue = defaults.object(forKey: visualThemeDefaultsKey) as? NSNumber else {
@@ -261,9 +271,20 @@ final class GraphState {
         }
         let rawValue = storedValue.intValue
         guard (0...Int(UInt8.max)).contains(rawValue) else {
+            persistVisualThemeMigration(.classic, defaults: defaults)
             return .classic
         }
-        return GraphVisualTheme(rawValue: UInt8(rawValue)) ?? .classic
+        let migrated = defaults.bool(forKey: visualThemeMigrationDefaultsKey)
+        if !migrated && rawValue == Int(GraphVisualTheme.dialogue.rawValue) {
+            persistVisualThemeMigration(.classic, defaults: defaults)
+            return .classic
+        }
+        guard let theme = GraphVisualTheme(rawValue: UInt8(rawValue)) else {
+            persistVisualThemeMigration(.classic, defaults: defaults)
+            return .classic
+        }
+        defaults.set(true, forKey: visualThemeMigrationDefaultsKey)
+        return theme
     }
 
     /// Rust engine handle set by MetalGraphNSView after engine creation.
