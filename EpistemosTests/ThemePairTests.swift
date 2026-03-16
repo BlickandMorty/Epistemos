@@ -52,6 +52,46 @@ struct ThemePairTests {
         #expect(uiState.activePair == .platinum)
     }
 
+    @MainActor
+    @Test("UIState enables landing greeting and cursor controls with default tuning")
+    func uiStateLandingAnimationDefaults() {
+        let defaults = UserDefaults.standard
+        let keys = [
+            LandingCursorAnimationPolicy.defaultsKey,
+            LandingGreetingAnimationPolicy.enabledDefaultsKey,
+            LandingGreetingAnimationPolicy.intensityDefaultsKey,
+            LandingGreetingAnimationPolicy.varietyDefaultsKey,
+            LandingGreetingAnimationPolicy.paceDefaultsKey,
+            LandingWakeFieldPolicy.responseDefaultsKey,
+            LandingWakeFieldPolicy.spreadDefaultsKey,
+            LandingWakeFieldPolicy.trailDefaultsKey,
+        ]
+        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
+        defer {
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+        for key in keys {
+            defaults.removeObject(forKey: key)
+        }
+
+        let uiState = UIState()
+
+        #expect(uiState.landingCursorAnimationEnabled == LandingCursorAnimationPolicy.defaultValue)
+        #expect(uiState.landingGreetingAnimationEnabled == LandingGreetingAnimationPolicy.defaultEnabled)
+        #expect(uiState.landingGreetingIntensity == LandingGreetingAnimationPolicy.defaultIntensity)
+        #expect(uiState.landingGreetingCharacterVariety == LandingGreetingAnimationPolicy.defaultVariety)
+        #expect(uiState.landingGreetingPace == LandingGreetingAnimationPolicy.defaultPace)
+        #expect(uiState.landingCursorResponse == LandingWakeFieldPolicy.defaultResponse)
+        #expect(uiState.landingCursorSpread == LandingWakeFieldPolicy.defaultSpread)
+        #expect(uiState.landingCursorTrail == LandingWakeFieldPolicy.defaultTrail)
+    }
+
     @Test("Magnolia uses a rose display accent for app titles and headings")
     func magnoliaUsesRoseDisplayAccent() {
         #expect(EpistemosTheme.magnolia.headingAccentHex == 0xB86F8D)

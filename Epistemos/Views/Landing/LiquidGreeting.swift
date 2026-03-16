@@ -14,9 +14,10 @@ struct LiquidGreeting: View {
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
 
+    nonisolated static let greetingGlyphPool = Array("·:*+#░▒▓█▄▀▌▐■┐┌┘┴┬╬")
     nonisolated static let greetingRippleConfiguration = ASCIIRippleConfiguration(
         duration: 0.34,
-        characters: Array("·:*+#░▒▓█▄▀▌▐■┐┌┘┴┬╬"),
+        characters: greetingGlyphPool,
         preserveSpaces: true,
         spread: 1.26,
         waveThreshold: 1.64,
@@ -31,6 +32,64 @@ struct LiquidGreeting: View {
     nonisolated static let greetingRippleMilestoneStride = 4
     nonisolated static let greetingMorphTransitionInterval = 3
     nonisolated static let greetingMorphFrameDelayRange = 24...42
+
+    nonisolated static func tunedRippleConfiguration(
+        intensity: Double,
+        variety: Double
+    ) -> ASCIIRippleConfiguration {
+        let clampedIntensity = max(0, min(1, intensity))
+        let clampedVariety = max(0, min(1, variety))
+        let minCharacterCount = 6
+        let characterCount = min(
+            greetingGlyphPool.count,
+            max(
+                minCharacterCount,
+                Int(round(Double(minCharacterCount) + clampedVariety * Double(greetingGlyphPool.count - minCharacterCount)))
+            )
+        )
+        return ASCIIRippleConfiguration(
+            duration: 0.28 + (0.12 * clampedIntensity),
+            characters: Array(greetingGlyphPool.prefix(characterCount)),
+            preserveSpaces: true,
+            spread: 0.98 + (0.42 * clampedIntensity),
+            waveThreshold: 1.9 - (0.42 * clampedIntensity),
+            characterMultiplier: max(1, Int(round(1 + (clampedVariety * 2)))),
+            animationStep: 0.07 - (0.02 * clampedIntensity),
+            waveBuffer: 1.45 + (0.35 * clampedIntensity)
+        )
+    }
+
+    nonisolated static func tunedCharacterDelayRange(pace: Double) -> ClosedRange<Double> {
+        let clampedPace = max(0, min(1, pace))
+        let lowerBound = 22 + (14 * clampedPace)
+        let upperBound = 38 + (18 * clampedPace)
+        return lowerBound...upperBound
+    }
+
+    nonisolated static func tunedPauseRange(pace: Double) -> ClosedRange<Int> {
+        let clampedPace = max(0, min(1, pace))
+        let lowerBound = Int(round(1500 + (1300 * clampedPace)))
+        let upperBound = Int(round(2200 + (1500 * clampedPace)))
+        return lowerBound...upperBound
+    }
+
+    nonisolated static func tunedShortPauseMilliseconds(pace: Double) -> Int {
+        Int(round(1100 + (700 * max(0, min(1, pace)))))
+    }
+
+    nonisolated static func tunedInterPhrasePauseRange(pace: Double) -> ClosedRange<Int> {
+        let clampedPace = max(0, min(1, pace))
+        let lowerBound = Int(round(180 + (120 * clampedPace)))
+        let upperBound = Int(round(280 + (140 * clampedPace)))
+        return lowerBound...upperBound
+    }
+
+    nonisolated static func tunedMorphFrameDelayRange(pace: Double) -> ClosedRange<Int> {
+        let clampedPace = max(0, min(1, pace))
+        let lowerBound = Int(round(18 + (10 * clampedPace)))
+        let upperBound = Int(round(32 + (16 * clampedPace)))
+        return lowerBound...upperBound
+    }
 
     nonisolated static func shouldPulseGreetingRipple(atTypedCharacterCount typedCount: Int, totalCount: Int) -> Bool {
         guard typedCount > 0, totalCount > 0 else { return false }
@@ -98,15 +157,37 @@ struct LiquidGreeting: View {
     private var theme: EpistemosTheme { ui.theme }
     private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
     private var usesSimplifiedGreeting: Bool { ui.displayMode.reducesASCIIAnimations }
+    private var greetingAnimationEnabled: Bool { ui.landingGreetingAnimationEnabled }
+    private var tunedRippleConfiguration: ASCIIRippleConfiguration {
+        Self.tunedRippleConfiguration(
+            intensity: ui.landingGreetingIntensity,
+            variety: ui.landingGreetingCharacterVariety
+        )
+    }
+    private var tunedCharacterDelayRange: ClosedRange<Double> {
+        Self.tunedCharacterDelayRange(pace: ui.landingGreetingPace)
+    }
+    private var tunedPauseRange: ClosedRange<Int> {
+        Self.tunedPauseRange(pace: ui.landingGreetingPace)
+    }
+    private var tunedShortPauseMilliseconds: Int {
+        Self.tunedShortPauseMilliseconds(pace: ui.landingGreetingPace)
+    }
+    private var tunedInterPhrasePauseRange: ClosedRange<Int> {
+        Self.tunedInterPhrasePauseRange(pace: ui.landingGreetingPace)
+    }
+    private var tunedMorphFrameDelayRange: ClosedRange<Int> {
+        Self.tunedMorphFrameDelayRange(pace: ui.landingGreetingPace)
+    }
 
     /// Single reactive flag — drives both typewriter and cursor via .task(id:)
     private var shouldAnimate: Bool {
-        ui.activePanel == .home && !ui.windowOccluded
+        ui.activePanel == .home && !ui.windowOccluded && greetingAnimationEnabled
     }
 
     /// Composite key so .task(id:) restarts when either flag changes
     private var taskKey: String {
-        "\(shouldAnimate)_\(retractNow)"
+        "\(shouldAnimate)_\(retractNow)_\(Int(ui.landingGreetingIntensity * 100))_\(Int(ui.landingGreetingCharacterVariety * 100))_\(Int(ui.landingGreetingPace * 100))"
     }
 
     // MARK: - Body
@@ -120,7 +201,7 @@ struct LiquidGreeting: View {
                 color: theme.fontAccent,
                 shadowColor: theme.fontAccent.opacity(0.12),
                 shadowRadius: compact ? 0 : 8,
-                configuration: Self.greetingRippleConfiguration,
+                configuration: tunedRippleConfiguration,
                 manualTrigger: rippleTrigger,
                 pulseOnAppear: false
             )
@@ -144,7 +225,7 @@ struct LiquidGreeting: View {
                 return
             }
             guard shouldAnimate else {
-                displayText = ""
+                displayText = vaultSync.isIndexing ? "syncing vault..." : "welcome back"
                 cursorVisible = false
                 return
             }
@@ -227,8 +308,8 @@ struct LiquidGreeting: View {
             }
 
             let pauseTime = currentPhrase.count < 8
-                ? Self.greetingShortPauseMilliseconds
-                : Int.random(in: Self.greetingPauseRange)
+                ? tunedShortPauseMilliseconds
+                : Int.random(in: tunedPauseRange)
             try? await Task.sleep(for: .milliseconds(pauseTime))
             guard !Task.isCancelled else { return }
 
@@ -241,7 +322,7 @@ struct LiquidGreeting: View {
             } else {
                 await untypePhrase(currentPhrase)
                 guard !Task.isCancelled else { return }
-                try? await Task.sleep(for: .milliseconds(Int.random(in: Self.greetingInterPhrasePauseRange)))
+                try? await Task.sleep(for: .milliseconds(Int.random(in: tunedInterPhrasePauseRange)))
                 guard !Task.isCancelled else { return }
             }
 
@@ -259,7 +340,7 @@ struct LiquidGreeting: View {
             }
 
             let ch = displayText.last ?? " "
-            var delay: Double = Double.random(in: Self.greetingCharacterDelayRange)
+            var delay: Double = Double.random(in: tunedCharacterDelayRange)
 
             if ".!?".contains(ch) { delay += Double.random(in: 80...160) }
             else if ",;:".contains(ch) { delay += Double.random(in: 40...90) }
@@ -294,7 +375,7 @@ struct LiquidGreeting: View {
             guard !Task.isCancelled else { return }
             displayText = frame
             triggerGreetingRipple()
-            try? await Task.sleep(for: .milliseconds(Int.random(in: Self.greetingMorphFrameDelayRange)))
+            try? await Task.sleep(for: .milliseconds(Int.random(in: tunedMorphFrameDelayRange)))
         }
     }
 

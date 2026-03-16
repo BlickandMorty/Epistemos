@@ -20,6 +20,8 @@ struct RootView: View {
 
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
+    @State private var showLandingCursorControls = false
+    @State private var showLandingGreetingControls = false
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
     /// Only delays the *reveal*; hiding is always immediate.
@@ -92,6 +94,7 @@ struct RootView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 if ui.homeTab == .home {
                     if chat.showLanding || chat.messages.isEmpty {
+                        landingGreetingToolbarButton
                         landingCursorToolbarButton
                     }
 
@@ -204,7 +207,7 @@ struct RootView: View {
 
     private var landingCursorToolbarButton: some View {
         Button {
-            ui.landingCursorAnimationEnabled.toggle()
+            showLandingCursorControls.toggle()
         } label: {
             Label(
                 "Cursor FX",
@@ -220,9 +223,44 @@ struct RootView: View {
         )
         .help(
             ui.landingCursorAnimationEnabled
-                ? "Disable landing cursor animation"
-                : "Enable landing cursor animation"
+                ? "Adjust landing cursor animation"
+                : "Landing cursor animation is off"
         )
+        .popover(isPresented: $showLandingCursorControls) {
+            LandingCursorControlsView()
+                .frame(width: 320)
+                .padding(16)
+                .preferredColorScheme(ui.theme.colorScheme)
+        }
+    }
+
+    private var landingGreetingToolbarButton: some View {
+        Button {
+            showLandingGreetingControls.toggle()
+        } label: {
+            Label(
+                "Greeting FX",
+                systemImage: ui.landingGreetingAnimationEnabled
+                    ? "textformat"
+                    : "textformat.slash"
+            )
+        }
+        .accessibilityLabel(
+            ui.landingGreetingAnimationEnabled
+                ? "Adjust landing greeting animation"
+                : "Landing greeting animation is off"
+        )
+        .help(
+            ui.landingGreetingAnimationEnabled
+                ? "Adjust landing greeting animation"
+                : "Landing greeting animation is off"
+        )
+        .popover(isPresented: $showLandingGreetingControls) {
+            LandingGreetingControlsView()
+                .frame(width: 320)
+                .padding(16)
+                .preferredColorScheme(ui.theme.colorScheme)
+        }
     }
 
     private var historyToolbarButton: some View {
@@ -438,6 +476,122 @@ struct WallpaperView: View {
     var body: some View {
         ui.theme.background
             .ignoresSafeArea()
+    }
+}
+
+private struct LandingGreetingControlsView: View {
+    @Environment(UIState.self) private var ui
+
+    var body: some View {
+        @Bindable var ui = ui
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Greeting Animation")
+                .font(.system(size: 14, weight: .semibold))
+
+            Toggle("Enable greeting animation", isOn: $ui.landingGreetingAnimationEnabled)
+
+            LandingAnimationSliderRow(
+                title: "ASCII intensity",
+                value: $ui.landingGreetingIntensity,
+                range: 0...1,
+                labels: ("Calm", "Expressive")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Character variety",
+                value: $ui.landingGreetingCharacterVariety,
+                range: 0...1,
+                labels: ("Focused", "Dense")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Typing pace",
+                value: $ui.landingGreetingPace,
+                range: 0...1,
+                labels: ("Fast", "Calm")
+            )
+
+            Button("Reset Greeting Defaults") {
+                ui.landingGreetingAnimationEnabled = LandingGreetingAnimationPolicy.defaultEnabled
+                ui.landingGreetingIntensity = LandingGreetingAnimationPolicy.defaultIntensity
+                ui.landingGreetingCharacterVariety = LandingGreetingAnimationPolicy.defaultVariety
+                ui.landingGreetingPace = LandingGreetingAnimationPolicy.defaultPace
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+}
+
+private struct LandingCursorControlsView: View {
+    @Environment(UIState.self) private var ui
+
+    var body: some View {
+        @Bindable var ui = ui
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Cursor Animation")
+                .font(.system(size: 14, weight: .semibold))
+
+            Toggle("Enable cursor animation", isOn: $ui.landingCursorAnimationEnabled)
+
+            LandingAnimationSliderRow(
+                title: "Response",
+                value: $ui.landingCursorResponse,
+                range: 0...1,
+                labels: ("Heavy", "Snappy")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Spread",
+                value: $ui.landingCursorSpread,
+                range: 0...1,
+                labels: ("Tight", "Wide")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Trail",
+                value: $ui.landingCursorTrail,
+                range: 0...1,
+                labels: ("Short", "Long")
+            )
+
+            Button("Reset Cursor Defaults") {
+                ui.landingCursorAnimationEnabled = LandingCursorAnimationPolicy.defaultValue
+                ui.landingCursorResponse = LandingWakeFieldPolicy.defaultResponse
+                ui.landingCursorSpread = LandingWakeFieldPolicy.defaultSpread
+                ui.landingCursorTrail = LandingWakeFieldPolicy.defaultTrail
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+}
+
+private struct LandingAnimationSliderRow: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let labels: (String, String)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                Spacer()
+                Text("\(Int(round(value * 100)))%")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
+            Slider(value: $value, in: range)
+
+            HStack {
+                Text(labels.0)
+                Spacer()
+                Text(labels.1)
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.secondary)
+        }
     }
 }
 

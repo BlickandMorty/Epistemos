@@ -918,6 +918,45 @@ struct LandingASCIIWakeFieldConfiguration: Equatable {
     var streamSwingMaxOffset: CGFloat = 0.72
     var streamSwingCycles: CGFloat = 1.18
     var streamHeadAgeBoost: TimeInterval = 0.1
+
+    static func tuned(
+        response: Double,
+        spread: Double,
+        trail: Double
+    ) -> LandingASCIIWakeFieldConfiguration {
+        let clampedResponse = max(0, min(1, response))
+        let clampedSpread = max(0, min(1, spread))
+        let clampedTrail = max(0, min(1, trail))
+        return LandingASCIIWakeFieldConfiguration(
+            frameInterval: 1.0 / 120.0,
+            interpolationStep: 0.5 - (0.18 * clampedResponse),
+            duration: 1.32 - (0.36 * clampedResponse),
+            initialRadius: 0.42 + (0.32 * clampedSpread),
+            maxRadius: 5.8 + (3.6 * clampedSpread),
+            growthExponent: 1.06 + (0.2 * clampedResponse),
+            peakProgress: 0.6 + (0.12 * clampedSpread),
+            endRadius: 0.28 + (0.24 * clampedTrail),
+            contractionExponent: 0.64 + (0.16 * clampedTrail),
+            boundaryThickness: 0.88 + (0.48 * clampedSpread),
+            scrambleCharacters: ASCIIRippleConfiguration().characters,
+            surfaceCharacters: Array(repeating: "·", count: 32),
+            restingSurfaceOpacity: 0,
+            maxTrailCount: Int(round(104 + (96 * clampedTrail))),
+            streamTailLength: 2.1 + (2.9 * clampedTrail),
+            streamLongDragDistance: 3.6 + (2.6 * clampedTrail),
+            streamVelocityReference: 34 - (12 * clampedResponse),
+            streamCoreRadiusBoost: 0.56 + (0.34 * clampedSpread),
+            streamAdaptiveStepBoost: 0.32 + (0.28 * clampedResponse),
+            streamBubbleStride: max(2, 5 - Int(round(2 * clampedTrail))),
+            streamBubbleOffset: 0.82 + (0.56 * clampedTrail),
+            streamBubbleBacktrack: 0.54 + (0.34 * clampedTrail),
+            streamBubbleRadiusScale: 0.38 + (0.24 * clampedTrail),
+            streamBubbleFastScaleBoost: 0.2 + (0.2 * clampedResponse),
+            streamSwingMaxOffset: 0.44 + (0.5 * clampedSpread),
+            streamSwingCycles: 0.92 + (0.52 * clampedTrail),
+            streamHeadAgeBoost: 0.04 + (0.14 * clampedTrail)
+        )
+    }
 }
 
 struct LandingASCIIWakeFieldLayout: Equatable {
@@ -1455,9 +1494,15 @@ private struct LandingASCIIWakeField: View {
     @State private var lastHoverTime: TimeInterval?
     @State private var trailCleanupTask: Task<Void, Never>?
 
-    private let configuration = LandingASCIIWakeFieldConfiguration()
     private let fontSize: CGFloat = 11
     private let lineSpacing: CGFloat = 3
+    private var configuration: LandingASCIIWakeFieldConfiguration {
+        LandingASCIIWakeFieldConfiguration.tuned(
+            response: ui.landingCursorResponse,
+            spread: ui.landingCursorSpread,
+            trail: ui.landingCursorTrail
+        )
+    }
 
     private var charWidth: CGFloat { fontSize * 0.64 }
     private var lineHeight: CGFloat { fontSize + lineSpacing + 2 }
@@ -1522,6 +1567,12 @@ private struct LandingASCIIWakeField: View {
             }
             .onChange(of: vocabulary) { _, _ in
                 rebuildLayout(columns: columns, rows: rows)
+            }
+            .onChange(of: configuration) { _, _ in
+                rebuildLayout(columns: columns, rows: rows)
+                if !trails.isEmpty {
+                    scheduleTrailCleanup()
+                }
             }
             .onContinuousHover { phase in
                 guard shouldAnimate else { return }

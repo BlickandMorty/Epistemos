@@ -8,6 +8,28 @@ enum LandingCursorAnimationPolicy {
     static let defaultValue = true
 }
 
+enum LandingGreetingAnimationPolicy {
+    static let enabledDefaultsKey = "epistemos.landingGreetingAnimationEnabled"
+    static let intensityDefaultsKey = "epistemos.landingGreetingIntensity"
+    static let varietyDefaultsKey = "epistemos.landingGreetingVariety"
+    static let paceDefaultsKey = "epistemos.landingGreetingPace"
+
+    static let defaultEnabled = true
+    static let defaultIntensity = 0.52
+    static let defaultVariety = 0.58
+    static let defaultPace = 0.46
+}
+
+enum LandingWakeFieldPolicy {
+    static let responseDefaultsKey = "epistemos.landingCursorResponse"
+    static let spreadDefaultsKey = "epistemos.landingCursorSpread"
+    static let trailDefaultsKey = "epistemos.landingCursorTrail"
+
+    static let defaultResponse = 0.56
+    static let defaultSpread = 0.6
+    static let defaultTrail = 0.62
+}
+
 // MARK: - UI State
 // Ephemeral UI state only — no persistent data arrays.
 // Theme pair, navigation, command palette, breathe mode, toast, window visibility.
@@ -71,6 +93,69 @@ final class UIState {
         }
     }
 
+    var landingGreetingAnimationEnabled = LandingGreetingAnimationPolicy.defaultEnabled {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingAnimationEnabled,
+                forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingIntensity = LandingGreetingAnimationPolicy.defaultIntensity {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingIntensity,
+                forKey: LandingGreetingAnimationPolicy.intensityDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingCharacterVariety = LandingGreetingAnimationPolicy.defaultVariety {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingCharacterVariety,
+                forKey: LandingGreetingAnimationPolicy.varietyDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingPace = LandingGreetingAnimationPolicy.defaultPace {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingPace,
+                forKey: LandingGreetingAnimationPolicy.paceDefaultsKey
+            )
+        }
+    }
+
+    var landingCursorResponse = LandingWakeFieldPolicy.defaultResponse {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorResponse,
+                forKey: LandingWakeFieldPolicy.responseDefaultsKey
+            )
+        }
+    }
+
+    var landingCursorSpread = LandingWakeFieldPolicy.defaultSpread {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorSpread,
+                forKey: LandingWakeFieldPolicy.spreadDefaultsKey
+            )
+        }
+    }
+
+    var landingCursorTrail = LandingWakeFieldPolicy.defaultTrail {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorTrail,
+                forKey: LandingWakeFieldPolicy.trailDefaultsKey
+            )
+        }
+    }
+
     // MARK: - Mini-Chat
 
     var miniChatOpen = false
@@ -93,6 +178,41 @@ final class UIState {
         if UserDefaults.standard.object(forKey: LandingCursorAnimationPolicy.defaultsKey) != nil {
             landingCursorAnimationEnabled = UserDefaults.standard.bool(
                 forKey: LandingCursorAnimationPolicy.defaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey) != nil {
+            landingGreetingAnimationEnabled = UserDefaults.standard.bool(
+                forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.intensityDefaultsKey) != nil {
+            landingGreetingIntensity = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.intensityDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.varietyDefaultsKey) != nil {
+            landingGreetingCharacterVariety = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.varietyDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.paceDefaultsKey) != nil {
+            landingGreetingPace = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.paceDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.responseDefaultsKey) != nil {
+            landingCursorResponse = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.responseDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.spreadDefaultsKey) != nil {
+            landingCursorSpread = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.spreadDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.trailDefaultsKey) != nil {
+            landingCursorTrail = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.trailDefaultsKey
             )
         }
     }

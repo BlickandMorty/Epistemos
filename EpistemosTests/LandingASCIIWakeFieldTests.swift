@@ -22,6 +22,31 @@ struct LandingASCIIWakeFieldTests {
         #expect(configuration.characters.allSatisfy { !$0.isLetter && !$0.isNumber })
     }
 
+    @Test("landing greeting tuning increases ripple intensity and glyph variety")
+    func landingGreetingTuningIncreasesRippleIntensityAndGlyphVariety() {
+        let calm = LiquidGreeting.tunedRippleConfiguration(intensity: 0.15, variety: 0.1)
+        let vivid = LiquidGreeting.tunedRippleConfiguration(intensity: 0.9, variety: 0.95)
+
+        #expect(vivid.characters.count > calm.characters.count)
+        #expect(vivid.characterMultiplier >= calm.characterMultiplier)
+        #expect(vivid.waveThreshold < calm.waveThreshold)
+        #expect(vivid.spread > calm.spread)
+        #expect(vivid.duration >= calm.duration)
+    }
+
+    @Test("landing greeting pace tuning keeps faster and calmer typing ranges bounded")
+    func landingGreetingPaceTuningStaysBounded() {
+        let fastRange = LiquidGreeting.tunedCharacterDelayRange(pace: 0.15)
+        let calmRange = LiquidGreeting.tunedCharacterDelayRange(pace: 0.9)
+        let fastPause = LiquidGreeting.tunedPauseRange(pace: 0.15)
+        let calmPause = LiquidGreeting.tunedPauseRange(pace: 0.9)
+
+        #expect(fastRange.lowerBound < calmRange.lowerBound)
+        #expect(fastRange.upperBound < calmRange.upperBound)
+        #expect(fastPause.lowerBound < calmPause.lowerBound)
+        #expect(fastPause.upperBound < calmPause.upperBound)
+    }
+
     @Test("landing greeting reveal stays brisk while hold time is calmer")
     func landingGreetingRevealStaysBriskWhileHoldTimeIsCalmer() {
         #expect(LiquidGreeting.greetingCharacterDelayRange.upperBound <= 48)
@@ -90,6 +115,28 @@ struct LandingASCIIWakeFieldTests {
         let configuration = LandingASCIIWakeFieldConfiguration()
 
         #expect(configuration.frameInterval <= (1.0 / 120.0) + 0.0001)
+    }
+
+    @Test("landing wake field tuning exposes bounded cursor physics controls")
+    func landingWakeFieldTuningExposesBoundedCursorPhysicsControls() {
+        let compact = LandingASCIIWakeFieldConfiguration.tuned(
+            response: 0.1,
+            spread: 0.1,
+            trail: 0.1
+        )
+        let expressive = LandingASCIIWakeFieldConfiguration.tuned(
+            response: 0.9,
+            spread: 0.9,
+            trail: 0.9
+        )
+
+        #expect(compact.frameInterval == expressive.frameInterval)
+        #expect(expressive.duration < compact.duration)
+        #expect(expressive.maxRadius > compact.maxRadius)
+        #expect(expressive.initialRadius > compact.initialRadius)
+        #expect(expressive.streamTailLength > compact.streamTailLength)
+        #expect(expressive.maxTrailCount > compact.maxTrailCount)
+        #expect(expressive.streamBubbleRadiusScale > compact.streamBubbleRadiusScale)
     }
 
     @Test("normalized vocabulary uppercases, trims, and deduplicates")
