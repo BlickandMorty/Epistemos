@@ -126,6 +126,10 @@ enum NoteToolbarPalette {
     }
 }
 
+enum NoteToolbarDisplay {
+    static let hidesMenuIndicators = true
+}
+
 enum NotePreviewRenderer: Equatable {
     case textKit1
     case textKit2
@@ -449,12 +453,14 @@ private struct NoteToolbarIcon: View {
             if let symbolName = isActive ? glyph.activeSymbolName : glyph.symbolName {
                 Image(systemName: symbolName)
                     .font(.system(size: 13, weight: .medium))
+                    .frame(width: NoteToolbarMetrics.iconSide, height: NoteToolbarMetrics.iconSide)
             } else {
                 EmptyView()
             }
         }
         .foregroundStyle(color)
-        .frame(width: NoteToolbarMetrics.iconSide, height: NoteToolbarMetrics.iconSide)
+        .frame(width: NoteToolbarMetrics.buttonSide, height: NoteToolbarMetrics.buttonSide)
+        .contentShape(Rectangle())
         .accessibilityHidden(true)
     }
 }
@@ -467,9 +473,10 @@ private struct NoteToolbarControlCluster<Content: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: NoteToolbarMetrics.spacing) {
+        HStack(alignment: .center, spacing: NoteToolbarMetrics.spacing) {
             content
         }
+        .frame(height: NoteToolbarMetrics.buttonSide)
     }
 }
 
@@ -943,6 +950,7 @@ struct NoteDetailWorkspaceView: View {
             NoteToolbarIcon(glyph: .format, theme: ui.theme)
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(NoteToolbarDisplay.hidesMenuIndicators ? .hidden : .visible)
         .help("Format")
     }
 
@@ -1555,8 +1563,10 @@ struct NoteDetailWorkspaceView: View {
                 Image(systemName: noteChatRoutingIcon)
                     .font(.system(size: 11))
                     .foregroundStyle(ui.theme.mutedForeground)
+                    .frame(width: NoteToolbarMetrics.buttonSide, height: NoteToolbarMetrics.buttonSide)
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(NoteToolbarDisplay.hidesMenuIndicators ? .hidden : .visible)
             .help(noteChatRoutingLabel)
 
             Image(systemName: "magnifyingglass")
@@ -1716,6 +1726,7 @@ struct NoteDetailWorkspaceView: View {
             NoteToolbarIcon(glyph: .more, theme: ui.theme)
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(NoteToolbarDisplay.hidesMenuIndicators ? .hidden : .visible)
         .help("More")
     }
 
