@@ -34,22 +34,101 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState defaults to Classic when no pair is stored")
-    func uiStateDefaultsToClassic() {
+    @Test("UIState defaults to native system appearance when no theme settings are stored")
+    func uiStateDefaultsToSystemDefaultAppearance() {
         let defaults = UserDefaults.standard
-        let key = "epistemos.theme.pair"
-        let previous = defaults.string(forKey: key)
+        let keys = [
+            ThemeMode.defaultsKey,
+            UIState.themePairDefaultsKey,
+        ]
+        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
-            if let previous {
-                defaults.set(previous, forKey: key)
-            } else {
-                defaults.removeObject(forKey: key)
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
             }
         }
-        defaults.removeObject(forKey: key)
+        for key in keys {
+            defaults.removeObject(forKey: key)
+        }
 
         let uiState = UIState()
+
+        #expect(uiState.themeMode == .systemDefault)
+        #expect(uiState.customThemesEnabled == false)
         #expect(uiState.activePair == .classic)
+        #expect(uiState.preferredColorScheme == nil)
+        #expect(uiState.shouldUseThemeWorkarounds == false)
+        #expect(uiState.usesNativeWindowBlur)
+    }
+
+    @MainActor
+    @Test("Stored custom pair stays remembered without applying when custom themes are disabled")
+    func rememberedCustomPairStaysDormantWhenThemesDisabled() {
+        let defaults = UserDefaults.standard
+        let pairsKey = UIState.themePairDefaultsKey
+        let modeKey = ThemeMode.defaultsKey
+        let previousPair = defaults.object(forKey: pairsKey)
+        let previousMode = defaults.object(forKey: modeKey)
+        defer {
+            if let previousPair {
+                defaults.set(previousPair, forKey: pairsKey)
+            } else {
+                defaults.removeObject(forKey: pairsKey)
+            }
+            if let previousMode {
+                defaults.set(previousMode, forKey: modeKey)
+            } else {
+                defaults.removeObject(forKey: modeKey)
+            }
+        }
+
+        defaults.set(ThemePair.ember.rawValue, forKey: pairsKey)
+        defaults.set(ThemeMode.systemDefault.rawValue, forKey: modeKey)
+
+        let uiState = UIState()
+
+        #expect(uiState.activePair == .ember)
+        #expect(uiState.customThemesEnabled == false)
+        #expect(uiState.themeMode == .systemDefault)
+        #expect(uiState.shouldUseThemeWorkarounds == false)
+        #expect(uiState.preferredColorScheme == nil)
+    }
+
+    @MainActor
+    @Test("Stored custom mode restores the remembered theme pair")
+    func storedCustomModeRestoresRememberedThemePair() {
+        let defaults = UserDefaults.standard
+        let pairsKey = UIState.themePairDefaultsKey
+        let modeKey = ThemeMode.defaultsKey
+        let previousPair = defaults.object(forKey: pairsKey)
+        let previousMode = defaults.object(forKey: modeKey)
+        defer {
+            if let previousPair {
+                defaults.set(previousPair, forKey: pairsKey)
+            } else {
+                defaults.removeObject(forKey: pairsKey)
+            }
+            if let previousMode {
+                defaults.set(previousMode, forKey: modeKey)
+            } else {
+                defaults.removeObject(forKey: modeKey)
+            }
+        }
+
+        defaults.set(ThemePair.platinum.rawValue, forKey: pairsKey)
+        defaults.set(ThemeMode.custom.rawValue, forKey: modeKey)
+
+        let uiState = UIState()
+
+        #expect(uiState.themeMode == .custom)
+        #expect(uiState.customThemesEnabled)
+        #expect(uiState.activePair == .platinum)
+        #expect(uiState.preferredColorScheme != nil)
+        #expect(uiState.shouldUseThemeWorkarounds)
     }
 
     @MainActor

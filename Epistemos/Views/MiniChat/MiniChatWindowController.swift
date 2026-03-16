@@ -46,18 +46,17 @@ final class MiniChatWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(bootstrap: AppBootstrap) {
-        let theme = bootstrap.uiState.theme
         let view = MiniChatView()
             .padding(22)
             .withAppEnvironment(bootstrap)
             .modelContainer(bootstrap.modelContainer)
-            .preferredColorScheme(theme.colorScheme)
+            .preferredColorScheme(bootstrap.uiState.preferredColorScheme)
         let host = NSHostingView(rootView: view)
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.clear.cgColor
-        window?.contentView = WindowThemeStyler.themedContentView(host: host, theme: theme)
+        window?.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)
         if let window {
-            WindowThemeStyler.apply(to: window, theme: theme)
+            WindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
         }
 
         isConfigured = true
@@ -78,8 +77,8 @@ final class MiniChatWindowController: NSWindowController {
     /// Sync NSPanel appearance and background to the current theme.
     func syncTheme(isDark: Bool) {
         guard let window else { return }
-        if let theme = AppBootstrap.shared?.uiState.theme {
-            WindowThemeStyler.apply(to: window, theme: theme)
+        if let uiState = AppBootstrap.shared?.uiState {
+            WindowThemeStyler.apply(to: window, uiState: uiState)
         }
     }
 

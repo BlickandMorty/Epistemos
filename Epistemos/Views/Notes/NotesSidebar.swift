@@ -2174,7 +2174,7 @@ private struct EditorActionsBar: View {
                         width: NotesSidebarMetrics.changesPanelWidth,
                         height: NotesSidebarMetrics.changesPanelHeight
                     )
-                    .preferredColorScheme(ui.theme.colorScheme)
+                    .preferredColorScheme(ui.preferredColorScheme)
             }
 
             VaultConnectionButton()

@@ -558,7 +558,7 @@ struct NoteDetailWorkspaceView: View {
                 noteToolbarStrip
             }
         }
-        .preferredColorScheme(ui.theme.colorScheme)
+        .preferredColorScheme(ui.preferredColorScheme)
         .background {
             // Hidden keyboard shortcut buttons
             Button("") {
@@ -653,10 +653,12 @@ struct NoteDetailWorkspaceView: View {
             guard let newTitle, !newTitle.isEmpty else { return }
             navState?.syncTitle(pageId: pageId, title: newTitle)
         }
-        .onChange(of: ui.theme) { _, newTheme in
+        .onChange(of: ui.appearanceSyncKey) { _, _ in
             if let window = NSApp.keyWindow {
-                window.appearance = NSAppearance(named: newTheme.isDark ? .darkAqua : .aqua)
-                window.backgroundColor = newTheme.nsBackground
+                window.appearance = ui.customThemesEnabled
+                    ? NSAppearance(named: ui.theme.isDark ? .darkAqua : .aqua)
+                    : nil
+                window.backgroundColor = ui.windowBackgroundColor
             }
         }
         .onReceive(
@@ -770,9 +772,9 @@ struct NoteDetailWorkspaceView: View {
                 VStack(spacing: 0) {
                     LinearGradient(
                         colors: [
-                            ui.theme.background.opacity(0),
-                            ui.theme.background.opacity(0.7),
-                            ui.theme.background.opacity(0.95),
+                            ui.overlayChromeBackground.opacity(0),
+                            ui.overlayChromeBackground.opacity(0.7),
+                            ui.overlayChromeBackground.opacity(0.95),
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -810,7 +812,7 @@ struct NoteDetailWorkspaceView: View {
                     }
                     .padding(.bottom, 8)
                     .frame(maxWidth: .infinity)
-                    .background(ui.theme.background.opacity(0.95))
+                    .background(ui.overlayChromeBackground.opacity(0.95))
                 }
                 .allowsHitTesting(false)
             }
@@ -828,7 +830,7 @@ struct NoteDetailWorkspaceView: View {
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(ui.theme.background)
+            .background(ui.contentBackground)
             .environment(noteChatState)
             .onAppear {
                 noteChatState.loadPersistedMessages(modelContext)

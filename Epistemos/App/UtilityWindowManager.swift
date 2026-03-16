@@ -10,7 +10,7 @@ import SwiftUI
 enum WindowThemeStyler {
     private static let backdropIdentifier = NSUserInterfaceItemIdentifier("EpistemosWindowBackdrop")
 
-    static func themedContentView(host: NSView, theme: EpistemosTheme) -> NSView {
+    static func themedContentView(host: NSView, uiState: UIState) -> NSView {
         let container = NSView(frame: host.frame)
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.clear.cgColor
@@ -24,20 +24,17 @@ enum WindowThemeStyler {
             host.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
-        applyBackdrop(in: container, theme: theme)
+        applyBackdrop(in: container, uiState: uiState)
         return container
     }
 
-    static func apply(to window: NSWindow, theme: EpistemosTheme) {
-        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        if theme.usesNativeWindowBlur {
-            window.isOpaque = false
-            window.backgroundColor = .clear
-        } else {
-            window.isOpaque = true
-            window.backgroundColor = theme.nsBackground
-        }
-        applyBackdrop(in: window.contentView, theme: theme)
+    static func apply(to window: NSWindow, uiState: UIState) {
+        window.appearance = uiState.customThemesEnabled
+            ? NSAppearance(named: uiState.theme.isDark ? .darkAqua : .aqua)
+            : nil
+        window.isOpaque = !uiState.usesNativeWindowBlur
+        window.backgroundColor = uiState.windowBackgroundColor
+        applyBackdrop(in: window.contentView, uiState: uiState)
         refreshChrome(of: window)
     }
 
@@ -54,10 +51,10 @@ enum WindowThemeStyler {
         window.invalidateShadow()
     }
 
-    private static func applyBackdrop(in root: NSView?, theme: EpistemosTheme) {
+    private static func applyBackdrop(in root: NSView?, uiState: UIState) {
         guard let root else { return }
 
-        if theme.usesNativeWindowBlur {
+        if uiState.usesNativeWindowBlur {
             let effectView: NSVisualEffectView
             if let existing = backdropView(in: root) {
                 effectView = existing
@@ -74,7 +71,9 @@ enum WindowThemeStyler {
                 }
                 effectView = newEffect
             }
-            effectView.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+            effectView.appearance = uiState.customThemesEnabled
+                ? NSAppearance(named: uiState.theme.isDark ? .darkAqua : .aqua)
+                : nil
             effectView.material = .underWindowBackground
         } else {
             backdropView(in: root)?.removeFromSuperview()
@@ -120,8 +119,8 @@ final class UtilityWindowManager {
 
     func show(_ panel: UtilityPanel) {
         let window = getOrCreateWindow(panel)
-        if let theme = AppBootstrap.shared?.uiState.theme {
-            WindowThemeStyler.apply(to: window, theme: theme)
+        if let uiState = AppBootstrap.shared?.uiState {
+            WindowThemeStyler.apply(to: window, uiState: uiState)
         }
         window.makeKeyAndOrderFront(nil)
     }
@@ -135,8 +134,8 @@ final class UtilityWindowManager {
         if window.isVisible {
             window.orderOut(nil)
         } else {
-            if let theme = AppBootstrap.shared?.uiState.theme {
-                WindowThemeStyler.apply(to: window, theme: theme)
+            if let uiState = AppBootstrap.shared?.uiState {
+                WindowThemeStyler.apply(to: window, uiState: uiState)
             }
             window.makeKeyAndOrderFront(nil)
         }
@@ -149,11 +148,11 @@ final class UtilityWindowManager {
     /// Sync appearance of all open utility windows to the current theme.
     /// Call this whenever the theme changes so live windows update immediately.
     func syncTheme(isDark: Bool) {
-        if let theme = AppBootstrap.shared?.uiState.theme {
+        if let uiState = AppBootstrap.shared?.uiState {
             for panel in panels.values {
-                WindowThemeStyler.apply(to: panel, theme: theme)
+                WindowThemeStyler.apply(to: panel, uiState: uiState)
             }
-            NoteWindowManager.shared.syncTheme(theme: theme)
+            NoteWindowManager.shared.syncTheme(uiState: uiState)
             MiniChatWindowController.shared.syncTheme(isDark: isDark)
         }
         CommandPaletteWindowController.shared.syncTheme(isDark: isDark)
@@ -190,8 +189,8 @@ final class UtilityWindowManager {
         if let bootstrap = AppBootstrap.shared {
             let view = contentView(for: kind, bootstrap: bootstrap)
             let host = NSHostingView(rootView: view)
-            panel.contentView = WindowThemeStyler.themedContentView(host: host, theme: bootstrap.uiState.theme)
-            WindowThemeStyler.apply(to: panel, theme: bootstrap.uiState.theme)
+            panel.contentView = WindowThemeStyler.themedContentView(host: host, uiState: bootstrap.uiState)
+            WindowThemeStyler.apply(to: panel, uiState: bootstrap.uiState)
         }
 
         panels[kind] = panel
@@ -226,8 +225,8 @@ private struct ThemedUtilityRoot: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ui.theme.background)
-        .preferredColorScheme(ui.theme.colorScheme)
+        .background(ui.customThemesEnabled ? ui.theme.background : Color.clear)
+        .preferredColorScheme(ui.preferredColorScheme)
         .navigationTitle("")
     }
 }

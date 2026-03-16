@@ -293,6 +293,7 @@ final class AppBootstrap {
 
         let defaults = UserDefaults.standard
         let keysToRemove = [
+            ThemeMode.defaultsKey,
             "epistemos.theme.pair",
             "epistemos.researchMode",
             "epistemos.apiProvider",
@@ -331,6 +332,24 @@ final class AppBootstrap {
     private func clearVisualCaches() {
         PageStoragePool.shared.removeAll()
         DiskStyleCache.shared.clearAll()
+    }
+
+    func applyThemePreferencesAndRelaunch(mode: ThemeMode, pair: ThemePair) {
+        UserDefaults.standard.set(mode.rawValue, forKey: ThemeMode.defaultsKey)
+        UserDefaults.standard.set(pair.rawValue, forKey: UIState.themePairDefaultsKey)
+        clearVisualCaches()
+
+        if Self.isRunningTests {
+            uiState.setPair(pair)
+            uiState.setThemeMode(mode)
+            Log.app.info("Skipping theme relaunch under tests")
+            return
+        }
+
+        Log.app.info(
+            "Theme preferences updated to \(mode.rawValue, privacy: .public) / \(pair.rawValue, privacy: .public) — relaunching"
+        )
+        relaunchApp()
     }
 
     private func relaunchApp() {

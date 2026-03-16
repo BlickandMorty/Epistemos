@@ -574,7 +574,7 @@ struct AnchoredPopoverButton<PopoverContent: View>: View {
                     maxWidth: variant == .toolbar ? 360 : 340,
                     alignment: .leading
                 )
-                .preferredColorScheme(ui.theme.colorScheme)
+                .preferredColorScheme(ui.preferredColorScheme)
         }
     }
 }

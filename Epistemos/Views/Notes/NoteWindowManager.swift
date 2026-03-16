@@ -41,13 +41,20 @@ enum NoteWindowChrome {
 
 @MainActor
 enum NoteWindowThemeStyler {
-    static func apply(to window: NSWindow, theme: EpistemosTheme) {
-        window.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-        window.backgroundColor = theme.nsBackground
+    static func apply(to window: NSWindow, uiState: UIState) {
+        window.appearance = uiState.customThemesEnabled
+            ? NSAppearance(named: uiState.theme.isDark ? .darkAqua : .aqua)
+            : nil
+        window.isOpaque = !uiState.usesNativeWindowBlur
+        window.backgroundColor = uiState.windowBackgroundColor
         window.titlebarAppearsTransparent = true
         window.toolbar?.showsBaselineSeparator = false
         window.toolbarStyle = .unified
-        window.updateGlassToolbarTheme(theme)
+        if uiState.shouldUseThemeWorkarounds {
+            window.updateGlassToolbarTheme(uiState.theme)
+        } else {
+            window.removeGlassToolbarTheme()
+        }
         WindowThemeStyler.refreshChrome(of: window)
     }
 }
@@ -307,7 +314,7 @@ final class NoteWindowManager {
         
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
 
-        NoteWindowThemeStyler.apply(to: window, theme: bootstrap.uiState.theme)
+        NoteWindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
 
         let pageId = page.id
         let observer = NotificationCenter.default.addObserver(
@@ -414,7 +421,7 @@ final class NoteWindowManager {
         window.minSize = NSSize(width: 400, height: 300)
         
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
-        NoteWindowThemeStyler.apply(to: window, theme: bootstrap.uiState.theme)
+        NoteWindowThemeStyler.apply(to: window, uiState: bootstrap.uiState)
 
         // Zoom instead of fullscreen
         WindowPresentationPolicy.applyModularZoomBehavior(to: window)
@@ -449,9 +456,9 @@ final class NoteWindowManager {
     }
 
     /// Sync appearance of all note windows to the current theme.
-    func syncTheme(theme: EpistemosTheme) {
+    func syncTheme(uiState: UIState) {
         for w in windows.values {
-            NoteWindowThemeStyler.apply(to: w, theme: theme)
+            NoteWindowThemeStyler.apply(to: w, uiState: uiState)
         }
     }
 

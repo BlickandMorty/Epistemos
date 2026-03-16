@@ -59,7 +59,7 @@ struct RootView: View {
         }
         // Drive preferred color scheme from the resolved theme.
         // This ensures Ember/OLED/Sunset stay dark even when system is in light mode.
-        .preferredColorScheme(ui.theme.colorScheme)
+        .preferredColorScheme(ui.preferredColorScheme)
         // Wire the appearance observer — fires on real OS dark/light toggle.
         .onAppear {
             appearanceObserver.onAppearanceChange = { @MainActor isDark in
@@ -73,7 +73,7 @@ struct RootView: View {
         .onDisappear {
             appearanceObserver.stop()
         }
-        .onChange(of: ui.theme) { _, _ in
+        .onChange(of: ui.appearanceSyncKey) { _, _ in
             UtilityWindowManager.shared.syncTheme(isDark: ui.theme.isDark)
             HologramController.shared.syncTheme(ui.theme)
         }
@@ -233,7 +233,7 @@ struct RootView: View {
             LandingCursorControlsView()
                 .frame(width: 320)
                 .padding(16)
-                .preferredColorScheme(ui.theme.colorScheme)
+                .preferredColorScheme(ui.preferredColorScheme)
         }
     }
 
@@ -257,7 +257,7 @@ struct RootView: View {
             LandingGreetingControlsView()
                 .frame(width: 320)
                 .padding(16)
-                .preferredColorScheme(ui.theme.colorScheme)
+                .preferredColorScheme(ui.preferredColorScheme)
         }
     }
 
@@ -273,7 +273,7 @@ struct RootView: View {
         .popover(isPresented: $ui.showChatSidebar) {
             ChatSidebarView()
                 .frame(width: 300, height: 500)
-                .preferredColorScheme(ui.theme.colorScheme)
+                .preferredColorScheme(ui.preferredColorScheme)
         }
     }
 }
@@ -472,7 +472,7 @@ struct WallpaperView: View {
     @Environment(UIState.self) private var ui
 
     var body: some View {
-        ui.theme.background
+        ui.wallpaperBackground
             .ignoresSafeArea()
     }
 }

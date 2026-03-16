@@ -349,7 +349,7 @@ private struct ResearchHintButton: View {
             .padding(.bottom, 4)
             .frame(width: 320)
             .background(.ultraThinMaterial)
-            .preferredColorScheme(theme.colorScheme)
+            .preferredColorScheme(ui.preferredColorScheme)
         }
     }
 }

@@ -23,23 +23,6 @@ enum CommandPaletteLayout {
     static let chatPanelSize = CGSize(width: 550, height: 660)
 }
 
-enum CommandPaletteThemeTransition {
-    @MainActor
-    static func perform(
-        dismiss: @escaping @MainActor () -> Void,
-        cycleTheme: @escaping @MainActor () -> Void,
-        schedule: (@escaping @MainActor () -> Void) -> Void = { action in
-            Task { @MainActor in
-                await Task.yield()
-                action()
-            }
-        }
-    ) {
-        dismiss()
-        schedule(cycleTheme)
-    }
-}
-
 struct CommandPaletteOverlay: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
@@ -303,11 +286,9 @@ struct CommandPaletteOverlay: View {
                                 CommandPaletteWindowController.shared.hide()
                                 HologramController.shared.show()
                             }
-                            paletteChip(label: "Theme", icon: "circle.lefthalf.filled") {
-                                CommandPaletteThemeTransition.perform(
-                                    dismiss: { dismiss() },
-                                    cycleTheme: { ui.cycleTheme() }
-                                )
+                            paletteChip(label: "Appearance", icon: "paintpalette") {
+                                dismiss()
+                                ui.homeTab = .settings
                             }
                         }
                         .transition(.opacity.combined(with: .blurReplace))
@@ -1346,11 +1327,9 @@ struct CommandPaletteOverlay: View {
                     }
                 }
             },
-            LandingCommandItem(id: "toggle-theme", label: "Toggle Theme", icon: "paintpalette", category: "Tools") {
-                CommandPaletteThemeTransition.perform(
-                    dismiss: { dismiss() },
-                    cycleTheme: { ui.cycleTheme() }
-                )
+            LandingCommandItem(id: "open-appearance", label: "Open Appearance Settings", icon: "paintpalette", category: "Tools") {
+                ui.homeTab = .settings
+                dismiss()
             },
         ]
     }

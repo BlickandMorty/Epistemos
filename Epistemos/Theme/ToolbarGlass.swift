@@ -66,6 +66,14 @@ extension NSWindow {
         accessoryVC.configuration = GlassToolbarConfiguration(theme: theme)
         self.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
     }
+
+    func removeGlassToolbarTheme() {
+        for index in stride(from: titlebarAccessoryViewControllers.count - 1, through: 0, by: -1) {
+            if titlebarAccessoryViewControllers[index].identifier?.rawValue == "GlassToolbar" {
+                removeTitlebarAccessoryViewController(at: index)
+            }
+        }
+    }
 }
 
 // MARK: - Titlebar Accessory View Controller

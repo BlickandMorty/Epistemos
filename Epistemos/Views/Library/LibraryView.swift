@@ -166,7 +166,7 @@ struct LibraryView: View {
         }
         .sheet(isPresented: $showDOIImport) {
             DOIImportSheet()
-                .preferredColorScheme(ui.theme.colorScheme)
+                .preferredColorScheme(ui.preferredColorScheme)
         }
         .onAppear {
             research.restoreSavedPapers()
@@ -1009,5 +1009,4 @@ private struct ExtractedAuthor: Identifiable {
     var paperCount: Int
     var years: [Int]
 }
-
 

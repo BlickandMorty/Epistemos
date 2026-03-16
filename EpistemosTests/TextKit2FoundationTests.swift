@@ -382,40 +382,6 @@ struct InlineMarkdownStylerTests {
     }
 }
 
-@Suite("Command Palette Theme Transition")
-struct CommandPaletteThemeTransitionTests {
-    @MainActor
-    @Test("Dismiss happens before the theme mutation")
-    func dismissesBeforeThemeChange() {
-        var events: [String] = []
-
-        CommandPaletteThemeTransition.perform(
-            dismiss: { events.append("dismiss") },
-            cycleTheme: { events.append("theme") },
-            schedule: { action in action() }
-        )
-
-        #expect(events == ["dismiss", "theme"])
-    }
-
-    @MainActor
-    @Test("Default scheduling still applies the theme after dismiss")
-    func defaultSchedulingAppliesTheme() async {
-        var events: [String] = []
-
-        CommandPaletteThemeTransition.perform(
-            dismiss: { events.append("dismiss") },
-            cycleTheme: { events.append("theme") }
-        )
-
-        #expect(events == ["dismiss"])
-        for _ in 0..<5 where events.count < 2 {
-            await Task.yield()
-        }
-        #expect(events == ["dismiss", "theme"])
-    }
-}
-
 @Suite("Command Palette Window Transparency")
 struct CommandPaletteWindowTransparencyTests {
     @MainActor

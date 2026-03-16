@@ -253,8 +253,8 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Note window theme refresh reapplies appearance and unified toolbar chrome")
-    func noteWindowThemeRefreshReappliesChrome() throws {
+    @Test("Note window theme refresh keeps native chrome when custom themes are disabled")
+    func noteWindowThemeRefreshKeepsNativeChromeWhenThemesDisabled() throws {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1110, height: 740),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -262,9 +262,39 @@ struct NoteWindowManagerTests {
             defer: false
         )
         defer { retainWindowFixture(window) }
+        let uiState = UIState()
 
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
-        NoteWindowThemeStyler.apply(to: window, theme: .platinumDark)
+        NoteWindowThemeStyler.apply(to: window, uiState: uiState)
+
+        #expect(window.appearance?.name != .darkAqua)
+        #expect(window.titlebarAppearsTransparent)
+        #expect(window.toolbarStyle == .unified)
+        #expect(
+            !window.titlebarAccessoryViewControllers.contains(where: {
+                $0.identifier?.rawValue == "GlassToolbar"
+            })
+        )
+    }
+
+    @MainActor
+    @Test("Note window theme refresh reapplies themed appearance when custom themes are enabled")
+    func noteWindowThemeRefreshReappliesChromeForCustomThemes() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1110, height: 740),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        defer { retainWindowFixture(window) }
+        let uiState = UIState()
+
+        uiState.setPair(.platinum)
+        uiState.setThemeMode(.custom)
+        uiState.isSystemDark = true
+
+        NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
+        NoteWindowThemeStyler.apply(to: window, uiState: uiState)
 
         #expect(window.appearance?.name == .darkAqua)
         #expect(window.titlebarAppearsTransparent)

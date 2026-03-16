@@ -437,103 +437,287 @@ private struct SOARDetailView: View {
 
 private struct AppearanceDetailView: View {
     @Environment(UIState.self) private var ui
+    @State private var customThemesEnabledDraft = false
+    @State private var selectedPairDraft: ThemePair = .classic
+    @State private var pendingThemeMode: ThemeMode?
+    @State private var pendingThemePair: ThemePair?
+    @State private var showThemeRestartAlert = false
     @State private var regularModeDraft = false
     @State private var pendingDisplayMode: AppDisplayMode?
     @State private var showDisplayModeAlert = false
     private var theme: EpistemosTheme { ui.theme }
 
+    var body: some View {
+        AppearanceDetailContainer(
+            customThemesEnabledDraft: $customThemesEnabledDraft,
+            selectedPairDraft: $selectedPairDraft,
+            regularModeDraft: $regularModeDraft,
+            showThemeRestartAlert: $showThemeRestartAlert,
+            showDisplayModeAlert: $showDisplayModeAlert,
+            ui: ui,
+            theme: theme,
+            onToggleCustomThemes: scheduleThemeModeChange,
+            onSelectThemePair: scheduleThemePairChange,
+            onSelectDisplayMode: scheduleDisplayModeChange,
+            onCancelThemeRestart: resetThemeDrafts,
+            onApplyThemeRestart: applyPendingThemeChange,
+            onCancelDisplayRestart: resetDisplayModeDraft,
+            onApplyDisplayRestart: applyPendingDisplayModeChange
+        )
+    }
+
+    private func scheduleThemeModeChange(_ enabled: Bool) {
+        pendingThemeMode = enabled ? .custom : .systemDefault
+        pendingThemePair = selectedPairDraft
+        showThemeRestartAlert = true
+    }
+
+    private func scheduleThemePairChange(_ pair: ThemePair) {
+        guard selectedPairDraft != pair else { return }
+        selectedPairDraft = pair
+        pendingThemeMode = customThemesEnabledDraft ? .custom : .systemDefault
+        pendingThemePair = pair
+        showThemeRestartAlert = true
+    }
+
+    private func scheduleDisplayModeChange(_ nextMode: AppDisplayMode) {
+        pendingDisplayMode = nextMode
+        showDisplayModeAlert = true
+    }
+
+    private func resetThemeDrafts() {
+        customThemesEnabledDraft = ui.customThemesEnabled
+        selectedPairDraft = ui.activePair
+        pendingThemeMode = nil
+        pendingThemePair = nil
+    }
+
+    private func resetDisplayModeDraft() {
+        regularModeDraft = ui.displayMode == .regular
+        pendingDisplayMode = nil
+    }
+
+    private func applyPendingThemeChange() {
+        let nextMode = pendingThemeMode ?? (customThemesEnabledDraft ? .custom : .systemDefault)
+        let nextPair = pendingThemePair ?? selectedPairDraft
+        if let bootstrap = AppBootstrap.shared {
+            bootstrap.applyThemePreferencesAndRelaunch(mode: nextMode, pair: nextPair)
+        } else {
+            ui.setPair(nextPair)
+            ui.setThemeMode(nextMode)
+        }
+        pendingThemeMode = nil
+        pendingThemePair = nil
+    }
+
+    private func applyPendingDisplayModeChange() {
+        if let pendingDisplayMode {
+            AppBootstrap.shared?.applyDisplayModeAndRelaunch(pendingDisplayMode)
+        }
+        pendingDisplayMode = nil
+    }
+}
+
+private struct AppearanceDetailContainer: View {
+    @Binding var customThemesEnabledDraft: Bool
+    @Binding var selectedPairDraft: ThemePair
+    @Binding var regularModeDraft: Bool
+    @Binding var showThemeRestartAlert: Bool
+    @Binding var showDisplayModeAlert: Bool
+    let ui: UIState
+    let theme: EpistemosTheme
+    let onToggleCustomThemes: (Bool) -> Void
+    let onSelectThemePair: (ThemePair) -> Void
+    let onSelectDisplayMode: (AppDisplayMode) -> Void
+    let onCancelThemeRestart: () -> Void
+    let onApplyThemeRestart: () -> Void
+    let onCancelDisplayRestart: () -> Void
+    let onApplyDisplayRestart: () -> Void
+
+    var body: some View {
+        configuredForm
+    }
+
+    private var configuredForm: AnyView {
+        let base = AnyView(
+            appearanceForm
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .onAppear {
+                customThemesEnabledDraft = ui.customThemesEnabled
+                selectedPairDraft = ui.activePair
+                regularModeDraft = ui.displayMode == .regular
+            }
+            .onChange(of: ui.themeMode) { _, mode in
+                customThemesEnabledDraft = mode == .custom
+            }
+            .onChange(of: ui.activePair) { _, pair in
+                selectedPairDraft = pair
+            }
+            .onChange(of: ui.displayMode) { _, mode in
+                regularModeDraft = mode == .regular
+            }
+        )
+        let themeAlerted = AnyView(
+            base.alert("Restart to Apply Theme Change?", isPresented: $showThemeRestartAlert) {
+                Button("Cancel", role: .cancel, action: onCancelThemeRestart)
+                Button("Restart Now", action: onApplyThemeRestart)
+            } message: {
+                Text(
+                    "Epistemos will relaunch to clear theme-era chrome workarounds and rebuild material caches safely."
+                )
+            }
+        )
+        return AnyView(
+            themeAlerted.alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
+                Button("Cancel", role: .cancel, action: onCancelDisplayRestart)
+                Button("Restart Now", action: onApplyDisplayRestart)
+            } message: {
+                Text(
+                    "Epistemos will relaunch to rebuild style caches and reload fonts safely. Your vault and saved data stay intact."
+                )
+            }
+        )
+    }
+
+    private var appearanceForm: some View {
+        Form {
+            AppearanceThemeModeSection(
+                customThemesEnabledDraft: $customThemesEnabledDraft,
+                isCustomThemesEnabled: ui.customThemesEnabled,
+                onToggle: onToggleCustomThemes
+            )
+            AppearanceThemePairSection(
+                selectedPairDraft: selectedPairDraft,
+                customThemesEnabledDraft: customThemesEnabledDraft,
+                onSelect: onSelectThemePair
+            )
+            AppearanceSystemSection(
+                customThemesEnabledDraft: customThemesEnabledDraft,
+                selectedPairDraft: selectedPairDraft,
+                theme: theme
+            )
+            AppearanceDisplayModeSection(
+                regularModeDraft: $regularModeDraft,
+                currentMode: ui.displayMode,
+                onToggle: onSelectDisplayMode
+            )
+        }
+    }
+}
+
+private struct AppearanceThemeModeSection: View {
+    @Binding var customThemesEnabledDraft: Bool
+    let isCustomThemesEnabled: Bool
+    let onToggle: (Bool) -> Void
+
+    var body: some View {
+        Section {
+            Toggle("Enable Custom Themes", isOn: $customThemesEnabledDraft)
+                .toggleStyle(.switch)
+                .onChange(of: customThemesEnabledDraft) { _, enabled in
+                    guard enabled != isCustomThemesEnabled else { return }
+                    onToggle(enabled)
+                }
+
+            Text("Default appearance uses native Apple materials, translucency, and system chrome.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("Themes")
+        }
+    }
+}
+
+private struct AppearanceThemePairSection: View {
+    let selectedPairDraft: ThemePair
+    let customThemesEnabledDraft: Bool
+    let onSelect: (ThemePair) -> Void
+
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 2)
 
     var body: some View {
-        Form {
-            Section {
-                LazyVGrid(columns: columns, spacing: 14) {
-                    ForEach(ThemePair.allCases, id: \.self) { pair in
-                        ThemePairCard(pair: pair, isActive: ui.activePair == pair) {
-                            ui.setPair(pair)
-                        }
+        Section {
+            LazyVGrid(columns: columns, spacing: 14) {
+                ForEach(ThemePair.allCases, id: \.self) { pair in
+                    ThemePairCard(
+                        pair: pair,
+                        isActive: customThemesEnabledDraft && selectedPairDraft == pair
+                    ) {
+                        onSelect(pair)
                     }
                 }
-                .padding(.vertical, Spacing.xs)
-            } header: {
-                Text("Theme")
-            } footer: {
-                Text(
-                    "Each theme has a light and dark side. macOS automatically switches between them when you toggle system appearance."
-                )
+            }
+            .padding(.vertical, Spacing.xs)
+            .disabled(!customThemesEnabledDraft)
+            .opacity(customThemesEnabledDraft ? 1 : 0.45)
+        } header: {
+            Text("Custom Theme Pair")
+        } footer: {
+            Text(themeFooterText)
                 .font(.caption)
+        }
+    }
+
+    private var themeFooterText: String {
+        customThemesEnabledDraft
+            ? "Each custom theme includes a light and dark side. Restart applies the pair cleanly and clears cached chrome."
+            : "Custom themes are optional. Leave them off to keep the native system appearance."
+    }
+}
+
+private struct AppearanceSystemSection: View {
+    let customThemesEnabledDraft: Bool
+    let selectedPairDraft: ThemePair
+    let theme: EpistemosTheme
+
+    var body: some View {
+        Section {
+            LabeledContent("Default mode") {
+                Text("Native Apple")
+                    .foregroundStyle(.secondary)
+                    .fontWeight(.medium)
             }
-
-            Section {
-                LabeledContent("Active pair") {
-                    Text(ui.activePair.displayName)
-                        .foregroundStyle(theme.accent)
-                        .fontWeight(.medium)
-                }
-                LabeledContent("Current side") {
-                    HStack(spacing: 4) {
-                        Image(systemName: ui.isSystemDark ? "moon.fill" : "sun.max.fill")
-                            .font(.system(size: 10))
-                        Text(
-                            ui.isSystemDark
-                                ? "Dark — \(theme.displayName)" : "Light — \(theme.displayName)")
-                    }
-                    .foregroundStyle(theme.mutedForeground)
-                }
-                Button("Open System Settings → Appearance") {
-                    NSWorkspace.shared.open(
-                        URL(string: "x-apple.systempreferences:com.apple.preference.general")!
-                    )
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            } header: {
-                Text("System")
+            LabeledContent("Custom themes") {
+                Text(customThemesEnabledDraft ? selectedPairDraft.displayName : "Off")
+                    .foregroundStyle(customThemesEnabledDraft ? theme.accent : .secondary)
+                    .fontWeight(.medium)
             }
-
-            Section {
-                Toggle("Regular Mode", isOn: $regularModeDraft)
-                    .toggleStyle(.switch)
-                    .onChange(of: regularModeDraft) { _, enabled in
-                        let nextMode: AppDisplayMode = enabled ? .regular : .opulent
-                        guard nextMode != ui.displayMode else { return }
-                        pendingDisplayMode = nextMode
-                        showDisplayModeAlert = true
-                    }
-
-                Text(
-                    "Uses standard system fonts for display text, simplifies the landing greeting, and reduces non-ripple ASCII animation. Restart required."
+            Button("Open System Settings → Appearance") {
+                NSWorkspace.shared.open(
+                    URL(string: "x-apple.systempreferences:com.apple.preference.general")!
                 )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            } header: {
-                Text("Display Mode")
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        } header: {
+            Text("System")
+        }
+    }
+}
 
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .onAppear {
-            regularModeDraft = ui.displayMode == .regular
-        }
-        .onChange(of: ui.displayMode) { _, mode in
-            regularModeDraft = mode == .regular
-        }
-        .alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
-            Button("Cancel", role: .cancel) {
-                regularModeDraft = ui.displayMode == .regular
-                pendingDisplayMode = nil
-            }
-            Button("Restart Now") {
-                if let pendingDisplayMode {
-                    AppBootstrap.shared?.applyDisplayModeAndRelaunch(pendingDisplayMode)
+private struct AppearanceDisplayModeSection: View {
+    @Binding var regularModeDraft: Bool
+    let currentMode: AppDisplayMode
+    let onToggle: (AppDisplayMode) -> Void
+
+    var body: some View {
+        Section {
+            Toggle("Regular Mode", isOn: $regularModeDraft)
+                .toggleStyle(.switch)
+                .onChange(of: regularModeDraft) { _, enabled in
+                    let nextMode: AppDisplayMode = enabled ? .regular : .opulent
+                    guard nextMode != currentMode else { return }
+                    onToggle(nextMode)
                 }
-                pendingDisplayMode = nil
-            }
-        } message: {
+
             Text(
-                "Epistemos will relaunch to rebuild style caches and reload fonts safely. Your vault and saved data stay intact."
+                "Uses standard system fonts for display text, simplifies the landing greeting, and reduces non-ripple ASCII animation. Restart required."
             )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        } header: {
+            Text("Display Mode")
         }
     }
 }
