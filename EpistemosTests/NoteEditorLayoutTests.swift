@@ -64,6 +64,17 @@ struct NoteEditorLayoutTests {
         #expect(snapshot.lastPersistedBody == "# Persisted\n\nNewly pasted paragraph")
     }
 
+    @MainActor
+    @Test("note workspace falls back to loadBody when its cached persisted body is empty")
+    func noteWorkspacePersistedBodyFallsBackToLoadBody() {
+        let page = SDPage(title: "Fallback")
+        page.body = "# Inline\n\nRecovered body"
+
+        let resolved = NoteDetailWorkspaceView.resolvedPersistedBody("", for: page)
+
+        #expect(resolved == "# Inline\n\nRecovered body")
+    }
+
     @Test("preview handoff never reuses another note's captured body")
     func previewHandoffIgnoresOtherNotes() {
         let snapshot = NoteModeBodySnapshot(pageId: "note-a", body: "Body from note A")

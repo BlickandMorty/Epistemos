@@ -104,7 +104,7 @@ class GlassToolbarAccessoryViewController: NSTitlebarAccessoryViewController {
         // Add tint view
         let tint = NSView()
         tint.wantsLayer = true
-        tint.layer?.backgroundColor = NSColor.red.withAlphaComponent(0.5).cgColor
+        tint.layer?.backgroundColor = NSColor.clear.cgColor
         tint.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(tint)
         tintView = tint
@@ -121,6 +121,8 @@ class GlassToolbarAccessoryViewController: NSTitlebarAccessoryViewController {
             tint.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             tint.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
+
+        updateView()
     }
     
     private func updateView() {
@@ -131,5 +133,6 @@ class GlassToolbarAccessoryViewController: NSTitlebarAccessoryViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         self.fullScreenMinHeight = 52
+        updateView()
     }
 }

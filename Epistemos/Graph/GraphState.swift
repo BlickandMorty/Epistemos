@@ -642,17 +642,19 @@ final class GraphState {
         applyPreset(preset, persist: false, applyLabOverrides: false)
     }
 
+    private func finishOverlayPhysicsCycle() {
+        guard overlayPhysicsTask != nil else { return }
+        applyOverlayPreset(GraphOverlayPhysicsPolicy.restingPreset)
+    }
+
     func startOverlayPhysicsCycle() {
         cancelOverlayPhysicsCycle()
         applyOverlayPreset(GraphOverlayPhysicsPolicy.openingPreset)
         let delayNs = UInt64(GraphOverlayPhysicsPolicy.chaosDelaySeconds * 1_000_000_000)
-        overlayPhysicsTask = Task { [weak self] in
+        overlayPhysicsTask = Task.detached(priority: .utility) { [weak self] in
             try? await Task.sleep(nanoseconds: delayNs)
             guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let self else { return }
-                self.applyOverlayPreset(GraphOverlayPhysicsPolicy.restingPreset)
-            }
+            await self?.finishOverlayPhysicsCycle()
         }
     }
 

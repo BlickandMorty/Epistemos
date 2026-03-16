@@ -219,6 +219,42 @@ struct ThemePairTests {
     }
 
     @MainActor
+    @Test("System default keeps the graph overlay on an OLED backdrop")
+    func systemDefaultKeepsGraphOverlayImmersive() {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: ThemeMode.defaultsKey)
+            defaults.removeObject(forKey: UIState.themePairDefaultsKey)
+
+            let uiState = UIState()
+
+            #expect(uiState.themeMode == .systemDefault)
+            #expect(uiState.graphOverlayTheme == .oled)
+            #expect(GraphOverlayThemeStyle.windowAppearance(for: uiState.graphOverlayTheme)?.name == .darkAqua)
+        }
+    }
+
+    @MainActor
+    @Test("System default notes sidebar uses the text background instead of the under-page gray")
+    func systemDefaultNotesSidebarUsesTextBackground() {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: ThemeMode.defaultsKey)
+            defaults.removeObject(forKey: UIState.themePairDefaultsKey)
+
+            let uiState = UIState()
+
+            #expect(uiState.notesSidebarBackgroundColor == .textBackgroundColor)
+
+            uiState.setThemeMode(.custom)
+            uiState.setPair(.classic)
+            uiState.isSystemDark = false
+
+            #expect(uiState.notesSidebarBackgroundColor == EpistemosTheme.light.nsBackground)
+        }
+    }
+
+    @MainActor
     @Test("UIState enables landing greeting and cursor controls with default tuning")
     func uiStateLandingAnimationDefaults() {
         let defaults = UserDefaults.standard

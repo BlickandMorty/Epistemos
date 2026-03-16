@@ -92,8 +92,17 @@ final class UIState {
     var contentBackground: Color {
         customThemesEnabled ? theme.background : Color(nsColor: .textBackgroundColor)
     }
+    var notesSidebarBackgroundColor: NSColor {
+        customThemesEnabled ? theme.nsBackground : .textBackgroundColor
+    }
+    var notesSidebarBackground: Color {
+        Color(nsColor: notesSidebarBackgroundColor)
+    }
     var overlayChromeBackground: Color {
         customThemesEnabled ? theme.background : Color(nsColor: .underPageBackgroundColor)
+    }
+    var graphOverlayTheme: EpistemosTheme {
+        customThemesEnabled ? theme : .oled
     }
     var appearanceSyncKey: String {
         "\(themeMode.rawValue):\(activePair.rawValue):\(isSystemDark ? 1 : 0)"

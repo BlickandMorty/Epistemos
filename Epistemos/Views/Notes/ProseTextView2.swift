@@ -9,6 +9,7 @@ import UniformTypeIdentifiers
 
 final class ProseTextView2: NSTextView {
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private var requestedTheme: EpistemosTheme = .nativeDefault
 
     @MainActor
     private final class TestFixtureRetainer {
@@ -63,6 +64,35 @@ final class ProseTextView2: NSTextView {
     }
 
     func applyTheme(_ theme: EpistemosTheme) {
+        requestedTheme = theme
+        applyResolvedTheme(theme.resolvedForAppearance(effectiveAppearance))
+    }
+
+    var resolvedTheme: EpistemosTheme {
+        requestedTheme.resolvedForAppearance(effectiveAppearance)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        refreshNativeThemeIfNeeded()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshNativeThemeIfNeeded()
+    }
+
+    private func refreshNativeThemeIfNeeded() {
+        guard requestedTheme.followsSystemAppearance else { return }
+        let theme = resolvedTheme
+        guard markdownDelegate.theme != theme
+            || backgroundColor != NSColor(theme.background)
+            || textColor != NSColor(theme.foreground)
+        else { return }
+        applyResolvedTheme(theme)
+    }
+
+    private func applyResolvedTheme(_ theme: EpistemosTheme) {
         let foreground = NSColor(theme.foreground)
         backgroundColor = NSColor(theme.background)
         insertionPointColor = foreground

@@ -135,7 +135,6 @@ struct ChatView: View {
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(Motion.smooth, value: pipeline.isProcessing)
         .navigationTitle("")
         .toolbar {
             // Right: chat controls (title + nav handled by toolbar)

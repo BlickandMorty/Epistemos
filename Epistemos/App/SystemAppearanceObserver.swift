@@ -5,7 +5,7 @@ import AppKit
 // Pitfall #13: never use .preferredColorScheme() — it overrides @Environment(\.colorScheme).
 
 enum SystemAppearanceState {
-    static func isDark(
+    nonisolated static func isDark(
         globalDomain: [String: Any]? = UserDefaults.standard.persistentDomain(
             forName: UserDefaults.globalDomain
         )

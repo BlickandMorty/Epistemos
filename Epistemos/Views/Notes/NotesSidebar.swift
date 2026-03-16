@@ -350,7 +350,7 @@ struct NotesSidebar: View {
 
     private var theme: EpistemosTheme { ui.theme }
     private var sidebarBackground: Color {
-        ui.customThemesEnabled ? theme.background : Color(nsColor: .underPageBackgroundColor)
+        ui.notesSidebarBackground
     }
     private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
 

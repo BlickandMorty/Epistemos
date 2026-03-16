@@ -33,6 +33,7 @@ struct GraphPhysicsSettingsAuditTests {
         "epistemos.physics.windY",
         "epistemos.physics.enableOrbital",
         "epistemos.physics.orbitalSpeed",
+        "epistemos.physics.selectedPreset",
     ]
 
     private func clearPhysicsDefaults() {

@@ -66,6 +66,18 @@ struct ProseTextView2Tests {
         #expect(textView.markdownDelegate.theme == .oled)
     }
 
+    @Test("System theme tokens resolve from the text view effective appearance")
+    func systemThemeFollowsEffectiveAppearance() {
+        let (_, textView) = ProseTextView2.makeTextKit2()
+
+        textView.appearance = NSAppearance(named: .aqua)
+        textView.applyTheme(.systemDark)
+
+        #expect(textView.markdownDelegate.theme == .systemLight)
+        #expect(textView.textColor == NSColor(EpistemosTheme.systemLight.foreground))
+        #expect(textView.backgroundColor == NSColor(EpistemosTheme.systemLight.background))
+    }
+
     @Test("Writing tools enabled")
     func writingTools() {
         let (_, textView) = ProseTextView2.makeTextKit2()
@@ -226,7 +238,7 @@ struct MarkdownContentStorageTests {
         textView.reparseAndInvalidate()
 
         #expect(textView.string == text)
-        #expect(textView.markdownDelegate.theme == .light)
+        #expect(textView.markdownDelegate.theme == .systemLight)
     }
 
     @Test("Delegate handles empty text without crash")

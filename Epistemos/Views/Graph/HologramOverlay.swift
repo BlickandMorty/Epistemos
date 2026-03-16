@@ -33,15 +33,15 @@ enum GraphOverlayThemeStyle {
         if let explicitTheme {
             return explicitTheme
         }
-        if let theme = uiState?.theme {
+        if let theme = uiState?.graphOverlayTheme {
             return theme
         }
         let isDark = fallbackIsDark ?? SystemAppearanceState.isDark()
         return isDark ? .platinumDark : .platinum
     }
 
-    static func windowAppearance(for uiState: UIState?) -> NSAppearance? {
-        uiState?.windowAppearance
+    static func windowAppearance(for theme: EpistemosTheme) -> NSAppearance? {
+        NSAppearance(named: appearanceName(for: theme))
     }
 
     static func appearanceName(for theme: EpistemosTheme) -> NSAppearance.Name {
@@ -917,7 +917,7 @@ final class HologramOverlay {
             for: theme
         ).cgColor
         metalView?.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
-        let appearance = GraphOverlayThemeStyle.windowAppearance(for: uiState)
+        let appearance = GraphOverlayThemeStyle.windowAppearance(for: theme)
         window?.appearance = appearance
         miniPanel?.appearance = appearance
         miniInspectorPanel?.appearance = appearance
@@ -1003,7 +1003,7 @@ final class HologramOverlay {
         let theme = GraphOverlayThemeStyle.resolvedTheme(uiState: uiState)
 
         let window = GraphOverlayPanel(contentRect: screen.frame)
-        window.appearance = GraphOverlayThemeStyle.windowAppearance(for: uiState)
+        window.appearance = GraphOverlayThemeStyle.windowAppearance(for: theme)
         // Full-screen overlay doesn't need a shadow (blur background covers everything).
         window.hasShadow = false
 

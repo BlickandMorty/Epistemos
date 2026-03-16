@@ -41,8 +41,20 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     nonisolated static var nativeDefault: EpistemosTheme {
-        let appearance = NSApp?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
-        return appearance == .darkAqua ? .systemDark : .systemLight
+        SystemAppearanceState.isDark() ? .systemDark : .systemLight
+    }
+
+    nonisolated static func systemTheme(for appearance: NSAppearance?) -> EpistemosTheme {
+        let bestMatch = appearance?.bestMatch(from: [.darkAqua, .aqua])
+        return bestMatch == .darkAqua ? .systemDark : .systemLight
+    }
+
+    nonisolated var followsSystemAppearance: Bool {
+        self == .systemLight || self == .systemDark
+    }
+
+    nonisolated func resolvedForAppearance(_ appearance: NSAppearance?) -> EpistemosTheme {
+        followsSystemAppearance ? Self.systemTheme(for: appearance) : self
     }
 
     nonisolated var isDark: Bool {

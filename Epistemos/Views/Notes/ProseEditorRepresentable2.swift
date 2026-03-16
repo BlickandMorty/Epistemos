@@ -75,7 +75,10 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         coord.lastTheme = theme
         coord.lastIsFocusMode = isFocusMode
         coord.lastIsEditable = isEditable
-        coord.renderedTableOverlayManager = RenderedTableOverlayManager2(textView: tv, theme: theme)
+        coord.renderedTableOverlayManager = RenderedTableOverlayManager2(
+            textView: tv,
+            theme: tv.resolvedTheme
+        )
 
         // Wire AI chat callbacks
         coord.wireNoteChatCallbacks()
@@ -448,7 +451,7 @@ extension ProseEditorRepresentable2 {
             lastIsEditable = parent.isEditable
             tv.isEditable = parent.isEditable
             updateCentering()
-            renderedTableOverlayManager?.setTheme(parent.theme)
+            renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
             renderedTableOverlayManager?.refreshAfterTextChange()
             tv.window?.makeFirstResponder(tv)
 
@@ -477,7 +480,7 @@ extension ProseEditorRepresentable2 {
             guard let tv = textView else { return }
             lastTheme = parent.theme
             tv.applyTheme(parent.theme)
-            renderedTableOverlayManager?.setTheme(parent.theme)
+            renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
         }
 
         // MARK: - Centering

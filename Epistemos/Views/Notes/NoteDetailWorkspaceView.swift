@@ -555,6 +555,13 @@ struct NoteDetailWorkspaceView: View {
         _persistedBody = State(initialValue: NoteFileStorage.readBody(pageId: pageId))
     }
 
+    static func resolvedPersistedBody(_ persistedBody: String, for page: SDPage) -> String {
+        if !persistedBody.isEmpty {
+            return persistedBody
+        }
+        return page.loadBody()
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             noteCanvas
@@ -1313,10 +1320,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func persistedBodyFor(_ page: SDPage) -> String {
-        if !persistedBody.isEmpty {
-            return persistedBody
-        }
-        return page.body
+        Self.resolvedPersistedBody(persistedBody, for: page)
     }
 
     private func displayBody(for page: SDPage) -> String {
