@@ -253,6 +253,19 @@ final class GraphState {
     let store = GraphStore()
     let filter = FilterEngine()
 
+    private static let visualThemeDefaultsKey = "graphVisualTheme"
+
+    private static func restoredVisualTheme(defaults: UserDefaults = .standard) -> GraphVisualTheme {
+        guard let storedValue = defaults.object(forKey: visualThemeDefaultsKey) as? NSNumber else {
+            return .classic
+        }
+        let rawValue = storedValue.intValue
+        guard (0...Int(UInt8.max)).contains(rawValue) else {
+            return .classic
+        }
+        return GraphVisualTheme(rawValue: UInt8(rawValue)) ?? .classic
+    }
+
     /// Rust engine handle set by MetalGraphNSView after engine creation.
     /// Used for Rust-side search and other FFI calls from Swift.
     /// Marked nonisolated(unsafe) so MetalGraphNSView.deinit can nil it synchronously
@@ -400,13 +413,9 @@ final class GraphState {
     // MARK: - Visual Theme
 
     /// Dialogue vs Classic SDF renderer. Persisted via UserDefaults.
-    var visualTheme: GraphVisualTheme = {
-        let raw = UserDefaults.standard.integer(forKey: "graphVisualTheme")
-        guard (0...255).contains(raw) else { return .dialogue }
-        return GraphVisualTheme(rawValue: UInt8(raw)) ?? .dialogue
-    }() {
+    var visualTheme: GraphVisualTheme = GraphState.restoredVisualTheme() {
         didSet {
-            UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: "graphVisualTheme")
+            UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: Self.visualThemeDefaultsKey)
             visualThemeVersion += 1
         }
     }

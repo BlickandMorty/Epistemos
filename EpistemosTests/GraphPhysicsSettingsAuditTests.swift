@@ -6,6 +6,7 @@ import Foundation
 @MainActor
 struct GraphPhysicsSettingsAuditTests {
     private let performanceModeKey = "epistemos.graph.performanceMode"
+    private let visualThemeKey = "graphVisualTheme"
     private let physicsKeys: [String] = [
         "epistemos.physics.hasSavedSettings",
         "epistemos.physics.version",
@@ -42,6 +43,7 @@ struct GraphPhysicsSettingsAuditTests {
             defaults.removeObject(forKey: key)
         }
         defaults.removeObject(forKey: performanceModeKey)
+        defaults.removeObject(forKey: visualThemeKey)
     }
 
     private func waitForPreset(
@@ -186,6 +188,25 @@ struct GraphPhysicsSettingsAuditTests {
         let restored = GraphState()
         #expect(restored.performanceModeEnabled)
         #expect(restored.qualityLevel == 2)
+    }
+
+    @Test("Visual theme defaults to classic when unset")
+    func visualThemeDefaultsToClassicWhenUnset() {
+        clearPhysicsDefaults()
+
+        let state = GraphState()
+
+        #expect(state.visualTheme == .classic)
+    }
+
+    @Test("Visual theme restores persisted choice")
+    func visualThemeRestoresPersistedChoice() {
+        clearPhysicsDefaults()
+        UserDefaults.standard.set(Int(GraphVisualTheme.dialogue.rawValue), forKey: visualThemeKey)
+
+        let state = GraphState()
+
+        #expect(state.visualTheme == .dialogue)
     }
 }
 
