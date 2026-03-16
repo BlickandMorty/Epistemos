@@ -164,6 +164,24 @@ final class CommandPaletteWindowController {
         panel?.invalidateShadow()
     }
 
+    func updatePreferredSize(_ size: CGSize, animated: Bool = true) {
+        guard let panel else { return }
+
+        let boundedSize = CGSize(
+            width: min(max(size.width, panel.minSize.width), panel.maxSize.width),
+            height: min(max(size.height, panel.minSize.height), panel.maxSize.height)
+        )
+        let currentFrame = panel.frame
+        let targetFrame = NSRect(
+            x: currentFrame.midX - boundedSize.width / 2,
+            y: currentFrame.maxY - boundedSize.height,
+            width: boundedSize.width,
+            height: boundedSize.height
+        )
+
+        panel.setFrame(targetFrame, display: true, animate: animated && panel.isVisible)
+    }
+
     // MARK: - Teardown
 
     func teardown() {
@@ -186,7 +204,12 @@ final class CommandPaletteWindowController {
         guard panel == nil else { return }
 
         let p = KeyablePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 120),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: CommandPaletteLayout.compactPanelSize.width,
+                height: CommandPaletteLayout.compactPanelSize.height
+            ),
             styleMask: [.borderless, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -199,8 +222,8 @@ final class CommandPaletteWindowController {
         p.isOpaque = false
         p.hasShadow = false
         p.isMovableByWindowBackground = true
-        p.minSize = NSSize(width: 400, height: 80)
-        p.maxSize = NSSize(width: 540, height: 700)
+        p.minSize = NSSize(width: 440, height: 160)
+        p.maxSize = NSSize(width: 580, height: 760)
 
         guard let bootstrap = AppBootstrap.shared else { return }
 

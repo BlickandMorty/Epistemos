@@ -13,6 +13,16 @@ private enum PaletteMode: Equatable {
     case chat
 }
 
+enum CommandPaletteLayout {
+    static let compactWidth: CGFloat = 380
+    static let expandedSearchWidth: CGFloat = 430
+    static let chatWidth: CGFloat = 470
+
+    static let compactPanelSize = CGSize(width: 460, height: 220)
+    static let expandedSearchPanelSize = CGSize(width: 510, height: 460)
+    static let chatPanelSize = CGSize(width: 550, height: 660)
+}
+
 enum CommandPaletteThemeTransition {
     @MainActor
     static func perform(
@@ -82,6 +92,18 @@ struct CommandPaletteOverlay: View {
     private let composerMetrics = AssistantComposerMetrics.compactChat
 
     private var showResults: Bool { !searchText.isEmpty }
+    private var preferredPaletteWidth: CGFloat {
+        if mode == .chat { return CommandPaletteLayout.chatWidth }
+        return (showResults || isExpanded)
+            ? CommandPaletteLayout.expandedSearchWidth
+            : CommandPaletteLayout.compactWidth
+    }
+    private var preferredPanelSize: CGSize {
+        if mode == .chat { return CommandPaletteLayout.chatPanelSize }
+        return (showResults || isExpanded)
+            ? CommandPaletteLayout.expandedSearchPanelSize
+            : CommandPaletteLayout.compactPanelSize
+    }
 
     // MARK: - Body
 
@@ -120,21 +142,32 @@ struct CommandPaletteOverlay: View {
                 .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isExpanded)
             }
         }
-        .frame(width: 440)
+        .frame(width: preferredPaletteWidth)
         .frame(maxHeight: mode == .chat ? .infinity : nil)
         .fixedSize(horizontal: false, vertical: mode == .search)
         .offset(y: appeared ? 0 : -15)
         .opacity(appeared ? 1.0 : 0.0)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: showResults)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: appeared)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: preferredPaletteWidth)
         .onAppear {
             appeared = true
+            syncPaletteSize()
             // Immediate focus claim — then retry after layout settles.
             isSearchFocused = true
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(50))
                 if !isSearchFocused { isSearchFocused = true }
             }
+        }
+        .onChange(of: mode) { _, _ in
+            syncPaletteSize()
+        }
+        .onChange(of: showResults) { _, _ in
+            syncPaletteSize()
+        }
+        .onChange(of: isExpanded) { _, _ in
+            syncPaletteSize()
         }
         .onExitCommand { handleEscape() }
         .onReceive(NotificationCenter.default.publisher(for: .commandPaletteSwitchToChat)) { _ in
@@ -1161,6 +1194,10 @@ struct CommandPaletteOverlay: View {
         isExpanded = false
         cachedSearchResults = []
         CommandPaletteWindowController.shared.hide()
+    }
+
+    private func syncPaletteSize() {
+        CommandPaletteWindowController.shared.updatePreferredSize(preferredPanelSize)
     }
 
     private func submitChat(_ query: String) {

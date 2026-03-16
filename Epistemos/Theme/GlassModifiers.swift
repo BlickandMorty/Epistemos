@@ -155,7 +155,7 @@ struct AssistantSurfaceMetrics: Equatable {
         outerRadius: 30,
         innerRadius: 24,
         controlRadius: 18,
-        borderWidth: 0.72,
+        borderWidth: 0.82,
         showsOuterStroke: true,
         contentHorizontalPadding: 18,
         contentVerticalPadding: 16,
@@ -249,13 +249,16 @@ struct AssistantGlassInputChrome: ViewModifier {
     let isActive: Bool
 
     private let metrics = AssistantGlassInputMetrics.default
+    private var prefersNativeAssistantGlass: Bool {
+        theme.usesNativeWindowBlur || theme == .light || theme == .oled
+    }
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
 
         content
             .background {
-                if theme.usesNativeWindowBlur, metrics.prefersGlassEffect {
+                if prefersNativeAssistantGlass, metrics.prefersGlassEffect {
                     shape
                         .fill(.white.opacity(0.001))
                         .glassEffect(.regular.interactive(), in: shape)
@@ -312,9 +315,9 @@ struct AssistantGlassInputMetrics: Equatable {
         activeBorderOpacity: 0.56,
         idleBorderOpacity: 0.38,
         highlightOpacity: 0.04,
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        shadowYOffset: 0
+        shadowOpacity: 0.11,
+        shadowRadius: 18,
+        shadowYOffset: 8
     )
 }
 
@@ -333,8 +336,8 @@ struct AssistantComposerMetrics: Equatable {
         borderWidth: 0.6,
         horizontalPadding: 12,
         verticalPadding: 7,
-        shadowRadius: 0,
-        shadowYOffset: 0,
+        shadowRadius: 18,
+        shadowYOffset: 8,
         sendButtonSize: 32,
         sendIconSize: 12
     )
@@ -344,8 +347,8 @@ struct AssistantComposerMetrics: Equatable {
         borderWidth: 0.62,
         horizontalPadding: 14,
         verticalPadding: 10,
-        shadowRadius: 0,
-        shadowYOffset: 0,
+        shadowRadius: 20,
+        shadowYOffset: 9,
         sendButtonSize: 36,
         sendIconSize: 14
     )
@@ -538,13 +541,16 @@ struct AssistantComposerChrome: ViewModifier {
     let theme: EpistemosTheme
     let metrics: AssistantComposerMetrics
     let isActive: Bool
+    private var prefersNativeAssistantGlass: Bool {
+        theme.usesNativeWindowBlur || theme == .light || theme == .oled
+    }
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
 
         content
             .background {
-                if theme.usesNativeWindowBlur {
+                if prefersNativeAssistantGlass {
                     shape
                         .fill(.white.opacity(0.001))
                         .glassEffect(.regular.interactive(), in: shape)
@@ -575,6 +581,12 @@ struct AssistantComposerChrome: ViewModifier {
                     )
                     .padding(1.1)
             }
+            .shadow(
+                color: .black.opacity(theme.isDark ? 0.16 : 0.08),
+                radius: metrics.shadowRadius,
+                x: 0,
+                y: metrics.shadowYOffset
+            )
     }
 }
 
@@ -808,11 +820,14 @@ private struct AssistantSourcePreviewCard: View {
 private struct AssistantSurfaceBackground: View {
     let theme: EpistemosTheme
     let metrics: AssistantSurfaceMetrics
+    private var prefersNativeAssistantGlass: Bool {
+        theme.usesNativeWindowBlur || theme == .light || theme == .oled
+    }
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: metrics.outerRadius, style: .continuous)
 
-        if theme.usesNativeWindowBlur {
+        if prefersNativeAssistantGlass {
             shape
                 .fill(theme.floatingSurfaceTint.opacity(theme.isDark ? 0.30 : 0.82))
                 .glassEffect(.regular.interactive(), in: shape)

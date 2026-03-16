@@ -34,8 +34,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState defaults to Platinum when no pair is stored")
-    func uiStateDefaultsToPlatinum() {
+    @Test("UIState defaults to Classic when no pair is stored")
+    func uiStateDefaultsToClassic() {
         let defaults = UserDefaults.standard
         let key = "epistemos.theme.pair"
         let previous = defaults.string(forKey: key)
@@ -49,7 +49,7 @@ struct ThemePairTests {
         defaults.removeObject(forKey: key)
 
         let uiState = UIState()
-        #expect(uiState.activePair == .platinum)
+        #expect(uiState.activePair == .classic)
     }
 
     @MainActor
@@ -254,7 +254,7 @@ struct ThemePairTests {
         #expect(palette.outerRadius == 30)
         #expect(palette.innerRadius == 24)
         #expect(palette.controlRadius == 18)
-        #expect(palette.borderWidth == 0.72)
+        #expect(palette.borderWidth == 0.82)
         #expect(palette.showsOuterStroke)
         #expect(palette.outerRadius > palette.innerRadius)
         #expect(palette.innerRadius > palette.controlRadius)
@@ -336,15 +336,31 @@ struct ThemePairTests {
         )
     }
 
-    @Test("Assistant input chrome stays glass-first without decorative tint or shadow")
+    @Test("Assistant input chrome stays glass-first with restored depth")
     func assistantInputChromePrefersNativeGlass() {
         let input = AssistantGlassInputMetrics.default
 
         #expect(input.prefersGlassEffect)
         #expect(input.tintOpacity == 0)
-        #expect(input.shadowOpacity == 0)
-        #expect(input.shadowRadius == 0)
+        #expect(input.shadowOpacity > 0)
+        #expect(input.shadowRadius > 0)
         #expect(input.activeBorderOpacity > input.idleBorderOpacity)
+    }
+
+    @Test("Assistant composer metrics restore a subtle dreamy shell shadow")
+    func assistantComposerMetricsRestoreShadowDepth() {
+        #expect(AssistantComposerMetrics.mainChat.shadowRadius > 0)
+        #expect(AssistantComposerMetrics.mainChat.shadowYOffset > 0)
+        #expect(AssistantComposerMetrics.compactChat.shadowRadius > 0)
+        #expect(AssistantComposerMetrics.compactChat.shadowYOffset > 0)
+    }
+
+    @Test("Command palette starts compact and expands through search and chat states")
+    func commandPaletteSizeLadderStaysOrdered() {
+        #expect(CommandPaletteLayout.compactWidth < CommandPaletteLayout.expandedSearchWidth)
+        #expect(CommandPaletteLayout.expandedSearchWidth < CommandPaletteLayout.chatWidth)
+        #expect(CommandPaletteLayout.compactPanelSize.width < CommandPaletteLayout.chatPanelSize.width)
+        #expect(CommandPaletteLayout.compactPanelSize.height < CommandPaletteLayout.chatPanelSize.height)
     }
 
     @Test("Markdown preview block chrome keeps the same dormant to hover surface hierarchy")
@@ -386,10 +402,10 @@ struct ThemePairTests {
         #expect(main.cornerRadius == 16)
         #expect(main.sendButtonSize == 32)
         #expect(main.sendButtonSize < compact.sendButtonSize)
-        #expect(main.shadowRadius == 0)
-        #expect(main.shadowYOffset == 0)
-        #expect(compact.shadowRadius == 0)
-        #expect(compact.shadowYOffset == 0)
+        #expect(main.shadowRadius > 0)
+        #expect(main.shadowYOffset > 0)
+        #expect(compact.shadowRadius > main.shadowRadius)
+        #expect(compact.shadowYOffset >= main.shadowYOffset)
         #expect(main.borderWidth <= 0.8)
         #expect(compact.cornerRadius > main.cornerRadius)
         #expect(compact.horizontalPadding > main.horizontalPadding)

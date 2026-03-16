@@ -39,7 +39,7 @@ final class UIState {
     // MARK: - Theme
 
     /// The active theme pair. Drives both light and dark rendering.
-    var activePair: ThemePair = .platinum {
+    var activePair: ThemePair = .classic {
         didSet {
             UserDefaults.standard.set(activePair.rawValue, forKey: "epistemos.theme.pair")
         }
