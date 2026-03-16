@@ -257,20 +257,17 @@ struct AssistantGlassInputChrome: ViewModifier {
             .background {
                 if theme.usesNativeWindowBlur, metrics.prefersGlassEffect {
                     shape
-                        .fill(theme.glassBg.opacity(metrics.tintOpacity))
+                        .fill(.white.opacity(0.001))
                         .glassEffect(.regular.interactive(), in: shape)
-                        .overlay {
-                            shape.fill(.white.opacity(metrics.highlightOpacity))
-                        }
                 } else if theme.isDark {
                     ZStack {
                         shape.fill(.ultraThinMaterial)
-                        shape.fill(theme.background.opacity(0.54))
+                        shape.fill(theme.background.opacity(0.48))
                     }
                 } else {
                     ZStack {
                         shape.fill(.regularMaterial)
-                        shape.fill(theme.glassBg.opacity(0.68))
+                        shape.fill(theme.background.opacity(0.12))
                     }
                 }
             }
@@ -311,13 +308,13 @@ struct AssistantGlassInputMetrics: Equatable {
 
     static let `default` = AssistantGlassInputMetrics(
         prefersGlassEffect: true,
-        tintOpacity: 0.18,
-        activeBorderOpacity: 0.68,
-        idleBorderOpacity: 0.48,
-        highlightOpacity: 0.075,
-        shadowOpacity: 0.08,
-        shadowRadius: 14,
-        shadowYOffset: 6
+        tintOpacity: 0,
+        activeBorderOpacity: 0.56,
+        idleBorderOpacity: 0.38,
+        highlightOpacity: 0.04,
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        shadowYOffset: 0
     )
 }
 
@@ -336,8 +333,8 @@ struct AssistantComposerMetrics: Equatable {
         borderWidth: 0.6,
         horizontalPadding: 13,
         verticalPadding: 8,
-        shadowRadius: 12,
-        shadowYOffset: 5,
+        shadowRadius: 0,
+        shadowYOffset: 0,
         sendButtonSize: 34,
         sendIconSize: 13
     )
@@ -347,8 +344,8 @@ struct AssistantComposerMetrics: Equatable {
         borderWidth: 0.62,
         horizontalPadding: 14,
         verticalPadding: 10,
-        shadowRadius: 16,
-        shadowYOffset: 8,
+        shadowRadius: 0,
+        shadowYOffset: 0,
         sendButtonSize: 36,
         sendIconSize: 14
     )
@@ -549,20 +546,17 @@ struct AssistantComposerChrome: ViewModifier {
             .background {
                 if theme.usesNativeWindowBlur {
                     shape
-                        .fill(theme.glassBg.opacity(theme.isDark ? 0.74 : 0.84))
+                        .fill(.white.opacity(0.001))
                         .glassEffect(.regular.interactive(), in: shape)
-                        .overlay {
-                            shape.fill(.white.opacity(theme.isDark ? 0.03 : 0.08))
-                        }
                 } else if theme.isDark {
                     ZStack {
                         shape.fill(.ultraThinMaterial)
-                        shape.fill(theme.background.opacity(0.66))
+                        shape.fill(theme.background.opacity(0.58))
                     }
                 } else {
                     ZStack {
                         shape.fill(.regularMaterial)
-                        shape.fill(theme.glassBg.opacity(0.88))
+                        shape.fill(theme.background.opacity(0.16))
                     }
                 }
             }
@@ -581,13 +575,6 @@ struct AssistantComposerChrome: ViewModifier {
                     )
                     .padding(1.1)
             }
-            .shadow(color: .black.opacity(theme.isDark ? 0.16 : 0.08), radius: 8, y: 3)
-            .shadow(
-                color: .black.opacity(theme.isDark ? 0.24 : 0.1),
-                radius: metrics.shadowRadius,
-                x: 0,
-                y: metrics.shadowYOffset
-            )
     }
 }
 

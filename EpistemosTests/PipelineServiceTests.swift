@@ -575,6 +575,25 @@ struct NetworkProcessActivityTests {
         #expect(probe.snapshot() == ["begin:Epistemos AI stream", "end"])
     }
 
+    @Test("stream work no longer inherits the main actor")
+    @MainActor func streamWorkRunsOffMainActor() async throws {
+        let key = DispatchSpecificKey<UInt8>()
+        DispatchQueue.main.setSpecific(key: key, value: 1)
+
+        let stream = NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+            let isMainQueue = DispatchQueue.getSpecific(key: key) == 1
+            continuation.yield(isMainQueue ? "main" : "background")
+            continuation.finish()
+        }
+
+        var chunks: [String] = []
+        for try await chunk in stream {
+            chunks.append(chunk)
+        }
+
+        #expect(chunks == ["background"])
+    }
+
     @Test("bootstrap no longer keeps a session-wide App Nap override")
     @MainActor func bootstrapDoesNotKeepSessionWideActivity() {
         let existingBootstrap = AppBootstrap.shared

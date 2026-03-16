@@ -285,7 +285,8 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarMetrics.buttonSide == NoteToolbarMetrics.iconSide * 2)
         #expect(NoteToolbarMetrics.chatFieldWidth == 180)
         #expect(NoteToolbarMetrics.stripGlowBlurRadius == 6)
-        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0.012)
+        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinum) == 0)
+        #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinumDark) == 0)
     }
 
     @Test("Preview mode follows the active editor stack and preserves uppercase heading display")

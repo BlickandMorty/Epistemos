@@ -30,6 +30,10 @@ enum LandingSearchLayout {
     static let cornerRadius: CGFloat = 24
 }
 
+enum LandingSearchChromePolicy {
+    static let showsGlow = false
+}
+
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 // Search/command palette is now a global overlay (CommandPaletteOverlay)
@@ -301,13 +305,7 @@ struct LandingView: View {
                     cornerRadius: LandingSearchLayout.cornerRadius,
                     isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty
                 )
-                .siriGlow(
-                    cornerRadius: LandingSearchLayout.cornerRadius,
-                    lineWidth: 1.5,
-                    isActive: isLandingSearchFocused
-                )
                 .frame(maxWidth: LandingSearchLayout.maxWidth)
-                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
 
                 // Quick action chips
                 HStack(spacing: 10) {

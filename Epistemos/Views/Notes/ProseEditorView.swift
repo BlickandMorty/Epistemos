@@ -189,10 +189,7 @@ struct ProseEditorView: View {
             }
         }
         .onAppear {
-            let body = initialBodyOverride ?? page.loadBody()
-            bodyText = body
-            lastPersistedBody = body
-            syncBlocks(body: body)
+            syncBlocks(body: bodyText)
         }
         // @State management only — text flush is handled by Coordinator's onPageFlush.
         .onChange(of: page.id) { _, _ in

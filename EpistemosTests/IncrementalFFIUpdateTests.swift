@@ -308,7 +308,7 @@ struct IncrementalFFIUpdateTests {
 
         let payload = makeVisibleNodeMetadataBatchPayload(
             from: [visible, alsoVisible, hidden],
-            filter: filter
+            filter: GraphFilterSnapshot(filter: filter)
         )
 
         #expect(payload.ids == ["visible", "also-visible"])

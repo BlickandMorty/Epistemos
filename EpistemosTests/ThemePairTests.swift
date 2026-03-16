@@ -293,12 +293,14 @@ struct ThemePairTests {
         )
     }
 
-    @Test("Assistant input chrome stays glass-first even without native window blur themes")
+    @Test("Assistant input chrome stays glass-first without decorative tint or shadow")
     func assistantInputChromePrefersNativeGlass() {
         let input = AssistantGlassInputMetrics.default
 
         #expect(input.prefersGlassEffect)
-        #expect(input.tintOpacity > 0)
+        #expect(input.tintOpacity == 0)
+        #expect(input.shadowOpacity == 0)
+        #expect(input.shadowRadius == 0)
         #expect(input.activeBorderOpacity > input.idleBorderOpacity)
     }
 
@@ -341,10 +343,18 @@ struct ThemePairTests {
         #expect(main.cornerRadius == 18)
         #expect(main.sendButtonSize == 34)
         #expect(main.sendButtonSize < compact.sendButtonSize)
-        #expect(main.shadowRadius < compact.shadowRadius)
+        #expect(main.shadowRadius == 0)
+        #expect(main.shadowYOffset == 0)
+        #expect(compact.shadowRadius == 0)
+        #expect(compact.shadowYOffset == 0)
         #expect(main.borderWidth <= 0.8)
         #expect(compact.cornerRadius > main.cornerRadius)
         #expect(compact.horizontalPadding > main.horizontalPadding)
+    }
+
+    @Test("Landing search composer disables decorative glow for a native glass surface")
+    func landingSearchComposerDisablesDecorativeGlow() {
+        #expect(LandingSearchChromePolicy.showsGlow == false)
     }
 
     @Test("Bare until pressed chrome stays invisible until press or active selection")

@@ -27,6 +27,7 @@ final class PageStoragePool {
 
     private var slots: [String: PageSlot] = [:]
     private let maxSlots = 12
+    private var preWarmTask: Task<Void, Never>?
 
     private let log = Logger(subsystem: "com.epistemos", category: "StoragePool")
 
@@ -168,13 +169,15 @@ final class PageStoragePool {
     private static let maxPreWarmOnLaunch = 3
 
     /// Pre-warms storage slots for a batch of pages, spreading work across frames.
-    /// Already-cached pages are skipped. Each page's styling runs on a separate
-    /// main queue dispatch so the UI stays responsive during pre-warming.
+    /// Already-cached pages are skipped. Work is scheduled as a cancellable task
+    /// so repeated folder expands don't leave stale queued warmups behind.
     /// Maximum page body size (chars) for pre-warming. Pages larger than this
     /// are skipped — a 435K char page was being pre-warmed which is wasteful.
     private static let maxPreWarmBodySize = 50_000
 
     func preWarm(pages: [(id: String, body: String)], theme: EpistemosTheme) {
+        preWarmTask?.cancel()
+
         // Filter to pages not already in the pool and skip oversized pages
         let uncached = pages.filter { slots[$0.id] == nil && $0.body.count <= Self.maxPreWarmBodySize }
         guard !uncached.isEmpty else { return }
@@ -182,10 +185,17 @@ final class PageStoragePool {
         let count = min(uncached.count, Self.maxPreWarmPerFolder)
         log.info("PageStoragePool: pre-warming \(count) pages")
 
-        for (index, page) in uncached.prefix(count).enumerated() {
-            // Stagger across frames — one page per dispatch to avoid blocking
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.016) { [weak self] in
-                guard let self, self.slots[page.id] == nil else { return }
+        let scheduledPages = Array(uncached.prefix(count))
+        preWarmTask = Task(priority: .utility) { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.preWarmTask = nil }
+
+            for (index, page) in scheduledPages.enumerated() {
+                if index > 0 {
+                    try? await Task.sleep(for: .milliseconds(16))
+                }
+                guard !Task.isCancelled else { return }
+                guard self.slots[page.id] == nil else { continue }
                 _ = self.getOrCreate(pageId: page.id, bodyText: page.body, theme: theme)
             }
         }
@@ -205,7 +215,12 @@ final class PageStoragePool {
     }
 
     func remove(pageId: String) { slots.removeValue(forKey: pageId) }
-    func removeAll() { slots.removeAll() }
+
+    func removeAll() {
+        preWarmTask?.cancel()
+        preWarmTask = nil
+        slots.removeAll()
+    }
 
     // MARK: - Eviction
 

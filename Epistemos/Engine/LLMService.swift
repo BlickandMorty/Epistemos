@@ -195,10 +195,12 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func anthropicStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+        let model = inference.anthropicModel
+        let resolvedAPIKey = apiKey ?? inference.key(for: .anthropic)
+        return NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
             do {
                 var body = AnthropicRequest(
-                    model: self.inference.anthropicModel,
+                    model: model,
                     maxTokens: maxTokens,
                     system: systemPrompt,
                     messages: [AnthropicMessage(role: "user", content: prompt)]
@@ -208,7 +210,7 @@ final class LLMService: LLMClientProtocol {
                 var request = URLRequest(url: Self.anthropicURL, timeoutInterval: Self.requestTimeout)
                 request.httpMethod = "POST"
                 request.httpBody = encoded
-                request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-api-key")
+                request.setValue(resolvedAPIKey, forHTTPHeaderField: "x-api-key")
                 request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
                 request.setValue("application/json", forHTTPHeaderField: "content-type")
 
@@ -262,17 +264,19 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func openAIStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+        let model = inference.openaiModel
+        let resolvedAPIKey = apiKey ?? inference.key(for: .openai)
+        return NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
             do {
                 var messages: [OpenAIMessage] = []
                 if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
                 messages.append(OpenAIMessage(role: "user", content: prompt))
-                let body = OpenAIRequest(model: self.inference.openaiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
+                let body = OpenAIRequest(model: model, messages: messages, maxCompletionTokens: maxTokens, stream: true)
                 let encoded = try JSONEncoder().encode(body)
                 var request = URLRequest(url: Self.openaiURL, timeoutInterval: Self.requestTimeout)
                 request.httpMethod = "POST"
                 request.httpBody = encoded
-                request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
+                request.setValue("Bearer \(resolvedAPIKey)", forHTTPHeaderField: "Authorization")
                 request.setValue("application/json", forHTTPHeaderField: "content-type")
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
@@ -324,9 +328,11 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func geminiStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+        let model = inference.googleModel
+        let resolvedAPIKey = apiKey ?? inference.key(for: .google)
+        let urlStr = "\(Self.geminiBaseURL)\(model):streamGenerateContent?alt=sse"
+        return NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { (continuation: AsyncThrowingStream<String, Error>.Continuation) in
             do {
-                let urlStr = "\(Self.geminiBaseURL)\(self.inference.googleModel):streamGenerateContent?alt=sse"
                 guard let url = URL(string: urlStr) else {
                     continuation.finish(throwing: LLMError.apiError(statusCode: 0, body: "Invalid Gemini stream URL"))
                     return
@@ -344,7 +350,7 @@ final class LLMService: LLMClientProtocol {
                 request.httpMethod = "POST"
                 request.httpBody = encoded
                 request.setValue("application/json", forHTTPHeaderField: "content-type")
-                request.setValue(apiKey ?? self.inference.apiKey, forHTTPHeaderField: "x-goog-api-key")
+                request.setValue(resolvedAPIKey, forHTTPHeaderField: "x-goog-api-key")
 
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
@@ -398,17 +404,19 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func kimiStream(prompt: String, systemPrompt: String?, maxTokens: Int, apiKey: String? = nil) -> AsyncThrowingStream<String, Error> {
-        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+        let model = inference.kimiModel
+        let resolvedAPIKey = apiKey ?? inference.key(for: .kimi)
+        return NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
             do {
                 var messages: [OpenAIMessage] = []
                 if let sys = systemPrompt { messages.append(OpenAIMessage(role: "system", content: sys)) }
                 messages.append(OpenAIMessage(role: "user", content: prompt))
-                let body = OpenAIRequest(model: self.inference.kimiModel, messages: messages, maxCompletionTokens: maxTokens, stream: true)
+                let body = OpenAIRequest(model: model, messages: messages, maxCompletionTokens: maxTokens, stream: true)
                 let encoded = try JSONEncoder().encode(body)
                 var request = URLRequest(url: Self.kimiURL, timeoutInterval: Self.requestTimeout)
                 request.httpMethod = "POST"
                 request.httpBody = encoded
-                request.setValue("Bearer \(apiKey ?? self.inference.apiKey)", forHTTPHeaderField: "Authorization")
+                request.setValue("Bearer \(resolvedAPIKey)", forHTTPHeaderField: "Authorization")
                 request.setValue("application/json", forHTTPHeaderField: "content-type")
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
@@ -452,11 +460,13 @@ final class LLMService: LLMClientProtocol {
     }
 
     private func ollamaStream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
-        NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { continuation in
+        let model = inference.ollamaModel
+        let baseURL = inference.ollamaBaseUrl
+        return NetworkProcessActivity.makeStream(reason: "Epistemos AI stream") { (continuation: AsyncThrowingStream<String, Error>.Continuation) in
             do {
-                let body = OllamaRequest(model: self.inference.ollamaModel, prompt: prompt, system: systemPrompt, stream: true)
+                let body = OllamaRequest(model: model, prompt: prompt, system: systemPrompt, stream: true)
                 let encoded = try JSONEncoder().encode(body)
-                guard let ollamaURL = URL(string: "\(self.inference.ollamaBaseUrl)/api/generate") else {
+                guard let ollamaURL = URL(string: "\(baseURL)/api/generate") else {
                     continuation.finish(throwing: LLMError.apiError(statusCode: 0, body: "Invalid Ollama base URL"))
                     return
                 }
@@ -768,16 +778,15 @@ nonisolated enum NetworkProcessActivity {
         return try await operation()
     }
 
-    @MainActor
     static func makeStream<Element>(
         reason: String,
         options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
         manager: NetworkProcessActivityManager = .live,
-        _ operation: @escaping (AsyncThrowingStream<Element, Error>.Continuation) async -> Void
+        _ operation: @escaping @Sendable (AsyncThrowingStream<Element, Error>.Continuation) async -> Void
     ) -> AsyncThrowingStream<Element, Error> {
         AsyncThrowingStream { continuation in
             let token = manager.begin(reason, options)
-            let task = Task { @MainActor in
+            let task = Task.detached(priority: .userInitiated) {
                 defer { manager.end(token) }
                 await operation(continuation)
             }

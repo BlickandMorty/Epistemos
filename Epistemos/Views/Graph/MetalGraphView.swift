@@ -24,7 +24,7 @@ struct GraphEdgeBatchPayload {
     var isEmpty: Bool { sourceIds.isEmpty }
 }
 
-struct GraphNodeMetadataBatchPayload {
+nonisolated struct GraphNodeMetadataBatchPayload: Sendable {
     var ids: [String] = []
     var createdAts: [Double] = []
     var updatedAts: [Double] = []
@@ -76,6 +76,25 @@ enum GraphDisplayLinkTransition: Equatable {
     case none
     case start
     case stop
+}
+
+nonisolated struct GraphFilterSnapshot: Sendable {
+    let activeNodeTypes: Set<GraphNodeType>
+    let focusedConnected: Set<String>?
+
+    @MainActor
+    init(filter: FilterEngine) {
+        activeNodeTypes = filter.activeNodeTypes
+        focusedConnected = filter.focusedConnected
+    }
+
+    func isNodeVisible(_ node: GraphNodeRecord) -> Bool {
+        guard activeNodeTypes.contains(node.type) else { return false }
+        if let focusedConnected {
+            guard focusedConnected.contains(node.id) else { return false }
+        }
+        return true
+    }
 }
 
 @MainActor
@@ -195,7 +214,7 @@ func makeVisibleEdgeBatchPayload<Edges: Collection>(
     return payload
 }
 
-func graphEvidenceConfidence(_ evidenceGrade: String?) -> Float {
+nonisolated func graphEvidenceConfidence(_ evidenceGrade: String?) -> Float {
     switch evidenceGrade?.uppercased() {
     case "A":
         return 1.0
@@ -212,10 +231,9 @@ func graphEvidenceConfidence(_ evidenceGrade: String?) -> Float {
     }
 }
 
-@MainActor
-func makeVisibleNodeMetadataBatchPayload<Nodes: Collection>(
+nonisolated func makeVisibleNodeMetadataBatchPayload<Nodes: Collection>(
     from nodes: Nodes,
-    filter: FilterEngine
+    filter: GraphFilterSnapshot
 ) -> GraphNodeMetadataBatchPayload where Nodes.Element == GraphNodeRecord {
     var payload = GraphNodeMetadataBatchPayload()
     payload.ids.reserveCapacity(nodes.count)
@@ -653,21 +671,24 @@ final class MetalGraphNSView: NSView {
     @MainActor
     private func scheduleDeferredNodeMetadataPush() {
         deferredMetadataDriver.request { [weak self] in
-            self?.pushDeferredNodeMetadata()
+            await self?.pushDeferredNodeMetadata()
         }
     }
 
     @MainActor
-    private func pushDeferredNodeMetadata() {
+    private func pushDeferredNodeMetadata() async {
         guard let engine, let graphState else { return }
         let store = graphState.store
-        let filter = graphState.filter
+        let filterSnapshot = GraphFilterSnapshot(filter: graphState.filter)
         let interval = Log.graphPerf.beginInterval("pushNodeMetadataBatch")
 
-        let payload = makeVisibleNodeMetadataBatchPayload(
-            from: store.nodes.values,
-            filter: filter
-        )
+        let nodes = Array(store.nodes.values)
+        let payload = await Task.detached(priority: .utility) {
+            makeVisibleNodeMetadataBatchPayload(
+                from: nodes,
+                filter: filterSnapshot
+            )
+        }.value
         sendNodeMetadataBatch(payload, to: engine)
 
         graphState.embeddingService.computeAndPush(store: store)

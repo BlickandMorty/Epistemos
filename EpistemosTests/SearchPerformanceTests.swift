@@ -615,14 +615,15 @@ struct MiniChatSearchPerformanceTests {
             let titleIds = Set(matches.map(\.id))
             let bodyMatches = pages.prefix(30).filter { candidate in
                 guard candidate.id != activeId, !titleIds.contains(candidate.id) else { return false }
-                let body = candidate.bodyProvider().lowercased()
+                let body = candidate.snapshot().lowercasedBody
                 return terms.contains { body.contains($0) }
             }
             matches.append(contentsOf: bodyMatches)
         }
 
         return Array(matches.prefix(3).map { candidate in
-            (title: candidate.title, snippet: String(candidate.bodyProvider().prefix(300)))
+            let snapshot = candidate.snapshot()
+            return (title: candidate.title, snippet: snapshot.shortSnippet)
         })
     }
 
@@ -678,5 +679,45 @@ struct MiniChatSearchPerformanceTests {
         #expect(optimizedLoads == 4)
         #expect(bodyMatchA.loadCount == 1)
         #expect(bodyMatchB.loadCount == 1)
+    }
+
+    @Test("MiniChat vault search reuses eager snapshots without touching body providers")
+    func vaultSearchUsesEagerSnapshotsWithoutReloadingBodies() {
+        let titleMatch = BodyProbe(body: "title match body")
+        let bodyMatch = BodyProbe(body: "Deep research notes about graph loading and sync reconciliation")
+        let miss = BodyProbe(body: "completely unrelated")
+
+        let pages = [
+            MiniChatSearchCandidate(
+                id: "title",
+                title: "Deep Work Summary",
+                snapshot: MiniChatNoteSnapshot(title: "Deep Work Summary", bodyProvider: titleMatch.load)
+            ),
+            MiniChatSearchCandidate(
+                id: "body",
+                title: "Graph Notes",
+                snapshot: MiniChatNoteSnapshot(title: "Graph Notes", bodyProvider: bodyMatch.load)
+            ),
+            MiniChatSearchCandidate(
+                id: "miss",
+                title: "Random",
+                snapshot: MiniChatNoteSnapshot(title: "Random", bodyProvider: miss.load)
+            ),
+        ]
+
+        for probe in [titleMatch, bodyMatch, miss] {
+            probe.reset()
+        }
+
+        let matches = MiniChatVaultSearch.snippets(
+            query: "deep focus",
+            activeId: nil,
+            pages: pages
+        )
+
+        let loads = [titleMatch, bodyMatch, miss].map(\.loadCount).reduce(0, +)
+
+        #expect(matches.map(\.title) == ["Deep Work Summary", "Graph Notes"])
+        #expect(loads == 0)
     }
 }

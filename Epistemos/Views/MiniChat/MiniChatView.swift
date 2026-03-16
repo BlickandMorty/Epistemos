@@ -318,8 +318,16 @@ struct MiniChatNoteSnapshot: Equatable {
     }
 
     init(page: SDPage) {
-        self.init(title: page.title, tags: page.tags) {
-            page.loadBody()
+        self.init(page: page, preferredBody: nil)
+    }
+
+    init(page: SDPage, preferredBody: String?) {
+        if let preferredBody {
+            self.init(title: page.title, tags: page.tags, body: preferredBody)
+        } else {
+            self.init(title: page.title, tags: page.tags) {
+                page.loadBody()
+            }
         }
     }
 
@@ -340,21 +348,61 @@ struct MiniChatNoteSnapshot: Equatable {
     }
 }
 
+@MainActor
+final class MiniChatSnapshotStore {
+    private var snapshots: [String: MiniChatNoteSnapshot] = [:]
+
+    func snapshot(for page: SDPage, preferredBody: String? = nil) -> MiniChatNoteSnapshot {
+        if let preferredBody {
+            let snapshot = MiniChatNoteSnapshot(page: page, preferredBody: preferredBody)
+            snapshots[page.id] = snapshot
+            return snapshot
+        }
+        if let cached = snapshots[page.id] {
+            return cached
+        }
+        let snapshot = MiniChatNoteSnapshot(page: page)
+        snapshots[page.id] = snapshot
+        return snapshot
+    }
+}
+
 struct MiniChatSearchCandidate {
     let id: String
     let title: String
-    let bodyProvider: () -> String
+    private let cachedSnapshot: MiniChatNoteSnapshot?
+    private let snapshotProvider: (() -> MiniChatNoteSnapshot)?
 
     init(id: String, title: String, bodyProvider: @escaping () -> String) {
         self.id = id
         self.title = title
-        self.bodyProvider = bodyProvider
+        self.cachedSnapshot = nil
+        self.snapshotProvider = {
+            MiniChatNoteSnapshot(title: title, bodyProvider: bodyProvider)
+        }
     }
 
-    init(page: SDPage) {
-        self.init(id: page.id, title: page.title) {
-            page.loadBody()
+    init(id: String, title: String, snapshot: MiniChatNoteSnapshot) {
+        self.id = id
+        self.title = title
+        self.cachedSnapshot = snapshot
+        self.snapshotProvider = nil
+    }
+
+    init(page: SDPage, snapshotStore: MiniChatSnapshotStore, preferredBody: String? = nil) {
+        id = page.id
+        title = page.title
+        cachedSnapshot = nil
+        snapshotProvider = {
+            snapshotStore.snapshot(for: page, preferredBody: preferredBody)
         }
+    }
+
+    func snapshot() -> MiniChatNoteSnapshot {
+        if let cachedSnapshot {
+            return cachedSnapshot
+        }
+        return snapshotProvider?() ?? MiniChatNoteSnapshot(title: title, body: "")
     }
 }
 
@@ -378,7 +426,7 @@ enum MiniChatVaultSearch {
             if let cached = snapshots[candidate.id] {
                 return cached
             }
-            let created = MiniChatNoteSnapshot(title: candidate.title, bodyProvider: candidate.bodyProvider)
+            let created = candidate.snapshot()
             snapshots[candidate.id] = created
             return created
         }
@@ -425,6 +473,7 @@ private struct MiniChatInputBar: View {
     // @-mention dropdown
     @State private var showMentionDropdown = false
     @State private var mentionFilter = ""
+    @State private var snapshotStore = MiniChatSnapshotStore()
 
     private var theme: EpistemosTheme { ui.theme }
     private let composerMetrics = AssistantComposerMetrics.compactChat
@@ -567,8 +616,21 @@ private struct MiniChatInputBar: View {
         return MiniChatVaultSearch.snippets(
             query: query,
             activeId: notesUI.activePageId,
-            pages: pages.map(MiniChatSearchCandidate.init)
+            pages: pages.map { page in
+                MiniChatSearchCandidate(
+                    page: page,
+                    snapshotStore: snapshotStore,
+                    preferredBody: preferredBodySnapshot(for: page)
+                )
+            }
         )
+    }
+
+    private func preferredBodySnapshot(for page: SDPage) -> String? {
+        if let liveEditor = NoteEditorViewFinder.findEditorTextView(for: page.id)?.string {
+            return liveEditor
+        }
+        return PageStoragePool.shared.bodyText(for: page.id)
     }
 
     // MARK: - Quick Action Execution
@@ -577,7 +639,10 @@ private struct MiniChatInputBar: View {
 
     private func runQuickAction(_ action: QuickAction) {
         guard let page = activePage(), !isProcessing else { return }
-        let snapshot = MiniChatNoteSnapshot(page: page)
+        let snapshot = snapshotStore.snapshot(
+            for: page,
+            preferredBody: preferredBodySnapshot(for: page)
+        )
         let pageTitle = snapshot.title
         let snippet = snapshot.promptSnippet
 
@@ -749,7 +814,10 @@ private struct MiniChatInputBar: View {
                 let page = activePage()
 
                 if let page {
-                    let snapshot = MiniChatNoteSnapshot(page: page)
+                    let snapshot = snapshotStore.snapshot(
+                        for: page,
+                        preferredBody: preferredBodySnapshot(for: page)
+                    )
                     if snapshot.hasBody {
                         contextParts.append(
                             "## Active Note: \(snapshot.title)\nTags: [\(snapshot.tags.joined(separator: ", "))]\n\(snapshot.promptSnippet)"

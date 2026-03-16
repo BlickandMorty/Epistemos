@@ -115,15 +115,12 @@ enum NoteToolbarMetrics {
 
 enum NoteToolbarPalette {
     static func stripGlowOpacity(for theme: EpistemosTheme) -> Double {
-        if theme.usesNativeWindowBlur {
-            return theme.isDark ? 0.028 : 0.010
-        }
-        return theme.isDark ? 0.032 : 0.012
+        0
     }
 
     static func iconOpacity(for theme: EpistemosTheme, isActive: Bool) -> Double {
         if isActive {
-            return 1
+            return theme.isDark ? 0.92 : 0.82
         }
         return theme.isDark ? 0.86 : 0.74
     }
@@ -444,10 +441,7 @@ private struct NoteToolbarIcon: View {
     var isActive: Bool = false
 
     private var color: Color {
-        if isActive {
-            return theme.accent.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: true))
-        }
-        return theme.foreground.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: false))
+        theme.foreground.opacity(NoteToolbarPalette.iconOpacity(for: theme, isActive: isActive))
     }
 
     var body: some View {
@@ -468,67 +462,14 @@ private struct NoteToolbarIcon: View {
 private struct NoteToolbarControlCluster<Content: View>: View {
     let content: Content
 
-    @State private var isHovered = false
-    @State private var isPressed = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
-    private var scale: CGFloat {
-        if isPressed { return 0.985 }
-        if isHovered { return 1.012 }
-        return 1
-    }
-
-    private var shadowOpacity: Double {
-        if isPressed { return 0.10 }
-        if isHovered { return 0.08 }
-        return 0
-    }
-
     var body: some View {
-        ControlGroup {
+        HStack(spacing: NoteToolbarMetrics.spacing) {
             content
         }
-            .controlGroupStyle(.automatic)
-            .contentShape(Rectangle())
-            .scaleEffect(scale)
-            .shadow(color: .black.opacity(shadowOpacity), radius: isHovered ? 10 : 4, y: isHovered ? 3 : 1)
-            .animation(.easeOut(duration: 0.12), value: isHovered)
-            .animation(.easeOut(duration: 0.12), value: isPressed)
-            .onHover { hovering in
-                if reduceMotion {
-                    isHovered = hovering
-                } else {
-                    withAnimation(Motion.micro) {
-                        isHovered = hovering
-                    }
-                }
-            }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard !isPressed else { return }
-                        if reduceMotion {
-                            isPressed = true
-                        } else {
-                            withAnimation(Motion.micro) {
-                                isPressed = true
-                            }
-                        }
-                    }
-                    .onEnded { _ in
-                        if reduceMotion {
-                            isPressed = false
-                        } else {
-                            withAnimation(Motion.sharp) {
-                                isPressed = false
-                            }
-                        }
-                    }
-            )
     }
 }
 
@@ -556,6 +497,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var showInfoPopover = false
     @State private var showPreview = false
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
+    @State private var persistedBody: String
 
     @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
@@ -592,6 +534,7 @@ struct NoteDetailWorkspaceView: View {
         self.pageId = pageId
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
         _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
+        _persistedBody = State(initialValue: NoteFileStorage.readBody(pageId: pageId))
     }
 
     var body: some View {
@@ -663,13 +606,14 @@ struct NoteDetailWorkspaceView: View {
         }
         .popover(isPresented: $showInfoPopover) {
             if let page = pages.first {
-                noteInfoPanel(page: page)
+                noteInfoPanel(page: page, currentBody: displayBody(for: page))
             }
         }
         .popover(isPresented: $showIdeasPopover) {
             if let page = pages.first {
                 IdeasPanel(
                     page: page,
+                    currentBody: displayBody(for: page),
                     initialTab: contextMenuIdeaTab,
                     autoShowForm: contextMenuIdeaTab != nil,
                     capturedSelection: capturedSelection,
@@ -680,7 +624,10 @@ struct NoteDetailWorkspaceView: View {
         .sheet(isPresented: $showDiffSheet) {
             if let page = pages.first {
                 DiffSheetView(
-                    pageId: page.id, currentTitle: page.title, currentBody: page.loadBody())
+                    pageId: page.id,
+                    currentTitle: page.title,
+                    currentBody: persistedBodyFor(page)
+                )
             }
         }
         .sheet(isPresented: $showBlockPropertySheet) {
@@ -865,7 +812,7 @@ struct NoteDetailWorkspaceView: View {
                     markdown: notesUI.useTK2Editor
                         ? ""
                         : (PageStoragePool.shared.bodyText(for: pageId)
-                            ?? pages.first?.loadBody() ?? ""),
+                            ?? persistedBody),
                     theme: ui.theme,
                     onNavigate: { charOffset in
                         scrollEditorTo(charOffset: charOffset)
@@ -880,8 +827,12 @@ struct NoteDetailWorkspaceView: View {
                 noteChatState.loadPersistedMessages(modelContext)
                 refreshTabCount()
                 if let page = pages.first {
+                    let body = persistedBodyFor(page)
+                    if persistedBody != body {
+                        persistedBody = body
+                    }
                     scheduleMetricsRefresh(
-                        body: page.loadBody(),
+                        body: body,
                         includeMarkdownHeadings: true
                     )
                 } else {
@@ -908,6 +859,14 @@ struct NoteDetailWorkspaceView: View {
                     noteChatState.persistMessages(modelContext, noteTitle: page.title)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NoteFileStorage.pageBodyDidChange)) { notification in
+                guard let changedId = notification.userInfo?["pageId"] as? String,
+                      changedId == pageId else { return }
+                let freshBody = NoteFileStorage.readBody(pageId: pageId)
+                guard persistedBody != freshBody else { return }
+                persistedBody = freshBody
+                scheduleMetricsRefresh(body: freshBody, includeMarkdownHeadings: true)
+            }
         }
     }
 
@@ -918,13 +877,6 @@ struct NoteDetailWorkspaceView: View {
             }
 
             noteToolbarControls
-        }
-        .background {
-            Capsule()
-                .fill(ui.theme.fontAccent.opacity(NoteToolbarPalette.stripGlowOpacity(for: ui.theme)))
-                .blur(radius: NoteToolbarMetrics.stripGlowBlurRadius)
-                .padding(.horizontal, -8)
-                .padding(.vertical, -3)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -990,6 +942,7 @@ struct NoteDetailWorkspaceView: View {
         } label: {
             NoteToolbarIcon(glyph: .format, theme: ui.theme)
         }
+        .menuStyle(.borderlessButton)
         .help("Format")
     }
 
@@ -1002,6 +955,7 @@ struct NoteDetailWorkspaceView: View {
         Button(action: action) {
             NoteToolbarIcon(glyph: glyph, theme: ui.theme, isActive: isActive)
         }
+        .buttonStyle(.plain)
         .help(help)
     }
 
@@ -1312,8 +1266,15 @@ struct NoteDetailWorkspaceView: View {
         PageStoragePool.shared.remove(pageId: pageId)
     }
 
+    private func persistedBodyFor(_ page: SDPage) -> String {
+        if !persistedBody.isEmpty {
+            return persistedBody
+        }
+        return page.body
+    }
+
     private func displayBody(for page: SDPage) -> String {
-        currentModeBodySnapshot(for: page.id) ?? currentEditorBody(for: page) ?? page.loadBody()
+        currentModeBodySnapshot(for: page.id) ?? currentEditorBody(for: page) ?? persistedBodyFor(page)
     }
 
     private func currentModeBodySnapshot(for pageId: String) -> String? {
@@ -1327,21 +1288,25 @@ struct NoteDetailWorkspaceView: View {
         if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
             return responder.string
         }
-        return showPreview ? currentModeBodySnapshot(for: page.id) ?? page.loadBody() : nil
+        return showPreview ? currentModeBodySnapshot(for: page.id) ?? persistedBodyFor(page) : nil
     }
 
     private func flushCurrentEditor() {
         guard let page = pages.first else { return }
-        let fullText = currentEditorBody(for: page) ?? page.loadBody()
+        let baseline = persistedBodyFor(page)
+        let fullText = currentEditorBody(for: page) ?? baseline
         modeBodySnapshot = NoteModeBodySnapshot(pageId: page.id, body: fullText)
-        if fullText != page.loadBody() {
-            page.saveBody(fullText)
-            BlockMirror.sync(pageId: page.id, body: fullText, modelContext: modelContext)
-            page.needsVaultSync = true
-            page.updatedAt = .now
-            try? modelContext.save()
-            AppBootstrap.shared?.graphState.needsRefresh = true
+        guard fullText != baseline else {
+            persistedBody = fullText
+            return
         }
+        persistedBody = fullText
+        page.saveBody(fullText)
+        BlockMirror.sync(pageId: page.id, body: fullText, modelContext: modelContext)
+        page.needsVaultSync = true
+        page.updatedAt = .now
+        try? modelContext.save()
+        AppBootstrap.shared?.graphState.needsRefresh = true
     }
 
     // MARK: - Mode Transition Helpers
@@ -1409,7 +1374,7 @@ struct NoteDetailWorkspaceView: View {
         isTransitioning = true
 
         // Scale hold time for larger documents — more text = more layout work.
-        let bodyLength = pages.first?.loadBody().count ?? 0
+        let bodyLength = pages.first.map(persistedBodyFor)?.count ?? persistedBody.count
         let holdTime: Double = bodyLength > 20_000 ? 1.4 : bodyLength > 5_000 ? 1.0 : 0.70
 
         // Instantly opaque — no animation, no insertion delay.
@@ -1750,6 +1715,7 @@ struct NoteDetailWorkspaceView: View {
         } label: {
             NoteToolbarIcon(glyph: .more, theme: ui.theme)
         }
+        .menuStyle(.borderlessButton)
         .help("More")
     }
 
@@ -1947,8 +1913,7 @@ struct NoteDetailWorkspaceView: View {
 
     // MARK: - Info Panel
 
-    private func noteInfoPanel(page: SDPage) -> some View {
-        let currentBody = page.loadBody()
+    private func noteInfoPanel(page: SDPage, currentBody: String) -> some View {
         let wordCount = currentBody.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
         let charCount = currentBody.count
         let readingTime = max(1, wordCount / 200)
@@ -1981,7 +1946,7 @@ struct NoteDetailWorkspaceView: View {
     // MARK: - Share
 
     private func shareNote(_ page: SDPage) {
-        let text = "# \(page.title)\n\n\(page.loadBody())" as NSString
+        let text = "# \(page.title)\n\n\(displayBody(for: page))" as NSString
         // Use NSApp.keyWindow directly (not from toolbar menu context where it can be nil).
         // Fall back to the note tab group windows.
         let window =
@@ -2005,7 +1970,7 @@ struct NoteDetailWorkspaceView: View {
         guard let page = pages.first else { return }
         isScanningCitations = true
 
-        let fullText = "# \(page.title)\n\n\(page.loadBody())"
+        let fullText = "# \(page.title)\n\n\(displayBody(for: page))"
         let papers = CitationExtractor.extract(
             from: fullText, source: "note-scan",
             originNoteTitle: page.title)
@@ -2032,6 +1997,7 @@ struct NoteDetailWorkspaceView: View {
 
 private struct IdeasPanel: View {
     let page: SDPage
+    let currentBody: String
     /// When opened from the right-click context menu, pre-select this tab.
     var initialTab: IdeaTab?
     /// When true, auto-show the new item form (right-click context menu flow).
@@ -2149,14 +2115,13 @@ private struct IdeasPanel: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 32)
                 } else {
-                    let body = page.loadBody()
                     LazyVStack(spacing: 6) {
                         ForEach(filteredItems) { item in
                             IdeaRow(
                                 item: item,
                                 isBusy: busyItemId == item.id,
                                 theme: theme,
-                                pageBody: body,
+                                pageBody: currentBody,
                                 onGoToLine: { goToLine(item.lineAnchor) },
                                 onInsert: { insertIdea(item) },
                                 onIntegrate: { integrateWithAI(item) },
@@ -2407,7 +2372,7 @@ private struct IdeasPanel: View {
         let ideaText = item.formattedBody ?? item.body
         guard !ideaText.isEmpty else { return }
 
-        let fullBody = page.loadBody()
+        let fullBody = currentBody
         let noteTitle = page.title
 
         // Use the selection captured before the popover opened
