@@ -224,7 +224,7 @@ extension ProseEditorRepresentable2 {
         var currentPageId: String = ""
         var lastSyncedText: String = ""
         var lastPersistedText: String = ""
-        var lastTheme: EpistemosTheme = .light
+        var lastTheme: EpistemosTheme = .nativeDefault
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
         var lastAvailableWidth: CGFloat = 0

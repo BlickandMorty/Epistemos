@@ -82,7 +82,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         )
     }
 
-    var theme: EpistemosTheme = .light {
+    var theme: EpistemosTheme = .nativeDefault {
         didSet {
             if oldValue != theme {
                 tokenCache.removeAll(keepingCapacity: true)

@@ -395,6 +395,12 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinumDark) == 0)
     }
 
+    @Test("Note toolbar strip shows native chrome only when custom themes are disabled")
+    func noteToolbarStripChromeFollowsThemeMode() {
+        #expect(NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: false))
+        #expect(!NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: true))
+    }
+
     @Test("Preview mode follows the active editor stack and preserves uppercase heading display")
     func previewModeUsesMatchingStack() {
         #expect(NotePreviewRenderer.resolved(useTK2Editor: false) == .textKit1)

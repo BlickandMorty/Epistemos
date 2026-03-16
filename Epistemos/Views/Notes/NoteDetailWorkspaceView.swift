@@ -130,6 +130,17 @@ enum NoteToolbarDisplay {
     static let hidesMenuIndicators = true
 }
 
+enum NoteToolbarSurfaceStyle {
+    static let cornerRadius: CGFloat = 16
+    static let horizontalPadding: CGFloat = 8
+    static let verticalPadding: CGFloat = 4
+    static let borderWidth: CGFloat = 0.6
+
+    static func showsBackground(customThemesEnabled: Bool) -> Bool {
+        !customThemesEnabled
+    }
+}
+
 enum NotePreviewRenderer: Equatable {
     case textKit1
     case textKit2
@@ -884,6 +895,29 @@ struct NoteDetailWorkspaceView: View {
             }
 
             noteToolbarControls
+        }
+        .padding(.horizontal, NoteToolbarSurfaceStyle.horizontalPadding)
+        .padding(.vertical, NoteToolbarSurfaceStyle.verticalPadding)
+        .background {
+            if NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: ui.customThemesEnabled) {
+                Capsule(style: .continuous)
+                    .fill(.thinMaterial)
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .strokeBorder(
+                                .primary.opacity(ui.isSystemDark ? 0.14 : 0.10),
+                                lineWidth: NoteToolbarSurfaceStyle.borderWidth
+                            )
+                    }
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .strokeBorder(
+                                .white.opacity(ui.isSystemDark ? 0.06 : 0.24),
+                                lineWidth: 0.4
+                            )
+                            .padding(1)
+                    }
+            }
         }
         .fixedSize(horizontal: true, vertical: false)
     }

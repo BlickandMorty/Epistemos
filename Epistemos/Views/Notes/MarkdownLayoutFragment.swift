@@ -17,7 +17,7 @@ struct CodeTokenBridge {
 final class MarkdownLayoutFragment: NSTextLayoutFragment {
 
     private(set) var codeTokens: [CodeTokenBridge] = []
-    private(set) var fragmentTheme: EpistemosTheme = .light
+    private(set) var fragmentTheme: EpistemosTheme = .nativeDefault
     private(set) var languageId: UInt8 = 0
 
     /// Bitmap cache for future CG rendering (Phase 2).

@@ -349,6 +349,9 @@ struct NotesSidebar: View {
     @State private var bodySearchTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
+    private var sidebarBackground: Color {
+        ui.customThemesEnabled ? theme.background : Color(nsColor: .underPageBackgroundColor)
+    }
     private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
 
     /// Coalesces multiple `setNeedsRebuild()` calls into a single `rebuildCache()`
@@ -453,7 +456,7 @@ struct NotesSidebar: View {
             .padding(.horizontal, 16)
             .padding(.top, NotesSidebarMetrics.headerTopPadding)
             .padding(.bottom, NotesSidebarMetrics.headerBottomPadding)
-            .background(theme.background)
+            .background(sidebarBackground)
             .ignoresSafeArea(
                 NotesSidebarMetrics.overlapsTitlebar ? .container : [],
                 edges: .top
@@ -463,7 +466,7 @@ struct NotesSidebar: View {
             Divider().opacity(0.2)
             bottomBar
         }
-        .background(theme.background)
+        .background(sidebarBackground)
         .onAppear {
             rebuildCache()
             preWarmRecentPages()

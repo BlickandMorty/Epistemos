@@ -184,15 +184,37 @@ struct ThemePairTests {
             defaults.removeObject(forKey: UIState.themePairDefaultsKey)
 
             let uiState = UIState()
+            uiState.isSystemDark = false
 
             #expect(uiState.themeMode == .systemDefault)
             #expect(uiState.windowAppearance == nil)
+            #expect(uiState.theme == .systemLight)
 
             uiState.setPair(.platinum)
             uiState.setThemeMode(.custom)
             uiState.isSystemDark = true
 
             #expect(uiState.windowAppearance?.name == .darkAqua)
+        }
+    }
+
+    @MainActor
+    @Test("System default resolves to dedicated native tokens instead of the classic white or OLED theme")
+    func systemDefaultUsesDedicatedNativeTokens() {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: ThemeMode.defaultsKey)
+            defaults.removeObject(forKey: UIState.themePairDefaultsKey)
+
+            let uiState = UIState()
+
+            uiState.isSystemDark = false
+            #expect(uiState.theme == .systemLight)
+            #expect(uiState.theme != .light)
+
+            uiState.isSystemDark = true
+            #expect(uiState.theme == .systemDark)
+            #expect(uiState.theme != .oled)
         }
     }
 

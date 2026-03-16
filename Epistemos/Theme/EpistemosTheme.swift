@@ -1,3 +1,4 @@
+import AppKit
 import CoreText
 import SwiftUI
 
@@ -5,6 +6,8 @@ import SwiftUI
 // 12 themes — 6 light + 6 dark, including neutral and violet Platinum pairs.
 
 enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
+    case systemLight = "systemLight"
+    case systemDark = "systemDark"
     case light = "light"
     case sunny = "sunny"
     case tan = "tan"
@@ -20,6 +23,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
+        case .systemLight: "System Light"
+        case .systemDark: "System Dark"
         case .light:  "White"
         case .sunny:  "Sunny"
         case .tan:    "Tan"
@@ -35,10 +40,15 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    nonisolated static var nativeDefault: EpistemosTheme {
+        let appearance = NSApp?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
+        return appearance == .darkAqua ? .systemDark : .systemLight
+    }
+
     nonisolated var isDark: Bool {
         switch self {
-        case .light, .sunny, .tan, .magnolia, .platinum, .platinumViolet: false
-        case .sunset, .oled, .ember, .nocturne, .platinumDark, .platinumVioletDark: true
+        case .systemLight, .light, .sunny, .tan, .magnolia, .platinum, .platinumViolet: false
+        case .systemDark, .sunset, .oled, .ember, .nocturne, .platinumDark, .platinumVioletDark: true
         }
     }
     
@@ -51,75 +61,95 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     var colorScheme: ColorScheme { isDark ? .dark : .light }
-    var usesNativeWindowBlur: Bool { self == .magnolia || self == .nocturne }
+    var usesNativeWindowBlur: Bool {
+        self == .systemLight || self == .systemDark || self == .magnolia || self == .nocturne
+    }
+    private var isSystemDefaultToken: Bool { self == .systemLight || self == .systemDark }
 
     // MARK: - Core Colors
 
     var background: Color {
+        if isSystemDefaultToken {
+            return Color(nsColor: .windowBackgroundColor)
+        }
         switch self {
-        case .light:  .white
-        case .sunny:  Color(hex: 0xE8F4FB)
-        case .tan:    Color(hex: 0xF5EFE6)
-        case .magnolia: Color(hex: 0xF7F2F5)
-        case .sunset: Color(hex: 0x1E1220)
-        case .oled:   Color(hex: 0x000000)
-        case .ember:  Color(hex: 0x1C1410)
-        case .nocturne: Color(hex: 0x19141F)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return .white
+        case .sunny:  return Color(hex: 0xE8F4FB)
+        case .tan:    return Color(hex: 0xF5EFE6)
+        case .magnolia: return Color(hex: 0xF7F2F5)
+        case .sunset: return Color(hex: 0x1E1220)
+        case .oled:   return Color(hex: 0x000000)
+        case .ember:  return Color(hex: 0x1C1410)
+        case .nocturne: return Color(hex: 0x19141F)
         case .platinum, .platinumViolet:
-            Color(hex: 0xDEDEDE)
+            return Color(hex: 0xDEDEDE)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x1E1E24)
+            return Color(hex: 0x1E1E24)
         }
     }
 
     nonisolated var foregroundHex: UInt32 {
+        if self == .systemLight { return 0x1C1C1E }
+        if self == .systemDark { return 0xF2F2F7 }
         switch self {
-        case .light:  0x1C1C1E
-        case .sunny:  0x233040
-        case .tan:    0x362816
-        case .magnolia: 0x342E35
-        case .sunset: 0xE8E0D8
-        case .oled:   0xDADADE
-        case .ember:  0xE0D4C8
-        case .nocturne: 0xE7DEE8
-        case .platinum, .platinumViolet: 0x000000
-        case .platinumDark, .platinumVioletDark: 0xFFFFFF
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return 0x1C1C1E
+        case .sunny:  return 0x233040
+        case .tan:    return 0x362816
+        case .magnolia: return 0x342E35
+        case .sunset: return 0xE8E0D8
+        case .oled:   return 0xDADADE
+        case .ember:  return 0xE0D4C8
+        case .nocturne: return 0xE7DEE8
+        case .platinum, .platinumViolet: return 0x000000
+        case .platinumDark, .platinumVioletDark: return 0xFFFFFF
         }
     }
 
     var foreground: Color { Color(hex: foregroundHex) }
 
     var accent: Color {
+        if self == .systemLight { return Color(hex: 0x1C1C1E) }
+        if self == .systemDark { return Color(hex: 0xF2F2F7) }
         switch self {
-        case .light:  Color(hex: 0x1C1C1E)
-        case .sunny:  Color(hex: 0x5B8FC7)
-        case .tan:    Color(hex: 0x8B5E3C)
-        case .magnolia: Color(hex: 0x8E7282)
-        case .sunset: Color(hex: 0xD4862B)
-        case .oled:   Color(hex: 0xDADADE)
-        case .ember:  Color(hex: 0xC8762A)
-        case .nocturne: Color(hex: 0xA8B6D9)
-        case .platinum: Color(hex: 0x111111)
-        case .platinumDark: Color(hex: 0xF2F2F2)
-        case .platinumViolet: Color(hex: 0x000080)
-        case .platinumVioletDark: Color(hex: 0x7B68EE)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(hex: 0x1C1C1E)
+        case .sunny:  return Color(hex: 0x5B8FC7)
+        case .tan:    return Color(hex: 0x8B5E3C)
+        case .magnolia: return Color(hex: 0x8E7282)
+        case .sunset: return Color(hex: 0xD4862B)
+        case .oled:   return Color(hex: 0xDADADE)
+        case .ember:  return Color(hex: 0xC8762A)
+        case .nocturne: return Color(hex: 0xA8B6D9)
+        case .platinum: return Color(hex: 0x111111)
+        case .platinumDark: return Color(hex: 0xF2F2F2)
+        case .platinumViolet: return Color(hex: 0x000080)
+        case .platinumVioletDark: return Color(hex: 0x7B68EE)
         }
     }
 
     nonisolated var headingAccentHex: UInt32 {
+        if self == .systemLight { return 0x1A1A1A }
+        if self == .systemDark { return 0xF2F2F7 }
         switch self {
-        case .light:  0x1A1A1A
-        case .sunny:  0xD4A843
-        case .tan:    0x6B3E1C
-        case .magnolia: 0xB86F8D
-        case .sunset: 0xF5B84A
-        case .oled:   0xFFFFFF
-        case .ember:  0xE8A040
-        case .nocturne: 0xD7A7B6
-        case .platinum: 0x111111
-        case .platinumDark: 0xF2F2F2
-        case .platinumViolet: 0x000000
-        case .platinumVioletDark: 0xFFFFFF
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return 0x1A1A1A
+        case .sunny:  return 0xD4A843
+        case .tan:    return 0x6B3E1C
+        case .magnolia: return 0xB86F8D
+        case .sunset: return 0xF5B84A
+        case .oled:   return 0xFFFFFF
+        case .ember:  return 0xE8A040
+        case .nocturne: return 0xD7A7B6
+        case .platinum: return 0x111111
+        case .platinumDark: return 0xF2F2F2
+        case .platinumViolet: return 0x000000
+        case .platinumVioletDark: return 0xFFFFFF
         }
     }
 
@@ -166,53 +196,66 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     var uiAccent: Color {
+        if self == .systemLight { return Color(hex: 0x1C1C1E) }
+        if self == .systemDark { return Color(hex: 0xF2F2F7) }
         switch self {
-        case .light:  Color(hex: 0x1C1C1E)
-        case .sunny:  Color(hex: 0x233040)
-        case .tan:    Color(hex: 0x362816)
-        case .magnolia: Color(hex: 0x342E35)
-        case .sunset: Color(hex: 0xE8E0D8)
-        case .oled:   Color(hex: 0xDADADE)
-        case .ember:  Color(hex: 0xE0D4C8)
-        case .nocturne: Color(hex: 0xE7DEE8)
-        case .platinum: Color(hex: 0x111111)
-        case .platinumDark: Color(hex: 0xF2F2F2)
-        case .platinumViolet: Color(hex: 0x000080)
-        case .platinumVioletDark: Color(hex: 0x7B68EE)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(hex: 0x1C1C1E)
+        case .sunny:  return Color(hex: 0x233040)
+        case .tan:    return Color(hex: 0x362816)
+        case .magnolia: return Color(hex: 0x342E35)
+        case .sunset: return Color(hex: 0xE8E0D8)
+        case .oled:   return Color(hex: 0xDADADE)
+        case .ember:  return Color(hex: 0xE0D4C8)
+        case .nocturne: return Color(hex: 0xE7DEE8)
+        case .platinum: return Color(hex: 0x111111)
+        case .platinumDark: return Color(hex: 0xF2F2F2)
+        case .platinumViolet: return Color(hex: 0x000080)
+        case .platinumVioletDark: return Color(hex: 0x7B68EE)
         }
     }
 
     // MARK: - Surface Colors
 
     var muted: Color {
+        if isSystemDefaultToken {
+            return Color(nsColor: .controlBackgroundColor)
+        }
         switch self {
-        case .light:  Color(hex: 0xF0F0F0)
-        case .sunny:  Color(red: 210/255, green: 230/255, blue: 245/255).opacity(0.75)
-        case .tan:    Color(hex: 0xEADDCC)
-        case .magnolia: Color(hex: 0xECE4E9)
-        case .sunset: Color(hex: 0x322030)
-        case .oled:   Color(hex: 0x141414)
-        case .ember:  Color(hex: 0x2A1E14)
-        case .nocturne: Color(hex: 0x27212D)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(hex: 0xF0F0F0)
+        case .sunny:  return Color(red: 210/255, green: 230/255, blue: 245/255).opacity(0.75)
+        case .tan:    return Color(hex: 0xEADDCC)
+        case .magnolia: return Color(hex: 0xECE4E9)
+        case .sunset: return Color(hex: 0x322030)
+        case .oled:   return Color(hex: 0x141414)
+        case .ember:  return Color(hex: 0x2A1E14)
+        case .nocturne: return Color(hex: 0x27212D)
         case .platinum, .platinumViolet:
-            Color(hex: 0xCCCCCC)
+            return Color(hex: 0xCCCCCC)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x252530)
+            return Color(hex: 0x252530)
         }
     }
 
     nonisolated var mutedForegroundHex: UInt32 {
+        if self == .systemLight { return 0x6E6E73 }
+        if self == .systemDark { return 0x98989D }
         switch self {
-        case .light:  0x4A4A4A
-        case .sunny:  0x5A7A94
-        case .tan:    0x9A7A5A
-        case .magnolia: 0x7E737C
-        case .sunset: 0xB09888
-        case .oled:   0x8A8A8A
-        case .ember:  0xA08060
-        case .nocturne: 0xA89CA8
-        case .platinum, .platinumViolet: 0x555555
-        case .platinumDark, .platinumVioletDark: 0x9090A0
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return 0x4A4A4A
+        case .sunny:  return 0x5A7A94
+        case .tan:    return 0x9A7A5A
+        case .magnolia: return 0x7E737C
+        case .sunset: return 0xB09888
+        case .oled:   return 0x8A8A8A
+        case .ember:  return 0xA08060
+        case .nocturne: return 0xA89CA8
+        case .platinum, .platinumViolet: return 0x555555
+        case .platinumDark, .platinumVioletDark: return 0x9090A0
         }
     }
 
@@ -250,17 +293,21 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     var border: Color {
+        if self == .systemLight { return Color.black.opacity(0.10) }
+        if self == .systemDark { return Color.white.opacity(0.12) }
         switch self {
-        case .light:  Color(red: 0, green: 0, blue: 0).opacity(0.1)
-        case .sunny:  Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.28)
-        case .tan:    Color(hex: 0xC4A882).opacity(0.35)
-        case .magnolia: Color(hex: 0xC6BAC3).opacity(0.42)
-        case .sunset: Color(hex: 0x3D2838)
-        case .oled:   Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.55)
-        case .ember:  Color(hex: 0x3A2818)
-        case .nocturne: Color(hex: 0x3B3243)
-        case .platinum, .platinumViolet: Color.black.opacity(0.2)
-        case .platinumDark, .platinumVioletDark: Color.white.opacity(0.15)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(red: 0, green: 0, blue: 0).opacity(0.1)
+        case .sunny:  return Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.28)
+        case .tan:    return Color(hex: 0xC4A882).opacity(0.35)
+        case .magnolia: return Color(hex: 0xC6BAC3).opacity(0.42)
+        case .sunset: return Color(hex: 0x3D2838)
+        case .oled:   return Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.55)
+        case .ember:  return Color(hex: 0x3A2818)
+        case .nocturne: return Color(hex: 0x3B3243)
+        case .platinum, .platinumViolet: return Color.black.opacity(0.2)
+        case .platinumDark, .platinumVioletDark: return Color.white.opacity(0.15)
         }
     }
 
@@ -282,19 +329,23 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     var codeComment: Color { mutedForeground }
     var codeFunction: Color { violet }
     var codeType: Color {
+        if self == .systemLight { return Color(hex: 0x2B8A8A) }
+        if self == .systemDark { return Color(hex: 0x7DB3C4) }
         switch self {
-        case .light:  Color(hex: 0x2B8A8A)
-        case .sunny:  Color(hex: 0x287878)
-        case .tan:    Color(hex: 0x3A8888)
-        case .magnolia: Color(hex: 0x6D8CA8)
-        case .sunset: Color(hex: 0x5EC4C4)
-        case .oled:   Color(hex: 0x56B6B6)
-        case .ember:  Color(hex: 0x5AACAC)
-        case .nocturne: Color(hex: 0x7DB3C4)
-        case .platinum: Color(hex: 0x111111)
-        case .platinumDark: Color(hex: 0xF2F2F2)
-        case .platinumViolet: Color(hex: 0x000080)
-        case .platinumVioletDark: Color(hex: 0x7B68EE)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(hex: 0x2B8A8A)
+        case .sunny:  return Color(hex: 0x287878)
+        case .tan:    return Color(hex: 0x3A8888)
+        case .magnolia: return Color(hex: 0x6D8CA8)
+        case .sunset: return Color(hex: 0x5EC4C4)
+        case .oled:   return Color(hex: 0x56B6B6)
+        case .ember:  return Color(hex: 0x5AACAC)
+        case .nocturne: return Color(hex: 0x7DB3C4)
+        case .platinum: return Color(hex: 0x111111)
+        case .platinumDark: return Color(hex: 0xF2F2F2)
+        case .platinumViolet: return Color(hex: 0x000080)
+        case .platinumVioletDark: return Color(hex: 0x7B68EE)
         }
     }
     var codeProperty: Color { fontAccent }
@@ -377,182 +428,251 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     // MARK: - Glass Tokens
 
     var glassBg: Color {
+        if self == .systemLight {
+            return Color.white.opacity(0.88)
+        }
+        if self == .systemDark {
+            return Color(nsColor: .controlBackgroundColor).opacity(0.86)
+        }
         switch self {
-        case .light:  Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.88)
-        case .sunny:  Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.75)
-        case .tan:    Color(hex: 0xF0E4D0).opacity(0.85)
-        case .magnolia: Color(hex: 0xFBF7F9).opacity(0.88)
-        case .sunset: Color(hex: 0x241828).opacity(0.85)
-        case .oled:   Color(red: 16/255, green: 16/255, blue: 16/255).opacity(0.82)
-        case .ember:  Color(hex: 0x241A10).opacity(0.88)
-        case .nocturne: Color(hex: 0x221C2A).opacity(0.86)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.88)
+        case .sunny:  return Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.75)
+        case .tan:    return Color(hex: 0xF0E4D0).opacity(0.85)
+        case .magnolia: return Color(hex: 0xFBF7F9).opacity(0.88)
+        case .sunset: return Color(hex: 0x241828).opacity(0.85)
+        case .oled:   return Color(red: 16/255, green: 16/255, blue: 16/255).opacity(0.82)
+        case .ember:  return Color(hex: 0x241A10).opacity(0.88)
+        case .nocturne: return Color(hex: 0x221C2A).opacity(0.86)
         case .platinum, .platinumViolet:
-            Color(hex: 0xDDDDDD)
+            return Color(hex: 0xDDDDDD)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x2D2D38)
+            return Color(hex: 0x2D2D38)
         }
     }
 
     var glassBorder: Color {
+        if self == .systemLight { return Color.black.opacity(0.08) }
+        if self == .systemDark { return Color.white.opacity(0.08) }
         switch self {
-        case .light:  Color(red: 0, green: 0, blue: 0).opacity(0.08)
-        case .sunny:  Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.22)
-        case .tan:    Color(hex: 0xC4A882).opacity(0.28)
-        case .magnolia: Color(hex: 0xC6BAC3).opacity(0.30)
-        case .sunset: Color(hex: 0x3A2434)
-        case .oled:   Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.32)
-        case .ember:  Color(hex: 0x402C1C)
-        case .nocturne: Color(hex: 0x443A4D)
-        case .platinum, .platinumViolet: Color.black.opacity(0.1)
-        case .platinumDark, .platinumVioletDark: Color.white.opacity(0.08)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(red: 0, green: 0, blue: 0).opacity(0.08)
+        case .sunny:  return Color(red: 130/255, green: 170/255, blue: 210/255).opacity(0.22)
+        case .tan:    return Color(hex: 0xC4A882).opacity(0.28)
+        case .magnolia: return Color(hex: 0xC6BAC3).opacity(0.30)
+        case .sunset: return Color(hex: 0x3A2434)
+        case .oled:   return Color(red: 48/255, green: 48/255, blue: 48/255).opacity(0.32)
+        case .ember:  return Color(hex: 0x402C1C)
+        case .nocturne: return Color(hex: 0x443A4D)
+        case .platinum, .platinumViolet: return Color.black.opacity(0.1)
+        case .platinumDark, .platinumVioletDark: return Color.white.opacity(0.08)
         }
     }
 
     var glassHover: Color {
+        if self == .systemLight {
+            return Color(nsColor: .controlBackgroundColor).opacity(0.72)
+        }
+        if self == .systemDark {
+            return Color.white.opacity(0.08)
+        }
         switch self {
-        case .light:  Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.8)
-        case .sunny:  Color(red: 225/255, green: 240/255, blue: 252/255).opacity(0.65)
-        case .tan:    Color(hex: 0xDFCDB0).opacity(0.75)
-        case .magnolia: Color(hex: 0xE9DEE5).opacity(0.78)
-        case .sunset: Color(hex: 0x342030)
-        case .oled:   Color(red: 28/255, green: 28/255, blue: 28/255).opacity(0.7)
-        case .ember:  Color(hex: 0x30201A).opacity(0.75)
-        case .nocturne: Color(hex: 0x342B3D).opacity(0.78)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.8)
+        case .sunny:  return Color(red: 225/255, green: 240/255, blue: 252/255).opacity(0.65)
+        case .tan:    return Color(hex: 0xDFCDB0).opacity(0.75)
+        case .magnolia: return Color(hex: 0xE9DEE5).opacity(0.78)
+        case .sunset: return Color(hex: 0x342030)
+        case .oled:   return Color(red: 28/255, green: 28/255, blue: 28/255).opacity(0.7)
+        case .ember:  return Color(hex: 0x30201A).opacity(0.75)
+        case .nocturne: return Color(hex: 0x342B3D).opacity(0.78)
         case .platinum, .platinumViolet:
-            Color(hex: 0xCCCCCC)
+            return Color(hex: 0xCCCCCC)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x353545)
+            return Color(hex: 0x353545)
         }
     }
 
     var floatingSurfaceTint: Color {
+        if self == .systemLight { return Color(hex: 0xF4F4F6) }
+        if self == .systemDark { return Color(hex: 0x1E1E22) }
         switch self {
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
         case .light:
-            Color(hex: 0xF2F2F2)
+            return Color(hex: 0xF2F2F2)
         case .sunny:
-            Color(hex: 0xF6FBFE)
+            return Color(hex: 0xF6FBFE)
         case .tan:
-            Color(hex: 0xFBF5EB)
+            return Color(hex: 0xFBF5EB)
         case .magnolia:
-            Color(hex: 0xFEFBFD)
+            return Color(hex: 0xFEFBFD)
         case .sunset:
-            Color(hex: 0x161018)
+            return Color(hex: 0x161018)
         case .oled:
-            Color(hex: 0x2A2A2F)
+            return Color(hex: 0x2A2A2F)
         case .ember:
-            Color(hex: 0x16100C)
+            return Color(hex: 0x16100C)
         case .nocturne:
-            Color(hex: 0x141019)
+            return Color(hex: 0x141019)
         case .platinum, .platinumViolet:
-            Color(hex: 0xF4F4F4)
+            return Color(hex: 0xF4F4F4)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x17171D)
+            return Color(hex: 0x17171D)
         }
     }
 
     // MARK: - Nav Pill Colors
 
     var navPillBg: Color {
+        if self == .systemLight {
+            return Color(hex: 0xF2F2F5).opacity(0.82)
+        }
+        if self == .systemDark {
+            return Color(hex: 0x1B1B1F).opacity(0.90)
+        }
         switch self {
-        case .light:  Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.7)
-        case .sunny:  Color(red: 215/255, green: 235/255, blue: 250/255).opacity(0.7)
-        case .tan:    Color(hex: 0xE8D9C0).opacity(0.78)
-        case .magnolia: Color(hex: 0xEFE5EA).opacity(0.82)
-        case .sunset: Color(hex: 0x1C1022).opacity(0.8)
-        case .oled:   Color(red: 8/255, green: 8/255, blue: 8/255).opacity(0.85)
-        case .ember:  Color(hex: 0x141008).opacity(0.88)
-        case .nocturne: Color(hex: 0x140F18).opacity(0.90)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(red: 240/255, green: 240/255, blue: 240/255).opacity(0.7)
+        case .sunny:  return Color(red: 215/255, green: 235/255, blue: 250/255).opacity(0.7)
+        case .tan:    return Color(hex: 0xE8D9C0).opacity(0.78)
+        case .magnolia: return Color(hex: 0xEFE5EA).opacity(0.82)
+        case .sunset: return Color(hex: 0x1C1022).opacity(0.8)
+        case .oled:   return Color(red: 8/255, green: 8/255, blue: 8/255).opacity(0.85)
+        case .ember:  return Color(hex: 0x141008).opacity(0.88)
+        case .nocturne: return Color(hex: 0x140F18).opacity(0.90)
         case .platinum, .platinumViolet:
-            Color(hex: 0xDDDDDD)
+            return Color(hex: 0xDDDDDD)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x2D2D38)
+            return Color(hex: 0x2D2D38)
         }
     }
 
     var navPillBorder: Color { glassBorder }
 
     var navBubbleActiveBg: Color {
+        if self == .systemLight {
+            return Color.black.opacity(0.08)
+        }
+        if self == .systemDark {
+            return Color.white.opacity(0.14)
+        }
         switch self {
-        case .light:  Color(red: 0, green: 0, blue: 0).opacity(0.08)
-        case .sunny:  Color(red: 180/255, green: 215/255, blue: 245/255).opacity(0.45)
-        case .tan:    Color(hex: 0xC4A07A).opacity(0.30)
-        case .magnolia: Color(hex: 0xD8C7D1).opacity(0.42)
-        case .sunset: Color(hex: 0x3C2434).opacity(0.75)
-        case .oled:   Color(red: 20/255, green: 20/255, blue: 20/255).opacity(0.7)
-        case .ember:  Color(hex: 0x3A2414).opacity(0.8)
-        case .nocturne: Color(hex: 0x3A3046).opacity(0.78)
-        case .platinum: Color(hex: 0x111111)
-        case .platinumDark: Color(hex: 0xF2F2F2)
-        case .platinumViolet: Color(hex: 0x000080)
-        case .platinumVioletDark: Color(hex: 0x6B5DD6)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(red: 0, green: 0, blue: 0).opacity(0.08)
+        case .sunny:  return Color(red: 180/255, green: 215/255, blue: 245/255).opacity(0.45)
+        case .tan:    return Color(hex: 0xC4A07A).opacity(0.30)
+        case .magnolia: return Color(hex: 0xD8C7D1).opacity(0.42)
+        case .sunset: return Color(hex: 0x3C2434).opacity(0.75)
+        case .oled:   return Color(red: 20/255, green: 20/255, blue: 20/255).opacity(0.7)
+        case .ember:  return Color(hex: 0x3A2414).opacity(0.8)
+        case .nocturne: return Color(hex: 0x3A3046).opacity(0.78)
+        case .platinum: return Color(hex: 0x111111)
+        case .platinumDark: return Color(hex: 0xF2F2F2)
+        case .platinumViolet: return Color(hex: 0x000080)
+        case .platinumVioletDark: return Color(hex: 0x6B5DD6)
         }
     }
 
     var navBubbleActiveText: Color {
+        if self == .systemLight {
+            return Color(hex: 0x1C1C1E).opacity(0.90)
+        }
+        if self == .systemDark {
+            return Color(hex: 0xF2F2F7).opacity(0.92)
+        }
         switch self {
-        case .light:  Color(hex: 0x1C1C1E).opacity(0.88)
-        case .sunny:  Color(hex: 0x233040).opacity(0.92)
-        case .tan:    Color(hex: 0x362816).opacity(0.92)
-        case .magnolia: Color(hex: 0x342E35).opacity(0.92)
-        case .sunset: Color(hex: 0xE8E0D8).opacity(0.92)
-        case .oled:   Color(hex: 0xDADADE).opacity(0.92)
-        case .ember:  Color(hex: 0xE0D4C8).opacity(0.92)
-        case .nocturne: Color(hex: 0xEEE4EC).opacity(0.94)
-        case .platinum: Color(hex: 0xF2F2F2).opacity(0.94)
-        case .platinumDark: Color(hex: 0x111111).opacity(0.88)
-        case .platinumViolet: Color.black.opacity(0.7)
-        case .platinumVioletDark: Color.white.opacity(0.75)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(hex: 0x1C1C1E).opacity(0.88)
+        case .sunny:  return Color(hex: 0x233040).opacity(0.92)
+        case .tan:    return Color(hex: 0x362816).opacity(0.92)
+        case .magnolia: return Color(hex: 0x342E35).opacity(0.92)
+        case .sunset: return Color(hex: 0xE8E0D8).opacity(0.92)
+        case .oled:   return Color(hex: 0xDADADE).opacity(0.92)
+        case .ember:  return Color(hex: 0xE0D4C8).opacity(0.92)
+        case .nocturne: return Color(hex: 0xEEE4EC).opacity(0.94)
+        case .platinum: return Color(hex: 0xF2F2F2).opacity(0.94)
+        case .platinumDark: return Color(hex: 0x111111).opacity(0.88)
+        case .platinumViolet: return Color.black.opacity(0.7)
+        case .platinumVioletDark: return Color.white.opacity(0.75)
         }
     }
 
     var navBubbleInactiveText: Color {
+        if self == .systemLight {
+            return Color(hex: 0x6E6E73).opacity(0.92)
+        }
+        if self == .systemDark {
+            return Color(hex: 0x98989D).opacity(0.92)
+        }
         switch self {
-        case .light:  Color(hex: 0x000000).opacity(0.5)
-        case .sunny:  Color(hex: 0x5A7A94).opacity(0.92)
-        case .tan:    Color(hex: 0x9A7A5A).opacity(0.85)
-        case .magnolia: Color(hex: 0x7E737C).opacity(0.90)
-        case .sunset: Color(hex: 0xB09888).opacity(0.92)
-        case .oled:   Color(red: 180/255, green: 180/255, blue: 180/255).opacity(0.92)
-        case .ember:  Color(hex: 0xA08060).opacity(0.92)
-        case .nocturne: Color(hex: 0xA89CA8).opacity(0.92)
-        case .platinum, .platinumViolet: Color.black.opacity(0.5)
-        case .platinumDark, .platinumVioletDark: Color.white.opacity(0.6)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(hex: 0x000000).opacity(0.5)
+        case .sunny:  return Color(hex: 0x5A7A94).opacity(0.92)
+        case .tan:    return Color(hex: 0x9A7A5A).opacity(0.85)
+        case .magnolia: return Color(hex: 0x7E737C).opacity(0.90)
+        case .sunset: return Color(hex: 0xB09888).opacity(0.92)
+        case .oled:   return Color(red: 180/255, green: 180/255, blue: 180/255).opacity(0.92)
+        case .ember:  return Color(hex: 0xA08060).opacity(0.92)
+        case .nocturne: return Color(hex: 0xA89CA8).opacity(0.92)
+        case .platinum, .platinumViolet: return Color.black.opacity(0.5)
+        case .platinumDark, .platinumVioletDark: return Color.white.opacity(0.6)
         }
     }
 
     // MARK: - Card / Surface
 
     var card: Color {
+        if self == .systemLight {
+            return Color.white.opacity(0.90)
+        }
+        if self == .systemDark {
+            return Color(nsColor: .controlBackgroundColor).opacity(0.92)
+        }
         switch self {
-        case .light:  Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.92)
-        case .sunny:  Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.78)
-        case .tan:    Color(hex: 0xEDE0CA).opacity(0.88)
-        case .magnolia: Color(hex: 0xFCF9FB).opacity(0.92)
-        case .sunset: Color(hex: 0x241828).opacity(0.88)
-        case .oled:   Color(red: 18/255, green: 18/255, blue: 18/255).opacity(0.92)
-        case .ember:  Color(hex: 0x241A10).opacity(0.90)
-        case .nocturne: Color(hex: 0x241E2B).opacity(0.90)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return Color(red: 255/255, green: 255/255, blue: 255/255).opacity(0.92)
+        case .sunny:  return Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.78)
+        case .tan:    return Color(hex: 0xEDE0CA).opacity(0.88)
+        case .magnolia: return Color(hex: 0xFCF9FB).opacity(0.92)
+        case .sunset: return Color(hex: 0x241828).opacity(0.88)
+        case .oled:   return Color(red: 18/255, green: 18/255, blue: 18/255).opacity(0.92)
+        case .ember:  return Color(hex: 0x241A10).opacity(0.90)
+        case .nocturne: return Color(hex: 0x241E2B).opacity(0.90)
         case .platinum, .platinumViolet:
-            Color(hex: 0xDDDDDD)
+            return Color(hex: 0xDDDDDD)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x252530)
+            return Color(hex: 0x252530)
         }
     }
 
     var chatSurface: Color {
+        if isSystemDefaultToken {
+            return Color(nsColor: .windowBackgroundColor)
+        }
         switch self {
-        case .light:  .white
-        case .sunny:  Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.72)
-        case .tan:    Color(hex: 0xF5EFE6)
-        case .magnolia: Color(hex: 0xFBF7F9)
-        case .sunset: Color(hex: 0x1E1220)
-        case .oled:   Color(hex: 0x000000)
-        case .ember:  Color(hex: 0x1C1410)
-        case .nocturne: Color(hex: 0x19141F)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return .white
+        case .sunny:  return Color(red: 235/255, green: 245/255, blue: 252/255).opacity(0.72)
+        case .tan:    return Color(hex: 0xF5EFE6)
+        case .magnolia: return Color(hex: 0xFBF7F9)
+        case .sunset: return Color(hex: 0x1E1220)
+        case .oled:   return Color(hex: 0x000000)
+        case .ember:  return Color(hex: 0x1C1410)
+        case .nocturne: return Color(hex: 0x19141F)
         case .platinum, .platinumViolet:
-            Color(hex: 0xEEEEEE)
+            return Color(hex: 0xEEEEEE)
         case .platinumDark, .platinumVioletDark:
-            Color(hex: 0x2A2A38)
+            return Color(hex: 0x2A2A38)
         }
     }
 
@@ -577,6 +697,12 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         if let userBubbleBackgroundHex {
             return Color(hex: userBubbleBackgroundHex)
         }
+        if self == .systemLight {
+            return Color(hex: 0x1A1A1E)
+        }
+        if self == .systemDark {
+            return Color(hex: 0x2A2A30)
+        }
         return switch self {
         case .tan:    Color(hex: 0x6B3D1A)
         case .sunset: Color(hex: 0x3A2040)
@@ -590,17 +716,20 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     }
 
     var userBubbleText: Color {
+        if isSystemDefaultToken {
+            return Color(hex: 0xF2F2F7).opacity(0.92)
+        }
         switch self {
         case .platinum, .platinumDark, .platinumViolet, .platinumVioletDark:
-            Color(hex: 0xF2F2F2).opacity(0.94)
-        case .tan:    Color(hex: 0xF0EBE4).opacity(0.92)
-        case .light:  Color(hex: 0xEEEEEE).opacity(0.92)
-        case .oled:   Color(hex: 0xDADADE).opacity(0.88)
-        case .ember:  Color(hex: 0xEADED0).opacity(0.90)
-        case .sunset: Color(hex: 0xE8E0D8).opacity(0.90)
-        case .magnolia: Color(hex: 0xF6F0F5).opacity(0.94)
-        case .nocturne: Color(hex: 0xF2E7EE).opacity(0.92)
-        default:      foreground
+            return Color(hex: 0xF2F2F2).opacity(0.94)
+        case .tan:    return Color(hex: 0xF0EBE4).opacity(0.92)
+        case .light:  return Color(hex: 0xEEEEEE).opacity(0.92)
+        case .oled:   return Color(hex: 0xDADADE).opacity(0.88)
+        case .ember:  return Color(hex: 0xEADED0).opacity(0.90)
+        case .sunset: return Color(hex: 0xE8E0D8).opacity(0.90)
+        case .magnolia: return Color(hex: 0xF6F0F5).opacity(0.94)
+        case .nocturne: return Color(hex: 0xF2E7EE).opacity(0.92)
+        default:      return foreground
         }
     }
 
@@ -609,19 +738,24 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     // MARK: - NSColor for Window Chrome
 
     var nsBackground: NSColor {
+        if isSystemDefaultToken {
+            return .windowBackgroundColor
+        }
         switch self {
-        case .light:  .white
-        case .sunny:  NSColor(red: 0xE8/255, green: 0xF4/255, blue: 0xFB/255, alpha: 1)
-        case .tan:    NSColor(red: 0xF5/255, green: 0xEF/255, blue: 0xE6/255, alpha: 1)
-        case .magnolia: NSColor(red: 0xF7/255, green: 0xF2/255, blue: 0xF5/255, alpha: 1)
-        case .sunset: NSColor(red: 0x1E/255, green: 0x12/255, blue: 0x20/255, alpha: 1)
-        case .oled:   .black
-        case .ember:  NSColor(red: 0x1C/255, green: 0x14/255, blue: 0x10/255, alpha: 1)
-        case .nocturne: NSColor(red: 0x19/255, green: 0x14/255, blue: 0x1F/255, alpha: 1)
+        case .systemLight, .systemDark:
+            preconditionFailure("System themes are handled before switch")
+        case .light:  return .white
+        case .sunny:  return NSColor(red: 0xE8/255, green: 0xF4/255, blue: 0xFB/255, alpha: 1)
+        case .tan:    return NSColor(red: 0xF5/255, green: 0xEF/255, blue: 0xE6/255, alpha: 1)
+        case .magnolia: return NSColor(red: 0xF7/255, green: 0xF2/255, blue: 0xF5/255, alpha: 1)
+        case .sunset: return NSColor(red: 0x1E/255, green: 0x12/255, blue: 0x20/255, alpha: 1)
+        case .oled:   return .black
+        case .ember:  return NSColor(red: 0x1C/255, green: 0x14/255, blue: 0x10/255, alpha: 1)
+        case .nocturne: return NSColor(red: 0x19/255, green: 0x14/255, blue: 0x1F/255, alpha: 1)
         case .platinum, .platinumViolet:
-            NSColor(red: 0xDE/255, green: 0xDE/255, blue: 0xDE/255, alpha: 1)
+            return NSColor(red: 0xDE/255, green: 0xDE/255, blue: 0xDE/255, alpha: 1)
         case .platinumDark, .platinumVioletDark:
-            NSColor(red: 0x1E/255, green: 0x1E/255, blue: 0x24/255, alpha: 1)
+            return NSColor(red: 0x1E/255, green: 0x1E/255, blue: 0x24/255, alpha: 1)
         }
     }
 }

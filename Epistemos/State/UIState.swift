@@ -68,7 +68,7 @@ final class UIState {
     var theme: EpistemosTheme {
         switch themeMode {
         case .systemDefault:
-            isSystemDark ? .oled : .light
+            isSystemDark ? .systemDark : .systemLight
         case .custom:
             activePair.resolved(isDark: isSystemDark)
         }
@@ -90,10 +90,10 @@ final class UIState {
         usesNativeWindowBlur ? .clear : theme.nsBackground
     }
     var contentBackground: Color {
-        customThemesEnabled ? theme.background : Color(nsColor: .windowBackgroundColor)
+        customThemesEnabled ? theme.background : Color(nsColor: .textBackgroundColor)
     }
     var overlayChromeBackground: Color {
-        customThemesEnabled ? theme.background : Color(nsColor: .windowBackgroundColor)
+        customThemesEnabled ? theme.background : Color(nsColor: .underPageBackgroundColor)
     }
     var appearanceSyncKey: String {
         "\(themeMode.rawValue):\(activePair.rawValue):\(isSystemDark ? 1 : 0)"

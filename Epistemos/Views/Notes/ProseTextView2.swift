@@ -503,7 +503,7 @@ final class ProseTextView2: NSTextView {
         tv.writingToolsBehavior = .default
         tv.wantsLayer = true
 
-        tv.applyTheme(.light)
+        tv.applyTheme(.nativeDefault)
 
         // Wire MarkdownContentStorage as delegate for BOTH TextKit 2 delegate roles.
         // NSTextContentStorage overrides the `delegate` property from NSTextContentManager,
