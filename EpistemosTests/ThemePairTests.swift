@@ -239,8 +239,11 @@ struct ThemePairTests {
 
     @Test("Main chat layout keeps the composer proportional to the message column")
     func mainChatLayoutStaysProportional() {
-        #expect(ChatLayout.mainComposerMaxWidth == 940)
-        #expect(ChatLayout.mainComposerHorizontalPadding == 12)
+        #expect(ChatLayout.mainComposerMaxWidth == 860)
+        #expect(ChatLayout.mainComposerHorizontalPadding == 10)
+        #expect(MainChatComposerLayout.horizontalPadding == 11)
+        #expect(MainChatComposerLayout.topPadding == 9)
+        #expect(MainChatComposerLayout.bottomPadding == 7)
     }
 
     @Test("Main chat return key submits only when the composer is ready")
@@ -340,8 +343,8 @@ struct ThemePairTests {
         let main = AssistantComposerMetrics.mainChat
         let compact = AssistantComposerMetrics.compactChat
 
-        #expect(main.cornerRadius == 18)
-        #expect(main.sendButtonSize == 34)
+        #expect(main.cornerRadius == 16)
+        #expect(main.sendButtonSize == 32)
         #expect(main.sendButtonSize < compact.sendButtonSize)
         #expect(main.shadowRadius == 0)
         #expect(main.shadowYOffset == 0)
@@ -350,11 +353,18 @@ struct ThemePairTests {
         #expect(main.borderWidth <= 0.8)
         #expect(compact.cornerRadius > main.cornerRadius)
         #expect(compact.horizontalPadding > main.horizontalPadding)
+        #expect(ChatComposerInputMetrics.fontSize == 14)
+        #expect(ChatComposerInputMetrics.verticalInset == 4)
     }
 
     @Test("Landing search composer restores the Apple Intelligence glow")
     func landingSearchComposerRestoresAppleIntelligenceGlow() {
         #expect(LandingSearchChromePolicy.showsGlow)
+    }
+
+    @Test("Chat streaming keeps incremental response text out of the live bubble")
+    func chatStreamingKeepsIncrementalResponseTextOutOfTheLiveBubble() {
+        #expect(!ChatStreamingDisplayPolicy.showsLiveResponseText)
     }
 
     @Test("Chat transcript rows capture the previous user query without re-scanning chat state")
@@ -465,6 +475,26 @@ struct ThemePairTests {
 
         let uiState = UIState()
         #expect(uiState.displayMode == .regular)
+    }
+
+    @MainActor
+    @Test("UIState enables landing cursor animation by default")
+    func uiStateEnablesLandingCursorAnimationByDefault() {
+        let defaults = UserDefaults.standard
+        let previous = defaults.object(forKey: LandingCursorAnimationPolicy.defaultsKey)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: LandingCursorAnimationPolicy.defaultsKey)
+            } else {
+                defaults.removeObject(forKey: LandingCursorAnimationPolicy.defaultsKey)
+            }
+        }
+
+        defaults.removeObject(forKey: LandingCursorAnimationPolicy.defaultsKey)
+
+        let uiState = UIState()
+        #expect(uiState.landingCursorAnimationEnabled == LandingCursorAnimationPolicy.defaultValue)
+        #expect(uiState.landingCursorAnimationEnabled)
     }
 
     @Test("Icon composer package carries dark and tinted variants")

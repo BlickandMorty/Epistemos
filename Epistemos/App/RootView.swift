@@ -89,21 +89,13 @@ struct RootView: View {
                     ? .hidden : .automatic
             )
             // Chat sidebar toggle — only on Home tab
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 if ui.homeTab == .home {
-                    @Bindable var ui = ui
-                    Button {
-                        ui.toggleChatSidebar()
-                    } label: {
-                        Label("History", systemImage: "sidebar.left")
+                    if chat.showLanding || chat.messages.isEmpty {
+                        landingCursorToolbarButton
                     }
-                    .accessibilityLabel("Chat History")
-                    .help("Chat History (⇧⌘H)")
-                    .popover(isPresented: $ui.showChatSidebar) {
-                        ChatSidebarView()
-                            .frame(width: 300, height: 500)
-                            .preferredColorScheme(ui.theme.colorScheme)
-                    }
+
+                    historyToolbarButton
                 }
             }
         }
@@ -207,6 +199,45 @@ struct RootView: View {
             Button("Quit") { NSApp.terminate(nil) }
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
+        }
+    }
+
+    private var landingCursorToolbarButton: some View {
+        Button {
+            ui.landingCursorAnimationEnabled.toggle()
+        } label: {
+            Label(
+                "Cursor FX",
+                systemImage: ui.landingCursorAnimationEnabled
+                    ? "cursorarrow.motionlines"
+                    : "cursorarrow"
+            )
+        }
+        .accessibilityLabel(
+            ui.landingCursorAnimationEnabled
+                ? "Disable landing cursor animation"
+                : "Enable landing cursor animation"
+        )
+        .help(
+            ui.landingCursorAnimationEnabled
+                ? "Disable landing cursor animation"
+                : "Enable landing cursor animation"
+        )
+    }
+
+    private var historyToolbarButton: some View {
+        @Bindable var ui = ui
+        return Button {
+            ui.toggleChatSidebar()
+        } label: {
+            Label("History", systemImage: "sidebar.left")
+        }
+        .accessibilityLabel("Chat History")
+        .help("Chat History (⇧⌘H)")
+        .popover(isPresented: $ui.showChatSidebar) {
+            ChatSidebarView()
+                .frame(width: 300, height: 500)
+                .preferredColorScheme(ui.theme.colorScheme)
         }
     }
 }

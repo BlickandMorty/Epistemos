@@ -3,8 +3,12 @@ import UniformTypeIdentifiers
 
 enum ChatLayout {
     static let messageColumnMaxWidth: CGFloat = 760
-    static let mainComposerMaxWidth: CGFloat = 940
-    static let mainComposerHorizontalPadding: CGFloat = 12
+    static let mainComposerMaxWidth: CGFloat = 860
+    static let mainComposerHorizontalPadding: CGFloat = 10
+}
+
+enum ChatStreamingDisplayPolicy {
+    static let showsLiveResponseText = false
 }
 
 struct ChatTranscriptRow: Identifiable, Sendable {
@@ -106,6 +110,7 @@ struct ChatView: View {
                     // Throttle to ~4fps during streaming
                     let now = ContinuousClock.now
                     guard autoFollow.isFollowingBottom,
+                          (ChatStreamingDisplayPolicy.showsLiveResponseText || !chat.isStreaming),
                           now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
                     else { return }
                     lastScrollTime = now
@@ -375,7 +380,14 @@ private struct StreamingIndicator: View {
                 )
             }
 
-            if !chat.streamingText.isEmpty {
+            if ChatStreamingDisplayPolicy.showsLiveResponseText, !chat.streamingText.isEmpty {
+                Text(chat.streamingText)
+                    .font(.epBody)
+                    .foregroundStyle(theme.foreground)
+                    .textSelection(.enabled)
+                    .lineSpacing(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if !chat.isStreaming, !chat.streamingText.isEmpty {
                 Text(chat.streamingText)
                     .font(.epBody)
                     .foregroundStyle(theme.foreground)

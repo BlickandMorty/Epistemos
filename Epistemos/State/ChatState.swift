@@ -278,6 +278,7 @@ final class ChatState {
     func startStreaming() {
         isStreaming = true
         // Pre-allocate for typical response (~16KB). Avoids repeated reallocation during streaming.
+        pendingStreamTokens.reserveCapacity(16_384)
         streamingText.reserveCapacity(16_384)
         reasoningText.reserveCapacity(4_096)
     }
@@ -290,9 +291,9 @@ final class ChatState {
         onStopRequested?()
     }
 
-    /// Accumulates tokens and flushes to `streamingText` at ~60ms intervals.
-    /// This batches 3-5 tokens per SwiftUI update instead of 1:1.
-    /// On first token, transitions out of reasoning phase (calculates duration).
+    /// Accumulates streaming tokens off-screen while the response is generating.
+    /// Live response text is intentionally not flushed into observable UI state unless the
+    /// display policy enables it or the buffer grows abnormally large.
     func appendStreamingText(_ text: String) {
         if isReasoning { endReasoning() }
         pendingStreamTokens += text
@@ -301,6 +302,7 @@ final class ChatState {
             flushStreamingTokens()
             return
         }
+        guard ChatStreamingDisplayPolicy.showsLiveResponseText else { return }
         guard streamFlushTask == nil else { return }
         streamFlushTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(60))

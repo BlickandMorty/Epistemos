@@ -1804,6 +1804,7 @@ final class RenderedTableOverlayManager2 {
     private var overlays: [String: NoteEditorRenderedTableHostingView] = [:]
     private var theme: EpistemosTheme
     private var scrollRefreshTask: Task<Void, Never>?
+    private var textChangeRefreshTask: Task<Void, Never>?
 
     init(textView: ProseTextView2, theme: EpistemosTheme) {
         self.textView = textView
@@ -1817,9 +1818,15 @@ final class RenderedTableOverlayManager2 {
     }
 
     func refreshAfterTextChange() {
-        scrollRefreshTask?.cancel()
-        scrollRefreshTask = nil
-        refresh()
+        textChangeRefreshTask?.cancel()
+        textChangeRefreshTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: NoteEditorPerformancePolicy.renderedTableOverlayRefreshDelay)
+            guard let self, !Task.isCancelled else { return }
+            self.textChangeRefreshTask = nil
+            self.scrollRefreshTask?.cancel()
+            self.scrollRefreshTask = nil
+            self.refresh()
+        }
     }
 
     func refreshForScroll() {
@@ -1893,6 +1900,8 @@ final class RenderedTableOverlayManager2 {
     }
 
     func removeAll() {
+        textChangeRefreshTask?.cancel()
+        textChangeRefreshTask = nil
         scrollRefreshTask?.cancel()
         scrollRefreshTask = nil
         for overlay in overlays.values {
@@ -1998,6 +2007,10 @@ final class RenderedTableOverlayManager2 {
             height: unionRect.height
         )
     }
+}
+
+enum NoteEditorPerformancePolicy {
+    static let renderedTableOverlayRefreshDelay: Duration = .milliseconds(120)
 }
 
 // MARK: - NSTextLayoutManagerDelegate (Phase 6)

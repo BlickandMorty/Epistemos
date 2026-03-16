@@ -34,6 +34,7 @@ struct NoteEditorLayoutTests {
         #expect(ProseEditorRepresentable.verticalInset == 40)
         #expect(MarkdownTextStorage.leadingH1SpacingBefore == 36)
         #expect(MarkdownTextStorage.sectionH1SpacingBefore == 30)
+        #expect(NoteEditorPerformancePolicy.renderedTableOverlayRefreshDelay == .milliseconds(120))
     }
 
     @MainActor

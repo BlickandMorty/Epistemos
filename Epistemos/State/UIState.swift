@@ -3,6 +3,11 @@ import SwiftUI
 import Observation
 import UserNotifications
 
+enum LandingCursorAnimationPolicy {
+    static let defaultsKey = "epistemos.landingCursorAnimationEnabled"
+    static let defaultValue = true
+}
+
 // MARK: - UI State
 // Ephemeral UI state only — no persistent data arrays.
 // Theme pair, navigation, command palette, breathe mode, toast, window visibility.
@@ -55,6 +60,17 @@ final class UIState {
     /// Animations (starfield, typewriter) should pause when this is true to save CPU.
     var windowOccluded = false
 
+    // MARK: - Landing Animation
+
+    var landingCursorAnimationEnabled = LandingCursorAnimationPolicy.defaultValue {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorAnimationEnabled,
+                forKey: LandingCursorAnimationPolicy.defaultsKey
+            )
+        }
+    }
+
     // MARK: - Mini-Chat
 
     var miniChatOpen = false
@@ -74,6 +90,11 @@ final class UIState {
             activePair = pair
         }
         displayMode = AppDisplayMode.current()
+        if UserDefaults.standard.object(forKey: LandingCursorAnimationPolicy.defaultsKey) != nil {
+            landingCursorAnimationEnabled = UserDefaults.standard.bool(
+                forKey: LandingCursorAnimationPolicy.defaultsKey
+            )
+        }
     }
 
     // MARK: - Theme Methods

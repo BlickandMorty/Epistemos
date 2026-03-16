@@ -3,11 +3,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum MainChatComposerLayout {
-    static let horizontalPadding: CGFloat = 12
-    static let topPadding: CGFloat = 10
-    static let bottomPadding: CGFloat = 8
-    static let controlRowSpacing: CGFloat = 5
-    static let controlRowTopPadding: CGFloat = 7
+    static let horizontalPadding: CGFloat = 11
+    static let topPadding: CGFloat = 9
+    static let bottomPadding: CGFloat = 7
+    static let controlRowSpacing: CGFloat = 4
+    static let controlRowTopPadding: CGFloat = 6
 }
 
 // MARK: - Chat Input Bar
@@ -152,7 +152,7 @@ struct ChatInputBar: View {
 
             if text.isEmpty {
                 Text(placeholderText)
-                    .font(.system(size: 17, weight: .regular, design: .rounded))
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
                     .foregroundStyle(theme.mutedForeground.opacity(0.55))
                     .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
                     .allowsHitTesting(false)
@@ -301,10 +301,10 @@ enum ChatComposerKeyHandling {
 }
 
 enum ChatComposerInputMetrics {
-    static let fontSize: CGFloat = 15
+    static let fontSize: CGFloat = 14
     static let maxVisibleLines = 8
-    static let verticalInset: CGFloat = 5
-    static let placeholderTopPadding: CGFloat = 5
+    static let verticalInset: CGFloat = 4
+    static let placeholderTopPadding: CGFloat = 4
     static let lineHeight = ceil(
         NSLayoutManager().defaultLineHeight(for: NSFont.systemFont(ofSize: fontSize))
     )

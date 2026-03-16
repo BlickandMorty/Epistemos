@@ -1461,7 +1461,9 @@ private struct LandingASCIIWakeField: View {
 
     private var charWidth: CGFloat { fontSize * 0.64 }
     private var lineHeight: CGFloat { fontSize + lineSpacing + 2 }
-    private var shouldAnimate: Bool { !reduceMotion && !ui.windowOccluded }
+    private var shouldAnimate: Bool {
+        !reduceMotion && !ui.windowOccluded && ui.landingCursorAnimationEnabled
+    }
 
     var body: some View {
         GeometryReader { proxy in
