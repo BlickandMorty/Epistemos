@@ -243,6 +243,7 @@ struct NoteWindowManagerTests {
         #expect(window.titleVisibility == .hidden)
         #expect(window.titlebarAppearsTransparent)
         #expect(window.isMovableByWindowBackground)
+        #expect(window.styleMask.contains(.fullSizeContentView))
         let toolbar = try #require(window.toolbar)
         #expect(toolbar.identifier == "TestNoteToolbar")
         #expect(window.toolbarStyle == .unified)
@@ -292,6 +293,7 @@ struct NoteWindowManagerTests {
             #expect(window.appearance?.name != .darkAqua)
             #expect(window.titlebarAppearsTransparent)
             #expect(window.toolbarStyle == .unified)
+            #expect(window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) == true)
             #expect(
                 !window.titlebarAccessoryViewControllers.contains(where: {
                     $0.identifier?.rawValue == "GlassToolbar"

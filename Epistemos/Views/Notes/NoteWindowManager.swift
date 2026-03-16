@@ -29,11 +29,13 @@ enum NoteTitleDisplay {
 @MainActor
 enum NoteWindowChrome {
     static func apply(to window: NSWindow, toolbarIdentifier: String) {
+        if !window.styleMask.contains(.fullSizeContentView) {
+            window.styleMask.insert(.fullSizeContentView)
+        }
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         let toolbar = window.toolbar ?? NSToolbar(identifier: toolbarIdentifier)
-        toolbar.showsBaselineSeparator = false
         window.toolbar = toolbar
         window.toolbarStyle = .unified
     }
@@ -46,8 +48,8 @@ enum NoteWindowThemeStyler {
         window.isOpaque = !uiState.usesNativeWindowBlur
         window.backgroundColor = uiState.windowBackgroundColor
         window.titlebarAppearsTransparent = true
-        window.toolbar?.showsBaselineSeparator = false
         window.toolbarStyle = .unified
+        WindowThemeStyler.applyBackdrop(in: window.contentView, uiState: uiState)
         if uiState.shouldUseThemeWorkarounds {
             window.applyThemedGlassToolbar(configuration: GlassToolbarConfiguration(theme: uiState.theme))
         } else {

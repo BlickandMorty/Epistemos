@@ -49,7 +49,7 @@ enum WindowThemeStyler {
         window.invalidateShadow()
     }
 
-    private static func applyBackdrop(in root: NSView?, uiState: UIState) {
+    static func applyBackdrop(in root: NSView?, uiState: UIState) {
         guard let root else { return }
 
         if uiState.usesNativeWindowBlur {
@@ -99,7 +99,6 @@ enum UtilityPanelChrome {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "NotesSidebarToolbar")
-        toolbar.showsBaselineSeparator = false
         panel.toolbar = toolbar
         panel.toolbarStyle = .unifiedCompact
     }

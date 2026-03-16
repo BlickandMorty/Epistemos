@@ -37,7 +37,6 @@ extension NSWindow {
         if self.toolbar == nil {
             self.toolbar = NSToolbar(identifier: "NoteEditor")
         }
-        self.toolbar?.showsBaselineSeparator = false
         self.toolbarStyle = .unified
         
         // Use NSTitlebarAccessoryViewController for proper titlebar integration

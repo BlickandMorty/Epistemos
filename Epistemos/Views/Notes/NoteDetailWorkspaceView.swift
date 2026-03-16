@@ -559,6 +559,10 @@ struct NoteDetailWorkspaceView: View {
         VStack(spacing: 0) {
             noteCanvas
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            ui.overlayChromeBackground.ignoresSafeArea()
+        }
         .toolbar {
             if let nav = navState, nav.hasBreadcrumb {
                 ToolbarItem(placement: .navigation) {
