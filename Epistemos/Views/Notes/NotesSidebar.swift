@@ -275,6 +275,39 @@ struct NotesSidebarHoverTickState {
     }
 }
 
+enum NotesSidebarHoverHapticPattern: String, Equatable, Sendable {
+    case generic
+    case levelChange
+}
+
+struct NotesSidebarHoverHapticRecipe: Equatable, Sendable {
+    let pattern: NotesSidebarHoverHapticPattern
+}
+
+enum NotesSidebarHoverHapticStyle: Sendable {
+    case file
+    case folder
+
+    var recipe: NotesSidebarHoverHapticRecipe {
+        switch self {
+        case .file:
+            NotesSidebarHoverHapticRecipe(pattern: .generic)
+        case .folder:
+            NotesSidebarHoverHapticRecipe(pattern: .levelChange)
+        }
+    }
+
+    @MainActor
+    func perform() {
+        switch recipe.pattern {
+        case .generic:
+            HapticHelper.sidebarHoverTick()
+        case .levelChange:
+            HapticHelper.softPump()
+        }
+    }
+}
+
 // MARK: - Notes Sidebar
 // Obsidian-style file tree: vault → folders (SDFolder) → pages.
 // Loose pages (not in any folder) appear at root level alongside folders.
@@ -1545,6 +1578,7 @@ private struct FolderRow: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 4)
+            .notesSidebarHoverTick(style: .folder)
             .draggable("folder:\(item.id)")
             .dropDestination(for: String.self) { droppedItems, _ in
                 for droppedItem in droppedItems {
@@ -1696,6 +1730,7 @@ private struct JournalFolderRow: View {
                     onAction(.newJournalEntry)
                 }
             }
+            .notesSidebarHoverTick(style: .folder)
 
             if renderChildren && isExpanded {
                 ForEach(journals) { page in
@@ -1758,6 +1793,7 @@ private struct IdeasFolderRow: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 4)
+            .notesSidebarHoverTick(style: .folder)
 
             if renderChildren && isExpanded {
                 ForEach(ideas.prefix(20)) { idea in
@@ -2216,6 +2252,7 @@ private struct SidebarIconButton: View {
 }
 
 private struct NotesSidebarHoverTickModifier: ViewModifier {
+    let style: NotesSidebarHoverHapticStyle
     @State private var tickState = NotesSidebarHoverTickState()
 
     func body(content: Content) -> some View {
@@ -2224,13 +2261,13 @@ private struct NotesSidebarHoverTickModifier: ViewModifier {
             let shouldTick = nextState.update(hovering: hovering)
             tickState = nextState
             guard shouldTick else { return }
-            HapticHelper.softTick()
+            style.perform()
         }
     }
 }
 
 private extension View {
-    func notesSidebarHoverTick() -> some View {
-        modifier(NotesSidebarHoverTickModifier())
+    func notesSidebarHoverTick(style: NotesSidebarHoverHapticStyle = .file) -> some View {
+        modifier(NotesSidebarHoverTickModifier(style: style))
     }
 }

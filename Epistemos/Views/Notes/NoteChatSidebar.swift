@@ -6,6 +6,10 @@ import SwiftUI
 struct NoteChatSidebar: View {
     @Environment(NoteChatState.self) private var noteChat
     @Environment(UIState.self) private var ui
+    @State private var autoFollow = ScrollAutoFollowState(
+        attachThreshold: 24,
+        detachThreshold: 72
+    )
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -29,15 +33,36 @@ struct NoteChatSidebar: View {
                         messageRow(msg)
                             .id(msg.id)
                     }
+
+                    Color.clear
+                        .frame(height: 1)
                 }
                 .padding(14)
             }
+            .onScrollGeometryChange(
+                for: CGFloat.self,
+                of: ScrollStability.distanceToBottom(for:)
+            ) { _, distance in
+                let nextState = ScrollStability.updatedAutoFollowState(
+                    from: autoFollow,
+                    distanceToBottom: distance
+                )
+                guard nextState != autoFollow else { return }
+                autoFollow = nextState
+            }
             .onChange(of: noteChat.messages.count) { _, _ in
+                guard autoFollow.isFollowingBottom else { return }
                 if let last = noteChat.messages.last {
+                    autoFollow.markProgrammaticScrollToBottom()
                     withAnimation(.easeOut(duration: 0.15)) {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
                 }
+            }
+            .onAppear {
+                guard let last = noteChat.messages.last else { return }
+                autoFollow.markProgrammaticScrollToBottom()
+                proxy.scrollTo(last.id, anchor: .bottom)
             }
         }
     }

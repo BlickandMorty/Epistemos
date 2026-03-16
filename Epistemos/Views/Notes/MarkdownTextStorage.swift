@@ -1364,7 +1364,7 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         boundsWidth: CGFloat
     ) -> NSRect {
         let leadingInset = max(bodyIndent - 8, 14)
-        let trailingInset: CGFloat = 16
+        let trailingInset = MarkdownPreviewSurfaceMetrics.default.rightEdgeWidth
         let availableWidth = min(containerWidth, max(0, boundsWidth - (textContainerOrigin.x * 2)))
         let width = max(0, availableWidth - leadingInset - trailingInset)
         return NSRect(
@@ -1381,8 +1381,8 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         accent: NSColor,
         in rect: NSRect
     ) {
-        let radius: CGFloat = kind == .codeBlock ? 14 : 16
-        let path = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
+        let metrics = MarkdownPreviewSurfaceMetrics.default
+        let path = NSBezierPath(rect: rect)
 
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
@@ -1394,51 +1394,91 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         path.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        accent.withAlphaComponent(kind == .callout ? 0.28 : 0.14).setStroke()
-        path.lineWidth = 0.8
-        path.stroke()
-
         let highlightRect = NSRect(
             x: rect.minX + 1,
             y: rect.maxY - 7,
             width: max(0, rect.width - 2),
             height: 6
         )
-        let highlightPath = NSBezierPath(
-            roundedRect: highlightRect,
-            xRadius: max(radius - 1, 1),
-            yRadius: max(radius - 1, 1)
-        )
+        let highlightPath = NSBezierPath(rect: highlightRect)
         fill.withAlphaComponent(0.28).setFill()
         highlightPath.fill()
 
         let railWidth: CGFloat
         let railAlpha: CGFloat
+        let topEdgeAlpha: CGFloat
+        let leftEdgeAlpha: CGFloat
+        let bottomEdgeAlpha: CGFloat
+        let rightEdgeAlpha: CGFloat
         switch kind {
         case .callout:
             railWidth = 4
             railAlpha = 0.92
+            topEdgeAlpha = 0.12
+            leftEdgeAlpha = 0.18
+            bottomEdgeAlpha = 0.20
+            rightEdgeAlpha = 0.12
         case .quote:
             railWidth = 2.5
             railAlpha = 0.65
+            topEdgeAlpha = 0.10
+            leftEdgeAlpha = 0.14
+            bottomEdgeAlpha = 0.16
+            rightEdgeAlpha = 0.10
         case .codeBlock:
             railWidth = 1.5
             railAlpha = 0.30
+            topEdgeAlpha = 0.11
+            leftEdgeAlpha = 0.12
+            bottomEdgeAlpha = 0.18
+            rightEdgeAlpha = 0.11
         }
 
+        let leftEdgeRect = NSRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: metrics.borderWidth,
+            height: rect.height
+        )
+        NSColor.black.withAlphaComponent(leftEdgeAlpha).setFill()
+        NSBezierPath(rect: leftEdgeRect).fill()
+
+        let topEdgeRect = NSRect(
+            x: rect.minX,
+            y: rect.maxY - metrics.topEdgeWidth,
+            width: rect.width,
+            height: metrics.topEdgeWidth
+        )
+        NSColor.black.withAlphaComponent(topEdgeAlpha).setFill()
+        NSBezierPath(rect: topEdgeRect).fill()
+
         let accentRect = NSRect(
-            x: rect.minX + 2,
-            y: rect.minY + 2,
+            x: rect.minX,
+            y: rect.minY,
             width: railWidth,
-            height: max(0, rect.height - 4)
+            height: rect.height
         )
-        let accentPath = NSBezierPath(
-            roundedRect: accentRect,
-            xRadius: railWidth / 2,
-            yRadius: railWidth / 2
-        )
+        let accentPath = NSBezierPath(rect: accentRect)
         accent.withAlphaComponent(railAlpha).setFill()
         accentPath.fill()
+
+        let bottomEdgeRect = NSRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: rect.width,
+            height: metrics.bottomEdgeWidth
+        )
+        NSColor.black.withAlphaComponent(bottomEdgeAlpha).setFill()
+        NSBezierPath(rect: bottomEdgeRect).fill()
+
+        let rightEdgeRect = NSRect(
+            x: rect.maxX - metrics.rightEdgeWidth,
+            y: rect.minY,
+            width: metrics.rightEdgeWidth,
+            height: rect.height
+        )
+        NSColor.black.withAlphaComponent(rightEdgeAlpha).setFill()
+        NSBezierPath(rect: rightEdgeRect).fill()
     }
 
 }

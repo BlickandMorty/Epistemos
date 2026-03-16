@@ -19,6 +19,17 @@ enum LandingShortcutDisplay {
     }
 }
 
+enum LandingSearchLayout {
+    static let maxWidth: CGFloat = 640
+    static let topRowSpacing: CGFloat = 12
+    static let controlRowSpacing: CGFloat = 8
+    static let controlRowTopPadding: CGFloat = 10
+    static let horizontalPadding: CGFloat = 20
+    static let topPadding: CGFloat = 18
+    static let bottomPadding: CGFloat = 14
+    static let cornerRadius: CGFloat = 24
+}
+
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 // Search/command palette is now a global overlay (CommandPaletteOverlay)
@@ -42,10 +53,14 @@ struct LandingView: View {
     // Inline search state
     @State private var showingSearch = false
     @State private var landingSearchText = ""
-    @FocusState private var isLandingSearchFocused: Bool
+    @State private var landingComposerHeight = ChatComposerInputMetrics.minHeight
+    @State private var isLandingSearchFocused = false
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
+    private var trimmedLandingSearchText: String {
+        landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     private var landingWakeVocabulary: [String] {
         LandingASCIIWakeFieldEngine.normalizedVocabulary(
             from: [
@@ -201,95 +216,97 @@ struct LandingView: View {
             Spacer()
 
             VStack(spacing: 20) {
-                // Search bar
-                HStack(spacing: 12) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [
-                                    Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
-                                    Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
-                                    Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [
+                                        Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                                        Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                                        Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
+                            .padding(.top, 8)
 
-                    TextField("Ask Epistemos\u{2026}", text: $landingSearchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 22, weight: .regular, design: .rounded))
-                        .foregroundStyle(theme.foreground)
-                        .focused($isLandingSearchFocused)
-                        .onSubmit { submitLandingSearch() }
+                        ZStack(alignment: .topLeading) {
+                            ChatComposerTextEditor(
+                                text: $landingSearchText,
+                                height: $landingComposerHeight,
+                                isFocused: $isLandingSearchFocused,
+                                theme: theme,
+                                isProcessing: false
+                            ) {
+                                submitLandingSearch()
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(height: landingComposerHeight)
 
-                    if !landingSearchText.isEmpty {
-                        Button {
-                            landingSearchText = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(theme.textTertiary)
-                        }
-                        .buttonStyle(.plain)
-                        .transition(.scale(scale: 0.5).combined(with: .opacity))
-                    }
-
-                    // Research Mode toggle
-                    Button {
-                        if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
-                    } label: {
-                        Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
-                            .frame(width: 28, height: 28)
-                            .background(chat.isResearchMode ? theme.accent.opacity(0.15) : .clear, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .help(chat.isResearchMode ? "Research Mode: ON" : "Research Mode: OFF")
-
-                    // API provider picker
-                    Menu {
-                        ForEach(LLMProviderType.allCases, id: \.self) { provider in
-                            Button {
-                                inference.apiProvider = provider
-                            } label: {
-                                HStack {
-                                    Image(systemName: provider.iconName)
-                                    Text(provider.displayName)
-                                    if inference.apiProvider == provider {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
+                            if landingSearchText.isEmpty {
+                                Text("Ask Epistemos\u{2026}")
+                                    .font(.system(size: 22, weight: .regular, design: .rounded))
+                                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                                    .padding(.top, ChatComposerInputMetrics.placeholderTopPadding + 1)
+                                    .allowsHitTesting(false)
                             }
                         }
-                    } label: {
-                        HStack(spacing: 3) {
-                            Image(systemName: inference.apiProvider.iconName)
-                                .font(.system(size: 10, weight: .medium))
-                            Text(inference.apiProvider.displayName)
-                                .font(.system(size: 11, weight: .medium))
+
+                        if !landingSearchText.isEmpty {
+                            Button {
+                                landingSearchText = ""
+                                landingComposerHeight = ChatComposerInputMetrics.minHeight
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(theme.textTertiary)
+                                    .frame(width: 28, height: 28)
+                            }
+                            .buttonStyle(NativeToolbarButtonStyle())
+                            .padding(.top, 4)
+                            .transition(.scale(scale: 0.5).combined(with: .opacity))
                         }
-                        .foregroundStyle(theme.textTertiary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(theme.foreground.opacity(0.06), in: Capsule())
                     }
-                    .menuStyle(.borderlessButton)
-                    .fixedSize()
+
+                    HStack(alignment: .center, spacing: LandingSearchLayout.controlRowSpacing) {
+                        HStack(spacing: LandingSearchLayout.controlRowSpacing) {
+                            ResearchModeControl(variant: .toolbar)
+
+                            landingProviderMenu
+                        }
+
+                        Spacer(minLength: 0)
+
+                        AssistantSendButton(
+                            theme: theme,
+                            isEnabled: !trimmedLandingSearchText.isEmpty,
+                            isProcessing: false,
+                            metrics: .compactChat
+                        ) {
+                            submitLandingSearch()
+                        }
+                        .help("Send")
+                        .accessibilityLabel("Send prompt")
+                    }
+                    .padding(.top, LandingSearchLayout.controlRowTopPadding)
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 18)
-                .background {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(theme.isDark ? Color.white.opacity(0.08) : Color.black.opacity(0.06), lineWidth: 0.5)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .siriGlow(cornerRadius: 20, lineWidth: 1.5, isActive: isLandingSearchFocused)
-                .frame(maxWidth: 600)
+                .padding(.horizontal, LandingSearchLayout.horizontalPadding)
+                .padding(.top, LandingSearchLayout.topPadding)
+                .padding(.bottom, LandingSearchLayout.bottomPadding)
+                .assistantGlassInputChrome(
+                    theme: theme,
+                    cornerRadius: LandingSearchLayout.cornerRadius,
+                    isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty
+                )
+                .siriGlow(
+                    cornerRadius: LandingSearchLayout.cornerRadius,
+                    lineWidth: 1.5,
+                    isActive: isLandingSearchFocused
+                )
+                .frame(maxWidth: LandingSearchLayout.maxWidth)
                 .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
 
                 // Quick action chips
@@ -346,6 +363,43 @@ struct LandingView: View {
         .buttonStyle(.plain)
     }
 
+    private var landingProviderMenu: some View {
+        Menu {
+            ForEach(LLMProviderType.allCases, id: \.self) { provider in
+                Button {
+                    inference.apiProvider = provider
+                } label: {
+                    HStack {
+                        Image(systemName: provider.iconName)
+                        Text(provider.displayName)
+                        if inference.apiProvider == provider {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: inference.apiProvider.iconName)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(inference.apiProvider.displayName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(theme.textTertiary)
+            }
+            .foregroundStyle(theme.textSecondary)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .assistantInsetChrome(theme: theme, cornerRadius: 11)
+        }
+        .menuStyle(.borderlessButton)
+        .help("Provider")
+        .accessibilityLabel("Provider")
+    }
+
     private func activateLandingSearch() {
         guard !showingBrief else { return }
         showingSearch = true
@@ -358,6 +412,7 @@ struct LandingView: View {
     private func dismissLandingSearch() {
         showingSearch = false
         landingSearchText = ""
+        landingComposerHeight = ChatComposerInputMetrics.minHeight
         isLandingSearchFocused = false
     }
 

@@ -2,10 +2,18 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum MainChatComposerLayout {
+    static let horizontalPadding: CGFloat = 12
+    static let topPadding: CGFloat = 10
+    static let bottomPadding: CGFloat = 8
+    static let controlRowSpacing: CGFloat = 5
+    static let controlRowTopPadding: CGFloat = 7
+}
+
 // MARK: - Chat Input Bar
-// Bottom input bar for the conversation view — compact single-row layout:
-// paperclip + textarea (1-6 lines) + send/stop button.
-// Uses Liquid Glass for the container capsule.
+// Bottom input bar for the conversation view.
+// Uses a stacked native-style composer: multiline text area on the first row,
+// controls on the second row, all inside a rounded-rect material surface.
 
 struct ChatInputBar: View {
     let onSubmit: (String) -> Void
@@ -26,6 +34,12 @@ struct ChatInputBar: View {
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private let composerMetrics = AssistantComposerMetrics.mainChat
+    private var composerIsActive: Bool {
+        isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty
+    }
+    private var placeholderText: String {
+        chat.isResearchMode ? "Ask a research question…" : "Ask anything…"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,7 +69,7 @@ struct ChatInputBar: View {
                         .foregroundStyle(theme.mutedForeground.opacity(0.7))
                     }
                 }
-                .padding(.horizontal, composerMetrics.horizontalPadding)
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
                 .padding(.top, 6)
                 .padding(.bottom, 4)
             }
@@ -63,108 +77,33 @@ struct ChatInputBar: View {
             .clipped()
             .animation(Motion.quick, value: chat.pendingAttachments.count)
 
-            HStack(alignment: .bottom, spacing: 10) {
-                // Attach file
-                Button {
-                    openFilePicker()
-                } label: {
-                    Image(systemName: "paperclip")
-                        .font(.epBody)
-                        .foregroundStyle(
-                            chat.pendingAttachments.isEmpty
-                                ? theme.mutedForeground.opacity(0.4) : theme.accent
-                        )
-                        .frame(width: 32, height: 32)
-                }
-                .buttonStyle(NativeToolbarButtonStyle())
-                .help("Attach File")
-                .accessibilityLabel("Attach file")
-                .accessibilityHint("Open file picker to attach a document")
-                .disabled(isProcessing)
+            VStack(alignment: .leading, spacing: 0) {
+                composerTextArea
 
-                // Incognito toggle
-                Button {
-                    withAnimation(Motion.quick) { chat.isIncognito.toggle() }
-                } label: {
-                    Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
-                        .font(.epCaption)
-                        .foregroundStyle(
-                            chat.isIncognito ? theme.accent : theme.mutedForeground.opacity(0.3)
-                        )
-                        .frame(width: 28, height: 32)
-                }
-                .buttonStyle(NativeToolbarButtonStyle())
-                .help(chat.isIncognito ? "Incognito On — chat won't be saved" : "Enable Incognito")
-                .accessibilityLabel(chat.isIncognito ? "Incognito mode on" : "Incognito mode off")
-                .disabled(isProcessing)
+                HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
+                    HStack(spacing: MainChatComposerLayout.controlRowSpacing) {
+                        attachButton
 
-                // Text field — placeholder adapts to research mode
-                // In research mode, hover on the empty placeholder reveals a hint + About button
-                ZStack(alignment: .topLeading) {
-                    ChatComposerTextEditor(
-                        text: $text,
-                        height: $composerHeight,
-                        isFocused: $isFocused,
-                        theme: theme,
-                        isProcessing: isProcessing
-                    ) {
-                        submitCurrentText()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: composerHeight)
-                    .accessibilityLabel("Message input")
-                    .accessibilityHint(
-                        isProcessing
-                            ? "You can keep typing while the current response finishes. Press stop to cancel."
-                            : "Type a question or command. Press Shift-Enter for a new line."
-                    )
+                        ResearchModeControl(variant: .toolbar)
+                            .disabled(isProcessing)
 
-                    if text.isEmpty {
-                        Text(chat.isResearchMode ? "Ask a research question..." : "Ask anything...")
-                            .font(.epBody)
-                            .foregroundStyle(theme.mutedForeground.opacity(0.55))
-                            .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
-                            .allowsHitTesting(false)
+                        incognitoButton
                     }
+
+                    Spacer(minLength: 0)
+
+                    sendButton
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
-                .onChange(of: text) { _, newVal in
-                    // Detect @ trigger for mention dropdown (active when vault is attached)
-                    if AppBootstrap.shared?.ambientManifest != nil {
-                        if let atIdx = newVal.lastIndex(of: "@") {
-                            let afterAt = String(newVal[newVal.index(after: atIdx)...])
-                            if !afterAt.contains("]") {
-                                mentionFilter = afterAt
-                                if !showMentionDropdown { showMentionDropdown = true }
-                                return
-                            }
-                        }
-                        if showMentionDropdown { showMentionDropdown = false }
-                    }
-                }
-                AssistantSendButton(
-                    theme: theme,
-                    isEnabled: !trimmedText.isEmpty,
-                    isProcessing: isProcessing,
-                    metrics: composerMetrics
-                ) {
-                    if isProcessing {
-                        onStop()
-                    } else {
-                        submitCurrentText()
-                    }
-                }
-                .help(isProcessing ? "Stop" : "Send")
-                .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
+                .padding(.top, MainChatComposerLayout.controlRowTopPadding)
             }
-            .padding(.horizontal, composerMetrics.horizontalPadding)
-            .padding(.vertical, composerMetrics.verticalPadding)
+            .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+            .padding(.top, MainChatComposerLayout.topPadding)
+            .padding(.bottom, MainChatComposerLayout.bottomPadding)
         }
-        .assistantGlassInputChrome(
+        .assistantComposerChrome(
             theme: theme,
-            cornerRadius: composerMetrics.cornerRadius,
-            isActive: isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty
+            metrics: composerMetrics,
+            isActive: composerIsActive
         )
         .overlay(alignment: .topLeading) {
             // Notes Mode @-mention dropdown — floats above the input bar
@@ -189,6 +128,100 @@ struct ChatInputBar: View {
         .padding(.bottom, Spacing.md)
         .frame(maxWidth: ChatLayout.mainComposerMaxWidth)
         .frame(maxWidth: .infinity)
+    }
+
+    private var composerTextArea: some View {
+        ZStack(alignment: .topLeading) {
+            ChatComposerTextEditor(
+                text: $text,
+                height: $composerHeight,
+                isFocused: $isFocused,
+                theme: theme,
+                isProcessing: isProcessing
+            ) {
+                submitCurrentText()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: composerHeight)
+            .accessibilityLabel("Message input")
+            .accessibilityHint(
+                isProcessing
+                    ? "You can keep typing while the current response finishes. Press stop to cancel."
+                    : "Type a question or command. Press Shift-Enter for a new line."
+            )
+
+            if text.isEmpty {
+                Text(placeholderText)
+                    .font(.system(size: 17, weight: .regular, design: .rounded))
+                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                    .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)
+        .layoutPriority(1)
+        .onChange(of: text) { _, newVal in
+            if AppBootstrap.shared?.ambientManifest != nil {
+                if let atIdx = newVal.lastIndex(of: "@") {
+                    let afterAt = String(newVal[newVal.index(after: atIdx)...])
+                    if !afterAt.contains("]") {
+                        mentionFilter = afterAt
+                        if !showMentionDropdown { showMentionDropdown = true }
+                        return
+                    }
+                }
+                if showMentionDropdown { showMentionDropdown = false }
+            }
+        }
+    }
+
+    private var attachButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "plus",
+            variant: .toolbar,
+            helpText: "Attach File",
+            accessibilityLabel: "Attach file"
+        ) {
+            openFilePicker()
+        }
+        .accessibilityHint("Open file picker to attach a document")
+        .disabled(isProcessing)
+    }
+
+    private var incognitoButton: some View {
+        ExpandingModeButton(
+            title: "Incognito",
+            systemImage: chat.isIncognito ? "eye.slash.fill" : "eye.slash",
+            isActive: chat.isIncognito,
+            variant: .toolbar,
+            helpText: chat.isIncognito
+                ? "Incognito On — chat won't be saved"
+                : "Enable Incognito",
+            stableWidth: NativeControlSystem.reservedWidth(for: "Incognito", variant: .toolbar)
+        ) {
+            withAnimation(Motion.quick) { chat.isIncognito.toggle() }
+        }
+        .accessibilityLabel(chat.isIncognito ? "Incognito mode on" : "Incognito mode off")
+        .disabled(isProcessing)
+    }
+
+    private var sendButton: some View {
+        AssistantSendButton(
+            theme: theme,
+            isEnabled: !trimmedText.isEmpty,
+            isProcessing: isProcessing,
+            metrics: composerMetrics
+        ) {
+            if isProcessing {
+                onStop()
+            } else {
+                submitCurrentText()
+            }
+        }
+        .help(isProcessing ? "Stop" : "Send")
+        .accessibilityLabel(isProcessing ? "Stop generating" : "Send message")
     }
 
     private func openFilePicker() {
@@ -269,9 +302,9 @@ enum ChatComposerKeyHandling {
 
 enum ChatComposerInputMetrics {
     static let fontSize: CGFloat = 15
-    static let maxVisibleLines = 6
-    static let verticalInset: CGFloat = 4
-    static let placeholderTopPadding: CGFloat = 6
+    static let maxVisibleLines = 8
+    static let verticalInset: CGFloat = 5
+    static let placeholderTopPadding: CGFloat = 5
     static let lineHeight = ceil(
         NSLayoutManager().defaultLineHeight(for: NSFont.systemFont(ofSize: fontSize))
     )
@@ -283,7 +316,7 @@ enum ChatComposerInputMetrics {
     }
 }
 
-private struct ChatComposerTextEditor: NSViewRepresentable {
+struct ChatComposerTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var height: CGFloat
     @Binding var isFocused: Bool
@@ -429,7 +462,7 @@ private struct ChatComposerTextEditor: NSViewRepresentable {
     }
 }
 
-private final class ChatComposerNativeTextView: NSTextView {
+final class ChatComposerNativeTextView: NSTextView {
     var onWidthChange: (() -> Void)?
 
     override func setFrameSize(_ newSize: NSSize) {

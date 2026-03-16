@@ -6,6 +6,10 @@ import SwiftUI
 // Advanced section: 5 extended params (friction, gravity, collision, warmth, orbital).
 // Each slider change pushes updated params to the Rust engine via GraphState.
 
+enum GraphForceSettingsLayout {
+    static let panelWidth: CGFloat = 320
+}
+
 struct GraphForceSettings: View {
     @Environment(GraphState.self) private var graphState
 
@@ -75,8 +79,9 @@ struct GraphForceSettings: View {
 
             }
             .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 280)
+        .frame(width: GraphForceSettingsLayout.panelWidth)
         .frame(maxHeight: 900)
     }
 
@@ -115,7 +120,7 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader("Rendering", icon: "speedometer")
 
-            Toggle(isOn: gs.performanceModeEnabled) {
+            HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Performance Mode")
                         .font(.system(size: 11, weight: .medium))
@@ -125,9 +130,13 @@ struct GraphForceSettings: View {
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Toggle("", isOn: gs.performanceModeEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
             }
-            .toggleStyle(.switch)
-            .controlSize(.mini)
         }
     }
 

@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 enum ChatLayout {
     static let messageColumnMaxWidth: CGFloat = 760
-    static let mainComposerMaxWidth: CGFloat = 1200
+    static let mainComposerMaxWidth: CGFloat = 940
     static let mainComposerHorizontalPadding: CGFloat = 12
 }
 
@@ -17,7 +17,7 @@ struct ChatView: View {
     @Environment(ChatState.self) private var chat
     @Environment(PipelineState.self) private var pipeline
     @Environment(InferenceState.self) private var inference
-    @State private var scrolledToBottom = true
+    @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
 
@@ -54,7 +54,20 @@ struct ChatView: View {
                     .padding(.bottom, Spacing.lg)
                 }
                 .contentMargins(.top, 0, for: .scrollContent)
+                .onScrollGeometryChange(
+                    for: CGFloat.self,
+                    of: ScrollStability.distanceToBottom(for:)
+                ) { _, distance in
+                    let nextState = ScrollStability.updatedAutoFollowState(
+                        from: autoFollow,
+                        distanceToBottom: distance
+                    )
+                    guard nextState != autoFollow else { return }
+                    autoFollow = nextState
+                }
                 .onChange(of: chat.messages.count) { _, _ in
+                    guard autoFollow.isFollowingBottom else { return }
+                    autoFollow.markProgrammaticScrollToBottom()
                     withAnimation(Motion.quick) {
                         proxy.scrollTo("bottom-anchor", anchor: .bottom)
                     }
@@ -62,8 +75,15 @@ struct ChatView: View {
                 .onChange(of: chat.streamingText) { _, _ in
                     // Throttle to ~4fps during streaming
                     let now = ContinuousClock.now
-                    guard scrolledToBottom, now - lastScrollTime > .milliseconds(250) else { return }
+                    guard autoFollow.isFollowingBottom,
+                          now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
+                    else { return }
                     lastScrollTime = now
+                    autoFollow.markProgrammaticScrollToBottom()
+                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                }
+                .onAppear {
+                    autoFollow.markProgrammaticScrollToBottom()
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
             }
@@ -117,6 +137,33 @@ struct ChatView: View {
 }
 
 // ChatHeaderBar removed — buttons now live in the toolbar (see ChatView.body .toolbar {})
+
+// MARK: - Research Mode Control
+
+struct ResearchModeControl: View {
+    @Environment(ChatState.self) private var chat
+    var variant: NativeControlVariant = .toolbar
+
+    static let showsSecondaryOptionsBox = false
+
+    var body: some View {
+        ExpandingModeButton(
+            title: "Research",
+            systemImage: chat.isResearchMode ? "flask.fill" : "flask",
+            isActive: chat.isResearchMode,
+            variant: variant,
+            helpText: chat.isResearchMode ? "Research Mode On" : "Enable Research Mode",
+            stableWidth: NativeControlSystem.reservedWidth(for: "Research", variant: variant)
+        ) {
+            if chat.isResearchMode {
+                chat.disableResearchMode()
+            } else {
+                chat.enableResearchMode()
+            }
+        }
+        .help("Research Mode")
+    }
+}
 
 // MARK: - Research Hint Button
 // Toolbar button — tap to see API cost + About Lucid Lens pipeline info.

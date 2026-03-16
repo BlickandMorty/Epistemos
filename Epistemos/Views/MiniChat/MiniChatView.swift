@@ -165,6 +165,7 @@ private struct MiniChatThread: View {
 
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
+    @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -215,7 +216,20 @@ private struct MiniChatThread: View {
                         .padding(.horizontal, 4)
                         .padding(.vertical, 16)
                     }
+                    .onScrollGeometryChange(
+                        for: CGFloat.self,
+                        of: ScrollStability.distanceToBottom(for:)
+                    ) { _, distance in
+                        let nextState = ScrollStability.updatedAutoFollowState(
+                            from: autoFollow,
+                            distanceToBottom: distance
+                        )
+                        guard nextState != autoFollow else { return }
+                        autoFollow = nextState
+                    }
                     .onChange(of: activeThread?.messages.count) { _, _ in
+                        guard autoFollow.isFollowingBottom else { return }
+                        autoFollow.markProgrammaticScrollToBottom()
                         withAnimation(Motion.quick) {
                             proxy.scrollTo("bottom", anchor: .bottom)
                         }
@@ -223,8 +237,15 @@ private struct MiniChatThread: View {
                     .onChange(of: threadState.miniChatStreamingText) { _, _ in
                         // Throttle to ~4fps during streaming (matches ChatView)
                         let now = ContinuousClock.now
-                        guard now - lastScrollTime > .milliseconds(250) else { return }
+                        guard autoFollow.isFollowingBottom,
+                              now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
+                        else { return }
                         lastScrollTime = now
+                        autoFollow.markProgrammaticScrollToBottom()
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    }
+                    .onAppear {
+                        autoFollow.markProgrammaticScrollToBottom()
                         proxy.scrollTo("bottom", anchor: .bottom)
                     }
                 }

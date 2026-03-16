@@ -1,3 +1,4 @@
+import CoreText
 import SwiftUI
 
 // MARK: - Theme Definition
@@ -804,10 +805,22 @@ enum AppDisplayTypography: Sendable {
         AppDisplayMode.current()
     }
 
+    nonisolated static func regularUIFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        let uiType: CTFontUIFontType = weight >= .semibold ? .emphasizedSystem : .system
+        guard let ctFont = CTFontCreateUIFontForLanguage(uiType, size, nil) else {
+            return NSFont.systemFont(ofSize: size, weight: weight)
+        }
+        return ctFont as NSFont
+    }
+
+    nonisolated static func isRegularUIFont(_ font: NSFont) -> Bool {
+        font.fontName.hasPrefix(".SFNS") || font.fontName.hasPrefix(".AppleSystemUIFont")
+    }
+
     nonisolated static var fontName: String {
         currentMode.usesDisplayFont
             ? displayFontName
-            : NSFont.systemFont(ofSize: NSFont.systemFontSize).fontName
+            : regularUIFont(size: NSFont.systemFontSize).fontName
     }
 
     static func font(
@@ -817,6 +830,8 @@ enum AppDisplayTypography: Sendable {
     ) -> Font {
         if currentMode.usesDisplayFont {
             .custom(displayFontName, size: size)
+        } else if design == .default {
+            Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
         } else {
             .system(size: size, weight: weight, design: design)
         }
@@ -827,7 +842,7 @@ enum AppDisplayTypography: Sendable {
             NSFont(name: displayFontName, size: size)
                 ?? NSFont.systemFont(ofSize: size, weight: weight)
         } else {
-            NSFont.systemFont(ofSize: size, weight: weight)
+            regularUIFont(size: size, weight: weight)
         }
     }
 
@@ -844,6 +859,8 @@ enum AppDisplayTypography: Sendable {
         let manager = NSFontManager.shared
         var resolved = isDisplayFont(font)
             ? nsFont(size: size, weight: bold ? .bold : .regular)
+            : isRegularUIFont(font)
+                ? regularUIFont(size: size, weight: bold ? .bold : .regular)
             : font.withSize(size)
 
         if bold {
@@ -854,6 +871,21 @@ enum AppDisplayTypography: Sendable {
         }
 
         return resolved
+    }
+
+    private nonisolated static func nsWeight(for weight: Font.Weight) -> NSFont.Weight {
+        switch weight {
+        case .ultraLight: .ultraLight
+        case .thin: .thin
+        case .light: .light
+        case .regular: .regular
+        case .medium: .medium
+        case .semibold: .semibold
+        case .bold: .bold
+        case .heavy: .heavy
+        case .black: .black
+        default: .regular
+        }
     }
 }
 

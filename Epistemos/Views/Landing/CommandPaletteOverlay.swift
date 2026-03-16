@@ -67,6 +67,7 @@ struct CommandPaletteOverlay: View {
     @State private var streamTask: Task<Void, Never>?
     @State private var chatInput = ""
     @State private var lastScrollTime: ContinuousClock.Instant = .now
+    @State private var chatAutoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
     @State private var paletteChatMode: NoteChatMode = {
         NoteChatMode(rawValue: UserDefaults.standard.string(forKey: "paletteChatMode") ?? "") ?? .auto
     }()
@@ -280,27 +281,21 @@ struct CommandPaletteOverlay: View {
                     }
 
                     HStack(spacing: 6) {
-                        Button {
-                            if chat.isResearchMode { chat.disableResearchMode() } else { chat.enableResearchMode() }
-                        } label: {
-                            Image(systemName: chat.isResearchMode ? "flask.fill" : "flask")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(chat.isResearchMode ? theme.accent : theme.textTertiary)
-                                .frame(width: 14, height: 14)
-                        }
-                        .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
-                        .help(chat.isResearchMode ? "Research Mode: ON (full pipeline)" : "Research Mode: OFF (direct chat)")
+                        ResearchModeControl(variant: .toolbar)
 
-                        Button {
+                        ExpandingModeButton(
+                            title: "Incognito",
+                            systemImage: chat.isIncognito ? "eye.slash.fill" : "eye.slash",
+                            isActive: chat.isIncognito,
+                            variant: .toolbar,
+                            helpText: chat.isIncognito ? "Incognito On" : "Enable Incognito",
+                            stableWidth: NativeControlSystem.reservedWidth(
+                                for: "Incognito",
+                                variant: .toolbar
+                            )
+                        ) {
                             chat.isIncognito.toggle()
-                        } label: {
-                            Image(systemName: chat.isIncognito ? "eye.slash.fill" : "eye.slash")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(chat.isIncognito ? .orange : theme.textTertiary)
-                                .frame(width: 14, height: 14)
                         }
-                        .buttonStyle(AssistantUtilityButtonStyle(theme: theme))
-                        .help(chat.isIncognito ? "Incognito: ON (not saved)" : "Incognito: OFF")
 
                         Spacer()
 
@@ -574,15 +569,35 @@ struct CommandPaletteOverlay: View {
                 .padding(.vertical, 16)
             }
             .frame(maxWidth: .infinity, minHeight: 350, maxHeight: .infinity)
+            .onScrollGeometryChange(
+                for: CGFloat.self,
+                of: ScrollStability.distanceToBottom(for:)
+            ) { _, distance in
+                let nextState = ScrollStability.updatedAutoFollowState(
+                    from: chatAutoFollow,
+                    distanceToBottom: distance
+                )
+                guard nextState != chatAutoFollow else { return }
+                chatAutoFollow = nextState
+            }
             .onChange(of: activeThread?.messages.count) { _, _ in
+                guard chatAutoFollow.isFollowingBottom else { return }
+                chatAutoFollow.markProgrammaticScrollToBottom()
                 withAnimation(Motion.quick) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
             }
             .onChange(of: threadState.paletteStreamingText) { _, _ in
                 let now = ContinuousClock.now
-                guard now - lastScrollTime > .milliseconds(250) else { return }
+                guard chatAutoFollow.isFollowingBottom,
+                      now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
+                else { return }
                 lastScrollTime = now
+                chatAutoFollow.markProgrammaticScrollToBottom()
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+            .onAppear {
+                chatAutoFollow.markProgrammaticScrollToBottom()
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
         }

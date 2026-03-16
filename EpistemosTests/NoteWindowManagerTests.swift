@@ -73,6 +73,11 @@ struct NoteWindowManagerTests {
         #expect(NoteTitleDisplay.resolvedTitle("   ") == "Untitled")
     }
 
+    @Test("preview mode disables the animated overlay badge to avoid per-frame invalidation")
+    func previewModeDisablesAnimatedOverlayBadge() {
+        #expect(NotePreviewPerformancePolicy.showsOverlayBadge == false)
+    }
+
     @MainActor
     @Test("Navigation state can retarget a missing current note to a recovered page ID")
     func navigationStateRetargetsMissingCurrentPage() {
@@ -584,5 +589,30 @@ struct NotesSidebarVisibleTreeBuilderTests {
             .folder(id: "leaf", indent: 0),
             .emptyFolder(id: "leaf", indent: 1),
         ])
+    }
+}
+
+@Suite("Notes Sidebar Hover Haptics")
+struct NotesSidebarHoverHapticsTests {
+
+    @Test("Hover tick state only fires when the pointer enters a row")
+    func hoverTickStateOnlyTicksOnEntry() {
+        var state = NotesSidebarHoverTickState()
+
+        let firstEnter = state.update(hovering: true)
+        let repeatedHover = state.update(hovering: true)
+        let hoverExit = state.update(hovering: false)
+        let secondEnter = state.update(hovering: true)
+
+        #expect(firstEnter)
+        #expect(!repeatedHover)
+        #expect(!hoverExit)
+        #expect(secondEnter)
+    }
+
+    @Test("File and folder hover recipes stay distinct")
+    func hoverRecipesStayDistinct() {
+        #expect(NotesSidebarHoverHapticStyle.file.recipe.pattern == .generic)
+        #expect(NotesSidebarHoverHapticStyle.folder.recipe.pattern == .levelChange)
     }
 }

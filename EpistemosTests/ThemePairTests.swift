@@ -197,6 +197,15 @@ struct ThemePairTests {
         #expect(AppDisplayMode.regular.reducesASCIIAnimations)
     }
 
+    @Test("Regular display mode uses the macOS UI font family")
+    func regularDisplayModeUsesMacOSUIFontFamily() {
+        let font = AppDisplayTypography.regularUIFont(size: 13)
+
+        #expect(font.fontName.hasPrefix(".SFNS"))
+        #expect(AppDisplayTypography.isRegularUIFont(font))
+        #expect(AppDisplayTypography.displayFontName == "RetroGaming")
+    }
+
     @Test("Assistant chrome tokens keep the floating surface hierarchy intact")
     func assistantSurfaceMetricsStayCalm() {
         let palette = AssistantSurfaceMetrics.commandPalette
@@ -228,9 +237,9 @@ struct ThemePairTests {
         #expect(EpistemosTheme.tan.floatingSurfaceTint != EpistemosTheme.tan.glassBg)
     }
 
-    @Test("Main chat layout keeps the composer wide before it hits the desktop cap")
-    func mainChatLayoutStaysWide() {
-        #expect(ChatLayout.mainComposerMaxWidth == 1200)
+    @Test("Main chat layout keeps the composer proportional to the message column")
+    func mainChatLayoutStaysProportional() {
+        #expect(ChatLayout.mainComposerMaxWidth == 940)
         #expect(ChatLayout.mainComposerHorizontalPadding == 12)
     }
 
@@ -275,7 +284,7 @@ struct ThemePairTests {
                 isProcessing: false
             ) == .systemDefault
         )
-        #expect(ChatComposerInputMetrics.maxVisibleLines == 6)
+        #expect(ChatComposerInputMetrics.maxVisibleLines == 8)
         #expect(ChatComposerInputMetrics.clampedHeight(for: 0) == ChatComposerInputMetrics.minHeight)
         #expect(
             ChatComposerInputMetrics.clampedHeight(
@@ -297,11 +306,31 @@ struct ThemePairTests {
     func markdownPreviewBlockChromeMatchesHoverGlassSystem() {
         let metrics = MarkdownPreviewSurfaceMetrics.default
 
-        #expect(metrics.cornerRadius == 14)
+        #expect(metrics.cornerRadius == 0)
         #expect(metrics.borderWidth == 0.55)
         #expect(metrics.contentPadding == 12)
         #expect(metrics.verticalSpacing == 2)
+        #expect(metrics.topEdgeWidth == 1)
+        #expect(metrics.bottomEdgeWidth == 3)
+        #expect(metrics.rightEdgeWidth == 1)
         #expect(MarkdownPreviewSurfaceStyle.borderOpacity(isDark: true) > MarkdownPreviewSurfaceStyle.borderOpacity(isDark: false))
+    }
+
+    @Test("Editor block chrome frame keeps the trailing edge flush without clipping content")
+    func editorBlockChromeFrameUsesMinimalTrailingInset() {
+        let origin = NSPoint(x: 8, y: 0)
+        let frame = MarkdownTextStorage.blockChromeFrame(
+            textContainerOrigin: origin,
+            containerWidth: 600,
+            boundsWidth: 700
+        )
+
+        let leadingInset = max(MarkdownTextStorage.bodyIndent - 8, 14)
+        let availableWidth = min(600, max(0, 700 - (origin.x * 2)))
+        let expectedWidth = availableWidth - leadingInset - MarkdownPreviewSurfaceMetrics.default.rightEdgeWidth
+
+        #expect(frame.minX == origin.x + leadingInset)
+        #expect(frame.width == expectedWidth)
     }
 
     @Test("Assistant composer metrics keep the main and compact chat bars aligned")
@@ -309,13 +338,65 @@ struct ThemePairTests {
         let main = AssistantComposerMetrics.mainChat
         let compact = AssistantComposerMetrics.compactChat
 
-        #expect(main.cornerRadius == 26)
-        #expect(main.sendButtonSize == 40)
-        #expect(main.sendButtonSize > compact.sendButtonSize)
-        #expect(main.shadowRadius >= compact.shadowRadius)
+        #expect(main.cornerRadius == 18)
+        #expect(main.sendButtonSize == 34)
+        #expect(main.sendButtonSize < compact.sendButtonSize)
+        #expect(main.shadowRadius < compact.shadowRadius)
         #expect(main.borderWidth <= 0.8)
-        #expect(compact.cornerRadius < main.cornerRadius)
-        #expect(compact.horizontalPadding < main.horizontalPadding)
+        #expect(compact.cornerRadius > main.cornerRadius)
+        #expect(compact.horizontalPadding > main.horizontalPadding)
+    }
+
+    @Test("Bare until pressed chrome stays invisible until press or active selection")
+    func bareUntilPressedChromePolicy() {
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: false,
+                isPressed: false,
+                isActive: false
+            ) == false
+        )
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: true,
+                isPressed: false,
+                isActive: false
+            ) == false
+        )
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: false,
+                isPressed: true,
+                isActive: false
+            )
+        )
+        #expect(
+            NativeControlChromePolicy.bareUntilPressed.showsSurface(
+                isHovered: false,
+                isPressed: false,
+                isActive: true
+            )
+        )
+    }
+
+    @Test("Research control no longer exposes a secondary options box in composer surfaces")
+    func researchControlHidesSecondaryOptionsBox() {
+        #expect(ResearchModeControl.showsSecondaryOptionsBox == false)
+    }
+
+    @Test("Toolbar control metrics stay compact and boxy inside the outer pill")
+    func toolbarControlMetricsStayCompactAndBoxy() {
+        let toolbar = NativeControlSystem.toolbar
+
+        #expect(toolbar.height == 26)
+        #expect(toolbar.cornerRadius == 8)
+        #expect(toolbar.minHitWidth == 26)
+        #expect(toolbar.cornerRadius < (toolbar.height / 2))
+    }
+
+    @Test("Graph force settings panel keeps the wider readable width")
+    func graphForceSettingsPanelWidth() {
+        #expect(GraphForceSettingsLayout.panelWidth == 320)
     }
 
     @Test("Assistant source extraction keeps notes and links in a stable unique order")

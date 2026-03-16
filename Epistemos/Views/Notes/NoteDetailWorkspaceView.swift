@@ -138,6 +138,10 @@ enum NotePreviewRenderer: Equatable {
     }
 }
 
+enum NotePreviewPerformancePolicy {
+    static let showsOverlayBadge = false
+}
+
 enum NotePreviewDisplay {
     static func renderedMarkdown(_ markdown: String, renderer: NotePreviewRenderer) -> String {
         guard renderer == .textKit1 else { return markdown }
@@ -3022,9 +3026,12 @@ private struct NotePreviewView2: NSViewRepresentable {
 private struct AdaptiveNotePreviewView2: View {
     let content: String
     let theme: EpistemosTheme
+    private let pageContents: [String]
 
-    private var pageContents: [String] {
-        NoteDualPreviewLayout.columnContents(in: content)
+    init(content: String, theme: EpistemosTheme) {
+        self.content = content
+        self.theme = theme
+        self.pageContents = NoteDualPreviewLayout.columnContents(in: content)
     }
 
     var body: some View {
@@ -3038,6 +3045,7 @@ private struct AdaptiveNotePreviewView2: View {
                     HStack(alignment: .top, spacing: NoteDualPreviewLayout.pageSpacing) {
                         ForEach(Array(pageContents.enumerated()), id: \.offset) { _, pageContent in
                             NoteBookPreviewPage(markdown: pageContent, theme: theme)
+                                .equatable()
                                 .frame(
                                     width: dualPageWidth,
                                     alignment: .topLeading
@@ -3048,6 +3056,7 @@ private struct AdaptiveNotePreviewView2: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 } else {
                     NoteBookPreviewPage(markdown: content, theme: theme)
+                        .equatable()
                         .frame(
                             maxWidth: NoteDualPreviewLayout.singlePageWidth(
                                 for: content,
@@ -3061,9 +3070,11 @@ private struct AdaptiveNotePreviewView2: View {
             }
             .background(theme.background)
             .overlay(alignment: .topTrailing) {
-                notePreviewBadge
-                    .padding(.top, NoteDualPreviewLayout.outerPadding.top)
-                    .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
+                if NotePreviewPerformancePolicy.showsOverlayBadge {
+                    notePreviewBadge
+                        .padding(.top, NoteDualPreviewLayout.outerPadding.top)
+                        .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
+                }
             }
         }
     }
@@ -3095,7 +3106,7 @@ private struct AdaptiveNotePreviewView2: View {
     }
 }
 
-private struct NoteBookPreviewPage: View {
+private struct NoteBookPreviewPage: View, Equatable {
     let markdown: String
     let theme: EpistemosTheme
 
