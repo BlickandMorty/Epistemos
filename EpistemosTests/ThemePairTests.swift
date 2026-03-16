@@ -363,6 +363,13 @@ struct ThemePairTests {
         #expect(CommandPaletteLayout.compactPanelSize.height < CommandPaletteLayout.chatPanelSize.height)
     }
 
+    @Test("Landing greeting toolbar glyph stays stable when animation is disabled")
+    func landingGreetingToolbarGlyphStaysStable() {
+        #expect(LandingToolbarGlyphs.greetingSymbol == "textformat")
+        #expect(LandingToolbarGlyphs.cursorSymbol(animationEnabled: true) == "cursorarrow.motionlines")
+        #expect(LandingToolbarGlyphs.cursorSymbol(animationEnabled: false) == "cursorarrow")
+    }
+
     @Test("Markdown preview block chrome keeps the same dormant to hover surface hierarchy")
     func markdownPreviewBlockChromeMatchesHoverGlassSystem() {
         let metrics = MarkdownPreviewSurfaceMetrics.default

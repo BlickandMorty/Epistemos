@@ -441,10 +441,10 @@ struct NoteWindowManagerTests {
         #expect(pages[1].contains("Delta"))
     }
 
-    @Test("Landing shortcuts render uppercase at the stronger display size")
-    func landingShortcutsUseUppercaseDisplayLabels() {
-        #expect(LandingShortcutDisplay.label("New Note") == "NEW NOTE")
-        #expect(LandingShortcutDisplay.label("Click to search") == "CLICK TO SEARCH")
+    @Test("Landing shortcuts keep sentence case and use the native UI font")
+    func landingShortcutsUseSentenceCaseAndUIFont() {
+        #expect(LandingShortcutDisplay.label("New Note") == "New Note")
+        #expect(LandingShortcutDisplay.label("Click to search") == "Click to search")
         #expect(LandingShortcutDisplay.fontSize == 12)
         #expect(LandingShortcutDisplay.keyHorizontalPadding == 7)
         #expect(LandingShortcutDisplay.keyVerticalPadding == 4)
@@ -452,6 +452,7 @@ struct NoteWindowManagerTests {
         #expect(LandingShortcutDisplay.shortcutRowSpacing == 12)
         #expect(LandingShortcutDisplay.keyMinWidth(for: "N") == nil)
         #expect(LandingShortcutDisplay.keyMinWidth(for: "Space") == 48)
+        #expect(AppDisplayTypography.isRegularUIFont(LandingShortcutDisplay.nsFont()))
     }
 
     @Test("Notes sidebar keeps compact header spacing and restores the vault changes control")

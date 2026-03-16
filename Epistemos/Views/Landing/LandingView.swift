@@ -10,7 +10,15 @@ enum LandingShortcutDisplay {
     static let shortcutRowSpacing: CGFloat = 12
 
     static func label(_ text: String) -> String {
-        text.uppercased()
+        text
+    }
+
+    static func font(weight: NSFont.Weight = .medium) -> Font {
+        Font(nsFont(weight: weight))
+    }
+
+    static func nsFont(weight: NSFont.Weight = .medium) -> NSFont {
+        AppDisplayTypography.regularUIFont(size: fontSize, weight: weight)
     }
 
     static func keyMinWidth(for text: String?) -> CGFloat? {
@@ -825,7 +833,7 @@ private struct CommandHint: View {
                         }
                         if let key {
                             Text(key)
-                                .font(AppDisplayTypography.font(size: LandingShortcutDisplay.fontSize))
+                                .font(LandingShortcutDisplay.font())
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
@@ -856,7 +864,7 @@ private struct CommandHint: View {
                         .font(.system(size: 10, weight: .medium))
                 }
                 Text(LandingShortcutDisplay.label(label))
-                    .font(AppDisplayTypography.font(size: LandingShortcutDisplay.fontSize))
+                    .font(LandingShortcutDisplay.font())
                     .padding(.leading, (key != nil || modIcon != nil || icon != nil) ? 4 : 0)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)

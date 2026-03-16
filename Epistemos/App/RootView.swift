@@ -1,6 +1,14 @@
 import SwiftData
 import SwiftUI
 
+enum LandingToolbarGlyphs {
+    static let greetingSymbol = "textformat"
+
+    static func cursorSymbol(animationEnabled: Bool) -> String {
+        animationEnabled ? "cursorarrow.motionlines" : "cursorarrow"
+    }
+}
+
 // MARK: - Root View
 // Top-level container with system toolbar navigation.
 // Segmented picker in .toolbar(.principal).
@@ -209,12 +217,7 @@ struct RootView: View {
         Button {
             showLandingCursorControls.toggle()
         } label: {
-            Label(
-                "Cursor FX",
-                systemImage: ui.landingCursorAnimationEnabled
-                    ? "cursorarrow.motionlines"
-                    : "cursorarrow"
-            )
+            Label("Cursor FX", systemImage: LandingToolbarGlyphs.cursorSymbol(animationEnabled: ui.landingCursorAnimationEnabled))
         }
         .accessibilityLabel(
             ui.landingCursorAnimationEnabled
@@ -238,12 +241,7 @@ struct RootView: View {
         Button {
             showLandingGreetingControls.toggle()
         } label: {
-            Label(
-                "Greeting FX",
-                systemImage: ui.landingGreetingAnimationEnabled
-                    ? "textformat"
-                    : "textformat.slash"
-            )
+            Label("Greeting FX", systemImage: LandingToolbarGlyphs.greetingSymbol)
         }
         .accessibilityLabel(
             ui.landingGreetingAnimationEnabled
