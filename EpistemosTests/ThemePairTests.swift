@@ -586,6 +586,16 @@ struct ThemePairTests {
         #expect(MarkdownPreviewSurfaceStyle.borderOpacity(isDark: true) > MarkdownPreviewSurfaceStyle.borderOpacity(isDark: false))
     }
 
+    @Test("Markdown preview canvas uses the native reading surface in system mode")
+    func markdownPreviewCanvasUsesTextBackgroundForSystemThemes() {
+        #expect(MarkdownPreviewSurfaceStyle.canvasNSColor(for: .systemLight) == .textBackgroundColor)
+        #expect(MarkdownPreviewSurfaceStyle.canvasNSColor(for: .systemDark) == .textBackgroundColor)
+        #expect(
+            MarkdownPreviewSurfaceStyle.canvasNSColor(for: .oled)
+                == NSColor(EpistemosTheme.oled.background)
+        )
+    }
+
     @Test("Editor block chrome frame keeps the trailing edge flush without clipping content")
     func editorBlockChromeFrameUsesMinimalTrailingInset() {
         let origin = NSPoint(x: 8, y: 0)

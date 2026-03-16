@@ -590,6 +590,17 @@ struct MarkdownPreviewSurfaceMetrics: Equatable, Sendable {
 }
 
 enum MarkdownPreviewSurfaceStyle {
+    static func canvasNSColor(for theme: EpistemosTheme) -> NSColor {
+        if theme.followsSystemAppearance {
+            return .textBackgroundColor
+        }
+        return NSColor(theme.background)
+    }
+
+    static func canvasBackground(for theme: EpistemosTheme) -> Color {
+        Color(nsColor: canvasNSColor(for: theme))
+    }
+
     static func flatBackground(for theme: EpistemosTheme) -> Color {
         theme.card
     }

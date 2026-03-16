@@ -3086,7 +3086,7 @@ private struct AdaptiveNotePreviewView2: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .background(theme.background)
+            .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: theme))
             .overlay(alignment: .topTrailing) {
                 if NotePreviewPerformancePolicy.showsOverlayBadge {
                     notePreviewBadge
@@ -3138,12 +3138,12 @@ private struct NoteBookPreviewPage: View, Equatable {
             .padding(NoteDualPreviewLayout.pagePadding)
             .background(
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(theme.isDark ? Color.white.opacity(0.035) : Color.black.opacity(0.018))
+                    .fill(MarkdownPreviewSurfaceStyle.flatBackground(for: theme))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .strokeBorder(
-                        theme.isDark ? Color.white.opacity(0.06) : Color.black.opacity(0.055),
+                        MarkdownPreviewSurfaceStyle.borderColor(for: theme),
                         lineWidth: 0.6
                     )
             )
@@ -3162,7 +3162,7 @@ private struct TransitionGreetingView: View {
 
     var body: some View {
         ZStack {
-            theme.background.ignoresSafeArea()
+            MarkdownPreviewSurfaceStyle.canvasBackground(for: theme).ignoresSafeArea()
             ASCIIRippleText(
                 text: message,
                 font: AppDisplayTypography.font(size: 44),
