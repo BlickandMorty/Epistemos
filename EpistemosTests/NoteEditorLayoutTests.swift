@@ -39,6 +39,26 @@ struct NoteEditorLayoutTests {
         )
     }
 
+    @Test("preview reserves the native titlebar inset and falls back higher for tab groups")
+    func previewReservesTitlebarInset() {
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 0, hasMultipleTabs: false)
+                == NotePreviewChromeMetrics.fallbackSingleTopInset
+        )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 0, hasMultipleTabs: true)
+                == NotePreviewChromeMetrics.fallbackTabbedTopInset
+        )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 52, hasMultipleTabs: false)
+                == 52
+        )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 88, hasMultipleTabs: true)
+                == 88
+        )
+    }
+
     @Test("top spacing stays tight below the toolbar")
     func topSpacingStaysTightBelowToolbar() {
         #expect(ProseEditorRepresentable.verticalInset == 40)

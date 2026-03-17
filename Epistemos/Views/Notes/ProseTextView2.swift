@@ -11,6 +11,13 @@ final class ProseTextView2: NSTextView {
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private var requestedTheme: EpistemosTheme = .nativeDefault
 
+    static func editorBackgroundColor(for theme: EpistemosTheme) -> NSColor {
+        if theme.followsSystemAppearance {
+            return .clear
+        }
+        return MarkdownPreviewSurfaceStyle.canvasNSColor(for: theme)
+    }
+
     @MainActor
     private final class TestFixtureRetainer {
         static let shared = TestFixtureRetainer()
@@ -86,7 +93,7 @@ final class ProseTextView2: NSTextView {
         guard requestedTheme.followsSystemAppearance else { return }
         let theme = resolvedTheme
         guard markdownDelegate.theme != theme
-            || backgroundColor != NSColor(theme.background)
+            || backgroundColor != Self.editorBackgroundColor(for: theme)
             || textColor != NSColor(theme.foreground)
         else { return }
         applyResolvedTheme(theme)
@@ -94,7 +101,8 @@ final class ProseTextView2: NSTextView {
 
     private func applyResolvedTheme(_ theme: EpistemosTheme) {
         let foreground = NSColor(theme.foreground)
-        backgroundColor = NSColor(theme.background)
+        drawsBackground = !theme.followsSystemAppearance
+        backgroundColor = Self.editorBackgroundColor(for: theme)
         insertionPointColor = foreground
         textColor = foreground
 
@@ -495,10 +503,17 @@ final class ProseTextView2: NSTextView {
     /// The MarkdownContentStorage delegate is wired automatically.
     static func makeTextKit2() -> (NSScrollView, ProseTextView2) {
         let scrollView = NSScrollView()
+        scrollView.borderType = .noBorder
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
+        scrollView.backgroundColor = .clear
+        scrollView.wantsLayer = true
+        scrollView.contentView.wantsLayer = true
+        scrollView.contentView.layerContentsRedrawPolicy = .onSetNeedsDisplay
+        scrollView.automaticallyAdjustsContentInsets = false
+        scrollView.contentInsets = NSEdgeInsets()
 
         let tv = ProseTextView2(usingTextLayoutManager: true)
         tv.frame = NSRect(x: 0, y: 0, width: 700, height: 1000)

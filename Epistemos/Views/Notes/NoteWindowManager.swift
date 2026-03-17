@@ -48,7 +48,7 @@ enum NoteWindowThemeStyler {
         hostingController: NSHostingController<some View>,
         uiState: UIState
     ) -> NSViewController {
-        NoteWindowBackdropController(hostingController: hostingController, uiState: uiState)
+        return NoteWindowBackdropController(hostingController: hostingController, uiState: uiState)
     }
 
     static func apply(to window: NSWindow, uiState: UIState) {

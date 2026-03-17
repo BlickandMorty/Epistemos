@@ -410,20 +410,20 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Note windows wrap hosted content in a themed container so the blur stays behind the editor")
-    func noteWindowBackdropControllerWrapsHostedContent() throws {
+    @Test("Note windows keep the hosted content on a backdrop wrapper in native mode")
+    func noteWindowNativeContentControllerKeepsBackdropWrapper() throws {
         let uiState = UIState()
         let hosted = NSHostingController(rootView: Color.clear.frame(width: 120, height: 80))
 
-        let container = try #require(
+        let controller = try #require(
             NoteWindowThemeStyler.themedContentController(
                 hostingController: hosted,
                 uiState: uiState
             ) as? NoteWindowBackdropController
         )
 
-        #expect(container.view.subviews.contains(hosted.view))
-        #expect(container.view.subviews.contains(where: { $0 is NSVisualEffectView }))
+        #expect(controller.view.subviews.contains(hosted.view))
+        #expect(controller.view.subviews.contains(where: { $0 is NSVisualEffectView }))
     }
 
     @Test("Note toolbar uses native symbol mappings inside the unified strip")

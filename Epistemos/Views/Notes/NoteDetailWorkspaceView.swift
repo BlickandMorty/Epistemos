@@ -171,6 +171,23 @@ enum NotePreviewPerformancePolicy {
     static let showsOverlayBadge = false
 }
 
+enum NotePreviewChromeMetrics {
+    static let fallbackSingleTopInset: CGFloat = 46
+    static let fallbackTabbedTopInset: CGFloat = 78
+
+    static func contentTopInset(titlebarInset: CGFloat, hasMultipleTabs: Bool) -> CGFloat {
+        guard titlebarInset > 0 else {
+            return hasMultipleTabs ? fallbackTabbedTopInset : fallbackSingleTopInset
+        }
+        return titlebarInset
+    }
+
+    static func titlebarInset(for window: NSWindow) -> CGFloat {
+        let inset = max(0, window.frame.height - window.contentLayoutRect.maxY)
+        return inset.isFinite ? inset : 0
+    }
+}
+
 enum NotePreviewDisplay {
     static func renderedMarkdown(_ markdown: String, renderer: NotePreviewRenderer) -> String {
         guard renderer == .textKit1 else { return markdown }
@@ -1387,7 +1404,8 @@ struct NoteDetailWorkspaceView: View {
     private func notePreview(body: String, renderer: NotePreviewRenderer) -> some View {
         AdaptiveNotePreviewView2(
             content: NotePreviewDisplay.renderedMarkdown(body, renderer: renderer),
-            theme: ui.theme
+            theme: ui.theme,
+            hasMultipleTabs: hasMultipleTabs
         )
     }
 
@@ -3054,11 +3072,14 @@ private struct NotePreviewView2: NSViewRepresentable {
 private struct AdaptiveNotePreviewView2: View {
     let content: String
     let theme: EpistemosTheme
+    let hasMultipleTabs: Bool
     private let pageContents: [String]
+    @State private var titlebarInset: CGFloat = 0
 
-    init(content: String, theme: EpistemosTheme) {
+    init(content: String, theme: EpistemosTheme, hasMultipleTabs: Bool) {
         self.content = content
         self.theme = theme
+        self.hasMultipleTabs = hasMultipleTabs
         self.pageContents = NoteDualPreviewLayout.columnContents(in: content)
     }
 
@@ -3067,6 +3088,16 @@ private struct AdaptiveNotePreviewView2: View {
             let usesDualColumns = NoteDualPreviewLayout.usesDualColumns(for: proxy.size.width)
                 && pageContents.count > 1
             let dualPageWidth = NoteDualPreviewLayout.dualPageWidth(for: proxy.size.width)
+            let contentTopInset = NotePreviewChromeMetrics.contentTopInset(
+                titlebarInset: titlebarInset,
+                hasMultipleTabs: hasMultipleTabs
+            )
+            let outerPadding = EdgeInsets(
+                top: NoteDualPreviewLayout.outerPadding.top + contentTopInset,
+                leading: NoteDualPreviewLayout.outerPadding.leading,
+                bottom: NoteDualPreviewLayout.outerPadding.bottom,
+                trailing: NoteDualPreviewLayout.outerPadding.trailing
+            )
 
             ScrollView {
                 if usesDualColumns {
@@ -3080,7 +3111,7 @@ private struct AdaptiveNotePreviewView2: View {
                                 )
                         }
                     }
-                    .padding(NoteDualPreviewLayout.outerPadding)
+                    .padding(outerPadding)
                     .frame(maxWidth: .infinity, alignment: .center)
                 } else {
                     NoteBookPreviewPage(markdown: content, theme: theme)
@@ -3092,11 +3123,15 @@ private struct AdaptiveNotePreviewView2: View {
                             ),
                             alignment: .topLeading
                         )
-                        .padding(NoteDualPreviewLayout.outerPadding)
+                        .padding(outerPadding)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: theme))
+            .background {
+                NotePreviewTitlebarInsetReader(titlebarInset: $titlebarInset)
+                    .frame(width: 0, height: 0)
+            }
             .overlay(alignment: .topTrailing) {
                 if NotePreviewPerformancePolicy.showsOverlayBadge {
                     notePreviewBadge
@@ -3131,6 +3166,50 @@ private struct AdaptiveNotePreviewView2: View {
                     lineWidth: 0.5
                 )
         )
+    }
+}
+
+private struct NotePreviewTitlebarInsetReader: NSViewRepresentable {
+    @Binding var titlebarInset: CGFloat
+
+    func makeNSView(context: Context) -> NotePreviewTitlebarInsetView {
+        let view = NotePreviewTitlebarInsetView()
+        view.onChange = { inset in
+            guard abs(titlebarInset - inset) > 0.5 else { return }
+            titlebarInset = inset
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NotePreviewTitlebarInsetView, context: Context) {
+        nsView.onChange = { inset in
+            guard abs(titlebarInset - inset) > 0.5 else { return }
+            titlebarInset = inset
+        }
+        nsView.refreshInset()
+    }
+}
+
+private final class NotePreviewTitlebarInsetView: NSView {
+    var onChange: ((CGFloat) -> Void)?
+    private var lastReportedInset: CGFloat = -1
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        refreshInset()
+    }
+
+    override func layout() {
+        super.layout()
+        refreshInset()
+    }
+
+    func refreshInset() {
+        guard let window else { return }
+        let inset = NotePreviewChromeMetrics.titlebarInset(for: window)
+        guard abs(lastReportedInset - inset) > 0.5 else { return }
+        lastReportedInset = inset
+        onChange?(inset)
     }
 }
 
