@@ -1118,8 +1118,8 @@ final class GraphState {
     /// Replaces O(N) linear scan per wikilink with O(1) dictionary lookup.
     private var wikilinkLookup: [String: GraphNodeRecord] = [:]
 
-    /// Build ephemeral quote and source nodes from the active note's markdown body.
-    /// Wikilinks are resolved to existing graph nodes; blockquotes and links become new nodes.
+    /// Build the page subgraph from the active note's markdown body.
+    /// Wikilinks are resolved to existing graph nodes.
     func buildPageSubgraph(for pageId: String, context: ModelContext) {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
@@ -1154,32 +1154,6 @@ final class GraphState {
             guard end <= utf8Bytes.count else { continue }
 
             switch span.style {
-            case 10: // BlockQuote — create ephemeral quote node
-                let slice = Array(utf8Bytes[start..<end])
-                guard let raw = String(bytes: slice, encoding: .utf8) else { continue }
-                let label = String(raw.trimmingCharacters(in: .whitespacesAndNewlines).prefix(60))
-                guard !label.isEmpty else { continue }
-                addEphemeralNode(
-                    id: "ephemeral-quote-\(start)", type: .quote, label: label,
-                    parentId: pageNodeId, edgeType: .contains, createdAt: createdAt
-                )
-
-            case 17: // MarkdownLink — create ephemeral source node
-                let slice = Array(utf8Bytes[start..<end])
-                guard let linkText = String(bytes: slice, encoding: .utf8) else { continue }
-                // Extract URL from [text](url).
-                var label = linkText
-                if let op = linkText.firstIndex(of: "("),
-                   let cp = linkText.lastIndex(of: ")") {
-                    label = String(linkText[linkText.index(after: op)..<cp])
-                }
-                guard !label.isEmpty else { continue }
-                let truncated = String(label.prefix(60))
-                addEphemeralNode(
-                    id: "ephemeral-source-\(start)", type: .source, label: truncated,
-                    parentId: pageNodeId, edgeType: .reference, createdAt: createdAt
-                )
-
             case 15: // Wikilink — resolve to existing note node and add edge
                 let slice = Array(utf8Bytes[start..<end])
                 guard let raw = String(bytes: slice, encoding: .utf8) else { continue }

@@ -2,7 +2,7 @@ import AppKit
 
 // MARK: - Status Bar
 // NSStatusItem in the macOS system menu bar.
-// Provides quick access to utility windows (Settings, Notes, Library),
+// Provides quick access to utility windows (Settings, Notes),
 // Home navigation, and MiniChat toggle.
 
 @MainActor

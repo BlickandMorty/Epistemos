@@ -7,22 +7,18 @@ import SwiftData
 
 @MainActor
 enum GraphTestDataGenerator {
+    private static let visibleNodeTypes: [GraphNodeType] = [.note, .chat, .idea, .folder]
     
     /// Generate test nodes with specified count
     static func generateNodes(count: Int, baseType: GraphNodeType = .note) -> [SDGraphNode] {
         var nodes: [SDGraphNode] = []
         let baseDate = Date().addingTimeInterval(-Double(count) * 86400) // Spread over days
+        let defaultType = visibleNodeTypes.contains(baseType) ? baseType : .note
         
         for i in 0..<count {
-            let type: GraphNodeType = switch i % 7 {
-            case 0: .note
-            case 1: .chat
-            case 2: .idea
-            case 3: .source
-            case 4: .folder
-            case 5: .quote
-            default: .tag
-            }
+            let type = baseType == .note
+                ? visibleNodeTypes[i % visibleNodeTypes.count]
+                : defaultType
             
             let node = SDGraphNode(
                 type: type,

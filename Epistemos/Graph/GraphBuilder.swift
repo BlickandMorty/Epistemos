@@ -139,8 +139,7 @@ final class GraphBuilder: @unchecked Sendable {
 
         let blockRefPattern = /\(\(([^)]+)\)\)/
 
-        // Pass 1: scan bodies for block refs AND NL entity extraction.
-        // Both need page body text — single loadBody() call per page avoids double disk reads.
+        // Pass 1: scan bodies for block refs.
         struct BlockRef { let noteNodeId: String; let refId: String }
         var blockRefs: [BlockRef] = []
         var referencedBlockIds = Set<String>()
@@ -157,10 +156,6 @@ final class GraphBuilder: @unchecked Sendable {
                 referencedBlockIds.insert(refId)
                 blockRefs.append(BlockRef(noteNodeId: noteNodeId, refId: refId))
             }
-
-            // NL entity extraction — people, places, organizations.
-            // Entities were previously tag-typed graph nodes. Tags are no longer
-            // visualized as nodes, so NL entities are skipped here too.
         }
 
         // Pass 2: fetch only referenced blocks and resolve edges.
@@ -377,12 +372,13 @@ final class GraphBuilder: @unchecked Sendable {
             }
         }
 
-        // Delete removed nodes — but only types that this builder manages.
-        // Extraction-created nodes (source, quote, block) are preserved.
+        // Delete removed nodes — built-in structural nodes plus all persisted
+        // source/quote residue so rebuilds keep the graph note/chat/idea/folder only.
         let builderOwnedTypes: Set<String> = [
             GraphNodeType.note.rawValue, GraphNodeType.folder.rawValue,
             GraphNodeType.tag.rawValue, GraphNodeType.idea.rawValue,
-            GraphNodeType.chat.rawValue,
+            GraphNodeType.chat.rawValue, GraphNodeType.source.rawValue,
+            GraphNodeType.quote.rawValue,
         ]
         for (key, existing) in currentNodeMap where expectedNodeMap[key] == nil {
             guard builderOwnedTypes.contains(existing.type) else { continue }
@@ -483,14 +479,25 @@ final class GraphBuilder: @unchecked Sendable {
             }
         }
 
-        // Delete removed edges — but only types that this builder manages.
-        // Extraction-created edges (mentions, cites, authored, etc.) are preserved.
+        // Delete removed edges — built-in structural edges plus any edge attached
+        // to persisted source/quote nodes so rebuilds remove the old library graph residue.
         let builderOwnedEdgeTypes: Set<String> = [
             GraphEdgeType.reference.rawValue, GraphEdgeType.contains.rawValue,
             GraphEdgeType.tagged.rawValue, GraphEdgeType.mentions.rawValue,
+            GraphEdgeType.cites.rawValue, GraphEdgeType.authored.rawValue,
         ]
         for (key, existing) in currentEdgeMap where expectedEdgeMap[key] == nil {
-            guard builderOwnedEdgeTypes.contains(existing.type) else { continue }
+            let sourceNode = currentNodes.first { $0.id == existing.sourceNodeId }
+            let targetNode = currentNodes.first { $0.id == existing.targetNodeId }
+            let touchesSourceOrQuoteNode =
+                sourceNode?.nodeType == .source
+                || sourceNode?.nodeType == .quote
+                || targetNode?.nodeType == .source
+                || targetNode?.nodeType == .quote
+            guard builderOwnedEdgeTypes.contains(existing.type)
+                    || existing.type == GraphEdgeType.quotes.rawValue
+                    || touchesSourceOrQuoteNode
+            else { continue }
             context.delete(existing)
             edgeDeleted += 1
         }

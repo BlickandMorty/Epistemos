@@ -33,7 +33,7 @@ struct BackgroundGraphLoadingTests {
                 position: .zero, velocity: .zero
             ),
             GraphNodeRecord(
-                id: "n2", type: .tag, label: "Tag 1", sourceId: nil,
+                id: "n2", type: .idea, label: "Idea 1", sourceId: nil,
                 metadata: GraphNodeMetadata(), weight: 2.0, createdAt: .now,
                 position: SIMD2(100, 200), velocity: .zero
             ),
@@ -77,7 +77,7 @@ struct BackgroundGraphLoadingTests {
                 position: .zero, velocity: .zero
             ),
             GraphNodeRecord(
-                id: "new2", type: .tag, label: "New 2", sourceId: nil,
+                id: "new2", type: .idea, label: "New 2", sourceId: nil,
                 metadata: GraphNodeMetadata(), weight: 1.0, createdAt: .now,
                 position: .zero, velocity: .zero
             ),
@@ -87,6 +87,7 @@ struct BackgroundGraphLoadingTests {
         #expect(store.nodeCount == 2)
         #expect(store.nodes["old"] == nil)
         #expect(store.nodes["new1"] != nil)
+        #expect(store.nodes["new2"] != nil)
     }
 
     @Test("loadFromRecords skips edges with missing endpoints")
@@ -134,14 +135,15 @@ struct BackgroundGraphLoadingTests {
         let actor = BackgroundGraphActor(modelContainer: container)
         let records = try await actor.loadRecords(positionHints: [:])
 
-        #expect(records.nodes.count == 2)
-        #expect(records.edges.count == 1)
+        #expect(records.nodes.count == 1)
+        #expect(records.edges.isEmpty)
 
         // Verify node data was extracted correctly
         let alpha = records.nodes.first { $0.label == "Alpha" }
         #expect(alpha != nil)
         #expect(alpha?.type == .note)
         #expect(alpha?.sourceId == "p1")
+        #expect(records.nodes.allSatisfy { $0.type != .source && $0.type != .quote && $0.type != .tag })
     }
 
     @Test("BackgroundGraphActor applies position hints")
@@ -193,8 +195,8 @@ struct BackgroundGraphLoadingTests {
         await graphState.loadGraph(container: container)
 
         #expect(graphState.isLoaded)
-        #expect(graphState.store.nodeCount == 2)
-        #expect(graphState.store.edgeCount == 1)
+        #expect(graphState.store.nodeCount == 1)
+        #expect(graphState.store.edgeCount == 0)
         #expect(graphState.graphDataVersion == 1)
     }
 
@@ -249,7 +251,7 @@ struct BackgroundGraphLoadingTests {
         let emoji = SDGraphNode(type: .note, label: "🧠 Brain Dump 🔥", sourceId: nil)
         let cjk = SDGraphNode(type: .note, label: "知識グラフ", sourceId: nil)
         let rtl = SDGraphNode(type: .note, label: "مخطط المعرفة", sourceId: nil)
-        let zwj = SDGraphNode(type: .source, label: "👨‍👩‍👧‍👦 Family", sourceId: nil)
+        let zwj = SDGraphNode(type: .note, label: "👨‍👩‍👧‍👦 Family", sourceId: nil)
         context.insert(emoji)
         context.insert(cjk)
         context.insert(rtl)
@@ -265,6 +267,29 @@ struct BackgroundGraphLoadingTests {
         #expect(labels.contains("知識グラフ"))
         #expect(labels.contains("مخطط المعرفة"))
         #expect(labels.contains("👨‍👩‍👧‍👦 Family"))
+    }
+
+    @Test("BackgroundGraphActor skips hidden source and quote graph residue")
+    @MainActor
+    func backgroundActorSkipsHiddenGraphResidue() async throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+
+        let note = SDGraphNode(type: .note, label: "Visible Note", sourceId: "note-1")
+        let source = SDGraphNode(type: .source, label: "Hidden Source", sourceId: "source-1")
+        let quote = SDGraphNode(type: .quote, label: "Hidden Quote", sourceId: "quote-1")
+        context.insert(note)
+        context.insert(source)
+        context.insert(quote)
+        context.insert(SDGraphEdge(source: note.id, target: source.id, type: .reference))
+        context.insert(SDGraphEdge(source: quote.id, target: source.id, type: .quotes))
+        try context.save()
+
+        let actor = BackgroundGraphActor(modelContainer: container)
+        let records = try await actor.loadRecords(positionHints: [:])
+
+        #expect(records.nodes.map(\.label) == ["Visible Note"])
+        #expect(records.edges.isEmpty)
     }
 
     @Test("loadFromRecords with large node count")

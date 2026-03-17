@@ -34,8 +34,6 @@ struct CommandPaletteOverlay: View {
     @Environment(ThreadState.self) private var threadState
     @Environment(TriageService.self) private var triage
     @Environment(LLMService.self) private var llmService
-    @Environment(ResearchState.self) private var researchState
-    @Environment(EventBus.self) private var eventBus
     @Environment(\.modelContext) private var modelContext
 
     @Query(SDPage.activePagesDescriptor) private var allPages: [SDPage]
@@ -288,7 +286,7 @@ struct CommandPaletteOverlay: View {
                             }
                             paletteChip(label: "Appearance", icon: "paintpalette") {
                                 dismiss()
-                                ui.homeTab = .settings
+                                UtilityWindowManager.shared.show(.settings)
                             }
                         }
                         .transition(.opacity.combined(with: .blurReplace))
@@ -837,8 +835,6 @@ struct CommandPaletteOverlay: View {
                     threadId: tid
                 )
 
-                // Auto-extract citations
-                saveCitations(from: final)
             } catch is CancellationError {
                 // cancelStream() already handled UI state — just bail
                 return
@@ -960,17 +956,6 @@ struct CommandPaletteOverlay: View {
         }
 
         return cleaned
-    }
-
-    // MARK: - Citation Extraction
-
-    private func saveCitations(from text: String) {
-        let papers = CitationExtractor.extract(from: text, source: "palette")
-        guard !papers.isEmpty else { return }
-        for paper in papers {
-            researchState.addSavedPaper(paper)
-        }
-        eventBus.emitToast("Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library", type: .info)
     }
 
     // MARK: - Search Logic
@@ -1296,14 +1281,11 @@ struct CommandPaletteOverlay: View {
             LandingCommandItem(id: "nav-notes", label: "Open Notes", icon: "note.text", category: "Navigate", badge: "\u{2318}2") {
                 UtilityWindowManager.shared.show(.notes); dismiss()
             },
-            LandingCommandItem(id: "nav-library", label: "Open Library", icon: "books.vertical", category: "Navigate", badge: "\u{2318}3") {
-                ui.homeTab = .library; dismiss()
-            },
             LandingCommandItem(id: "open-graph", label: "Knowledge Graph", icon: "point.3.connected.trianglepath.dotted", category: "Navigate", badge: "\u{2318}G") {
                 HologramController.shared.show(); dismiss()
             },
-            LandingCommandItem(id: "nav-settings", label: "Open Settings", icon: "gearshape", category: "Navigate", badge: "\u{2318},") {
-                ui.homeTab = .settings; dismiss()
+            LandingCommandItem(id: "nav-settings", label: "Open Settings", icon: "gearshape", category: "Navigate", badge: "\u{2318}S") {
+                UtilityWindowManager.shared.show(.settings); dismiss()
             },
             LandingCommandItem(id: "rebuild-graph", label: "Rebuild Graph", icon: "arrow.triangle.2.circlepath", category: "Tools") { [self] in
                 dismiss()
@@ -1328,7 +1310,7 @@ struct CommandPaletteOverlay: View {
                 }
             },
             LandingCommandItem(id: "open-appearance", label: "Open Appearance Settings", icon: "paintpalette", category: "Tools") {
-                ui.homeTab = .settings
+                UtilityWindowManager.shared.show(.settings)
                 dismiss()
             },
         ]

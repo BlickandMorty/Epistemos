@@ -359,12 +359,14 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         if t.hasPrefix("# ") && !t.hasPrefix("## ") {
             var attributes: [NSAttributedString.Key: Any] = [
-                .font: displayFont(size: MarkdownHeadingDisplay.fontSize(
-                for: 1,
-                text: line,
-                baseSize: baseFontSize + 31,
-                nextLevelSize: baseFontSize + 5
-            ), weight: .bold),
+                .font: displayFont(
+                    size: MarkdownHeadingDisplay.noteHeadingFontSize(
+                        for: 1,
+                        text: line,
+                        baseFontSize: baseFontSize
+                    ),
+                    weight: MarkdownHeadingDisplay.noteHeadingWeight(for: 1)
+                ),
                 .foregroundColor: h1Color,
                 .paragraphStyle: leadingDocumentContentIsEmpty(before: range.location)
                     ? Self.leadingH1Style
@@ -379,7 +381,14 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("## ") && !t.hasPrefix("### ") {
             var attributes: [NSAttributedString.Key: Any] = [
-                .font: displayFont(size: baseFontSize + 5, weight: .bold),
+                .font: displayFont(
+                    size: MarkdownHeadingDisplay.noteHeadingFontSize(
+                        for: 2,
+                        text: line,
+                        baseFontSize: baseFontSize
+                    ),
+                    weight: MarkdownHeadingDisplay.noteHeadingWeight(for: 2)
+                ),
                 .foregroundColor: headingAccentColor,
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .underlineColor: headingAccentColor.withAlphaComponent(0.18),
@@ -398,7 +407,14 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("### ") && !t.hasPrefix("#### ") {
             var attributes: [NSAttributedString.Key: Any] = [
-                .font: displayFont(size: baseFontSize + 1, weight: .semibold),
+                .font: displayFont(
+                    size: MarkdownHeadingDisplay.noteHeadingFontSize(
+                        for: 3,
+                        text: line,
+                        baseFontSize: baseFontSize
+                    ),
+                    weight: MarkdownHeadingDisplay.noteHeadingWeight(for: 3)
+                ),
                 .foregroundColor: headingAccentColor,
                 .paragraphStyle: Self.h3Style
             ]
@@ -415,7 +431,14 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("#### ") && !t.hasPrefix("##### ") {
             backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: baseFontSize, weight: .semibold),
+                .font: NSFont.systemFont(
+                    ofSize: MarkdownHeadingDisplay.noteHeadingFontSize(
+                        for: 4,
+                        text: line,
+                        baseFontSize: baseFontSize
+                    ),
+                    weight: MarkdownHeadingDisplay.noteHeadingWeight(for: 4)
+                ),
                 .foregroundColor: foregroundColor.withAlphaComponent(isDark ? 0.92 : 0.95),
                 .paragraphStyle: Self.h4Style
             ], range: range)
@@ -423,7 +446,14 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
 
         } else if t.hasPrefix("##### ") {
             backing.addAttributes([
-                .font: NSFont.systemFont(ofSize: smallSize, weight: .medium),
+                .font: NSFont.systemFont(
+                    ofSize: MarkdownHeadingDisplay.noteHeadingFontSize(
+                        for: 5,
+                        text: line,
+                        baseFontSize: baseFontSize
+                    ),
+                    weight: MarkdownHeadingDisplay.noteHeadingWeight(for: 5)
+                ),
                 .foregroundColor: foregroundColor.withAlphaComponent(isDark ? 0.9 : 0.92),
                 .paragraphStyle: Self.h5Style
             ], range: range)

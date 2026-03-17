@@ -644,7 +644,6 @@ struct ChatCoordinatorResearchPersistenceTests {
             modelContainer: container,
             eventBus: eventBus,
             llmService: llmService,
-            researchState: ResearchState(),
             notesUI: NotesUIState()
         )
     }

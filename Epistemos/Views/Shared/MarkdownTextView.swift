@@ -15,6 +15,49 @@ enum MarkdownHeadingDisplay {
     private static let h1MediumSizeCharacterLimit = 44
     private static let h1LongSizeCharacterLimit = 72
 
+    nonisolated static func noteHeadingBaseSize(
+        for level: Int,
+        baseFontSize: CGFloat = MarkdownTextStorage.noteBaseFontSize
+    ) -> CGFloat {
+        switch level {
+        case 1: baseFontSize + 31
+        case 2: baseFontSize + 5
+        case 3: baseFontSize + 1
+        case 4: baseFontSize
+        default: max(baseFontSize - 1, 9)
+        }
+    }
+
+    nonisolated static func noteHeadingFontWeight(for level: Int) -> Font.Weight {
+        switch level {
+        case 1, 2: .bold
+        case 3, 4: .semibold
+        default: .medium
+        }
+    }
+
+    nonisolated static func noteHeadingWeight(for level: Int) -> NSFont.Weight {
+        switch noteHeadingFontWeight(for: level) {
+        case .bold: .bold
+        case .semibold: .semibold
+        case .medium: .medium
+        default: .regular
+        }
+    }
+
+    nonisolated static func noteHeadingFontSize(
+        for level: Int,
+        text: String,
+        baseFontSize: CGFloat = MarkdownTextStorage.noteBaseFontSize
+    ) -> CGFloat {
+        fontSize(
+            for: level,
+            text: text,
+            baseSize: noteHeadingBaseSize(for: level, baseFontSize: baseFontSize),
+            nextLevelSize: noteHeadingBaseSize(for: 2, baseFontSize: baseFontSize)
+        )
+    }
+
     nonisolated static func foregroundHex(for theme: EpistemosTheme, level: Int) -> UInt32 {
         guard (1...3).contains(level) else { return theme.foregroundHex }
         if level == 1 {
@@ -1192,21 +1235,14 @@ struct MarkdownTextView: View {
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
         let retroRole = AppHeadingRole.markdownRole(level: level)
-        let baseFontSize: CGFloat = retroRole?.fontSize ?? (level == 4 ? 15 : 14)
-        let fontSize = MarkdownHeadingDisplay.fontSize(
-            for: level,
-            text: text,
-            baseSize: baseFontSize,
-            nextLevelSize: AppHeadingRole.h2.fontSize
-        )
-        let font: Font = retroRole.map { _ in
-            AppDisplayTypography.font(size: fontSize)
-        } ?? {
-            switch level {
-            case 4: .system(size: 15, weight: .medium)
-            default: .system(size: 14, weight: .medium)
+        let fontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
+        let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
+        let font: Font =
+            if retroRole != nil {
+                AppDisplayTypography.font(size: fontSize, weight: fontWeight)
+            } else {
+                .system(size: fontSize, weight: fontWeight)
             }
-        }()
         let topPad = retroRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level)

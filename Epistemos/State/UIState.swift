@@ -120,7 +120,7 @@ final class UIState {
 
     // MARK: - Command Palette
 
-    /// Global command palette overlay — visible from any panel via Cmd+S.
+    /// Global command palette overlay — visible from any panel via Option+Space.
     var isCommandPaletteVisible = false
 
     // MARK: - Window Visibility

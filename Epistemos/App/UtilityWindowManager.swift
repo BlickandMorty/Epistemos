@@ -3,8 +3,7 @@ import SwiftData
 import SwiftUI
 
 // MARK: - Utility Window Manager
-// Manages floating NSPanel windows for utility views (Notes browser).
-// Library and Settings now live in the home window via HomeTab.
+// Manages floating NSPanel windows for utility views (Notes browser, Settings).
 
 @MainActor
 enum WindowThemeStyler {
@@ -88,22 +87,70 @@ enum WindowThemeStyler {
 
 enum UtilityPanel: String, CaseIterable {
     case notes
+    case settings
 
-    var title: String { "Notes" }
-    var icon: String { "pencil.line" }
-    var defaultSize: NSSize { NSSize(width: 320, height: 600) }
+    var title: String {
+        switch self {
+        case .notes: "Notes"
+        case .settings: "Settings"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .notes: "pencil.line"
+        case .settings: "gearshape"
+        }
+    }
+
+    var defaultSize: NSSize {
+        switch self {
+        case .notes: NSSize(width: 320, height: 600)
+        case .settings: NSSize(width: 980, height: 720)
+        }
+    }
+
+    var minimumSize: NSSize {
+        switch self {
+        case .notes: NSSize(width: 400, height: 300)
+        case .settings: NSSize(width: 720, height: 520)
+        }
+    }
+
     var usesFullWindow: Bool { false }
 }
 
 enum UtilityPanelChrome {
     @MainActor
+    static func apply(to panel: NSPanel, kind: UtilityPanel) {
+        switch kind {
+        case .notes:
+            applySidebarChrome(to: panel)
+        case .settings:
+            applySettingsChrome(to: panel)
+        }
+    }
+
+    @MainActor
     static func applySidebarChrome(to panel: NSPanel) {
         panel.styleMask.insert(.fullSizeContentView)
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
+        panel.isMovableByWindowBackground = true
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "NotesSidebarToolbar")
         panel.toolbar = toolbar
         panel.toolbarStyle = .unifiedCompact
+    }
+
+    @MainActor
+    static func applySettingsChrome(to panel: NSPanel) {
+        panel.styleMask.insert(.fullSizeContentView)
+        panel.titleVisibility = .visible
+        panel.titlebarAppearsTransparent = false
+        panel.isMovableByWindowBackground = false
+        let toolbar = panel.toolbar ?? NSToolbar(identifier: "SettingsToolbar")
+        panel.toolbar = toolbar
+        panel.toolbarStyle = .unified
     }
 }
 
@@ -175,12 +222,11 @@ final class UtilityWindowManager {
             defer: false
         )
         panel.title = kind.title
-        panel.isMovableByWindowBackground = true
         panel.level = .normal
         panel.collectionBehavior = [.canJoinAllSpaces]
         panel.isReleasedWhenClosed = false
-        panel.minSize = NSSize(width: 400, height: 300)
-        UtilityPanelChrome.applySidebarChrome(to: panel)
+        panel.minSize = kind.minimumSize
+        UtilityPanelChrome.apply(to: panel, kind: kind)
 
         panel.center()
 
@@ -220,6 +266,7 @@ private struct ThemedUtilityRoot: View {
         Group {
             switch kind {
             case .notes: NotesBrowserView()
+            case .settings: SettingsView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

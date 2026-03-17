@@ -45,7 +45,7 @@ enum LandingSearchChromePolicy {
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 // Search/command palette is now a global overlay (CommandPaletteOverlay)
-// shown from any panel via Cmd+S — no longer embedded here.
+// shown from any panel via Option+Space — no longer embedded here.
 
 struct LandingView: View {
     @Environment(UIState.self) private var ui
@@ -179,8 +179,10 @@ struct LandingView: View {
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
-                    CommandHint(modIcon: "command", key: "N", label: "New Note", theme: theme) {
-                        createAndOpenNote()
+                    CommandHint(modIcon: "option", key: "Space", label: "Palette", theme: theme) {
+                        Task { @MainActor in
+                            CommandPaletteWindowController.shared.show()
+                        }
                     }
                     .springEntrance(index: 1, stagger: 0.08)
 
@@ -188,19 +190,25 @@ struct LandingView: View {
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
-                    CommandHint(modIcon: "option", key: "Space", label: "Palette", theme: theme) {
-                        Task { @MainActor in
-                            CommandPaletteWindowController.shared.show()
+                    HoverRevealCommandHint(
+                        primary: .init(modIcon: "command", key: "2", label: "Notes"),
+                        secondary: .init(modIcon: "command", key: "N", label: "New Note"),
+                        theme: theme,
+                        primaryAction: {
+                            UtilityWindowManager.shared.show(.notes)
+                        },
+                        secondaryAction: {
+                            createAndOpenNote()
                         }
-                    }
+                    )
                     .springEntrance(index: 2, stagger: 0.08)
 
                     Circle()
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
-                    CommandHint(modIcon: "command", key: "2", label: "Notes", theme: theme) {
-                        UtilityWindowManager.shared.show(.notes)
+                    CommandHint(modIcon: "command", key: "S", label: "Settings", theme: theme) {
+                        UtilityWindowManager.shared.show(.settings)
                     }
                     .springEntrance(index: 3, stagger: 0.08)
 
@@ -812,6 +820,69 @@ struct LandingCommandRow: View {
 
 // MARK: - Command Hint (Landing Shortcuts)
 
+private struct CommandHintSpec {
+    var modIcon: String? = nil
+    var icon: String? = nil
+    var key: String? = nil
+    let label: String
+}
+
+private struct CommandHintLabel: View {
+    let spec: CommandHintSpec
+    let theme: EpistemosTheme
+    let isHovered: Bool
+
+    var body: some View {
+        HStack(spacing: 2) {
+            if spec.modIcon != nil || spec.key != nil {
+                HStack(spacing: 3) {
+                    if let modIcon = spec.modIcon {
+                        Image(systemName: modIcon)
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    if let key = spec.key {
+                        Text(key)
+                            .font(LandingShortcutDisplay.font())
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                }
+                .padding(.horizontal, LandingShortcutDisplay.keyHorizontalPadding)
+                .padding(.vertical, LandingShortcutDisplay.keyVerticalPadding)
+                .frame(minWidth: LandingShortcutDisplay.keyMinWidth(for: spec.key))
+                .fixedSize(horizontal: true, vertical: false)
+                .background(
+                    RoundedRectangle(
+                        cornerRadius: LandingShortcutDisplay.keyCornerRadius,
+                        style: .continuous
+                    )
+                    .fill(theme.card.opacity(theme.isDark ? 0.62 : 0.96))
+                )
+                .overlay(
+                    RoundedRectangle(
+                        cornerRadius: LandingShortcutDisplay.keyCornerRadius,
+                        style: .continuous
+                    )
+                    .strokeBorder(
+                        isHovered ? theme.fontAccent.opacity(0.65) : theme.border.opacity(0.9),
+                        lineWidth: 1
+                    )
+                )
+            } else if let icon = spec.icon {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            Text(LandingShortcutDisplay.label(spec.label))
+                .font(LandingShortcutDisplay.font())
+                .padding(.leading, (spec.key != nil || spec.modIcon != nil || spec.icon != nil) ? 4 : 0)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .contentShape(Rectangle())
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
 private struct CommandHint: View {
     var modIcon: String? = nil
     var icon: String? = nil
@@ -822,61 +893,55 @@ private struct CommandHint: View {
 
     @State private var isHovered = false
 
+    private var spec: CommandHintSpec {
+        CommandHintSpec(modIcon: modIcon, icon: icon, key: key, label: label)
+    }
+
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 2) {
-                if modIcon != nil || key != nil {
-                    HStack(spacing: 3) {
-                        if let modIcon {
-                            Image(systemName: modIcon)
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                        if let key {
-                            Text(key)
-                                .font(LandingShortcutDisplay.font())
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                        }
-                    }
-                    .padding(.horizontal, LandingShortcutDisplay.keyHorizontalPadding)
-                    .padding(.vertical, LandingShortcutDisplay.keyVerticalPadding)
-                    .frame(minWidth: LandingShortcutDisplay.keyMinWidth(for: key))
-                    .fixedSize(horizontal: true, vertical: false)
-                    .background(
-                        RoundedRectangle(
-                            cornerRadius: LandingShortcutDisplay.keyCornerRadius,
-                            style: .continuous
-                        )
-                        .fill(theme.card.opacity(theme.isDark ? 0.62 : 0.96))
-                    )
-                    .overlay(
-                        RoundedRectangle(
-                            cornerRadius: LandingShortcutDisplay.keyCornerRadius,
-                            style: .continuous
-                        )
-                        .strokeBorder(
-                            isHovered ? theme.fontAccent.opacity(0.65) : theme.border.opacity(0.9),
-                            lineWidth: 1
-                        )
-                    )
-                } else if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 10, weight: .medium))
-                }
-                Text(LandingShortcutDisplay.label(label))
-                    .font(LandingShortcutDisplay.font())
-                    .padding(.leading, (key != nil || modIcon != nil || icon != nil) ? 4 : 0)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-            }
-            .contentShape(Rectangle())
-            .fixedSize(horizontal: true, vertical: false)
+            CommandHintLabel(spec: spec, theme: theme, isHovered: isHovered)
         }
         .buttonStyle(.plain)
         .foregroundStyle(isHovered ? theme.fontAccent : theme.textTertiary.opacity(0.5))
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
         }
+    }
+}
+
+private struct HoverRevealCommandHint: View {
+    let primary: CommandHintSpec
+    let secondary: CommandHintSpec
+    let theme: EpistemosTheme
+    let primaryAction: () -> Void
+    let secondaryAction: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            commandButton(spec: primary, action: primaryAction)
+
+            if isHovered {
+                commandButton(spec: secondary, action: secondaryAction)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
+        }
+    }
+
+    private func commandButton(
+        spec: CommandHintSpec,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            CommandHintLabel(spec: spec, theme: theme, isHovered: isHovered)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isHovered ? theme.fontAccent : theme.textTertiary.opacity(0.5))
     }
 }
 

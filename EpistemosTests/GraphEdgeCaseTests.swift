@@ -518,6 +518,31 @@ struct GraphTopologyEdgeCaseTests {
     }
 }
 
+@Suite("Graph Hover Haptics")
+struct GraphHoverHapticTests {
+
+    @Test("Hover haptic only fires for new node entries outside the throttle window")
+    func hoverTickStateOnlyTicksOnDistinctEntries() {
+        var state = GraphNodeHoverHapticState()
+
+        let initialIdle = state.update(hoveredNodeId: nil, now: 0.00)
+        let firstEnter = state.update(hoveredNodeId: "alpha", now: 0.01)
+        let repeatedHover = state.update(hoveredNodeId: "alpha", now: 0.03)
+        let throttledSwitch = state.update(hoveredNodeId: "beta", now: 0.05)
+        let delayedSteadyHover = state.update(hoveredNodeId: "beta", now: 0.14)
+        let exitHover = state.update(hoveredNodeId: nil, now: 0.15)
+        let reenterAfterExit = state.update(hoveredNodeId: "beta", now: 0.28)
+
+        #expect(!initialIdle)
+        #expect(firstEnter)
+        #expect(!repeatedHover)
+        #expect(!throttledSwitch)
+        #expect(!delayedSteadyHover)
+        #expect(!exitHover)
+        #expect(reenterAfterExit)
+    }
+}
+
 @Suite("Graph Edge Cases - Node Types")
 @MainActor
 struct GraphNodeTypeEdgeCaseTests {

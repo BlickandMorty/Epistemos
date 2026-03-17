@@ -29,14 +29,177 @@ struct NoteEditorLayoutTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
-    @Test("note footer uses glass chips and keeps the legacy shortcut hints")
-    func noteFooterUsesGlassChipsAndLegacyHints() {
+    @MainActor
+    @Test("Notes UI state stays on the TK2 editor even when the legacy preference is false")
+    func notesUIStateStaysOnTextKit2() {
+        let defaults = UserDefaults.standard
+        let key = "epistemos.editor.useTK2.v2"
+        let previous = defaults.object(forKey: key)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        defaults.set(false, forKey: key)
+
+        let notesUI = NotesUIState()
+
+        #expect(notesUI.useTK2Editor)
+    }
+
+    @Test("TK2 editor stays transparent in native system themes so the window blur can show through")
+    func tk2EditorKeepsTransparentNativeSurface() {
+        #expect(ProseTextView2.editorBackgroundColor(for: .systemLight) == .clear)
+        #expect(ProseTextView2.editorBackgroundColor(for: .systemDark) == .clear)
+    }
+
+    @MainActor
+    @Test("TK2 editor host preserves the redraw-safe scroll configuration")
+    func tk2EditorHostPreservesLegacyScrollConfiguration() {
+        let (scrollView, _) = ProseTextView2.makeTextKit2()
+
+        #expect(scrollView.borderType == .noBorder)
+        #expect(scrollView.wantsLayer)
+        #expect(scrollView.contentView.wantsLayer)
+        #expect(scrollView.contentView.layerContentsRedrawPolicy == .onSetNeedsDisplay)
+        #expect(!scrollView.automaticallyAdjustsContentInsets)
+        #expect(scrollView.contentInsets.top == 0)
+        #expect(scrollView.contentInsets.left == 0)
+        #expect(scrollView.contentInsets.bottom == 0)
+        #expect(scrollView.contentInsets.right == 0)
+    }
+
+    @MainActor
+    @Test("TK2 editor reclaims first responder from toolbar chrome on update")
+    func tk2EditorReclaimsFirstResponderOnUpdate() {
+        let editor = ProseEditorRepresentable2(
+            text: .constant("Body"),
+            pageId: "page-a",
+            pageBody: "Body",
+            isFocused: true,
+            theme: .systemLight,
+            isEditable: true,
+            isFocusMode: false
+        )
+        let coordinator = editor.makeCoordinator()
+        let (scrollView, textView) = ProseTextView2.makeTextKit2()
+        coordinator.textView = textView
+        coordinator.scrollView = scrollView
+        coordinator.currentPageId = "page-a"
+        coordinator.lastSyncedText = "Body"
+        coordinator.lastPersistedText = "Body"
+        coordinator.lastTheme = .systemLight
+        coordinator.lastIsEditable = true
+        coordinator.lastIsFocusMode = false
+
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        scrollView.frame = host.bounds
+        host.addSubview(scrollView)
+
+        let window = NSWindow(
+            contentRect: host.frame,
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = host
+        window.makeFirstResponder(nil)
+
+        coordinator.handleUpdate()
+
+        #expect(window.firstResponder === textView)
+    }
+
+    @Test("note editor card keeps a readable minimum size in compact windows")
+    func noteEditorCardKeepsReadableMinimumSize() {
+        let roomy = NoteWorkspaceSurfaceStyle.editorCardSize(
+            for: CGSize(width: 720, height: 552)
+        )
+        let cramped = NoteWorkspaceSurfaceStyle.editorCardSize(
+            for: CGSize(width: 320, height: 220)
+        )
+
+        #expect(roomy.width == 664)
+        #expect(roomy.height == 456)
+        #expect(cramped.width == NoteWorkspaceSurfaceStyle.minimumEditorSize.width)
+        #expect(cramped.height == NoteWorkspaceSurfaceStyle.minimumEditorSize.height)
+    }
+
+    @Test("note footer keeps only the word count chip")
+    func noteFooterKeepsOnlyWordCountChip() {
         #expect(!NoteWorkspaceFooterDisplay.showsBottomFade)
         #expect(NoteWorkspaceFooterDisplay.chipSpacing == 8)
-        #expect(NoteWorkspaceFooterDisplay.shortcuts.map(\.key) == ["S", "2"])
-        #expect(
-            NoteWorkspaceFooterDisplay.shortcuts.map(\.label) == ["Save to Disk", "Note Sidebar"]
+        #expect(NoteWorkspaceFooterDisplay.showsShortcutHints == false)
+    }
+
+    @Test("toolbar quick actions keep save and sidebar shortcuts without hover text")
+    func toolbarQuickActionsKeepShortcutsWithoutHoverText() {
+        #expect(NoteWorkspaceQuickAction.allCases == [.saveToDisk, .notesSidebar])
+        #expect(NoteWorkspaceQuickAction.saveToDisk.shortcut == "⌘S")
+        #expect(NoteWorkspaceQuickAction.notesSidebar.shortcut == "⌘2")
+        #expect(NoteWorkspaceQuickAction.saveToDisk.help == nil)
+        #expect(NoteWorkspaceQuickAction.notesSidebar.help == nil)
+    }
+
+    @Test("preview H1 uses the same heading scale as the note editor")
+    func previewH1UsesEditorHeadingScale() throws {
+        let shortHeading = "Big Heading"
+        let longHeading =
+            "A Neuroscientific explanation of determinism in society across institutions, incentives, and collective mythmaking"
+        let expectedShort = MarkdownHeadingDisplay.fontSize(
+            for: 1,
+            text: "# \(shortHeading)",
+            baseSize: MarkdownTextStorage.noteBaseFontSize + 31,
+            nextLevelSize: MarkdownTextStorage.noteBaseFontSize + 5
         )
+        let expectedLong = MarkdownHeadingDisplay.fontSize(
+            for: 1,
+            text: "# \(longHeading)",
+            baseSize: MarkdownTextStorage.noteBaseFontSize + 31,
+            nextLevelSize: MarkdownTextStorage.noteBaseFontSize + 5
+        )
+        let previewSource = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Shared/MarkdownTextView.swift"
+            )
+        )
+
+        #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) == expectedShort)
+        #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: longHeading) == expectedLong)
+        #expect(MarkdownHeadingDisplay.noteHeadingFontSize(for: 1, text: shortHeading) > AppHeadingRole.h2.fontSize)
+        #expect(previewSource.contains("MarkdownHeadingDisplay.noteHeadingFontSize("))
+    }
+
+    @Test("note workspace removes the source scanning action")
+    func noteWorkspaceRemovesSourceScanningAction() throws {
+        let source = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
+            )
+        )
+
+        #expect(!source.contains("Scan Sources"))
+        #expect(!source.contains("scanForCitations"))
+        #expect(!source.contains("isScanningCitations"))
+    }
+
+    @Test("note toolbar tucks secondary actions into the hidden options menu")
+    func noteToolbarTucksSecondaryActionsIntoOptionsMenu() throws {
+        let source = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
+            )
+        )
+
+        #expect(source.contains("Menu(\"Options\")"))
+        #expect(source.contains("Menu(\"Format\")"))
+        #expect(!source.contains("formatToolbarMenu"))
+        #expect(!source.contains("appleWritingToolsButton"))
+        #expect(!source.contains("noteWorkspaceQuickActions"))
+        #expect(source.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
     }
 
     @Test("preview reserves the native titlebar inset and falls back higher for tab groups")
@@ -57,6 +220,27 @@ struct NoteEditorLayoutTests {
             NotePreviewChromeMetrics.contentTopInset(titlebarInset: 88, hasMultipleTabs: true)
                 == 88
         )
+    }
+
+    @MainActor
+    @Test("native note windows keep the blur-backed wrapper around hosted content")
+    func nativeNoteWindowsKeepBackdropWrapper() throws {
+        let uiState = UIState()
+        let host = NSHostingController(rootView: Color.clear)
+
+        let controller = try #require(
+            NoteWindowThemeStyler.themedContentController(
+                hostingController: host,
+                uiState: uiState
+            ) as? NoteWindowBackdropController
+        )
+
+        #expect(controller.view.subviews.contains(host.view))
+    }
+
+    private func repoRootURL() -> URL {
+        let testsFileURL = URL(fileURLWithPath: #filePath)
+        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
     }
 
     @Test("top spacing stays tight below the toolbar")

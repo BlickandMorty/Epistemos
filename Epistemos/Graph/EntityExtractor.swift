@@ -3,7 +3,7 @@ import SwiftData
 
 // MARK: - EntityExtractor
 // AI-powered entity extraction that scans notes and chats to find sources,
-// quotes, tags, and ideas. Uses the user's configured LLM to extract entities
+// tags, and ideas. Uses the user's configured LLM to extract entities
 // and builds graph nodes + edges from the results.
 //
 // Updated for 7-type model: sources (absorbs thinkers/papers/books),
@@ -64,24 +64,14 @@ final class EntityExtractor {
             // Build extraction prompt with semantic relationship classification
             let prompt = """
                 Extract entities and relationships from the following notes. Return ONLY valid JSON:
-                {"sources": [{"name": "string", "url": "string or null", "title": "string or null", "type": "string or null", "relationship": "cites|supports|contradicts|expands|questions", "blockId": "string or null"}],
-                 "quotes": [{"text": "string", "attribution": "string or null", "context": "string or null", "blockId": "string or null"}],
-                 "tags": [{"name": "string", "description": "string or null"}],
+                {"tags": [{"name": "string", "description": "string or null"}],
                  "crossNoteLinks": [{"from": "Note Title", "to": "Note Title", "relationship": "supports|contradicts|expands|questions", "reason": "brief explanation"}]}
 
                 Rules:
-                - Sources: Named people, URLs, papers, books. Classify the relationship:
-                  - cites: neutral reference
-                  - supports: note agrees with or provides evidence for the source
-                  - contradicts: note disagrees with or challenges the source
-                  - expands: note builds on ideas from the source
-                  - questions: note raises doubts about the source
-                - Quotes: Direct quotations with clear attribution.
                 - Tags: Abstract themes or concepts that appear substantively.
                 - crossNoteLinks: Semantic relationships BETWEEN notes in this batch.
                   Only include when one note clearly supports, contradicts, expands, or questions another.
-                - blockId: If lines are annotated with [block:ID], include the ID so entities link to specific blocks.
-                - Default relationship to "cites" if unclear. Empty array [] if none found.
+                - Empty array [] if none found.
 
                 Content:
                 \(batchContent)
@@ -122,13 +112,11 @@ final class EntityExtractor {
 
             let prompt = """
                 Extract key ideas from this conversation titled "\(chat.title)". Return ONLY valid JSON:
-                {"ideas": [{"summary": "string", "evidenceGrade": "A/B/C/D/F or null", "relatedEntities": ["string"]}],
-                 "sourcesShared": [{"url": "string or null", "title": "string or null"}]}
+                {"ideas": [{"summary": "string", "evidenceGrade": "A/B/C/D/F or null", "relatedEntities": ["string"]}]}
 
                 Rules:
                 - Ideas: 2-4 most significant conclusions or insights. Not small talk.
                 - Evidence grade: A = strong evidence, F = speculation.
-                - Sources: Any URLs or references shared during the conversation.
 
                 Conversation:
                 \(messagesText)
@@ -165,56 +153,6 @@ final class EntityExtractor {
         sourcePages: [SDPage],
         context: ModelContext
     ) {
-        let sourceNodeIds: [String] = sourcePages.compactMap { page in
-            findSDGraphNode(type: .note, sourceId: page.id, context: context)?.id
-        }
-
-        // Sources — with semantic relationship classification + block-level linking
-        for source in extraction.sources {
-            let node = findOrCreateSourceNode(
-                url: source.url,
-                title: source.title ?? source.name,
-                context: context
-            )
-            if let sourceType = source.type {
-                var meta = node.meta
-                meta.clusterTheme = sourceType
-                node.meta = meta
-            }
-            let edgeType = Self.edgeType(from: source.relationship, default: .cites)
-            for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: node.id, target: sourceId, type: edgeType, context: context)
-            }
-            // Link to specific block if the LLM identified one.
-            linkEntityToBlock(entityNodeId: node.id, blockId: source.blockId, type: edgeType, context: context)
-        }
-
-        // Quotes — always create new node, with block-level linking
-        for quote in extraction.quotes {
-            let quoteNode = SDGraphNode(type: .quote, label: String(quote.text.prefix(80)))
-            var meta = GraphNodeMetadata()
-            meta.quoteText = quote.text
-            quoteNode.meta = meta
-            context.insert(quoteNode)
-
-            // Link to source notes
-            for sourceId in sourceNodeIds {
-                createEdgeIfNeeded(source: quoteNode.id, target: sourceId, type: .reference, context: context)
-            }
-
-            // Link to attribution source if present
-            if let attribution = quote.attribution, !attribution.isEmpty {
-                let sourceNode = findOrCreateNode(type: .source, label: attribution, context: context)
-                createEdgeIfNeeded(source: quoteNode.id, target: sourceNode.id, type: .quotes, context: context)
-            }
-
-            // Link to specific block if the LLM identified one.
-            linkEntityToBlock(entityNodeId: quoteNode.id, blockId: quote.blockId, type: .reference, context: context)
-        }
-
-        // Tags (absorbs concepts) — tags are no longer visualized as graph nodes.
-        // Tag data is still extracted and stored on SDPage.tags for filtering/search.
-
         // Cross-note semantic links — connect notes within the batch that
         // support, contradict, expand, or question each other.
         if let links = extraction.crossNoteLinks {
@@ -267,14 +205,6 @@ final class EntityExtractor {
                         createEdgeIfNeeded(source: ideaNode.id, target: existingNode.id, type: .related, context: context)
                     }
                 }
-            }
-        }
-
-        // Sources shared in chat
-        for source in ideaResult.sourcesShared {
-            let node = findOrCreateSourceNode(url: source.url, title: source.title, context: context)
-            if let chatId = chatNodeId {
-                createEdgeIfNeeded(source: node.id, target: chatId, type: .reference, context: context)
             }
         }
 
@@ -334,15 +264,6 @@ final class EntityExtractor {
         return annotated
     }
 
-    /// Create graph edges from extracted entities to their source blocks.
-    private func linkEntityToBlock(entityNodeId: String, blockId: String?, type: GraphEdgeType, context: ModelContext) {
-        guard let blockId, !blockId.isEmpty else { return }
-        // Find the block's graph node (if it exists as a substantial block).
-        if let blockNode = findSDGraphNode(type: .block, sourceId: blockId, context: context) {
-            createEdgeIfNeeded(source: entityNodeId, target: blockNode.id, type: type, context: context)
-        }
-    }
-
     // MARK: - Find or Create Node
 
     private func findOrCreateNode(type: GraphNodeType, label: String, context: ModelContext) -> SDGraphNode {
@@ -377,43 +298,6 @@ final class EntityExtractor {
             predicate: #Predicate { $0.label == normalized }
         )
         return (try? context.fetch(descriptor))?.first
-    }
-
-    private func findOrCreateSourceNode(url: String?, title: String?, context: ModelContext) -> SDGraphNode {
-        let typeRaw = GraphNodeType.source.rawValue
-
-        if let url, !url.isEmpty {
-            let descriptor = FetchDescriptor<SDGraphNode>(
-                predicate: #Predicate { $0.type == typeRaw && $0.sourceId == url }
-            )
-            if let existing = (try? context.fetch(descriptor))?.first {
-                existing.weight += 1
-                existing.updatedAt = .now
-                return existing
-            }
-        }
-
-        if let title, !title.isEmpty {
-            let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            let descriptor = FetchDescriptor<SDGraphNode>(
-                predicate: #Predicate { $0.type == typeRaw && $0.label == normalizedTitle }
-            )
-            if let existing = (try? context.fetch(descriptor))?.first {
-                existing.weight += 1
-                existing.updatedAt = .now
-                return existing
-            }
-        }
-
-        let label = title ?? url ?? "Unknown Source"
-        let node = SDGraphNode(type: .source, label: label.trimmingCharacters(in: .whitespacesAndNewlines), sourceId: url)
-        if let url {
-            var meta = GraphNodeMetadata()
-            meta.url = url
-            node.meta = meta
-        }
-        context.insert(node)
-        return node
     }
 
     // MARK: - Create Edge If Needed

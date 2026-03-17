@@ -49,19 +49,32 @@ enum GraphOverlayThemeStyle {
     }
 
     static func blurMaterial(for theme: EpistemosTheme) -> NSVisualEffectView.Material {
-        theme.isDark ? .fullScreenUI : .sheet
+        theme.isDark ? .hudWindow : .sheet
     }
 
     static func overlayTintColor(for theme: EpistemosTheme) -> NSColor {
-        theme.nsBackground.withAlphaComponent(theme.isDark ? 0.74 : 0.56)
+        theme.isDark
+            ? NSColor.black.withAlphaComponent(0.58)
+            : NSColor.white.withAlphaComponent(0.72)
     }
 
     static func miniTintColor(for theme: EpistemosTheme) -> NSColor {
-        theme.nsBackground.withAlphaComponent(theme.isDark ? 0.55 : 0.08)
+        theme.isDark
+            ? NSColor.black.withAlphaComponent(0.42)
+            : NSColor.white.withAlphaComponent(0.16)
     }
 
     static func lightModeEnabled(for theme: EpistemosTheme) -> Bool {
         !theme.isDark
+    }
+}
+
+private struct GraphOverlayThemeContainer<Content: View>: View {
+    @Environment(UIState.self) private var ui
+    let content: Content
+
+    var body: some View {
+        content.preferredColorScheme(ui.graphOverlayTheme.colorScheme)
     }
 }
 
@@ -76,7 +89,7 @@ enum HologramOverlayHostedViewBuilder {
         }
 
         return AnyView(
-            content
+            GraphOverlayThemeContainer(content: content)
                 .withAppEnvironment(bootstrap)
                 .modelContainer(bootstrap.modelContainer)
         )
@@ -201,8 +214,9 @@ final class HologramOverlay {
             return false
         }()
         if isPageMode {
-            darkenLayer?.alphaValue = 0.15
-            blurView?.material = .hudWindow
+            let theme = GraphOverlayThemeStyle.resolvedTheme()
+            darkenLayer?.alphaValue = theme.isDark ? 0.22 : 0.10
+            blurView?.material = GraphOverlayThemeStyle.blurMaterial(for: theme)
         }
 
         // Track note window movement so nodes follow it in real time.
@@ -330,7 +344,9 @@ final class HologramOverlay {
 
         // Add frosted glass background for mini mode.
         let miniBlur = NSVisualEffectView(frame: window.contentView!.bounds)
-        miniBlur.material = .hudWindow
+        miniBlur.material = GraphOverlayThemeStyle.blurMaterial(
+            for: GraphOverlayThemeStyle.resolvedTheme()
+        )
         miniBlur.blendingMode = .behindWindow
         miniBlur.state = .active
         miniBlur.autoresizingMask = [.width, .height]

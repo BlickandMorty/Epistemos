@@ -102,6 +102,161 @@ struct GraphBuilderEmptyContextTests {
     }
 }
 
+@Suite("GraphBuilder - Note Derived Sources")
+@MainActor
+struct GraphBuilderNoteDerivedEntityTests {
+
+    @Test("note bodies no longer create source or quote nodes")
+    func noteBodiesDoNotCreateSourceOrQuoteNodes() {
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+
+        do {
+            let container = try ModelContainer(for: schema, configurations: [config])
+            let context = ModelContext(container)
+
+            let page = GraphBuilderTestHelpers.createMockPage(id: "page-note-derived", title: "Ancient Quotes")
+            page.body = """
+            > “The unexamined life is not worth living.”
+            > - Socrates
+
+            ## Sources
+            - Plato (2001). *Republic*. https://example.com/republic
+
+            See [Symposium](https://example.com/symposium) for more.
+            """
+            context.insert(page)
+            try context.save()
+
+            let builder = GraphBuilder()
+            let result = builder.build(context: context)
+
+            let noteNode = result.nodes.first { $0.nodeType == .note && $0.sourceId == page.id }
+
+            #expect(noteNode != nil)
+            #expect(result.nodes.count == 1)
+            #expect(!result.nodes.contains { $0.nodeType == .source })
+            #expect(!result.nodes.contains { $0.nodeType == .quote })
+            #expect(!result.edges.contains { $0.edgeType == .cites })
+            #expect(!result.edges.contains { $0.edgeType == .authored })
+            #expect(!result.edges.contains { $0.edgeType == .quotes })
+        } catch {
+            Issue.record("Test failed: \(error)")
+        }
+    }
+
+    @Test("persist removes source and quote nodes and their edges")
+    func persistRemovesSourceAndQuoteNodesAndEdges() throws {
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+
+        let page = GraphBuilderTestHelpers.createMockPage(id: "page-legacy-quote", title: "Legacy Quotes")
+        page.body = """
+        > “Know thyself.”
+        > - Socrates
+
+        ## Sources
+        - Plato (2001). *Republic*. https://example.com/republic
+        """
+        context.insert(page)
+
+        let pageNode = SDGraphNode(type: .note, label: page.title, sourceId: page.id)
+        let quoteNode = SDGraphNode(
+            type: .quote,
+            label: "Know thyself.",
+            sourceId: "quote-node"
+        )
+        var quoteMeta = GraphNodeMetadata()
+        quoteMeta.quoteText = "Know thyself."
+        quoteMeta.originNoteId = page.id
+        quoteNode.meta = quoteMeta
+
+        let authorNode = SDGraphNode(type: .source, label: "Socrates", sourceId: "source-socrates")
+        context.insert(pageNode)
+        context.insert(quoteNode)
+        context.insert(authorNode)
+        context.insert(SDGraphEdge(source: pageNode.id, target: quoteNode.id, type: .contains))
+        context.insert(SDGraphEdge(source: quoteNode.id, target: authorNode.id, type: .quotes))
+        try context.save()
+
+        let builder = GraphBuilder()
+        let result = builder.build(context: context)
+        builder.persist(nodes: result.nodes, edges: result.edges, context: context)
+
+        let persistedNodes = try context.fetch(FetchDescriptor<SDGraphNode>())
+        let persistedEdges = try context.fetch(FetchDescriptor<SDGraphEdge>())
+
+        #expect(!persistedNodes.contains { $0.nodeType == .source })
+        #expect(!persistedNodes.contains { $0.nodeType == .quote })
+        #expect(!persistedEdges.contains { $0.edgeType == .cites })
+        #expect(!persistedEdges.contains { $0.edgeType == .authored })
+        #expect(!persistedEdges.contains { $0.edgeType == .quotes })
+        #expect(!persistedEdges.contains {
+            let sourceMatches = $0.sourceNodeId == pageNode.id && $0.targetNodeId == quoteNode.id
+            let targetMatches = $0.sourceNodeId == quoteNode.id && $0.targetNodeId == pageNode.id
+            return sourceMatches || targetMatches
+        })
+        #expect(!persistedEdges.contains {
+            let sourceMatches = $0.sourceNodeId == quoteNode.id && $0.targetNodeId == authorNode.id
+            let targetMatches = $0.sourceNodeId == authorNode.id && $0.targetNodeId == quoteNode.id
+            return sourceMatches || targetMatches
+        })
+    }
+
+    @Test("scan vault ignores source and quote entities")
+    func scanVaultIgnoresSourceAndQuoteEntities() async throws {
+        let schema = Schema([SDPage.self, SDFolder.self, SDChat.self, SDBlock.self, SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+
+        let page = GraphBuilderTestHelpers.createMockPage(id: "page-entity-scan", title: "Stoicism")
+        page.body = "Marcus Aurelius reflects on reason and conduct."
+        context.insert(page)
+        try context.save()
+
+        let llm = MockLLMClient()
+        llm.generateResponse = """
+        {
+          "sources": [
+            {
+              "name": "Marcus Aurelius",
+              "url": "https://example.com/meditations",
+              "title": "Meditations",
+              "type": "book",
+              "relationship": "cites",
+              "blockId": null
+            }
+          ],
+          "quotes": [
+            {
+              "text": "You have power over your mind, not outside events.",
+              "attribution": "Marcus Aurelius",
+              "context": null,
+              "blockId": null
+            }
+          ],
+          "tags": [],
+          "crossNoteLinks": []
+        }
+        """
+
+        let extractor = EntityExtractor(graphState: GraphState())
+        await extractor.scanVault(context: context, llmService: llm)
+
+        let persistedNodes = try context.fetch(FetchDescriptor<SDGraphNode>())
+        let persistedEdges = try context.fetch(FetchDescriptor<SDGraphEdge>())
+
+        #expect(!persistedNodes.contains { $0.nodeType == .source })
+        #expect(!persistedNodes.contains { $0.nodeType == .quote })
+        #expect(!persistedEdges.contains { $0.edgeType == .cites })
+        #expect(!persistedEdges.contains { $0.edgeType == .authored })
+        #expect(!persistedEdges.contains { $0.edgeType == .quotes })
+    }
+}
+
 @Suite("GraphBuilder - Page Node Building")
 @MainActor
 struct GraphBuilderPageNodeTests {

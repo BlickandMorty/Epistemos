@@ -142,6 +142,31 @@ enum NoteToolbarSurfaceStyle {
     }
 }
 
+enum NoteWorkspaceSurfaceStyle {
+    static let minimumEditorSize = CGSize(width: 400, height: 300)
+    static let editorCornerRadius: CGFloat = 26
+    static let editorMaxWidth: CGFloat = 1080
+    static let horizontalPadding: CGFloat = 28
+    static let topPadding: CGFloat = 24
+    static let bottomPadding: CGFloat = 72
+
+    static func canvasBackground(for theme: EpistemosTheme) -> Color {
+        theme.followsSystemAppearance ? .clear : MarkdownPreviewSurfaceStyle.canvasBackground(for: theme)
+    }
+
+    static func editorCardSize(for availableSize: CGSize) -> CGSize {
+        let width = min(
+            editorMaxWidth,
+            max(minimumEditorSize.width, availableSize.width - (horizontalPadding * 2))
+        )
+        let height = max(
+            minimumEditorSize.height,
+            availableSize.height - topPadding - bottomPadding
+        )
+        return CGSize(width: width, height: height)
+    }
+}
+
 enum NoteWorkspaceFooterDisplay {
     struct ShortcutHint: Equatable {
         let key: String
@@ -149,6 +174,7 @@ enum NoteWorkspaceFooterDisplay {
     }
 
     static let showsBottomFade = false
+    static let showsShortcutHints = false
     static let chipSpacing: CGFloat = 8
     static let chipHorizontalPadding: CGFloat = 12
     static let chipVerticalPadding: CGFloat = 6
@@ -157,6 +183,33 @@ enum NoteWorkspaceFooterDisplay {
         ShortcutHint(key: "S", label: "Save to Disk"),
         ShortcutHint(key: "2", label: "Note Sidebar"),
     ]
+}
+
+enum NoteWorkspaceQuickAction: CaseIterable, Hashable {
+    case saveToDisk
+    case notesSidebar
+
+    var glyph: NoteToolbarGlyph {
+        switch self {
+        case .saveToDisk:
+            .saveToDisk
+        case .notesSidebar:
+            .notesSidebar
+        }
+    }
+
+    var shortcut: String {
+        switch self {
+        case .saveToDisk:
+            "⌘S"
+        case .notesSidebar:
+            "⌘2"
+        }
+    }
+
+    var help: String? {
+        nil
+    }
 }
 
 enum NotePreviewRenderer: Equatable {
@@ -456,6 +509,8 @@ enum NoteToolbarGlyph: Sendable {
     case more
     case backlinks
     case history
+    case saveToDisk
+    case notesSidebar
 
     var symbolName: String? {
         switch self {
@@ -473,6 +528,10 @@ enum NoteToolbarGlyph: Sendable {
             "link"
         case .history:
             "bubble.left"
+        case .saveToDisk:
+            "square.and.arrow.down"
+        case .notesSidebar:
+            "sidebar.leading"
         }
     }
 
@@ -540,7 +599,6 @@ struct NoteDetailWorkspaceView: View {
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
-    @Environment(ResearchState.self) private var researchState
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
     @Environment(LLMService.self) private var llmService
@@ -553,7 +611,6 @@ struct NoteDetailWorkspaceView: View {
     @State private var modeBodySnapshot: NoteModeBodySnapshot?
     @State private var persistedBody: String
 
-    @State private var isScanningCitations = false
     @State private var showIdeasPopover = false
     @State private var showChatSidebar = false
     @State private var showBacklinksPopover = false
@@ -604,7 +661,7 @@ struct NoteDetailWorkspaceView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            ui.overlayChromeBackground.ignoresSafeArea()
+            NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme).ignoresSafeArea()
         }
         .toolbar {
             if let nav = navState, nav.hasBreadcrumb {
@@ -803,11 +860,7 @@ struct NoteDetailWorkspaceView: View {
                         if showPreview {
                             notePreview(body: displayBody(for: page), renderer: previewRenderer)
                         } else {
-                            ProseEditorView(
-                                page: page,
-                                isEditable: true,
-                                initialBodyOverride: currentModeBodySnapshot(for: page.id)
-                            )
+                            noteEditorSurface(page: page)
                         }
                     }
                     .frame(minWidth: 400, minHeight: 300)
@@ -842,7 +895,7 @@ struct NoteDetailWorkspaceView: View {
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(ui.contentBackground)
+            .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
             .environment(noteChatState)
             .onAppear {
                 noteChatState.loadPersistedMessages(modelContext)
@@ -900,22 +953,49 @@ struct NoteDetailWorkspaceView: View {
                     .foregroundStyle(ui.theme.foreground.opacity(0.55))
             }
 
-            ForEach(NoteWorkspaceFooterDisplay.shortcuts, id: \.key) { shortcut in
-                noteFooterBubble {
-                    HStack(spacing: 3) {
-                        Image(systemName: "command")
-                            .font(.system(size: 10, weight: .medium))
-                        Text(shortcut.key)
-                            .font(AppDisplayTypography.font(size: 10))
-                        Text(shortcut.label)
-                            .font(AppDisplayTypography.font(size: 10))
-                            .padding(.leading, 2)
+            if NoteWorkspaceFooterDisplay.showsShortcutHints {
+                ForEach(NoteWorkspaceFooterDisplay.shortcuts, id: \.key) { shortcut in
+                    noteFooterBubble {
+                        HStack(spacing: 3) {
+                            Image(systemName: "command")
+                                .font(.system(size: 10, weight: .medium))
+                            Text(shortcut.key)
+                                .font(AppDisplayTypography.font(size: 10))
+                            Text(shortcut.label)
+                                .font(AppDisplayTypography.font(size: 10))
+                                .padding(.leading, 2)
+                        }
+                        .foregroundStyle(ui.theme.foreground.opacity(0.35))
                     }
-                    .foregroundStyle(ui.theme.foreground.opacity(0.35))
                 }
             }
         }
         .padding(NoteWorkspaceFooterDisplay.footerPadding)
+    }
+
+    @ViewBuilder
+    private func noteWorkspaceQuickActionButton(_ action: NoteWorkspaceQuickAction) -> some View {
+        let button = Button {
+            performNoteWorkspaceQuickAction(action)
+        } label: {
+            NoteToolbarIcon(glyph: action.glyph, theme: ui.theme)
+        }
+        .buttonStyle(.plain)
+
+        if let help = action.help {
+            button.help(help)
+        } else {
+            button
+        }
+    }
+
+    private func performNoteWorkspaceQuickAction(_ action: NoteWorkspaceQuickAction) {
+        switch action {
+        case .saveToDisk:
+            vaultSync.savePage(pageId: pageId)
+        case .notesSidebar:
+            UtilityWindowManager.shared.show(.notes)
+        }
     }
 
     private func noteFooterBubble<Content: View>(
@@ -928,47 +1008,60 @@ struct NoteDetailWorkspaceView: View {
             .glassEffect(.regular.interactive(), in: Capsule())
     }
 
-    private var noteToolbarStrip: some View {
-        HStack(spacing: NoteToolbarMetrics.spacing) {
-            if !showPreview {
-                toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
-            }
+    private func noteEditorSurface(page: SDPage) -> some View {
+        ProseEditorView(
+            page: page,
+            isEditable: true,
+            initialBodyOverride: currentModeBodySnapshot(for: page.id)
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
 
-            noteToolbarControls
-        }
-        .padding(.horizontal, NoteToolbarSurfaceStyle.horizontalPadding)
-        .padding(.vertical, NoteToolbarSurfaceStyle.verticalPadding)
-        .background {
-            if NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: ui.customThemesEnabled) {
-                Capsule(style: .continuous)
-                    .fill(.thinMaterial)
-                    .overlay {
-                        Capsule(style: .continuous)
-                            .strokeBorder(
-                                .primary.opacity(ui.isSystemDark ? 0.14 : 0.10),
-                                lineWidth: NoteToolbarSurfaceStyle.borderWidth
-                            )
-                    }
-                    .overlay {
-                        Capsule(style: .continuous)
-                            .strokeBorder(
-                                .white.opacity(ui.isSystemDark ? 0.06 : 0.24),
-                                lineWidth: 0.4
-                            )
-                            .padding(1)
-                    }
+    private var noteToolbarStrip: some View {
+        noteToolbarSurface {
+            HStack(spacing: NoteToolbarMetrics.spacing) {
+                if !showPreview {
+                    toolbarChatField(width: NoteToolbarMetrics.chatFieldWidth)
+                }
+
+                noteToolbarControls
             }
         }
-        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func noteToolbarSurface<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, NoteToolbarSurfaceStyle.horizontalPadding)
+            .padding(.vertical, NoteToolbarSurfaceStyle.verticalPadding)
+            .background {
+                if NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: ui.customThemesEnabled) {
+                    Capsule(style: .continuous)
+                        .fill(.thinMaterial)
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .strokeBorder(
+                                    .primary.opacity(ui.isSystemDark ? 0.14 : 0.10),
+                                    lineWidth: NoteToolbarSurfaceStyle.borderWidth
+                                )
+                        }
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .strokeBorder(
+                                    .white.opacity(ui.isSystemDark ? 0.06 : 0.24),
+                                    lineWidth: 0.4
+                                )
+                                .padding(1)
+                        }
+                }
+            }
     }
 
     @ViewBuilder
     private var noteToolbarControls: some View {
         NoteToolbarControlCluster {
-            if !showPreview {
-                formatToolbarMenu
-            }
-
             toolbarIconButton(
                 glyph: showPreview ? .edit : .preview,
                 isActive: showPreview,
@@ -979,28 +1072,11 @@ struct NoteDetailWorkspaceView: View {
 
             moreMenu
 
+            ForEach(NoteWorkspaceQuickAction.allCases, id: \.self) { action in
+                noteWorkspaceQuickActionButton(action)
+            }
+
             if !showPreview {
-                appleWritingToolsButton
-
-                toolbarIconButton(
-                    glyph: .backlinks,
-                    isActive: showBacklinksPopover,
-                    help: "Backlinks"
-                ) {
-                    showBacklinksPopover.toggle()
-                }
-                .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
-                    if let page = pages.first {
-                        NoteBacklinksPopover(
-                            pageTitle: page.title,
-                            onNavigate: { targetId in
-                                showBacklinksPopover = false
-                                navState?.push(pageId: targetId, title: "")
-                            }
-                        )
-                    }
-                }
-
                 toolbarIconButton(
                     glyph: .history,
                     isActive: showChatSidebar,
@@ -1015,17 +1091,6 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
         }
-    }
-
-    private var formatToolbarMenu: some View {
-        Menu {
-            formatMenuContent
-        } label: {
-            NoteToolbarIcon(glyph: .format, theme: ui.theme)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(NoteToolbarDisplay.hidesMenuIndicators ? .hidden : .visible)
-        .help("Format")
     }
 
     private func toolbarIconButton(
@@ -1343,9 +1408,6 @@ struct NoteDetailWorkspaceView: View {
     // MarkdownTextStorage with correct formatting when switching back from Preview.
 
     private func invalidateEditorCache() {
-        guard !notesUI.useTK2Editor else { return }
-        PageStoragePool.shared.saveToDisk(pageId: pageId)
-        PageStoragePool.shared.remove(pageId: pageId)
     }
 
     private func persistedBodyFor(_ page: SDPage) -> String {
@@ -1361,9 +1423,6 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private func currentEditorBody(for page: SDPage) -> String? {
-        if !notesUI.useTK2Editor, let poolText = PageStoragePool.shared.bodyText(for: pageId) {
-            return poolText
-        }
         if let responder = NoteEditorViewFinder.findEditorTextView(for: pageId) {
             return responder.string
         }
@@ -1585,14 +1644,12 @@ struct NoteDetailWorkspaceView: View {
         .frame(width: 420)
     }
 
-    private var appleWritingToolsButton: some View {
-        toolbarIconButton(glyph: .writingTools, help: "Apple Writing Tools") {
-            NotificationCenter.default.post(
-                name: WritingToolsBridge.showNotification,
-                object: nil,
-                userInfo: ["pageId": pageId]
-            )
-        }
+    private func showAppleWritingTools() {
+        NotificationCenter.default.post(
+            name: WritingToolsBridge.showNotification,
+            object: nil,
+            userInfo: ["pageId": pageId]
+        )
     }
 
     // MARK: - Toolbar Chat Field
@@ -1722,21 +1779,27 @@ struct NoteDetailWorkspaceView: View {
                     systemImage: showPreview ? "pencil" : "eye")
             }
 
-            Button {
-                withAnimation { showChatSidebar.toggle() }
-            } label: {
-                Label(
-                    showChatSidebar ? "Hide Chat" : "Chat History",
-                    systemImage: showChatSidebar ? "bubble.left.fill" : "bubble.left")
+            if !showPreview {
+                Menu("Options") {
+                    Menu("Format") {
+                        formatMenuContent
+                    }
+
+                    Button {
+                        showBacklinksPopover.toggle()
+                    } label: {
+                        Label("Backlinks", systemImage: "link")
+                    }
+
+                    Button {
+                        showAppleWritingTools()
+                    } label: {
+                        Label("Apple Writing Tools", systemImage: "apple.intelligence")
+                    }
+                }
             }
 
             Divider()
-
-            Button {
-                vaultSync.savePage(pageId: pageId)
-            } label: {
-                Label("Save (\u{2318}S)", systemImage: "square.and.arrow.down")
-            }
 
             Button {
                 showInfoPopover.toggle()
@@ -1749,15 +1812,6 @@ struct NoteDetailWorkspaceView: View {
             } label: {
                 Label("Ideas", systemImage: "lightbulb")
             }
-
-            Button {
-                scanForCitations()
-            } label: {
-                Label(
-                    isScanningCitations ? "Scanning\u{2026}" : "Scan Sources",
-                    systemImage: "text.magnifyingglass")
-            }
-            .disabled(isScanningCitations || pages.first == nil)
 
             Button {
                 if let page = pages.first { shareNote(page) }
@@ -1773,32 +1827,22 @@ struct NoteDetailWorkspaceView: View {
 
             Divider()
 
-            Button {
-                UtilityWindowManager.shared.show(.notes)
-            } label: {
-                Label("Notes Sidebar", systemImage: "sidebar.leading")
-            }
-
-            Divider()
-
-            Button {
-                notesUI.useTK2Editor.toggle()
-            } label: {
-                Label(
-                    notesUI.useTK2Editor ? "Switch to Classic Editor" : "Long-Form Editor (Beta)",
-                    systemImage: notesUI.useTK2Editor ? "1.square" : "2.square"
-                )
-            }
-            .help(
-                notesUI.useTK2Editor
-                    ? "Switch back to the classic editor"
-                    : "Optimised for long documents — smoother scrolling and rendering for 5,000+ word notes"
-            )
         } label: {
             NoteToolbarIcon(glyph: .more, theme: ui.theme)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(NoteToolbarDisplay.hidesMenuIndicators ? .hidden : .visible)
+        .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
+            if let page = pages.first {
+                NoteBacklinksPopover(
+                    pageTitle: page.title,
+                    onNavigate: { targetId in
+                        showBacklinksPopover = false
+                        navState?.push(pageId: targetId, title: "")
+                    }
+                )
+            }
+        }
         .help("More")
     }
 
@@ -2045,32 +2089,6 @@ struct NoteDetailWorkspaceView: View {
         picker.show(relativeTo: buttonRect, of: contentView, preferredEdge: .minY)
     }
 
-    // MARK: - Citation Scanning
-
-    /// Scan the current note for sources, citations, and academic references,
-    /// then add any found to the research library.
-    private func scanForCitations() {
-        guard let page = pages.first else { return }
-        isScanningCitations = true
-
-        let fullText = "# \(page.title)\n\n\(displayBody(for: page))"
-        let papers = CitationExtractor.extract(
-            from: fullText, source: "note-scan",
-            originNoteTitle: page.title)
-
-        if papers.isEmpty {
-            eventBus.emitToast("No sources found in this note", type: .info)
-        } else {
-            for paper in papers {
-                researchState.addSavedPaper(paper)
-            }
-            eventBus.emitToast(
-                "Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library",
-                type: .success)
-        }
-
-        isScanningCitations = false
-    }
 }
 
 // MARK: - Ideas & Brain Dumps Panel

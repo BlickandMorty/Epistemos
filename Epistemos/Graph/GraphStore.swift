@@ -76,6 +76,8 @@ nonisolated struct GraphEdgeRecord: Identifiable, Sendable {
 
 @MainActor
 final class GraphStore {
+    nonisolated static let hiddenNodeTypes: Set<GraphNodeType> = [.tag, .source, .quote]
+
     private struct SearchCacheKey: Hashable {
         let query: String
         let limit: Int
@@ -294,11 +296,9 @@ final class GraphStore {
 
         let nodeDescriptor = FetchDescriptor<SDGraphNode>()
         let allNodes = try context.fetch(nodeDescriptor)
-        // Tags are not visualized as graph nodes — filter them out at load time.
-        let sdNodes = allNodes.filter { $0.nodeType != .tag }
-
+        let visibleNodes = allNodes.filter { !Self.hiddenNodeTypes.contains($0.nodeType) }
         let golden = Float.pi * (3.0 - sqrt(5.0))
-        for (index, sdNode) in sdNodes.enumerated() {
+        for (index, sdNode) in visibleNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
                 ?? {
                     let r: Float = 250.0 * sqrt(Float(index))
@@ -333,8 +333,9 @@ final class GraphStore {
     func loadDirect(nodes sdNodes: [SDGraphNode], edges sdEdges: [SDGraphEdge]) {
         clear()
 
+        let visibleNodes = sdNodes.filter { !Self.hiddenNodeTypes.contains($0.nodeType) }
         let golden = Float.pi * (3.0 - sqrt(5.0))
-        for (index, sdNode) in sdNodes.enumerated() {
+        for (index, sdNode) in visibleNodes.enumerated() {
             let position: SIMD2<Float> = positionHints.removeValue(forKey: sdNode.id)
                 ?? {
                     let r: Float = 250.0 * sqrt(Float(index))
@@ -367,7 +368,7 @@ final class GraphStore {
     func loadFromRecords(nodeRecords: [GraphNodeRecord], edgeRecords: [GraphEdgeRecord]) {
         clear()
 
-        for record in nodeRecords {
+        for record in nodeRecords where !Self.hiddenNodeTypes.contains(record.type) {
             nodes[record.id] = record
             let nodeIdx = assignNodeIndex(record.id)
             addToTrigramIndex(nodeIdx: nodeIdx, label: record.label)
@@ -378,6 +379,7 @@ final class GraphStore {
 
     private func ingestEdgeRecords(_ edgeRecords: [GraphEdgeRecord]) {
         for record in edgeRecords {
+            guard record.type != .quotes else { continue }
             guard let srcIdx = _nodeIdx[record.sourceNodeId],
                   let tgtIdx = _nodeIdx[record.targetNodeId] else { continue }
 
@@ -402,6 +404,7 @@ final class GraphStore {
                 createdAt: sdEdge.createdAt
             )
 
+            guard record.type != .quotes else { continue }
             guard let srcIdx = _nodeIdx[record.sourceNodeId],
                   let tgtIdx = _nodeIdx[record.targetNodeId] else { continue }
 

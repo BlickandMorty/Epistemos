@@ -101,7 +101,7 @@ final class AppBootstrap {
         self.triageService = triage
 
         // ResearchService — Semantic Scholar + LLM-powered research
-        self.researchService = ResearchService(research: researchState, llm: llm)
+        self.researchService = ResearchService(llm: llm)
 
         // VaultSyncService — hybrid persistence bridge
         self.vaultSync = VaultSyncService(modelContainer: container)
@@ -137,7 +137,6 @@ final class AppBootstrap {
             modelContainer: container,
             eventBus: eventBus,
             llmService: llm,
-            researchState: researchState,
             notesUI: notesUI
         )
 
@@ -303,7 +302,6 @@ final class AppBootstrap {
             "epistemos.kimiModel",
             "epistemos.ollamaBaseUrl",
             "epistemos.ollamaModel",
-            "epistemos.research.savedPapers",
             "epistemos.soar.config",
         ]
         for key in keysToRemove {

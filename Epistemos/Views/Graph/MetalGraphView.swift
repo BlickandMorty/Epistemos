@@ -78,6 +78,29 @@ enum GraphDisplayLinkTransition: Equatable {
     case stop
 }
 
+struct GraphNodeHoverHapticState {
+    private(set) var hoveredNodeId: String?
+    private(set) var lastTickAt: TimeInterval?
+    let minimumInterval: TimeInterval
+
+    init(minimumInterval: TimeInterval = 0.08) {
+        self.minimumInterval = minimumInterval
+    }
+
+    mutating func update(hoveredNodeId: String?, now: TimeInterval) -> Bool {
+        guard hoveredNodeId != self.hoveredNodeId else { return false }
+        self.hoveredNodeId = hoveredNodeId
+        guard hoveredNodeId != nil else { return false }
+        guard lastTickAt.map({ now - $0 >= minimumInterval }) ?? true else { return false }
+        lastTickAt = now
+        return true
+    }
+
+    mutating func reset() {
+        hoveredNodeId = nil
+    }
+}
+
 nonisolated struct GraphFilterSnapshot: Sendable {
     let activeNodeTypes: Set<GraphNodeType>
     let focusedConnected: Set<String>?
@@ -465,6 +488,7 @@ final class MetalGraphNSView: NSView {
     private var mouseDownLocation: CGPoint?
     private var isDraggingNode = false
     private var isPanning = false
+    private var hoverHapticState = GraphNodeHoverHapticState()
     /// Mini mode window drag tracking.
     private var isDraggingWindow = false
     private var windowDragOrigin: NSPoint?
@@ -1359,11 +1383,17 @@ final class MetalGraphNSView: NSView {
             if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
                 NSCursor.pointingHand.set()
                 let hoveredId = String(cString: uuidPtr)
+                if hoverHapticState.update(hoveredNodeId: hoveredId, now: event.timestamp) {
+                    MainActor.assumeIsolated {
+                        HapticHelper.sidebarHoverTick()
+                    }
+                }
                 if physicsCoordinator?.graphHoveredNodeId != hoveredId {
                     physicsCoordinator?.graphHoveredNodeId = hoveredId
                 }
             } else {
                 NSCursor.arrow.set()
+                _ = hoverHapticState.update(hoveredNodeId: nil, now: event.timestamp)
                 if physicsCoordinator?.graphHoveredNodeId != nil {
                     physicsCoordinator?.graphHoveredNodeId = nil
                 }
@@ -1465,6 +1495,7 @@ final class MetalGraphNSView: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
+        hoverHapticState.reset()
         physicsCoordinator?.graphHoveredNodeId = nil
     }
 

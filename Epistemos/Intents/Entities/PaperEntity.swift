@@ -36,7 +36,7 @@ struct PaperEntityQuery: EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [PaperEntity] {
         guard let bootstrap = AppBootstrap.shared else { return [] }
         let research = bootstrap.researchState
-        return research.savedPapers
+        return research.researchPapers
             .filter { identifiers.contains($0.id) }
             .map { $0.toPaperEntity() }
     }
@@ -46,24 +46,12 @@ struct PaperEntityQuery: EntityStringQuery {
         guard let bootstrap = AppBootstrap.shared else { return [] }
         let research = bootstrap.researchState
         let query = string.lowercased()
-        return research.savedPapers
-            .filter { $0.title.lowercased().contains(query) || $0.authors.lowercased().contains(query) }
+        return research.researchPapers
+            .filter {
+                $0.title.lowercased().contains(query)
+                    || $0.authors.contains { $0.lowercased().contains(query) }
+            }
             .map { $0.toPaperEntity() }
-    }
-}
-
-// MARK: - SavedPaper → PaperEntity
-
-extension SavedPaper {
-    func toPaperEntity() -> PaperEntity {
-        PaperEntity(
-            id: id,
-            title: title,
-            authors: authors,
-            year: Int(year ?? "0") ?? 0,
-            citationCount: 0,
-            abstract: abstract
-        )
     }
 }
 

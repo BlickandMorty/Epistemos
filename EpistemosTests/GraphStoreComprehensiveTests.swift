@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Epistemos
 
@@ -26,6 +27,37 @@ struct GraphStoreInitializationTests {
         let store = GraphStore()
         
         #expect(store.positionHints.isEmpty)
+    }
+}
+
+@Suite("GraphStore - Load Filtering")
+@MainActor
+struct GraphStoreLoadFilteringTests {
+
+    @Test("load skips hidden source and quote nodes and their edges")
+    func loadSkipsSourceAndQuoteNodesAndEdges() throws {
+        let schema = Schema([SDGraphNode.self, SDGraphEdge.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(container)
+
+        let noteNode = SDGraphNode(type: .note, label: "Visible Note", sourceId: "note-1")
+        let quoteNode = SDGraphNode(type: .quote, label: "Invisible Quote", sourceId: "quote-1")
+        let sourceNode = SDGraphNode(type: .source, label: "Visible Source", sourceId: "source-1")
+        context.insert(noteNode)
+        context.insert(quoteNode)
+        context.insert(sourceNode)
+        context.insert(SDGraphEdge(source: quoteNode.id, target: sourceNode.id, type: .quotes))
+        context.insert(SDGraphEdge(source: noteNode.id, target: quoteNode.id, type: .reference))
+        try context.save()
+
+        let store = GraphStore()
+        try store.load(context: context)
+
+        #expect(store.nodes[noteNode.id] != nil)
+        #expect(store.nodes[sourceNode.id] == nil)
+        #expect(store.nodes[quoteNode.id] == nil)
+        #expect(store.edges.isEmpty)
     }
 }
 

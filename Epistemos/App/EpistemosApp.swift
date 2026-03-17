@@ -232,15 +232,6 @@ struct EpistemosCommands: Commands {
             Button("Show Notes") { UtilityWindowManager.shared.show(.notes) }
                 .keyboardShortcut("2", modifiers: .command)
 
-            Button("Show Library") {
-                ui.homeTab = .library
-                NSApp.activate()
-                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                    main.makeKeyAndOrderFront(nil)
-                }
-            }
-            .keyboardShortcut("3", modifiers: .command)
-
             Button("Knowledge Graph") {
                 HologramController.shared.toggle()
             }
@@ -249,13 +240,9 @@ struct EpistemosCommands: Commands {
             Divider()
 
             Button("Open Settings") {
-                ui.homeTab = .settings
+                UtilityWindowManager.shared.show(.settings)
                 NSApp.activate()
-                if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                    main.makeKeyAndOrderFront(nil)
-                }
             }
-            .keyboardShortcut(",", modifiers: .command)
 
             Divider()
 
@@ -280,7 +267,7 @@ struct EpistemosCommands: Commands {
             Button("Search") {
                 CommandPaletteWindowController.shared.show()
             }
-            .keyboardShortcut("s", modifiers: .command)
+            .keyboardShortcut(.space, modifiers: .option)
         }
 
         CommandGroup(replacing: .appVisibility) {

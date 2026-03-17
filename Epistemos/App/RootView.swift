@@ -10,8 +10,7 @@ enum LandingToolbarGlyphs {
 }
 
 // MARK: - Root View
-// Top-level container with system toolbar navigation.
-// Segmented picker in .toolbar(.principal).
+// Top-level container with centered toolbar controls.
 // System Liquid Glass toolbar provides the chrome — no custom glass needed.
 
 struct RootView: View {
@@ -40,6 +39,16 @@ struct RootView: View {
         ui.homeTab == .home && !chat.showLanding && !chat.messages.isEmpty
     }
 
+    private var showLandingToolbarControls: Bool {
+        chat.showLanding || chat.messages.isEmpty
+    }
+
+    private var availableProviders: [LLMProviderType] {
+        var providers: [LLMProviderType] = [.anthropic, .openai, .google, .kimi]
+        if inference.ollamaAvailable { providers.append(.ollama) }
+        return providers
+    }
+
     /// Canonical toolbar glass visibility — deterministic from app state.
     /// For non-Home tabs: always visible.
     /// For Home landing: always hidden.
@@ -54,8 +63,7 @@ struct RootView: View {
             // Background wallpaper (theme-dependent)
             WallpaperView()
 
-            // Main content — tab-switched panels
-            ContentRouter(homeTab: ui.homeTab)
+            ContentRouter()
         }
         // Drive preferred color scheme from the resolved theme.
         // This ensures Ember/OLED/Sunset stay dark even when system is in light mode.
@@ -90,28 +98,16 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            // Principal: model label during active chat, pill picker otherwise
             ToolbarItem(placement: .principal) {
-                PrincipalToolbarContent()
+                rootToolbarControls
             }
             .sharedBackgroundVisibility(
                 (ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding)
                     ? .hidden : .automatic
             )
-            // Chat sidebar toggle — only on Home tab
-            ToolbarItemGroup(placement: .primaryAction) {
-                if ui.homeTab == .home {
-                    if chat.showLanding || chat.messages.isEmpty {
-                        landingGreetingToolbarButton
-                        landingCursorToolbarButton
-                    }
-
-                    historyToolbarButton
-                }
-            }
         }
         .navigationTitle("")
-        // Toolbar glass: hidden on home landing, visible for chat/library/settings.
+        // Toolbar glass: hidden on home landing, visible for active home chat.
         // Canonical rule is derived from app state (deterministic).
         // `homeChatToolbarReady` only gates the Home landing→chat reveal to avoid flash.
         .toolbarBackgroundVisibility(
@@ -142,12 +138,18 @@ struct RootView: View {
             }
         }
         // Command palette is now a global floating NSPanel (CommandPaletteWindowController).
-        // Activated via Option+Space from any app, or Cmd+S in-app.
-        // Glass Box overlay removed — research runs in regular chat
+        // Activated via Option+Space from any app.
         .frame(
             minWidth: WindowPresentationPolicy.mainWindowMinimumSize.width,
             minHeight: WindowPresentationPolicy.mainWindowMinimumSize.height
         )
+        .background {
+            Button(action: openSettingsWindow) {}
+                .keyboardShortcut("s", modifiers: .command)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
         // Pause heavy animations when the window is minimized to the Dock.
         // Without this, LiquidGreeting (typewriter loop) keeps running and burns CPU while invisible.
         // Filter by keyWindow to ignore miniaturize events from utility/MiniChat windows.
@@ -211,6 +213,81 @@ struct RootView: View {
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
         }
+    }
+
+    private var rootToolbarControls: some View {
+        HStack(spacing: 10) {
+            settingsToolbarButton
+
+            if showLandingToolbarControls {
+                landingGreetingToolbarButton
+                landingCursorToolbarButton
+            }
+
+            if activeHomeChat {
+                modelToolbarButton
+            }
+
+            historyToolbarButton
+        }
+        .fixedSize()
+    }
+
+    private var settingsToolbarButton: some View {
+        Button(action: openSettingsWindow) {
+            Label("Settings", systemImage: "gearshape")
+        }
+        .accessibilityLabel("Settings")
+        .help("Settings (⌘S)")
+    }
+
+    private var modelToolbarButton: some View {
+        Menu {
+            let models = inference.availableModels
+            if !models.isEmpty {
+                ForEach(models, id: \.id) { model in
+                    Button {
+                        inference.setActiveModel(model.id)
+                    } label: {
+                        HStack {
+                            Text(model.name)
+                            if model.id == inference.activeModel {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    .disabled(model.id == inference.activeModel)
+                }
+                Divider()
+            }
+
+            Menu("Switch Provider") {
+                ForEach(availableProviders, id: \.self) { provider in
+                    Button {
+                        inference.setApiProvider(provider)
+                        if inference.needsApiKey && inference.apiKey.isEmpty {
+                            ui.showToast("No API key for \(provider.displayName) — set it in Settings", type: .warning)
+                        }
+                    } label: {
+                        Label(provider.displayName, systemImage: provider.iconName)
+                    }
+                    .disabled(provider == inference.apiProvider)
+                }
+            }
+        } label: {
+            ASCIIRippleText(
+                text: "\(inference.apiProvider.displayName) · \(inference.activeModelDisplayName)",
+                font: .system(size: 14, weight: .medium),
+                color: .secondary
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    private func openSettingsWindow() {
+        UtilityWindowManager.shared.show(.settings)
+        NSApp.activate()
     }
 
     private var landingCursorToolbarButton: some View {
@@ -328,117 +405,27 @@ private struct VaultRecoveryOverlay: View {
 // MARK: - Home Tab
 
 enum HomeTab: String, CaseIterable {
-    case home, library, settings
+    case home
 
     var label: String {
         switch self {
         case .home: "Home"
-        case .library: "Library"
-        case .settings: "Settings"
         }
     }
 
     var icon: String {
         switch self {
         case .home: "house"
-        case .library: "books.vertical"
-        case .settings: "gear"
-        }
-    }
-}
-
-// MARK: - Principal Toolbar Content
-
-private struct PrincipalToolbarContent: View {
-    @Environment(UIState.self) private var ui
-    @Environment(ChatState.self) private var chat
-    @Environment(InferenceState.self) private var inference
-
-    private var showModelLabel: Bool {
-        ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding
-    }
-
-    private var availableProviders: [LLMProviderType] {
-        var providers: [LLMProviderType] = [.anthropic, .openai, .google, .kimi]
-        if inference.ollamaAvailable { providers.append(.ollama) }
-        return providers
-    }
-
-    var body: some View {
-        if showModelLabel {
-            Menu {
-                // Current provider's models
-                let models = inference.availableModels
-                if !models.isEmpty {
-                    ForEach(models, id: \.id) { m in
-                        Button {
-                            inference.setActiveModel(m.id)
-                        } label: {
-                            HStack {
-                                Text(m.name)
-                                if m.id == inference.activeModel {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                        .disabled(m.id == inference.activeModel)
-                    }
-                    Divider()
-                }
-
-                // Switch provider
-                Menu("Switch Provider") {
-                    ForEach(availableProviders, id: \.self) { p in
-                        Button {
-                            inference.setApiProvider(p)
-                            if inference.needsApiKey && inference.apiKey.isEmpty {
-                                ui.showToast("No API key for \(p.displayName) — set it in Settings", type: .warning)
-                            }
-                        } label: {
-                            Label(p.displayName, systemImage: p.iconName)
-                        }
-                        .disabled(p == inference.apiProvider)
-                    }
-                }
-            } label: {
-                ASCIIRippleText(
-                    text: "\(inference.apiProvider.displayName) · \(inference.activeModelDisplayName)",
-                    font: .system(size: 14, weight: .medium),
-                    color: .secondary
-                )
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-        } else {
-            @Bindable var uiBindable = ui
-            Picker("", selection: $uiBindable.homeTab) {
-                ForEach(HomeTab.allCases, id: \.self) { tab in
-                    Label(tab.label, systemImage: tab.icon).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 108)
         }
     }
 }
 
 // MARK: - Content Router
-// Main window content — switches between Home, Library, and Settings.
+// Main window content — Home only.
 
 struct ContentRouter: View {
-    var homeTab: HomeTab
-
     var body: some View {
-        Group {
-            switch homeTab {
-            case .home:
-                HomeRouter()
-            case .library:
-                LibraryView()
-            case .settings:
-                SettingsView()
-            }
-        }
+        HomeRouter()
     }
 }
 

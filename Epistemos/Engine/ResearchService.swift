@@ -11,11 +11,9 @@ final class ResearchService {
 
     // MARK: - Dependencies
 
-    private let research: ResearchState
     private let llm: LLMService
 
-    init(research: ResearchState, llm: LLMService) {
-        self.research = research
+    init(llm: LLMService) {
         self.llm = llm
     }
 
@@ -69,43 +67,6 @@ final class ResearchService {
                 addedAt: .now
             )
         }
-    }
-
-    // MARK: - DOI Import
-
-    func importDOI(_ doi: String) async throws -> SavedPaper {
-        guard let encodedDOI = doi.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
-              let url = URL(string: "https://api.semanticscholar.org/graph/v1/paper/DOI:\(encodedDOI)?fields=title,authors,year,journal,abstract,citationCount") else {
-            throw ResearchError.invalidQuery
-        }
-        let (data, response) = try await NetworkProcessActivity.withActivityOnMainActor(
-            reason: "Epistemos research lookup"
-        ) {
-            try await URLSession.shared.data(from: url)
-        }
-
-        if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-            do {
-                let s2 = try JSONDecoder().decode(S2Paper.self, from: data)
-                let paper = SavedPaper(
-                    title: s2.title ?? "Untitled",
-                    authors: s2.authors?.compactMap(\.name).joined(separator: ", ") ?? "Unknown",
-                    year: s2.year.map(String.init),
-                    journal: s2.journal?.name,
-                    doi: doi,
-                    abstract: s2.abstract
-                )
-                research.addSavedPaper(paper)
-                return paper
-            } catch {
-                Log.research.error("Failed to decode S2Paper for DOI \(doi, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            }
-        }
-
-        // Fallback — save with DOI only
-        let paper = SavedPaper(title: "Paper from DOI: \(doi)", authors: "Unknown Authors", doi: doi)
-        research.addSavedPaper(paper)
-        return paper
     }
 
     // MARK: - Novelty Check (LLM-powered)

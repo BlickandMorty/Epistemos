@@ -28,6 +28,7 @@ struct ResearchTopicIntent: AppIntent {
         let service = bootstrap.researchService
         let papers = try await service.searchPapers(query: topic)
         let limited = Array(papers.prefix(maxResults))
+        bootstrap.researchState.replaceResearchPapers(limited)
 
         if saveToNote {
             let formatted = limited.map { "- **\($0.title)** (\($0.year ?? 0)) — \($0.authors.prefix(3).joined(separator: ", "))" }.joined(separator: "\n")

@@ -6,7 +6,10 @@ import SwiftUI
 // embedded-graph work later.
 
 enum GraphOverlayControlsDisplay {
-    static let filterTypes: [GraphNodeType] = GraphNodeType.visibleCases.filter { $0 != .tag }
+    static let filterTypes: [GraphNodeType] = GraphNodeType.visibleCases.filter {
+        $0 != .tag && $0 != .source && $0 != .quote
+    }
+    static let excludedFilterTypes = Set(GraphNodeType.visibleCases).subtracting(filterTypes)
     static let showsPageModeToggle = GraphOverlayModePolicy.pageModeEnabled
 }
 
@@ -54,6 +57,7 @@ struct GraphFloatingControls: View {
         .glassEffect(.regular.interactive(), in: Capsule())
         .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
         .fixedSize(horizontal: true, vertical: false)
+        .onAppear(perform: hideExcludedTypesIfNeeded)
     }
 
     // MARK: - Type Filter Pills
@@ -70,6 +74,18 @@ struct GraphFloatingControls: View {
                     }
                 )
             }
+        }
+    }
+
+    private func hideExcludedTypesIfNeeded() {
+        var changed = false
+        for type in GraphOverlayControlsDisplay.excludedFilterTypes
+            where graphState.filter.activeNodeTypes.contains(type) {
+            graphState.filter.toggleType(type)
+            changed = true
+        }
+        if changed {
+            graphState.requestFilterSync()
         }
     }
 

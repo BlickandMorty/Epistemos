@@ -23,9 +23,13 @@ struct NodeInstance {
     radius: f32,        // offset 8
     z: f32,             // offset 12 — depth for perspective/parallax
     color: [f32; 4],    // offset 16
-    face_type: f32,     // offset 32 — 0=none, 1=note..8=block, -1=face feature
+    face_type: f32,     // offset 32 — 0=none, 1=note..8=block, -1=face feature, -2/-3=highlight rings
     _pad: [f32; 3], // offset 36 — alignment padding to 48 bytes (Metal float4 → 16-byte struct stride)
 }
+
+const FACE_FEATURE_TYPE: f32 = -1.0;
+const SELECTED_HIGHLIGHT_RING_TYPE: f32 = -2.0;
+const HOVER_HIGHLIGHT_RING_TYPE: f32 = -3.0;
 
 /// Per-instance data for straight-line edge rendering.
 #[repr(C)]
@@ -592,7 +596,7 @@ struct NodeInstance {
     float  radius;
     float  z;
     float4 color;
-    float  face_type;   // 0=none, 1=note..8=block, -1=face feature
+    float  face_type;   // 0=none, 1=note..8=block, -1=face feature, -2/-3=highlight rings
     float  _pad[3];     // alignment padding to 48 bytes (float4 → 16-byte struct stride)
 };
 
@@ -686,6 +690,22 @@ fragment float4 node_fragment(
     bool dialogue_theme = uniforms.dialogue_theme > 0.5;
     float dist = length(in.uv);
     if (in.highlight_dim < 0.001) discard_fragment();
+
+    if (in.face_type <= -2.0) {
+        bool selected_ring = in.face_type > -2.5;
+        float inner = selected_ring ? 0.76 : 0.84;
+        float outer = selected_ring ? 0.98 : 0.97;
+        float feather = selected_ring ? 0.06 : 0.05;
+        float ring = smoothstep(inner, inner + feather, dist)
+            * (1.0 - smoothstep(outer - feather, outer, dist));
+        float halo = (1.0 - smoothstep(outer - 0.03, 1.0, dist))
+            * (selected_ring ? 0.32 : 0.18);
+        float alpha = in.color.a * max(ring, halo);
+        if (alpha < 0.01) discard_fragment();
+
+        float3 ring_color = in.color.rgb + halo * float3(0.18, 0.24, 0.30);
+        return float4(ring_color, alpha);
+    }
 
     // ── Glow instances: soft radial gradient, no sphere shading ──
     // Detected by low alpha (glow alpha is 0.03–0.11, regular nodes are 0.5+).
@@ -1392,7 +1412,7 @@ impl Renderer {
             radius,
             z: 0.99,
             color,
-            face_type: -1.0, // face feature circle, not a node
+            face_type: FACE_FEATURE_TYPE, // face feature circle, not a node
             _pad: [0.0; 3],
         });
         self.classic_velocity_scratch.push([0.0, 0.0]);
@@ -1894,11 +1914,7 @@ impl Renderer {
         };
         let z = z_for_link_count(world.hierarchy[node_index].link_count);
         color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
-        let face_type = if self.visual_theme == VisualTheme::Dialogue {
-            (world.hierarchy[node_index].node_type as f32) + 1.0
-        } else {
-            0.0
-        };
+        let face_type = (world.hierarchy[node_index].node_type as f32) + 1.0;
         NodeInstance {
             position: [world.transform[node_index].x, world.transform[node_index].y],
             radius: self.classic_node_radius(world, node_index),
@@ -2713,10 +2729,10 @@ impl Renderer {
             unsafe {
                 *ptr.add(idx) = NodeInstance {
                     position: [world.transform[gi].x, world.transform[gi].y],
-                    radius: r + 6.0,
+                    radius: r + 8.0,
                     z: z_for_link_count(world.hierarchy[gi].link_count),
-                    color: [color[0], color[1], color[2], 0.6],
-                    face_type: 0.0,
+                    color: [color[0], color[1], color[2], 0.58],
+                    face_type: SELECTED_HIGHLIGHT_RING_TYPE,
                     _pad: [0.0; 3],
                 };
             }
@@ -2733,10 +2749,10 @@ impl Renderer {
             unsafe {
                 *ptr.add(idx) = NodeInstance {
                     position: [world.transform[gi].x, world.transform[gi].y],
-                    radius: r + 2.0,
+                    radius: r + 4.0,
                     z: z_for_link_count(world.hierarchy[gi].link_count),
-                    color: [1.0, 1.0, 1.0, 0.2],
-                    face_type: 0.0,
+                    color: [1.0, 1.0, 1.0, 0.32],
+                    face_type: HOVER_HIGHLIGHT_RING_TYPE,
                     _pad: [0.0; 3],
                 };
             }
@@ -3900,14 +3916,14 @@ mod tests {
     }
 
     #[test]
-    fn classic_theme_disables_pixel_face_overlay_instances() {
+    fn classic_theme_keeps_pixel_face_overlay_instances() {
         let world = make_test_world(1, 120.0);
         let mut renderer = make_test_renderer();
         renderer.visual_theme = VisualTheme::Classic;
 
         let node = renderer.classic_node_instance(&world, 0);
 
-        assert_eq!(node.face_type, 0.0);
+        assert_eq!(node.face_type, 1.0);
     }
 
     #[test]
@@ -3922,6 +3938,33 @@ mod tests {
         renderer.update_positions(&world);
 
         assert_eq!(renderer.face_feature_count, 0);
+    }
+
+    #[test]
+    fn highlight_instances_use_ring_overlay_sentinels() {
+        let world = make_test_world(2, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.set_viewport_size(1280, 720);
+        renderer.update_positions(&world);
+
+        renderer.set_highlights(
+            Some(world.graph_node[0].node_id),
+            Some(world.graph_node[1].node_id),
+            &world,
+        );
+
+        let highlight_start = renderer.glow_count + renderer.node_count + renderer.face_feature_count;
+        let ptr = renderer
+            .node_instance_buf
+            .as_ref()
+            .expect("highlight buffer should exist")
+            .contents() as *const NodeInstance;
+        let selected = unsafe { *ptr.add(highlight_start) };
+        let hovered = unsafe { *ptr.add(highlight_start + 1) };
+
+        assert_eq!(renderer.highlight_count, 2);
+        assert_eq!(selected.face_type, SELECTED_HIGHLIGHT_RING_TYPE);
+        assert_eq!(hovered.face_type, HOVER_HIGHLIGHT_RING_TYPE);
     }
 
     #[test]

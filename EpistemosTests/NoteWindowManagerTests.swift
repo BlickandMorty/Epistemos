@@ -272,6 +272,16 @@ struct NoteWindowManagerTests {
         #expect(panel.toolbarStyle == .unifiedCompact)
     }
 
+    @Test("Utility panels include a detached settings window alongside notes")
+    func utilityPanelsIncludeDetachedSettingsWindow() {
+        #expect(UtilityPanel.allCases == [.notes, .settings])
+        #expect(UtilityPanel.notes.title == "Notes")
+        #expect(UtilityPanel.settings.title == "Settings")
+        #expect(UtilityPanel.settings.icon == "gearshape")
+        #expect(UtilityPanel.settings.defaultSize.width >= 900)
+        #expect(UtilityPanel.settings.defaultSize.height >= 680)
+    }
+
     @MainActor
     @Test("Note window theme refresh keeps native chrome when custom themes are disabled")
     func noteWindowThemeRefreshKeepsNativeChromeWhenThemesDisabled() throws {
@@ -635,8 +645,10 @@ struct NoteWindowManagerTests {
         #expect(!GraphOverlayModePolicy.pageModeEnabled)
         #expect(!GraphOverlayControlsDisplay.showsPageModeToggle)
         #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.tag))
+        #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.source))
+        #expect(!GraphOverlayControlsDisplay.filterTypes.contains(.quote))
         #expect(
-            GraphOverlayControlsDisplay.filterTypes == [.note, .chat, .idea, .source, .folder, .quote]
+            GraphOverlayControlsDisplay.filterTypes == [.note, .chat, .idea, .folder]
         )
     }
 

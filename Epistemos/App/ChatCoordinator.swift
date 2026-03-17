@@ -27,7 +27,6 @@ final class ChatCoordinator {
     private let modelContainer: ModelContainer
     private let eventBus: EventBus
     private let llmService: LLMService
-    private let researchState: ResearchState
     private let notesUI: NotesUIState
 
     init(
@@ -40,7 +39,6 @@ final class ChatCoordinator {
         modelContainer: ModelContainer,
         eventBus: EventBus,
         llmService: LLMService,
-        researchState: ResearchState,
         notesUI: NotesUIState
     ) {
         self.bootstrap = bootstrap
@@ -52,7 +50,6 @@ final class ChatCoordinator {
         self.modelContainer = modelContainer
         self.eventBus = eventBus
         self.llmService = llmService
-        self.researchState = researchState
         self.notesUI = notesUI
     }
 
@@ -152,10 +149,6 @@ final class ChatCoordinator {
                             dualMessage: dual
                         )
                     }
-                    if !dual.rawAnalysis.isEmpty {
-                        self.extractAndSaveCitations(from: dual.rawAnalysis, source: "research",
-                                                      originChatId: capturedChatId)
-                    }
                 }
 
                 let stream = pipeline.run(
@@ -205,11 +198,6 @@ final class ChatCoordinator {
                         }
 
                         eventBus.emit(.pipelineComplete)
-
-                        if let responseText = chatState.messages.last?.content {
-                            self.extractAndSaveCitations(from: responseText, source: "chat",
-                                                          originChatId: capturedChatId)
-                        }
 
                         if !chatState.isIncognito {
                             self.persistChatCompletion(
@@ -285,22 +273,6 @@ final class ChatCoordinator {
             } catch {
                 Log.pipeline.debug("Chat title generation failed: \(error.localizedDescription, privacy: .public)")
             }
-        }
-    }
-
-    // MARK: - Auto-Citation Extraction
-
-    func extractAndSaveCitations(from text: String, source: String,
-                                  originChatId: String? = nil, originNoteTitle: String? = nil) {
-        let papers = CitationExtractor.extract(from: text, source: source,
-                                                originChatId: originChatId,
-                                                originNoteTitle: originNoteTitle)
-        guard !papers.isEmpty else { return }
-        for paper in papers {
-            researchState.addSavedPaper(paper)
-        }
-        if papers.count > 0 {
-            eventBus.emitToast("Added \(papers.count) source\(papers.count == 1 ? "" : "s") to library", type: .info)
         }
     }
 

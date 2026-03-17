@@ -16,8 +16,9 @@ actor BackgroundGraphActor {
         positionHints: [String: SIMD2<Float>]
     ) throws -> (nodes: [GraphNodeRecord], edges: [GraphEdgeRecord]) {
         let sdNodes = try modelContext.fetch(FetchDescriptor<SDGraphNode>())
-            .filter { $0.nodeType != .tag }
+            .filter { !GraphStore.hiddenNodeTypes.contains($0.nodeType) }
         let sdEdges = try modelContext.fetch(FetchDescriptor<SDGraphEdge>())
+        let visibleNodeIds = Set(sdNodes.map(\.id))
 
         var hints = positionHints
         let golden = Float.pi * (3.0 - sqrt(5.0))
@@ -44,8 +45,15 @@ actor BackgroundGraphActor {
             )
         }
 
-        let edgeRecords = sdEdges.map { sdEdge -> GraphEdgeRecord in
-            GraphEdgeRecord(
+        let edgeRecords = sdEdges.compactMap { sdEdge -> GraphEdgeRecord? in
+            guard sdEdge.edgeType != .quotes,
+                  visibleNodeIds.contains(sdEdge.sourceNodeId),
+                  visibleNodeIds.contains(sdEdge.targetNodeId)
+            else {
+                return nil
+            }
+
+            return GraphEdgeRecord(
                 id: sdEdge.id,
                 sourceNodeId: sdEdge.sourceNodeId,
                 targetNodeId: sdEdge.targetNodeId,

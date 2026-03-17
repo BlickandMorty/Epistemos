@@ -2,11 +2,10 @@ import Foundation
 
 // MARK: - ExtractionResult
 // Codable struct for parsing LLM JSON responses from note entity extraction.
-// Updated for 7-type model: sources (absorbs thinkers), quotes, tags (absorbs concepts).
+// Updated for 7-type model: sources (absorbs thinkers), tags (absorbs concepts).
 
 nonisolated struct ExtractionResult: Codable, Sendable {
     var sources: [ExtractedSource]
-    var quotes: [ExtractedQuote]
     var tags: [ExtractedTag]
     var crossNoteLinks: [CrossNoteLink]?
 
@@ -16,13 +15,6 @@ nonisolated struct ExtractionResult: Codable, Sendable {
         var title: String?
         var type: String?
         var relationship: String?
-        var blockId: String?
-    }
-
-    nonisolated struct ExtractedQuote: Codable, Sendable {
-        var text: String
-        var attribution: String?
-        var context: String?
         var blockId: String?
     }
 

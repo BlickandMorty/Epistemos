@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import Testing
@@ -236,6 +237,13 @@ struct ThemePairTests {
     func graphOverlayFallbackUsesNativeTokens() {
         #expect(GraphOverlayThemeStyle.resolvedTheme(uiState: nil, fallbackIsDark: false) == .systemLight)
         #expect(GraphOverlayThemeStyle.resolvedTheme(uiState: nil, fallbackIsDark: true) == .systemDark)
+    }
+
+    @MainActor
+    @Test("Graph overlay uses bright light blur and dark HUD blur")
+    func graphOverlayUsesLightAndDarkNativeBlurMaterials() {
+        #expect(GraphOverlayThemeStyle.blurMaterial(for: .systemLight) == .sheet)
+        #expect(GraphOverlayThemeStyle.blurMaterial(for: .systemDark) == .hudWindow)
     }
 
     @MainActor
@@ -776,21 +784,31 @@ struct ThemePairTests {
         #expect(uiState.landingCursorAnimationEnabled)
     }
 
-    @Test("Icon composer package carries dark and tinted variants")
-    func iconComposerSupportsDarkAndTinted() throws {
+    @Test("Icon composer package points at exported light dark and tinted renders")
+    func iconComposerSupportsLightDarkAndTinted() throws {
         let json = try loadIconComposerJSON()
         #expect(json.contains("\"appearance\" : \"dark\""))
         #expect(json.contains("\"appearance\" : \"tinted\""))
-        #expect(json.contains("Gemini Generated Image 5 (4).png"))
+        #expect(json.contains("Ep (mag)-iOS-Default-1024x1024@1x.png"))
+        #expect(json.contains("Ep (mag)-iOS-Dark-1024x1024@1x.png"))
+        #expect(json.contains("Ep (mag)-iOS-TintedLight-1024x1024@1x.png"))
+        #expect(!json.contains("Gemini Generated Image"))
     }
 
-    @Test("Icon composer package keeps the authored six asset sources")
-    func iconComposerKeepsAuthoredAssetSources() throws {
+    @Test("Icon composer package keeps the exported icon source bundle from Exports 2")
+    func iconComposerKeepsReplacementSourceBundle() throws {
         let assetNames = try FileManager.default.contentsOfDirectory(
             atPath: repoRootURL().appendingPathComponent("Epistemos/AppIcon.icon/Assets").path
         )
-        #expect(assetNames.count == 6)
-        #expect(assetNames.contains("Gemini Generated Image 5 (4).png"))
+        #expect(assetNames.count == 7)
+        #expect(assetNames.contains("Ep (mag)-iOS-Default-1024x1024@1x.png"))
+        #expect(assetNames.contains("Ep (mag)-iOS-Dark-1024x1024@1x.png"))
+        #expect(assetNames.contains("Ep (mag)-iOS-ClearLight-1024x1024@1x.png"))
+        #expect(assetNames.contains("Ep (mag)-iOS-ClearDark-1024x1024@1x.png"))
+        #expect(assetNames.contains("Ep (mag)-iOS-TintedLight-1024x1024@1x.png"))
+        #expect(assetNames.contains("Ep (mag)-iOS-TintedDark-1024x1024@1x.png"))
+        #expect(assetNames.contains("Ep (mag)-watchOS-Default-1088x1088@1x.png"))
+        #expect(!assetNames.contains("Gemini Generated Image 5.png"))
     }
 
     @Test("Bundle plist points at the icon composer asset")
@@ -814,6 +832,102 @@ struct ThemePairTests {
         #expect(pbxproj.contains("SWIFT_OBJC_BRIDGING_HEADER = \"Epistemos-Bridging-Header.h\";"))
         #expect(pbxproj.contains("\"\\\"$(SRCROOT)/graph-engine-bridge\\\"\","))
         #expect(pbxproj.contains("\"\\\"$(SRCROOT)/build-rust\\\"\","))
+    }
+
+    @Test("main window navigation keeps only the home tab")
+    func homeNavigationKeepsOnlyHome() {
+        #expect(HomeTab.allCases == [.home])
+        #expect(HomeTab.home.label == "Home")
+    }
+
+    @Test("command surfaces route settings through the detached utility window")
+    func commandSurfacesRouteSettingsToUtilityWindow() throws {
+        let rootView = try String(
+            contentsOf: repoRootURL().appendingPathComponent("Epistemos/App/RootView.swift")
+        )
+        let appCommands = try String(
+            contentsOf: repoRootURL().appendingPathComponent("Epistemos/App/EpistemosApp.swift")
+        )
+        let commandPalette = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Landing/CommandPaletteOverlay.swift"
+            )
+        )
+        let landingView = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Landing/LandingView.swift"
+            )
+        )
+
+        #expect(!rootView.contains("case .library"))
+        #expect(!rootView.contains("case .settings"))
+        #expect(!rootView.contains("Picker(\"\", selection: $uiBindable.homeTab)"))
+        #expect(appCommands.contains("UtilityWindowManager.shared.show(.settings)"))
+        #expect(!appCommands.contains(".keyboardShortcut(\",\", modifiers: .command)"))
+        #expect(commandPalette.contains("UtilityWindowManager.shared.show(.settings)"))
+        #expect(commandPalette.contains("badge: \"\\u{2318}S\""))
+        #expect(landingView.contains("label: \"Settings\""))
+        #expect(landingView.contains("key: \"S\""))
+        #expect(!commandPalette.contains("nav-library"))
+        #expect(!commandPalette.contains("Open Library"))
+    }
+
+    @Test("landing notes hint reveals the new note shortcut on hover")
+    func landingNotesHintRevealsNewNoteShortcut() throws {
+        let landingView = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Landing/LandingView.swift"
+            )
+        )
+
+        #expect(landingView.contains("HoverRevealCommandHint("))
+        #expect(landingView.contains("primary: .init(modIcon: \"command\", key: \"2\", label: \"Notes\")"))
+        #expect(landingView.contains("secondary: .init(modIcon: \"command\", key: \"N\", label: \"New Note\")"))
+        #expect(!landingView.contains("CommandHint(modIcon: \"command\", key: \"N\", label: \"New Note\""))
+    }
+
+    @Test("project drops the unused legacy navigation pill file")
+    func projectDropsUnusedLegacyNavigationPillFile() throws {
+        let pbxproj = try loadProjectFile()
+        #expect(!pbxproj.contains("PillNavBar.swift"))
+    }
+
+    @Test("shell helpers keep only the heading and flow layout still in use")
+    func shellHelpersKeepOnlyLiveTypes() throws {
+        let shellSource = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Views/Shell/PageShell.swift"
+            )
+        )
+
+        #expect(shellSource.contains("struct TypewriterHeading: View"))
+        #expect(shellSource.contains("struct FlowLayout: Layout"))
+        #expect(!shellSource.contains("struct PageShell<"))
+        #expect(!shellSource.contains("struct AccentTitleBar: View"))
+        #expect(!shellSource.contains("struct GlassSection<"))
+        #expect(!shellSource.contains("struct ResearchTabBar<"))
+    }
+
+    @Test("research state keeps only the live paper cache used by shortcuts")
+    func researchStateKeepsOnlyLivePaperCache() throws {
+        let researchState = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/State/ResearchState.swift"
+            )
+        )
+        let researchTypes = try String(
+            contentsOf: repoRootURL().appendingPathComponent(
+                "Epistemos/Models/ResearchTypes.swift"
+            )
+        )
+
+        #expect(researchState.contains("var researchPapers: [ResearchPaper] = []"))
+        #expect(!researchState.contains("currentCitations"))
+        #expect(!researchState.contains("pendingReroute"))
+        #expect(!researchState.contains("researchBooks"))
+        #expect(!researchState.contains("pendingNotesContent"))
+        #expect(!researchTypes.contains("struct Citation:"))
+        #expect(!researchTypes.contains("struct ResearchBook:"))
     }
 
     private func loadIconComposerJSON() throws -> String {
