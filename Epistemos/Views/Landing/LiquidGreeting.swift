@@ -48,14 +48,14 @@ struct LiquidGreeting: View {
             )
         )
         return ASCIIRippleConfiguration(
-            duration: 0.28 + (0.12 * clampedIntensity),
+            duration: 0.15 + (0.4 * clampedIntensity), // 0.28 to 0.4 increasing max duration to give more punch
             characters: Array(greetingGlyphPool.prefix(characterCount)),
             preserveSpaces: true,
-            spread: 0.98 + (0.42 * clampedIntensity),
-            waveThreshold: 1.9 - (0.42 * clampedIntensity),
-            characterMultiplier: max(1, Int(round(1 + (clampedVariety * 2)))),
-            animationStep: 0.07 - (0.02 * clampedIntensity),
-            waveBuffer: 1.45 + (0.35 * clampedIntensity)
+            spread: 0.5 + (2.0 * clampedIntensity), // Make spread: 0.5 + (2.0 * clampedIntensity)
+            waveThreshold: 2.5 - (1.5 * clampedIntensity), // 2.5 - (1.5 * clampedIntensity)
+            characterMultiplier: max(1, Int(round(1 + (clampedVariety * 5)))), // increase variety multiplier
+            animationStep: 0.1 - (0.08 * clampedIntensity), // 0.1 - (0.08 * clampedIntensity)
+            waveBuffer: 1.0 + (1.5 * clampedIntensity) // 1.0 + (1.5 * clampedIntensity)
         )
     }
 
@@ -179,15 +179,15 @@ struct LiquidGreeting: View {
 
     /// Single reactive flag — drives both typewriter and cursor via .task(id:)
     private var shouldAnimate: Bool {
-        ui.activePanel == .home && !ui.windowOccluded && greetingAnimationEnabled
+        ui.activePanel == .home && !ui.windowOccluded && ui.landingGreetingAnimationEnabled
     }
 
-    /// Composite key so .task(id:) restarts when either flag changes
+    /// Composite key so .task(id:) restarts when flags change
     private var taskKey: String {
-        "\(shouldAnimate)_\(retractNow)_\(Int(ui.landingGreetingIntensity * 100))_\(Int(ui.landingGreetingCharacterVariety * 100))_\(Int(ui.landingGreetingPace * 100))"
+        "\(shouldAnimate)_\(retractNow)_\(ui.landingGreetingASCIIEnabled)_\(ui.landingGreetingTypewriterEnabled)_\(ui.landingGreetingTypewriterVersion.rawValue)_\(Int(ui.landingGreetingIntensity * 100))_\(Int(ui.landingGreetingCharacterVariety * 100))_\(Int(ui.landingGreetingPace * 100))"
     }
 
-    // MARK: - Body
+    @State private var isHovered = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
@@ -200,6 +200,7 @@ struct LiquidGreeting: View {
                 shadowRadius: compact ? 0 : 8,
                 configuration: tunedRippleConfiguration,
                 manualTrigger: rippleTrigger,
+                interactive: ui.landingGreetingASCIIHoverEnabled,
                 pulseOnAppear: false
             )
 
@@ -208,12 +209,18 @@ struct LiquidGreeting: View {
                 .fill(theme.fontAccent.opacity(0.85))
                 .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
-                .opacity(!usesSimplifiedGreeting && cursorVisible ? 1 : 0)
+                .opacity(!usesSimplifiedGreeting && ui.landingGreetingTypewriterEnabled && cursorVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.3), value: cursorVisible)
                 .padding(.leading, 2)
         }
         .frame(minHeight: compact ? 0 : 80)
         .shadow(color: compact ? .clear : theme.fontAccent.opacity(0.12), radius: compact ? 0 : 8)
+        .onContinuousHover { phase in
+            switch phase {
+            case .active: isHovered = true
+            case .ended: isHovered = false
+            }
+        }
         // Single reactive task — SwiftUI cancels + restarts when taskKey changes.
         // No manual onAppear/onDisappear/onChange juggling needed.
         .task(id: taskKey) {
@@ -226,7 +233,7 @@ struct LiquidGreeting: View {
                 cursorVisible = false
                 return
             }
-            if usesSimplifiedGreeting {
+            if usesSimplifiedGreeting || !ui.landingGreetingTypewriterEnabled {
                 cursorVisible = false
                 displayText = Self.restingGreeting
                 return
@@ -276,6 +283,11 @@ struct LiquidGreeting: View {
 
     @MainActor
     private func typewriterLoop() async {
+        if ui.landingGreetingTypewriterVersion == .nodeTitle {
+            await nodeTitleTypewriterLoop()
+            return
+        }
+
         // === NORMAL GREETING LOOP ===
         var currentPhrase = ShortPrompts.greetings.randomElement() ?? "Greetings, Researcher"
         var transitionOrdinal = 0
@@ -306,6 +318,33 @@ struct LiquidGreeting: View {
             }
 
             currentPhrase = nextPhrase
+        }
+    }
+
+    @MainActor
+    private func nodeTitleTypewriterLoop() async {
+        var currentPhrase = ShortPrompts.greetings.randomElement() ?? "Greetings, Researcher"
+        
+        while !Task.isCancelled {
+            displayText = ""
+            cursorVisible = true
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled else { return }
+
+            for character in currentPhrase {
+                guard !Task.isCancelled else { return }
+                displayText.append(character)
+                triggerGreetingRipple()
+                try? await Task.sleep(for: .milliseconds(Int.random(in: 25...45))) // fast linear
+            }
+            
+            guard !Task.isCancelled else { return }
+            try? await Task.sleep(for: .milliseconds(500))
+            cursorVisible = false
+            try? await Task.sleep(for: .milliseconds(Int.random(in: tunedPauseRange)))
+            guard !Task.isCancelled else { return }
+            
+            currentPhrase = ShortPrompts.pickRandom(excluding: currentPhrase)
         }
     }
 
@@ -360,7 +399,8 @@ struct LiquidGreeting: View {
 
     @MainActor
     private func triggerGreetingRipple() {
-        guard !usesSimplifiedGreeting, !displayText.isEmpty else { return }
+        guard ui.landingGreetingASCIIEnabled, !usesSimplifiedGreeting, !displayText.isEmpty else { return }
+        if ui.landingGreetingASCIIHoverEnabled && !isHovered { return }
         rippleTrigger += 1
     }
 }

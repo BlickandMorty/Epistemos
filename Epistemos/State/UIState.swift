@@ -18,14 +18,34 @@ enum LandingCursorAnimationPolicy {
 
 enum LandingGreetingAnimationPolicy {
     static let enabledDefaultsKey = "epistemos.landingGreetingAnimationEnabled"
+    static let asciiEnabledDefaultsKey = "epistemos.landingGreetingASCIIEnabled"
+    static let typewriterEnabledDefaultsKey = "epistemos.landingGreetingTypewriterEnabled"
+    static let asciiHoverEnabledDefaultsKey = "epistemos.landingGreetingASCIIHoverEnabled"
+    static let typewriterVersionDefaultsKey = "epistemos.landingGreetingTypewriterVersion"
     static let intensityDefaultsKey = "epistemos.landingGreetingIntensity"
     static let varietyDefaultsKey = "epistemos.landingGreetingVariety"
     static let paceDefaultsKey = "epistemos.landingGreetingPace"
 
     static let defaultEnabled = true
+    static let defaultASCIIEnabled = true
+    static let defaultTypewriterEnabled = true
+    static let defaultASCIIHoverEnabled = false
+    static let defaultTypewriterVersion: LandingGreetingTypewriterVersion = .liquid
     static let defaultIntensity = 0.52
     static let defaultVariety = 0.58
     static let defaultPace = 0.46
+}
+
+enum LandingGreetingTypewriterVersion: String, CaseIterable, Codable, Sendable {
+    case liquid = "liquid"
+    case nodeTitle = "nodeTitle"
+
+    var displayName: String {
+        switch self {
+        case .liquid: "Liquid"
+        case .nodeTitle: "Node Title"
+        }
+    }
 }
 
 enum LandingWakeFieldPolicy {
@@ -148,6 +168,42 @@ final class UIState {
         }
     }
 
+    var landingGreetingASCIIEnabled = LandingGreetingAnimationPolicy.defaultASCIIEnabled {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingASCIIEnabled,
+                forKey: LandingGreetingAnimationPolicy.asciiEnabledDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingTypewriterEnabled = LandingGreetingAnimationPolicy.defaultTypewriterEnabled {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingTypewriterEnabled,
+                forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingASCIIHoverEnabled = LandingGreetingAnimationPolicy.defaultASCIIHoverEnabled {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingASCIIHoverEnabled,
+                forKey: LandingGreetingAnimationPolicy.asciiHoverEnabledDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingTypewriterVersion = LandingGreetingAnimationPolicy.defaultTypewriterVersion {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingTypewriterVersion.rawValue,
+                forKey: LandingGreetingAnimationPolicy.typewriterVersionDefaultsKey
+            )
+        }
+    }
+
     var landingGreetingIntensity = LandingGreetingAnimationPolicy.defaultIntensity {
         didSet {
             UserDefaults.standard.set(
@@ -227,6 +283,25 @@ final class UIState {
             landingGreetingAnimationEnabled = UserDefaults.standard.bool(
                 forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
             )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.asciiEnabledDefaultsKey) != nil {
+            landingGreetingASCIIEnabled = UserDefaults.standard.bool(
+                forKey: LandingGreetingAnimationPolicy.asciiEnabledDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey) != nil {
+            landingGreetingTypewriterEnabled = UserDefaults.standard.bool(
+                forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.asciiHoverEnabledDefaultsKey) != nil {
+            landingGreetingASCIIHoverEnabled = UserDefaults.standard.bool(
+                forKey: LandingGreetingAnimationPolicy.asciiHoverEnabledDefaultsKey
+            )
+        }
+        if let rawVersion = UserDefaults.standard.string(forKey: LandingGreetingAnimationPolicy.typewriterVersionDefaultsKey),
+           let version = LandingGreetingTypewriterVersion(rawValue: rawVersion) {
+            landingGreetingTypewriterVersion = version
         }
         if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.intensityDefaultsKey) != nil {
             landingGreetingIntensity = UserDefaults.standard.double(

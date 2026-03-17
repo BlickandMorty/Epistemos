@@ -156,7 +156,9 @@ struct LandingView: View {
 
     private var greetingContent: some View {
         ZStack {
-            LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme)
+            LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme) {
+                activateLandingSearch()
+            }
 
             VStack(spacing: 0) {
                 Spacer()
@@ -1550,6 +1552,7 @@ enum LandingASCIIWakeFieldEngine {
 private struct LandingASCIIWakeField: View {
     let vocabulary: [String]
     let theme: EpistemosTheme
+    var onTapAction: (() -> Void)? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1679,6 +1682,28 @@ private struct LandingASCIIWakeField: View {
                     lastHoverPoint = nil
                     lastHoverTime = nil
                 }
+            }
+            .onTapGesture(count: 1, coordinateSpace: .local) { location in
+                onTapAction?()
+                guard shouldAnimate else { return }
+                let point = LandingASCIIWakeFieldEngine.TrailPoint(
+                    x: max(0, min(CGFloat(columns - 1), (location.x - 26) / charWidth)),
+                    y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
+                )
+                let now = Date.timeIntervalSinceReferenceDate
+                
+                // Add an ASCII explosion wave
+                var blastSamples: [LandingASCIIWakeFieldEngine.TrailSample] = []
+                for i in 0..<24 {
+                    blastSamples.append(
+                        LandingASCIIWakeFieldEngine.TrailSample(
+                            point: point,
+                            radiusScale: 5.0,
+                            ageOffset: Double(i) * 0.015
+                        )
+                    )
+                }
+                appendTrailSamples(blastSamples, now: now, columns: columns, rows: rows)
             }
             .onChange(of: shouldAnimate) { _, newValue in
                 guard !newValue else { return }

@@ -3,39 +3,19 @@
   "fill-specializations" : [
     {
       "value" : {
-        "linear-gradient" : [
-          "display-p3:0.55431,0.92592,1.00000,1.00000",
-          "display-p3:1.00000,0.58324,0.84645,1.00000"
-        ],
-        "orientation" : {
-          "start" : {
-            "x" : 0.5,
-            "y" : 0
-          },
-          "stop" : {
-            "x" : 0.5,
-            "y" : 0.7
-          }
-        }
+        "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
       }
     },
     {
       "appearance" : "dark",
       "value" : {
-        "linear-gradient" : [
-          "display-p3:0.29863,0.11682,0.19897,1.00000",
-          "display-p3:0.22704,0.09763,0.17008,1.00000"
-        ],
-        "orientation" : {
-          "start" : {
-            "x" : 0.5,
-            "y" : 0
-          },
-          "stop" : {
-            "x" : 0.5,
-            "y" : 0.7
-          }
-        }
+        "solid" : "extended-gray:0.00000,1.00000"
+      }
+    },
+    {
+      "appearance" : "tinted",
+      "value" : {
+        "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
       }
     }
   ],
@@ -184,8 +164,8 @@
             }
           ],
           "hidden" : false,
-          "image-name" : "Ep (mag)-iOS-TintedLight-1024x1024@1x.png",
-          "name" : "Tinted",
+          "image-name" : "Ep (mag)-iOS-ClearLight-1024x1024@1x.png",
+          "name" : "Clear Light",
           "opacity-specializations" : [
             {
               "value" : 0

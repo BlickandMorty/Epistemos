@@ -784,14 +784,19 @@ struct ThemePairTests {
         #expect(uiState.landingCursorAnimationEnabled)
     }
 
-    @Test("Icon composer package points at exported light dark and tinted renders")
-    func iconComposerSupportsLightDarkAndTinted() throws {
+    @Test("Icon composer package points at exported white black and clear renders")
+    func iconComposerSupportsNeutralLightDarkAndClearRenders() throws {
         let json = try loadIconComposerJSON()
         #expect(json.contains("\"appearance\" : \"dark\""))
         #expect(json.contains("\"appearance\" : \"tinted\""))
         #expect(json.contains("Ep (mag)-iOS-Default-1024x1024@1x.png"))
         #expect(json.contains("Ep (mag)-iOS-Dark-1024x1024@1x.png"))
-        #expect(json.contains("Ep (mag)-iOS-TintedLight-1024x1024@1x.png"))
+        #expect(json.contains("Ep (mag)-iOS-ClearLight-1024x1024@1x.png"))
+        #expect(!json.contains("Ep (mag)-iOS-TintedLight-1024x1024@1x.png"))
+        #expect(!json.contains("Ep (mag)-iOS-TintedDark-1024x1024@1x.png"))
+        #expect(!json.contains("0.55431,0.92592,1.00000"))
+        #expect(!json.contains("1.00000,0.58324,0.84645"))
+        #expect(!json.contains("0.29863,0.11682,0.19897"))
         #expect(!json.contains("Gemini Generated Image"))
     }
 
@@ -842,22 +847,10 @@ struct ThemePairTests {
 
     @Test("command surfaces route settings through the detached utility window")
     func commandSurfacesRouteSettingsToUtilityWindow() throws {
-        let rootView = try String(
-            contentsOf: repoRootURL().appendingPathComponent("Epistemos/App/RootView.swift")
-        )
-        let appCommands = try String(
-            contentsOf: repoRootURL().appendingPathComponent("Epistemos/App/EpistemosApp.swift")
-        )
-        let commandPalette = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Landing/CommandPaletteOverlay.swift"
-            )
-        )
-        let landingView = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Landing/LandingView.swift"
-            )
-        )
+        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
+        let appCommands = try loadTextFile("Epistemos/App/EpistemosApp.swift")
+        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(!rootView.contains("case .library"))
         #expect(!rootView.contains("case .settings"))
@@ -874,11 +867,7 @@ struct ThemePairTests {
 
     @Test("landing notes hint reveals the new note shortcut on hover")
     func landingNotesHintRevealsNewNoteShortcut() throws {
-        let landingView = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Landing/LandingView.swift"
-            )
-        )
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(landingView.contains("HoverRevealCommandHint("))
         #expect(landingView.contains("primary: .init(modIcon: \"command\", key: \"2\", label: \"Notes\")"))
@@ -894,11 +883,7 @@ struct ThemePairTests {
 
     @Test("shell helpers keep only the heading and flow layout still in use")
     func shellHelpersKeepOnlyLiveTypes() throws {
-        let shellSource = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Views/Shell/PageShell.swift"
-            )
-        )
+        let shellSource = try loadTextFile("Epistemos/Views/Shell/PageShell.swift")
 
         #expect(shellSource.contains("struct TypewriterHeading: View"))
         #expect(shellSource.contains("struct FlowLayout: Layout"))
@@ -910,16 +895,8 @@ struct ThemePairTests {
 
     @Test("research state keeps only the live paper cache used by shortcuts")
     func researchStateKeepsOnlyLivePaperCache() throws {
-        let researchState = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/State/ResearchState.swift"
-            )
-        )
-        let researchTypes = try String(
-            contentsOf: repoRootURL().appendingPathComponent(
-                "Epistemos/Models/ResearchTypes.swift"
-            )
-        )
+        let researchState = try loadTextFile("Epistemos/State/ResearchState.swift")
+        let researchTypes = try loadTextFile("Epistemos/Models/ResearchTypes.swift")
 
         #expect(researchState.contains("var researchPapers: [ResearchPaper] = []"))
         #expect(!researchState.contains("currentCitations"))
@@ -931,8 +908,7 @@ struct ThemePairTests {
     }
 
     private func loadIconComposerJSON() throws -> String {
-        let iconURL = repoRootURL().appendingPathComponent("Epistemos/AppIcon.icon/icon.json")
-        return try String(contentsOf: iconURL)
+        try loadTextFile("Epistemos/AppIcon.icon/icon.json")
     }
 
     private func loadBundlePlist() throws -> [String: Any] {
@@ -942,7 +918,14 @@ struct ThemePairTests {
     }
 
     private func loadProjectFile() throws -> String {
-        try String(contentsOf: repoRootURL().appendingPathComponent("Epistemos.xcodeproj/project.pbxproj"))
+        try loadTextFile("Epistemos.xcodeproj/project.pbxproj")
+    }
+
+    private func loadTextFile(_ relativePath: String) throws -> String {
+        try String(
+            contentsOf: repoRootURL().appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
     }
 
     private func repoRootURL() -> URL {

@@ -321,12 +321,12 @@ struct RootView: View {
             Label("Greeting FX", systemImage: LandingToolbarGlyphs.greetingSymbol)
         }
         .accessibilityLabel(
-            ui.landingGreetingAnimationEnabled
+            ui.landingGreetingTypewriterEnabled || ui.landingGreetingASCIIEnabled
                 ? "Adjust landing greeting animation"
                 : "Landing greeting animation is off"
         )
         .help(
-            ui.landingGreetingAnimationEnabled
+            ui.landingGreetingTypewriterEnabled || ui.landingGreetingASCIIEnabled
                 ? "Adjust landing greeting animation"
                 : "Landing greeting animation is off"
         )
@@ -473,7 +473,23 @@ private struct LandingGreetingControlsView: View {
             Text("Greeting Animation")
                 .font(.system(size: 14, weight: .semibold))
 
-            Toggle("Enable greeting animation", isOn: $ui.landingGreetingAnimationEnabled)
+            Toggle("Enable typewriter", isOn: $ui.landingGreetingTypewriterEnabled)
+            if ui.landingGreetingTypewriterEnabled {
+                Picker("Version", selection: $ui.landingGreetingTypewriterVersion) {
+                    ForEach(LandingGreetingTypewriterVersion.allCases, id: \.self) { version in
+                        Text(version.displayName).tag(version)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            Toggle("Enable ASCII ripple", isOn: $ui.landingGreetingASCIIEnabled)
+            if ui.landingGreetingASCIIEnabled {
+                Toggle("ASCII on hover only", isOn: $ui.landingGreetingASCIIHoverEnabled)
+                    .padding(.leading, 12)
+                    .font(.system(size: 12))
+            }
 
             LandingAnimationSliderRow(
                 title: "ASCII intensity",
@@ -497,7 +513,10 @@ private struct LandingGreetingControlsView: View {
             )
 
             Button("Reset Greeting Defaults") {
-                ui.landingGreetingAnimationEnabled = LandingGreetingAnimationPolicy.defaultEnabled
+                ui.landingGreetingTypewriterEnabled = LandingGreetingAnimationPolicy.defaultTypewriterEnabled
+                ui.landingGreetingASCIIEnabled = LandingGreetingAnimationPolicy.defaultASCIIEnabled
+                ui.landingGreetingASCIIHoverEnabled = LandingGreetingAnimationPolicy.defaultASCIIHoverEnabled
+                ui.landingGreetingTypewriterVersion = LandingGreetingAnimationPolicy.defaultTypewriterVersion
                 ui.landingGreetingIntensity = LandingGreetingAnimationPolicy.defaultIntensity
                 ui.landingGreetingCharacterVariety = LandingGreetingAnimationPolicy.defaultVariety
                 ui.landingGreetingPace = LandingGreetingAnimationPolicy.defaultPace
