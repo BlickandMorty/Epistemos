@@ -185,7 +185,6 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
 
         // Centering
         coord.updateCentering()
-        coord.renderedTableOverlayManager?.refresh()
 
         return scrollView
     }

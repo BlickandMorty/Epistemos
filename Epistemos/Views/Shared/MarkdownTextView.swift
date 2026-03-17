@@ -367,25 +367,31 @@ final class NoteEditorRenderedTableHostingView: NSHostingView<NoteEditorTablePla
 
     private var table: MarkdownTableModel
     private var theme: EpistemosTheme
+    private var placeholderSize: CGSize
     private let previewPopover = NSPopover()
     private var isPopoverPinned = false
     private var hoverTrackingArea: NSTrackingArea?
+    private(set) var contentConfigurationCount = 0
 
     init(table: MarkdownTableModel, theme: EpistemosTheme) {
         self.table = table
         self.theme = theme
+        self.placeholderSize = NoteEditorTablePlaceholderView.preferredSize(for: table)
         super.init(rootView: NoteEditorTablePlaceholderView(table: table, theme: theme))
         translatesAutoresizingMaskIntoConstraints = true
         previewPopover.delegate = self
         previewPopover.animates = true
+        contentConfigurationCount = 1
     }
 
     required init(rootView: NoteEditorTablePlaceholderView) {
         self.table = rootView.table
         self.theme = rootView.theme
+        self.placeholderSize = NoteEditorTablePlaceholderView.preferredSize(for: rootView.table)
         super.init(rootView: rootView)
         previewPopover.delegate = self
         previewPopover.animates = true
+        contentConfigurationCount = 1
     }
 
     @available(*, unavailable)
@@ -458,16 +464,17 @@ final class NoteEditorRenderedTableHostingView: NSHostingView<NoteEditorTablePla
     }
 
     func update(table: MarkdownTableModel, theme: EpistemosTheme, frame: NSRect) {
-        self.table = table
-        self.theme = theme
-        rootView = NoteEditorTablePlaceholderView(table: table, theme: theme)
-        if previewPopover.isShown {
-            configurePreviewPopover()
+        if self.table != table || self.theme != theme {
+            self.table = table
+            self.theme = theme
+            placeholderSize = NoteEditorTablePlaceholderView.preferredSize(for: table)
+            rootView = NoteEditorTablePlaceholderView(table: table, theme: theme)
+            contentConfigurationCount += 1
+            if previewPopover.isShown {
+                configurePreviewPopover()
+            }
         }
 
-        self.frame = NSRect(x: frame.minX, y: frame.minY, width: frame.width, height: 1)
-        layoutSubtreeIfNeeded()
-        let placeholderSize = fittingSize
         let placeholderWidth = min(frame.width, max(placeholderSize.width, 1))
         let placeholderHeight = max(24, placeholderSize.height)
         self.frame = NSRect(
@@ -515,8 +522,24 @@ final class NoteEditorRenderedTableHostingView: NSHostingView<NoteEditorTablePla
 }
 
 struct NoteEditorTablePlaceholderView: View {
+    fileprivate static let labelFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+    fileprivate static let iconWidth: CGFloat = 18
+    fileprivate static let iconHeight: CGFloat = 18
+    fileprivate static let spacing: CGFloat = 6
+    fileprivate static let horizontalPadding: CGFloat = 4
+    fileprivate static let verticalPadding: CGFloat = 8
+
     let table: MarkdownTableModel
     let theme: EpistemosTheme
+
+    static func preferredSize(for table: MarkdownTableModel) -> CGSize {
+        let label = table.placeholderLabel as NSString
+        let labelSize = label.size(withAttributes: [.font: labelFont])
+        return CGSize(
+            width: ceil(labelSize.width) + iconWidth + spacing + horizontalPadding,
+            height: ceil(max(labelSize.height, iconHeight) + verticalPadding)
+        )
+    }
 
     var body: some View {
         HStack(spacing: 6) {

@@ -1848,6 +1848,7 @@ final class RenderedTableOverlayManager2 {
     private weak var textView: ProseTextView2?
     private var overlays: [String: NoteEditorRenderedTableHostingView] = [:]
     private var theme: EpistemosTheme
+    private var documentMayContainTables = false
     private var scrollRefreshTask: Task<Void, Never>?
     private var textChangeRefreshTask: Task<Void, Never>?
     private var bufferedVisibleCharacterRange: NSRange?
@@ -1927,6 +1928,15 @@ final class RenderedTableOverlayManager2 {
             removeAll()
             return
         }
+        if recalculateDocumentState {
+            documentMayContainTables = storage.string.contains("|")
+            if !documentMayContainTables {
+                removeAll()
+                return
+            }
+        } else if !documentMayContainTables && overlays.isEmpty {
+            return
+        }
 
         guard let characterWindow = NoteEditorScrollViewport.window(
             in: textView,
@@ -1984,6 +1994,7 @@ final class RenderedTableOverlayManager2 {
         textChangeRefreshTask = nil
         scrollRefreshTask?.cancel()
         scrollRefreshTask = nil
+        documentMayContainTables = false
         pendingBufferedCharacterRange = nil
         bufferedVisibleCharacterRange = nil
         for overlay in overlays.values {

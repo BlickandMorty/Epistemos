@@ -167,6 +167,58 @@ struct ScrollStabilityTests {
     }
 
     @MainActor
+    @Test("table placeholder skips content rebuilds for frame-only updates")
+    func tablePlaceholderSkipsContentRebuildsForFrameOnlyUpdates() throws {
+        let table = try #require(
+            MarkdownTableModel.parse(
+                """
+                | Subject | Score |
+                | --- | --- |
+                | Pens | 12 |
+                """
+            )
+        )
+
+        let host = NoteEditorRenderedTableHostingView(table: table, theme: .light)
+
+        #expect(host.contentConfigurationCount == 1)
+
+        host.update(
+            table: table,
+            theme: .light,
+            frame: NSRect(x: 0, y: 24, width: 420, height: 96)
+        )
+
+        #expect(host.contentConfigurationCount == 1)
+
+        host.update(
+            table: table,
+            theme: .oled,
+            frame: NSRect(x: 0, y: 48, width: 420, height: 96)
+        )
+
+        #expect(host.contentConfigurationCount == 2)
+    }
+
+    @Test("table placeholder preferred size stays compact")
+    func tablePlaceholderPreferredSizeStaysCompact() throws {
+        let table = try #require(
+            MarkdownTableModel.parse(
+                """
+                | Subject | Score |
+                | --- | --- |
+                | Pens | 12 |
+                """
+            )
+        )
+
+        let size = NoteEditorTablePlaceholderView.preferredSize(for: table)
+
+        #expect(size.height <= 28)
+        #expect(size.width < 200)
+    }
+
+    @MainActor
     private func waitUntilRefreshObserved(
         timeout: Duration = .milliseconds(250),
         condition: @escaping @MainActor () -> Bool
