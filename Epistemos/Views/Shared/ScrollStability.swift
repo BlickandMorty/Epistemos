@@ -26,12 +26,26 @@ struct ScrollAutoFollowState: Sendable, Equatable {
     mutating func markProgrammaticScrollToBottom() {
         isFollowingBottom = true
     }
+
+    mutating func setFollowingBottom(_ isFollowingBottom: Bool) {
+        self.isFollowingBottom = isFollowingBottom
+    }
 }
 
 enum ScrollStability {
     static func distanceToBottom(for geometry: ScrollGeometry) -> CGFloat {
         let contentBottom = geometry.contentSize.height + geometry.contentInsets.bottom
         return max(contentBottom - geometry.visibleRect.maxY, 0)
+    }
+
+    static func followMode(
+        for geometry: ScrollGeometry,
+        from state: ScrollAutoFollowState
+    ) -> Bool {
+        updatedAutoFollowState(
+            from: state,
+            distanceToBottom: distanceToBottom(for: geometry)
+        ).isFollowingBottom
     }
 
     static func updatedAutoFollowState(

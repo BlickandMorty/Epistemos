@@ -70,6 +70,7 @@ struct TaggedMarkdownTextView: View {
     let theme: EpistemosTheme
     var rippleStyle: MarkdownRippleStyle = .none
     var foregroundOverride: Color? = nil
+    private let blocks: [MarkdownBlock]
 
     /// Matches epistemic tags with optional qualifiers:
     /// [DATA], [DATA - Tier 2], [CONFLICT], [MODEL - Framework], [UNCERTAIN - High], etc.
@@ -85,9 +86,21 @@ struct TaggedMarkdownTextView: View {
         pattern: "\\[(Tier\\s*\\d+)\\]"
     )
 
+    init(
+        content: String,
+        theme: EpistemosTheme,
+        rippleStyle: MarkdownRippleStyle = .none,
+        foregroundOverride: Color? = nil
+    ) {
+        self.content = content
+        self.theme = theme
+        self.rippleStyle = rippleStyle
+        self.foregroundOverride = foregroundOverride
+        self.blocks = Self.mergeTableBlocks(Self.parseBlocks(content))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            let blocks = mergeTableBlocks(parseBlocks(content))
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 renderBlock(block)
             }
@@ -115,7 +128,7 @@ struct TaggedMarkdownTextView: View {
 
     // MARK: - Block Parsing
 
-    private func parseBlocks(_ text: String) -> [MarkdownBlock] {
+    private static func parseBlocks(_ text: String) -> [MarkdownBlock] {
         var blocks: [MarkdownBlock] = []
         let lines = text.components(separatedBy: "\n")
         var i = 0
@@ -188,7 +201,7 @@ struct TaggedMarkdownTextView: View {
 
     // MARK: - Table Merging
 
-    private func mergeTableBlocks(_ blocks: [MarkdownBlock]) -> [MarkdownBlock] {
+    private static func mergeTableBlocks(_ blocks: [MarkdownBlock]) -> [MarkdownBlock] {
         var result: [MarkdownBlock] = []
         var tableLines: [String] = []
 

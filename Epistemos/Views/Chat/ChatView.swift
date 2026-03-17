@@ -91,15 +91,13 @@ struct ChatView: View {
                 }
                 .contentMargins(.top, 0, for: .scrollContent)
                 .onScrollGeometryChange(
-                    for: CGFloat.self,
-                    of: ScrollStability.distanceToBottom(for:)
-                ) { _, distance in
-                    let nextState = ScrollStability.updatedAutoFollowState(
-                        from: autoFollow,
-                        distanceToBottom: distance
-                    )
-                    guard nextState != autoFollow else { return }
-                    autoFollow = nextState
+                    for: Bool.self,
+                    of: { geometry in
+                        ScrollStability.followMode(for: geometry, from: autoFollow)
+                    }
+                ) { _, isFollowingBottom in
+                    guard isFollowingBottom != autoFollow.isFollowingBottom else { return }
+                    autoFollow.setFollowingBottom(isFollowingBottom)
                 }
                 .onChange(of: chat.messages.count) { _, _ in
                     guard autoFollow.isFollowingBottom else { return }

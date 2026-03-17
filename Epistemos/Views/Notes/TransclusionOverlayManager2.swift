@@ -31,6 +31,8 @@ final class TransclusionOverlayManager2 {
     private var missingPageIds: Set<String> = []
     private var documentMayContainBlockRefs = false
     private var scrollRefreshTask: Task<Void, Never>?
+    private var bufferedVisibleCharacterRange: NSRange?
+    private var pendingBufferedCharacterRange: NSRange?
 
     /// Callback when a transclusion is edited. (blockId, newContent)
     var onBlockEdit: ((String, String) -> Void)?
@@ -51,18 +53,37 @@ final class TransclusionOverlayManager2 {
     func refreshAfterTextChange() {
         scrollRefreshTask?.cancel()
         scrollRefreshTask = nil
+        pendingBufferedCharacterRange = nil
+        bufferedVisibleCharacterRange = nil
         refresh(recalculateDocumentState: true)
     }
 
     func refreshForScroll() {
         guard documentMayContainBlockRefs || !overlays.isEmpty else { return }
+        guard let window = currentCharacterWindow() else {
+            removeAll()
+            return
+        }
+        if let bufferedVisibleCharacterRange,
+           NoteEditorScrollViewport.contains(
+            bufferedRange: bufferedVisibleCharacterRange,
+            visibleRange: window.visibleRange
+           ) {
+            return
+        }
+        pendingBufferedCharacterRange = window.bufferedRange
         guard scrollRefreshTask == nil else { return }
 
         scrollRefreshTask = Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self else { return }
+            try? await Task.sleep(for: NoteEditorPerformancePolicy.scrollOverlayRefreshDelay)
+            guard let self, !Task.isCancelled else { return }
+            let bufferedRange = self.pendingBufferedCharacterRange
+            self.pendingBufferedCharacterRange = nil
             self.scrollRefreshTask = nil
-            self.refresh(recalculateDocumentState: false)
+            self.refresh(
+                recalculateDocumentState: false,
+                preferredBufferedCharacterRange: bufferedRange
+            )
         }
     }
 
@@ -77,7 +98,10 @@ final class TransclusionOverlayManager2 {
         missingBlockIds.remove(blockId)
     }
 
-    private func refresh(recalculateDocumentState: Bool) {
+    private func refresh(
+        recalculateDocumentState: Bool,
+        preferredBufferedCharacterRange: NSRange? = nil
+    ) {
         onDidRefresh?()
 
         guard let textView,
@@ -102,57 +126,20 @@ final class TransclusionOverlayManager2 {
             return
         }
 
-        let visibleRect = textView.visibleRect
+        guard let characterWindow = NoteEditorScrollViewport.window(
+            in: textView,
+            textLayoutManager: tlm,
+            contentStorage: contentStorage,
+            length: storage.length,
+            preferredBufferedRange: preferredBufferedCharacterRange
+        ) else {
+            removeAll()
+            return
+        }
+        bufferedVisibleCharacterRange = characterWindow.bufferedRange
+
         let origin = textView.textContainerOrigin
         let docStart = contentStorage.documentRange.location
-
-        // Jump directly to the first visible fragment via point lookup — O(log n).
-        // This matches TK1's glyphRange(forBoundingRect:) which also jumped to the viewport.
-        let topPoint = CGPoint(x: 0, y: max(visibleRect.minY - origin.y, 0))
-        guard let startFragment = tlm.textLayoutFragment(for: topPoint),
-              let startLoc = startFragment.textElement?.elementRange?.location
-        else {
-            removeAll()
-            return
-        }
-
-        // Enumerate forward from the first visible fragment to compute the visible char range.
-        var visibleStart = 0
-        var visibleEnd = 0
-        var foundStart = false
-
-        tlm.enumerateTextLayoutFragments(
-            from: startLoc,
-            options: [.ensuresLayout, .estimatesSize]
-        ) { fragment in
-            let fragFrame = fragment.layoutFragmentFrame
-            let viewY = origin.y + fragFrame.origin.y
-
-            // Past visible area — stop
-            if viewY > visibleRect.maxY { return false }
-
-            if let elemRange = fragment.textElement?.elementRange {
-                let start = contentStorage.offset(from: docStart, to: elemRange.location)
-                let end = contentStorage.offset(from: docStart, to: elemRange.endLocation)
-                if !foundStart {
-                    visibleStart = start
-                    foundStart = true
-                }
-                visibleEnd = max(visibleEnd, end)
-            }
-
-            return true
-        }
-
-        guard foundStart, visibleEnd > visibleStart else {
-            removeAll()
-            return
-        }
-
-        let charRange = NSRange(
-            location: visibleStart,
-            length: min(visibleEnd - visibleStart, storage.length - visibleStart)
-        )
 
         // Find all ((ref)) markers via .link attribute with "blockref://" prefix.
         // Both TK1 (MarkdownTextStorage) and TK2 (MarkdownContentStorage) set
@@ -162,7 +149,7 @@ final class TransclusionOverlayManager2 {
 
         storage.enumerateAttribute(
             .link,
-            in: charRange,
+            in: characterWindow.bufferedRange,
             options: []
         ) { value, range, _ in
             let urlString: String
@@ -281,10 +268,14 @@ final class TransclusionOverlayManager2 {
 
     /// Remove all overlays (called on page switch or dealloc).
     func removeAll() {
+        scrollRefreshTask?.cancel()
+        scrollRefreshTask = nil
         for (_, overlay) in overlays {
             overlay.removeFromSuperview()
         }
         overlays.removeAll()
+        pendingBufferedCharacterRange = nil
+        bufferedVisibleCharacterRange = nil
     }
 
     // MARK: - Block Resolution
@@ -292,6 +283,21 @@ final class TransclusionOverlayManager2 {
     private struct ResolvedBlock {
         let content: String
         let pageId: String
+    }
+
+    private func currentCharacterWindow() -> NoteEditorVisibleCharacterWindow? {
+        guard let textView,
+              let textLayoutManager = textView.textLayoutManager,
+              let contentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
+              let storage = textView.textStorage
+        else { return nil }
+
+        return NoteEditorScrollViewport.window(
+            in: textView,
+            textLayoutManager: textLayoutManager,
+            contentStorage: contentStorage,
+            length: storage.length
+        )
     }
 
     private func resolveBlock(_ blockId: String, depth: Int = 0) -> ResolvedBlock? {

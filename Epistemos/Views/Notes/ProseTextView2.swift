@@ -1850,6 +1850,9 @@ final class RenderedTableOverlayManager2 {
     private var theme: EpistemosTheme
     private var scrollRefreshTask: Task<Void, Never>?
     private var textChangeRefreshTask: Task<Void, Never>?
+    private var bufferedVisibleCharacterRange: NSRange?
+    private var pendingBufferedCharacterRange: NSRange?
+    var onDidRefresh: (() -> Void)?
 
     init(textView: ProseTextView2, theme: EpistemosTheme) {
         self.textView = textView
@@ -1870,21 +1873,49 @@ final class RenderedTableOverlayManager2 {
             self.textChangeRefreshTask = nil
             self.scrollRefreshTask?.cancel()
             self.scrollRefreshTask = nil
+            self.pendingBufferedCharacterRange = nil
+            self.bufferedVisibleCharacterRange = nil
             self.refresh()
         }
     }
 
     func refreshForScroll() {
+        guard let window = currentCharacterWindow() else {
+            removeAll()
+            return
+        }
+        if let bufferedVisibleCharacterRange,
+           NoteEditorScrollViewport.contains(
+            bufferedRange: bufferedVisibleCharacterRange,
+            visibleRange: window.visibleRange
+           ) {
+            return
+        }
+        pendingBufferedCharacterRange = window.bufferedRange
         guard scrollRefreshTask == nil else { return }
         scrollRefreshTask = Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self else { return }
+            try? await Task.sleep(for: NoteEditorPerformancePolicy.scrollOverlayRefreshDelay)
+            guard let self, !Task.isCancelled else { return }
+            let bufferedRange = self.pendingBufferedCharacterRange
+            self.pendingBufferedCharacterRange = nil
             self.scrollRefreshTask = nil
-            self.refresh()
+            self.refresh(
+                recalculateDocumentState: false,
+                preferredBufferedCharacterRange: bufferedRange
+            )
         }
     }
 
     func refresh() {
+        refresh(recalculateDocumentState: true)
+    }
+
+    private func refresh(
+        recalculateDocumentState: Bool,
+        preferredBufferedCharacterRange: NSRange? = nil
+    ) {
+        onDidRefresh?()
+
         guard let textView,
               let textLayoutManager = textView.textLayoutManager,
               let contentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
@@ -1897,18 +1928,22 @@ final class RenderedTableOverlayManager2 {
             return
         }
 
-        let visibleCharRange = Self.visibleCharacterRange(
+        guard let characterWindow = NoteEditorScrollViewport.window(
             in: textView,
             textLayoutManager: textLayoutManager,
             contentStorage: contentStorage,
-            length: text.length
-        )
-        guard visibleCharRange.length > 0 else {
+            length: text.length,
+            preferredBufferedRange: preferredBufferedCharacterRange
+        ) else {
             removeAll()
             return
         }
+        bufferedVisibleCharacterRange = characterWindow.bufferedRange
 
-        let tableRanges = MarkdownTableBlockRanges.ranges(in: text, intersecting: visibleCharRange)
+        let tableRanges = MarkdownTableBlockRanges.ranges(
+            in: text,
+            intersecting: characterWindow.bufferedRange
+        )
         let origin = textView.textContainerOrigin
         let overlayWidth = max(0, textView.bounds.width - origin.x * 2)
         let documentStart = contentStorage.documentRange.location
@@ -1949,6 +1984,8 @@ final class RenderedTableOverlayManager2 {
         textChangeRefreshTask = nil
         scrollRefreshTask?.cancel()
         scrollRefreshTask = nil
+        pendingBufferedCharacterRange = nil
+        bufferedVisibleCharacterRange = nil
         for overlay in overlays.values {
             overlay.removeFromSuperview()
         }
@@ -1963,8 +2000,103 @@ final class RenderedTableOverlayManager2 {
         }
     }
 
-    private static func visibleCharacterRange(
+    private func currentCharacterWindow() -> NoteEditorVisibleCharacterWindow? {
+        guard let textView,
+              let textLayoutManager = textView.textLayoutManager,
+              let contentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
+              let storage = textView.textStorage
+        else { return nil }
+
+        return NoteEditorScrollViewport.window(
+            in: textView,
+            textLayoutManager: textLayoutManager,
+            contentStorage: contentStorage,
+            length: storage.length
+        )
+    }
+
+    private static func frame(
+        for tableRange: NSRange,
         in textView: ProseTextView2,
+        textLayoutManager: NSTextLayoutManager,
+        contentStorage: NSTextContentStorage,
+        documentStart: NSTextLocation,
+        overlayWidth: CGFloat
+    ) -> NSRect? {
+        guard overlayWidth > 0 else { return nil }
+
+        let text = textView.string as NSString
+        let origin = textView.textContainerOrigin
+        var cursor = tableRange.location
+        var unionRect = NSRect.null
+
+        while cursor < NSMaxRange(tableRange) {
+            let lineRange = text.lineRange(for: NSRange(location: cursor, length: 0))
+            guard let location = contentStorage.location(documentStart, offsetBy: lineRange.location),
+                  let fragment = textLayoutManager.textLayoutFragment(for: location)
+            else {
+                cursor = NSMaxRange(lineRange)
+                continue
+            }
+
+            unionRect = unionRect.union(fragment.layoutFragmentFrame)
+            cursor = NSMaxRange(lineRange)
+        }
+
+        guard !unionRect.isNull, unionRect.height > 0 else { return nil }
+        return NSRect(
+            x: origin.x,
+            y: origin.y + unionRect.minY,
+            width: overlayWidth,
+            height: unionRect.height
+        )
+    }
+}
+
+enum NoteEditorPerformancePolicy {
+    static let renderedTableOverlayRefreshDelay: Duration = .milliseconds(120)
+    static let scrollOverlayRefreshDelay: Duration = .milliseconds(40)
+    static let overlayViewportPaddingMultiplier = 1
+}
+
+struct NoteEditorVisibleCharacterWindow: Equatable {
+    let visibleRange: NSRange
+    let bufferedRange: NSRange
+}
+
+enum NoteEditorScrollViewport {
+    static func window(
+        in textView: NSTextView,
+        textLayoutManager: NSTextLayoutManager,
+        contentStorage: NSTextContentStorage,
+        length: Int,
+        preferredBufferedRange: NSRange? = nil
+    ) -> NoteEditorVisibleCharacterWindow? {
+        let visibleRange = visibleCharacterRange(
+            in: textView,
+            textLayoutManager: textLayoutManager,
+            contentStorage: contentStorage,
+            length: length
+        )
+        guard visibleRange.length > 0 else { return nil }
+
+        let bufferedRange = clipped(
+            preferredBufferedRange ?? defaultBufferedRange(for: visibleRange, length: length),
+            length: length
+        )
+        return NoteEditorVisibleCharacterWindow(
+            visibleRange: visibleRange,
+            bufferedRange: bufferedRange
+        )
+    }
+
+    static func contains(bufferedRange: NSRange, visibleRange: NSRange) -> Bool {
+        bufferedRange.location <= visibleRange.location
+            && NSMaxRange(bufferedRange) >= NSMaxRange(visibleRange)
+    }
+
+    private static func visibleCharacterRange(
+        in textView: NSTextView,
         textLayoutManager: NSTextLayoutManager,
         contentStorage: NSTextContentStorage,
         length: Int
@@ -2016,46 +2148,22 @@ final class RenderedTableOverlayManager2 {
         )
     }
 
-    private static func frame(
-        for tableRange: NSRange,
-        in textView: ProseTextView2,
-        textLayoutManager: NSTextLayoutManager,
-        contentStorage: NSTextContentStorage,
-        documentStart: NSTextLocation,
-        overlayWidth: CGFloat
-    ) -> NSRect? {
-        guard overlayWidth > 0 else { return nil }
-
-        let text = textView.string as NSString
-        let origin = textView.textContainerOrigin
-        var cursor = tableRange.location
-        var unionRect = NSRect.null
-
-        while cursor < NSMaxRange(tableRange) {
-            let lineRange = text.lineRange(for: NSRange(location: cursor, length: 0))
-            guard let location = contentStorage.location(documentStart, offsetBy: lineRange.location),
-                  let fragment = textLayoutManager.textLayoutFragment(for: location)
-            else {
-                cursor = NSMaxRange(lineRange)
-                continue
-            }
-
-            unionRect = unionRect.union(fragment.layoutFragmentFrame)
-            cursor = NSMaxRange(lineRange)
-        }
-
-        guard !unionRect.isNull, unionRect.height > 0 else { return nil }
-        return NSRect(
-            x: origin.x,
-            y: origin.y + unionRect.minY,
-            width: overlayWidth,
-            height: unionRect.height
+    private static func defaultBufferedRange(for visibleRange: NSRange, length: Int) -> NSRange {
+        let padding = max(
+            visibleRange.length * NoteEditorPerformancePolicy.overlayViewportPaddingMultiplier,
+            visibleRange.length
         )
+        let location = max(0, visibleRange.location - padding)
+        let end = min(length, NSMaxRange(visibleRange) + padding)
+        return NSRange(location: location, length: max(0, end - location))
     }
-}
 
-enum NoteEditorPerformancePolicy {
-    static let renderedTableOverlayRefreshDelay: Duration = .milliseconds(120)
+    private static func clipped(_ range: NSRange, length: Int) -> NSRange {
+        guard length > 0 else { return NSRange(location: 0, length: 0) }
+        let location = min(max(range.location, 0), max(length - 1, 0))
+        let end = min(length, max(location, NSMaxRange(range)))
+        return NSRange(location: location, length: max(0, end - location))
+    }
 }
 
 // MARK: - NSTextLayoutManagerDelegate (Phase 6)

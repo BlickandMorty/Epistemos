@@ -65,6 +65,21 @@ struct ScrollStabilityTests {
         #expect(ChatScrollFollowPolicy.streamingThrottle == .milliseconds(250))
     }
 
+    @Test("scroll follow mode helper preserves hysteresis")
+    func scrollFollowModeHelperPreservesHysteresis() {
+        let geometry = ScrollGeometry(
+            contentOffset: CGPoint(x: 0, y: 124),
+            contentSize: CGSize(width: 320, height: 400),
+            contentInsets: EdgeInsets(),
+            containerSize: CGSize(width: 320, height: 240)
+        )
+        var detached = ScrollAutoFollowState()
+        detached.update(distanceToBottom: 140)
+
+        #expect(ScrollStability.followMode(for: geometry, from: ScrollAutoFollowState()))
+        #expect(!ScrollStability.followMode(for: geometry, from: detached))
+    }
+
     @MainActor
     @Test("classic transclusion overlay refresh is coalesced during scroll")
     func classicTransclusionRefreshIsCoalesced() async throws {
@@ -105,6 +120,50 @@ struct ScrollStabilityTests {
         try await waitUntilRefreshObserved { refreshCount == 1 }
 
         #expect(refreshCount == 1)
+    }
+
+    @MainActor
+    @Test("TK2 transclusion overlay refresh skips small scrolls inside the buffered viewport")
+    func textKit2TransclusionRefreshSkipsSmallBufferedScroll() async throws {
+        let (scrollView, textView) = makeTextKit2TextView(text: "Intro\n\n((abc))\n")
+        let manager = TransclusionOverlayManager2(textView: textView)
+        manager.refreshAfterTextChange()
+
+        var refreshCount = 0
+        manager.onDidRefresh = { refreshCount += 1 }
+
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: 24))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        manager.refreshForScroll()
+        try await Task.sleep(for: .milliseconds(80))
+
+        #expect(refreshCount == 0)
+    }
+
+    @MainActor
+    @Test("TK2 rendered table overlay refresh skips small scrolls inside the buffered viewport")
+    func textKit2RenderedTableRefreshSkipsSmallBufferedScroll() async throws {
+        let (scrollView, textView) = makeTextKit2TextView(
+            text: """
+            Intro
+
+            | Name | Value |
+            | --- | --- |
+            | A | B |
+            """
+        )
+        let manager = RenderedTableOverlayManager2(textView: textView, theme: .nativeDefault)
+        manager.refresh()
+
+        var refreshCount = 0
+        manager.onDidRefresh = { refreshCount += 1 }
+
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: 24))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        manager.refreshForScroll()
+        try await Task.sleep(for: .milliseconds(80))
+
+        #expect(refreshCount == 0)
     }
 
     @MainActor
@@ -157,5 +216,26 @@ struct ScrollStabilityTests {
         storage.replaceCharacters(in: NSRange(location: 0, length: storage.length), with: text)
         layoutManager.ensureLayout(for: container)
         return textView
+    }
+
+    @MainActor
+    private func makeTextKit2TextView(text: String) -> (NSScrollView, ProseTextView2) {
+        let (scrollView, textView) = ProseTextView2.makeTextKit2()
+        scrollView.frame = NSRect(x: 0, y: 0, width: 480, height: 220)
+        textView.frame = NSRect(x: 0, y: 0, width: 480, height: 2400)
+
+        let textStorage = textView.textStorage!
+        textStorage.beginEditing()
+        textStorage.replaceCharacters(in: NSRange(location: 0, length: textStorage.length), with: text)
+        textStorage.endEditing()
+        textView.reparseAndInvalidate()
+
+        if let contentStorage = textView.textLayoutManager?.textContentManager as? NSTextContentStorage {
+            textView.textLayoutManager?.ensureLayout(for: contentStorage.documentRange)
+        }
+
+        scrollView.contentView.scroll(to: .zero)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        return (scrollView, textView)
     }
 }
