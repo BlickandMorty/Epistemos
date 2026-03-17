@@ -74,8 +74,13 @@ enum WindowThemeStyler {
                 : nil
             effectView.material = .underWindowBackground
         } else {
-            backdropView(in: root)?.removeFromSuperview()
+            removeBackdrop(in: root)
         }
+    }
+
+    static func removeBackdrop(in root: NSView?) {
+        guard let root else { return }
+        backdropView(in: root)?.removeFromSuperview()
     }
 
     private static func backdropView(in root: NSView) -> NSVisualEffectView? {

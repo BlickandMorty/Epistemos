@@ -36,6 +36,7 @@ enum NoteWindowChrome {
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         let toolbar = window.toolbar ?? NSToolbar(identifier: toolbarIdentifier)
+        toolbar.showsBaselineSeparator = false
         window.toolbar = toolbar
         window.toolbarStyle = .unified
     }
@@ -43,19 +44,52 @@ enum NoteWindowChrome {
 
 @MainActor
 enum NoteWindowThemeStyler {
+    static func themedContentController(
+        hostingController: NSHostingController<some View>,
+        uiState: UIState
+    ) -> NSViewController {
+        NoteWindowBackdropController(hostingController: hostingController, uiState: uiState)
+    }
+
     static func apply(to window: NSWindow, uiState: UIState) {
         window.appearance = uiState.windowAppearance
         window.isOpaque = !uiState.usesNativeWindowBlur
         window.backgroundColor = uiState.windowBackgroundColor
         window.titlebarAppearsTransparent = true
+        window.toolbar?.showsBaselineSeparator = false
         window.toolbarStyle = .unified
-        WindowThemeStyler.applyBackdrop(in: window.contentView, uiState: uiState)
+        if let controller = window.contentViewController as? NoteWindowBackdropController {
+            controller.syncTheme(uiState: uiState)
+        } else {
+            WindowThemeStyler.removeBackdrop(in: window.contentView)
+        }
         if uiState.shouldUseThemeWorkarounds {
             window.applyThemedGlassToolbar(configuration: GlassToolbarConfiguration(theme: uiState.theme))
         } else {
             window.removeGlassToolbarTheme()
         }
         WindowThemeStyler.refreshChrome(of: window)
+    }
+}
+
+@MainActor
+final class NoteWindowBackdropController: NSViewController {
+    private let hostingController: NSViewController
+
+    init(hostingController: NSViewController, uiState: UIState) {
+        self.hostingController = hostingController
+        super.init(nibName: nil, bundle: nil)
+        addChild(hostingController)
+        view = WindowThemeStyler.themedContentView(host: hostingController.view, uiState: uiState)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func syncTheme(uiState: UIState) {
+        WindowThemeStyler.applyBackdrop(in: view, uiState: uiState)
     }
 }
 
@@ -310,7 +344,10 @@ final class NoteWindowManager {
             .modelContainer(bootstrap.modelContainer)
         let hostingController = NSHostingController(rootView: editorView)
         hostingController.sceneBridgingOptions = [.all]
-        window.contentViewController = hostingController
+        window.contentViewController = NoteWindowThemeStyler.themedContentController(
+            hostingController: hostingController,
+            uiState: bootstrap.uiState
+        )
         
         NoteWindowChrome.apply(to: window, toolbarIdentifier: "NoteEditor")
 
@@ -404,8 +441,7 @@ final class NoteWindowManager {
         let view = ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)
             .environment(bootstrap.uiState)
             .modelContainer(bootstrap.modelContainer)
-        let hostingView = NSHostingView(rootView: view)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        let hostingController = NSHostingController(rootView: view)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
@@ -415,7 +451,10 @@ final class NoteWindowManager {
         )
         let windowTitle = NoteTitleDisplay.resolvedTitle(title)
         window.title = "\(windowTitle) — \(dateStr)"
-        window.contentView = hostingView
+        window.contentViewController = NoteWindowThemeStyler.themedContentController(
+            hostingController: hostingController,
+            uiState: bootstrap.uiState
+        )
         window.center()
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 400, height: 300)

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 
 @testable import Epistemos
@@ -246,6 +247,7 @@ struct NoteWindowManagerTests {
         #expect(window.styleMask.contains(.fullSizeContentView))
         let toolbar = try #require(window.toolbar)
         #expect(toolbar.identifier == "TestNoteToolbar")
+        #expect(!toolbar.showsBaselineSeparator)
         #expect(window.toolbarStyle == .unified)
     }
 
@@ -293,7 +295,6 @@ struct NoteWindowManagerTests {
             #expect(window.appearance?.name != .darkAqua)
             #expect(window.titlebarAppearsTransparent)
             #expect(window.toolbarStyle == .unified)
-            #expect(window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) == true)
             #expect(
                 !window.titlebarAccessoryViewControllers.contains(where: {
                     $0.identifier?.rawValue == "GlassToolbar"
@@ -303,8 +304,8 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Note window theme refresh reapplies themed appearance when custom themes are enabled")
-    func noteWindowThemeRefreshReappliesChromeForCustomThemes() throws {
+    @Test("Legacy theme calls no longer force custom chrome into note windows")
+    func noteWindowThemeRefreshIgnoresLegacyCustomThemeCalls() throws {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -326,11 +327,11 @@ struct NoteWindowManagerTests {
             NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
             NoteWindowThemeStyler.apply(to: window, uiState: uiState)
 
-            #expect(window.appearance?.name == .darkAqua)
+            #expect(window.appearance == nil)
             #expect(window.titlebarAppearsTransparent)
             #expect(window.toolbarStyle == .unified)
             #expect(
-                window.titlebarAccessoryViewControllers.contains(where: {
+                !window.titlebarAccessoryViewControllers.contains(where: {
                     $0.identifier?.rawValue == "GlassToolbar"
                 })
             )
@@ -338,8 +339,8 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Note window theme refresh removes themed toolbar accessories when custom themes are turned off")
-    func noteWindowThemeRefreshRemovesThemedAccessoryWhenReturningToSystemDefault() {
+    @Test("Note window theme refresh stays native across legacy theme toggles")
+    func noteWindowThemeRefreshStaysNativeAcrossLegacyThemeToggles() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -361,7 +362,7 @@ struct NoteWindowManagerTests {
             uiState.isSystemDark = true
             NoteWindowThemeStyler.apply(to: window, uiState: uiState)
             #expect(
-                window.titlebarAccessoryViewControllers.contains(where: {
+                !window.titlebarAccessoryViewControllers.contains(where: {
                     $0.identifier?.rawValue == "GlassToolbar"
                 })
             )
@@ -376,6 +377,53 @@ struct NoteWindowManagerTests {
                 })
             )
         }
+    }
+
+    @MainActor
+    @Test("Note window theme refresh removes a stale utility backdrop from the live content root")
+    func noteWindowThemeRefreshRemovesStaleUtilityBackdrop() throws {
+        withPreservedThemeDefaults {
+            let defaults = UserDefaults.standard
+            defaults.removeObject(forKey: ThemeMode.defaultsKey)
+            defaults.removeObject(forKey: UIState.themePairDefaultsKey)
+
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1110, height: 740),
+                styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            defer { retainWindowFixture(window) }
+            let uiState = UIState()
+
+            NoteWindowChrome.apply(to: window, toolbarIdentifier: "TestNoteToolbar")
+            WindowThemeStyler.applyBackdrop(in: window.contentView, uiState: uiState)
+            let hadBackdrop = window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) ?? false
+            #expect(hadBackdrop)
+
+            NoteWindowThemeStyler.apply(to: window, uiState: uiState)
+            let hasBackdropAfterCleanup =
+                window.contentView?.subviews.contains(where: { $0 is NSVisualEffectView }) ?? false
+
+            #expect(!hasBackdropAfterCleanup)
+        }
+    }
+
+    @MainActor
+    @Test("Note windows wrap hosted content in a themed container so the blur stays behind the editor")
+    func noteWindowBackdropControllerWrapsHostedContent() throws {
+        let uiState = UIState()
+        let hosted = NSHostingController(rootView: Color.clear.frame(width: 120, height: 80))
+
+        let container = try #require(
+            NoteWindowThemeStyler.themedContentController(
+                hostingController: hosted,
+                uiState: uiState
+            ) as? NoteWindowBackdropController
+        )
+
+        #expect(container.view.subviews.contains(hosted.view))
+        #expect(container.view.subviews.contains(where: { $0 is NSVisualEffectView }))
     }
 
     @Test("Note toolbar uses native symbol mappings inside the unified strip")
@@ -403,9 +451,9 @@ struct NoteWindowManagerTests {
         #expect(!NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: true))
     }
 
-    @Test("Preview mode follows the active editor stack and preserves uppercase heading display")
+    @Test("Preview mode stays on the TK2 stack and preserves uppercase heading display only for legacy rendering")
     func previewModeUsesMatchingStack() {
-        #expect(NotePreviewRenderer.resolved(useTK2Editor: false) == .textKit1)
+        #expect(NotePreviewRenderer.resolved(useTK2Editor: false) == .textKit2)
         #expect(NotePreviewRenderer.resolved(useTK2Editor: true) == .textKit2)
         #expect(
             NotePreviewDisplay.renderedMarkdown(

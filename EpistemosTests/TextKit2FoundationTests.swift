@@ -75,7 +75,7 @@ struct ProseTextView2Tests {
 
         #expect(textView.markdownDelegate.theme == .systemLight)
         #expect(textView.textColor == NSColor(EpistemosTheme.systemLight.foreground))
-        #expect(textView.backgroundColor == NSColor(EpistemosTheme.systemLight.background))
+        #expect(textView.backgroundColor == ProseTextView2.editorBackgroundColor(for: .systemLight))
     }
 
     @Test("Writing tools enabled")
