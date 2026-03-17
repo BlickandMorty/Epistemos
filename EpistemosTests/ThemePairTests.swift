@@ -115,6 +115,31 @@ struct ThemePairTests {
     }
 
     @MainActor
+    @Test("UIState clears legacy theme defaults on init")
+    func uiStateClearsLegacyThemeDefaultsOnInit() {
+        let defaults = UserDefaults.standard
+        let keys = [ThemeMode.defaultsKey, UIState.themePairDefaultsKey]
+        let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
+        defer {
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+
+        defaults.set(ThemeMode.systemDefault.rawValue, forKey: ThemeMode.defaultsKey)
+        defaults.set(ThemePair.ember.rawValue, forKey: UIState.themePairDefaultsKey)
+
+        _ = UIState()
+
+        #expect(defaults.object(forKey: ThemeMode.defaultsKey) == nil)
+        #expect(defaults.object(forKey: UIState.themePairDefaultsKey) == nil)
+    }
+
+    @MainActor
     @Test("Theme mutators stay inert under the system-only runtime")
     func themeMutatorsStayInert() {
         withPreservedThemeDefaults {

@@ -445,10 +445,10 @@ struct NoteWindowManagerTests {
         #expect(NoteToolbarPalette.stripGlowOpacity(for: .platinumDark) == 0)
     }
 
-    @Test("Note toolbar strip shows native chrome only when custom themes are disabled")
-    func noteToolbarStripChromeFollowsThemeMode() {
+    @Test("Note toolbar strip always shows the native chrome now that custom themes are removed")
+    func noteToolbarStripAlwaysShowsNativeChrome() {
         #expect(NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: false))
-        #expect(!NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: true))
+        #expect(NoteToolbarSurfaceStyle.showsBackground(customThemesEnabled: true))
     }
 
     @Test("Preview mode stays on the TK2 stack and preserves uppercase heading display only for legacy rendering")

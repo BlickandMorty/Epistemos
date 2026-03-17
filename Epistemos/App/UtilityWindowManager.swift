@@ -69,9 +69,7 @@ enum WindowThemeStyler {
                 }
                 effectView = newEffect
             }
-            effectView.appearance = uiState.customThemesEnabled
-                ? NSAppearance(named: uiState.theme.isDark ? .darkAqua : .aqua)
-                : nil
+            effectView.appearance = nil
             effectView.material = .underWindowBackground
         } else {
             removeBackdrop(in: root)
@@ -213,7 +211,7 @@ final class UtilityWindowManager {
 
 /// View struct wrapper so `background` and `preferredColorScheme` are evaluated inside
 /// SwiftUI's render cycle. Because `ui` uses `@Environment` + `@Observable`, SwiftUI
-/// re-renders this body whenever `uiState.activePair` or `uiState.isSystemDark` changes.
+/// re-renders this body whenever system appearance changes.
 private struct ThemedUtilityRoot: View {
     @Environment(UIState.self) private var ui
     let kind: UtilityPanel
@@ -225,7 +223,7 @@ private struct ThemedUtilityRoot: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ui.customThemesEnabled ? ui.theme.background : Color.clear)
+        .background(Color.clear)
         .preferredColorScheme(ui.preferredColorScheme)
         .navigationTitle("")
     }

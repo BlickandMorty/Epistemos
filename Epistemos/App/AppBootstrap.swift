@@ -334,26 +334,6 @@ final class AppBootstrap {
         DiskStyleCache.shared.clearAll()
     }
 
-    func applyThemePreferencesAndRelaunch(mode: ThemeMode, pair: ThemePair) {
-        _ = mode
-        _ = pair
-        UserDefaults.standard.set(ThemeMode.systemDefault.rawValue, forKey: ThemeMode.defaultsKey)
-        UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
-        clearVisualCaches()
-
-        if Self.isRunningTests {
-            uiState.setPair(.classic)
-            uiState.setThemeMode(.systemDefault)
-            Log.app.info("Skipping theme relaunch under tests")
-            return
-        }
-
-        Log.app.info(
-            "Theme preferences normalized to native system appearance — relaunching"
-        )
-        relaunchApp()
-    }
-
     private func relaunchApp() {
         let url = Bundle.main.bundleURL
         let config = NSWorkspace.OpenConfiguration()

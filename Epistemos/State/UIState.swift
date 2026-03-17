@@ -216,7 +216,7 @@ final class UIState {
 
     init() {
         isSystemDark = SystemAppearanceState.isDark()
-        persistSystemAppearanceDefaults()
+        clearLegacyThemeDefaults()
         displayMode = AppDisplayMode.current()
         if UserDefaults.standard.object(forKey: LandingCursorAnimationPolicy.defaultsKey) != nil {
             landingCursorAnimationEnabled = UserDefaults.standard.bool(
@@ -262,14 +262,14 @@ final class UIState {
 
     // MARK: - Theme Methods
 
-    private func persistSystemAppearanceDefaults() {
-        UserDefaults.standard.set(ThemeMode.systemDefault.rawValue, forKey: ThemeMode.defaultsKey)
-        UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: Self.themePairDefaultsKey)
+    private func clearLegacyThemeDefaults() {
+        UserDefaults.standard.removeObject(forKey: ThemeMode.defaultsKey)
+        UserDefaults.standard.removeObject(forKey: Self.themePairDefaultsKey)
     }
 
     private func enforceSystemAppearance() {
         guard !isEnforcingSystemAppearance else {
-            persistSystemAppearanceDefaults()
+            clearLegacyThemeDefaults()
             return
         }
 
@@ -280,7 +280,7 @@ final class UIState {
         if activePair != .classic {
             activePair = .classic
         }
-        persistSystemAppearanceDefaults()
+        clearLegacyThemeDefaults()
         isEnforcingSystemAppearance = false
     }
 

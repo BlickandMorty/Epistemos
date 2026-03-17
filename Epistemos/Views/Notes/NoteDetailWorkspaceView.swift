@@ -137,7 +137,8 @@ enum NoteToolbarSurfaceStyle {
     static let borderWidth: CGFloat = 0.6
 
     static func showsBackground(customThemesEnabled: Bool) -> Bool {
-        !customThemesEnabled
+        _ = customThemesEnabled
+        return true
     }
 }
 

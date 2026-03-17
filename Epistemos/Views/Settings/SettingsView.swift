@@ -437,11 +437,6 @@ private struct SOARDetailView: View {
 
 private struct AppearanceDetailView: View {
     @Environment(UIState.self) private var ui
-    @State private var customThemesEnabledDraft = false
-    @State private var selectedPairDraft: ThemePair = .classic
-    @State private var pendingThemeMode: ThemeMode?
-    @State private var pendingThemePair: ThemePair?
-    @State private var showThemeRestartAlert = false
     @State private var regularModeDraft = false
     @State private var pendingDisplayMode: AppDisplayMode?
     @State private var showDisplayModeAlert = false
@@ -449,35 +444,14 @@ private struct AppearanceDetailView: View {
 
     var body: some View {
         AppearanceDetailContainer(
-            customThemesEnabledDraft: $customThemesEnabledDraft,
-            selectedPairDraft: $selectedPairDraft,
             regularModeDraft: $regularModeDraft,
-            showThemeRestartAlert: $showThemeRestartAlert,
             showDisplayModeAlert: $showDisplayModeAlert,
             ui: ui,
             theme: theme,
-            onToggleCustomThemes: scheduleThemeModeChange,
-            onSelectThemePair: scheduleThemePairChange,
             onSelectDisplayMode: scheduleDisplayModeChange,
-            onCancelThemeRestart: resetThemeDrafts,
-            onApplyThemeRestart: applyPendingThemeChange,
             onCancelDisplayRestart: resetDisplayModeDraft,
             onApplyDisplayRestart: applyPendingDisplayModeChange
         )
-    }
-
-    private func scheduleThemeModeChange(_ enabled: Bool) {
-        pendingThemeMode = enabled ? .custom : .systemDefault
-        pendingThemePair = selectedPairDraft
-        showThemeRestartAlert = true
-    }
-
-    private func scheduleThemePairChange(_ pair: ThemePair) {
-        guard selectedPairDraft != pair else { return }
-        selectedPairDraft = pair
-        pendingThemeMode = customThemesEnabledDraft ? .custom : .systemDefault
-        pendingThemePair = pair
-        showThemeRestartAlert = true
     }
 
     private func scheduleDisplayModeChange(_ nextMode: AppDisplayMode) {
@@ -485,29 +459,9 @@ private struct AppearanceDetailView: View {
         showDisplayModeAlert = true
     }
 
-    private func resetThemeDrafts() {
-        customThemesEnabledDraft = ui.customThemesEnabled
-        selectedPairDraft = ui.activePair
-        pendingThemeMode = nil
-        pendingThemePair = nil
-    }
-
     private func resetDisplayModeDraft() {
         regularModeDraft = ui.displayMode == .regular
         pendingDisplayMode = nil
-    }
-
-    private func applyPendingThemeChange() {
-        let nextMode = pendingThemeMode ?? (customThemesEnabledDraft ? .custom : .systemDefault)
-        let nextPair = pendingThemePair ?? selectedPairDraft
-        if let bootstrap = AppBootstrap.shared {
-            bootstrap.applyThemePreferencesAndRelaunch(mode: nextMode, pair: nextPair)
-        } else {
-            ui.setPair(nextPair)
-            ui.setThemeMode(nextMode)
-        }
-        pendingThemeMode = nil
-        pendingThemePair = nil
     }
 
     private func applyPendingDisplayModeChange() {
@@ -519,18 +473,11 @@ private struct AppearanceDetailView: View {
 }
 
 private struct AppearanceDetailContainer: View {
-    @Binding var customThemesEnabledDraft: Bool
-    @Binding var selectedPairDraft: ThemePair
     @Binding var regularModeDraft: Bool
-    @Binding var showThemeRestartAlert: Bool
     @Binding var showDisplayModeAlert: Bool
     let ui: UIState
     let theme: EpistemosTheme
-    let onToggleCustomThemes: (Bool) -> Void
-    let onSelectThemePair: (ThemePair) -> Void
     let onSelectDisplayMode: (AppDisplayMode) -> Void
-    let onCancelThemeRestart: () -> Void
-    let onApplyThemeRestart: () -> Void
     let onCancelDisplayRestart: () -> Void
     let onApplyDisplayRestart: () -> Void
 
@@ -544,32 +491,14 @@ private struct AppearanceDetailContainer: View {
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
             .onAppear {
-                customThemesEnabledDraft = ui.customThemesEnabled
-                selectedPairDraft = ui.activePair
                 regularModeDraft = ui.displayMode == .regular
-            }
-            .onChange(of: ui.themeMode) { _, mode in
-                customThemesEnabledDraft = mode == .custom
-            }
-            .onChange(of: ui.activePair) { _, pair in
-                selectedPairDraft = pair
             }
             .onChange(of: ui.displayMode) { _, mode in
                 regularModeDraft = mode == .regular
             }
         )
-        let themeAlerted = AnyView(
-            base.alert("Restart to Apply Theme Change?", isPresented: $showThemeRestartAlert) {
-                Button("Cancel", role: .cancel, action: onCancelThemeRestart)
-                Button("Restart Now", action: onApplyThemeRestart)
-            } message: {
-                Text(
-                    "Epistemos will relaunch to clear theme-era chrome workarounds and rebuild material caches safely."
-                )
-            }
-        )
         return AnyView(
-            themeAlerted.alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
+            base.alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
                 Button("Cancel", role: .cancel, action: onCancelDisplayRestart)
                 Button("Restart Now", action: onApplyDisplayRestart)
             } message: {
@@ -591,66 +520,6 @@ private struct AppearanceDetailContainer: View {
                 onToggle: onSelectDisplayMode
             )
         }
-    }
-}
-
-private struct AppearanceThemeModeSection: View {
-    @Binding var customThemesEnabledDraft: Bool
-    let isCustomThemesEnabled: Bool
-    let onToggle: (Bool) -> Void
-
-    var body: some View {
-        Section {
-            Toggle("Enable Custom Themes", isOn: $customThemesEnabledDraft)
-                .toggleStyle(.switch)
-                .onChange(of: customThemesEnabledDraft) { _, enabled in
-                    guard enabled != isCustomThemesEnabled else { return }
-                    onToggle(enabled)
-                }
-
-            Text("Default appearance uses native Apple materials, translucency, and system chrome.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } header: {
-            Text("Themes")
-        }
-    }
-}
-
-private struct AppearanceThemePairSection: View {
-    let selectedPairDraft: ThemePair
-    let customThemesEnabledDraft: Bool
-    let onSelect: (ThemePair) -> Void
-
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 14), count: 2)
-
-    var body: some View {
-        Section {
-            LazyVGrid(columns: columns, spacing: 14) {
-                ForEach(ThemePair.allCases, id: \.self) { pair in
-                    ThemePairCard(
-                        pair: pair,
-                        isActive: customThemesEnabledDraft && selectedPairDraft == pair
-                    ) {
-                        onSelect(pair)
-                    }
-                }
-            }
-            .padding(.vertical, Spacing.xs)
-            .disabled(!customThemesEnabledDraft)
-            .opacity(customThemesEnabledDraft ? 1 : 0.45)
-        } header: {
-            Text("Custom Theme Pair")
-        } footer: {
-            Text(themeFooterText)
-                .font(.caption)
-        }
-    }
-
-    private var themeFooterText: String {
-        customThemesEnabledDraft
-            ? "Each custom theme includes a light and dark side. Restart applies the pair cleanly and clears cached chrome."
-            : "Custom themes are optional. Leave them off to keep the native system appearance."
     }
 }
 
@@ -708,71 +577,6 @@ private struct AppearanceDisplayModeSection: View {
         } header: {
             Text("Display Mode")
         }
-    }
-}
-
-// MARK: - Theme Pair Card
-
-private struct ThemePairCard: View {
-    let pair: ThemePair
-    let isActive: Bool
-    let action: () -> Void
-
-    @Environment(UIState.self) private var ui
-    private var current: EpistemosTheme { ui.theme }
-
-    private var pairIcons: (String, String) {
-        switch pair {
-        case .magnolia: ("camera.macro", "moon.stars.fill")
-        case .classic: ("sun.max", "moon.stars")
-        case .warmth: ("sun.max.fill", "sunset.fill")
-        case .ember: ("leaf", "flame")
-        case .platinum: ("square.grid.2x2", "square.grid.2x2")
-        case .platinumViolet: ("square.grid.2x2", "sparkles")
-        }
-    }
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: pairIcons.0)
-                        .font(.system(size: 14))
-                        .foregroundStyle(
-                            isActive ? current.accent : current.mutedForeground.opacity(0.5))
-                    Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 9))
-                        .foregroundStyle(current.textTertiary.opacity(0.6))
-                    Image(systemName: pairIcons.1)
-                        .font(.system(size: 14))
-                        .foregroundStyle(
-                            isActive ? current.accent : current.mutedForeground.opacity(0.5))
-                }
-
-                Text(pair.displayName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(isActive ? current.foreground : current.textSecondary)
-
-                Text(pair.description)
-                    .font(.system(size: 10))
-                    .foregroundStyle(current.textTertiary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                isActive ? current.accent.opacity(0.08) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(
-                        isActive ? current.accent.opacity(0.35) : current.border,
-                        lineWidth: isActive ? 1.5 : 1
-                    )
-            )
-        }
-        .buttonStyle(.plain)
     }
 }
 
