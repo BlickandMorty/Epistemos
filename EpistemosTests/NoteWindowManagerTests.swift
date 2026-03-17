@@ -780,3 +780,43 @@ struct NotesSidebarHoverHapticsTests {
         #expect(NotesSidebarHoverHapticStyle.folder.recipe.pattern == .levelChange)
     }
 }
+
+@Suite("Notes Sidebar Folder Metrics")
+struct NotesSidebarFolderMetricsTests {
+
+    @Test("Descendant page counts include nested folder pages once")
+    func descendantPageCountsIncludeNestedPages() {
+        let counts = NotesSidebarFolderMetrics.descendantPageCounts(
+            folderIds: ["root", "child", "grandchild"],
+            childFolderIdsById: [
+                "root": ["child"],
+                "child": ["grandchild"],
+                "grandchild": [],
+            ],
+            pageIdsByFolderId: [
+                "root": ["page-root"],
+                "child": ["page-child-a", "page-child-b"],
+                "grandchild": ["page-grandchild"],
+            ]
+        )
+
+        #expect(counts["root"] == 4)
+        #expect(counts["child"] == 3)
+        #expect(counts["grandchild"] == 1)
+    }
+
+    @Test("Descendant page counts return zero for empty folders")
+    func descendantPageCountsHandleEmptyFolders() {
+        let counts = NotesSidebarFolderMetrics.descendantPageCounts(
+            folderIds: ["empty", "parent"],
+            childFolderIdsById: [
+                "empty": [],
+                "parent": ["empty"],
+            ],
+            pageIdsByFolderId: [:]
+        )
+
+        #expect(counts["empty"] == 0)
+        #expect(counts["parent"] == 0)
+    }
+}

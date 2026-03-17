@@ -57,6 +57,7 @@ private struct SidebarFolderItem: Identifiable, Equatable {
     let relativePath: String
     /// Child pages — populated from folder.pages (primary) or subfolder match (fallback).
     var childPages: [SidebarPageItem]
+    var descendantPageCount: Int
 
     init(_ folder: SDFolder) {
         id = folder.id
@@ -76,6 +77,7 @@ private struct SidebarFolderItem: Identifiable, Equatable {
             seenIds.insert(page.id)
             return SidebarPageItem(page)
         }
+        descendantPageCount = childPages.count
     }
 }
 
@@ -235,6 +237,52 @@ enum NotesSidebarVisibleTreeBuilder {
     }
 }
 
+enum NotesSidebarFolderMetrics {
+    static func descendantPageCounts(
+        folderIds: [String],
+        childFolderIdsById: [String: [String]],
+        pageIdsByFolderId: [String: [String]]
+    ) -> [String: Int] {
+        var memo: [String: Int] = [:]
+        memo.reserveCapacity(folderIds.count)
+
+        for folderId in folderIds {
+            _ = descendantPageCount(
+                folderId: folderId,
+                childFolderIdsById: childFolderIdsById,
+                pageIdsByFolderId: pageIdsByFolderId,
+                memo: &memo
+            )
+        }
+
+        return memo
+    }
+
+    private static func descendantPageCount(
+        folderId: String,
+        childFolderIdsById: [String: [String]],
+        pageIdsByFolderId: [String: [String]],
+        memo: inout [String: Int]
+    ) -> Int {
+        if let cached = memo[folderId] {
+            return cached
+        }
+
+        var count = pageIdsByFolderId[folderId]?.count ?? 0
+        for childFolderId in childFolderIdsById[folderId] ?? [] {
+            count += descendantPageCount(
+                folderId: childFolderId,
+                childFolderIdsById: childFolderIdsById,
+                pageIdsByFolderId: pageIdsByFolderId,
+                memo: &memo
+            )
+        }
+
+        memo[folderId] = count
+        return count
+    }
+}
+
 enum NotesSidebarMetrics {
     static let headerTopPadding: CGFloat = 14
     static let headerBottomPadding: CGFloat = 2
@@ -345,6 +393,12 @@ struct NotesSidebar: View {
     @State private var cachedChildFolderIdsById: [String: [String]] = [:]
     @State private var cachedPageIdsByFolderId: [String: [String]] = [:]
     @State private var cachedIdeaItems: [SidebarIdeaItem] = []
+    @State private var cachedPinnedPageItems: [SidebarPageItem] = []
+    @State private var cachedLoosePageItems: [SidebarPageItem] = []
+    @State private var cachedCollectionFolderItems: [SidebarFolderItem] = []
+    @State private var cachedRootFolderItems: [SidebarFolderItem] = []
+    @State private var cachedJournalPageItems: [SidebarPageItem] = []
+    @State private var hasDailyNotesFolder = false
     @State private var rebuildTask: Task<Void, Never>?
     @State private var bodySearchTask: Task<Void, Never>?
 
@@ -394,10 +448,48 @@ struct NotesSidebar: View {
             }
         }
 
+        cachedChildFolderIdsById = Dictionary(
+            cachedFolderItems.map { ($0.id, $0.childFolderIds) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+        cachedPageIdsByFolderId = Dictionary(
+            cachedFolderItems.map { ($0.id, $0.childPages.map(\.id)) },
+            uniquingKeysWith: { _, latest in latest }
+        )
+
+        let descendantCounts = NotesSidebarFolderMetrics.descendantPageCounts(
+            folderIds: cachedFolderItems.map(\.id),
+            childFolderIdsById: cachedChildFolderIdsById,
+            pageIdsByFolderId: cachedPageIdsByFolderId
+        )
+        for index in cachedFolderItems.indices {
+            let folderId = cachedFolderItems[index].id
+            cachedFolderItems[index].descendantPageCount =
+                descendantCounts[folderId] ?? cachedFolderItems[index].childPages.count
+        }
+
         cachedFolderById = Dictionary(
             cachedFolderItems.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
-        cachedChildFolderIdsById = cachedFolderById.mapValues(\.childFolderIds)
-        cachedPageIdsByFolderId = cachedFolderById.mapValues { $0.childPages.map(\.id) }
+
+        cachedPinnedPageItems = cachedPageItems.filter { $0.isPinned && !$0.isArchived }
+        let dailyNotesFolder = cachedFolderItems.first {
+            $0.parentId == nil && $0.relativePath == SidebarSpecialFolders.dailyNotes
+        }
+        hasDailyNotesFolder = dailyNotesFolder != nil
+        cachedCollectionFolderItems = cachedFolderItems.filter {
+            $0.parentId == nil && $0.isCollection
+        }
+        cachedRootFolderItems = cachedFolderItems.filter {
+            $0.parentId == nil
+                && !$0.isCollection
+                && $0.id != dailyNotesFolder?.id
+        }
+        cachedJournalPageItems =
+            dailyNotesFolder?.childPages.filter(\.isJournal)
+            ?? cachedPageItems.filter { $0.isJournal && $0.folderId == nil }
+        cachedLoosePageItems = cachedPageItems.filter {
+            !$0.isJournal && $0.folderId == nil && !$0.isTemplate
+        }
 
         // Collect ideas from all pages (JSON-decoded once per rebuild, not per render)
         var ideaItems: [SidebarIdeaItem] = []
@@ -584,7 +676,7 @@ struct NotesSidebar: View {
         folderItemById fById: [String: SidebarFolderItem],
         onAction: @escaping (SidebarAction) -> Void
     ) -> some View {
-        let pinned = cachedPageItems.filter { $0.isPinned && !$0.isArchived }
+        let pinned = cachedPinnedPageItems
         if !pinned.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Pinned")
@@ -618,7 +710,7 @@ struct NotesSidebar: View {
         }
 
         // ── COLLECTIONS ── user-created organization folders
-        let collections = cachedFolderItems.filter { $0.parentId == nil && $0.isCollection }
+        let collections = cachedCollectionFolderItems
         if !collections.isEmpty {
             ForEach(
                 visibleFolderRows(
@@ -635,14 +727,7 @@ struct NotesSidebar: View {
         }
 
         // ── FOLDERS ── top-level folders (no parent, non-collection)
-        let dailyNotesFolder = cachedFolderItems.first {
-            $0.parentId == nil && $0.relativePath == SidebarSpecialFolders.dailyNotes
-        }
-        let folders = cachedFolderItems.filter {
-            $0.parentId == nil
-                && !$0.isCollection
-                && $0.id != dailyNotesFolder?.id
-        }
+        let folders = cachedRootFolderItems
         if !folders.isEmpty {
             ForEach(
                 visibleFolderRows(
@@ -658,10 +743,8 @@ struct NotesSidebar: View {
             }
         }
 
-        let journals =
-            dailyNotesFolder?.childPages.filter(\.isJournal)
-            ?? cachedPageItems.filter { $0.isJournal && $0.folderId == nil }
-        if !journals.isEmpty || dailyNotesFolder != nil {
+        let journals = cachedJournalPageItems
+        if !journals.isEmpty || hasDailyNotesFolder {
             JournalFolderRow(
                 journals: journals,
                 isExpanded: notesUI.isJournalExpanded,
@@ -697,7 +780,7 @@ struct NotesSidebar: View {
         }
 
         // ── FILES SECTION ── loose pages not in any folder.
-        let loose = cachedPageItems.filter { !$0.isJournal && $0.folderId == nil && !$0.isTemplate }
+        let loose = cachedLoosePageItems
         VStack(alignment: .leading, spacing: 0) {
             if !loose.isEmpty || !folders.isEmpty {
                 Text("Files")
@@ -1494,27 +1577,6 @@ private struct FolderRow: View {
     private var theme: EpistemosTheme { ui.theme }
     private var isExpanded: Bool { notesUI.expandedFolderIds.contains(item.id) }
 
-    /// Recursive page count — includes pages in all nested subfolders.
-    private var totalPageCount: Int {
-        var count = item.childPages.count
-        for childId in item.childFolderIds {
-            if let child = folderItemById[childId] {
-                count += recursivePageCount(for: child)
-            }
-        }
-        return count
-    }
-
-    private func recursivePageCount(for folder: SidebarFolderItem) -> Int {
-        var count = folder.childPages.count
-        for childId in folder.childFolderIds {
-            if let child = folderItemById[childId] {
-                count += recursivePageCount(for: child)
-            }
-        }
-        return count
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Folder header row
@@ -1555,7 +1617,7 @@ private struct FolderRow: View {
 
                     Spacer()
 
-                    let count = totalPageCount
+                    let count = item.descendantPageCount
                     if count > 0 {
                         Text("\(count)")
                             .font(.epSmall)
