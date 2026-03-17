@@ -29,6 +29,16 @@ struct NoteEditorLayoutTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
+    @Test("note footer uses glass chips and keeps the legacy shortcut hints")
+    func noteFooterUsesGlassChipsAndLegacyHints() {
+        #expect(!NoteWorkspaceFooterDisplay.showsBottomFade)
+        #expect(NoteWorkspaceFooterDisplay.chipSpacing == 8)
+        #expect(NoteWorkspaceFooterDisplay.shortcuts.map(\.key) == ["S", "2"])
+        #expect(
+            NoteWorkspaceFooterDisplay.shortcuts.map(\.label) == ["Save to Disk", "Note Sidebar"]
+        )
+    }
+
     @Test("top spacing stays tight below the toolbar")
     func topSpacingStaysTightBelowToolbar() {
         #expect(ProseEditorRepresentable.verticalInset == 40)

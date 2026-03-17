@@ -141,6 +141,23 @@ enum NoteToolbarSurfaceStyle {
     }
 }
 
+enum NoteWorkspaceFooterDisplay {
+    struct ShortcutHint: Equatable {
+        let key: String
+        let label: String
+    }
+
+    static let showsBottomFade = false
+    static let chipSpacing: CGFloat = 8
+    static let chipHorizontalPadding: CGFloat = 12
+    static let chipVerticalPadding: CGFloat = 6
+    static let footerPadding: CGFloat = 8
+    static let shortcuts: [ShortcutHint] = [
+        ShortcutHint(key: "S", label: "Save to Disk"),
+        ShortcutHint(key: "2", label: "Note Sidebar"),
+    ]
+}
+
 enum NotePreviewRenderer: Equatable {
     case textKit1
     case textKit2
@@ -789,51 +806,7 @@ struct NoteDetailWorkspaceView: View {
                 .allowsHitTesting(transitionOpacity > 0)
             }
             .overlay(alignment: .bottom) {
-                VStack(spacing: 0) {
-                    LinearGradient(
-                        colors: [
-                            ui.overlayChromeBackground.opacity(0),
-                            ui.overlayChromeBackground.opacity(0.7),
-                            ui.overlayChromeBackground.opacity(0.95),
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 44)
-                    .allowsHitTesting(false)
-
-                    ZStack {
-                        HStack(spacing: 8) {
-                            Text("\(wordCount) words")
-                                .font(AppDisplayTypography.font(size: 13))
-                                .monospacedDigit()
-                                .foregroundStyle(ui.theme.foreground.opacity(0.55))
-                        }
-
-                        HStack(spacing: 3) {
-                            Image(systemName: "command")
-                                .font(.system(size: 10, weight: .medium))
-                            Text("S")
-                                .font(AppDisplayTypography.font(size: 10))
-                            Text("Save to Disk")
-                                .font(AppDisplayTypography.font(size: 10))
-                                .padding(.leading, 2)
-                            Spacer()
-                            Image(systemName: "command")
-                                .font(.system(size: 10, weight: .medium))
-                            Text("2")
-                                .font(AppDisplayTypography.font(size: 10))
-                            Text("Note Sidebar")
-                                .font(AppDisplayTypography.font(size: 10))
-                                .padding(.leading, 2)
-                        }
-                        .foregroundStyle(ui.theme.foreground.opacity(0.35))
-                        .padding(.horizontal, 16)
-                    }
-                    .padding(.bottom, 8)
-                    .frame(maxWidth: .infinity)
-                    .background(ui.overlayChromeBackground.opacity(0.95))
-                }
+                noteFooter
                 .allowsHitTesting(false)
             }
             .overlay(alignment: .trailing) {
@@ -897,6 +870,43 @@ struct NoteDetailWorkspaceView: View {
                 scheduleMetricsRefresh(body: freshBody, includeMarkdownHeadings: true)
             }
         }
+    }
+
+    private var noteFooter: some View {
+        HStack(spacing: NoteWorkspaceFooterDisplay.chipSpacing) {
+            noteFooterBubble {
+                Text("\(wordCount) words")
+                    .font(AppDisplayTypography.font(size: 13))
+                    .monospacedDigit()
+                    .foregroundStyle(ui.theme.foreground.opacity(0.55))
+            }
+
+            ForEach(NoteWorkspaceFooterDisplay.shortcuts, id: \.key) { shortcut in
+                noteFooterBubble {
+                    HStack(spacing: 3) {
+                        Image(systemName: "command")
+                            .font(.system(size: 10, weight: .medium))
+                        Text(shortcut.key)
+                            .font(AppDisplayTypography.font(size: 10))
+                        Text(shortcut.label)
+                            .font(AppDisplayTypography.font(size: 10))
+                            .padding(.leading, 2)
+                    }
+                    .foregroundStyle(ui.theme.foreground.opacity(0.35))
+                }
+            }
+        }
+        .padding(NoteWorkspaceFooterDisplay.footerPadding)
+    }
+
+    private func noteFooterBubble<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(.horizontal, NoteWorkspaceFooterDisplay.chipHorizontalPadding)
+            .padding(.vertical, NoteWorkspaceFooterDisplay.chipVerticalPadding)
+            .background(.clear, in: Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule())
     }
 
     private var noteToolbarStrip: some View {
