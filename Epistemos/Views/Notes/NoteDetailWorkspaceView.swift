@@ -163,7 +163,8 @@ enum NotePreviewRenderer: Equatable {
     case textKit2
 
     static func resolved(useTK2Editor: Bool) -> Self {
-        useTK2Editor ? .textKit2 : .textKit1
+        _ = useTK2Editor
+        return .textKit2
     }
 }
 

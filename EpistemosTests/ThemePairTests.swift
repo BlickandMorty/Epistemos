@@ -82,8 +82,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("Stored custom pair stays remembered without applying when custom themes are disabled")
-    func rememberedCustomPairStaysDormantWhenThemesDisabled() {
+    @Test("Stored theme preferences no longer reactivate custom appearance")
+    func storedThemePreferencesStayPinnedToSystemDefault() {
         let defaults = UserDefaults.standard
         let pairsKey = UIState.themePairDefaultsKey
         let modeKey = ThemeMode.defaultsKey
@@ -103,11 +103,11 @@ struct ThemePairTests {
         }
 
         defaults.set(ThemePair.ember.rawValue, forKey: pairsKey)
-        defaults.set(ThemeMode.systemDefault.rawValue, forKey: modeKey)
+        defaults.set(ThemeMode.custom.rawValue, forKey: modeKey)
 
         let uiState = UIState()
 
-        #expect(uiState.activePair == .ember)
+        #expect(uiState.activePair == .classic)
         #expect(uiState.customThemesEnabled == false)
         #expect(uiState.themeMode == .systemDefault)
         #expect(uiState.shouldUseThemeWorkarounds == false)
@@ -115,41 +115,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("Stored custom mode restores the remembered theme pair")
-    func storedCustomModeRestoresRememberedThemePair() {
-        let defaults = UserDefaults.standard
-        let pairsKey = UIState.themePairDefaultsKey
-        let modeKey = ThemeMode.defaultsKey
-        let previousPair = defaults.object(forKey: pairsKey)
-        let previousMode = defaults.object(forKey: modeKey)
-        defer {
-            if let previousPair {
-                defaults.set(previousPair, forKey: pairsKey)
-            } else {
-                defaults.removeObject(forKey: pairsKey)
-            }
-            if let previousMode {
-                defaults.set(previousMode, forKey: modeKey)
-            } else {
-                defaults.removeObject(forKey: modeKey)
-            }
-        }
-
-        defaults.set(ThemePair.platinum.rawValue, forKey: pairsKey)
-        defaults.set(ThemeMode.custom.rawValue, forKey: modeKey)
-
-        let uiState = UIState()
-
-        #expect(uiState.themeMode == .custom)
-        #expect(uiState.customThemesEnabled)
-        #expect(uiState.activePair == .platinum)
-        #expect(uiState.preferredColorScheme != nil)
-        #expect(uiState.shouldUseThemeWorkarounds)
-    }
-
-    @MainActor
-    @Test("Toggling custom themes gates the remembered pair without losing it")
-    func togglingCustomThemesGatesRememberedPair() {
+    @Test("Theme mutators stay inert under the system-only runtime")
+    func themeMutatorsStayInert() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -159,16 +126,11 @@ struct ThemePairTests {
 
             uiState.setPair(.magnolia)
             uiState.setThemeMode(.custom)
-
-            #expect(uiState.customThemesEnabled)
-            #expect(uiState.activePair == .magnolia)
-            #expect(uiState.preferredColorScheme != nil)
-            #expect(uiState.windowAppearance != nil)
-
-            uiState.setCustomThemesEnabled(false)
+            uiState.setCustomThemesEnabled(true)
 
             #expect(uiState.customThemesEnabled == false)
-            #expect(uiState.activePair == .magnolia)
+            #expect(uiState.activePair == .classic)
+            #expect(uiState.themeMode == .systemDefault)
             #expect(uiState.preferredColorScheme == nil)
             #expect(uiState.shouldUseThemeWorkarounds == false)
             #expect(uiState.windowAppearance == nil)
@@ -176,8 +138,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("System default keeps window appearance unforced while custom themes opt in")
-    func windowAppearanceTracksThemeMode() {
+    @Test("System default keeps window appearance unforced even after legacy theme calls")
+    func windowAppearanceStaysNative() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -192,9 +154,12 @@ struct ThemePairTests {
 
             uiState.setPair(.platinum)
             uiState.setThemeMode(.custom)
+            uiState.setCustomThemesEnabled(true)
             uiState.isSystemDark = true
 
-            #expect(uiState.windowAppearance?.name == .darkAqua)
+            #expect(uiState.themeMode == .systemDefault)
+            #expect(uiState.windowAppearance == nil)
+            #expect(uiState.theme == .systemDark)
         }
     }
 
@@ -250,7 +215,7 @@ struct ThemePairTests {
             uiState.setPair(.classic)
             uiState.isSystemDark = false
 
-            #expect(uiState.notesSidebarBackgroundColor == EpistemosTheme.light.nsBackground)
+            #expect(uiState.notesSidebarBackgroundColor == .textBackgroundColor)
         }
     }
 

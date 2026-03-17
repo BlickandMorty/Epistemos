@@ -582,19 +582,7 @@ private struct AppearanceDetailContainer: View {
 
     private var appearanceForm: some View {
         Form {
-            AppearanceThemeModeSection(
-                customThemesEnabledDraft: $customThemesEnabledDraft,
-                isCustomThemesEnabled: ui.customThemesEnabled,
-                onToggle: onToggleCustomThemes
-            )
-            AppearanceThemePairSection(
-                selectedPairDraft: selectedPairDraft,
-                customThemesEnabledDraft: customThemesEnabledDraft,
-                onSelect: onSelectThemePair
-            )
             AppearanceSystemSection(
-                customThemesEnabledDraft: customThemesEnabledDraft,
-                selectedPairDraft: selectedPairDraft,
                 theme: theme
             )
             AppearanceDisplayModeSection(
@@ -667,20 +655,18 @@ private struct AppearanceThemePairSection: View {
 }
 
 private struct AppearanceSystemSection: View {
-    let customThemesEnabledDraft: Bool
-    let selectedPairDraft: ThemePair
     let theme: EpistemosTheme
 
     var body: some View {
         Section {
-            LabeledContent("Default mode") {
-                Text("Native Apple")
+            LabeledContent("Appearance") {
+                Text("Follows macOS")
                     .foregroundStyle(.secondary)
                     .fontWeight(.medium)
             }
             LabeledContent("Custom themes") {
-                Text(customThemesEnabledDraft ? selectedPairDraft.displayName : "Off")
-                    .foregroundStyle(customThemesEnabledDraft ? theme.accent : .secondary)
+                Text("Removed")
+                    .foregroundStyle(.secondary)
                     .fontWeight(.medium)
             }
             Button("Open System Settings → Appearance") {
@@ -692,6 +678,9 @@ private struct AppearanceSystemSection: View {
             .controlSize(.small)
         } header: {
             Text("System")
+        } footer: {
+            Text("Epistemos now uses native system appearance everywhere. Theme switching has been removed to reduce chrome complexity and regressions.")
+                .font(.caption)
         }
     }
 }

@@ -7,6 +7,8 @@ import Observation
 
 @MainActor @Observable
 final class NotesUIState {
+    static let tk2DefaultsKey = "epistemos.editor.useTK2.v2"
+
     /// Currently open page ID — points to SDPage.id
     var activePageId: String?
 
@@ -41,9 +43,15 @@ final class NotesUIState {
     // MARK: - TextKit 2 Editor
 
     /// When true, uses ProseEditorRepresentable2 (TextKit 2 stack).
-    /// Defaults to false (legacy TK1 editor). TK2 is optimised for long-form content.
-    var useTK2Editor: Bool = UserDefaults.standard.bool(forKey: "epistemos.editor.useTK2.v2") {
-        didSet { UserDefaults.standard.set(useTK2Editor, forKey: "epistemos.editor.useTK2.v2") }
+    /// Locked on to avoid the broken legacy TK1 path.
+    var useTK2Editor = true {
+        didSet {
+            if !useTK2Editor {
+                useTK2Editor = true
+                return
+            }
+            UserDefaults.standard.set(true, forKey: Self.tk2DefaultsKey)
+        }
     }
 
     // MARK: - Focus Mode
@@ -61,6 +69,10 @@ final class NotesUIState {
 
     /// Ideas folder expanded state
     var isIdeasExpanded = false
+
+    init() {
+        UserDefaults.standard.set(true, forKey: Self.tk2DefaultsKey)
+    }
 
     func collapseAllFolders() {
         expandedFolderIds.removeAll()

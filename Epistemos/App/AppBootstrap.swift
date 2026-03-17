@@ -335,19 +335,21 @@ final class AppBootstrap {
     }
 
     func applyThemePreferencesAndRelaunch(mode: ThemeMode, pair: ThemePair) {
-        UserDefaults.standard.set(mode.rawValue, forKey: ThemeMode.defaultsKey)
-        UserDefaults.standard.set(pair.rawValue, forKey: UIState.themePairDefaultsKey)
+        _ = mode
+        _ = pair
+        UserDefaults.standard.set(ThemeMode.systemDefault.rawValue, forKey: ThemeMode.defaultsKey)
+        UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
         clearVisualCaches()
 
         if Self.isRunningTests {
-            uiState.setPair(pair)
-            uiState.setThemeMode(mode)
+            uiState.setPair(.classic)
+            uiState.setThemeMode(.systemDefault)
             Log.app.info("Skipping theme relaunch under tests")
             return
         }
 
         Log.app.info(
-            "Theme preferences updated to \(mode.rawValue, privacy: .public) / \(pair.rawValue, privacy: .public) — relaunching"
+            "Theme preferences normalized to native system appearance — relaunching"
         )
         relaunchApp()
     }

@@ -153,41 +153,21 @@ struct ProseEditorView: View {
             }
         }
 
-        Group {
-            if notesUI.useTK2Editor {
-                ProseEditorRepresentable2(
-                    text: $bodyText,
-                    pageId: page.id,
-                    pageBody: bodyText,
-                    isFocused: isFocused,
-                    theme: ui.theme,
-                    isEditable: isEditable,
-                    isFocusMode: notesUI.isFocusMode,
-                    modelContext: modelContext,
-                    onWikilinkClick: handleWikilinkClick,
-                    onBlockRefClick: handleBlockRefClick,
-                    noteChatState: noteChatState,
-                    onPageFlush: flush,
-                    graphState: graphState
-                )
-            } else {
-                ProseEditorRepresentable(
-                    text: $bodyText,
-                    pageId: page.id,
-                    pageBody: bodyText,
-                    isFocused: isFocused,
-                    theme: ui.theme,
-                    isEditable: isEditable,
-                    isFocusMode: notesUI.isFocusMode,
-                    modelContext: modelContext,
-                    onWikilinkClick: handleWikilinkClick,
-                    onBlockRefClick: handleBlockRefClick,
-                    noteChatState: noteChatState,
-                    onPageFlush: flush,
-                    graphState: graphState
-                )
-            }
-        }
+        ProseEditorRepresentable2(
+            text: $bodyText,
+            pageId: page.id,
+            pageBody: bodyText,
+            isFocused: isFocused,
+            theme: ui.theme,
+            isEditable: isEditable,
+            isFocusMode: notesUI.isFocusMode,
+            modelContext: modelContext,
+            onWikilinkClick: handleWikilinkClick,
+            onBlockRefClick: handleBlockRefClick,
+            noteChatState: noteChatState,
+            onPageFlush: flush,
+            graphState: graphState
+        )
         .onAppear {
             syncBlocks(body: bodyText)
         }

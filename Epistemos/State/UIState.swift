@@ -48,16 +48,18 @@ final class UIState {
 
     static let themePairDefaultsKey = "epistemos.theme.pair"
 
+    private var isEnforcingSystemAppearance = false
+
     var themeMode: ThemeMode = .systemDefault {
         didSet {
-            UserDefaults.standard.set(themeMode.rawValue, forKey: ThemeMode.defaultsKey)
+            enforceSystemAppearance()
         }
     }
 
     /// The active theme pair. Drives both light and dark rendering.
     var activePair: ThemePair = .classic {
         didSet {
-            UserDefaults.standard.set(activePair.rawValue, forKey: Self.themePairDefaultsKey)
+            enforceSystemAppearance()
         }
     }
 
@@ -66,46 +68,33 @@ final class UIState {
 
     /// The resolved theme for the current system mode — read this everywhere.
     var theme: EpistemosTheme {
-        switch themeMode {
-        case .systemDefault:
-            isSystemDark ? .systemDark : .systemLight
-        case .custom:
-            activePair.resolved(isDark: isSystemDark)
-        }
+        isSystemDark ? .systemDark : .systemLight
     }
 
-    var customThemesEnabled: Bool { themeMode == .custom }
-    var preferredColorScheme: ColorScheme? { customThemesEnabled ? theme.colorScheme : nil }
-    var shouldUseThemeWorkarounds: Bool { customThemesEnabled }
-    var windowAppearance: NSAppearance? {
-        customThemesEnabled
-            ? NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
-            : nil
-    }
-    var usesNativeWindowBlur: Bool { themeMode == .systemDefault || theme.usesNativeWindowBlur }
-    var wallpaperBackground: Color {
-        customThemesEnabled ? theme.background : Color(nsColor: .windowBackgroundColor)
-    }
+    var customThemesEnabled: Bool { false }
+    var preferredColorScheme: ColorScheme? { nil }
+    var shouldUseThemeWorkarounds: Bool { false }
+    var windowAppearance: NSAppearance? { nil }
+    var usesNativeWindowBlur: Bool { true }
+    var wallpaperBackground: Color { Color(nsColor: .windowBackgroundColor) }
     var windowBackgroundColor: NSColor {
-        usesNativeWindowBlur ? .clear : theme.nsBackground
+        .clear
     }
-    var contentBackground: Color {
-        customThemesEnabled ? theme.background : Color(nsColor: .textBackgroundColor)
-    }
+    var contentBackground: Color { Color(nsColor: .textBackgroundColor) }
     var notesSidebarBackgroundColor: NSColor {
-        customThemesEnabled ? theme.nsBackground : .textBackgroundColor
+        .textBackgroundColor
     }
     var notesSidebarBackground: Color {
         Color(nsColor: notesSidebarBackgroundColor)
     }
     var overlayChromeBackground: Color {
-        customThemesEnabled ? theme.background : Color(nsColor: .underPageBackgroundColor)
+        Color(nsColor: .underPageBackgroundColor)
     }
     var graphOverlayTheme: EpistemosTheme {
-        customThemesEnabled ? theme : .oled
+        .oled
     }
     var appearanceSyncKey: String {
-        "\(themeMode.rawValue):\(activePair.rawValue):\(isSystemDark ? 1 : 0)"
+        "systemDefault:classic:\(isSystemDark ? 1 : 0)"
     }
 
     var displayMode: AppDisplayMode = .opulent {
@@ -227,14 +216,7 @@ final class UIState {
 
     init() {
         isSystemDark = SystemAppearanceState.isDark()
-        if let savedMode = UserDefaults.standard.string(forKey: ThemeMode.defaultsKey),
-           let restoredMode = ThemeMode(rawValue: savedMode) {
-            themeMode = restoredMode
-        }
-        if let saved = UserDefaults.standard.string(forKey: Self.themePairDefaultsKey),
-           let pair = ThemePair(rawValue: saved) {
-            activePair = pair
-        }
+        persistSystemAppearanceDefaults()
         displayMode = AppDisplayMode.current()
         if UserDefaults.standard.object(forKey: LandingCursorAnimationPolicy.defaultsKey) != nil {
             landingCursorAnimationEnabled = UserDefaults.standard.bool(
@@ -280,9 +262,43 @@ final class UIState {
 
     // MARK: - Theme Methods
 
-    func setPair(_ pair: ThemePair) { activePair = pair }
-    func setThemeMode(_ mode: ThemeMode) { themeMode = mode }
-    func setCustomThemesEnabled(_ enabled: Bool) { themeMode = enabled ? .custom : .systemDefault }
+    private func persistSystemAppearanceDefaults() {
+        UserDefaults.standard.set(ThemeMode.systemDefault.rawValue, forKey: ThemeMode.defaultsKey)
+        UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: Self.themePairDefaultsKey)
+    }
+
+    private func enforceSystemAppearance() {
+        guard !isEnforcingSystemAppearance else {
+            persistSystemAppearanceDefaults()
+            return
+        }
+
+        isEnforcingSystemAppearance = true
+        if themeMode != .systemDefault {
+            themeMode = .systemDefault
+        }
+        if activePair != .classic {
+            activePair = .classic
+        }
+        persistSystemAppearanceDefaults()
+        isEnforcingSystemAppearance = false
+    }
+
+    func setPair(_ pair: ThemePair) {
+        _ = pair
+        enforceSystemAppearance()
+    }
+
+    func setThemeMode(_ mode: ThemeMode) {
+        _ = mode
+        enforceSystemAppearance()
+    }
+
+    func setCustomThemesEnabled(_ enabled: Bool) {
+        _ = enabled
+        enforceSystemAppearance()
+    }
+
     func setDisplayMode(_ mode: AppDisplayMode) { displayMode = mode }
 
     // MARK: - Navigation Methods

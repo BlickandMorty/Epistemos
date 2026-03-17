@@ -227,6 +227,7 @@ extension ProseEditorRepresentable2 {
         var currentPageId: String = ""
         var lastSyncedText: String = ""
         var lastPersistedText: String = ""
+        var lastIsFocused: Bool = false
         var lastTheme: EpistemosTheme = .nativeDefault
         var lastIsFocusMode: Bool = false
         var lastIsEditable: Bool = true
@@ -313,6 +314,11 @@ extension ProseEditorRepresentable2 {
             if parent.isEditable != lastIsEditable {
                 lastIsEditable = parent.isEditable
                 tv.isEditable = parent.isEditable
+            }
+
+            if parent.isFocused != lastIsFocused {
+                lastIsFocused = parent.isFocused
+                focusEditorIfNeeded()
             }
 
             // Recalculate centering only when width changes
@@ -453,7 +459,7 @@ extension ProseEditorRepresentable2 {
             updateCentering()
             renderedTableOverlayManager?.setTheme(tv.resolvedTheme)
             renderedTableOverlayManager?.refreshAfterTextChange()
-            tv.window?.makeFirstResponder(tv)
+            focusEditorIfNeeded()
 
             // 9. BTK: Initialize block edit translator for new page
             if let graphState = parent.graphState {
@@ -688,6 +694,12 @@ extension ProseEditorRepresentable2 {
             guard text != lastPersistedText else { return }
             parent.onPageFlush?(currentPageId, text)
             lastPersistedText = text
+        }
+
+        private func focusEditorIfNeeded() {
+            guard parent.isFocused, let tv = textView else { return }
+            guard tv.window?.firstResponder !== tv else { return }
+            tv.window?.makeFirstResponder(tv)
         }
 
         func saveCurrentPageState() {
