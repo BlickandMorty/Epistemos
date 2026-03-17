@@ -1382,103 +1382,71 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         in rect: NSRect
     ) {
         let metrics = MarkdownPreviewSurfaceMetrics.default
-        let path = NSBezierPath(rect: rect)
+        let insetRect = rect.insetBy(dx: metrics.borderWidth / 2, dy: metrics.borderWidth / 2)
+        let cornerRadius = metrics.cornerRadius
+        let path = NSBezierPath(
+            roundedRect: insetRect,
+            xRadius: cornerRadius,
+            yRadius: cornerRadius
+        )
 
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.07)
-        shadow.shadowBlurRadius = 10
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.04)
+        shadow.shadowBlurRadius = 12
         shadow.shadowOffset = NSSize(width: 0, height: -1)
         shadow.set()
-        fill.setFill()
+        let surfaceFill: NSColor
+        let borderColor: NSColor
+        let sheenColor: NSColor
+        let railWidth: CGFloat
+        let railAlpha: CGFloat
+        switch kind {
+        case .callout:
+            surfaceFill = fill.blended(withFraction: 0.18, of: accent.withAlphaComponent(0.16)) ?? fill
+            borderColor = accent.withAlphaComponent(0.16)
+            sheenColor = NSColor.white.withAlphaComponent(0.12)
+            railWidth = 3.5
+            railAlpha = 0.34
+        case .quote:
+            surfaceFill = fill.blended(withFraction: 0.10, of: accent.withAlphaComponent(0.12)) ?? fill
+            borderColor = accent.withAlphaComponent(0.10)
+            sheenColor = NSColor.white.withAlphaComponent(0.10)
+            railWidth = 2.5
+            railAlpha = 0.20
+        case .codeBlock:
+            surfaceFill = fill.blended(withFraction: 0.06, of: accent.withAlphaComponent(0.08)) ?? fill
+            borderColor = accent.withAlphaComponent(0.08)
+            sheenColor = NSColor.white.withAlphaComponent(0.08)
+            railWidth = 0
+            railAlpha = 0
+        }
+        surfaceFill.setFill()
         path.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        let highlightRect = NSRect(
-            x: rect.minX + 1,
-            y: rect.maxY - 7,
-            width: max(0, rect.width - 2),
-            height: 6
-        )
-        let highlightPath = NSBezierPath(rect: highlightRect)
-        fill.withAlphaComponent(0.28).setFill()
-        highlightPath.fill()
-
-        let railWidth: CGFloat
-        let railAlpha: CGFloat
-        let topEdgeAlpha: CGFloat
-        let leftEdgeAlpha: CGFloat
-        let bottomEdgeAlpha: CGFloat
-        let rightEdgeAlpha: CGFloat
-        switch kind {
-        case .callout:
-            railWidth = 4
-            railAlpha = 0.92
-            topEdgeAlpha = 0.12
-            leftEdgeAlpha = 0.18
-            bottomEdgeAlpha = 0.20
-            rightEdgeAlpha = 0.12
-        case .quote:
-            railWidth = 2.5
-            railAlpha = 0.65
-            topEdgeAlpha = 0.10
-            leftEdgeAlpha = 0.14
-            bottomEdgeAlpha = 0.16
-            rightEdgeAlpha = 0.10
-        case .codeBlock:
-            railWidth = 1.5
-            railAlpha = 0.30
-            topEdgeAlpha = 0.11
-            leftEdgeAlpha = 0.12
-            bottomEdgeAlpha = 0.18
-            rightEdgeAlpha = 0.11
+        if let sheen = NSGradient(colors: [sheenColor, .clear]) {
+            sheen.draw(in: path, angle: 90)
         }
 
-        let leftEdgeRect = NSRect(
-            x: rect.minX,
-            y: rect.minY,
-            width: metrics.borderWidth,
-            height: rect.height
-        )
-        NSColor.black.withAlphaComponent(leftEdgeAlpha).setFill()
-        NSBezierPath(rect: leftEdgeRect).fill()
+        borderColor.setStroke()
+        path.lineWidth = metrics.borderWidth
+        path.stroke()
 
-        let topEdgeRect = NSRect(
-            x: rect.minX,
-            y: rect.maxY - metrics.topEdgeWidth,
-            width: rect.width,
-            height: metrics.topEdgeWidth
-        )
-        NSColor.black.withAlphaComponent(topEdgeAlpha).setFill()
-        NSBezierPath(rect: topEdgeRect).fill()
-
+        guard railWidth > 0 else { return }
         let accentRect = NSRect(
-            x: rect.minX,
-            y: rect.minY,
+            x: insetRect.minX + 8,
+            y: insetRect.minY + 7,
             width: railWidth,
-            height: rect.height
+            height: max(0, insetRect.height - 14)
         )
-        let accentPath = NSBezierPath(rect: accentRect)
+        let accentPath = NSBezierPath(
+            roundedRect: accentRect,
+            xRadius: railWidth / 2,
+            yRadius: railWidth / 2
+        )
         accent.withAlphaComponent(railAlpha).setFill()
         accentPath.fill()
-
-        let bottomEdgeRect = NSRect(
-            x: rect.minX,
-            y: rect.minY,
-            width: rect.width,
-            height: metrics.bottomEdgeWidth
-        )
-        NSColor.black.withAlphaComponent(bottomEdgeAlpha).setFill()
-        NSBezierPath(rect: bottomEdgeRect).fill()
-
-        let rightEdgeRect = NSRect(
-            x: rect.maxX - metrics.rightEdgeWidth,
-            y: rect.minY,
-            width: metrics.rightEdgeWidth,
-            height: rect.height
-        )
-        NSColor.black.withAlphaComponent(rightEdgeAlpha).setFill()
-        NSBezierPath(rect: rightEdgeRect).fill()
     }
 
 }

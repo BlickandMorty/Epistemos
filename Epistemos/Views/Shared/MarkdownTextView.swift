@@ -602,13 +602,13 @@ struct MarkdownPreviewSurfaceMetrics: Equatable, Sendable {
     let rightEdgeWidth: CGFloat
 
     nonisolated static let `default` = MarkdownPreviewSurfaceMetrics(
-        cornerRadius: 0,
-        borderWidth: 0.55,
+        cornerRadius: 14,
+        borderWidth: 0.8,
         contentPadding: 12,
-        verticalSpacing: 2,
-        topEdgeWidth: 1,
-        bottomEdgeWidth: 3,
-        rightEdgeWidth: 1
+        verticalSpacing: 4,
+        topEdgeWidth: 0,
+        bottomEdgeWidth: 0,
+        rightEdgeWidth: 0.8
     )
 }
 
@@ -625,27 +625,19 @@ enum MarkdownPreviewSurfaceStyle {
     }
 
     static func flatBackground(for theme: EpistemosTheme) -> Color {
-        theme.card
+        theme.card.opacity(theme.isDark ? 0.92 : 0.96)
     }
 
     static func borderOpacity(isDark: Bool) -> Double {
-        isDark ? 0.26 : 0.18
+        isDark ? 0.18 : 0.12
     }
 
     static func borderColor(for theme: EpistemosTheme) -> Color {
         theme.glassBorder.opacity(borderOpacity(isDark: theme.isDark))
     }
 
-    static func topEdgeColor(for theme: EpistemosTheme) -> Color {
-        Color.black.opacity(theme.isDark ? 0.14 : 0.08)
-    }
-
-    static func bottomEdgeColor(for theme: EpistemosTheme) -> Color {
-        Color.black.opacity(theme.isDark ? 0.22 : 0.14)
-    }
-
-    static func rightEdgeColor(for theme: EpistemosTheme) -> Color {
-        Color.black.opacity(theme.isDark ? 0.14 : 0.08)
+    static func sheenColor(for theme: EpistemosTheme) -> Color {
+        Color.white.opacity(theme.isDark ? 0.08 : 0.22)
     }
 }
 
@@ -655,48 +647,33 @@ private struct MarkdownPreviewSurfaceModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if metrics.cornerRadius == 0 {
-            content
-                .hoverGlass(
-                    flatBackground: MarkdownPreviewSurfaceStyle.flatBackground(for: theme),
-                    cornerRadius: 0
-                )
-                .clipShape(Rectangle())
-                .overlay(alignment: .leading) {
-                    Rectangle()
-                        .fill(MarkdownPreviewSurfaceStyle.borderColor(for: theme))
-                        .frame(width: metrics.borderWidth)
-                }
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(MarkdownPreviewSurfaceStyle.topEdgeColor(for: theme))
-                        .frame(height: metrics.topEdgeWidth)
-                }
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(MarkdownPreviewSurfaceStyle.bottomEdgeColor(for: theme))
-                        .frame(height: metrics.bottomEdgeWidth)
-                }
-                .overlay(alignment: .trailing) {
-                    Rectangle()
-                        .fill(MarkdownPreviewSurfaceStyle.rightEdgeColor(for: theme))
-                        .frame(width: metrics.rightEdgeWidth)
-                }
-        } else {
-            content
-                .hoverGlass(
-                    flatBackground: MarkdownPreviewSurfaceStyle.flatBackground(for: theme),
-                    cornerRadius: metrics.cornerRadius
-                )
-                .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
-                        .strokeBorder(
-                            MarkdownPreviewSurfaceStyle.borderColor(for: theme),
-                            lineWidth: metrics.borderWidth
+        content
+            .hoverGlass(
+                flatBackground: MarkdownPreviewSurfaceStyle.flatBackground(for: theme),
+                cornerRadius: metrics.cornerRadius
+            )
+            .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        MarkdownPreviewSurfaceStyle.borderColor(for: theme),
+                        lineWidth: metrics.borderWidth
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                MarkdownPreviewSurfaceStyle.sheenColor(for: theme),
+                                .clear,
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
                         )
-                }
-        }
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+            }
     }
 }
 
@@ -1171,9 +1148,11 @@ struct MarkdownTextView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .markdownPreviewSurface(theme: theme)
             .overlay(alignment: .leading) {
-                Rectangle()
+                RoundedRectangle(cornerRadius: railWidth / 2, style: .continuous)
                     .fill(theme.accent.opacity(0.5))
                     .frame(width: railWidth)
+                    .padding(.vertical, 8)
+                    .padding(.leading, 8)
             }
             .padding(.vertical, MarkdownPreviewSurfaceMetrics.default.verticalSpacing)
         case .codeBlock(let language, let code):

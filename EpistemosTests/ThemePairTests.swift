@@ -576,17 +576,17 @@ struct ThemePairTests {
         #expect(LandingToolbarGlyphs.cursorSymbol(animationEnabled: false) == "cursorarrow")
     }
 
-    @Test("Markdown preview block chrome keeps the same dormant to hover surface hierarchy")
-    func markdownPreviewBlockChromeMatchesHoverGlassSystem() {
+    @Test("Markdown preview block chrome uses a rounded native reading surface")
+    func markdownPreviewBlockChromeUsesRoundedNativeSurface() {
         let metrics = MarkdownPreviewSurfaceMetrics.default
 
-        #expect(metrics.cornerRadius == 0)
-        #expect(metrics.borderWidth == 0.55)
+        #expect(metrics.cornerRadius == 14)
+        #expect(metrics.borderWidth == 0.8)
         #expect(metrics.contentPadding == 12)
-        #expect(metrics.verticalSpacing == 2)
-        #expect(metrics.topEdgeWidth == 1)
-        #expect(metrics.bottomEdgeWidth == 3)
-        #expect(metrics.rightEdgeWidth == 1)
+        #expect(metrics.verticalSpacing == 4)
+        #expect(metrics.topEdgeWidth == 0)
+        #expect(metrics.bottomEdgeWidth == 0)
+        #expect(metrics.rightEdgeWidth == 0.8)
         #expect(MarkdownPreviewSurfaceStyle.borderOpacity(isDark: true) > MarkdownPreviewSurfaceStyle.borderOpacity(isDark: false))
     }
 
