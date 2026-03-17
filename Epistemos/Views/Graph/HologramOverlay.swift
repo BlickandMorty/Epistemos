@@ -37,7 +37,7 @@ enum GraphOverlayThemeStyle {
             return theme
         }
         let isDark = fallbackIsDark ?? SystemAppearanceState.isDark()
-        return isDark ? .platinumDark : .platinum
+        return isDark ? .systemDark : .systemLight
     }
 
     static func windowAppearance(for theme: EpistemosTheme) -> NSAppearance? {
@@ -46,6 +46,10 @@ enum GraphOverlayThemeStyle {
 
     static func appearanceName(for theme: EpistemosTheme) -> NSAppearance.Name {
         theme.isDark ? .darkAqua : .aqua
+    }
+
+    static func blurMaterial(for theme: EpistemosTheme) -> NSVisualEffectView.Material {
+        theme.isDark ? .fullScreenUI : .sheet
     }
 
     static func overlayTintColor(for theme: EpistemosTheme) -> NSColor {
@@ -912,7 +916,7 @@ final class HologramOverlay {
             uiState: uiState,
             explicitTheme: explicitTheme
         )
-        blurView?.material = .fullScreenUI
+        blurView?.material = GraphOverlayThemeStyle.blurMaterial(for: theme)
         darkenLayer?.layer?.backgroundColor = GraphOverlayThemeStyle.overlayTintColor(
             for: theme
         ).cgColor
@@ -1013,7 +1017,7 @@ final class HologramOverlay {
 
         // Frosted glass background — adapts to system appearance.
         let blur = NSVisualEffectView(frame: screen.frame)
-        blur.material = .fullScreenUI
+        blur.material = GraphOverlayThemeStyle.blurMaterial(for: theme)
         blur.blendingMode = .behindWindow
         blur.state = .active
         blur.autoresizingMask = [.width, .height]

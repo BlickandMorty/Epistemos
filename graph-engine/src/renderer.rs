@@ -421,8 +421,8 @@ pub(crate) fn lod_profile_for_zoom(_zoom: f32, quality_level: u8) -> LodProfile 
             draw_edges: true,
             draw_glow: false,
             cluster_nodes: false,
-            edge_degree_threshold: 36,
-            max_edges_per_node: 10,
+            edge_degree_threshold: u32::MAX,
+            max_edges_per_node: u16::MAX,
         },
     }
 }
@@ -644,10 +644,8 @@ vertex NodeVertexOut node_vertex(
         depth = inst.z;
         effective_radius = inst.radius;
     } else {
-        // Cinematic: breathing animation + perspective depth.
-        float breath_speed = inst.z > 0.2 ? 0.7 : (inst.z > -0.1 ? 0.5 : 0.3);
-        float breath = dialogue_theme ? 0.0 : (sin(uniforms.time * breath_speed + float(instance_id) * 2.39996) * 0.18);
-        depth = dialogue_theme ? inst.z * 0.35 : inst.z + breath;
+        // Keep classic nodes visually stable at rest instead of continuously pulsing.
+        depth = dialogue_theme ? inst.z * 0.35 : inst.z;
         float perspective_scale = uniforms.focal_length / (uniforms.focal_length - depth);
         effective_radius = inst.radius * perspective_scale;
     }
@@ -695,7 +693,7 @@ fragment float4 node_fragment(
         float glow = 1.0 - smoothstep(0.0, 1.0, dist);
         glow = glow * glow; // Quadratic falloff for soft edge
         // Pulsing aura: phase offset by world position so hubs pulse independently.
-        if (in.is_lite < 0.5) {
+        if (in.is_lite < 0.5 && dialogue_theme) {
             glow *= 1.0 + 0.25 * sin(uniforms.time * 2.0 + length(in.world_pos) * 0.01);
         }
         if (glow < 0.01) discard_fragment();
@@ -1896,8 +1894,11 @@ impl Renderer {
         };
         let z = z_for_link_count(world.hierarchy[node_index].link_count);
         color[3] = color[3].min(1.0) * BASE_NODE_ALPHA;
-        // face_type: 1-8 maps to NodeType enum + 1 (Note=1, Chat=2, ..., Block=8)
-        let face_type = (world.hierarchy[node_index].node_type as f32) + 1.0;
+        let face_type = if self.visual_theme == VisualTheme::Dialogue {
+            (world.hierarchy[node_index].node_type as f32) + 1.0
+        } else {
+            0.0
+        };
         NodeInstance {
             position: [world.transform[node_index].x, world.transform[node_index].y],
             radius: self.classic_node_radius(world, node_index),
@@ -2168,7 +2169,7 @@ impl Renderer {
         }
 
         // Face geometry for the active dialogue node.
-        if self.dialogue.active {
+        if self.visual_theme == VisualTheme::Dialogue && self.dialogue.active {
             if let Some(node_idx) = self.dialogue.node_index {
                 if node_idx < world.transform.len() {
                     let nx = world.transform[node_idx].x;
@@ -2395,11 +2396,9 @@ impl Renderer {
                 let color = self.classic_edge_instance_color(edge);
                 match edge_geometry_kind {
                     EdgeGeometryKind::Curve => {
-                        let v0 = [world.velocity[src_index].vx, world.velocity[src_index].vy];
-                        let v1 = [world.velocity[tgt_index].vx, world.velocity[tgt_index].vy];
                         let ideal_length = self.link_distance / edge.weight.max(0.01);
                         let (c0, c1) =
-                            string_edge_control_points(p0, p1, v0, v1, ideal_length, curvature);
+                            string_edge_control_points(p0, p1, [0.0, 0.0], [0.0, 0.0], ideal_length, curvature);
                         if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
                             continue;
                         }
@@ -3525,8 +3524,8 @@ mod tests {
         assert!(near.draw_edges);
         assert!(!near.draw_glow);
         assert!(!near.cluster_nodes);
-        assert_eq!(near.edge_degree_threshold, 36);
-        assert_eq!(near.max_edges_per_node, 10);
+        assert_eq!(near.edge_degree_threshold, u32::MAX);
+        assert_eq!(near.max_edges_per_node, u16::MAX);
     }
 
     #[test]
@@ -3765,6 +3764,22 @@ mod tests {
         World::from_graph(&graph)
     }
 
+    fn make_star_world(leaf_count: usize, radius: f32) -> World {
+        let mut graph = crate::types::Graph::new();
+        let center_x = 160.0;
+        let center_y = 120.0;
+        graph.add_node("hub".to_string(), center_x, center_y, 0, 6, "Hub".to_string());
+        for index in 0..leaf_count {
+            let angle = std::f32::consts::TAU * index as f32 / leaf_count as f32;
+            let x = center_x + radius * angle.cos();
+            let y = center_y + radius * angle.sin();
+            let leaf_id = format!("leaf-{index}");
+            graph.add_node(leaf_id.clone(), x, y, 0, 2, format!("Leaf {index}"));
+            graph.add_edge("hub", &leaf_id, 1.0, 0);
+        }
+        World::from_graph(&graph)
+    }
+
     #[test]
     fn highlight_rebuild_updates_only_flag_buffers() {
         let world = make_test_world(3, 120.0);
@@ -3882,6 +3897,46 @@ mod tests {
             .classic_velocity_scratch
             .iter()
             .all(|velocity| *velocity == [0.0, 0.0]));
+    }
+
+    #[test]
+    fn classic_theme_disables_pixel_face_overlay_instances() {
+        let world = make_test_world(1, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.visual_theme = VisualTheme::Classic;
+
+        let node = renderer.classic_node_instance(&world, 0);
+
+        assert_eq!(node.face_type, 0.0);
+    }
+
+    #[test]
+    fn classic_theme_skips_dialogue_face_geometry() {
+        let world = make_test_world(1, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.visual_theme = VisualTheme::Classic;
+        renderer.dialogue.active = true;
+        renderer.dialogue.node_index = Some(0);
+        renderer.set_viewport_size(1280, 720);
+
+        renderer.update_positions(&world);
+
+        assert_eq!(renderer.face_feature_count, 0);
+    }
+
+    #[test]
+    fn performance_quality_keeps_dense_hub_edges_connected() {
+        let world = make_star_world(24, 180.0);
+        let mut renderer = make_test_renderer();
+        renderer.quality_level = 2;
+        renderer.camera_offset = [0.0, 0.0];
+        renderer.camera_zoom = 1.0;
+        renderer.set_viewport_size(4096, 4096);
+
+        renderer.update_positions(&world);
+
+        assert_eq!(renderer.edge_geometry_kind, EdgeGeometryKind::Straight);
+        assert_eq!(renderer.edge_instance_count, 24);
     }
 
     #[test]

@@ -91,7 +91,7 @@ final class UIState {
         Color(nsColor: .underPageBackgroundColor)
     }
     var graphOverlayTheme: EpistemosTheme {
-        .oled
+        theme
     }
     var appearanceSyncKey: String {
         "systemDefault:classic:\(isSystemDark ? 1 : 0)"

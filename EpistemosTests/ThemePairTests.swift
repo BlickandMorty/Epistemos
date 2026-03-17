@@ -184,8 +184,8 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("System default keeps the graph overlay on an OLED backdrop")
-    func systemDefaultKeepsGraphOverlayImmersive() {
+    @Test("System default graph overlay follows native light and dark appearance")
+    func systemDefaultGraphOverlayFollowsSystemAppearance() {
         withPreservedThemeDefaults {
             let defaults = UserDefaults.standard
             defaults.removeObject(forKey: ThemeMode.defaultsKey)
@@ -194,9 +194,23 @@ struct ThemePairTests {
             let uiState = UIState()
 
             #expect(uiState.themeMode == .systemDefault)
-            #expect(uiState.graphOverlayTheme == .oled)
+            uiState.isSystemDark = false
+            #expect(uiState.graphOverlayTheme == .systemLight)
+            #expect(GraphOverlayThemeStyle.windowAppearance(for: uiState.graphOverlayTheme)?.name == .aqua)
+            #expect(GraphOverlayThemeStyle.lightModeEnabled(for: uiState.graphOverlayTheme))
+
+            uiState.isSystemDark = true
+            #expect(uiState.graphOverlayTheme == .systemDark)
             #expect(GraphOverlayThemeStyle.windowAppearance(for: uiState.graphOverlayTheme)?.name == .darkAqua)
+            #expect(!GraphOverlayThemeStyle.lightModeEnabled(for: uiState.graphOverlayTheme))
         }
+    }
+
+    @MainActor
+    @Test("Graph overlay fallback uses dedicated native tokens")
+    func graphOverlayFallbackUsesNativeTokens() {
+        #expect(GraphOverlayThemeStyle.resolvedTheme(uiState: nil, fallbackIsDark: false) == .systemLight)
+        #expect(GraphOverlayThemeStyle.resolvedTheme(uiState: nil, fallbackIsDark: true) == .systemDark)
     }
 
     @MainActor
