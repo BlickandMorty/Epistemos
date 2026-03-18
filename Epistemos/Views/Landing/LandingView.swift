@@ -54,94 +54,6 @@ final class LandingPointerState {
     }
 }
 
-enum LandingCursorBrushHapticPattern: Equatable, Sendable {
-    case whisper
-    case accent
-}
-
-struct LandingCursorBrushHapticState {
-    private(set) var lastLocation: CGPoint?
-    private(set) var lastMoveAt: TimeInterval?
-    private(set) var lastTickAt: TimeInterval?
-    private(set) var carriedDistance: CGFloat = 0
-    private(set) var tickCount: UInt = 0
-    let minimumInterval: TimeInterval
-    let baseDistanceThreshold: CGFloat
-
-    init(
-        minimumInterval: TimeInterval = 0.055,
-        baseDistanceThreshold: CGFloat = 16
-    ) {
-        self.minimumInterval = minimumInterval
-        self.baseDistanceThreshold = baseDistanceThreshold
-    }
-
-    mutating func update(
-        location: CGPoint,
-        now: TimeInterval,
-        configuration: LandingASCIIWakeFieldConfiguration
-    ) -> LandingCursorBrushHapticPattern? {
-        defer {
-            lastLocation = location
-            lastMoveAt = now
-        }
-
-        guard let lastLocation, let lastMoveAt else { return nil }
-
-        let distance = hypot(location.x - lastLocation.x, location.y - lastLocation.y)
-        guard distance >= 0.75 else { return nil }
-
-        carriedDistance += distance
-        let deltaTime = max(now - lastMoveAt, 0.008)
-        let speed = distance / deltaTime
-        let threshold = effectiveDistanceThreshold(configuration: configuration, speed: speed)
-        guard carriedDistance >= threshold else { return nil }
-
-        let interval = effectiveMinimumInterval(configuration: configuration, speed: speed)
-        guard lastTickAt.map({ now - $0 >= interval }) ?? true else { return nil }
-
-        carriedDistance.formTruncatingRemainder(dividingBy: threshold)
-        tickCount &+= 1
-        lastTickAt = now
-
-        if tickCount.isMultiple(of: 4) || speed >= 950 {
-            return .accent
-        }
-        return .whisper
-    }
-
-    mutating func endHover() {
-        lastLocation = nil
-        lastMoveAt = nil
-        carriedDistance = 0
-    }
-
-    mutating func reset() {
-        endHover()
-        lastTickAt = nil
-        tickCount = 0
-    }
-
-    private func effectiveDistanceThreshold(
-        configuration: LandingASCIIWakeFieldConfiguration,
-        speed: CGFloat
-    ) -> CGFloat {
-        let textureReduction = CGFloat(configuration.overlayOpacity * 4)
-            + CGFloat(configuration.scrambleShellBlur * 5)
-        let speedReduction = min(4, speed / 600)
-        return max(10, baseDistanceThreshold - textureReduction - speedReduction)
-    }
-
-    private func effectiveMinimumInterval(
-        configuration: LandingASCIIWakeFieldConfiguration,
-        speed: CGFloat
-    ) -> TimeInterval {
-        let speedReduction = min(0.015, TimeInterval(speed / 4000))
-        let textureReduction = TimeInterval(configuration.scrambleShellOpacity * 0.01)
-        return max(0.04, minimumInterval - speedReduction - textureReduction)
-    }
-}
-
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 // Search/command palette is now a global overlay (CommandPaletteOverlay)
@@ -1818,7 +1730,6 @@ private struct LandingASCIIWakeField: View {
     @State private var lastHoverPoint: LandingASCIIWakeFieldEngine.TrailPoint?
     @State private var lastHoverTime: TimeInterval?
     @State private var trailCleanupTask: Task<Void, Never>?
-    @State private var brushHapticState = LandingCursorBrushHapticState()
 
     // Cached configuration — rebuilt only when slider values change.
     @State private var cachedConfiguration = LandingASCIIWakeFieldConfiguration()
@@ -1833,9 +1744,6 @@ private struct LandingASCIIWakeField: View {
     }
     private var hasExternalHover: Bool {
         pointerState.location != nil
-    }
-    private var shouldEmitBrushHaptics: Bool {
-        surface == .landing && shouldAnimate
     }
 
     /// Key built from the slider values — when this changes, recache configuration.
@@ -1945,7 +1853,6 @@ private struct LandingASCIIWakeField: View {
                 case .ended:
                     lastHoverPoint = nil
                     lastHoverTime = nil
-                    brushHapticState.endHover()
                 }
             }
             .onChange(of: pointerState.location) { _, newValue in
@@ -1953,7 +1860,6 @@ private struct LandingASCIIWakeField: View {
                     if newValue == nil {
                         lastHoverPoint = nil
                         lastHoverTime = nil
-                        brushHapticState.endHover()
                     }
                     return
                 }
@@ -1976,18 +1882,13 @@ private struct LandingASCIIWakeField: View {
                 trails.removeAll(keepingCapacity: false)
                 lastHoverPoint = nil
                 lastHoverTime = nil
-                brushHapticState.reset()
                 trailCleanupTask?.cancel()
                 trailCleanupTask = nil
-            }
-            .onChange(of: surface) { _, _ in
-                brushHapticState.reset()
             }
         }
         .onDisappear {
             trailCleanupTask?.cancel()
             trailCleanupTask = nil
-            brushHapticState.reset()
         }
         .allowsHitTesting(true)
     }
@@ -2001,14 +1902,6 @@ private struct LandingASCIIWakeField: View {
             lineHeight: lineHeight
         )
         let now = Date.timeIntervalSinceReferenceDate
-        if shouldEmitBrushHaptics,
-            let pattern = brushHapticState.update(
-                location: location,
-                now: now,
-                configuration: cachedConfiguration
-            ) {
-            HapticHelper.landingWakeBrushTick(pattern)
-        }
         if let lastHoverPoint, lastHoverPoint != point {
             let eventDelta = lastHoverTime.map { now - $0 }
             let rawSamples = LandingASCIIWakeFieldEngine.streamTrailSamples(
