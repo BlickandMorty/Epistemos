@@ -25,6 +25,14 @@ enum LandingGreetingAnimationPolicy {
     static let intensityDefaultsKey = "epistemos.landingGreetingIntensity"
     static let varietyDefaultsKey = "epistemos.landingGreetingVariety"
     static let paceDefaultsKey = "epistemos.landingGreetingPace"
+    static let thresholdDefaultsKey = "epistemos.landingGreetingThreshold"
+    static let blurDefaultsKey = "epistemos.landingGreetingBlur"
+    static let pullDefaultsKey = "epistemos.landingGreetingPull"
+    static let expansionDefaultsKey = "epistemos.landingGreetingExpansion"
+    static let centerSofteningDefaultsKey = "epistemos.landingGreetingCenterSoftening"
+    static let pullRadiusDefaultsKey = "epistemos.landingGreetingPullRadius"
+    static let dampingDefaultsKey = "epistemos.landingGreetingDamping"
+    static let scaleDefaultsKey = "epistemos.landingGreetingScale"
 
     static let defaultEnabled = true
     static let defaultASCIIEnabled = true
@@ -34,6 +42,14 @@ enum LandingGreetingAnimationPolicy {
     static let defaultIntensity = 0.52
     static let defaultVariety = 0.58
     static let defaultPace = 0.46
+    static let defaultThreshold = 0.42
+    static let defaultBlur = 0.5
+    static let defaultPull = 0.45
+    static let defaultExpansion = 0.3
+    static let defaultCenterSoftening = 0.05
+    static let defaultPullRadius = 0.5 // Maps to 80-240
+    static let defaultDamping = 0.5    // Maps to 0.2-0.9
+    static let defaultScale = 0.4
 }
 
 enum LandingGreetingTypewriterVersion: String, CaseIterable, Codable, Sendable {
@@ -51,11 +67,17 @@ enum LandingGreetingTypewriterVersion: String, CaseIterable, Codable, Sendable {
 enum LandingWakeFieldPolicy {
     static let responseDefaultsKey = "epistemos.landingCursorResponse"
     static let spreadDefaultsKey = "epistemos.landingCursorSpread"
-    static let trailDefaultsKey = "epistemos.landingCursorTrail"
+    static let trialDefaultsKey = "epistemos.landingCursorTrail"
+    static let viscosityDefaultsKey = "epistemos.landingCursorViscosity"
+    static let turbulenceDefaultsKey = "epistemos.landingCursorTurbulence"
+    static let blastPowerDefaultsKey = "epistemos.landingCursorBlastPower"
 
     static let defaultResponse = 0.56
     static let defaultSpread = 0.6
     static let defaultTrail = 0.62
+    static let defaultViscosity = 0.8
+    static let defaultTurbulence = 0.5
+    static let defaultBlastPower = 50.0
 }
 
 // MARK: - UI State
@@ -231,6 +253,78 @@ final class UIState {
         }
     }
 
+    var landingGreetingThreshold = LandingGreetingAnimationPolicy.defaultThreshold {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingThreshold,
+                forKey: LandingGreetingAnimationPolicy.thresholdDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingBlur = LandingGreetingAnimationPolicy.defaultBlur {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingBlur,
+                forKey: LandingGreetingAnimationPolicy.blurDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingPull = LandingGreetingAnimationPolicy.defaultPull {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingPull,
+                forKey: LandingGreetingAnimationPolicy.pullDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingExpansion = LandingGreetingAnimationPolicy.defaultExpansion {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingExpansion,
+                forKey: LandingGreetingAnimationPolicy.expansionDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingCenterSoftening = LandingGreetingAnimationPolicy.defaultCenterSoftening {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingCenterSoftening,
+                forKey: LandingGreetingAnimationPolicy.centerSofteningDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingPullRadius = LandingGreetingAnimationPolicy.defaultPullRadius {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingPullRadius,
+                forKey: LandingGreetingAnimationPolicy.pullRadiusDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingDamping = LandingGreetingAnimationPolicy.defaultDamping {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingDamping,
+                forKey: LandingGreetingAnimationPolicy.dampingDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingScale = LandingGreetingAnimationPolicy.defaultScale {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingScale,
+                forKey: LandingGreetingAnimationPolicy.scaleDefaultsKey
+            )
+        }
+    }
+
     var landingCursorResponse = LandingWakeFieldPolicy.defaultResponse {
         didSet {
             UserDefaults.standard.set(
@@ -253,7 +347,34 @@ final class UIState {
         didSet {
             UserDefaults.standard.set(
                 landingCursorTrail,
-                forKey: LandingWakeFieldPolicy.trailDefaultsKey
+                forKey: LandingWakeFieldPolicy.trialDefaultsKey
+            )
+        }
+    }
+
+    var landingCursorViscosity: Double = LandingWakeFieldPolicy.defaultViscosity {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorViscosity,
+                forKey: LandingWakeFieldPolicy.viscosityDefaultsKey
+            )
+        }
+    }
+
+    var landingCursorTurbulence: Double = LandingWakeFieldPolicy.defaultTurbulence {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorTurbulence,
+                forKey: LandingWakeFieldPolicy.turbulenceDefaultsKey
+            )
+        }
+    }
+
+    var landingCursorBlastPower: Double = LandingWakeFieldPolicy.defaultBlastPower {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorBlastPower,
+                forKey: LandingWakeFieldPolicy.blastPowerDefaultsKey
             )
         }
     }
@@ -284,40 +405,7 @@ final class UIState {
                 forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
             )
         }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.asciiEnabledDefaultsKey) != nil {
-            landingGreetingASCIIEnabled = UserDefaults.standard.bool(
-                forKey: LandingGreetingAnimationPolicy.asciiEnabledDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey) != nil {
-            landingGreetingTypewriterEnabled = UserDefaults.standard.bool(
-                forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.asciiHoverEnabledDefaultsKey) != nil {
-            landingGreetingASCIIHoverEnabled = UserDefaults.standard.bool(
-                forKey: LandingGreetingAnimationPolicy.asciiHoverEnabledDefaultsKey
-            )
-        }
-        if let rawVersion = UserDefaults.standard.string(forKey: LandingGreetingAnimationPolicy.typewriterVersionDefaultsKey),
-           let version = LandingGreetingTypewriterVersion(rawValue: rawVersion) {
-            landingGreetingTypewriterVersion = version
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.intensityDefaultsKey) != nil {
-            landingGreetingIntensity = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.intensityDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.varietyDefaultsKey) != nil {
-            landingGreetingCharacterVariety = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.varietyDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.paceDefaultsKey) != nil {
-            landingGreetingPace = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.paceDefaultsKey
-            )
-        }
+
         if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.responseDefaultsKey) != nil {
             landingCursorResponse = UserDefaults.standard.double(
                 forKey: LandingWakeFieldPolicy.responseDefaultsKey
@@ -328,9 +416,65 @@ final class UIState {
                 forKey: LandingWakeFieldPolicy.spreadDefaultsKey
             )
         }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.trailDefaultsKey) != nil {
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.trialDefaultsKey) != nil {
             landingCursorTrail = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.trailDefaultsKey
+                forKey: LandingWakeFieldPolicy.trialDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.viscosityDefaultsKey) != nil {
+            landingCursorViscosity = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.viscosityDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.turbulenceDefaultsKey) != nil {
+            landingCursorTurbulence = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.turbulenceDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.blastPowerDefaultsKey) != nil {
+            landingCursorBlastPower = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.blastPowerDefaultsKey
+            )
+        }
+
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.thresholdDefaultsKey) != nil {
+            landingGreetingThreshold = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.thresholdDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.blurDefaultsKey) != nil {
+            landingGreetingBlur = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.blurDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.pullDefaultsKey) != nil {
+            landingGreetingPull = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.pullDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.expansionDefaultsKey) != nil {
+            landingGreetingExpansion = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.expansionDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.centerSofteningDefaultsKey) != nil {
+            landingGreetingCenterSoftening = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.centerSofteningDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.pullRadiusDefaultsKey) != nil {
+            landingGreetingPullRadius = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.pullRadiusDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.dampingDefaultsKey) != nil {
+            landingGreetingDamping = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.dampingDefaultsKey
+            )
+        }
+        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.scaleDefaultsKey) != nil {
+            landingGreetingScale = UserDefaults.standard.double(
+                forKey: LandingGreetingAnimationPolicy.scaleDefaultsKey
             )
         }
     }

@@ -115,11 +115,11 @@ struct LandingASCIIWakeFieldTests {
         #expect(configuration.streamBubbleRadiusScale < 1)
     }
 
-    @Test("landing wake field targets ProMotion refresh rates")
-    func landingWakeFieldTargetsProMotionRefreshRates() {
+    @Test("landing wake field targets smooth 60 fps refresh rate")
+    func landingWakeFieldTargetsSmoothRefreshRate() {
         let configuration = LandingASCIIWakeFieldConfiguration()
 
-        #expect(configuration.frameInterval <= (1.0 / 120.0) + 0.0001)
+        #expect(configuration.frameInterval <= (1.0 / 60.0) + 0.0001)
     }
 
     @Test("landing wake field tuning exposes bounded cursor physics controls")

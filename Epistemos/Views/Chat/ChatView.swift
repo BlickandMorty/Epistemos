@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import UniformTypeIdentifiers
 
 enum ChatLayout {
@@ -67,7 +68,9 @@ struct ChatView: View {
                                     message: row.message,
                                     originalQuery: row.originalQuery,
                                     allowsResubmit: !pipeline.isProcessing,
-                                    onResubmit: { chat.submitQuery($0) }
+                                    onResubmit: { query in
+                                        chat.submitQuery(query)
+                                    }
                                 )
                                 .id(row.id)
                             }
@@ -105,10 +108,10 @@ struct ChatView: View {
                     proxy.scrollTo("bottom-anchor", anchor: .bottom)
                 }
                 .onChange(of: chat.streamingText) { _, _ in
-                    // Throttle to ~4fps during streaming
+                    // Throttle to ~4fps during streaming for "smooth" feel
                     let now = ContinuousClock.now
                     guard autoFollow.isFollowingBottom,
-                          (ChatStreamingDisplayPolicy.showsLiveResponseText || !chat.isStreaming),
+                          (ChatStreamingDisplayPolicy.showsLiveResponseText || !chat.isStreaming || chat.isResearchMode),
                           now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
                     else { return }
                     lastScrollTime = now

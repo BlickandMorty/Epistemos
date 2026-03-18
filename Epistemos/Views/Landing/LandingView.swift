@@ -13,8 +13,8 @@ enum LandingShortcutDisplay {
         text
     }
 
-    static func font(weight: NSFont.Weight = .medium) -> Font {
-        Font(nsFont(weight: weight))
+    static func font(weight: Font.Weight = .medium) -> Font {
+        .system(size: fontSize, weight: weight, design: .rounded)
     }
 
     static func nsFont(weight: NSFont.Weight = .medium) -> NSFont {
@@ -39,7 +39,7 @@ enum LandingSearchLayout {
 }
 
 enum LandingSearchChromePolicy {
-    static let showsGlow = true
+    static let showsGlow = false
 }
 
 // MARK: - Landing View
@@ -65,16 +65,21 @@ struct LandingView: View {
     // Inline search state
     @State private var showingSearch = false
     @State private var landingSearchText = ""
-    @State private var landingComposerHeight = ChatComposerInputMetrics.minHeight
+    @State private var landingComposerHeight: CGFloat = 32 // Better initial height for 22px font
     @State private var isLandingSearchFocused = false
+    @State private var globalHoverLocation: CGPoint? = nil
+
+    // Cached vocabulary — rebuilt only when allPages changes, not every body evaluation.
+    @State private var landingWakeVocabulary: [String] = []
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
     private var trimmedLandingSearchText: String {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private var landingWakeVocabulary: [String] {
-        LandingASCIIWakeFieldEngine.normalizedVocabulary(
+
+    private func rebuildVocabulary() {
+        landingWakeVocabulary = LandingASCIIWakeFieldEngine.normalizedVocabulary(
             from: [
                 "Epistemos",
                 "Research",
@@ -101,12 +106,14 @@ struct LandingView: View {
                 .blur(radius: (showingBrief || showingSearch) ? 20 : 0)
                 .opacity((showingBrief || showingSearch) ? 0 : 1)
                 .allowsHitTesting(!showingBrief && !showingSearch)
+                .zIndex(1)
 
             // ── Inline Search Mode ──
             // Click anywhere on landing → greeting blur-replaces into search bar.
             if showingSearch {
                 landingSearchContent
                     .transition(.opacity.combined(with: .blurReplace))
+                    .zIndex(2)
             }
 
             // ── Daily Brief Mode ──
@@ -114,6 +121,31 @@ struct LandingView: View {
             if showingBrief {
                 dailyBriefContent
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    .zIndex(3)
+            }
+
+            // ── Background Cursor/Wake Field ──
+            // Stays active even during search/brief modes.
+            // Moved to the top with allowsHitTesting(false) to ensure visibility,
+            // using the globalHoverLocation provided by the outer tracker.
+            LandingASCIIWakeField(
+                vocabulary: landingWakeVocabulary,
+                theme: theme,
+                externalHoverLocation: globalHoverLocation
+            ) {
+                if !showingSearch && !showingBrief {
+                    activateLandingSearch()
+                }
+            }
+            .allowsHitTesting(false)
+            .zIndex(10)
+        }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+                globalHoverLocation = location
+            case .ended:
+                globalHoverLocation = nil
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -150,25 +182,22 @@ struct LandingView: View {
             }
             return .ignored
         }
+        .onAppear { rebuildVocabulary() }
+        .onChange(of: allPages.map(\.id)) { _, _ in rebuildVocabulary() }
     }
 
     // MARK: - Greeting Content (normal landing state)
 
     private var greetingContent: some View {
-        ZStack {
-            LandingASCIIWakeField(vocabulary: landingWakeVocabulary, theme: theme) {
-                activateLandingSearch()
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 36) {
+                LiquidGreeting(retractNow: .constant(false))
             }
+            .padding(.horizontal, Spacing.xxl)
 
-            VStack(spacing: 0) {
-                Spacer()
-
-                VStack(spacing: 36) {
-                    LiquidGreeting(retractNow: .constant(false))
-                }
-                .padding(.horizontal, Spacing.xxl)
-
-                Spacer()
+            Spacer()
 
                 // Shortcut hints
                 HStack(spacing: LandingShortcutDisplay.shortcutRowSpacing) {
@@ -226,7 +255,6 @@ struct LandingView: View {
                 }
                 .padding(.bottom, 28)
             }
-        }
         .contentShape(Rectangle())
         .onTapGesture { activateLandingSearch() }
     }
@@ -235,103 +263,108 @@ struct LandingView: View {
 
     private var landingSearchContent: some View {
         VStack(spacing: 0) {
-            Spacer()
+             Spacer()
+                 .allowsHitTesting(false)
 
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [
-                                        Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
-                                        Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
-                                        Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                    HStack(alignment: .bottom, spacing: LandingSearchLayout.topRowSpacing) {
+                        HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                                            Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                                            Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                   )
                                 )
-                            )
-                            .padding(.top, 8)
+                                .padding(.top, 8) // Align with first line of 22pt text
 
-                        ZStack(alignment: .topLeading) {
-                            ChatComposerTextEditor(
-                                text: $landingSearchText,
-                                height: $landingComposerHeight,
-                                isFocused: $isLandingSearchFocused,
-                                theme: theme,
-                                isProcessing: false
-                            ) {
-                                submitLandingSearch()
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(height: landingComposerHeight)
+                            ZStack(alignment: .topLeading) {
+                                ChatComposerTextEditor(
+                                    text: $landingSearchText,
+                                    height: $landingComposerHeight,
+                                    isFocused: $isLandingSearchFocused,
+                                    theme: theme,
+                                    fontSize: 22,
+                                    isProcessing: false
+                                ) {
+                                    submitLandingSearch()
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(height: landingComposerHeight)
 
-                            if landingSearchText.isEmpty {
-                                Text("Ask Epistemos\u{2026}")
-                                    .font(.system(size: 22, weight: .regular, design: .rounded))
-                                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
-                                    .padding(.top, ChatComposerInputMetrics.placeholderTopPadding + 1)
-                                    .allowsHitTesting(false)
+                                if landingSearchText.isEmpty {
+                                    Text("Ask Epistemos\u{2026}")
+                                        .font(.system(size: 22, weight: .regular))
+                                        .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                                        .padding(.top, ChatComposerInputMetrics.verticalInset)
+                                        .allowsHitTesting(false)
+                                }
                             }
                         }
 
-                        if !landingSearchText.isEmpty {
-                            Button {
-                                landingSearchText = ""
-                                landingComposerHeight = ChatComposerInputMetrics.minHeight
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(theme.textTertiary)
-                                    .frame(width: 28, height: 28)
-                            }
-                            .buttonStyle(NativeToolbarButtonStyle())
-                            .padding(.top, 4)
-                            .transition(.scale(scale: 0.5).combined(with: .opacity))
-                        }
-                    }
-
-                    HStack(alignment: .center, spacing: LandingSearchLayout.controlRowSpacing) {
-                        HStack(spacing: LandingSearchLayout.controlRowSpacing) {
+                        // Google Material Style: Controls inside the bar
+                        HStack(spacing: 4) {
                             ResearchModeControl(variant: .toolbar)
 
                             landingProviderMenu
-                        }
 
-                        Spacer(minLength: 0)
+                            if !landingSearchText.isEmpty {
+                                Button {
+                                    landingSearchText = ""
+                                    landingComposerHeight = ChatComposerInputMetrics.minHeight
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(theme.textTertiary)
+                                        .frame(width: 28, height: 28)
+                                }
+                                .buttonStyle(NativeToolbarButtonStyle())
+                                .transition(.scale(scale: 0.5).combined(with: .opacity))
+                            }
 
-                        AssistantSendButton(
-                            theme: theme,
-                            isEnabled: !trimmedLandingSearchText.isEmpty,
-                            isProcessing: false,
-                            metrics: .compactChat
-                        ) {
-                            submitLandingSearch()
+                            AssistantSendButton(
+                                theme: theme,
+                                isEnabled: !trimmedLandingSearchText.isEmpty,
+                                isProcessing: false,
+                                metrics: .compactChat
+                            ) {
+                                submitLandingSearch()
+                            }
+                            .help("Send")
+                            .accessibilityLabel("Send prompt")
                         }
-                        .help("Send")
-                        .accessibilityLabel("Send prompt")
                     }
-                    .padding(.top, LandingSearchLayout.controlRowTopPadding)
+                    .padding(.horizontal, LandingSearchLayout.horizontalPadding)
+                    .padding(.top, LandingSearchLayout.topPadding)
+                    .padding(.bottom, LandingSearchLayout.bottomPadding)
+                    .assistantGlassInputChrome(
+                        theme: theme,
+                        cornerRadius: LandingSearchLayout.cornerRadius,
+                        isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty
+                    )
                 }
-                .padding(.horizontal, LandingSearchLayout.horizontalPadding)
-                .padding(.top, LandingSearchLayout.topPadding)
-                .padding(.bottom, LandingSearchLayout.bottomPadding)
-                .assistantGlassInputChrome(
-                    theme: theme,
-                    cornerRadius: LandingSearchLayout.cornerRadius,
-                    isActive: isLandingSearchFocused || !trimmedLandingSearchText.isEmpty
-                )
-                .siriGlow(
-                    cornerRadius: LandingSearchLayout.cornerRadius,
-                    lineWidth: 1.2,
-                    isActive: LandingSearchChromePolicy.showsGlow && showingSearch
-                )
                 .frame(maxWidth: LandingSearchLayout.maxWidth)
+            }
+            .padding(.horizontal, Spacing.xxl)
 
-                // Quick action chips
-                HStack(spacing: 10) {
+            Spacer()
+                .allowsHitTesting(false)
+
+            VStack(spacing: 16) {
+                // Hint to dismiss
+                Text("Press Esc to go back")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(theme.textTertiary.opacity(0.4))
+                
+                // Quick action chips moved to the bottom
+                HStack(spacing: 12) {
                     landingChip(label: "New Note", icon: "doc.badge.plus") {
                         dismissLandingSearch()
                         createAndOpenNote()
@@ -352,17 +385,8 @@ struct LandingView: View {
                         dailyBrief.requestDailyBrief(prompt: prompt)
                     }
                 }
-                .padding(.top, 4)
             }
-            .padding(.horizontal, Spacing.xxl)
-
-            Spacer()
-
-            // Hint to dismiss
-            Text("Press Esc to go back")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(theme.textTertiary.opacity(0.4))
-                .padding(.bottom, 28)
+            .padding(.bottom, 28)
         }
     }
 
@@ -375,11 +399,9 @@ struct LandingView: View {
                     .font(.system(size: 12, weight: .medium))
             }
             .foregroundStyle(theme.textSecondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background {
-                Capsule().fill(theme.foreground.opacity(0.06))
-            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .hoverGlass(flatBackground: theme.foreground.opacity(0.06), cornerRadius: 100)
         }
         .buttonStyle(.plain)
     }
@@ -414,7 +436,7 @@ struct LandingView: View {
             .foregroundStyle(theme.textSecondary)
             .padding(.horizontal, 12)
             .frame(height: 30)
-            .assistantInsetChrome(theme: theme, cornerRadius: 11)
+            .hoverGlassCapsule(flatBackground: theme.muted.opacity(0.1))
         }
         .menuStyle(.borderlessButton)
         .help("Provider")
@@ -839,8 +861,8 @@ private struct CommandHintLabel: View {
             if spec.modIcon != nil || spec.key != nil {
                 HStack(spacing: 3) {
                     if let modIcon = spec.modIcon {
-                        Image(systemName: modIcon)
-                            .font(.system(size: 10, weight: .medium))
+                         Image(systemName: modIcon)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
                     }
                     if let key = spec.key {
                         Text(key)
@@ -858,17 +880,7 @@ private struct CommandHintLabel: View {
                         cornerRadius: LandingShortcutDisplay.keyCornerRadius,
                         style: .continuous
                     )
-                    .fill(theme.card.opacity(theme.isDark ? 0.62 : 0.96))
-                )
-                .overlay(
-                    RoundedRectangle(
-                        cornerRadius: LandingShortcutDisplay.keyCornerRadius,
-                        style: .continuous
-                    )
-                    .strokeBorder(
-                        isHovered ? theme.fontAccent.opacity(0.65) : theme.border.opacity(0.9),
-                        lineWidth: 1
-                    )
+                    .fill(theme.foreground.opacity(theme.isDark ? 0.08 : 0.06))
                 )
             } else if let icon = spec.icon {
                 Image(systemName: icon)
@@ -904,10 +916,9 @@ private struct CommandHint: View {
             CommandHintLabel(spec: spec, theme: theme, isHovered: isHovered)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isHovered ? theme.fontAccent : theme.textTertiary.opacity(0.5))
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
-        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .hoverGlass(flatBackground: .clear, cornerRadius: LandingShortcutDisplay.keyCornerRadius + 4)
     }
 }
 
@@ -943,11 +954,13 @@ private struct HoverRevealCommandHint: View {
             CommandHintLabel(spec: spec, theme: theme, isHovered: isHovered)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isHovered ? theme.fontAccent : theme.textTertiary.opacity(0.5))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .hoverGlass(flatBackground: .clear, cornerRadius: LandingShortcutDisplay.keyCornerRadius + 4)
     }
 }
 
-struct LandingASCIIWakeTrail: Equatable {
+struct LandingASCIIWakeTrail: Equatable, Sendable {
     let x: CGFloat
     let y: CGFloat
     let startTime: TimeInterval
@@ -965,8 +978,8 @@ struct LandingASCIIWakeTrail: Equatable {
     }
 }
 
-struct LandingASCIIWakeFieldConfiguration: Equatable {
-    var frameInterval: TimeInterval = 1.0 / 120.0
+struct LandingASCIIWakeFieldConfiguration: Equatable, Sendable {
+    var frameInterval: TimeInterval = 1.0 / 60.0
     var interpolationStep: CGFloat = 0.4
     var duration: TimeInterval = 1.14
     var initialRadius: CGFloat = 0.62
@@ -997,25 +1010,39 @@ struct LandingASCIIWakeFieldConfiguration: Equatable {
     static func tuned(
         response: Double,
         spread: Double,
-        trail: Double
+        trail: Double,
+        viscosity: Double = 0.8,
+        turbulence: Double = 0.5
     ) -> LandingASCIIWakeFieldConfiguration {
         let clampedResponse = max(0, min(1, response))
         let clampedSpread = max(0, min(1, spread))
         let clampedTrail = max(0, min(1, trail))
+        let clampedViscosity = max(0, min(1, viscosity))
+        let clampedTurbulence = max(0, min(1, turbulence))
+
+        let durBase = 1.32 - (0.36 * clampedResponse)
+        let dur = durBase + (clampedViscosity * 3.0) 
+        
+        let cExpBase = 0.64 + (0.16 * clampedTrail)
+        let cExp = cExpBase - (clampedViscosity * 0.4)
+        
+        let maxRadBase = 5.8 + (3.6 * clampedSpread)
+        let maxRad = maxRadBase + (clampedTurbulence * 8.0)
+
         return LandingASCIIWakeFieldConfiguration(
-            frameInterval: 1.0 / 120.0,
+            frameInterval: 1.0 / 60.0,
             interpolationStep: 0.5 - (0.18 * clampedResponse),
-            duration: 1.32 - (0.36 * clampedResponse),
+            duration: dur,
             initialRadius: 0.42 + (0.32 * clampedSpread),
-            maxRadius: 5.8 + (3.6 * clampedSpread),
+            maxRadius: maxRad,
             growthExponent: 1.06 + (0.2 * clampedResponse),
             peakProgress: 0.6 + (0.12 * clampedSpread),
             endRadius: 0.28 + (0.24 * clampedTrail),
-            contractionExponent: 0.64 + (0.16 * clampedTrail),
+            contractionExponent: cExp,
             boundaryThickness: 0.88 + (0.48 * clampedSpread),
             scrambleCharacters: ASCIIRippleConfiguration().characters,
             surfaceCharacters: Array(repeating: "·", count: 32),
-            restingSurfaceOpacity: 0,
+            restingSurfaceOpacity: 0.0,
             maxTrailCount: Int(round(104 + (96 * clampedTrail))),
             streamTailLength: 2.1 + (2.9 * clampedTrail),
             streamLongDragDistance: 3.6 + (2.6 * clampedTrail),
@@ -1027,15 +1054,15 @@ struct LandingASCIIWakeFieldConfiguration: Equatable {
             streamBubbleBacktrack: 0.54 + (0.34 * clampedTrail),
             streamBubbleRadiusScale: 0.38 + (0.24 * clampedTrail),
             streamBubbleFastScaleBoost: 0.2 + (0.2 * clampedResponse),
-            streamSwingMaxOffset: 0.44 + (0.5 * clampedSpread),
-            streamSwingCycles: 0.92 + (0.52 * clampedTrail),
+            streamSwingMaxOffset: (0.44 + (0.5 * clampedSpread)) + (clampedTurbulence * 3.0),
+            streamSwingCycles: (0.92 + (0.52 * clampedTrail)) + (clampedTurbulence * 2.5),
             streamHeadAgeBoost: 0.04 + (0.14 * clampedTrail)
         )
     }
 }
 
-struct LandingASCIIWakeFieldLayout: Equatable {
-    struct CellPosition: Equatable {
+struct LandingASCIIWakeFieldLayout: Equatable, Sendable {
+    struct CellPosition: Equatable, Sendable {
         let column: Int
         let row: Int
     }
@@ -1496,10 +1523,25 @@ enum LandingASCIIWakeFieldEngine {
         layout: LandingASCIIWakeFieldLayout,
         now: TimeInterval,
         trails: [LandingASCIIWakeTrail],
+        lastHoverPoint: TrailPoint?,
         configuration: LandingASCIIWakeFieldConfiguration
     ) -> String {
+        var allTrails = trails
+        
+        // Add a persistent trail at the last hover location to keep words revealed
+        if let lastPoint = lastHoverPoint {
+            allTrails.append(
+                LandingASCIIWakeTrail(
+                    x: lastPoint.x,
+                    y: lastPoint.y,
+                    startTime: now - (configuration.duration * 0.5), // Constant half-life age for persistent reveal
+                    radiusScale: 1.0
+                )
+            )
+        }
+
         let activeTrails = resolvedTrails(
-            trails,
+            allTrails,
             now: now,
             configuration: configuration,
             columns: layout.columns,
@@ -1549,9 +1591,11 @@ enum LandingASCIIWakeFieldEngine {
     }
 }
 
+
 private struct LandingASCIIWakeField: View {
     let vocabulary: [String]
     let theme: EpistemosTheme
+    var externalHoverLocation: CGPoint? = nil
     var onTapAction: (() -> Void)? = nil
 
     @Environment(UIState.self) private var ui
@@ -1570,20 +1614,24 @@ private struct LandingASCIIWakeField: View {
     @State private var lastHoverTime: TimeInterval?
     @State private var trailCleanupTask: Task<Void, Never>?
 
+    // Cached configuration — rebuilt only when slider values change.
+    @State private var cachedConfiguration = LandingASCIIWakeFieldConfiguration()
+
+    // Frame-coalesced overlay text — avoids redundant computation.
+    @State private var renderedOverlayText = ""
+
     private let fontSize: CGFloat = 11
     private let lineSpacing: CGFloat = 3
-    private var configuration: LandingASCIIWakeFieldConfiguration {
-        LandingASCIIWakeFieldConfiguration.tuned(
-            response: ui.landingCursorResponse,
-            spread: ui.landingCursorSpread,
-            trail: ui.landingCursorTrail
-        )
-    }
 
     private var charWidth: CGFloat { fontSize * 0.64 }
     private var lineHeight: CGFloat { fontSize + lineSpacing + 2 }
     private var shouldAnimate: Bool {
         !reduceMotion && !ui.windowOccluded && ui.landingCursorAnimationEnabled
+    }
+
+    /// Key built from the slider values — when this changes, recache configuration.
+    private var configurationKey: String {
+        "\(ui.landingCursorResponse)_\(ui.landingCursorSpread)_\(ui.landingCursorTrail)_\(ui.landingCursorViscosity)_\(ui.landingCursorTurbulence)"
     }
 
     var body: some View {
@@ -1592,26 +1640,20 @@ private struct LandingASCIIWakeField: View {
             let rows = max(Int(proxy.size.height / lineHeight), 10)
 
             ZStack(alignment: .topLeading) {
-                if configuration.restingSurfaceOpacity > 0 {
+                if cachedConfiguration.restingSurfaceOpacity > 0 {
                     Text(layout.surfaceText)
                         .font(.system(size: fontSize, weight: .medium, design: .monospaced))
                         .lineSpacing(lineSpacing)
-                        .foregroundStyle(theme.textTertiary.opacity(configuration.restingSurfaceOpacity))
+                        .foregroundStyle(theme.textTertiary.opacity(cachedConfiguration.restingSurfaceOpacity))
                 }
 
-                if shouldAnimate, !trails.isEmpty {
-                    TimelineView(.animation(minimumInterval: configuration.frameInterval)) { context in
-                        Text(
-                            LandingASCIIWakeFieldEngine.overlayText(
-                                layout: layout,
-                                now: context.date.timeIntervalSinceReferenceDate,
-                                trails: trails,
-                                configuration: configuration
-                            )
-                        )
-                        .font(.system(size: fontSize, weight: .medium, design: .monospaced))
-                        .lineSpacing(lineSpacing)
-                        .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.26 : 0.18))
+                if shouldAnimate, (!trails.isEmpty || lastHoverPoint != nil) {
+                    TimelineView(.animation(minimumInterval: cachedConfiguration.frameInterval)) { context in
+                        let _ = updateOverlayText(now: context.date.timeIntervalSinceReferenceDate)
+                        Text(renderedOverlayText)
+                            .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
+                            .lineSpacing(lineSpacing)
+                            .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.72 : 0.64))
                     }
                 }
             }
@@ -1633,6 +1675,7 @@ private struct LandingASCIIWakeField: View {
             )
             .contentShape(Rectangle())
             .onAppear {
+                recacheConfiguration()
                 rebuildLayout(columns: columns, rows: rows)
             }
             .onChange(of: columns) { _, newValue in
@@ -1644,44 +1687,32 @@ private struct LandingASCIIWakeField: View {
             .onChange(of: vocabulary) { _, _ in
                 rebuildLayout(columns: columns, rows: rows)
             }
-            .onChange(of: configuration) { _, _ in
+            .onChange(of: configurationKey) { _, _ in
+                recacheConfiguration()
                 rebuildLayout(columns: columns, rows: rows)
                 if !trails.isEmpty {
                     scheduleTrailCleanup()
                 }
             }
             .onContinuousHover { phase in
-                guard shouldAnimate else { return }
+                guard shouldAnimate, externalHoverLocation == nil else { return }
                 switch phase {
                 case .active(let location):
-                    let point = LandingASCIIWakeFieldEngine.TrailPoint(
-                        x: max(0, min(CGFloat(columns - 1), (location.x - 26) / charWidth)),
-                        y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
-                    )
-                    let now = Date.timeIntervalSinceReferenceDate
-                    if let lastHoverPoint, lastHoverPoint != point {
-                        let eventDelta = lastHoverTime.map { now - $0 }
-                        let rawSamples = LandingASCIIWakeFieldEngine.streamTrailSamples(
-                            from: lastHoverPoint,
-                            to: point,
-                            eventDelta: eventDelta,
-                            configuration: configuration
-                        )
-                        appendTrailSamples(rawSamples, now: now, columns: columns, rows: rows)
-                    } else if lastHoverPoint == nil {
-                        appendTrailSamples(
-                            [LandingASCIIWakeFieldEngine.TrailSample(point: point, radiusScale: 1)],
-                            now: now,
-                            columns: columns,
-                            rows: rows
-                        )
-                    }
-                    lastHoverPoint = point
-                    lastHoverTime = now
+                    handleHover(location: location, columns: columns, rows: rows)
                 case .ended:
                     lastHoverPoint = nil
                     lastHoverTime = nil
                 }
+            }
+            .onChange(of: externalHoverLocation) { _, newValue in
+                guard shouldAnimate, let location = newValue else {
+                    if newValue == nil {
+                        lastHoverPoint = nil
+                        lastHoverTime = nil
+                    }
+                    return
+                }
+                handleHover(location: location, columns: columns, rows: rows)
             }
             .onTapGesture(count: 1, coordinateSpace: .local) { location in
                 onTapAction?()
@@ -1693,12 +1724,16 @@ private struct LandingASCIIWakeField: View {
                 let now = Date.timeIntervalSinceReferenceDate
                 
                 // Add an ASCII explosion wave
+                let blastPower = max(10, min(100, ui.landingCursorBlastPower))
+                let numParticles = Int(blastPower * 0.8) 
+                
                 var blastSamples: [LandingASCIIWakeFieldEngine.TrailSample] = []
-                for i in 0..<24 {
+                blastSamples.reserveCapacity(numParticles)
+                for i in 0..<numParticles {
                     blastSamples.append(
                         LandingASCIIWakeFieldEngine.TrailSample(
                             point: point,
-                            radiusScale: 5.0,
+                            radiusScale: 5.0 + (blastPower * 0.05),
                             ageOffset: Double(i) * 0.015
                         )
                     )
@@ -1721,6 +1756,33 @@ private struct LandingASCIIWakeField: View {
         .allowsHitTesting(true)
     }
 
+    private func handleHover(location: CGPoint, columns: Int, rows: Int) {
+        let point = LandingASCIIWakeFieldEngine.TrailPoint(
+            x: max(0, min(CGFloat(columns - 1), (location.x - 26) / charWidth)),
+            y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
+        )
+        let now = Date.timeIntervalSinceReferenceDate
+        if let lastHoverPoint, lastHoverPoint != point {
+            let eventDelta = lastHoverTime.map { now - $0 }
+            let rawSamples = LandingASCIIWakeFieldEngine.streamTrailSamples(
+                from: lastHoverPoint,
+                to: point,
+                eventDelta: eventDelta,
+                configuration: cachedConfiguration
+            )
+            appendTrailSamples(rawSamples, now: now, columns: columns, rows: rows)
+        } else if lastHoverPoint == nil {
+            appendTrailSamples(
+                [LandingASCIIWakeFieldEngine.TrailSample(point: point, radiusScale: 1)],
+                now: now,
+                columns: columns,
+                rows: rows
+            )
+        }
+        lastHoverPoint = point
+        lastHoverTime = now
+    }
+
     private func appendTrailSamples(
         _ rawSamples: [LandingASCIIWakeFieldEngine.TrailSample],
         now: TimeInterval,
@@ -1737,11 +1799,11 @@ private struct LandingASCIIWakeField: View {
         trails = LandingASCIIWakeFieldEngine.prunedTrails(
             trails,
             now: now,
-            configuration: configuration
+            configuration: cachedConfiguration
         )
 
-        let timeStride = min(0.01, configuration.duration / Double(max(samples.count * 5, 1)))
-        trails.reserveCapacity(max(trails.count + samples.count, configuration.maxTrailCount))
+        let timeStride = min(0.01, cachedConfiguration.duration / Double(max(samples.count * 5, 1)))
+        trails.reserveCapacity(max(trails.count + samples.count, cachedConfiguration.maxTrailCount))
         for (index, sample) in samples.enumerated() {
             trails.append(
                 LandingASCIIWakeTrail(
@@ -1752,8 +1814,8 @@ private struct LandingASCIIWakeField: View {
                 )
             )
         }
-        if trails.count > configuration.maxTrailCount {
-            trails.removeFirst(trails.count - configuration.maxTrailCount)
+        if trails.count > cachedConfiguration.maxTrailCount {
+            trails.removeFirst(trails.count - cachedConfiguration.maxTrailCount)
         }
         scheduleTrailCleanup()
     }
@@ -1763,7 +1825,28 @@ private struct LandingASCIIWakeField: View {
             vocabulary: vocabulary,
             columns: columns,
             rows: rows,
-            configuration: configuration
+            configuration: cachedConfiguration
+        )
+    }
+
+    private func recacheConfiguration() {
+        cachedConfiguration = LandingASCIIWakeFieldConfiguration.tuned(
+            response: ui.landingCursorResponse,
+            spread: ui.landingCursorSpread,
+            trail: ui.landingCursorTrail,
+            viscosity: ui.landingCursorViscosity,
+            turbulence: ui.landingCursorTurbulence
+        )
+    }
+
+    /// Update overlay text synchronously. Called from TimelineView on each frame.
+    private func updateOverlayText(now: TimeInterval) {
+        renderedOverlayText = LandingASCIIWakeFieldEngine.overlayText(
+            layout: layout,
+            now: now,
+            trails: trails,
+            lastHoverPoint: lastHoverPoint,
+            configuration: cachedConfiguration
         )
     }
 
@@ -1774,7 +1857,7 @@ private struct LandingASCIIWakeField: View {
         guard let delay = LandingASCIIWakeFieldEngine.nextTrailCleanupDelay(
             trails,
             now: now,
-            configuration: configuration
+            configuration: cachedConfiguration
         ) else {
             trailCleanupTask = nil
             return
@@ -1787,7 +1870,7 @@ private struct LandingASCIIWakeField: View {
             trails = LandingASCIIWakeFieldEngine.prunedTrails(
                 trails,
                 now: Date.timeIntervalSinceReferenceDate,
-                configuration: configuration
+                configuration: cachedConfiguration
             )
 
             if trails.isEmpty {

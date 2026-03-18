@@ -28,7 +28,8 @@ struct RootView: View {
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
     @State private var showLandingCursorControls = false
-    @State private var showLandingGreetingControls = false
+    @State private var showGreetingControls = false
+
 
     /// Transition gate: suppresses toolbar reveal during landing→chat animation on Home.
     /// Only delays the *reveal*; hiding is always immediate.
@@ -165,6 +166,20 @@ struct RootView: View {
                 ui.windowOccluded = false
             }
         }
+        // Pause when the home window loses key status to another window (note editor, settings, etc.)
+        // This is the primary guard against burning CPU behind other windows.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) {
+            note in
+            if let w = note.object as? NSWindow, w.isMainWindow {
+                ui.windowOccluded = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
+            note in
+            if let w = note.object as? NSWindow, w.isMainWindow {
+                ui.windowOccluded = false
+            }
+        }
         // Also pause when app loses focus entirely (Cmd+Tab away, etc.)
         .onReceive(
             NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
@@ -290,6 +305,21 @@ struct RootView: View {
         NSApp.activate()
     }
 
+    private var landingGreetingToolbarButton: some View {
+        Button {
+            showGreetingControls.toggle()
+        } label: {
+            Label("Greeting FX", systemImage: LandingToolbarGlyphs.greetingSymbol)
+        }
+        .help("Adjust greeting physics and liquidity")
+        .popover(isPresented: $showGreetingControls) {
+            LandingGreetingControlsView()
+                .frame(width: 320)
+                .padding(16)
+                .preferredColorScheme(ui.preferredColorScheme)
+        }
+    }
+
     private var landingCursorToolbarButton: some View {
         Button {
             showLandingCursorControls.toggle()
@@ -308,30 +338,6 @@ struct RootView: View {
         )
         .popover(isPresented: $showLandingCursorControls) {
             LandingCursorControlsView()
-                .frame(width: 320)
-                .padding(16)
-                .preferredColorScheme(ui.preferredColorScheme)
-        }
-    }
-
-    private var landingGreetingToolbarButton: some View {
-        Button {
-            showLandingGreetingControls.toggle()
-        } label: {
-            Label("Greeting FX", systemImage: LandingToolbarGlyphs.greetingSymbol)
-        }
-        .accessibilityLabel(
-            ui.landingGreetingTypewriterEnabled || ui.landingGreetingASCIIEnabled
-                ? "Adjust landing greeting animation"
-                : "Landing greeting animation is off"
-        )
-        .help(
-            ui.landingGreetingTypewriterEnabled || ui.landingGreetingASCIIEnabled
-                ? "Adjust landing greeting animation"
-                : "Landing greeting animation is off"
-        )
-        .popover(isPresented: $showLandingGreetingControls) {
-            LandingGreetingControlsView()
                 .frame(width: 320)
                 .padding(16)
                 .preferredColorScheme(ui.preferredColorScheme)
@@ -470,56 +476,76 @@ private struct LandingGreetingControlsView: View {
     var body: some View {
         @Bindable var ui = ui
         VStack(alignment: .leading, spacing: 14) {
-            Text("Greeting Animation")
+            Text("Greeting Physics")
                 .font(.system(size: 14, weight: .semibold))
 
-            Toggle("Enable typewriter", isOn: $ui.landingGreetingTypewriterEnabled)
-            if ui.landingGreetingTypewriterEnabled {
-                Picker("Version", selection: $ui.landingGreetingTypewriterVersion) {
-                    ForEach(LandingGreetingTypewriterVersion.allCases, id: \.self) { version in
-                        Text(version.displayName).tag(version)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
-
-            Toggle("Enable ASCII ripple", isOn: $ui.landingGreetingASCIIEnabled)
-            if ui.landingGreetingASCIIEnabled {
-                Toggle("ASCII on hover only", isOn: $ui.landingGreetingASCIIHoverEnabled)
-                    .padding(.leading, 12)
-                    .font(.system(size: 12))
-            }
+            Toggle("Enable greeting animation", isOn: $ui.landingGreetingAnimationEnabled)
 
             LandingAnimationSliderRow(
-                title: "ASCII intensity",
-                value: $ui.landingGreetingIntensity,
+                title: "Liquidity (Threshold)",
+                value: $ui.landingGreetingThreshold,
                 range: 0...1,
-                labels: ("Calm", "Expressive")
+                labels: ("Thick", "Thin")
             )
 
             LandingAnimationSliderRow(
-                title: "Character variety",
-                value: $ui.landingGreetingCharacterVariety,
+                title: "Organic Blur",
+                value: $ui.landingGreetingBlur,
                 range: 0...1,
-                labels: ("Focused", "Dense")
+                labels: ("Tight", "Heavy")
             )
 
             LandingAnimationSliderRow(
-                title: "Typing pace",
-                value: $ui.landingGreetingPace,
+                title: "Pull Intensity",
+                value: $ui.landingGreetingPull,
                 range: 0...1,
-                labels: ("Fast", "Calm")
+                labels: ("Soft", "Aggressive")
             )
 
-            Button("Reset Greeting Defaults") {
-                ui.landingGreetingTypewriterEnabled = LandingGreetingAnimationPolicy.defaultTypewriterEnabled
-                ui.landingGreetingASCIIEnabled = LandingGreetingAnimationPolicy.defaultASCIIEnabled
-                ui.landingGreetingASCIIHoverEnabled = LandingGreetingAnimationPolicy.defaultASCIIHoverEnabled
-                ui.landingGreetingTypewriterVersion = LandingGreetingAnimationPolicy.defaultTypewriterVersion
-                ui.landingGreetingIntensity = LandingGreetingAnimationPolicy.defaultIntensity
-                ui.landingGreetingCharacterVariety = LandingGreetingAnimationPolicy.defaultVariety
-                ui.landingGreetingPace = LandingGreetingAnimationPolicy.defaultPace
+            LandingAnimationSliderRow(
+                title: "Expansion (Bulge)",
+                value: $ui.landingGreetingExpansion,
+                range: 0...1,
+                labels: ("Flat", "Spherical")
+            )
+            
+            LandingAnimationSliderRow(
+                title: "Center Softening",
+                value: $ui.landingGreetingCenterSoftening,
+                range: 0...1,
+                labels: ("Strict", "Fluid")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Pull Radius",
+                value: $ui.landingGreetingPullRadius,
+                range: 0...1,
+                labels: ("Near", "Far")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Flow Viscosity (Honey)",
+                value: $ui.landingGreetingDamping,
+                range: 0...1,
+                labels: ("Springy", "Viscous")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Scale Intensity",
+                value: $ui.landingGreetingScale,
+                range: 0...1,
+                labels: ("Flat", "Deep")
+            )
+
+            Button("Reset Greeting Physics") {
+                ui.landingGreetingThreshold = LandingGreetingAnimationPolicy.defaultThreshold
+                ui.landingGreetingBlur = LandingGreetingAnimationPolicy.defaultBlur
+                ui.landingGreetingPull = LandingGreetingAnimationPolicy.defaultPull
+                ui.landingGreetingExpansion = LandingGreetingAnimationPolicy.defaultExpansion
+                ui.landingGreetingCenterSoftening = LandingGreetingAnimationPolicy.defaultCenterSoftening
+                ui.landingGreetingPullRadius = LandingGreetingAnimationPolicy.defaultPullRadius
+                ui.landingGreetingDamping = LandingGreetingAnimationPolicy.defaultDamping
+                ui.landingGreetingScale = LandingGreetingAnimationPolicy.defaultScale
             }
             .buttonStyle(.borderless)
         }
@@ -557,12 +583,36 @@ private struct LandingCursorControlsView: View {
                 range: 0...1,
                 labels: ("Short", "Long")
             )
+            
+            LandingAnimationSliderRow(
+                title: "Viscosity",
+                value: $ui.landingCursorViscosity,
+                range: 0...1,
+                labels: ("Water", "Honey")
+            )
+            
+            LandingAnimationSliderRow(
+                title: "Turbulence",
+                value: $ui.landingCursorTurbulence,
+                range: 0...1,
+                labels: ("Calm", "Chaotic")
+            )
+            
+            LandingAnimationSliderRow(
+                title: "Blast Power",
+                value: $ui.landingCursorBlastPower,
+                range: 0...100,
+                labels: ("Soft", "Explosive")
+            )
 
             Button("Reset Cursor Defaults") {
                 ui.landingCursorAnimationEnabled = LandingCursorAnimationPolicy.defaultValue
                 ui.landingCursorResponse = LandingWakeFieldPolicy.defaultResponse
                 ui.landingCursorSpread = LandingWakeFieldPolicy.defaultSpread
                 ui.landingCursorTrail = LandingWakeFieldPolicy.defaultTrail
+                ui.landingCursorViscosity = LandingWakeFieldPolicy.defaultViscosity
+                ui.landingCursorTurbulence = LandingWakeFieldPolicy.defaultTurbulence
+                ui.landingCursorBlastPower = LandingWakeFieldPolicy.defaultBlastPower
             }
             .buttonStyle(.borderless)
         }

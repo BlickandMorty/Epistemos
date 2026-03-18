@@ -322,8 +322,27 @@ struct ChatComposerTextEditor: NSViewRepresentable {
     @Binding var isFocused: Bool
 
     let theme: EpistemosTheme
+    let fontSize: CGFloat
     let isProcessing: Bool
     let onSubmit: () -> Void
+
+    init(
+        text: Binding<String>,
+        height: Binding<CGFloat>,
+        isFocused: Binding<Bool>,
+        theme: EpistemosTheme,
+        fontSize: CGFloat = ChatComposerInputMetrics.fontSize,
+        isProcessing: Bool,
+        onSubmit: @escaping () -> Void
+    ) {
+        _text = text
+        _height = height
+        _isFocused = isFocused
+        self.theme = theme
+        self.fontSize = fontSize
+        self.isProcessing = isProcessing
+        self.onSubmit = onSubmit
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -347,7 +366,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         textView.importsGraphics = false
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
-        textView.minSize = NSSize(width: 0, height: ChatComposerInputMetrics.minHeight)
+        textView.minSize = NSSize(width: 0, height: fontSize + (ChatComposerInputMetrics.verticalInset * 2))
         textView.maxSize = NSSize(
             width: CGFloat.greatestFiniteMagnitude,
             height: CGFloat.greatestFiniteMagnitude
@@ -436,7 +455,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         }
 
         func applyTheme(_ theme: EpistemosTheme, to textView: ChatComposerNativeTextView) {
-            textView.font = NSFont.systemFont(ofSize: ChatComposerInputMetrics.fontSize)
+            textView.font = NSFont.systemFont(ofSize: parent.fontSize)
             textView.textColor = NSColor(theme.foreground)
             textView.insertionPointColor = NSColor(theme.foreground)
         }

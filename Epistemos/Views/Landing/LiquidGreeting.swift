@@ -12,239 +12,139 @@ import SwiftUI
 
 struct LiquidGreeting: View {
     @Environment(UIState.self) private var ui
-    nonisolated static let restingGreeting = "welcome back"
-
-    nonisolated static let greetingGlyphPool = Array("·:*+#░▒▓█▄▀▌▐■┐┌┘┴┬╬")
-    nonisolated static let greetingRippleConfiguration = ASCIIRippleConfiguration(
-        duration: 0.34,
-        characters: greetingGlyphPool,
-        preserveSpaces: true,
-        spread: 1.26,
-        waveThreshold: 1.64,
-        characterMultiplier: 2,
-        animationStep: 0.06,
-        waveBuffer: 1.7
-    )
-    nonisolated static let greetingCharacterDelayRange: ClosedRange<Double> = 28...48
-    nonisolated static let greetingPauseRange = 2200...3200
-    nonisolated static let greetingShortPauseMilliseconds = 1500
-    nonisolated static let greetingInterPhrasePauseRange = 260...380
-    nonisolated static let greetingRippleMilestoneStride = 4
-    nonisolated static let greetingMorphTransitionInterval = 3
-    nonisolated static let greetingMorphFrameDelayRange = 24...42
-
-    nonisolated static func tunedRippleConfiguration(
-        intensity: Double,
-        variety: Double
-    ) -> ASCIIRippleConfiguration {
-        let clampedIntensity = max(0, min(1, intensity))
-        let clampedVariety = max(0, min(1, variety))
-        let minCharacterCount = 6
-        let characterCount = min(
-            greetingGlyphPool.count,
-            max(
-                minCharacterCount,
-                Int(round(Double(minCharacterCount) + clampedVariety * Double(greetingGlyphPool.count - minCharacterCount)))
-            )
-        )
-        return ASCIIRippleConfiguration(
-            duration: 0.15 + (0.4 * clampedIntensity), // 0.28 to 0.4 increasing max duration to give more punch
-            characters: Array(greetingGlyphPool.prefix(characterCount)),
-            preserveSpaces: true,
-            spread: 0.5 + (2.0 * clampedIntensity), // Make spread: 0.5 + (2.0 * clampedIntensity)
-            waveThreshold: 2.5 - (1.5 * clampedIntensity), // 2.5 - (1.5 * clampedIntensity)
-            characterMultiplier: max(1, Int(round(1 + (clampedVariety * 5)))), // increase variety multiplier
-            animationStep: 0.1 - (0.08 * clampedIntensity), // 0.1 - (0.08 * clampedIntensity)
-            waveBuffer: 1.0 + (1.5 * clampedIntensity) // 1.0 + (1.5 * clampedIntensity)
-        )
-    }
-
-    nonisolated static func tunedCharacterDelayRange(pace: Double) -> ClosedRange<Double> {
-        let clampedPace = max(0, min(1, pace))
-        let lowerBound = 22 + (14 * clampedPace)
-        let upperBound = 38 + (18 * clampedPace)
-        return lowerBound...upperBound
-    }
-
-    nonisolated static func tunedPauseRange(pace: Double) -> ClosedRange<Int> {
-        let clampedPace = max(0, min(1, pace))
-        let lowerBound = Int(round(1500 + (1300 * clampedPace)))
-        let upperBound = Int(round(2200 + (1500 * clampedPace)))
-        return lowerBound...upperBound
-    }
-
-    nonisolated static func tunedShortPauseMilliseconds(pace: Double) -> Int {
-        Int(round(1100 + (700 * max(0, min(1, pace)))))
-    }
-
-    nonisolated static func tunedInterPhrasePauseRange(pace: Double) -> ClosedRange<Int> {
-        let clampedPace = max(0, min(1, pace))
-        let lowerBound = Int(round(180 + (120 * clampedPace)))
-        let upperBound = Int(round(280 + (140 * clampedPace)))
-        return lowerBound...upperBound
-    }
-
-    nonisolated static func tunedMorphFrameDelayRange(pace: Double) -> ClosedRange<Int> {
-        let clampedPace = max(0, min(1, pace))
-        let lowerBound = Int(round(18 + (10 * clampedPace)))
-        let upperBound = Int(round(32 + (16 * clampedPace)))
-        return lowerBound...upperBound
-    }
-
-    nonisolated static func shouldPulseGreetingRipple(atTypedCharacterCount typedCount: Int, totalCount: Int) -> Bool {
-        guard typedCount > 0, totalCount > 0 else { return false }
-        let clampedCount = min(typedCount, totalCount)
-        let initialPulse = min(2, totalCount)
-        if clampedCount == initialPulse || clampedCount == totalCount {
-            return true
-        }
-        guard clampedCount > initialPulse else { return false }
-        return clampedCount.isMultiple(of: greetingRippleMilestoneStride)
-    }
-
-    nonisolated static func shouldMorphGreetingTransition(ordinal: Int, from source: String, to target: String) -> Bool {
-        guard ordinal > 0, ordinal.isMultiple(of: greetingMorphTransitionInterval) else { return false }
-        guard !source.isEmpty, !target.isEmpty, source != target else { return false }
-        return true
-    }
-
-    nonisolated static func morphFrames(from source: String, to target: String) -> [String] {
-        guard !source.isEmpty, !target.isEmpty, source != target else {
-            return target.isEmpty ? [] : [target]
-        }
-
-        let targetCharacters = Array(target)
-        var working = Array(source)
-        var frames: [String] = []
-        frames.reserveCapacity(max(working.count, targetCharacters.count))
-
-        for index in 0..<max(working.count, targetCharacters.count) {
-            if index < targetCharacters.count {
-                if index < working.count {
-                    working[index] = targetCharacters[index]
-                } else {
-                    working.append(targetCharacters[index])
-                }
-            } else if !working.isEmpty {
-                working.removeLast()
-            }
-
-            let frame = String(working)
-            if frame != source, frame != frames.last, !frame.isEmpty {
-                frames.append(frame)
-            }
-        }
-
-        if frames.last != target {
-            frames.append(target)
-        }
-
-        return frames
-    }
-
-    // Configuration
     var compact: Bool = false
     @Binding var retractNow: Bool
     var onRetractComplete: (() -> Void)? = nil
 
-    @State private var displayText = Self.restingGreeting
+    @State private var displayText = "welcome back"
     @State private var cursorVisible = true
-    @State private var rippleTrigger = 0
+    @State private var hoverLocation: CGPoint? = nil
 
     private var theme: EpistemosTheme { ui.theme }
     private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
-    private var usesSimplifiedGreeting: Bool { ui.displayMode.reducesASCIIAnimations }
-    private var greetingAnimationEnabled: Bool { ui.landingGreetingAnimationEnabled }
-    private var tunedRippleConfiguration: ASCIIRippleConfiguration {
-        Self.tunedRippleConfiguration(
-            intensity: ui.landingGreetingIntensity,
-            variety: ui.landingGreetingCharacterVariety
-        )
-    }
-    private var tunedCharacterDelayRange: ClosedRange<Double> {
-        Self.tunedCharacterDelayRange(pace: ui.landingGreetingPace)
-    }
-    private var tunedPauseRange: ClosedRange<Int> {
-        Self.tunedPauseRange(pace: ui.landingGreetingPace)
-    }
-    private var tunedShortPauseMilliseconds: Int {
-        Self.tunedShortPauseMilliseconds(pace: ui.landingGreetingPace)
-    }
-    private var tunedInterPhrasePauseRange: ClosedRange<Int> {
-        Self.tunedInterPhrasePauseRange(pace: ui.landingGreetingPace)
-    }
-    private var tunedMorphFrameDelayRange: ClosedRange<Int> {
-        Self.tunedMorphFrameDelayRange(pace: ui.landingGreetingPace)
-    }
 
-    /// Single reactive flag — drives both typewriter and cursor via .task(id:)
     private var shouldAnimate: Bool {
-        ui.activePanel == .home && !ui.windowOccluded && ui.landingGreetingAnimationEnabled
+        ui.activePanel == .home && !ui.windowOccluded
     }
 
-    /// Composite key so .task(id:) restarts when flags change
     private var taskKey: String {
-        "\(shouldAnimate)_\(retractNow)_\(ui.landingGreetingASCIIEnabled)_\(ui.landingGreetingTypewriterEnabled)_\(ui.landingGreetingTypewriterVersion.rawValue)_\(Int(ui.landingGreetingIntensity * 100))_\(Int(ui.landingGreetingCharacterVariety * 100))_\(Int(ui.landingGreetingPace * 100))"
+        "\(shouldAnimate)_\(retractNow)"
     }
-
-    @State private var isHovered = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            // Text — directly rendered in theme color, no material masking
-            ASCIIRippleText(
-                text: displayText,
-                font: greetingFont,
-                color: theme.fontAccent,
-                shadowColor: theme.fontAccent.opacity(0.12),
-                shadowRadius: compact ? 0 : 8,
-                configuration: tunedRippleConfiguration,
-                manualTrigger: rippleTrigger,
-                interactive: ui.landingGreetingASCIIHoverEnabled,
-                pulseOnAppear: false
-            )
-
-            // Block cursor — always present, blinks via Task loop.
-            Rectangle()
-                .fill(theme.fontAccent.opacity(0.85))
-                .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
-                .clipShape(RoundedRectangle(cornerRadius: 2))
-                .opacity(!usesSimplifiedGreeting && ui.landingGreetingTypewriterEnabled && cursorVisible ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: cursorVisible)
-                .padding(.leading, 2)
+        GeometryReader { proxy in
+            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
+            let dx = (hoverLocation?.x ?? center.x) - center.x
+            let dy = (hoverLocation?.y ?? center.y) - center.y
+            let dist = sqrt(dx*dx + dy*dy)
+            
+            // Use granular Pull Radius knob (maps 0.0-1.0 to 80-240)
+            let pullRadius: CGFloat = compact ? 80 : (80 + ui.landingGreetingPullRadius * 160)
+            
+            let pullIntensity = hoverLocation != nil ? max(0, 1.0 - (dist / pullRadius)) : 0
+            // Re-increased pull factors for more organic motion
+            let pullX = dx * pullIntensity * 0.18
+            let pullY = dy * pullIntensity * 0.22
+            
+            // THE PERFORMANCE FIX: Gate entire drawing to 60fps to prevent app-wide stutter
+            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                Canvas { context, size in
+                    if let resolved = context.resolveSymbol(id: "LumaFluid") {
+                        // Use granular threshold knob (maps 0.0-1.0 to 0.1-0.9)
+                        let threshold = 0.9 - (ui.landingGreetingThreshold * 0.8)
+                        context.addFilter(.alphaThreshold(min: threshold, color: theme.fontAccent))
+                        
+                        // FIX: Only apply blur if we are hovering to prevent "already watery" look
+                        if hoverLocation != nil {
+                            // Use granular blur knob (maps 0.0-1.0 to 2-20)
+                            let maxBlur = 2.0 + (ui.landingGreetingBlur * 18.0)
+                            context.addFilter(.blur(radius: min(maxBlur, pow(pullIntensity, 1.1) * maxBlur * 0.9))) 
+                        }
+                        
+                        context.draw(resolved, at: CGPoint(x: size.width / 2, y: size.height / 2))
+                    }
+                } symbols: {
+                HStack(alignment: .center, spacing: 0) {
+                    // Split the text into characters so we can apply local distortion
+                    let chars = Array(displayText)
+                    ForEach(0..<chars.count, id: \.self) { i in
+                        let char = String(chars[i])
+                        // Calculate local distance for this character (approximate based on width)
+                        // A rough map from index to X position relative to center
+                        let charXOffset = CGFloat(i) * 14.0 - CGFloat(chars.count) * 7.0 
+                        let localDx = (hoverLocation?.x ?? center.x) - (center.x + charXOffset)
+                        let localDist = sqrt(localDx*localDx + dy*dy)
+                        
+                        // Local intensity uses a slightly larger radius for "stickiness"
+                        let stickRadius = pullRadius * 1.3
+                        let localIntensity = hoverLocation != nil ? max(0, 1.0 - (localDist / stickRadius)) : 0
+                        
+                        let normalizedIndex = CGFloat(i) / CGFloat(max(chars.count - 1, 1)) - 0.5
+                        let centerWeight = abs(normalizedIndex) * 2.0 // 0.0 at center, 1.0 at ends
+                        
+                        // Use granular center softening knob
+                        let weightedIntensity = localIntensity * (ui.landingGreetingCenterSoftening + (1.0 - ui.landingGreetingCenterSoftening) * centerWeight)
+                        let easedIntensity = pow(weightedIntensity, 1.5)
+                        
+                        // BALL OF WATER EXPANSION: Shift characters horizontally away from cursor to create a "bulge"
+                        let expansionFactor = ui.landingGreetingExpansion * 25.0
+                        let expansionX = (localDx < 0 ? 1 : -1) * easedIntensity * expansionFactor
+                        
+                        Text(char)
+                            .font(greetingFont)
+                            .foregroundColor(.black)
+                            // Use granular pull knob
+                            .offset(x: localDx * easedIntensity * ui.landingGreetingPull * 1.2 + expansionX, 
+                                    y: dy * easedIntensity * ui.landingGreetingPull * 1.5)
+                            // Use granular scale knob
+                            .scaleEffect(1.0 + Double(easedIntensity) * ui.landingGreetingScale * 0.6)
+                    }
+                    
+                    Rectangle()
+                        .fill(.black)
+                        .frame(width: compact ? 8 : 12, height: compact ? 20 : 36)
+                        .clipShape(RoundedRectangle(cornerRadius: 2))
+                        .opacity(cursorVisible ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: cursorVisible)
+                        .padding(.leading, dx * pullIntensity > 0 ? pullIntensity * 8 : 2) // Cursor stretches away more
+                }
+                    .offset(y: pullY * 0.3) 
+                    .tag("LumaFluid")
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .shadow(color: compact ? .clear : theme.fontAccent.opacity(0.12), radius: compact ? 0 : 8)
+            // Viscous honey-like spring: Maps damping 0.0-1.0 to 0.2-0.9
+            .animation(.interactiveSpring(response: 0.7, dampingFraction: 0.2 + ui.landingGreetingDamping * 0.7, blendDuration: 0.35), value: hoverLocation)
+            .animation(.interactiveSpring(response: 0.7, dampingFraction: 0.2 + ui.landingGreetingDamping * 0.7, blendDuration: 0.35), value: pullIntensity)
         }
-        .frame(minHeight: compact ? 0 : 80)
-        .shadow(color: compact ? .clear : theme.fontAccent.opacity(0.12), radius: compact ? 0 : 8)
+        // INCREASED FRAME: Give the liquid room to breathe to prevent cut-offs
+        .frame(height: compact ? 40 : 180)
+        .padding(.horizontal, compact ? 20 : 100)
+        .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {
-            case .active: isHovered = true
-            case .ended: isHovered = false
+            case .active(let loc):
+                hoverLocation = loc
+            case .ended:
+                hoverLocation = nil
             }
         }
         // Single reactive task — SwiftUI cancels + restarts when taskKey changes.
-        // No manual onAppear/onDisappear/onChange juggling needed.
         .task(id: taskKey) {
             if retractNow {
                 await retractText()
                 return
             }
             guard shouldAnimate else {
-                displayText = Self.restingGreeting
+                displayText = ""
                 cursorVisible = false
                 return
             }
-            if usesSimplifiedGreeting || !ui.landingGreetingTypewriterEnabled {
-                cursorVisible = false
-                displayText = Self.restingGreeting
-                return
-            }
-            // Small yield so SwiftUI's initial layout pass finishes before we
-            // start mutating @State on every keystroke.
+            // Small yield so SwiftUI's initial layout pass finishes before we start
             try? await Task.sleep(for: .milliseconds(50))
             guard !Task.isCancelled else { return }
 
-            // Launch cursor blink as a detached child — cancelled automatically
-            // when the .task(id:) is cancelled by SwiftUI.
             let blinkTask = Task { @MainActor in
                 await cursorBlinkLoop()
             }
@@ -252,8 +152,6 @@ struct LiquidGreeting: View {
             blinkTask.cancel()
         }
     }
-
-    // MARK: - Cursor Blink
 
     @MainActor
     private func cursorBlinkLoop() async {
@@ -263,8 +161,6 @@ struct LiquidGreeting: View {
             cursorVisible.toggle()
         }
     }
-
-    // MARK: - Retract
 
     @MainActor
     private func retractText() async {
@@ -277,74 +173,21 @@ struct LiquidGreeting: View {
         onRetractComplete?()
     }
 
-    // MARK: - Typewriter Engine
-    // Simple cycle: random greeting → short prompts → loop.
-    // Resets to a fresh greeting each time the task restarts.
-
     @MainActor
     private func typewriterLoop() async {
-        if ui.landingGreetingTypewriterVersion == .nodeTitle {
-            await nodeTitleTypewriterLoop()
-            return
-        }
-
-        // === NORMAL GREETING LOOP ===
-        var currentPhrase = ShortPrompts.greetings.randomElement() ?? "Greetings, Researcher"
-        var transitionOrdinal = 0
-
+        var currentPhrase = "welcome back"
         while !Task.isCancelled {
-            if displayText != currentPhrase {
-                await typePhrase(currentPhrase)
-                guard !Task.isCancelled else { return }
-            }
-
-            let pauseTime = currentPhrase.count < 8
-                ? tunedShortPauseMilliseconds
-                : Int.random(in: tunedPauseRange)
-            try? await Task.sleep(for: .milliseconds(pauseTime))
+            await typePhrase(currentPhrase)
             guard !Task.isCancelled else { return }
 
-            let nextPhrase = ShortPrompts.pickRandom(excluding: currentPhrase)
-            transitionOrdinal += 1
-
-            if Self.shouldMorphGreetingTransition(ordinal: transitionOrdinal, from: currentPhrase, to: nextPhrase) {
-                await morphPhrase(from: currentPhrase, to: nextPhrase)
-                guard !Task.isCancelled else { return }
-            } else {
-                await untypePhrase(currentPhrase)
-                guard !Task.isCancelled else { return }
-                try? await Task.sleep(for: .milliseconds(Int.random(in: tunedInterPhrasePauseRange)))
-                guard !Task.isCancelled else { return }
-            }
-
-            currentPhrase = nextPhrase
-        }
-    }
-
-    @MainActor
-    private func nodeTitleTypewriterLoop() async {
-        var currentPhrase = ShortPrompts.greetings.randomElement() ?? "Greetings, Researcher"
-        
-        while !Task.isCancelled {
-            displayText = ""
-            cursorVisible = true
-            try? await Task.sleep(for: .milliseconds(50))
+            try? await Task.sleep(for: .milliseconds(currentPhrase.count < 8 ? 1200 : Int.random(in: 2400...3200)))
             guard !Task.isCancelled else { return }
 
-            for character in currentPhrase {
-                guard !Task.isCancelled else { return }
-                displayText.append(character)
-                triggerGreetingRipple()
-                try? await Task.sleep(for: .milliseconds(Int.random(in: 25...45))) // fast linear
-            }
-            
+            await untypePhrase(currentPhrase)
             guard !Task.isCancelled else { return }
-            try? await Task.sleep(for: .milliseconds(500))
-            cursorVisible = false
-            try? await Task.sleep(for: .milliseconds(Int.random(in: tunedPauseRange)))
-            guard !Task.isCancelled else { return }
-            
-            currentPhrase = ShortPrompts.pickRandom(excluding: currentPhrase)
+
+            try? await Task.sleep(for: .milliseconds(Int.random(in: 300...500)))
+            currentPhrase = ["Greetings, Researcher", "Sup, Brainiac!", "click me to search\u{2026}"].randomElement() ?? "welcome back"
         }
     }
 
@@ -353,108 +196,17 @@ struct LiquidGreeting: View {
         for i in 1...phrase.count {
             guard !Task.isCancelled else { return }
             displayText = String(phrase.prefix(i))
-            if Self.shouldPulseGreetingRipple(atTypedCharacterCount: i, totalCount: phrase.count) {
-                triggerGreetingRipple()
-            }
-
-            let ch = displayText.last ?? " "
-            var delay: Double = Double.random(in: tunedCharacterDelayRange)
-
-            if ".!?".contains(ch) { delay += Double.random(in: 80...160) }
-            else if ",;:".contains(ch) { delay += Double.random(in: 40...90) }
-            else if ch == " " && Double.random(in: 0...1) < 0.05 { delay += Double.random(in: 30...70) }
-
-            if Double.random(in: 0...1) < 0.04 { delay += Double.random(in: 60...120) }
-            if Double.random(in: 0...1) < 0.01 { delay += Double.random(in: 120...220) }
-
-            if i <= 2 { delay += 40 }
-
-            try? await Task.sleep(for: .milliseconds(Int(delay)))
+            try? await Task.sleep(for: .milliseconds(Int.random(in: 45...75)))
         }
     }
 
     @MainActor
     private func untypePhrase(_ phrase: String) async {
         var charIdx = phrase.count
-        try? await Task.sleep(for: .milliseconds(40))
         while charIdx > 0 && !Task.isCancelled {
-            let progress = 1.0 - Double(charIdx) / Double(phrase.count)
-            let deleteSpeed = max(6, 18 - Int(progress * 12))
-            let charsToDelete = charIdx > 10 ? min(charIdx, 1 + Int.random(in: 0...1)) : 1
-            charIdx = max(0, charIdx - charsToDelete)
+            charIdx -= 1
             displayText = String(phrase.prefix(charIdx))
-            try? await Task.sleep(for: .milliseconds(deleteSpeed))
+            try? await Task.sleep(for: .milliseconds(Int.random(in: 20...40)))
         }
-    }
-
-    @MainActor
-    private func morphPhrase(from source: String, to target: String) async {
-        for frame in Self.morphFrames(from: source, to: target) {
-            guard !Task.isCancelled else { return }
-            displayText = frame
-            triggerGreetingRipple()
-            try? await Task.sleep(for: .milliseconds(Int.random(in: tunedMorphFrameDelayRange)))
-        }
-    }
-
-    @MainActor
-    private func triggerGreetingRipple() {
-        guard ui.landingGreetingASCIIEnabled, !usesSimplifiedGreeting, !displayText.isEmpty else { return }
-        if ui.landingGreetingASCIIHoverEnabled && !isHovered { return }
-        rippleTrigger += 1
-    }
-}
-
-// MARK: - Short Prompts
-// Compact prompt bank — greetings + ~30 short (4-5 word) prompts.
-
-private enum ShortPrompts {
-    static let greetings: [String] = [
-        "Greetings, Researcher",
-        "Sup, Brainiac!",
-    ]
-
-    static let prompts: [String] = [
-        "what's on your mind?",
-        "got a burning question?",
-        "ready when you are",
-        "let's figure it out",
-        "curiosity starts here",
-        "ask me literally anything",
-        "thinking caps on?",
-        "what are we exploring?",
-        "fire away, chief",
-        "big thoughts? small ones?",
-        "research mode: activated",
-        "your move, scientist",
-        "discovery awaits you",
-        "go on, surprise me",
-        "the rabbit hole awaits",
-        "knowledge is power, etc.",
-        "let's learn something new",
-        "overthinking? let's simplify.",
-        "feed me a question",
-        "answers are overrated. ask.",
-        "the truth is out there",
-        "what keeps you up?",
-        "ideas need poking, go.",
-        "science never sleeps",
-        "ask the hard one",
-        "nothing's off-limits here",
-        "question everything, always",
-        "start with why",
-        "no such thing as dumb",
-        "brains beat brawn, always",
-    ]
-
-    static let all: [String] = greetings + prompts
-
-    static func pickRandom(excluding: String) -> String {
-        guard prompts.count > 1 else { return prompts.first ?? "" }
-        var pick: String
-        repeat {
-            pick = prompts.randomElement() ?? ""
-        } while pick == excluding
-        return pick
     }
 }

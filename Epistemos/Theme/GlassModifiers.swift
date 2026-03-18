@@ -138,6 +138,133 @@ struct SiriGlowBorderModifier: ViewModifier {
     }
 }
 
+// MARK: - Pixel Art Glow
+// Animated pixelated border using black and grey tones.
+
+struct PixelArtGlowModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let isActive: Bool
+    
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    
+    private let pixelSize: CGFloat = 4
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if isActive && !reduceMotion {
+                    TimelineView(.animation(minimumInterval: 0.1)) { timelineContext in
+                        Canvas { context, size in
+                            let elapsed = timelineContext.date.timeIntervalSinceReferenceDate
+                            let speed: Double = 30.0
+                            let totalPerimeter = (size.width + size.height) * 2
+                            let phase = CGFloat((elapsed * speed).truncatingRemainder(dividingBy: Double(pixelSize * 8)))
+                            
+                            // Trace RoundedRect perimeter
+                            let r = min(cornerRadius, min(size.width, size.height) / 2)
+                            let w = size.width
+                            let h = size.height
+                            
+                            // Straight segments lengths
+                            let topLen = w - 2 * r
+                            let rightLen = h - 2 * r
+                            let bottomLen = w - 2 * r
+                            let leftLen = h - 2 * r
+                            let arcLen = .pi * r / 2
+                            
+                            // Draw pixels along perimeter with spacing
+                            var currentDist: CGFloat = -phase
+                            let step = pixelSize * 2
+                            
+                            while currentDist < totalPerimeter {
+                                if currentDist >= 0 {
+                                    let point = pointOnRoundedRect(dist: currentDist, w: w, h: h, r: r, topLen: topLen, rightLen: rightLen, bottomLen: bottomLen, leftLen: leftLen, arcLen: arcLen)
+                                    drawPixel(at: point, in: context, elapsed: elapsed)
+                                }
+                                currentDist += step
+                            }
+                        }
+                    }
+                    .opacity(0.85)
+                }
+            }
+    }
+    
+    private func pointOnRoundedRect(dist: CGFloat, w: CGFloat, h: CGFloat, r: CGFloat, topLen: CGFloat, rightLen: CGFloat, bottomLen: CGFloat, leftLen: CGFloat, arcLen: CGFloat) -> CGPoint {
+        var d = dist
+        
+        // 1. Top edge (start from top-left arc end)
+        if d < topLen {
+            return CGPoint(x: r + d, y: 0)
+        }
+        d -= topLen
+        
+        // 2. Top-right arc
+        if d < arcLen {
+            let angle = (d / arcLen) * (.pi / 2) - .pi / 2
+            return CGPoint(x: w - r + r * cos(angle), y: r + r * sin(angle))
+        }
+        d -= arcLen
+        
+        // 3. Right edge
+        if d < rightLen {
+            return CGPoint(x: w, y: r + d)
+        }
+        d -= rightLen
+        
+        // 4. Bottom-right arc
+        if d < arcLen {
+            let angle = (d / arcLen) * (.pi / 2)
+            return CGPoint(x: w - r + r * cos(angle), y: h - r + r * sin(angle))
+        }
+        d -= arcLen
+        
+        // 5. Bottom edge
+        if d < bottomLen {
+            return CGPoint(x: w - r - d, y: h)
+        }
+        d -= bottomLen
+        
+        // 6. Bottom-left arc
+        if d < arcLen {
+            let angle = (d / arcLen) * (.pi / 2) + .pi / 2
+            return CGPoint(x: r + r * cos(angle), y: h - r + r * sin(angle))
+        }
+        d -= arcLen
+        
+        // 7. Left edge
+        if d < leftLen {
+            return CGPoint(x: 0, y: h - r - d)
+        }
+        d -= leftLen
+        
+        // 8. Top-left arc
+        let angle = (d / arcLen) * (.pi / 2) + .pi
+        return CGPoint(x: r + r * cos(angle), y: r + r * sin(angle))
+    }
+    
+    private func drawPixel(at point: CGPoint, in context: GraphicsContext, elapsed: TimeInterval) {
+        let noise = sin(point.x * 0.2 + point.y * 0.2 + elapsed * 2)
+        let color = noise > 0 ? Color.black : Color.gray.opacity(0.9)
+        
+        context.fill(
+            Path(CGRect(x: point.x - pixelSize/2, y: point.y - pixelSize/2, width: pixelSize, height: pixelSize)),
+            with: .color(color)
+        )
+    }
+}
+
+struct SiriPixelGlowModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .modifier(PixelArtGlowModifier(cornerRadius: cornerRadius, isActive: isActive))
+            .shadow(color: .black.opacity(isActive ? 0.15 : 0), radius: 4, y: 2)
+    }
+}
+
 // MARK: - Assistant Surface Chrome
 
 struct AssistantSurfaceMetrics: Equatable {
@@ -889,6 +1016,13 @@ extension View {
         isActive: Bool = true
     ) -> some View {
         modifier(SiriGlowBorderModifier(cornerRadius: cornerRadius, lineWidth: lineWidth, isActive: isActive))
+    }
+    
+    func pixelGlow(
+        cornerRadius: CGFloat = 12,
+        isActive: Bool = true
+    ) -> some View {
+        modifier(SiriPixelGlowModifier(cornerRadius: cornerRadius, isActive: isActive))
     }
 
     func assistantInsetChrome(
