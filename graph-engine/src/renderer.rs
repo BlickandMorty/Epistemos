@@ -241,6 +241,15 @@ fn sort_and_dedup_indices(indices: &mut Vec<usize>) {
     indices.dedup();
 }
 
+#[inline]
+fn aggregated_edge_base_rgb(light_mode: bool) -> [f32; 3] {
+    if light_mode {
+        [0.08, 0.09, 0.11]
+    } else {
+        [0.78, 0.82, 0.88]
+    }
+}
+
 fn clamp_dialogue_box_left(
     preferred_left: f32,
     camera_offset_x: f32,
@@ -1036,6 +1045,7 @@ fragment float4 node_fragment(
 
 constant uint CURVE_EDGE_SEGMENTS = 20;
 constant float EDGE_DIM_ALPHA_SCALE = 0.25;
+constant float EDGE_DIM_ALPHA_SCALE_LIGHT = 0.42;
 
 struct CurveEdgeInstance {
     float2 p0;
@@ -1112,6 +1122,13 @@ vertex LineVertexOut curve_edge_vertex(
     } else if (flag == 2) {
         float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
         out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
+    } else if (flag == 3) {
+        float3 focus_rgb = mix(inst.color.rgb, float3(0.02, 0.025, 0.035), 0.32);
+        out.color = float4(focus_rgb, max(inst.color.a, 0.94));
+    } else if (flag == 4) {
+        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
+        float3 dim_rgb = mix(inst.color.rgb, float3(lum), 0.70);
+        out.color = float4(dim_rgb, inst.color.a * EDGE_DIM_ALPHA_SCALE_LIGHT);
     } else {
         out.color = inst.color;
     }
@@ -1163,6 +1180,13 @@ vertex LineVertexOut line_edge_vertex(
     } else if (flag == 2) {
         float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
         out.color = float4(float3(lum), inst.color.a * EDGE_DIM_ALPHA_SCALE);
+    } else if (flag == 3) {
+        float3 focus_rgb = mix(inst.color.rgb, float3(0.02, 0.025, 0.035), 0.32);
+        out.color = float4(focus_rgb, max(inst.color.a, 0.94));
+    } else if (flag == 4) {
+        float lum = dot(inst.color.rgb, float3(0.299, 0.587, 0.114));
+        float3 dim_rgb = mix(inst.color.rgb, float3(lum), 0.70);
+        out.color = float4(dim_rgb, inst.color.a * EDGE_DIM_ALPHA_SCALE_LIGHT);
     } else {
         out.color = inst.color;
     }
@@ -1405,6 +1429,11 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    #[cfg(test)]
+    pub(crate) fn classic_buffer_rebuild_count(&self) -> usize {
+        self.debug_counters.classic_buffer_rebuilds
+    }
+
     #[inline]
     fn push_face_node(&mut self, position: [f32; 2], radius: f32, color: [f32; 4]) {
         self.classic_node_scratch.push(NodeInstance {
@@ -1734,6 +1763,9 @@ impl Renderer {
         if self.last_viewport_width <= 0.0 || self.last_viewport_height <= 0.0 {
             return None;
         }
+        if self.is_camera_motion_active() {
+            return None;
+        }
         let padding = padding_pixels / self.camera_zoom.max(0.05);
         Some(viewport_bounds(
             self.camera_offset,
@@ -1741,6 +1773,15 @@ impl Renderer {
             [self.last_viewport_width, self.last_viewport_height],
             padding,
         ))
+    }
+
+    #[inline]
+    fn is_camera_motion_active(&self) -> bool {
+        let zoom_delta = (self.camera_zoom - self.prev_camera_zoom).abs();
+        let dx = self.camera_offset[0] - self.prev_camera_offset[0];
+        let dy = self.camera_offset[1] - self.prev_camera_offset[1];
+        let offset_delta_sq = dx * dx + dy * dy;
+        self.is_animating || zoom_delta > 0.0005 || offset_delta_sq > 1.0
     }
 
     #[inline]
@@ -2497,11 +2538,7 @@ impl Renderer {
             return;
         }
 
-        let base_rgb = if self.light_mode {
-            [0.22, 0.25, 0.30]
-        } else {
-            [0.78, 0.82, 0.88]
-        };
+        let base_rgb = aggregated_edge_base_rgb(self.light_mode);
 
         self.classic_edge_scratch.clear();
         self.straight_edge_scratch.clear();
@@ -2857,6 +2894,11 @@ impl Renderer {
     }
 
     pub fn rebuild_edge_highlight_flags(&mut self) {
+        const EDGE_HIGHLIGHT_DARK: u8 = 1;
+        const EDGE_DIM_DARK: u8 = 2;
+        const EDGE_HIGHLIGHT_LIGHT: u8 = 3;
+        const EDGE_DIM_LIGHT: u8 = 4;
+
         if self.edge_instance_count == 0 {
             self.edge_highlight_flag_scratch.clear();
             return;
@@ -2873,8 +2915,18 @@ impl Renderer {
                 }
                 let src_lit = self.highlight.highlighted_ids.contains(&pair[0]);
                 let tgt_lit = self.highlight.highlighted_ids.contains(&pair[1]);
-                self.edge_highlight_flag_scratch
-                    .push(if src_lit && tgt_lit { 1 } else { 2 });
+                let flag = if self.light_mode {
+                    if src_lit && tgt_lit {
+                        EDGE_HIGHLIGHT_LIGHT
+                    } else {
+                        EDGE_DIM_LIGHT
+                    }
+                } else if src_lit && tgt_lit {
+                    EDGE_HIGHLIGHT_DARK
+                } else {
+                    EDGE_DIM_DARK
+                };
+                self.edge_highlight_flag_scratch.push(flag);
             }
         } else {
             self.edge_highlight_flag_scratch
@@ -3477,6 +3529,9 @@ impl Renderer {
             cmd_buf.present_drawable(drawable);
             cmd_buf.commit();
         });
+
+        self.prev_camera_zoom = self.camera_zoom;
+        self.prev_camera_offset = self.camera_offset;
     }
 }
 
@@ -3530,6 +3585,35 @@ mod tests {
     #[test]
     fn density_cell_size_grows_when_zooming_out() {
         assert!(density_cell_size_world(0.05) > density_cell_size_world(0.20));
+    }
+
+    #[test]
+    fn camera_motion_disables_view_culling() {
+        let mut renderer = make_test_renderer();
+        renderer.set_viewport_size(640, 360);
+        renderer.camera_offset = [0.0, 0.0];
+        renderer.camera_zoom = 1.0;
+        renderer.prev_camera_offset = [0.0, 0.0];
+        renderer.prev_camera_zoom = 1.0;
+
+        let stable = renderer
+            .current_view_bounds(Renderer::CLASSIC_CULL_PADDING_PIXELS)
+            .expect("viewport bounds should exist");
+
+        renderer.prev_camera_offset = [-48.0, 24.0];
+        renderer.prev_camera_zoom = 0.88;
+        assert!(renderer
+            .current_view_bounds(Renderer::CLASSIC_CULL_PADDING_PIXELS)
+            .is_none());
+
+        renderer.prev_camera_offset = renderer.camera_offset;
+        renderer.prev_camera_zoom = renderer.camera_zoom;
+
+        let restored = renderer
+            .current_view_bounds(Renderer::CLASSIC_CULL_PADDING_PIXELS)
+            .expect("viewport bounds should restore once motion stops");
+
+        assert_eq!(restored, stable);
     }
 
     #[test]
@@ -3728,6 +3812,17 @@ mod tests {
     }
 
     #[test]
+    fn aggregated_edge_light_palette_stays_dark() {
+        let light = aggregated_edge_base_rgb(true);
+        let dark = aggregated_edge_base_rgb(false);
+
+        assert!(light[0].max(light[1]).max(light[2]) <= 0.11);
+        assert!(dark[0] > light[0]);
+        assert!(dark[1] > light[1]);
+        assert!(dark[2] > light[2]);
+    }
+
+    #[test]
     fn clamp_dialogue_box_left_keeps_box_inside_viewport() {
         let zoom = 1.0;
         let box_width_world = dialogue_layout_metrics(zoom).box_screen_width / zoom;
@@ -3823,6 +3918,28 @@ mod tests {
         assert_eq!(renderer.debug_counters.node_highlight_uploads, 1);
         assert_eq!(renderer.debug_counters.edge_highlight_uploads, 1);
         assert_eq!(renderer.edge_highlight_flag_scratch, vec![1, 2]);
+    }
+
+    #[test]
+    fn light_mode_edge_highlights_use_separate_flags() {
+        let world = make_test_world(3, 120.0);
+        let mut renderer = make_test_renderer();
+        renderer.light_mode = true;
+        renderer.set_viewport_size(1280, 720);
+        renderer.allocate_buffers(&world);
+
+        renderer.highlight.active = true;
+        renderer
+            .highlight
+            .highlighted_ids
+            .insert(world.graph_node[0].node_id);
+        renderer
+            .highlight
+            .highlighted_ids
+            .insert(world.graph_node[1].node_id);
+        renderer.rebuild_edge_highlight_flags();
+
+        assert_eq!(renderer.edge_highlight_flag_scratch, vec![3, 4]);
     }
 
     #[test]

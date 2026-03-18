@@ -1780,22 +1780,20 @@ struct NoteDetailWorkspaceView: View {
             }
 
             if !showPreview {
-                Menu("Options") {
-                    Menu("Format") {
-                        formatMenuContent
-                    }
+                Menu("Format") {
+                    formatMenuContent
+                }
 
-                    Button {
-                        showBacklinksPopover.toggle()
-                    } label: {
-                        Label("Backlinks", systemImage: "link")
-                    }
+                Button {
+                    showBacklinksPopover.toggle()
+                } label: {
+                    Label("Backlinks", systemImage: "link")
+                }
 
-                    Button {
-                        showAppleWritingTools()
-                    } label: {
-                        Label("Apple Writing Tools", systemImage: "apple.intelligence")
-                    }
+                Button {
+                    showAppleWritingTools()
+                } label: {
+                    Label("Apple Writing Tools", systemImage: "apple.intelligence")
                 }
             }
 

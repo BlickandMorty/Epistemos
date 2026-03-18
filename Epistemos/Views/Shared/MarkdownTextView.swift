@@ -112,26 +112,28 @@ enum MarkdownHeadingDisplay {
     }
 
     nonisolated static func shadowOpacity(for theme: EpistemosTheme, level: Int) -> Double {
-        switch level {
+        guard theme.isDark else { return 0 }
+        return switch level {
         case 1:
-            theme.isDark ? 0.38 : 0.26
+            0.38
         case 2:
-            theme.isDark ? 0.24 : 0.16
+            0.24
         case 3:
-            theme.isDark ? 0.18 : 0.12
+            0.18
         default:
             0
         }
     }
 
     nonisolated static func overlayOpacity(for theme: EpistemosTheme, level: Int) -> Double {
-        switch level {
+        guard theme.isDark else { return 0 }
+        return switch level {
         case 1:
-            theme.isDark ? 0.34 : 0.24
+            0.34
         case 2:
-            theme.isDark ? 0.22 : 0.15
+            0.22
         case 3:
-            theme.isDark ? 0.16 : 0.11
+            0.16
         default:
             0
         }
@@ -156,26 +158,28 @@ enum MarkdownHeadingDisplay {
     }
 
     nonisolated static func previewShadowOpacity(for theme: EpistemosTheme, level: Int) -> Double {
-        switch level {
+        guard theme.isDark else { return 0 }
+        return switch level {
         case 1:
-            theme.isDark ? 0.22 : 0.14
+            0.22
         case 2:
-            theme.isDark ? 0.14 : 0.09
+            0.14
         case 3:
-            theme.isDark ? 0.1 : 0.07
+            0.1
         default:
             0
         }
     }
 
     nonisolated static func previewOverlayOpacity(for theme: EpistemosTheme, level: Int) -> Double {
-        switch level {
+        guard theme.isDark else { return 0 }
+        return switch level {
         case 1:
-            theme.isDark ? 0.2 : 0.14
+            0.2
         case 2:
-            theme.isDark ? 0.12 : 0.09
+            0.12
         case 3:
-            theme.isDark ? 0.09 : 0.07
+            0.09
         default:
             0
         }
@@ -201,7 +205,7 @@ enum MarkdownHeadingDisplay {
     }
 
     nonisolated static func nsShadow(for theme: EpistemosTheme, level: Int) -> NSShadow? {
-        guard (1...3).contains(level) else { return nil }
+        guard theme.isDark, (1...3).contains(level) else { return nil }
         let shadow = NSShadow()
         shadow.shadowBlurRadius = glowRadius(for: level)
         shadow.shadowOffset = .zero

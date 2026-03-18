@@ -102,19 +102,19 @@ pub fn edge_type_color(edge_type: u8) -> [f32; 4] {
 /// RGBA color for an edge type (light mode — strong contrast on light background).
 pub fn edge_type_color_light(edge_type: u8) -> [f32; 4] {
     match edge_type {
-        0 => [0.18, 0.18, 0.22, 0.80],  // reference — dark gray
-        1 => [0.22, 0.14, 0.06, 0.80],  // contains — brown
-        2 => [0.18, 0.18, 0.22, 0.75],  // tagged — gray
-        3 => [0.06, 0.25, 0.55, 0.85],  // mentions — blue
-        4 => [0.02, 0.35, 0.10, 0.85],  // cites — green
-        5 => [0.50, 0.25, 0.00, 0.85],  // authored — orange
-        6 => [0.30, 0.06, 0.48, 0.85],  // related — purple
-        7 => [0.45, 0.35, 0.00, 0.85],  // quotes — gold
-        8 => [0.02, 0.38, 0.10, 0.85],  // supports — green
-        9 => [0.55, 0.05, 0.05, 0.85],  // contradicts — red
-        10 => [0.02, 0.35, 0.35, 0.85], // expands — teal
-        11 => [0.48, 0.30, 0.00, 0.85], // questions — amber
-        _ => [0.18, 0.18, 0.22, 0.75],  // default — gray
+        0 => [0.08, 0.08, 0.10, 0.90],  // reference — near black
+        1 => [0.14, 0.09, 0.04, 0.90],  // contains — dark umber
+        2 => [0.10, 0.10, 0.12, 0.88],  // tagged — graphite
+        3 => [0.04, 0.15, 0.32, 0.90],  // mentions — ink blue
+        4 => [0.02, 0.22, 0.08, 0.90],  // cites — forest
+        5 => [0.28, 0.14, 0.02, 0.90],  // authored — burnt amber
+        6 => [0.19, 0.05, 0.30, 0.90],  // related — deep violet
+        7 => [0.29, 0.23, 0.02, 0.90],  // quotes — antique gold
+        8 => [0.03, 0.24, 0.08, 0.90],  // supports — deep green
+        9 => [0.34, 0.05, 0.05, 0.90],  // contradicts — dark red
+        10 => [0.03, 0.22, 0.22, 0.90], // expands — deep teal
+        11 => [0.30, 0.18, 0.02, 0.90], // questions — dark amber
+        _ => [0.08, 0.08, 0.10, 0.88],  // default — near black
     }
 }
 
@@ -1001,6 +1001,21 @@ mod tests {
     fn edge_type_color_supports() {
         let c = edge_type_color(8);
         assert_eq!(c, [0.30, 0.90, 0.40, 0.50]);
+    }
+
+    #[test]
+    fn light_mode_edge_colors_stay_dark_on_bright_canvas() {
+        for t in 0..=11u8 {
+            let c = edge_type_color_light(t);
+            let max_channel = c[0].max(c[1]).max(c[2]);
+            assert!(
+                max_channel <= 0.34,
+                "Light mode edge color for type {} is still too bright: {:?}",
+                t,
+                c
+            );
+            assert!(c[3] >= 0.82, "Light mode alpha should stay high for type {}", t);
+        }
     }
 
     // =========================================================================

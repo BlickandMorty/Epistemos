@@ -167,7 +167,7 @@ final class AppBootstrap {
         appCoordinator.wireAll()
 
         // Evict old disk style cache entries in background (filesystem I/O).
-        Task { DiskStyleCache.shared.evictIfNeeded() }
+        Task(priority: .utility) { DiskStyleCache.shared.evictIfNeeded() }
 
         // Give VaultSyncService access to EventBus for change notifications
         vaultSync.setEventBus(eventBus)
@@ -192,16 +192,15 @@ final class AppBootstrap {
         Task(priority: .utility) { await graphState.loadGraph(container: container) }
 
         // Configure query engine with live dependencies (used by graph sidebar search).
-        // SearchIndexService may not exist yet if no vault is attached —
-        // create a default one so queries work even without vault.
-        let searchIdx = vaultSync.searchService ?? (try? SearchIndexService())
-        if let searchIdx {
-            queryEngine.configure(
-                graphStore: graphState.store,
-                graphState: graphState,
-                searchIndex: searchIdx
-            )
-        }
+        // The search index resolves lazily on first query so launch does not pay
+        // the FTS/database setup cost unless the user actually opens search.
+        queryEngine.configure(
+            graphStore: graphState.store,
+            graphState: graphState,
+            searchIndexProvider: { [vaultSync] in
+                vaultSync.searchService ?? (try? SearchIndexService())
+            }
+        )
 
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()

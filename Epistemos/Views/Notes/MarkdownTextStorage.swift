@@ -1388,6 +1388,108 @@ nonisolated(unsafe) final class MarkdownTextStorage: NSTextStorage {
         (attributes[blockChromeFillAttribute] as? NSColor) ?? fallback
     }
 
+    struct BlockChromeSpan {
+        let kind: MarkdownBlockChromeKind
+        let fill: NSColor
+        let accent: NSColor
+        let lineRange: NSRange
+    }
+
+    static func blockChromeStyleRange(in text: NSString, lineRange: NSRange) -> NSRange {
+        let lineEnd = lineRange.location + lineRange.length
+        let hasTrailingNewline = lineEnd > 0 && lineEnd <= text.length && text.character(at: lineEnd - 1) == 0x0A
+        return NSRange(
+            location: lineRange.location,
+            length: max(0, hasTrailingNewline ? lineRange.length - 1 : lineRange.length)
+        )
+    }
+
+    static func blockChromeSpan(
+        in attributedString: NSAttributedString,
+        text: NSString,
+        aroundLineRange lineRange: NSRange
+    ) -> BlockChromeSpan? {
+        guard let descriptor = blockChromeDescriptor(
+            in: attributedString,
+            text: text,
+            lineRange: lineRange
+        ) else {
+            return nil
+        }
+
+        var startLine = lineRange
+        while startLine.location > 0 {
+            let previousLine = text.lineRange(for: NSRange(location: startLine.location - 1, length: 0))
+            guard let previousDescriptor = blockChromeDescriptor(
+                in: attributedString,
+                text: text,
+                lineRange: previousLine
+            ), blockChromeDescriptorMatches(previousDescriptor, descriptor) else {
+                break
+            }
+            startLine = previousLine
+        }
+
+        var endLine = lineRange
+        while NSMaxRange(endLine) < text.length {
+            let nextLine = text.lineRange(for: NSRange(location: NSMaxRange(endLine), length: 0))
+            guard let nextDescriptor = blockChromeDescriptor(
+                in: attributedString,
+                text: text,
+                lineRange: nextLine
+            ), blockChromeDescriptorMatches(nextDescriptor, descriptor) else {
+                break
+            }
+            endLine = nextLine
+        }
+
+        return BlockChromeSpan(
+            kind: descriptor.kind,
+            fill: descriptor.fill,
+            accent: descriptor.accent,
+            lineRange: NSRange(
+                location: startLine.location,
+                length: NSMaxRange(endLine) - startLine.location
+            )
+        )
+    }
+
+    private struct BlockChromeDescriptor {
+        let kind: MarkdownBlockChromeKind
+        let fill: NSColor
+        let accent: NSColor
+    }
+
+    private static func blockChromeDescriptor(
+        in attributedString: NSAttributedString,
+        text: NSString,
+        lineRange: NSRange
+    ) -> BlockChromeDescriptor? {
+        let styleRange = blockChromeStyleRange(in: text, lineRange: lineRange)
+        guard styleRange.length > 0, NSMaxRange(styleRange) <= attributedString.length else {
+            return nil
+        }
+        guard let kindRaw = attributedString.attribute(
+            blockChromeKindAttribute,
+            at: styleRange.location,
+            effectiveRange: nil
+        ) as? String, let kind = MarkdownBlockChromeKind(rawValue: kindRaw) else {
+            return nil
+        }
+
+        let attributes = attributedString.attributes(at: styleRange.location, effectiveRange: nil)
+        let fill = blockChromeFill(from: attributes)
+        let accent = (attributes[blockChromeAccentAttribute] as? NSColor) ?? fill
+        return BlockChromeDescriptor(kind: kind, fill: fill, accent: accent)
+    }
+
+    private static func blockChromeDescriptorMatches(
+        _ lhs: BlockChromeDescriptor,
+        _ rhs: BlockChromeDescriptor
+    ) -> Bool {
+        lhs.kind == rhs.kind && lhs.fill.isEqual(rhs.fill) && lhs.accent.isEqual(rhs.accent)
+    }
+
     static func blockChromeFrame(
         textContainerOrigin: NSPoint,
         containerWidth: CGFloat,

@@ -681,101 +681,96 @@ final class ProseTextView2: NSTextView {
         }
     }
 
-    private struct BlockChromeRegion {
-        let kind: MarkdownBlockChromeKind
-        let fill: NSColor
-        let accent: NSColor
-        var top: CGFloat
-        var bottom: CGFloat
-    }
-
     private func drawBlockChrome(in dirtyRect: NSRect) {
-        guard
-            let contentStorage = textLayoutManager?.textContentManager
-                as? NSTextContentStorage
-        else { return }
-        guard (string as NSString).length > 0 else { return }
-        var regions: [BlockChromeRegion] = []
-        var current: BlockChromeRegion?
-
-        enumerateVisibleFragments(in: dirtyRect) { fragment, fragFrame in
-            guard
-                let textParagraph = fragment.textElement as? NSTextParagraph,
-                self.paragraphInfo(for: fragment, contentStorage: contentStorage) != nil,
-                textParagraph.attributedString.length > 0,
-                let kindRaw = textParagraph.attributedString.attribute(
-                    MarkdownTextStorage.blockChromeKindAttribute,
-                    at: 0,
-                    effectiveRange: nil
-                ) as? String,
-                let kind = MarkdownBlockChromeKind(rawValue: kindRaw)
-            else {
-                if let current {
-                    regions.append(current)
-                }
-                current = nil
-                return true
-            }
-
-            let fill = MarkdownTextStorage.blockChromeFill(
-                from: textParagraph.attributedString.attributes(at: 0, effectiveRange: nil)
-            )
-            let accent = (textParagraph.attributedString.attribute(
-                MarkdownTextStorage.blockChromeAccentAttribute,
-                at: 0,
-                effectiveRange: nil
-            ) as? NSColor) ?? fill
-
-            if var existing = current,
-               existing.kind == kind,
-               existing.fill.isEqual(fill),
-               existing.accent.isEqual(accent) {
-                existing.bottom = fragFrame.maxY
-                current = existing
-            } else {
-                if let current {
-                    regions.append(current)
-                }
-                current = BlockChromeRegion(
-                    kind: kind,
-                    fill: fill,
-                    accent: accent,
-                    top: fragFrame.minY,
-                    bottom: fragFrame.maxY
-                )
-            }
-            return true
-        }
-
-        if let current {
-            regions.append(current)
-        }
-
+        guard let textLayoutManager, let contentStorage = textLayoutManager.textContentManager as? NSTextContentStorage,
+              let attributedString = contentStorage.attributedString else { return }
+        let text = string as NSString
+        guard text.length > 0 else { return }
         let chromeFrame = MarkdownTextStorage.blockChromeFrame(
             textContainerOrigin: textContainerOrigin,
             containerWidth: textContainer?.containerSize.width ?? bounds.width,
             boundsWidth: bounds.width
         )
         guard chromeFrame.width > 0 else { return }
+        var seenSpans = Set<String>()
+        var coveredRanges: [NSRange] = []
 
-        for region in regions {
-            let rect = NSRect(
-                x: chromeFrame.minX,
-                y: region.top - 5,
-                width: chromeFrame.width,
-                height: max(0, region.bottom - region.top + 10)
+        enumerateVisibleFragments(in: dirtyRect) { fragment, _ in
+            guard let (_, paragraphRange) = self.paragraphInfo(
+                for: fragment,
+                contentStorage: contentStorage
+            ), !coveredRanges.contains(where: { NSLocationInRange(paragraphRange.location, $0) })
+            else {
+                return true
+            }
+
+            guard let span = MarkdownTextStorage.blockChromeSpan(
+                in: attributedString,
+                text: text,
+                aroundLineRange: paragraphRange
+            ) else {
+                return true
+            }
+
+            let spanKey = "\(span.kind.rawValue):\(span.lineRange.location):\(span.lineRange.length)"
+            guard seenSpans.insert(spanKey).inserted,
+                  let rect = self.blockChromeRect(
+                    for: span.lineRange,
+                    chromeFrame: chromeFrame,
+                    text: text,
+                    textLayoutManager: textLayoutManager,
+                    contentStorage: contentStorage
+                  ),
+                  rect.intersects(dirtyRect)
+            else {
+                return true
+            }
+
+            coveredRanges.append(span.lineRange)
+            MarkdownTextStorage.drawBlockChrome(
+                kind: span.kind,
+                fill: span.fill,
+                accent: span.accent,
+                in: rect
             )
-            guard rect.intersects(dirtyRect) else { continue }
-            drawBlockChromeRegion(region, in: rect)
+            return true
         }
     }
 
-    private func drawBlockChromeRegion(_ region: BlockChromeRegion, in rect: NSRect) {
-        MarkdownTextStorage.drawBlockChrome(
-            kind: region.kind,
-            fill: region.fill,
-            accent: region.accent,
-            in: rect
+    private func blockChromeRect(
+        for lineRange: NSRange,
+        chromeFrame: NSRect,
+        text: NSString,
+        textLayoutManager: NSTextLayoutManager,
+        contentStorage: NSTextContentStorage
+    ) -> NSRect? {
+        let styledRange = MarkdownTextStorage.blockChromeStyleRange(in: text, lineRange: lineRange)
+        guard styledRange.length > 0 else { return nil }
+
+        let documentStart = contentStorage.documentRange.location
+        var cursor = styledRange.location
+        var unionRect = NSRect.null
+
+        while cursor < NSMaxRange(styledRange) {
+            let paragraphRange = text.lineRange(for: NSRange(location: cursor, length: 0))
+            guard let location = contentStorage.location(documentStart, offsetBy: paragraphRange.location),
+                  let fragment = textLayoutManager.textLayoutFragment(for: location) else {
+                cursor = NSMaxRange(paragraphRange)
+                continue
+            }
+
+            unionRect = unionRect.union(fragment.layoutFragmentFrame)
+            let nextCursor = NSMaxRange(paragraphRange)
+            guard nextCursor > cursor else { break }
+            cursor = nextCursor
+        }
+
+        guard !unionRect.isNull, unionRect.height > 0 else { return nil }
+        return NSRect(
+            x: chromeFrame.minX,
+            y: textContainerOrigin.y + unionRect.minY - 5,
+            width: chromeFrame.width,
+            height: max(0, unionRect.height + 10)
         )
     }
 

@@ -8,85 +8,6 @@ struct LandingASCIIWakeFieldTests {
         #expect(LiquidGreeting.restingGreeting == "welcome back")
     }
 
-    @Test("greeting ripple keeps rich glyphs while staying calmer than default")
-    func greetingRippleStaysCalmerThanDefault() {
-        let defaultConfiguration = ASCIIRippleConfiguration()
-        let configuration = LiquidGreeting.greetingRippleConfiguration
-
-        #expect(configuration.duration < defaultConfiguration.duration)
-        #expect(configuration.waveThreshold < defaultConfiguration.waveThreshold)
-        #expect(configuration.duration >= 0.33)
-        #expect(configuration.duration <= 0.35)
-        #expect(configuration.waveThreshold >= 1.6)
-        #expect(configuration.waveThreshold <= 1.68)
-        #expect(configuration.spread <= 1.3)
-        #expect(configuration.characterMultiplier >= 2)
-        #expect(configuration.characters.count >= 10)
-        #expect(configuration.characters.contains("█"))
-        #expect(configuration.characters.contains("▒"))
-        #expect(configuration.characters.allSatisfy { !$0.isLetter && !$0.isNumber })
-    }
-
-    @Test("landing greeting tuning increases ripple intensity and glyph variety")
-    func landingGreetingTuningIncreasesRippleIntensityAndGlyphVariety() {
-        let calm = LiquidGreeting.tunedRippleConfiguration(intensity: 0.15, variety: 0.1)
-        let vivid = LiquidGreeting.tunedRippleConfiguration(intensity: 0.9, variety: 0.95)
-
-        #expect(vivid.characters.count > calm.characters.count)
-        #expect(vivid.characterMultiplier >= calm.characterMultiplier)
-        #expect(vivid.waveThreshold < calm.waveThreshold)
-        #expect(vivid.spread > calm.spread)
-        #expect(vivid.duration >= calm.duration)
-    }
-
-    @Test("landing greeting pace tuning keeps faster and calmer typing ranges bounded")
-    func landingGreetingPaceTuningStaysBounded() {
-        let fastRange = LiquidGreeting.tunedCharacterDelayRange(pace: 0.15)
-        let calmRange = LiquidGreeting.tunedCharacterDelayRange(pace: 0.9)
-        let fastPause = LiquidGreeting.tunedPauseRange(pace: 0.15)
-        let calmPause = LiquidGreeting.tunedPauseRange(pace: 0.9)
-
-        #expect(fastRange.lowerBound < calmRange.lowerBound)
-        #expect(fastRange.upperBound < calmRange.upperBound)
-        #expect(fastPause.lowerBound < calmPause.lowerBound)
-        #expect(fastPause.upperBound < calmPause.upperBound)
-    }
-
-    @Test("landing greeting reveal stays brisk while hold time is calmer")
-    func landingGreetingRevealStaysBriskWhileHoldTimeIsCalmer() {
-        #expect(LiquidGreeting.greetingCharacterDelayRange.upperBound <= 48)
-        #expect(LiquidGreeting.greetingShortPauseMilliseconds >= 1200)
-        #expect(LiquidGreeting.greetingPauseRange.lowerBound >= 2000)
-        #expect(LiquidGreeting.greetingPauseRange.upperBound >= 2600)
-    }
-
-    @Test("landing greeting pulses ripple at visible typing milestones")
-    func landingGreetingPulsesRippleAtVisibleMilestones() {
-        #expect(LiquidGreeting.shouldPulseGreetingRipple(atTypedCharacterCount: 2, totalCount: 12))
-        #expect(LiquidGreeting.shouldPulseGreetingRipple(atTypedCharacterCount: 4, totalCount: 12))
-        #expect(!LiquidGreeting.shouldPulseGreetingRipple(atTypedCharacterCount: 5, totalCount: 12))
-        #expect(LiquidGreeting.shouldPulseGreetingRipple(atTypedCharacterCount: 8, totalCount: 12))
-        #expect(LiquidGreeting.shouldPulseGreetingRipple(atTypedCharacterCount: 12, totalCount: 12))
-    }
-
-    @Test("landing greeting sometimes morphs instead of fully retyping")
-    func landingGreetingSometimesMorphsInsteadOfFullyRetyping() {
-        #expect(!LiquidGreeting.shouldMorphGreetingTransition(ordinal: 1, from: "HELLO", to: "WORLD"))
-        #expect(!LiquidGreeting.shouldMorphGreetingTransition(ordinal: 2, from: "HELLO", to: "WORLD"))
-        #expect(LiquidGreeting.shouldMorphGreetingTransition(ordinal: 3, from: "HELLO", to: "WORLD"))
-    }
-
-    @Test("landing greeting morph frames never fully erase the phrase")
-    func landingGreetingMorphFramesNeverFullyEraseThePhrase() {
-        let frames = LiquidGreeting.morphFrames(from: "HELLO", to: "WORLD")
-
-        #expect(!frames.isEmpty)
-        #expect(frames.last == "WORLD")
-        #expect(frames.allSatisfy { !$0.isEmpty })
-        #expect(!frames.contains("H"))
-        #expect(!frames.contains(""))
-    }
-
     @Test("landing wake surface avoids static dash artifacts")
     func landingWakeSurfaceAvoidsStaticDashArtifacts() {
         let configuration = LandingASCIIWakeFieldConfiguration()
@@ -127,12 +48,16 @@ struct LandingASCIIWakeFieldTests {
         let compact = LandingASCIIWakeFieldConfiguration.tuned(
             response: 0.1,
             spread: 0.1,
-            trail: 0.1
+            trail: 0.1,
+            opacity: 0.45,
+            blur: 0.15
         )
         let expressive = LandingASCIIWakeFieldConfiguration.tuned(
             response: 0.9,
             spread: 0.9,
-            trail: 0.9
+            trail: 0.9,
+            opacity: 1.2,
+            blur: 0.9
         )
 
         #expect(compact.frameInterval == expressive.frameInterval)
@@ -142,6 +67,95 @@ struct LandingASCIIWakeFieldTests {
         #expect(expressive.streamTailLength > compact.streamTailLength)
         #expect(expressive.maxTrailCount > compact.maxTrailCount)
         #expect(expressive.streamBubbleRadiusScale > compact.streamBubbleRadiusScale)
+        #expect(expressive.overlayOpacity > compact.overlayOpacity)
+        #expect(expressive.scrambleShellOpacity > compact.scrambleShellOpacity)
+        #expect(expressive.scrambleShellBlur > compact.scrambleShellBlur)
+    }
+
+    @Test("landing wake field tuning uses viscosity and turbulence upgrades")
+    func landingWakeFieldTuningUsesViscosityAndTurbulenceUpgrades() {
+        let baseline = LandingASCIIWakeFieldConfiguration.tuned(
+            response: 0.5,
+            spread: 0.5,
+            trail: 0.5,
+            viscosity: 0,
+            turbulence: 0
+        )
+        let upgraded = LandingASCIIWakeFieldConfiguration.tuned(
+            response: 0.5,
+            spread: 0.5,
+            trail: 0.5,
+            viscosity: 1,
+            turbulence: 1
+        )
+
+        #expect(upgraded.duration > baseline.duration)
+        #expect(upgraded.maxRadius > baseline.maxRadius)
+        #expect(upgraded.streamSwingMaxOffset > baseline.streamSwingMaxOffset)
+        #expect(upgraded.streamSwingCycles > baseline.streamSwingCycles)
+    }
+
+    @Test("blast samples scale with configured blast power")
+    func blastSamplesScaleWithConfiguredBlastPower() {
+        let origin = LandingASCIIWakeFieldEngine.TrailPoint(x: 4, y: 2)
+        let soft = LandingASCIIWakeFieldEngine.blastTrailSamples(at: origin, blastPower: 12)
+        let strong = LandingASCIIWakeFieldEngine.blastTrailSamples(at: origin, blastPower: 90)
+
+        #expect(!soft.isEmpty)
+        #expect(strong.count > soft.count)
+        #expect(strong.allSatisfy { $0.point == origin })
+        #expect(soft.allSatisfy { $0.point == origin })
+        #expect(strong[0].radiusScale > soft[0].radiusScale)
+        #expect(strong[0].ageOffset == 0)
+        #expect(strong[1].ageOffset > strong[0].ageOffset)
+    }
+
+    @Test("default wake tuning stays bounded for the live cursor controls")
+    func defaultWakeTuningStaysBoundedForLiveCursorControls() {
+        let base = LandingASCIIWakeFieldConfiguration()
+        let tuned = LandingASCIIWakeFieldConfiguration.tuned(
+            response: LandingWakeFieldPolicy.defaultResponse,
+            spread: LandingWakeFieldPolicy.defaultSpread,
+            trail: LandingWakeFieldPolicy.defaultTrail,
+            viscosity: LandingWakeFieldPolicy.defaultViscosity,
+            turbulence: LandingWakeFieldPolicy.defaultTurbulence,
+            opacity: LandingWakeFieldPolicy.defaultOpacity,
+            blur: LandingWakeFieldPolicy.defaultBlur
+        )
+
+        #expect(tuned.duration < 1.9)
+        #expect(tuned.maxRadius < 9.5)
+        #expect(tuned.streamSwingMaxOffset < 1.25)
+        #expect(tuned.duration > base.duration)
+        #expect(tuned.maxRadius >= base.maxRadius)
+        #expect(tuned.overlayOpacity > 0.4)
+        #expect(tuned.scrambleShellOpacity > 0.15)
+    }
+
+    @Test("landing wake field converts external hover points into local geometry space")
+    func landingWakeFieldConvertsExternalHoverPointsIntoLocalGeometrySpace() {
+        let local = LandingASCIIWakeFieldEngine.localHoverLocation(
+            from: CGPoint(x: 164, y: 141),
+            in: CGRect(x: 40, y: 80, width: 300, height: 200)
+        )
+
+        #expect(local == CGPoint(x: 124, y: 61))
+    }
+
+    @Test("landing wake field maps hover points with content insets and clamps to the grid")
+    func landingWakeFieldMapsHoverPointsWithInsetsAndClampsToGrid() {
+        let point = LandingASCIIWakeFieldEngine.trailPoint(
+            for: CGPoint(x: 90, y: 70),
+            columns: 10,
+            rows: 10,
+            charWidth: 10,
+            lineHeight: 10,
+            horizontalInset: 20,
+            verticalInset: 30
+        )
+
+        #expect(point.x == 7)
+        #expect(point.y == 4)
     }
 
     @Test("normalized vocabulary uppercases, trims, and deduplicates")
@@ -189,6 +203,26 @@ struct LandingASCIIWakeFieldTests {
         )
 
         #expect(overlay.contains("A") || overlay.contains("L") || overlay.contains("P") || overlay.contains("H"))
+    }
+
+    @Test("overlay text stays blank when only a resting hover point remains")
+    func overlayTextStaysBlankForRestingHoverPoint() {
+        let configuration = LandingASCIIWakeFieldConfiguration(duration: 1, maxRadius: 5, boundaryThickness: 1)
+        let layout = LandingASCIIWakeFieldEngine.layout(
+            vocabulary: ["ALPHA"],
+            columns: 5,
+            rows: 1,
+            configuration: configuration
+        )
+
+        let overlay = LandingASCIIWakeFieldEngine.overlayText(
+            layout: layout,
+            now: 0.45,
+            trails: [],
+            configuration: configuration
+        )
+
+        #expect(overlay == layout.blankText)
     }
 
     @Test("interpolated trail path fills gaps between hover samples")
@@ -448,23 +482,4 @@ struct LandingASCIIWakeFieldTests {
         #expect(abs(end - configuration.endRadius) < 0.001)
     }
 
-    @Test("overlay text stays blank when no wake is active")
-    func overlayTextStaysBlankWithoutWake() {
-        let configuration = LandingASCIIWakeFieldConfiguration()
-        let layout = LandingASCIIWakeFieldEngine.layout(
-            vocabulary: ["ALPHA"],
-            columns: 5,
-            rows: 2,
-            configuration: configuration
-        )
-
-        let overlay = LandingASCIIWakeFieldEngine.overlayText(
-            layout: layout,
-            now: 2,
-            trails: [],
-            configuration: configuration
-        )
-
-        #expect(overlay == layout.blankText)
-    }
 }

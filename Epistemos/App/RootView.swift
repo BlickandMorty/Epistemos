@@ -9,6 +9,14 @@ enum LandingToolbarGlyphs {
     }
 }
 
+enum HomeWindowIdentity {
+    static let title = "Epistemos"
+
+    static func matches(_ window: NSWindow?) -> Bool {
+        window?.title == title
+    }
+}
+
 // MARK: - Root View
 // Top-level container with centered toolbar controls.
 // System Liquid Glass toolbar provides the chrome — no custom glass needed.
@@ -156,13 +164,13 @@ struct RootView: View {
         // Filter by keyWindow to ignore miniaturize events from utility/MiniChat windows.
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) {
             note in
-            if let w = note.object as? NSWindow, w == NSApp.keyWindow || w.isMainWindow {
+            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
                 ui.windowOccluded = true
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification))
         { note in
-            if let w = note.object as? NSWindow, w == NSApp.keyWindow || w.isMainWindow {
+            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
                 ui.windowOccluded = false
             }
         }
@@ -170,13 +178,13 @@ struct RootView: View {
         // This is the primary guard against burning CPU behind other windows.
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) {
             note in
-            if let w = note.object as? NSWindow, w.isMainWindow {
+            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
                 ui.windowOccluded = true
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) {
             note in
-            if let w = note.object as? NSWindow, w.isMainWindow {
+            if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
                 ui.windowOccluded = false
             }
         }
@@ -309,9 +317,9 @@ struct RootView: View {
         Button {
             showGreetingControls.toggle()
         } label: {
-            Label("Greeting FX", systemImage: LandingToolbarGlyphs.greetingSymbol)
+            Label("Greeting", systemImage: LandingToolbarGlyphs.greetingSymbol)
         }
-        .help("Adjust greeting physics and liquidity")
+        .help("Adjust greeting behavior")
         .popover(isPresented: $showGreetingControls) {
             LandingGreetingControlsView()
                 .frame(width: 320)
@@ -476,78 +484,14 @@ private struct LandingGreetingControlsView: View {
     var body: some View {
         @Bindable var ui = ui
         VStack(alignment: .leading, spacing: 14) {
-            Text("Greeting Physics")
+            Text("Greeting")
                 .font(.system(size: 14, weight: .semibold))
 
-            Toggle("Enable greeting animation", isOn: $ui.landingGreetingAnimationEnabled)
+            Toggle("Animate typewriter", isOn: $ui.landingGreetingTypewriterEnabled)
 
-            LandingAnimationSliderRow(
-                title: "Liquidity (Threshold)",
-                value: $ui.landingGreetingThreshold,
-                range: 0...1,
-                labels: ("Thick", "Thin")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Organic Blur",
-                value: $ui.landingGreetingBlur,
-                range: 0...1,
-                labels: ("Tight", "Heavy")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Pull Intensity",
-                value: $ui.landingGreetingPull,
-                range: 0...1,
-                labels: ("Soft", "Aggressive")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Expansion (Bulge)",
-                value: $ui.landingGreetingExpansion,
-                range: 0...1,
-                labels: ("Flat", "Spherical")
-            )
-            
-            LandingAnimationSliderRow(
-                title: "Center Softening",
-                value: $ui.landingGreetingCenterSoftening,
-                range: 0...1,
-                labels: ("Strict", "Fluid")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Pull Radius",
-                value: $ui.landingGreetingPullRadius,
-                range: 0...1,
-                labels: ("Near", "Far")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Flow Viscosity (Honey)",
-                value: $ui.landingGreetingDamping,
-                range: 0...1,
-                labels: ("Springy", "Viscous")
-            )
-
-            LandingAnimationSliderRow(
-                title: "Scale Intensity",
-                value: $ui.landingGreetingScale,
-                range: 0...1,
-                labels: ("Flat", "Deep")
-            )
-
-            Button("Reset Greeting Physics") {
-                ui.landingGreetingThreshold = LandingGreetingAnimationPolicy.defaultThreshold
-                ui.landingGreetingBlur = LandingGreetingAnimationPolicy.defaultBlur
-                ui.landingGreetingPull = LandingGreetingAnimationPolicy.defaultPull
-                ui.landingGreetingExpansion = LandingGreetingAnimationPolicy.defaultExpansion
-                ui.landingGreetingCenterSoftening = LandingGreetingAnimationPolicy.defaultCenterSoftening
-                ui.landingGreetingPullRadius = LandingGreetingAnimationPolicy.defaultPullRadius
-                ui.landingGreetingDamping = LandingGreetingAnimationPolicy.defaultDamping
-                ui.landingGreetingScale = LandingGreetingAnimationPolicy.defaultScale
-            }
-            .buttonStyle(.borderless)
+            Text("Custom greetings and timing live in Settings > Landing.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -561,7 +505,12 @@ private struct LandingCursorControlsView: View {
             Text("Cursor Animation")
                 .font(.system(size: 14, weight: .semibold))
 
-            Toggle("Enable cursor animation", isOn: $ui.landingCursorAnimationEnabled)
+            Picker("Visibility", selection: $ui.landingCursorVisibilityMode) {
+                ForEach(LandingCursorVisibilityMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
 
             LandingAnimationSliderRow(
                 title: "Response",
@@ -583,12 +532,26 @@ private struct LandingCursorControlsView: View {
                 range: 0...1,
                 labels: ("Short", "Long")
             )
+
+            LandingAnimationSliderRow(
+                title: "Opacity",
+                value: $ui.landingCursorOpacity,
+                range: 0.2...1.4,
+                labels: ("Faint", "Solid")
+            )
             
             LandingAnimationSliderRow(
                 title: "Viscosity",
                 value: $ui.landingCursorViscosity,
                 range: 0...1,
                 labels: ("Water", "Honey")
+            )
+
+            LandingAnimationSliderRow(
+                title: "Blur Shell",
+                value: $ui.landingCursorBlur,
+                range: 0...1,
+                labels: ("Sharp", "Diffused")
             )
             
             LandingAnimationSliderRow(
@@ -602,7 +565,8 @@ private struct LandingCursorControlsView: View {
                 title: "Blast Power",
                 value: $ui.landingCursorBlastPower,
                 range: 0...100,
-                labels: ("Soft", "Explosive")
+                labels: ("Soft", "Explosive"),
+                valueDisplay: .number()
             )
 
             Button("Reset Cursor Defaults") {
@@ -610,7 +574,9 @@ private struct LandingCursorControlsView: View {
                 ui.landingCursorResponse = LandingWakeFieldPolicy.defaultResponse
                 ui.landingCursorSpread = LandingWakeFieldPolicy.defaultSpread
                 ui.landingCursorTrail = LandingWakeFieldPolicy.defaultTrail
+                ui.landingCursorOpacity = LandingWakeFieldPolicy.defaultOpacity
                 ui.landingCursorViscosity = LandingWakeFieldPolicy.defaultViscosity
+                ui.landingCursorBlur = LandingWakeFieldPolicy.defaultBlur
                 ui.landingCursorTurbulence = LandingWakeFieldPolicy.defaultTurbulence
                 ui.landingCursorBlastPower = LandingWakeFieldPolicy.defaultBlastPower
             }
@@ -620,10 +586,27 @@ private struct LandingCursorControlsView: View {
 }
 
 private struct LandingAnimationSliderRow: View {
+    enum ValueDisplay {
+        case percent
+        case number(suffix: String? = nil)
+    }
+
     let title: String
     @Binding var value: Double
     let range: ClosedRange<Double>
     let labels: (String, String)
+    var valueDisplay: ValueDisplay = .percent
+
+    private var valueLabel: String {
+        switch valueDisplay {
+        case .percent:
+            return "\(Int(round(value * 100)))%"
+        case .number(let suffix):
+            let number = "\(Int(round(value)))"
+            guard let suffix else { return number }
+            return number + suffix
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -631,7 +614,7 @@ private struct LandingAnimationSliderRow: View {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Text("\(Int(round(value * 100)))%")
+                Text(valueLabel)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(.secondary)
             }

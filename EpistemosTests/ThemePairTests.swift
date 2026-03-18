@@ -267,18 +267,21 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("UIState enables landing greeting and cursor controls with default tuning")
+    @Test("UIState keeps the live landing greeting and cursor controls")
     func uiStateLandingAnimationDefaults() {
         let defaults = UserDefaults.standard
         let keys = [
             LandingCursorAnimationPolicy.defaultsKey,
             LandingGreetingAnimationPolicy.enabledDefaultsKey,
-            LandingGreetingAnimationPolicy.intensityDefaultsKey,
-            LandingGreetingAnimationPolicy.varietyDefaultsKey,
-            LandingGreetingAnimationPolicy.paceDefaultsKey,
+            LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey,
             LandingWakeFieldPolicy.responseDefaultsKey,
             LandingWakeFieldPolicy.spreadDefaultsKey,
             LandingWakeFieldPolicy.trailDefaultsKey,
+            LandingWakeFieldPolicy.viscosityDefaultsKey,
+            LandingWakeFieldPolicy.turbulenceDefaultsKey,
+            LandingWakeFieldPolicy.blastPowerDefaultsKey,
+            LandingWakeFieldPolicy.opacityDefaultsKey,
+            LandingWakeFieldPolicy.blurDefaultsKey,
         ]
         let previousValues = keys.map { ($0, defaults.object(forKey: $0)) }
         defer {
@@ -297,13 +300,49 @@ struct ThemePairTests {
         let uiState = UIState()
 
         #expect(uiState.landingCursorAnimationEnabled == LandingCursorAnimationPolicy.defaultValue)
-        #expect(uiState.landingGreetingAnimationEnabled == LandingGreetingAnimationPolicy.defaultEnabled)
-        #expect(uiState.landingGreetingIntensity == LandingGreetingAnimationPolicy.defaultIntensity)
-        #expect(uiState.landingGreetingCharacterVariety == LandingGreetingAnimationPolicy.defaultVariety)
-        #expect(uiState.landingGreetingPace == LandingGreetingAnimationPolicy.defaultPace)
+        #expect(uiState.landingGreetingTypewriterEnabled == LandingGreetingAnimationPolicy.defaultTypewriterEnabled)
         #expect(uiState.landingCursorResponse == LandingWakeFieldPolicy.defaultResponse)
         #expect(uiState.landingCursorSpread == LandingWakeFieldPolicy.defaultSpread)
         #expect(uiState.landingCursorTrail == LandingWakeFieldPolicy.defaultTrail)
+        #expect(uiState.landingCursorViscosity == LandingWakeFieldPolicy.defaultViscosity)
+        #expect(uiState.landingCursorTurbulence == LandingWakeFieldPolicy.defaultTurbulence)
+        #expect(uiState.landingCursorBlastPower == LandingWakeFieldPolicy.defaultBlastPower)
+        #expect(uiState.landingCursorOpacity == LandingWakeFieldPolicy.defaultOpacity)
+        #expect(uiState.landingCursorBlur == LandingWakeFieldPolicy.defaultBlur)
+    }
+
+    @MainActor
+    @Test("UIState clears obsolete landing greeting defaults on init")
+    func uiStateClearsObsoleteLandingGreetingDefaults() {
+        let defaults = UserDefaults.standard
+        let obsoleteKeys = [
+            "epistemos.landingGreetingASCIIEnabled",
+            "epistemos.landingGreetingTypewriterEnabled",
+            "epistemos.landingGreetingASCIIHoverEnabled",
+            "epistemos.landingGreetingTypewriterVersion",
+            "epistemos.landingGreetingIntensity",
+            "epistemos.landingGreetingVariety",
+            "epistemos.landingGreetingPace",
+        ]
+        let previousValues = obsoleteKeys.map { ($0, defaults.object(forKey: $0)) }
+        defer {
+            for (key, value) in previousValues {
+                if let value {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+        for key in obsoleteKeys {
+            defaults.set("legacy", forKey: key)
+        }
+
+        _ = UIState()
+
+        for key in obsoleteKeys {
+            #expect(defaults.object(forKey: key) == nil)
+        }
     }
 
     @Test("Magnolia uses a rose display accent for app titles and headings")
@@ -417,16 +456,25 @@ struct ThemePairTests {
         #expect(MarkdownHeadingDisplay.glowRadius(for: 2) == 10)
         #expect(MarkdownHeadingDisplay.glowRadius(for: 3) == 7)
         #expect(MarkdownHeadingDisplay.glowRadius(for: 4) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinum, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinum, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinum, level: 3) == 0)
         #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 1) == 0.38)
         #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 2) == 0.24)
         #expect(MarkdownHeadingDisplay.shadowOpacity(for: .platinumDark, level: 3) == 0.18)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinum, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinum, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinum, level: 3) == 0)
         #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 1) == 0.34)
         #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 2) == 0.22)
         #expect(MarkdownHeadingDisplay.overlayOpacity(for: .platinumDark, level: 3) == 0.16)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 1) != nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 2) != nil)
-        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 3) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 1) == nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 2) == nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 3) == nil)
         #expect(MarkdownHeadingDisplay.nsShadow(for: .platinum, level: 4) == nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumDark, level: 1) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumDark, level: 2) != nil)
+        #expect(MarkdownHeadingDisplay.nsShadow(for: .platinumDark, level: 3) != nil)
     }
 
     @Test("Markdown preview heading glow stays softer than the editor heading glow")
@@ -438,9 +486,26 @@ struct ThemePairTests {
         #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 1) < MarkdownHeadingDisplay.glowRadius(for: 1))
         #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 2) < MarkdownHeadingDisplay.glowRadius(for: 2))
         #expect(MarkdownHeadingDisplay.previewGlowRadius(for: 3) < MarkdownHeadingDisplay.glowRadius(for: 3))
+        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinum, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinum, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.previewShadowOpacity(for: .platinum, level: 3) == 0)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinum, level: 1) == 0)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinum, level: 2) == 0)
+        #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinum, level: 3) == 0)
         #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 1) == 0.2)
         #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 2) == 0.12)
         #expect(MarkdownHeadingDisplay.previewOverlayOpacity(for: .platinumDark, level: 3) == 0.09)
+    }
+
+    @Test("Landing text glow is dark-mode only")
+    func landingTextGlowIsDarkModeOnly() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+
+        #expect(landingView.contains(".shadow(color: theme.isDark ? theme.fontAccent.opacity(0.12) : .clear, radius: 8)"))
+        #expect(liquidGreeting.contains(".shadow("))
+        #expect(liquidGreeting.contains("color: compact ? .clear : (theme.isDark ? theme.fontAccent.opacity(0.12) : .clear)"))
+        #expect(liquidGreeting.contains("radius: compact ? 0 : 8"))
     }
 
     @Test("Regular display mode keeps ripple-capable surfaces but drops retro display typography")
@@ -644,9 +709,13 @@ struct ThemePairTests {
         #expect(ChatComposerInputMetrics.verticalInset == 4)
     }
 
-    @Test("Landing search composer restores the Apple Intelligence glow")
-    func landingSearchComposerRestoresAppleIntelligenceGlow() {
-        #expect(LandingSearchChromePolicy.showsGlow)
+    @Test("Landing search composer stays glass-only without siri glow")
+    func landingSearchComposerStaysGlassOnly() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains(".assistantGlassInputChrome("))
+        #expect(!landingView.contains(".siriGlow("))
+        #expect(!landingView.contains("LandingSearchChromePolicy"))
     }
 
     @Test("Chat streaming keeps incremental response text out of the live bubble")
@@ -873,6 +942,143 @@ struct ThemePairTests {
         #expect(landingView.contains("primary: .init(modIcon: \"command\", key: \"2\", label: \"Notes\")"))
         #expect(landingView.contains("secondary: .init(modIcon: \"command\", key: \"N\", label: \"New Note\")"))
         #expect(!landingView.contains("CommandHint(modIcon: \"command\", key: \"N\", label: \"New Note\""))
+    }
+
+    @Test("liquid greeting task identity tracks playlist changes without restarting on typed character updates")
+    func liquidGreetingTaskIdentityTracksPlaylistChanges() throws {
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+
+        #expect(liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(ui.landingGreetingPlaylistSignature)\""))
+        #expect(!liquidGreeting.contains("\"\\(shouldAnimate)_\\(retractNow)_\\(displayText)\""))
+    }
+
+    @Test("landing greeting keeps static welcome back fallback and drops liquid controls")
+    func liquidGreetingSupportsStaticWelcomeBackMode() throws {
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+        let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(liquidGreeting.contains("text: shouldAnimate ? displayText : Self.restingGreeting"))
+        #expect(liquidGreeting.contains("guard shouldAnimate else"))
+        #expect(settingsView.contains("Animate typewriter"))
+        #expect(!settingsView.contains("Enable liquid distortion"))
+    }
+
+    @Test("landing view routes cursor wake by surface visibility instead of a top overlay")
+    func landingViewRoutesCursorWakeBySurfaceVisibility() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("ui.landingCursorVisibilityMode.shows(on: surface)"))
+        #expect(!landingView.contains(".zIndex(10)"))
+    }
+
+    @Test("landing view keeps wake hover in a dedicated pointer state instead of parent state churn")
+    func landingViewUsesDedicatedPointerStateForWakeHover() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("@State private var pointerState = LandingPointerState()"))
+        #expect(!landingView.contains("@State private var globalHoverLocation"))
+        #expect(landingView.contains("pointerState.location = location"))
+    }
+
+    @Test("landing view routes tap blasts through pointer state instead of wake hit testing")
+    func landingViewRoutesTapBlastsThroughPointerState() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("SpatialTapGesture()"))
+        #expect(landingView.contains("pointerState.registerTap(at: value.location)"))
+        #expect(landingView.contains(".allowsHitTesting(false)"))
+    }
+
+    @Test("landing greeting drops the liquid canvas timeline entirely")
+    func liquidGreetingDropsLiquidTimeline() throws {
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+
+        #expect(!liquidGreeting.contains("TimelineView("))
+        #expect(!liquidGreeting.contains("Canvas("))
+        #expect(!liquidGreeting.contains("liquidReleaseDate"))
+        #expect(!liquidGreeting.contains("hoverLocation"))
+    }
+
+    @Test("landing greeting drops liquid deformation controls from the toolbar")
+    func liquidGreetingDropsDeformationControls() throws {
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
+
+        #expect(!liquidGreeting.contains("landingGreetingPull"))
+        #expect(!liquidGreeting.contains("landingGreetingBlur"))
+        #expect(!rootView.contains("Enable liquid distortion"))
+        #expect(!rootView.contains("Reset Greeting Physics"))
+    }
+
+    @Test("cursor fx exposes wake opacity and blur sliders")
+    func cursorFxExposesWakeOpacityAndBlurSliders() throws {
+        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
+
+        #expect(rootView.contains("title: \"Opacity\""))
+        #expect(rootView.contains("value: $ui.landingCursorOpacity"))
+        #expect(rootView.contains("title: \"Blur Shell\""))
+        #expect(rootView.contains("value: $ui.landingCursorBlur"))
+    }
+
+    @Test("settings adds a dedicated landing section for greetings and cursor visibility")
+    func settingsAddsDedicatedLandingSection() throws {
+        let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(settingsView.contains("case landing = \"Landing\""))
+        #expect(settingsView.contains("LandingDetailView()"))
+        #expect(settingsView.contains("Cursor Visibility"))
+        #expect(settingsView.contains("Greeting Library"))
+    }
+
+    @Test("settings view exposes a native sidebar toggle in the toolbar")
+    func settingsViewExposesSidebarToggle() throws {
+        let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(settingsView.contains("ToolbarItem(placement: .navigation)"))
+        #expect(settingsView.contains("Image(systemName: \"sidebar.left\")"))
+        #expect(settingsView.contains("toggleSidebar()"))
+    }
+
+    @Test("landing view fetches chat history only on demand for daily brief generation")
+    func landingViewLazilyFetchesDailyBriefChats() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("@Environment(\\.modelContext) private var modelContext"))
+        #expect(!landingView.contains("@Query(sort: \\\\.updatedAt, order: .reverse)\n    private var allChats: [SDChat]"))
+        #expect(landingView.contains("private func recentChats(limit: Int) -> [SDChat]"))
+        #expect(landingView.contains("DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: recentChats(limit: 12))"))
+    }
+
+    @Test("bootstrap runs disk style cache eviction at utility priority")
+    func bootstrapRunsDiskStyleEvictionOffLaunchPriority() throws {
+        let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(bootstrap.contains("Task(priority: .utility) { DiskStyleCache.shared.evictIfNeeded() }"))
+    }
+
+    @Test("bootstrap defers fallback search index creation until query use")
+    func bootstrapDefersFallbackSearchIndexCreation() throws {
+        let bootstrap = try loadTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(!bootstrap.contains("let searchIdx = vaultSync.searchService ?? (try? SearchIndexService())"))
+        #expect(bootstrap.contains("searchIndexProvider: {"))
+    }
+
+    @Test("UIState source keeps the typewriter toggle and drops liquid greeting state")
+    func uiStateKeepsSplitGreetingTogglesAndDropsObsoleteFlags() throws {
+        let uiState = try loadTextFile("Epistemos/State/UIState.swift")
+
+        #expect(!uiState.contains("var landingGreetingASCIIEnabled"))
+        #expect(uiState.contains("var landingGreetingTypewriterEnabled"))
+        #expect(!uiState.contains("var landingGreetingLiquidEnabled"))
+        #expect(!uiState.contains("var landingGreetingASCIIHoverEnabled"))
+        #expect(!uiState.contains("var landingGreetingTypewriterVersion"))
+        #expect(!uiState.contains("var landingGreetingIntensity"))
+        #expect(!uiState.contains("var landingGreetingCharacterVariety"))
+        #expect(!uiState.contains("var landingGreetingPace"))
+        #expect(!uiState.contains("enum LandingGreetingTypewriterVersion"))
+        #expect(!uiState.contains("var landingGreetingThreshold"))
+        #expect(!uiState.contains("var landingGreetingBlur"))
     }
 
     @Test("project drops the unused legacy navigation pill file")

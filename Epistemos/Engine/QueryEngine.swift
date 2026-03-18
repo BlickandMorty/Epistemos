@@ -9,6 +9,7 @@ import SwiftUI
 @MainActor
 @Observable
 final class QueryEngine {
+    typealias SearchIndexProvider = @MainActor () -> SearchIndexService?
 
     // MARK: - State
 
@@ -22,17 +23,44 @@ final class QueryEngine {
 
     // MARK: - Dependencies
 
+    private var graphStore: GraphStore?
+    private var graphState: GraphState?
+    private var searchIndexProvider: SearchIndexProvider?
     private var runtime: QueryRuntime?
     private var activeReactiveQuery: ReactiveQuery?
     private var reactiveTask: Task<Void, Never>?
 
     /// Configure with live dependencies. Called once during app bootstrap.
-    func configure(graphStore: GraphStore, graphState: GraphState, searchIndex: SearchIndexService) {
-        self.runtime = QueryRuntime(
+    func configure(
+        graphStore: GraphStore,
+        graphState: GraphState,
+        searchIndexProvider: @escaping SearchIndexProvider
+    ) {
+        self.graphStore = graphStore
+        self.graphState = graphState
+        self.searchIndexProvider = searchIndexProvider
+        invalidateRuntime()
+    }
+
+    func invalidateRuntime() {
+        stopReactive()
+        runtime = nil
+    }
+
+    private func resolvedRuntime() -> QueryRuntime? {
+        if let runtime {
+            return runtime
+        }
+        guard let graphStore, let graphState, let searchIndex = searchIndexProvider?() else {
+            return nil
+        }
+        let runtime = QueryRuntime(
             graphStore: graphStore,
             graphState: graphState,
             searchIndex: searchIndex
         )
+        self.runtime = runtime
+        return runtime
     }
 
     // MARK: - Execute
@@ -42,7 +70,7 @@ final class QueryEngine {
     func execute(query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard let runtime else {
+        guard let runtime = resolvedRuntime() else {
             errorMessage = "Query engine not configured"
             return
         }
@@ -68,7 +96,7 @@ final class QueryEngine {
     func executeReactive(query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard let runtime else {
+        guard let runtime = resolvedRuntime() else {
             errorMessage = "Query engine not configured"
             return
         }

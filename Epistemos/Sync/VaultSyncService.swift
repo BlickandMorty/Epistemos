@@ -746,6 +746,7 @@ final class VaultSyncService {
         do {
             let svc = try SearchIndexService(databaseURL: searchDatabaseURLOverride)
             self.searchService = svc
+            AppBootstrap.shared?.queryEngine.invalidateRuntime()
         } catch {
             log.error("Failed to create SearchIndexService: \(error.localizedDescription, privacy: .public)")
         }
@@ -835,6 +836,7 @@ final class VaultSyncService {
         stopFileWatcher()
         indexActor = nil
         searchService = nil
+        AppBootstrap.shared?.queryEngine.invalidateRuntime()
 
         if !preserveData {
             clearVaultData()

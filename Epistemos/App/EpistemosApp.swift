@@ -10,24 +10,73 @@ import UserNotifications
 enum WindowPresentationPolicy {
     static let mainWindowMinimumSize = CGSize(width: 720, height: 520)
 
+    static func needsModularZoomBehavior(_ window: NSWindow) -> Bool {
+        if window.contentMinSize != mainWindowMinimumSize {
+            return true
+        }
+        if window.collectionBehavior.contains(.fullScreenPrimary)
+            || window.collectionBehavior.contains(.fullScreenAuxiliary)
+            || window.collectionBehavior.contains(.fullScreenAllowsTiling)
+        {
+            return true
+        }
+        guard let zoomButton = window.standardWindowButton(.zoomButton) else {
+            return false
+        }
+        return zoomButton.target !== window || zoomButton.action != #selector(NSWindow.performZoom(_:))
+    }
+
     static func applyModularZoomBehavior(to window: NSWindow) {
-        window.contentMinSize = mainWindowMinimumSize
-        window.collectionBehavior.remove(.fullScreenPrimary)
-        window.collectionBehavior.remove(.fullScreenAuxiliary)
-        window.collectionBehavior.remove(.fullScreenAllowsTiling)
+        if window.contentMinSize != mainWindowMinimumSize {
+            window.contentMinSize = mainWindowMinimumSize
+        }
+
+        var collectionBehavior = window.collectionBehavior
+        collectionBehavior.remove(.fullScreenPrimary)
+        collectionBehavior.remove(.fullScreenAuxiliary)
+        collectionBehavior.remove(.fullScreenAllowsTiling)
+        if collectionBehavior != window.collectionBehavior {
+            window.collectionBehavior = collectionBehavior
+        }
+
         if let zoomButton = window.standardWindowButton(.zoomButton) {
-            zoomButton.target = window
-            zoomButton.action = #selector(NSWindow.performZoom(_:))
+            if zoomButton.target !== window {
+                zoomButton.target = window
+            }
+            if zoomButton.action != #selector(NSWindow.performZoom(_:)) {
+                zoomButton.action = #selector(NSWindow.performZoom(_:))
+            }
         }
     }
 }
 
 @MainActor
 final class ModularZoomWindowObserverView: NSView {
+    private var applyTask: Task<Void, Never>?
+    private static let applyDelay: Duration = .milliseconds(1)
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard let window else { return }
-        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        if let window, WindowPresentationPolicy.needsModularZoomBehavior(window) {
+            WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+            return
+        }
+        schedulePolicyApply()
+    }
+
+    deinit {
+        applyTask?.cancel()
+    }
+
+    func schedulePolicyApply() {
+        applyTask?.cancel()
+        applyTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.applyDelay)
+            guard let self, let window = self.window,
+                WindowPresentationPolicy.needsModularZoomBehavior(window)
+            else { return }
+            WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        }
     }
 }
 
@@ -37,8 +86,7 @@ struct ModularZoomWindowObserver: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: ModularZoomWindowObserverView, context: Context) {
-        guard let window = nsView.window else { return }
-        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        nsView.schedulePolicyApply()
     }
 }
 
@@ -111,7 +159,9 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         mainWindowObservers = names.map { name in
             center.addObserver(forName: name, object: nil, queue: .main) { note in
                 guard let window = note.object as? NSWindow else { return }
-                Self.applyMainWindowPolicyIfNeeded(to: window)
+                Task { @MainActor in
+                    Self.applyMainWindowPolicyIfNeeded(to: window)
+                }
             }
         }
 

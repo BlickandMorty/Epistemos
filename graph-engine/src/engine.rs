@@ -65,16 +65,13 @@ fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
 }
 
 fn should_update_field_lines(
-    quality_level: u8,
-    hovered_id: Option<u32>,
-    field_line_count: usize,
-    dragging: bool,
-    dialogue_active: bool,
+    _quality_level: u8,
+    _hovered_id: Option<u32>,
+    _field_line_count: usize,
+    _dragging: bool,
+    _dialogue_active: bool,
 ) -> bool {
-    quality_level == 0
-        && !dragging
-        && !dialogue_active
-        && (hovered_id.is_some() || field_line_count > 0)
+    false
 }
 
 /// Drag state for d3-style fx/fy constraint.
@@ -758,8 +755,7 @@ impl Engine {
             self.highlight_dirty = false;
         }
 
-        // Update magnetic field lines only when hovering (skip in lite mode entirely).
-        // Field lines only in Cinematic mode (quality_level == 0).
+        // Decorative hover field lines are disabled; only clear stale buffers if needed.
         if should_update_field_lines(
             self.quality_level,
             self.hovered_id,
@@ -1900,6 +1896,90 @@ mod tests {
         assert!(!engine.sim.lock().lite_mode);
     }
 
+    #[test]
+    fn sync_all_positions_rebuilds_world_spatial_grid() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_graph();
+        engine.commit(false);
+        engine.stop_physics();
+
+        let moved_node_id = engine.graph.nodes[0].id;
+        let moved_entity = engine
+            .world
+            .entity_of_node_id(moved_node_id)
+            .expect("world should map node id to entity");
+        let sim_index = engine
+            .sim
+            .lock()
+            .graph_indices
+            .iter()
+            .position(|&graph_index| graph_index == 0)
+            .expect("simulation should map node 0");
+
+        {
+            let mut sim = engine.sim.lock();
+            sim.x[sim_index] = 520.0;
+            sim.y[sim_index] = 420.0;
+            sim.vx[sim_index] = 0.0;
+            sim.vy[sim_index] = 0.0;
+        }
+
+        engine.sync_all_positions();
+
+        let moved_neighbors = engine.world.spatial_grid.query_neighbors(520.0, 420.0);
+        assert!(
+            moved_neighbors.contains(&moved_entity),
+            "spatial grid should follow synced node positions"
+        );
+
+        let old_neighbors = engine.world.spatial_grid.query_neighbors(-50.0, 0.0);
+        assert!(
+            !old_neighbors.contains(&moved_entity),
+            "spatial grid should drop the node from its stale position"
+        );
+    }
+
+    #[test]
+    fn camera_motion_rebuilds_instance_buffers_during_zoom_animation() {
+        let device = Device::system_default().expect("Metal device should exist in engine tests");
+        let layer = MetalLayer::new();
+        let mut engine = Engine::new(
+            device.as_ptr() as *mut std::ffi::c_void,
+            layer.as_ptr() as *mut std::ffi::c_void,
+        )
+        .expect("engine should initialize");
+
+        engine.graph = make_graph();
+        engine.commit(false);
+        engine.stop_physics();
+        engine.sim.lock().is_settled = true;
+        engine.last_sim_active = false;
+
+        let _ = engine.render(1280, 720);
+        let baseline = engine.renderer.classic_buffer_rebuild_count();
+
+        engine.renderer.target_zoom = engine.renderer.camera_zoom * 1.35;
+        engine.renderer.target_offset = [
+            engine.renderer.camera_offset[0] + 24.0,
+            engine.renderer.camera_offset[1] - 18.0,
+        ];
+        engine.camera_rebuild_pending = true;
+
+        let _ = engine.render(1280, 720);
+
+        assert!(
+            engine.renderer.classic_buffer_rebuild_count() > baseline,
+            "zoom animation should rebuild visible buffers while the camera is moving"
+        );
+    }
+
     // ── Deep Stress Tests ──────────────────────────────────────────────
 
     fn make_large_graph(n: usize) -> Graph {
@@ -2546,8 +2626,14 @@ mod tests {
     fn field_lines_disable_while_dragging() {
         assert!(!should_update_field_lines(0, Some(7), 3, true, false));
         assert!(!should_update_field_lines(1, Some(7), 3, false, false));
-        assert!(should_update_field_lines(0, Some(7), 0, false, false));
-        assert!(should_update_field_lines(0, None, 3, false, false));
+        assert!(!should_update_field_lines(0, Some(7), 0, false, false));
+        assert!(!should_update_field_lines(0, None, 3, false, false));
         assert!(!should_update_field_lines(0, Some(7), 3, false, true));
+    }
+
+    #[test]
+    fn field_lines_stay_disabled_for_hovered_nodes() {
+        assert!(!should_update_field_lines(0, Some(7), 0, false, false));
+        assert!(!should_update_field_lines(0, None, 3, false, false));
     }
 }

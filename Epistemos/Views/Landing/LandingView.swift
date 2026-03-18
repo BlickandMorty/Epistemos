@@ -38,8 +38,20 @@ enum LandingSearchLayout {
     static let cornerRadius: CGFloat = 24
 }
 
-enum LandingSearchChromePolicy {
-    static let showsGlow = false
+enum LandingCoordinateSpace {
+    static let root = "LandingRoot"
+}
+
+@MainActor @Observable
+final class LandingPointerState {
+    var location: CGPoint?
+    private(set) var tapToken: UInt = 0
+    private(set) var tapLocation: CGPoint?
+
+    func registerTap(at location: CGPoint) {
+        tapLocation = location
+        tapToken &+= 1
+    }
 }
 
 // MARK: - Landing View
@@ -54,26 +66,33 @@ struct LandingView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(InferenceState.self) private var inference
+    @Environment(\.modelContext) private var modelContext
 
     // Recent data for Daily Brief context
     @Query(SDPage.recentDescriptor(limit: 50))
     private var allPages: [SDPage]
-
-    @Query(sort: \SDChat.updatedAt, order: .reverse)
-    private var allChats: [SDChat]
 
     // Inline search state
     @State private var showingSearch = false
     @State private var landingSearchText = ""
     @State private var landingComposerHeight: CGFloat = 32 // Better initial height for 22px font
     @State private var isLandingSearchFocused = false
-    @State private var globalHoverLocation: CGPoint? = nil
+    @State private var pointerState = LandingPointerState()
 
     // Cached vocabulary — rebuilt only when allPages changes, not every body evaluation.
     @State private var landingWakeVocabulary: [String] = []
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
+    private var currentCursorSurface: LandingCursorSurface? {
+        if showingBrief {
+            nil
+        } else if showingSearch {
+            .search
+        } else {
+            .landing
+        }
+    }
     private var trimmedLandingSearchText: String {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -100,6 +119,18 @@ struct LandingView: View {
 
     var body: some View {
         ZStack {
+            if let surface = currentCursorSurface,
+                ui.landingCursorVisibilityMode.shows(on: surface) {
+                LandingASCIIWakeField(
+                    vocabulary: landingWakeVocabulary,
+                    theme: theme,
+                    pointerState: pointerState
+                )
+                .allowsHitTesting(false)
+                .transition(.opacity)
+                .zIndex(0)
+            }
+
             // ── Greeting Mode ──
             // Blurs and fades when Daily Brief or inline search is active.
             greetingContent
@@ -123,34 +154,28 @@ struct LandingView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     .zIndex(3)
             }
-
-            // ── Background Cursor/Wake Field ──
-            // Stays active even during search/brief modes.
-            // Moved to the top with allowsHitTesting(false) to ensure visibility,
-            // using the globalHoverLocation provided by the outer tracker.
-            LandingASCIIWakeField(
-                vocabulary: landingWakeVocabulary,
-                theme: theme,
-                externalHoverLocation: globalHoverLocation
-            ) {
-                if !showingSearch && !showingBrief {
-                    activateLandingSearch()
-                }
-            }
-            .allowsHitTesting(false)
-            .zIndex(10)
         }
         .onContinuousHover { phase in
             switch phase {
             case .active(let location):
-                globalHoverLocation = location
+                pointerState.location = location
             case .ended:
-                globalHoverLocation = nil
+                pointerState.location = nil
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .coordinateSpace(name: LandingCoordinateSpace.root)
         .animation(Motion.smooth, value: showingBrief)
         .animation(Motion.smooth, value: showingSearch)
+        .animation(Motion.smooth, value: ui.landingCursorVisibilityMode)
+        .simultaneousGesture(
+            SpatialTapGesture()
+                .onEnded { value in
+                    guard currentCursorSurface == .landing,
+                        ui.landingCursorVisibilityMode.shows(on: .landing) else { return }
+                    pointerState.registerTap(at: value.location)
+                }
+        )
         .background {
             // Hidden ⌘N shortcut — creates new note and teleports there
             Button(action: { createAndOpenNote() }) {}
@@ -381,8 +406,7 @@ struct LandingView: View {
                     }
                     landingChip(label: "Daily Brief", icon: "newspaper.fill") {
                         dismissLandingSearch()
-                        let prompt = DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
-                        dailyBrief.requestDailyBrief(prompt: prompt)
+                        dailyBrief.requestDailyBrief(prompt: buildDailyBriefPrompt())
                     }
                 }
             }
@@ -476,7 +500,7 @@ struct LandingView: View {
             Text("daily brief")
                 .font(AppDisplayTypography.font(size: 24))
                 .foregroundStyle(theme.fontAccent)
-                .shadow(color: theme.fontAccent.opacity(0.12), radius: 8)
+                .shadow(color: theme.isDark ? theme.fontAccent.opacity(0.12) : .clear, radius: 8)
                 .padding(.top, 28)
                 .padding(.bottom, 4)
 
@@ -594,13 +618,14 @@ struct LandingView: View {
     // MARK: - Daily Brief Prompt
 
     private func buildDailyBriefPrompt() -> String {
-        DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: Array(allChats))
+        DailyBriefState.buildBriefPrompt(pages: Array(allPages), chats: recentChats(limit: 12))
     }
 
     // MARK: - Go Deeper Prompt (metadata-rich)
 
     /// Builds an enriched prompt with full note/chat metadata for deep multi-perspective analysis.
     private func buildGoDeepPrompt() -> String {
+        let recentChats = recentChats(limit: 10)
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .none
@@ -652,8 +677,6 @@ struct LandingView: View {
         }
 
         // ── Chat metadata with analysis scores ──
-        let recentChats = allChats.prefix(10)
-
         if !recentChats.isEmpty {
             var chatsSection = "## Conversation History (sorted by most recent)\n\n"
             for chatItem in recentChats {
@@ -697,7 +720,7 @@ struct LandingView: View {
 
         // ── Cross-reference ──
         let noteTagSet = Set(allPages.prefix(15).flatMap(\.tags))
-        let chatTitles = allChats.prefix(10).map { $0.title.lowercased() }
+        let chatTitles = recentChats.map { $0.title.lowercased() }
         let overlaps = noteTagSet.filter { tag in
             chatTitles.contains { $0.contains(tag) }
         }
@@ -735,6 +758,12 @@ struct LandingView: View {
             not a summary.
             \(contextBlock)
             """
+    }
+
+    private func recentChats(limit: Int) -> [SDChat] {
+        var descriptor = SDChat.recentChatsDescriptor
+        descriptor.fetchLimit = limit
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 }
 
@@ -1006,28 +1035,35 @@ struct LandingASCIIWakeFieldConfiguration: Equatable, Sendable {
     var streamSwingMaxOffset: CGFloat = 0.72
     var streamSwingCycles: CGFloat = 1.18
     var streamHeadAgeBoost: TimeInterval = 0.1
+    var overlayOpacity: Double = 1.0
+    var scrambleShellOpacity: Double = 0.34
+    var scrambleShellBlur: CGFloat = 0.5
 
     static func tuned(
         response: Double,
         spread: Double,
         trail: Double,
         viscosity: Double = 0.8,
-        turbulence: Double = 0.5
+        turbulence: Double = 0.5,
+        opacity: Double = 1.0,
+        blur: Double = 0.5
     ) -> LandingASCIIWakeFieldConfiguration {
         let clampedResponse = max(0, min(1, response))
         let clampedSpread = max(0, min(1, spread))
         let clampedTrail = max(0, min(1, trail))
         let clampedViscosity = max(0, min(1, viscosity))
         let clampedTurbulence = max(0, min(1, turbulence))
+        let clampedOpacity = max(0.2, min(1.4, opacity))
+        let clampedBlur = max(0, min(1, blur))
 
         let durBase = 1.32 - (0.36 * clampedResponse)
-        let dur = durBase + (clampedViscosity * 3.0) 
+        let dur = durBase + (clampedViscosity * 0.7)
         
         let cExpBase = 0.64 + (0.16 * clampedTrail)
         let cExp = cExpBase - (clampedViscosity * 0.4)
         
         let maxRadBase = 5.8 + (3.6 * clampedSpread)
-        let maxRad = maxRadBase + (clampedTurbulence * 8.0)
+        let maxRad = maxRadBase + (clampedTurbulence * 2.0)
 
         return LandingASCIIWakeFieldConfiguration(
             frameInterval: 1.0 / 60.0,
@@ -1054,9 +1090,12 @@ struct LandingASCIIWakeFieldConfiguration: Equatable, Sendable {
             streamBubbleBacktrack: 0.54 + (0.34 * clampedTrail),
             streamBubbleRadiusScale: 0.38 + (0.24 * clampedTrail),
             streamBubbleFastScaleBoost: 0.2 + (0.2 * clampedResponse),
-            streamSwingMaxOffset: (0.44 + (0.5 * clampedSpread)) + (clampedTurbulence * 3.0),
-            streamSwingCycles: (0.92 + (0.52 * clampedTrail)) + (clampedTurbulence * 2.5),
-            streamHeadAgeBoost: 0.04 + (0.14 * clampedTrail)
+            streamSwingMaxOffset: (0.44 + (0.5 * clampedSpread)) + (clampedTurbulence * 0.7),
+            streamSwingCycles: (0.92 + (0.52 * clampedTrail)) + (clampedTurbulence * 0.65),
+            streamHeadAgeBoost: 0.04 + (0.14 * clampedTrail),
+            overlayOpacity: clampedOpacity,
+            scrambleShellOpacity: clampedOpacity * (0.16 + (0.42 * clampedBlur)),
+            scrambleShellBlur: clampedBlur
         )
     }
 }
@@ -1080,6 +1119,11 @@ struct LandingASCIIWakeFieldLayout: Equatable, Sendable {
 }
 
 enum LandingASCIIWakeFieldEngine {
+    struct OverlayLayers: Equatable {
+        let revealText: String
+        let shellText: String
+    }
+
     struct ResolvedTrail: Equatable {
         let x: CGFloat
         let y: CGFloat
@@ -1108,6 +1152,28 @@ enum LandingASCIIWakeFieldEngine {
             self.radiusScale = radiusScale
             self.ageOffset = ageOffset
         }
+    }
+
+    static func localHoverLocation(from location: CGPoint, in frame: CGRect) -> CGPoint {
+        CGPoint(
+            x: location.x - frame.minX,
+            y: location.y - frame.minY
+        )
+    }
+
+    static func trailPoint(
+        for location: CGPoint,
+        columns: Int,
+        rows: Int,
+        charWidth: CGFloat,
+        lineHeight: CGFloat,
+        horizontalInset: CGFloat = 26,
+        verticalInset: CGFloat = 22
+    ) -> TrailPoint {
+        TrailPoint(
+            x: max(0, min(CGFloat(columns - 1), (location.x - horizontalInset) / charWidth)),
+            y: max(0, min(CGFloat(rows - 1), (location.y - verticalInset) / lineHeight))
+        )
     }
 
     static func normalizedVocabulary(from values: [String]) -> [String] {
@@ -1410,6 +1476,31 @@ enum LandingASCIIWakeFieldEngine {
         return output
     }
 
+    static func blastTrailSamples(
+        at point: TrailPoint,
+        blastPower: Double
+    ) -> [TrailSample] {
+        let clampedBlastPower = max(0, min(100, blastPower))
+        guard clampedBlastPower > 0 else { return [] }
+
+        let particleCount = max(Int(round(clampedBlastPower * 0.8)), 1)
+        let radiusScale = 5.0 + (clampedBlastPower * 0.05)
+        var output: [TrailSample] = []
+        output.reserveCapacity(particleCount)
+
+        for index in 0..<particleCount {
+            output.append(
+                TrailSample(
+                    point: point,
+                    radiusScale: radiusScale,
+                    ageOffset: Double(index) * 0.015
+                )
+            )
+        }
+
+        return output
+    }
+
     private static func streamIntensity(
         distance: CGFloat,
         eventDelta: TimeInterval?,
@@ -1492,7 +1583,11 @@ enum LandingASCIIWakeFieldEngine {
             guard radius > 0 else { continue }
 
             let boundaryThickness = max(0.35, configuration.boundaryThickness * max(trail.radiusScale, 0.7))
-            let scrambleShellThickness = max(boundaryThickness, radius * 0.15)
+            let blur = max(0, min(configuration.scrambleShellBlur, 1))
+            let scrambleShellThickness = max(
+                boundaryThickness * (0.78 + (blur * 1.1)),
+                radius * (0.08 + (blur * 0.2))
+            )
             let revealRadius = max(0, radius - scrambleShellThickness)
             let minColumn = max(0, Int(floor(trail.x - radius)))
             let maxColumn = min(columns - 1, Int(ceil(trail.x + radius)))
@@ -1519,43 +1614,37 @@ enum LandingASCIIWakeFieldEngine {
         return output
     }
 
-    static func overlayText(
+    static func overlayLayers(
         layout: LandingASCIIWakeFieldLayout,
         now: TimeInterval,
         trails: [LandingASCIIWakeTrail],
-        lastHoverPoint: TrailPoint?,
         configuration: LandingASCIIWakeFieldConfiguration
-    ) -> String {
-        var allTrails = trails
-        
-        // Add a persistent trail at the last hover location to keep words revealed
-        if let lastPoint = lastHoverPoint {
-            allTrails.append(
-                LandingASCIIWakeTrail(
-                    x: lastPoint.x,
-                    y: lastPoint.y,
-                    startTime: now - (configuration.duration * 0.5), // Constant half-life age for persistent reveal
-                    radiusScale: 1.0
-                )
-            )
-        }
-
+    ) -> OverlayLayers {
         let activeTrails = resolvedTrails(
-            allTrails,
+            trails,
             now: now,
             configuration: configuration,
             columns: layout.columns,
             rows: layout.rows
         )
         guard !activeTrails.isEmpty else {
-            return layout.blankText
+            return OverlayLayers(
+                revealText: layout.blankText,
+                shellText: layout.blankText
+            )
         }
 
-        var output = layout.blankCharacters
-        var bestStrengths = Array(
+        var revealOutput = layout.blankCharacters
+        var shellOutput = layout.blankCharacters
+        var revealStrengths = Array(
             repeating: -CGFloat.greatestFiniteMagnitude,
-            count: output.count
+            count: revealOutput.count
         )
+        var shellStrengths = Array(
+            repeating: -CGFloat.greatestFiniteMagnitude,
+            count: shellOutput.count
+        )
+        let shellStride = 7 + Int(round(configuration.scrambleShellBlur * 12))
 
         for trail in activeTrails {
             for row in trail.minRow...trail.maxRow {
@@ -1573,20 +1662,47 @@ enum LandingASCIIWakeFieldEngine {
 
                     if distance >= trail.revealRadius {
                         let strength = trail.radius - distance
-                        guard strength > bestStrengths[characterIndex] else { continue }
-                        bestStrengths[characterIndex] = strength
-                        let scrambleIndex = Int((distance - trail.revealRadius) * 11) + trail.scramblePhase
-                        output[characterIndex] = configuration.scrambleCharacters[scrambleIndex % configuration.scrambleCharacters.count]
+                        guard strength > shellStrengths[characterIndex] else { continue }
+                        shellStrengths[characterIndex] = strength
+                        let scrambleIndex = Int((distance - trail.revealRadius) * CGFloat(shellStride)) + trail.scramblePhase
+                        shellOutput[characterIndex] = configuration.scrambleCharacters[scrambleIndex % configuration.scrambleCharacters.count]
                     } else {
                         let strength = trail.revealRadius - distance
-                        guard strength > bestStrengths[characterIndex] else { continue }
-                        bestStrengths[characterIndex] = strength
-                        output[characterIndex] = layout.hiddenCharacters[characterIndex]
+                        guard strength > revealStrengths[characterIndex] else { continue }
+                        revealStrengths[characterIndex] = strength
+                        revealOutput[characterIndex] = layout.hiddenCharacters[characterIndex]
                     }
                 }
             }
         }
 
+        return OverlayLayers(
+            revealText: String(revealOutput),
+            shellText: String(shellOutput)
+        )
+    }
+
+    static func overlayText(
+        layout: LandingASCIIWakeFieldLayout,
+        now: TimeInterval,
+        trails: [LandingASCIIWakeTrail],
+        configuration: LandingASCIIWakeFieldConfiguration
+    ) -> String {
+        let layers = overlayLayers(
+            layout: layout,
+            now: now,
+            trails: trails,
+            configuration: configuration
+        )
+        let revealCharacters = Array(layers.revealText)
+        let shellCharacters = Array(layers.shellText)
+        guard revealCharacters.count == shellCharacters.count else {
+            return layers.revealText
+        }
+        var output = revealCharacters
+        for index in output.indices where output[index] == " " && shellCharacters[index] != " " {
+            output[index] = shellCharacters[index]
+        }
         return String(output)
     }
 }
@@ -1595,8 +1711,7 @@ enum LandingASCIIWakeFieldEngine {
 private struct LandingASCIIWakeField: View {
     let vocabulary: [String]
     let theme: EpistemosTheme
-    var externalHoverLocation: CGPoint? = nil
-    var onTapAction: (() -> Void)? = nil
+    let pointerState: LandingPointerState
 
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1617,9 +1732,6 @@ private struct LandingASCIIWakeField: View {
     // Cached configuration — rebuilt only when slider values change.
     @State private var cachedConfiguration = LandingASCIIWakeFieldConfiguration()
 
-    // Frame-coalesced overlay text — avoids redundant computation.
-    @State private var renderedOverlayText = ""
-
     private let fontSize: CGFloat = 11
     private let lineSpacing: CGFloat = 3
 
@@ -1628,10 +1740,13 @@ private struct LandingASCIIWakeField: View {
     private var shouldAnimate: Bool {
         !reduceMotion && !ui.windowOccluded && ui.landingCursorAnimationEnabled
     }
+    private var hasExternalHover: Bool {
+        pointerState.location != nil
+    }
 
     /// Key built from the slider values — when this changes, recache configuration.
     private var configurationKey: String {
-        "\(ui.landingCursorResponse)_\(ui.landingCursorSpread)_\(ui.landingCursorTrail)_\(ui.landingCursorViscosity)_\(ui.landingCursorTurbulence)"
+        "\(ui.landingCursorResponse)_\(ui.landingCursorSpread)_\(ui.landingCursorTrail)_\(ui.landingCursorViscosity)_\(ui.landingCursorTurbulence)_\(ui.landingCursorOpacity)_\(ui.landingCursorBlur)"
     }
 
     var body: some View {
@@ -1647,13 +1762,47 @@ private struct LandingASCIIWakeField: View {
                         .foregroundStyle(theme.textTertiary.opacity(cachedConfiguration.restingSurfaceOpacity))
                 }
 
-                if shouldAnimate, (!trails.isEmpty || lastHoverPoint != nil) {
-                    TimelineView(.animation(minimumInterval: cachedConfiguration.frameInterval)) { context in
-                        let _ = updateOverlayText(now: context.date.timeIntervalSinceReferenceDate)
-                        Text(renderedOverlayText)
-                            .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
-                            .lineSpacing(lineSpacing)
-                            .foregroundStyle(theme.fontAccent.opacity(theme.isDark ? 0.72 : 0.64))
+                if shouldAnimate, !trails.isEmpty {
+                    TimelineView(
+                        .animation(
+                            minimumInterval: hasExternalHover
+                                ? cachedConfiguration.frameInterval
+                                : (1.0 / 36.0)
+                        )
+                    ) { context in
+                        let overlayLayers = LandingASCIIWakeFieldEngine.overlayLayers(
+                            layout: layout,
+                            now: context.date.timeIntervalSinceReferenceDate,
+                            trails: trails,
+                            configuration: cachedConfiguration
+                        )
+                        ZStack(alignment: .topLeading) {
+                            Text(overlayLayers.shellText)
+                                .font(.system(size: fontSize, weight: .medium, design: .monospaced))
+                                .lineSpacing(lineSpacing)
+                                .foregroundStyle(
+                                    theme.fontAccent.opacity(
+                                        min(
+                                            1,
+                                            (theme.isDark ? 0.72 : 0.64)
+                                                * cachedConfiguration.scrambleShellOpacity
+                                        )
+                                    )
+                                )
+
+                            Text(overlayLayers.revealText)
+                                .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
+                                .lineSpacing(lineSpacing)
+                                .foregroundStyle(
+                                    theme.fontAccent.opacity(
+                                        min(
+                                            1,
+                                            (theme.isDark ? 0.72 : 0.64)
+                                                * cachedConfiguration.overlayOpacity
+                                        )
+                                    )
+                                )
+                        }
                     }
                 }
             }
@@ -1695,7 +1844,7 @@ private struct LandingASCIIWakeField: View {
                 }
             }
             .onContinuousHover { phase in
-                guard shouldAnimate, externalHoverLocation == nil else { return }
+                guard shouldAnimate, !hasExternalHover else { return }
                 switch phase {
                 case .active(let location):
                     handleHover(location: location, columns: columns, rows: rows)
@@ -1704,7 +1853,7 @@ private struct LandingASCIIWakeField: View {
                     lastHoverTime = nil
                 }
             }
-            .onChange(of: externalHoverLocation) { _, newValue in
+            .onChange(of: pointerState.location) { _, newValue in
                 guard shouldAnimate, let location = newValue else {
                     if newValue == nil {
                         lastHoverPoint = nil
@@ -1712,33 +1861,19 @@ private struct LandingASCIIWakeField: View {
                     }
                     return
                 }
-                handleHover(location: location, columns: columns, rows: rows)
-            }
-            .onTapGesture(count: 1, coordinateSpace: .local) { location in
-                onTapAction?()
-                guard shouldAnimate else { return }
-                let point = LandingASCIIWakeFieldEngine.TrailPoint(
-                    x: max(0, min(CGFloat(columns - 1), (location.x - 26) / charWidth)),
-                    y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
+                let localLocation = LandingASCIIWakeFieldEngine.localHoverLocation(
+                    from: location,
+                    in: proxy.frame(in: .named(LandingCoordinateSpace.root))
                 )
-                let now = Date.timeIntervalSinceReferenceDate
-                
-                // Add an ASCII explosion wave
-                let blastPower = max(10, min(100, ui.landingCursorBlastPower))
-                let numParticles = Int(blastPower * 0.8) 
-                
-                var blastSamples: [LandingASCIIWakeFieldEngine.TrailSample] = []
-                blastSamples.reserveCapacity(numParticles)
-                for i in 0..<numParticles {
-                    blastSamples.append(
-                        LandingASCIIWakeFieldEngine.TrailSample(
-                            point: point,
-                            radiusScale: 5.0 + (blastPower * 0.05),
-                            ageOffset: Double(i) * 0.015
-                        )
-                    )
-                }
-                appendTrailSamples(blastSamples, now: now, columns: columns, rows: rows)
+                handleHover(location: localLocation, columns: columns, rows: rows)
+            }
+            .onChange(of: pointerState.tapToken) { _, _ in
+                guard shouldAnimate, let location = pointerState.tapLocation else { return }
+                let localLocation = LandingASCIIWakeFieldEngine.localHoverLocation(
+                    from: location,
+                    in: proxy.frame(in: .named(LandingCoordinateSpace.root))
+                )
+                emitBlast(at: localLocation, columns: columns, rows: rows)
             }
             .onChange(of: shouldAnimate) { _, newValue in
                 guard !newValue else { return }
@@ -1757,9 +1892,12 @@ private struct LandingASCIIWakeField: View {
     }
 
     private func handleHover(location: CGPoint, columns: Int, rows: Int) {
-        let point = LandingASCIIWakeFieldEngine.TrailPoint(
-            x: max(0, min(CGFloat(columns - 1), (location.x - 26) / charWidth)),
-            y: max(0, min(CGFloat(rows - 1), (location.y - 22) / lineHeight))
+        let point = LandingASCIIWakeFieldEngine.trailPoint(
+            for: location,
+            columns: columns,
+            rows: rows,
+            charWidth: charWidth,
+            lineHeight: lineHeight
         )
         let now = Date.timeIntervalSinceReferenceDate
         if let lastHoverPoint, lastHoverPoint != point {
@@ -1781,6 +1919,26 @@ private struct LandingASCIIWakeField: View {
         }
         lastHoverPoint = point
         lastHoverTime = now
+    }
+
+    private func emitBlast(at location: CGPoint, columns: Int, rows: Int) {
+        let point = LandingASCIIWakeFieldEngine.trailPoint(
+            for: location,
+            columns: columns,
+            rows: rows,
+            charWidth: charWidth,
+            lineHeight: lineHeight
+        )
+        let samples = LandingASCIIWakeFieldEngine.blastTrailSamples(
+            at: point,
+            blastPower: ui.landingCursorBlastPower
+        )
+        appendTrailSamples(
+            samples,
+            now: Date.timeIntervalSinceReferenceDate,
+            columns: columns,
+            rows: rows
+        )
     }
 
     private func appendTrailSamples(
@@ -1835,18 +1993,9 @@ private struct LandingASCIIWakeField: View {
             spread: ui.landingCursorSpread,
             trail: ui.landingCursorTrail,
             viscosity: ui.landingCursorViscosity,
-            turbulence: ui.landingCursorTurbulence
-        )
-    }
-
-    /// Update overlay text synchronously. Called from TimelineView on each frame.
-    private func updateOverlayText(now: TimeInterval) {
-        renderedOverlayText = LandingASCIIWakeFieldEngine.overlayText(
-            layout: layout,
-            now: now,
-            trails: trails,
-            lastHoverPoint: lastHoverPoint,
-            configuration: cachedConfiguration
+            turbulence: ui.landingCursorTurbulence,
+            opacity: ui.landingCursorOpacity,
+            blur: ui.landingCursorBlur
         )
     }
 

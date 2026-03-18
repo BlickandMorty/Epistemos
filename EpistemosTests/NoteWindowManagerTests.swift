@@ -171,8 +171,8 @@ struct NoteWindowManagerTests {
     }
 
     @MainActor
-    @Test("Main window observer reapplies modular zoom policy on window attachment")
-    func modularZoomObserverAppliesPolicyWhenAttachedToWindow() throws {
+    @Test("Main window observer applies modular zoom policy once attached to a window")
+    func modularZoomObserverAppliesPolicyWhenAttachedToWindow() async throws {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -189,6 +189,8 @@ struct NoteWindowManagerTests {
         root.addSubview(observer)
         observer.viewDidMoveToWindow()
 
+        try? await Task.sleep(for: .milliseconds(10))
+
         #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
         #expect(!window.collectionBehavior.contains(.fullScreenAllowsTiling))
         let zoomButton = try #require(window.standardWindowButton(.zoomButton))
@@ -198,7 +200,7 @@ struct NoteWindowManagerTests {
 
     @MainActor
     @Test("App delegate reapplies modular zoom policy when the main window becomes active")
-    func appDelegateReappliesMainWindowZoomPolicy() throws {
+    func appDelegateReappliesMainWindowZoomPolicy() async throws {
         let delegate = EpistemosAppDelegate()
         delegate.applicationDidFinishLaunching(
             Notification(name: NSApplication.didFinishLaunchingNotification))
@@ -216,6 +218,7 @@ struct NoteWindowManagerTests {
         window.collectionBehavior.insert(.fullScreenAllowsTiling)
 
         NotificationCenter.default.post(name: NSWindow.didBecomeMainNotification, object: window)
+        try? await Task.sleep(for: .milliseconds(10))
 
         #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
         #expect(!window.collectionBehavior.contains(.fullScreenAuxiliary))
@@ -280,6 +283,28 @@ struct NoteWindowManagerTests {
         #expect(UtilityPanel.settings.icon == "gearshape")
         #expect(UtilityPanel.settings.defaultSize.width >= 900)
         #expect(UtilityPanel.settings.defaultSize.height >= 680)
+    }
+
+    @MainActor
+    @Test("Settings utility window uses split-view chrome with a transparent titlebar")
+    func settingsUtilityWindowUsesSplitViewChrome() throws {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 980, height: 720),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        defer { retainWindowFixture(panel) }
+
+        UtilityPanelChrome.apply(to: panel, kind: .settings)
+
+        #expect(panel.styleMask.contains(.fullSizeContentView))
+        #expect(panel.titleVisibility == .hidden)
+        #expect(panel.titlebarAppearsTransparent)
+        #expect(panel.isMovableByWindowBackground)
+        let toolbar = try #require(panel.toolbar)
+        #expect(toolbar.identifier == "SettingsToolbar")
+        #expect(panel.toolbarStyle == .unifiedCompact)
     }
 
     @MainActor

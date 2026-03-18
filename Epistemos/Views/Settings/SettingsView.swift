@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Settings View
@@ -11,6 +12,7 @@ struct SettingsView: View {
     enum SettingsSection: String, CaseIterable, Identifiable {
         case inference = "Inference"
         case soar = "SOAR"
+        case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
         case security = "Security"
@@ -23,6 +25,7 @@ struct SettingsView: View {
             switch self {
             case .inference: "cpu"
             case .soar: "brain"
+            case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
             case .security: "lock.shield"
@@ -45,6 +48,7 @@ struct SettingsView: View {
                 switch selection {
                 case .inference: InferenceDetailView()
                 case .soar: SOARDetailView()
+                case .landing: LandingDetailView()
                 case .appearance: AppearanceDetailView()
                 case .vault: VaultDetailView()
                 case .security: SecurityDetailView()
@@ -55,6 +59,179 @@ struct SettingsView: View {
             }
         }
         .navigationSplitViewStyle(.prominentDetail)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button(action: toggleSidebar) {
+                    Image(systemName: "sidebar.left")
+                }
+                .help("Toggle Sidebar")
+            }
+        }
+    }
+
+    private func toggleSidebar() {
+        guard !NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil),
+              let firstResponder = NSApp.keyWindow?.firstResponder else {
+            return
+        }
+        _ = firstResponder.tryToPerform(#selector(NSSplitViewController.toggleSidebar(_:)), with: nil)
+    }
+}
+
+// MARK: - Landing Detail
+
+private struct LandingDetailView: View {
+    @Environment(UIState.self) private var ui
+
+    var body: some View {
+        @Bindable var ui = ui
+
+        Form {
+            Section("Cursor Animation") {
+                Picker("Cursor Visibility", selection: $ui.landingCursorVisibilityMode) {
+                    ForEach(LandingCursorVisibilityMode.allCases, id: \.self) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+
+                Text(ui.landingCursorVisibilityMode.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Greeting Behavior") {
+                Toggle("Animate typewriter", isOn: $ui.landingGreetingTypewriterEnabled)
+
+                Picker("Greeting Sources", selection: $ui.landingGreetingSourceMode) {
+                    ForEach(LandingGreetingSourceMode.allCases, id: \.self) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+
+                Text(ui.landingGreetingSourceMode.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Greeting Library") {
+                if ui.landingCustomGreetings.isEmpty {
+                    ContentUnavailableView(
+                        "No Custom Greetings",
+                        systemImage: "text.badge.plus",
+                        description: Text(
+                            "Add your own phrases and per-greeting timing here. Defaults stay active unless you switch to Custom Only."
+                        )
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                } else {
+                    ForEach(ui.landingCustomGreetings) { greeting in
+                        LandingGreetingEditorRow(
+                            greeting: greeting,
+                            isFirst: ui.landingCustomGreetings.first?.id == greeting.id,
+                            isLast: ui.landingCustomGreetings.last?.id == greeting.id
+                        )
+                    }
+                }
+
+                Button {
+                    ui.addLandingGreeting()
+                } label: {
+                    Label("Add Greeting", systemImage: "plus")
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct LandingGreetingEditorRow: View {
+    @Environment(UIState.self) private var ui
+
+    let greeting: LandingGreetingEntry
+    let isFirst: Bool
+    let isLast: Bool
+
+    private var durationRange: ClosedRange<Double> {
+        LandingGreetingEntry.minimumDurationSeconds...LandingGreetingEntry.maximumDurationSeconds
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { greeting.isEnabled },
+                        set: { ui.updateLandingGreetingEnabled(id: greeting.id, isEnabled: $0) }
+                    )
+                )
+                .labelsHidden()
+
+                TextField(
+                    "Greeting text",
+                    text: Binding(
+                        get: { greeting.text },
+                        set: { ui.updateLandingGreetingText(id: greeting.id, text: $0) }
+                    )
+                )
+
+                Button(action: { ui.moveLandingGreeting(id: greeting.id, by: -1) }) {
+                    Image(systemName: "arrow.up")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isFirst)
+
+                Button(action: { ui.moveLandingGreeting(id: greeting.id, by: 1) }) {
+                    Image(systemName: "arrow.down")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isLast)
+
+                Button(role: .destructive, action: { ui.removeLandingGreeting(id: greeting.id) }) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+            }
+
+            HStack(spacing: 8) {
+                Text("Duration")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                TextField(
+                    "",
+                    value: Binding(
+                        get: { greeting.durationSeconds },
+                        set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
+                    ),
+                    format: .number.precision(.fractionLength(1))
+                )
+                .frame(width: 54)
+
+                Text("s")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Stepper(
+                    "",
+                    value: Binding(
+                        get: { greeting.durationSeconds },
+                        set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
+                    ),
+                    in: durationRange,
+                    step: 0.2
+                )
+                .labelsHidden()
+
+                Spacer()
+
+                Text(greeting.isEnabled ? "Enabled" : "Disabled")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(greeting.isEnabled ? .secondary : .tertiary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

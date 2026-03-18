@@ -145,12 +145,12 @@ enum UtilityPanelChrome {
     @MainActor
     static func applySettingsChrome(to panel: NSPanel) {
         panel.styleMask.insert(.fullSizeContentView)
-        panel.titleVisibility = .visible
-        panel.titlebarAppearsTransparent = false
-        panel.isMovableByWindowBackground = false
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.isMovableByWindowBackground = true
         let toolbar = panel.toolbar ?? NSToolbar(identifier: "SettingsToolbar")
         panel.toolbar = toolbar
-        panel.toolbarStyle = .unified
+        panel.toolbarStyle = .unifiedCompact
     }
 }
 

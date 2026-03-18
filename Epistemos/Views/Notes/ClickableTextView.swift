@@ -207,14 +207,6 @@ final class ClickableTextView: NSTextView {
         }
     }
 
-    private struct BlockChromeRegion {
-        let kind: MarkdownBlockChromeKind
-        let fill: NSColor
-        let accent: NSColor
-        var top: CGFloat
-        var bottom: CGFloat
-    }
-
     private func drawBlockChrome(in dirtyRect: NSRect) {
         guard let lm = layoutManager, let tc = textContainer, let storage = textStorage else { return }
         let str = storage.string as NSString
@@ -223,73 +215,8 @@ final class ClickableTextView: NSTextView {
         let visibleGlyphs = lm.glyphRange(forBoundingRect: dirtyRect, in: tc)
         let charRange = lm.characterRange(forGlyphRange: visibleGlyphs, actualGlyphRange: nil)
         let origin = textContainerOrigin
-        var regions: [BlockChromeRegion] = []
-        var current: BlockChromeRegion?
-
-        var lineStart = charRange.location
-        while lineStart < NSMaxRange(charRange) {
-            let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
-            let lineEnd = lineRange.location + lineRange.length
-            let hasTrailingNewline = lineEnd > 0 && lineEnd <= str.length && str.character(at: lineEnd - 1) == 0x0A
-            let styleRange = NSRange(
-                location: lineRange.location,
-                length: max(0, hasTrailingNewline ? lineRange.length - 1 : lineRange.length)
-            )
-
-            guard styleRange.length > 0,
-                  let kindRaw = storage.attribute(
-                    MarkdownTextStorage.blockChromeKindAttribute,
-                    at: styleRange.location,
-                    effectiveRange: nil
-                  ) as? String,
-                  let kind = MarkdownBlockChromeKind(rawValue: kindRaw)
-            else {
-                if let current {
-                    regions.append(current)
-                }
-                current = nil
-                lineStart = NSMaxRange(lineRange)
-                continue
-            }
-
-            let attributes = storage.attributes(at: styleRange.location, effectiveRange: nil)
-            let fill = MarkdownTextStorage.blockChromeFill(from: attributes)
-            let accent = (storage.attribute(
-                MarkdownTextStorage.blockChromeAccentAttribute,
-                at: styleRange.location,
-                effectiveRange: nil
-            ) as? NSColor) ?? fill
-            let glyphRange = lm.glyphRange(forCharacterRange: styleRange, actualCharacterRange: nil)
-            let fragmentRect = lm.boundingRect(
-                forGlyphRange: glyphRange,
-                in: tc
-            ).offsetBy(dx: origin.x, dy: origin.y)
-
-            if var existing = current,
-               existing.kind == kind,
-               existing.fill.isEqual(fill),
-               existing.accent.isEqual(accent) {
-                existing.bottom = fragmentRect.maxY
-                current = existing
-            } else {
-                if let current {
-                    regions.append(current)
-                }
-                current = BlockChromeRegion(
-                    kind: kind,
-                    fill: fill,
-                    accent: accent,
-                    top: fragmentRect.minY,
-                    bottom: fragmentRect.maxY
-                )
-            }
-            lineStart = NSMaxRange(lineRange)
-        }
-
-        if let current {
-            regions.append(current)
-        }
-
+        let attributedString = storage as NSAttributedString
+        var seenSpans = Set<String>()
         let chromeFrame = MarkdownTextStorage.blockChromeFrame(
             textContainerOrigin: origin,
             containerWidth: tc.containerSize.width,
@@ -297,24 +224,50 @@ final class ClickableTextView: NSTextView {
         )
         guard chromeFrame.width > 0 else { return }
 
-        for region in regions {
-            let rect = NSRect(
-                x: chromeFrame.minX,
-                y: region.top - 5,
-                width: chromeFrame.width,
-                height: max(0, region.bottom - region.top + 10)
-            )
-            guard rect.intersects(dirtyRect) else { continue }
-            drawBlockChromeRegion(region, in: rect)
+        var lineStart = charRange.location
+        while lineStart < NSMaxRange(charRange) {
+            let lineRange = str.lineRange(for: NSRange(location: lineStart, length: 0))
+            if let span = MarkdownTextStorage.blockChromeSpan(
+                in: attributedString,
+                text: str,
+                aroundLineRange: lineRange
+            ) {
+                let spanKey = "\(span.kind.rawValue):\(span.lineRange.location):\(span.lineRange.length)"
+                if seenSpans.insert(spanKey).inserted {
+                    let styledRange = MarkdownTextStorage.blockChromeStyleRange(
+                        in: str,
+                        lineRange: span.lineRange
+                    )
+                    if styledRange.length > 0 {
+                        let glyphRange = lm.glyphRange(
+                            forCharacterRange: styledRange,
+                            actualCharacterRange: nil
+                        )
+                        let fragmentRect = lm.boundingRect(
+                            forGlyphRange: glyphRange,
+                            in: tc
+                        ).offsetBy(dx: origin.x, dy: origin.y)
+                        let rect = NSRect(
+                            x: chromeFrame.minX,
+                            y: fragmentRect.minY - 5,
+                            width: chromeFrame.width,
+                            height: max(0, fragmentRect.height + 10)
+                        )
+                        if rect.intersects(dirtyRect) {
+                            MarkdownTextStorage.drawBlockChrome(
+                                kind: span.kind,
+                                fill: span.fill,
+                                accent: span.accent,
+                                in: rect
+                            )
+                        }
+                    }
+                }
+                lineStart = NSMaxRange(span.lineRange)
+                continue
+            }
+            lineStart = NSMaxRange(lineRange)
         }
-    }
-    private func drawBlockChromeRegion(_ region: BlockChromeRegion, in rect: NSRect) {
-        MarkdownTextStorage.drawBlockChrome(
-            kind: region.kind,
-            fill: region.fill,
-            accent: region.accent,
-            in: rect
-        )
     }
 
     // MARK: - Table Grid Lines (drawn BEHIND text via NSBezierPath)

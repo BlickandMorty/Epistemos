@@ -4,6 +4,155 @@ import Observation
 import SwiftUI
 import UserNotifications
 
+enum LandingCursorSurface: String, CaseIterable, Codable, Sendable {
+    case landing
+    case search
+}
+
+enum LandingCursorVisibilityMode: String, CaseIterable, Codable, Sendable {
+    case landingOnly
+    case searchOnly
+    case both
+    case neither
+
+    static let defaultValue: Self = .both
+
+    func shows(on surface: LandingCursorSurface) -> Bool {
+        switch (self, surface) {
+        case (.landingOnly, .landing), (.searchOnly, .search), (.both, _):
+            true
+        case (.landingOnly, .search), (.searchOnly, .landing), (.neither, _):
+            false
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .landingOnly: "Landing Only"
+        case .searchOnly: "Search Only"
+        case .both: "Both"
+        case .neither: "Neither"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .landingOnly: "Show the wake field on the greeting screen only."
+        case .searchOnly: "Show the wake field only behind the landing search composer."
+        case .both: "Keep the wake field visible on both landing surfaces."
+        case .neither: "Disable the wake field everywhere on the landing experience."
+        }
+    }
+}
+
+enum LandingGreetingSourceMode: String, CaseIterable, Codable, Sendable {
+    case defaultsOnly
+    case mixed
+    case customOnly
+
+    static let defaultValue: Self = .defaultsOnly
+
+    var title: String {
+        switch self {
+        case .defaultsOnly: "Defaults Only"
+        case .mixed: "Defaults + Custom"
+        case .customOnly: "Custom Only"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .defaultsOnly: "Keep the built-in greeting rotation."
+        case .mixed: "Play the built-in greetings first, then your custom phrases."
+        case .customOnly: "Use only your greeting library. Falls back to defaults if empty."
+        }
+    }
+}
+
+enum LandingGreetingLibraryPolicy {
+    static let sourceModeDefaultsKey = "epistemos.landingGreetingSourceMode"
+    static let customGreetingsDefaultsKey = "epistemos.landingCustomGreetings"
+}
+
+struct LandingGreetingEntry: Identifiable, Codable, Equatable, Sendable {
+    static let minimumDurationSeconds = 1.2
+    static let maximumDurationSeconds = 12.0
+    static let defaultDurationSeconds = 2.8
+
+    let id: UUID
+    var text: String
+    var durationSeconds: Double
+    var isEnabled: Bool
+
+    init(
+        id: UUID = UUID(),
+        text: String,
+        durationSeconds: Double = LandingGreetingEntry.defaultDurationSeconds,
+        isEnabled: Bool = true
+    ) {
+        self.id = id
+        self.text = text
+        self.durationSeconds = Self.clampedDuration(durationSeconds)
+        self.isEnabled = isEnabled
+    }
+
+    var trimmedText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func clampedDuration(_ value: Double) -> Double {
+        guard value.isFinite else { return defaultDurationSeconds }
+        return min(max(value, minimumDurationSeconds), maximumDurationSeconds)
+    }
+}
+
+struct LandingGreetingPhrase: Equatable, Sendable {
+    let text: String
+    let durationSeconds: Double
+}
+
+enum LandingGreetingResolver {
+    static let defaultPlaylist: [LandingGreetingPhrase] = [
+        LandingGreetingPhrase(text: LiquidGreeting.restingGreeting, durationSeconds: 2.8),
+        LandingGreetingPhrase(text: "Greetings, Researcher", durationSeconds: 3.0),
+        LandingGreetingPhrase(text: "Sup, Brainiac!", durationSeconds: 2.6),
+        LandingGreetingPhrase(text: "click me to search…", durationSeconds: 2.4),
+    ]
+
+    static func resolve(
+        sourceMode: LandingGreetingSourceMode,
+        customGreetings: [LandingGreetingEntry]
+    ) -> [LandingGreetingPhrase] {
+        let customPlaylist = customGreetings.compactMap { greeting -> LandingGreetingPhrase? in
+            guard greeting.isEnabled else { return nil }
+            let trimmedText = greeting.trimmedText
+            guard !trimmedText.isEmpty else { return nil }
+            return LandingGreetingPhrase(
+                text: trimmedText,
+                durationSeconds: LandingGreetingEntry.clampedDuration(greeting.durationSeconds)
+            )
+        }
+
+        let resolved: [LandingGreetingPhrase]
+        switch sourceMode {
+        case .defaultsOnly:
+            resolved = defaultPlaylist
+        case .mixed:
+            resolved = defaultPlaylist + customPlaylist
+        case .customOnly:
+            resolved = customPlaylist
+        }
+
+        return resolved.isEmpty ? defaultPlaylist : resolved
+    }
+
+    static func signature(for playlist: [LandingGreetingPhrase]) -> String {
+        playlist
+            .map { "\($0.text)|\($0.durationSeconds)" }
+            .joined(separator: "•")
+    }
+}
+
 enum ThemeMode: String, CaseIterable, Codable, Sendable {
     static let defaultsKey = "epistemos.theme.mode"
 
@@ -18,59 +167,20 @@ enum LandingCursorAnimationPolicy {
 
 enum LandingGreetingAnimationPolicy {
     static let enabledDefaultsKey = "epistemos.landingGreetingAnimationEnabled"
-    static let asciiEnabledDefaultsKey = "epistemos.landingGreetingASCIIEnabled"
-    static let typewriterEnabledDefaultsKey = "epistemos.landingGreetingTypewriterEnabled"
-    static let asciiHoverEnabledDefaultsKey = "epistemos.landingGreetingASCIIHoverEnabled"
-    static let typewriterVersionDefaultsKey = "epistemos.landingGreetingTypewriterVersion"
-    static let intensityDefaultsKey = "epistemos.landingGreetingIntensity"
-    static let varietyDefaultsKey = "epistemos.landingGreetingVariety"
-    static let paceDefaultsKey = "epistemos.landingGreetingPace"
-    static let thresholdDefaultsKey = "epistemos.landingGreetingThreshold"
-    static let blurDefaultsKey = "epistemos.landingGreetingBlur"
-    static let pullDefaultsKey = "epistemos.landingGreetingPull"
-    static let expansionDefaultsKey = "epistemos.landingGreetingExpansion"
-    static let centerSofteningDefaultsKey = "epistemos.landingGreetingCenterSoftening"
-    static let pullRadiusDefaultsKey = "epistemos.landingGreetingPullRadius"
-    static let dampingDefaultsKey = "epistemos.landingGreetingDamping"
-    static let scaleDefaultsKey = "epistemos.landingGreetingScale"
-
-    static let defaultEnabled = true
-    static let defaultASCIIEnabled = true
+    static let typewriterEnabledDefaultsKey = "epistemos.landingGreetingTypewriterEffectEnabled"
     static let defaultTypewriterEnabled = true
-    static let defaultASCIIHoverEnabled = false
-    static let defaultTypewriterVersion: LandingGreetingTypewriterVersion = .liquid
-    static let defaultIntensity = 0.52
-    static let defaultVariety = 0.58
-    static let defaultPace = 0.46
-    static let defaultThreshold = 0.42
-    static let defaultBlur = 0.5
-    static let defaultPull = 0.45
-    static let defaultExpansion = 0.3
-    static let defaultCenterSoftening = 0.05
-    static let defaultPullRadius = 0.5 // Maps to 80-240
-    static let defaultDamping = 0.5    // Maps to 0.2-0.9
-    static let defaultScale = 0.4
-}
-
-enum LandingGreetingTypewriterVersion: String, CaseIterable, Codable, Sendable {
-    case liquid = "liquid"
-    case nodeTitle = "nodeTitle"
-
-    var displayName: String {
-        switch self {
-        case .liquid: "Liquid"
-        case .nodeTitle: "Node Title"
-        }
-    }
 }
 
 enum LandingWakeFieldPolicy {
+    static let visibilityModeDefaultsKey = "epistemos.landingCursorVisibilityMode"
     static let responseDefaultsKey = "epistemos.landingCursorResponse"
     static let spreadDefaultsKey = "epistemos.landingCursorSpread"
-    static let trialDefaultsKey = "epistemos.landingCursorTrail"
+    static let trailDefaultsKey = "epistemos.landingCursorTrail"
     static let viscosityDefaultsKey = "epistemos.landingCursorViscosity"
     static let turbulenceDefaultsKey = "epistemos.landingCursorTurbulence"
     static let blastPowerDefaultsKey = "epistemos.landingCursorBlastPower"
+    static let opacityDefaultsKey = "epistemos.landingCursorOpacity"
+    static let blurDefaultsKey = "epistemos.landingCursorBlur"
 
     static let defaultResponse = 0.56
     static let defaultSpread = 0.6
@@ -78,6 +188,8 @@ enum LandingWakeFieldPolicy {
     static let defaultViscosity = 0.8
     static let defaultTurbulence = 0.5
     static let defaultBlastPower = 50.0
+    static let defaultOpacity = 1.0
+    static let defaultBlur = 0.5
 }
 
 // MARK: - UI State
@@ -91,6 +203,9 @@ final class UIState {
     static let themePairDefaultsKey = "epistemos.theme.pair"
 
     private var isEnforcingSystemAppearance = false
+    private var isSyncingLandingCursorPreferences = false
+    private var isNormalizingLandingGreetingLibrary = false
+    private var lastEnabledLandingCursorVisibilityMode = LandingCursorVisibilityMode.defaultValue
 
     var themeMode: ThemeMode = .systemDefault {
         didSet {
@@ -178,24 +293,17 @@ final class UIState {
                 landingCursorAnimationEnabled,
                 forKey: LandingCursorAnimationPolicy.defaultsKey
             )
+            syncLandingCursorVisibilityModeFromLegacyToggle()
         }
     }
 
-    var landingGreetingAnimationEnabled = LandingGreetingAnimationPolicy.defaultEnabled {
+    var landingCursorVisibilityMode = LandingCursorVisibilityMode.defaultValue {
         didSet {
             UserDefaults.standard.set(
-                landingGreetingAnimationEnabled,
-                forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
+                landingCursorVisibilityMode.rawValue,
+                forKey: LandingWakeFieldPolicy.visibilityModeDefaultsKey
             )
-        }
-    }
-
-    var landingGreetingASCIIEnabled = LandingGreetingAnimationPolicy.defaultASCIIEnabled {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingASCIIEnabled,
-                forKey: LandingGreetingAnimationPolicy.asciiEnabledDefaultsKey
-            )
+            syncLegacyCursorAnimationEnabledFromVisibilityMode()
         }
     }
 
@@ -205,123 +313,7 @@ final class UIState {
                 landingGreetingTypewriterEnabled,
                 forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
             )
-        }
-    }
-
-    var landingGreetingASCIIHoverEnabled = LandingGreetingAnimationPolicy.defaultASCIIHoverEnabled {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingASCIIHoverEnabled,
-                forKey: LandingGreetingAnimationPolicy.asciiHoverEnabledDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingTypewriterVersion = LandingGreetingAnimationPolicy.defaultTypewriterVersion {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingTypewriterVersion.rawValue,
-                forKey: LandingGreetingAnimationPolicy.typewriterVersionDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingIntensity = LandingGreetingAnimationPolicy.defaultIntensity {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingIntensity,
-                forKey: LandingGreetingAnimationPolicy.intensityDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingCharacterVariety = LandingGreetingAnimationPolicy.defaultVariety {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingCharacterVariety,
-                forKey: LandingGreetingAnimationPolicy.varietyDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingPace = LandingGreetingAnimationPolicy.defaultPace {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingPace,
-                forKey: LandingGreetingAnimationPolicy.paceDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingThreshold = LandingGreetingAnimationPolicy.defaultThreshold {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingThreshold,
-                forKey: LandingGreetingAnimationPolicy.thresholdDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingBlur = LandingGreetingAnimationPolicy.defaultBlur {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingBlur,
-                forKey: LandingGreetingAnimationPolicy.blurDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingPull = LandingGreetingAnimationPolicy.defaultPull {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingPull,
-                forKey: LandingGreetingAnimationPolicy.pullDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingExpansion = LandingGreetingAnimationPolicy.defaultExpansion {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingExpansion,
-                forKey: LandingGreetingAnimationPolicy.expansionDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingCenterSoftening = LandingGreetingAnimationPolicy.defaultCenterSoftening {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingCenterSoftening,
-                forKey: LandingGreetingAnimationPolicy.centerSofteningDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingPullRadius = LandingGreetingAnimationPolicy.defaultPullRadius {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingPullRadius,
-                forKey: LandingGreetingAnimationPolicy.pullRadiusDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingDamping = LandingGreetingAnimationPolicy.defaultDamping {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingDamping,
-                forKey: LandingGreetingAnimationPolicy.dampingDefaultsKey
-            )
-        }
-    }
-
-    var landingGreetingScale = LandingGreetingAnimationPolicy.defaultScale {
-        didSet {
-            UserDefaults.standard.set(
-                landingGreetingScale,
-                forKey: LandingGreetingAnimationPolicy.scaleDefaultsKey
-            )
+            persistLegacyLandingGreetingAnimationToggle()
         }
     }
 
@@ -347,7 +339,7 @@ final class UIState {
         didSet {
             UserDefaults.standard.set(
                 landingCursorTrail,
-                forKey: LandingWakeFieldPolicy.trialDefaultsKey
+                forKey: LandingWakeFieldPolicy.trailDefaultsKey
             )
         }
     }
@@ -379,6 +371,50 @@ final class UIState {
         }
     }
 
+    var landingCursorOpacity: Double = LandingWakeFieldPolicy.defaultOpacity {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorOpacity,
+                forKey: LandingWakeFieldPolicy.opacityDefaultsKey
+            )
+        }
+    }
+
+    var landingCursorBlur: Double = LandingWakeFieldPolicy.defaultBlur {
+        didSet {
+            UserDefaults.standard.set(
+                landingCursorBlur,
+                forKey: LandingWakeFieldPolicy.blurDefaultsKey
+            )
+        }
+    }
+
+    var landingGreetingSourceMode = LandingGreetingSourceMode.defaultValue {
+        didSet {
+            UserDefaults.standard.set(
+                landingGreetingSourceMode.rawValue,
+                forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
+            )
+        }
+    }
+
+    var landingCustomGreetings: [LandingGreetingEntry] = [] {
+        didSet {
+            normalizeLandingGreetingLibrary()
+        }
+    }
+
+    var resolvedLandingGreetingPlaylist: [LandingGreetingPhrase] {
+        LandingGreetingResolver.resolve(
+            sourceMode: landingGreetingSourceMode,
+            customGreetings: landingCustomGreetings
+        )
+    }
+
+    var landingGreetingPlaylistSignature: String {
+        LandingGreetingResolver.signature(for: resolvedLandingGreetingPlaylist)
+    }
+
     // MARK: - Mini-Chat
 
     var miniChatOpen = false
@@ -394,16 +430,58 @@ final class UIState {
     init() {
         isSystemDark = SystemAppearanceState.isDark()
         clearLegacyThemeDefaults()
+        clearLegacyLandingGreetingDefaults()
         displayMode = AppDisplayMode.current()
-        if UserDefaults.standard.object(forKey: LandingCursorAnimationPolicy.defaultsKey) != nil {
-            landingCursorAnimationEnabled = UserDefaults.standard.bool(
+        if let storedVisibilityMode = UserDefaults.standard.string(
+            forKey: LandingWakeFieldPolicy.visibilityModeDefaultsKey
+        ),
+            let visibilityMode = LandingCursorVisibilityMode(rawValue: storedVisibilityMode) {
+            landingCursorVisibilityMode = visibilityMode
+            landingCursorAnimationEnabled = visibilityMode != .neither
+        } else if UserDefaults.standard.object(forKey: LandingCursorAnimationPolicy.defaultsKey) != nil {
+            let legacyEnabled = UserDefaults.standard.bool(
                 forKey: LandingCursorAnimationPolicy.defaultsKey
             )
+            landingCursorAnimationEnabled = legacyEnabled
+            landingCursorVisibilityMode = legacyEnabled ? .both : .neither
+        } else {
+            landingCursorVisibilityMode = .both
+            landingCursorAnimationEnabled = true
         }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey) != nil {
-            landingGreetingAnimationEnabled = UserDefaults.standard.bool(
-                forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
+        lastEnabledLandingCursorVisibilityMode = landingCursorVisibilityMode == .neither
+            ? .both
+            : landingCursorVisibilityMode
+        if let storedGreetingSourceMode = UserDefaults.standard.string(
+            forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
+        ),
+            let sourceMode = LandingGreetingSourceMode(rawValue: storedGreetingSourceMode) {
+            landingGreetingSourceMode = sourceMode
+        }
+        if let storedGreetings = UserDefaults.standard.data(
+            forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
+        ),
+            let decodedGreetings = try? JSONDecoder().decode(
+                [LandingGreetingEntry].self,
+                from: storedGreetings
+            ) {
+            landingCustomGreetings = decodedGreetings
+        }
+        let legacyGreetingAnimationEnabled: Bool? = if UserDefaults.standard.object(
+            forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
+        ) != nil {
+            UserDefaults.standard.bool(forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey)
+        } else {
+            nil
+        }
+
+        if UserDefaults.standard.object(
+            forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
+        ) != nil {
+            landingGreetingTypewriterEnabled = UserDefaults.standard.bool(
+                forKey: LandingGreetingAnimationPolicy.typewriterEnabledDefaultsKey
             )
+        } else if let legacyGreetingAnimationEnabled {
+            landingGreetingTypewriterEnabled = legacyGreetingAnimationEnabled
         }
 
         if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.responseDefaultsKey) != nil {
@@ -416,9 +494,9 @@ final class UIState {
                 forKey: LandingWakeFieldPolicy.spreadDefaultsKey
             )
         }
-        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.trialDefaultsKey) != nil {
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.trailDefaultsKey) != nil {
             landingCursorTrail = UserDefaults.standard.double(
-                forKey: LandingWakeFieldPolicy.trialDefaultsKey
+                forKey: LandingWakeFieldPolicy.trailDefaultsKey
             )
         }
         if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.viscosityDefaultsKey) != nil {
@@ -436,47 +514,18 @@ final class UIState {
                 forKey: LandingWakeFieldPolicy.blastPowerDefaultsKey
             )
         }
-
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.thresholdDefaultsKey) != nil {
-            landingGreetingThreshold = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.thresholdDefaultsKey
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.opacityDefaultsKey) != nil {
+            landingCursorOpacity = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.opacityDefaultsKey
             )
         }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.blurDefaultsKey) != nil {
-            landingGreetingBlur = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.blurDefaultsKey
+        if UserDefaults.standard.object(forKey: LandingWakeFieldPolicy.blurDefaultsKey) != nil {
+            landingCursorBlur = UserDefaults.standard.double(
+                forKey: LandingWakeFieldPolicy.blurDefaultsKey
             )
         }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.pullDefaultsKey) != nil {
-            landingGreetingPull = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.pullDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.expansionDefaultsKey) != nil {
-            landingGreetingExpansion = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.expansionDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.centerSofteningDefaultsKey) != nil {
-            landingGreetingCenterSoftening = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.centerSofteningDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.pullRadiusDefaultsKey) != nil {
-            landingGreetingPullRadius = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.pullRadiusDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.dampingDefaultsKey) != nil {
-            landingGreetingDamping = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.dampingDefaultsKey
-            )
-        }
-        if UserDefaults.standard.object(forKey: LandingGreetingAnimationPolicy.scaleDefaultsKey) != nil {
-            landingGreetingScale = UserDefaults.standard.double(
-                forKey: LandingGreetingAnimationPolicy.scaleDefaultsKey
-            )
-        }
+        syncLegacyCursorAnimationEnabledFromVisibilityMode()
+        normalizeLandingGreetingLibrary()
     }
 
     // MARK: - Theme Methods
@@ -484,6 +533,37 @@ final class UIState {
     private func clearLegacyThemeDefaults() {
         UserDefaults.standard.removeObject(forKey: ThemeMode.defaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.themePairDefaultsKey)
+    }
+
+    private func clearLegacyLandingGreetingDefaults() {
+        let legacyKeys = [
+            "epistemos.landingGreetingASCIIEnabled",
+            "epistemos.landingGreetingTypewriterEnabled",
+            "epistemos.landingGreetingASCIIHoverEnabled",
+            "epistemos.landingGreetingTypewriterVersion",
+            "epistemos.landingGreetingIntensity",
+            "epistemos.landingGreetingVariety",
+            "epistemos.landingGreetingPace",
+            "epistemos.landingGreetingLiquidEffectEnabled",
+            "epistemos.landingGreetingThreshold",
+            "epistemos.landingGreetingBlur",
+            "epistemos.landingGreetingPull",
+            "epistemos.landingGreetingExpansion",
+            "epistemos.landingGreetingCenterSoftening",
+            "epistemos.landingGreetingPullRadius",
+            "epistemos.landingGreetingDamping",
+            "epistemos.landingGreetingScale",
+        ]
+        for key in legacyKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+
+    private func persistLegacyLandingGreetingAnimationToggle() {
+        UserDefaults.standard.set(
+            landingGreetingTypewriterEnabled,
+            forKey: LandingGreetingAnimationPolicy.enabledDefaultsKey
+        )
     }
 
     private func enforceSystemAppearance() {
@@ -550,6 +630,41 @@ final class UIState {
         }
     }
 
+    func addLandingGreeting() {
+        landingCustomGreetings.append(
+            LandingGreetingEntry(text: "", durationSeconds: LandingGreetingEntry.defaultDurationSeconds)
+        )
+    }
+
+    func updateLandingGreetingText(id: UUID, text: String) {
+        guard let index = landingCustomGreetings.firstIndex(where: { $0.id == id }) else { return }
+        landingCustomGreetings[index].text = text
+    }
+
+    func updateLandingGreetingDuration(id: UUID, durationSeconds: Double) {
+        guard let index = landingCustomGreetings.firstIndex(where: { $0.id == id }) else { return }
+        landingCustomGreetings[index].durationSeconds = LandingGreetingEntry.clampedDuration(
+            durationSeconds
+        )
+    }
+
+    func updateLandingGreetingEnabled(id: UUID, isEnabled: Bool) {
+        guard let index = landingCustomGreetings.firstIndex(where: { $0.id == id }) else { return }
+        landingCustomGreetings[index].isEnabled = isEnabled
+    }
+
+    func moveLandingGreeting(id: UUID, by offset: Int) {
+        guard let index = landingCustomGreetings.firstIndex(where: { $0.id == id }) else { return }
+        let destination = index + offset
+        guard landingCustomGreetings.indices.contains(destination) else { return }
+        let greeting = landingCustomGreetings.remove(at: index)
+        landingCustomGreetings.insert(greeting, at: destination)
+    }
+
+    func removeLandingGreeting(id: UUID) {
+        landingCustomGreetings.removeAll { $0.id == id }
+    }
+
     // MARK: - Mini-Chat Methods
 
     func toggleMiniChat() { miniChatOpen.toggle() }
@@ -571,5 +686,61 @@ final class UIState {
         toastDismissTask?.cancel()
         toastDismissTask = nil
         toastMessage = nil
+    }
+
+    private func syncLandingCursorVisibilityModeFromLegacyToggle() {
+        guard !isSyncingLandingCursorPreferences else { return }
+        isSyncingLandingCursorPreferences = true
+        defer { isSyncingLandingCursorPreferences = false }
+
+        if landingCursorAnimationEnabled {
+            if landingCursorVisibilityMode == .neither {
+                landingCursorVisibilityMode = lastEnabledLandingCursorVisibilityMode
+            }
+        } else {
+            if landingCursorVisibilityMode != .neither {
+                lastEnabledLandingCursorVisibilityMode = landingCursorVisibilityMode
+            }
+            landingCursorVisibilityMode = .neither
+        }
+    }
+
+    private func syncLegacyCursorAnimationEnabledFromVisibilityMode() {
+        guard !isSyncingLandingCursorPreferences else { return }
+        isSyncingLandingCursorPreferences = true
+        defer { isSyncingLandingCursorPreferences = false }
+
+        if landingCursorVisibilityMode != .neither {
+            lastEnabledLandingCursorVisibilityMode = landingCursorVisibilityMode
+        }
+        landingCursorAnimationEnabled = landingCursorVisibilityMode != .neither
+    }
+
+    private func normalizeLandingGreetingLibrary() {
+        let normalizedGreetings = landingCustomGreetings.map { greeting in
+            var normalizedGreeting = greeting
+            normalizedGreeting.durationSeconds = LandingGreetingEntry.clampedDuration(
+                greeting.durationSeconds
+            )
+            return normalizedGreeting
+        }
+
+        if !isNormalizingLandingGreetingLibrary && normalizedGreetings != landingCustomGreetings {
+            isNormalizingLandingGreetingLibrary = true
+            landingCustomGreetings = normalizedGreetings
+            isNormalizingLandingGreetingLibrary = false
+            return
+        }
+
+        guard let encodedGreetings = try? JSONEncoder().encode(landingCustomGreetings) else {
+            UserDefaults.standard.removeObject(
+                forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
+            )
+            return
+        }
+        UserDefaults.standard.set(
+            encodedGreetings,
+            forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
+        )
     }
 }

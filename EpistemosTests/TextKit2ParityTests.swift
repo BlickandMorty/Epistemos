@@ -199,6 +199,65 @@ struct EditorShellTests {
         #expect(tk1QuoteBackground == nil)
         #expect(tk2CalloutBackground == nil)
     }
+
+    @Test("block chrome spans resolve across the full multi-line block in both editor stacks")
+    func blockChromeSpansResolveAcrossFullBlock() throws {
+        let markdown = """
+        Before
+
+        ```swift
+        let value = 1
+        let value = 2
+        ```
+
+        > [!note] Title
+        > Continuation
+
+        After
+        """
+        let text = markdown as NSString
+        let tk1 = ParityHelpers.tk1Styled(markdown)
+        let tk2 = ParityHelpers.tk2Styled(markdown)
+
+        let codeProbe = text.lineRange(for: text.range(of: "let value = 2"))
+        let calloutProbe = text.lineRange(for: text.range(of: "> Continuation"))
+        let codeStart = text.lineRange(for: text.range(of: "```swift"))
+        let codeEnd = text.lineRange(for: text.range(of: "```", options: .backwards))
+        let calloutStart = text.lineRange(for: text.range(of: "> [!note] Title"))
+        let calloutEnd = text.lineRange(for: text.range(of: "> Continuation"))
+
+        let tk1CodeSpan = try #require(
+            MarkdownTextStorage.blockChromeSpan(in: tk1, text: text, aroundLineRange: codeProbe)
+        )
+        let tk2CodeSpan = try #require(
+            MarkdownTextStorage.blockChromeSpan(in: tk2, text: text, aroundLineRange: codeProbe)
+        )
+        let tk1CalloutSpan = try #require(
+            MarkdownTextStorage.blockChromeSpan(in: tk1, text: text, aroundLineRange: calloutProbe)
+        )
+        let tk2CalloutSpan = try #require(
+            MarkdownTextStorage.blockChromeSpan(in: tk2, text: text, aroundLineRange: calloutProbe)
+        )
+
+        let expectedCodeRange = NSRange(
+            location: codeStart.location,
+            length: NSMaxRange(codeEnd) - codeStart.location
+        )
+        let expectedCalloutRange = NSRange(
+            location: calloutStart.location,
+            length: NSMaxRange(calloutEnd) - calloutStart.location
+        )
+
+        #expect(tk1CodeSpan.kind == .codeBlock)
+        #expect(tk2CodeSpan.kind == .codeBlock)
+        #expect(tk1CodeSpan.lineRange == expectedCodeRange)
+        #expect(tk2CodeSpan.lineRange == expectedCodeRange)
+
+        #expect(tk1CalloutSpan.kind == .callout)
+        #expect(tk2CalloutSpan.kind == .callout)
+        #expect(tk1CalloutSpan.lineRange == expectedCalloutRange)
+        #expect(tk2CalloutSpan.lineRange == expectedCalloutRange)
+    }
 }
 
 // MARK: - Suite 1: Inline Styling Parity (TK1 vs TK2)

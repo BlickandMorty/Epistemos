@@ -186,16 +186,18 @@ struct NoteEditorLayoutTests {
         #expect(!source.contains("isScanningCitations"))
     }
 
-    @Test("note toolbar tucks secondary actions into the hidden options menu")
-    func noteToolbarTucksSecondaryActionsIntoOptionsMenu() throws {
+    @Test("note toolbar keeps secondary actions in the top-level more menu")
+    func noteToolbarKeepsSecondaryActionsInTopLevelMoreMenu() throws {
         let source = try String(
             contentsOf: repoRootURL().appendingPathComponent(
                 "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
             )
         )
 
-        #expect(source.contains("Menu(\"Options\")"))
         #expect(source.contains("Menu(\"Format\")"))
+        #expect(source.contains("Label(\"Backlinks\", systemImage: \"link\")"))
+        #expect(source.contains("Label(\"Apple Writing Tools\", systemImage: \"apple.intelligence\")"))
+        #expect(!source.contains("Menu(\"Options\")"))
         #expect(!source.contains("formatToolbarMenu"))
         #expect(!source.contains("appleWritingToolsButton"))
         #expect(!source.contains("noteWorkspaceQuickActions"))
