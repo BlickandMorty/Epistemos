@@ -76,6 +76,16 @@ enum HapticHelper {
         perform(.levelChange)
     }
 
+    @MainActor
+    static func landingWakeBrushTick(_ pattern: LandingCursorBrushHapticPattern) {
+        switch pattern {
+        case .whisper:
+            perform(.alignment)
+        case .accent:
+            perform(.generic)
+        }
+    }
+
     /// Fires a single alignment haptic on the Force Touch trackpad.
     /// No-op on Macs without a trackpad — the API gracefully does nothing.
     @MainActor
