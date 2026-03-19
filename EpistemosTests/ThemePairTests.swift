@@ -904,27 +904,53 @@ struct ThemePairTests {
         #expect(chrome.contains("AssistantSourcesListPanel"))
     }
 
-    @Test("Mini chat uses the shared notes context resolver and carries note-title sources")
-    func miniChatUsesSharedNotesContextResolverAndCarriesNoteTitleSources() throws {
+    @Test("Mini chat uses the shared attachment resolver and carries explicit context attachments")
+    func miniChatUsesSharedAttachmentResolverAndCarriesContextAttachments() throws {
         let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let threadState = try loadTextFile("Epistemos/State/ThreadState.swift")
 
-        #expect(miniChat.contains("ChatCoordinator.resolveNotesContext("))
+        #expect(miniChat.contains("ChatCoordinator.resolveAttachedContext("))
         #expect(miniChat.contains("loadedNoteTitles: notesContext.loadedNoteTitles"))
-        #expect(miniChat.contains("noteTitles: message.loadedNoteTitles ?? []"))
-        #expect(threadState.contains("func updateActiveThreadLoadedNotes(ids: Set<String>, titles: [String])"))
+        #expect(miniChat.contains("contextAttachments: currentThread?.contextAttachments"))
+        #expect(threadState.contains("func addActiveThreadContextAttachment(_ attachment: ContextAttachment)"))
     }
 
-    @Test("@ mentions offer an explicit all-notes option")
-    func notesMentionDropdownOffersAllNotes() throws {
+    @Test("@ mentions search notes and chats through one shared picker")
+    func mentionsSearchNotesAndChatsThroughSharedPicker() throws {
         let dropdown = try loadTextFile("Epistemos/Views/Chat/NotesMentionDropdown.swift")
         let mainChat = try loadTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let coordinator = try loadTextFile("Epistemos/App/ChatCoordinator.swift")
 
         #expect(dropdown.contains("case allNotes"))
+        #expect(dropdown.contains("case chat"))
         #expect(dropdown.contains("Text(\"All Notes\")"))
-        #expect(mainChat.contains("ChatCoordinator.allNotesMentionToken"))
-        #expect(miniChat.contains("ChatCoordinator.allNotesMentionToken"))
+        #expect(dropdown.contains("sectionHeader(\"Chats\")"))
+        #expect(mainChat.contains("ChatCoordinator.searchReferenceResults("))
+        #expect(miniChat.contains("ChatCoordinator.searchReferenceResults("))
+        #expect(coordinator.contains("static func searchReferenceResults("))
+    }
+
+    @Test("Command palette chat uses the shared attachment picker and resolver")
+    func commandPaletteUsesSharedAttachmentPickerAndResolver() throws {
+        let commandPalette = try loadTextFile("Epistemos/Views/Landing/CommandPaletteOverlay.swift")
+
+        #expect(commandPalette.contains("NotesMentionDropdown("))
+        #expect(commandPalette.contains("ChatCoordinator.searchReferenceResults("))
+        #expect(commandPalette.contains("ChatCoordinator.resolveAttachedContext("))
+        #expect(commandPalette.contains("threadState.addActiveThreadContextAttachment("))
+        #expect(commandPalette.contains("threadState.removeActiveThreadContextAttachment("))
+        #expect(!commandPalette.contains("focusedPageId"))
+        #expect(!commandPalette.contains("notesUI.activePageId"))
+    }
+
+    @Test("Note chat shows the explicit locked note attachment chip")
+    func noteChatShowsLockedNoteAttachmentChip() throws {
+        let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(noteWorkspace.contains("private var noteChatContextAttachment: ContextAttachment?"))
+        #expect(noteWorkspace.contains("noteChatAttachmentChip("))
+        #expect(noteWorkspace.contains("if let attachment = noteChatContextAttachment"))
     }
 
     @MainActor

@@ -8,7 +8,26 @@ import os
 
 @MainActor
 final class ChatCoordinator {
+    struct ChatReferenceResult: Identifiable, Sendable, Hashable {
+        let attachment: ContextAttachment
+        let preview: String?
+
+        var id: String { attachment.id }
+    }
+
+    struct ReferenceSearchResults: Sendable {
+        let notes: [NoteMentionChoice]
+        let chats: [ChatReferenceResult]
+    }
+
     struct NotesContextResolution: Sendable {
+        let context: String?
+        let cleanedQuery: String
+        let loadedNoteIds: Set<String>
+        let loadedNoteTitles: [String]
+    }
+
+    struct AttachedContextResolution: Sendable {
         let context: String?
         let cleanedQuery: String
         let loadedNoteIds: Set<String>
@@ -71,8 +90,12 @@ final class ChatCoordinator {
 
                 let notesContext: String?
                 let resolvedQuery: String
-                if hasVault, Self.queryContainsExplicitNoteContext(query) {
-                    let (ctx, cleaned) = await self.buildNotesContext(query: query, chatState: chatState)
+                if hasVault, Self.queryContainsExplicitContext(query, attachments: chatState.pendingContextAttachments) {
+                    let (ctx, cleaned) = await self.buildContextAttachments(
+                        query: query,
+                        attachments: chatState.pendingContextAttachments,
+                        chatState: chatState
+                    )
                     notesContext = ctx
                     resolvedQuery = cleaned
                 } else {
@@ -314,6 +337,78 @@ final class ChatCoordinator {
         )
     }
 
+    static func searchReferenceResults(
+        filter: String,
+        manifest: VaultManifest?,
+        chats: [SDChat],
+        threads: [ChatThread],
+        limitPerSection: Int = 6
+    ) -> ReferenceSearchResults {
+        let normalizedFilter = filter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        let noteChoices: [NoteMentionChoice] = {
+            guard let manifest else { return [] }
+            var results: [NoteMentionChoice] = []
+            if normalizedFilter.isEmpty || "all notes".contains(normalizedFilter) || "all".contains(normalizedFilter) {
+                results.append(.allNotes)
+            }
+            let entries = manifest.entries
+            if normalizedFilter.isEmpty {
+                results.append(contentsOf: entries.prefix(limitPerSection).map(NoteMentionChoice.entry))
+                return results
+            }
+            let matched = entries.filter {
+                let title = $0.title.lowercased()
+                return title.hasPrefix(normalizedFilter) || title.contains(normalizedFilter)
+            }
+            results.append(contentsOf: matched.prefix(limitPerSection).map(NoteMentionChoice.entry))
+            return results
+        }()
+
+        let recentChats = chats.map { chat in
+            let preview = chat.sortedMessages.last?.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ChatReferenceResult(
+                attachment: ContextAttachment(
+                    kind: .chat,
+                    targetId: chat.id,
+                    title: chat.title,
+                    subtitle: "Main chat"
+                ),
+                preview: preview
+            )
+        }
+
+        let transientThreads = threads
+            .filter { !$0.messages.isEmpty }
+            .map { thread in
+                ChatReferenceResult(
+                    attachment: ContextAttachment(
+                        kind: .chat,
+                        targetId: thread.id,
+                        title: thread.label,
+                        subtitle: thread.type == "palette" ? "Palette chat" : "Mini chat"
+                    ),
+                    preview: thread.messages.last?.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+            }
+
+        var seenChatIDs = Set<String>()
+        let filteredChats = (recentChats + transientThreads).filter { result in
+            seenChatIDs.insert(result.id).inserted
+        }.filter { result in
+            if normalizedFilter.isEmpty { return true }
+            let haystack = [result.attachment.title, result.attachment.subtitle, result.preview]
+                .compactMap { $0?.lowercased() }
+                .joined(separator: "\n")
+            return haystack.contains(normalizedFilter)
+        }
+
+        return ReferenceSearchResults(
+            notes: noteChoices,
+            chats: Array(filteredChats.prefix(limitPerSection))
+        )
+    }
+
     func buildNotesContext(query: String, chatState: ChatState) async -> (String?, String) {
         let resolution = await Self.resolveNotesContext(
             query: query,
@@ -332,8 +427,148 @@ final class ChatCoordinator {
         return (resolution.context, resolution.cleanedQuery)
     }
 
+    func buildContextAttachments(
+        query: String,
+        attachments: [ContextAttachment],
+        chatState: ChatState
+    ) async -> (String?, String) {
+        let syntheticNoteMentions = attachments.compactMap { attachment -> String? in
+            switch attachment.kind {
+            case .note:
+                return "@[\(attachment.title)]"
+            case .allNotes:
+                return "@[\(Self.allNotesMentionToken)]"
+            case .chat:
+                return nil
+            }
+        }
+        let noteSeedQuery = syntheticNoteMentions.isEmpty
+            ? query
+            : syntheticNoteMentions.joined(separator: " ") + " " + query
+
+        let resolution = await Self.resolveAttachedContext(
+            query: noteSeedQuery,
+            attachments: attachments,
+            manifest: bootstrap.ambientManifest,
+            loadedNoteIds: chatState.loadedNoteIds,
+            loadedNoteTitles: chatState.loadedNoteTitles,
+            findNotesByTitle: { [vaultSync] title in
+                await vaultSync.findNotesByTitle(title)
+            },
+            fetchNoteBodies: { [vaultSync] ids in
+                await vaultSync.fetchNoteBodies(ids: ids)
+            },
+            fetchChatMessages: { [bootstrap, modelContainer] chatID in
+                await MainActor.run {
+                    if let thread = bootstrap.threadState.chatThreads.first(where: { $0.id == chatID }) {
+                        return thread.messages
+                    }
+                    let context = modelContainer.mainContext
+                    let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
+                    guard let chat = try? context.fetch(descriptor).first else { return [] }
+                    return chat.sortedMessages.map { message in
+                        AssistantMessage(
+                            role: message.role == "user" ? .user : .assistant,
+                            content: message.content,
+                            createdAt: message.createdAt
+                        )
+                    }
+                }
+            }
+        )
+        chatState.loadedNoteIds = resolution.loadedNoteIds
+        chatState.loadedNoteTitles = resolution.loadedNoteTitles
+        return (resolution.context, resolution.cleanedQuery)
+    }
+
+    static func resolveAttachedContext(
+        query: String,
+        attachments: [ContextAttachment],
+        manifest: VaultManifest?,
+        loadedNoteIds: Set<String>,
+        loadedNoteTitles: [String],
+        findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
+        fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody],
+        fetchChatMessages: @escaping @Sendable (String) async -> [AssistantMessage]
+    ) async -> AttachedContextResolution {
+        let syntheticNoteMentions = attachments.compactMap { attachment -> String? in
+            switch attachment.kind {
+            case .note:
+                return "@[\(attachment.title)]"
+            case .allNotes:
+                return "@[\(Self.allNotesMentionToken)]"
+            case .chat:
+                return nil
+            }
+        }
+        let noteSeedQuery = syntheticNoteMentions.isEmpty
+            ? query
+            : syntheticNoteMentions.joined(separator: " ") + " " + query
+
+        let noteResolution = await resolveNotesContext(
+            query: noteSeedQuery,
+            manifest: manifest,
+            loadedNoteIds: loadedNoteIds,
+            loadedNoteTitles: loadedNoteTitles,
+            findNotesByTitle: findNotesByTitle,
+            fetchNoteBodies: fetchNoteBodies
+        )
+
+        let chatContext = await buildChatContextPack(
+            for: attachments.filter { $0.kind == .chat },
+            fetchChatMessages: fetchChatMessages
+        )
+        var parts: [String] = []
+        if let context = noteResolution.context, !context.isEmpty {
+            parts.append(context)
+        }
+        if let chatContext, !chatContext.isEmpty {
+            parts.append(chatContext)
+        }
+        return AttachedContextResolution(
+            context: parts.isEmpty ? nil : parts.joined(separator: "\n\n"),
+            cleanedQuery: noteResolution.cleanedQuery,
+            loadedNoteIds: noteResolution.loadedNoteIds,
+            loadedNoteTitles: noteResolution.loadedNoteTitles
+        )
+    }
+
+    static func buildChatContextPack(
+        for attachments: [ContextAttachment],
+        fetchChatMessages: @escaping @Sendable (String) async -> [AssistantMessage]
+    ) async -> String? {
+        guard !attachments.isEmpty else { return nil }
+
+        var sections: [String] = []
+        sections.reserveCapacity(attachments.count)
+
+        for attachment in attachments {
+            let messages = await fetchChatMessages(attachment.targetId)
+            let transcript = messages.suffix(8).map { message in
+                let role = message.role == .user ? "User" : "Assistant"
+                let content = message.content.count > 800
+                    ? String(message.content.prefix(800)) + "…"
+                    : message.content
+                return "\(role): \(content)"
+            }
+            guard !transcript.isEmpty else { continue }
+            sections.append(
+                """
+                Attached chat context: \(attachment.title)
+                \(transcript.joined(separator: "\n\n"))
+                """
+            )
+        }
+
+        return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
+    }
+
     static func queryContainsExplicitNoteContext(_ query: String) -> Bool {
         query.contains("@[")
+    }
+
+    static func queryContainsExplicitContext(_ query: String, attachments: [ContextAttachment]) -> Bool {
+        queryContainsExplicitNoteContext(query) || !attachments.isEmpty
     }
 
     // MARK: - Vault Action Execution

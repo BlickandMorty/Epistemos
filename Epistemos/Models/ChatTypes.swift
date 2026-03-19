@@ -3,6 +3,28 @@ import Foundation
 // MARK: - Chat Domain Types
 // DualMessage, TruthAssessment, FileAttachment are defined in EngineTypes.swift
 
+enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
+    case note
+    case chat
+    case allNotes
+}
+
+struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
+    var kind: ContextAttachmentKind
+    var targetId: String
+    var title: String
+    var subtitle: String?
+
+    var id: String { "\(kind.rawValue):\(targetId)" }
+
+    init(kind: ContextAttachmentKind, targetId: String, title: String, subtitle: String? = nil) {
+        self.kind = kind
+        self.targetId = targetId
+        self.title = title
+        self.subtitle = subtitle
+    }
+}
+
 struct ChatMessage: Identifiable, Codable, Sendable {
     var id: String
     var chatId: String
@@ -20,6 +42,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var reasoningDuration: Double?
     var isVaultBriefing: Bool
     var loadedNoteTitles: [String]?
+    var contextAttachments: [ContextAttachment]?
 
     init(
         id: String = UUID().uuidString,
@@ -37,7 +60,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         reasoningText: String? = nil,
         reasoningDuration: Double? = nil,
         isVaultBriefing: Bool = false,
-        loadedNoteTitles: [String]? = nil
+        loadedNoteTitles: [String]? = nil,
+        contextAttachments: [ContextAttachment]? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -55,6 +79,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.reasoningDuration = reasoningDuration
         self.isVaultBriefing = isVaultBriefing
         self.loadedNoteTitles = loadedNoteTitles
+        self.contextAttachments = contextAttachments
     }
 }
 
@@ -66,6 +91,7 @@ struct ChatThread: Identifiable, Codable, Sendable {
     var pageId: String?
     var loadedNoteIds: [String]
     var loadedNoteTitles: [String]
+    var contextAttachments: [ContextAttachment]
     var createdAt: Date
 
     init(
@@ -76,6 +102,7 @@ struct ChatThread: Identifiable, Codable, Sendable {
         pageId: String? = nil,
         loadedNoteIds: [String] = [],
         loadedNoteTitles: [String] = [],
+        contextAttachments: [ContextAttachment] = [],
         createdAt: Date = .now
     ) {
         self.id = id
@@ -85,6 +112,7 @@ struct ChatThread: Identifiable, Codable, Sendable {
         self.pageId = pageId
         self.loadedNoteIds = loadedNoteIds
         self.loadedNoteTitles = loadedNoteTitles
+        self.contextAttachments = contextAttachments
         self.createdAt = createdAt
     }
 }
@@ -94,6 +122,7 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
     var role: MessageRole
     var content: String
     var loadedNoteTitles: [String]?
+    var contextAttachments: [ContextAttachment]?
     var createdAt: Date
 
     init(
@@ -101,12 +130,14 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         role: MessageRole,
         content: String,
         loadedNoteTitles: [String]? = nil,
+        contextAttachments: [ContextAttachment]? = nil,
         createdAt: Date = .now
     ) {
         self.id = id
         self.role = role
         self.content = content
         self.loadedNoteTitles = loadedNoteTitles
+        self.contextAttachments = contextAttachments
         self.createdAt = createdAt
     }
 }

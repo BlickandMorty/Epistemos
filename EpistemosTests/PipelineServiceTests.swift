@@ -1253,6 +1253,33 @@ struct ChatCoordinatorPersistenceTests {
         #expect(third.context?.contains("Beta") == true)
         #expect(third.loadedNoteIds.isEmpty)
         #expect(third.loadedNoteTitles.isEmpty)
+
+        let attached = await ChatCoordinator.resolveAttachedContext(
+            query: "Compare this to that older conversation",
+            attachments: [
+                ContextAttachment(kind: .chat, targetId: "chat-1", title: "Older Thread", subtitle: "Main chat")
+            ],
+            manifest: manifest,
+            loadedNoteIds: [],
+            loadedNoteTitles: [],
+            findNotesByTitle: { _ in [] },
+            fetchNoteBodies: { _ in [] },
+            fetchChatMessages: { id in
+                await MainActor.run {
+                    id == "chat-1"
+                        ? [
+                            AssistantMessage(role: .user, content: "What is imperialism?"),
+                            AssistantMessage(role: .assistant, content: "A system of domination.")
+                        ]
+                        : []
+                }
+            }
+        )
+
+        #expect(attached.cleanedQuery == "Compare this to that older conversation")
+        #expect(attached.context?.contains("Attached chat context: Older Thread") == true)
+        #expect(attached.context?.contains("User: What is imperialism?") == true)
+        #expect(attached.context?.contains("Assistant: A system of domination.") == true)
     }
 
     @Test("pipeline direct stream uses bare prompts and only appends explicit note context")

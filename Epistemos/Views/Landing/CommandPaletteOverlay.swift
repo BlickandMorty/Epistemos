@@ -26,7 +26,6 @@ enum CommandPaletteLayout {
 struct CommandPaletteOverlay: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
-    @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
     @Environment(GraphState.self) private var graphState
@@ -56,14 +55,34 @@ struct CommandPaletteOverlay: View {
     @State private var activeTabId: String?
     @State private var streamTask: Task<Void, Never>?
     @State private var chatInput = ""
+    @State private var showMentionDropdown = false
+    @State private var mentionFilter = ""
     @State private var lastScrollTime: ContinuousClock.Instant = .now
     @State private var chatAutoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
-    @State private var focusedPageId: String?
     @FocusState private var isChatFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
     private let surfaceMetrics = AssistantSurfaceMetrics.commandPalette
     private let composerMetrics = AssistantComposerMetrics.compactChat
+    private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
+        ChatCoordinator.searchReferenceResults(
+            filter: mentionFilter,
+            manifest: AppBootstrap.shared?.ambientManifest,
+            chats: allChats,
+            threads: threadState.chatThreads
+        )
+    }
+    private var activeContextAttachments: [ContextAttachment] {
+        activeThread?.contextAttachments ?? []
+    }
+    private var lockedScopedPageAttachment: ContextAttachment? {
+        guard activeContextAttachments.isEmpty, let page = scopedPage() else { return nil }
+        return ContextAttachment(
+            kind: .note,
+            targetId: page.id,
+            title: page.title.isEmpty ? "Untitled" : page.title
+        )
+    }
 
     private var showResults: Bool { !searchText.isEmpty }
     private var preferredPaletteWidth: CGFloat {
@@ -467,6 +486,7 @@ struct CommandPaletteOverlay: View {
                 ForEach(paletteThreads) { thread in
                     Button {
                         withAnimation(Motion.quick) { activeTabId = thread.id }
+                        threadState.setActiveThread(thread.id)
                     } label: {
                         Text(thread.label)
                             .font(.system(size: 11, weight: activeTabId == thread.id ? .semibold : .regular))
@@ -485,6 +505,7 @@ struct CommandPaletteOverlay: View {
                 Button {
                     let newId = threadState.createThread(type: "palette", label: "Chat \(paletteThreads.count + 1)")
                     withAnimation(Motion.quick) { activeTabId = newId }
+                    threadState.setActiveThread(newId)
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 11, weight: .medium))
@@ -594,34 +615,47 @@ struct CommandPaletteOverlay: View {
 
     private var chatInputBar: some View {
         VStack(spacing: 8) {
-            // Note context indicator
-            if let page = activePage() {
-                HStack(spacing: 4) {
-                    Image(systemName: focusedPageId != nil ? "pin.fill" : "doc.text")
-                        .font(.system(size: 8))
-                    Text("\(focusedPageId != nil ? "Focused" : "Referencing"): \(page.title.isEmpty ? "Untitled" : page.title)")
-                        .font(.system(size: 10))
-
-                    Spacer()
-
-                    Button {
-                        withAnimation(Motion.quick) {
-                            if focusedPageId != nil {
-                                focusedPageId = nil
-                            } else {
-                                focusedPageId = page.id
+            if !activeContextAttachments.isEmpty || lockedScopedPageAttachment != nil {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(activeContextAttachments) { attachment in
+                            HStack(spacing: 4) {
+                                Image(systemName: iconForContextAttachment(attachment))
+                                    .font(.system(size: 10, weight: .medium))
+                                Text(attachment.title)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .lineLimit(1)
+                                Button {
+                                    threadState.removeActiveThreadContextAttachment(attachment.id)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(theme.textTertiary.opacity(0.5))
+                                }
+                                .buttonStyle(.plain)
                             }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .glassEffect(.regular.interactive(), in: Capsule())
+                            .foregroundStyle(theme.textSecondary)
                         }
-                    } label: {
-                        Image(systemName: focusedPageId != nil ? "pin.slash" : "pin")
-                            .font(.system(size: 9, weight: .medium))
+
+                        if let attachment = lockedScopedPageAttachment {
+                            HStack(spacing: 4) {
+                                Image(systemName: "pin.fill")
+                                    .font(.system(size: 10, weight: .medium))
+                                Text(attachment.title)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .glassEffect(.regular.interactive(), in: Capsule())
+                            .foregroundStyle(theme.accent)
+                        }
                     }
-                    .buttonStyle(AssistantUtilityButtonStyle(theme: theme, cornerRadius: 12))
-                    .help(focusedPageId != nil ? "Unfocus note" : "Focus on this note")
+                    .padding(.horizontal, 2)
                 }
-                .foregroundStyle(focusedPageId != nil ? theme.accent : theme.accent.opacity(0.7))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
             }
 
             HStack(spacing: 10) {
@@ -634,6 +668,17 @@ struct CommandPaletteOverlay: View {
                     .foregroundStyle(theme.foreground)
                     .focused($isChatFocused)
                     .onSubmit { sendChatMessage() }
+                    .onChange(of: chatInput) { _, newValue in
+                        if let atIndex = newValue.lastIndex(of: "@") {
+                            let afterAt = String(newValue[newValue.index(after: atIndex)...])
+                            if !afterAt.contains("]") && !afterAt.contains(" ") {
+                                mentionFilter = afterAt
+                                if !showMentionDropdown { showMentionDropdown = true }
+                                return
+                            }
+                        }
+                        if showMentionDropdown { showMentionDropdown = false }
+                    }
 
                 AssistantSendButton(
                     theme: theme,
@@ -653,10 +698,27 @@ struct CommandPaletteOverlay: View {
             .assistantGlassInputChrome(
                 theme: theme,
                 cornerRadius: composerMetrics.cornerRadius,
-                isActive: isChatFocused || !chatInput.isEmpty || threadState.paletteIsStreaming
+                isActive: isChatFocused || !chatInput.isEmpty || threadState.paletteIsStreaming || !activeContextAttachments.isEmpty || lockedScopedPageAttachment != nil
             )
         }
         .padding(.top, 10)
+        .overlay(alignment: .topLeading) {
+            if showMentionDropdown {
+                NotesMentionDropdown(
+                    results: mentionSearchResults,
+                    onSelect: attachMentionReference
+                )
+                .frame(maxWidth: 320)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: -2)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .offset(y: -8)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
     }
 
     // MARK: - Chat Logic
@@ -684,22 +746,57 @@ struct CommandPaletteOverlay: View {
                 }
             }
             do {
-                // Phase 1 (main actor): lightweight SwiftData fetches + metadata
-                let page = activePage()
-
                 let activeMessages = activeThread?.messages ?? []
+                let attachments = activeContextAttachments.isEmpty
+                    ? lockedScopedPageAttachment.map { [$0] } ?? []
+                    : activeContextAttachments
+                let notesContext = await ChatCoordinator.resolveAttachedContext(
+                    query: trimmed,
+                    attachments: attachments,
+                    manifest: AppBootstrap.shared?.ambientManifest,
+                    loadedNoteIds: [],
+                    loadedNoteTitles: [],
+                    findNotesByTitle: { [vaultSync] title in
+                        await vaultSync.findNotesByTitle(title)
+                    },
+                    fetchNoteBodies: { [vaultSync] ids in
+                        await vaultSync.fetchNoteBodies(ids: ids)
+                    },
+                    fetchChatMessages: { [self] chatID in
+                        await MainActor.run {
+                            if let thread = threadState.chatThreads.first(where: { $0.id == chatID }) {
+                                return thread.messages
+                            }
+                            guard let chat = allChats.first(where: { $0.id == chatID }) else { return [] }
+                            return chat.sortedMessages.map { message in
+                                AssistantMessage(
+                                    role: message.role == "user" ? .user : .assistant,
+                                    content: message.content,
+                                    createdAt: message.createdAt
+                                )
+                            }
+                        }
+                    }
+                )
+                threadState.updateActiveThreadLoadedNotes(
+                    ids: notesContext.loadedNoteIds,
+                    titles: notesContext.loadedNoteTitles
+                )
 
                 // Build conversation-aware prompt with thread history
                 var promptParts: [String] = []
+                if let context = notesContext.context, !context.isEmpty {
+                    promptParts.append(context)
+                }
                 if activeMessages.count > 1 {
                     let history = activeMessages.dropLast().suffix(10)
                     let historyText = history.map { msg in
                         msg.role == .user ? "User: \(msg.content)" : "Assistant: \(msg.content)"
                     }.joined(separator: "\n\n")
                     promptParts.append(historyText)
-                    promptParts.append("User: \(trimmed)")
+                    promptParts.append("User: \(notesContext.cleanedQuery)")
                 } else {
-                    promptParts.append(trimmed)
+                    promptParts.append(notesContext.cleanedQuery)
                 }
                 let conversationPrompt = promptParts.joined(separator: "\n\n")
 
@@ -727,12 +824,17 @@ struct CommandPaletteOverlay: View {
                 threadState.paletteStreamingText = ""
 
                 // Parse and execute action markers
-                if let page {
+                if let page = scopedPage() {
                     final = executeActions(in: final, page: page)
                 }
 
                 threadState.addThreadMessage(
-                    AssistantMessage(role: .assistant, content: final.isEmpty ? "No response." : final),
+                    AssistantMessage(
+                        role: .assistant,
+                        content: final.isEmpty ? "No response." : final,
+                        loadedNoteTitles: notesContext.loadedNoteTitles,
+                        contextAttachments: attachments
+                    ),
                     threadId: tid
                 )
 
@@ -779,6 +881,11 @@ struct CommandPaletteOverlay: View {
         if activeTabId == nil || paletteThreads.isEmpty {
             let newId = threadState.createThread(type: "palette", label: "Chat 1")
             activeTabId = newId
+            threadState.setActiveThread(newId)
+            return
+        }
+        if let activeTabId {
+            threadState.setActiveThread(activeTabId)
         }
     }
 
@@ -793,8 +900,9 @@ struct CommandPaletteOverlay: View {
 
     // MARK: - Note Context
 
-    private func activePage() -> SDPage? {
-        guard let targetId = focusedPageId ?? notesUI.activePageId else { return nil }
+    private func scopedPage() -> SDPage? {
+        let noteAttachmentID = activeThread?.contextAttachments.first(where: { $0.kind == .note })?.targetId
+        guard let targetId = noteAttachmentID ?? activeThread?.pageId else { return nil }
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
         return try? modelContext.fetch(descriptor).first
     }
@@ -1093,6 +1201,43 @@ struct CommandPaletteOverlay: View {
         }
     }
 
+    private func attachMentionReference(_ choice: ComposerReferenceChoice) {
+        ensureActiveTab()
+        if let activeTabId {
+            threadState.setActiveThread(activeTabId)
+        }
+        switch choice {
+        case .note(let noteChoice):
+            switch noteChoice {
+            case .allNotes:
+                threadState.addActiveThreadContextAttachment(
+                    ContextAttachment(
+                        kind: .allNotes,
+                        targetId: ChatCoordinator.allNotesMentionToken,
+                        title: "All Notes",
+                        subtitle: "Vault"
+                    )
+                )
+            case .entry(let entry):
+                threadState.addActiveThreadContextAttachment(
+                    ContextAttachment(
+                        kind: .note,
+                        targetId: entry.pageId,
+                        title: entry.title,
+                        subtitle: entry.folderName
+                    )
+                )
+            }
+        case .chat(let result):
+            threadState.addActiveThreadContextAttachment(result.attachment)
+        }
+        if let atIndex = chatInput.lastIndex(of: "@") {
+            chatInput = String(chatInput[..<atIndex])
+        }
+        showMentionDropdown = false
+        mentionFilter = ""
+    }
+
     private func handleEscape() {
         if mode == .chat {
             if threadState.paletteIsStreaming {
@@ -1106,6 +1251,14 @@ struct CommandPaletteOverlay: View {
             }
         } else {
             dismiss()
+        }
+    }
+
+    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
+        switch attachment.kind {
+        case .note: "doc.text"
+        case .chat: "bubble.left.and.bubble.right"
+        case .allNotes: "books.vertical"
         }
     }
 
@@ -1179,6 +1332,10 @@ struct CommandPaletteOverlay: View {
             LandingCommandItem(id: "new-note", label: "New Note", icon: "doc.badge.plus", category: "Create", badge: "\u{2318}N") {
                 dismiss()
                 Task { if let id = await vaultSync.createPage(title: "New Note") { NoteWindowManager.shared.open(pageId: id) } }
+            },
+            LandingCommandItem(id: "recent-chats", label: "Open Recent Chats", icon: "clock.arrow.circlepath", category: "Navigate") {
+                ui.showChatSidebar = true
+                dismiss()
             },
             LandingCommandItem(id: "nav-home", label: "Go Home", icon: "house", category: "Navigate", badge: "\u{2318}1") {
                 ui.setActivePanel(.home)

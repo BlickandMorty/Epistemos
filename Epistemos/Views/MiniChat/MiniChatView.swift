@@ -465,7 +465,6 @@ enum MiniChatVaultSearch {
 private struct MiniChatInputBar: View {
     @Environment(UIState.self) private var ui
     @Environment(ThreadState.self) private var threadState
-    @Environment(NotesUIState.self) private var notesUI
     @Environment(TriageService.self) private var triage
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(\.modelContext) private var modelContext
@@ -486,27 +485,35 @@ private struct MiniChatInputBar: View {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing
     }
 
+    private var activeContextAttachments: [ContextAttachment] {
+        threadState.activeThread()?.contextAttachments ?? []
+    }
+
+    private var explicitScopedPageID: String? {
+        if let attachedPageID = activeContextAttachments.first(where: { $0.kind == .note })?.targetId {
+            return attachedPageID
+        }
+        return threadState.activeThread()?.pageId
+    }
+
+    private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
+        ChatCoordinator.searchReferenceResults(
+            filter: mentionFilter,
+            manifest: AppBootstrap.shared?.ambientManifest,
+            chats: recentChats(),
+            threads: threadState.chatThreads
+        )
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             // Quick action chips when a note is active
-            if notesUI.activePageId != nil, activePage() != nil, !isProcessing {
+            if explicitScopedPageID != nil, activePage() != nil, !isProcessing {
                 quickActions
             }
 
-            // Note context indicator
-            if notesUI.activePageId != nil, let page = activePage() {
-                HStack(spacing: 4) {
-                    Image(systemName: "doc.text.fill")
-                        .font(.system(size: 8))
-                        .foregroundStyle(theme.accent)
-                    Text("Referencing: \(page.title.isEmpty ? "Untitled" : page.title)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.textTertiary)
-                        .lineLimit(1)
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
+            if !activeContextAttachments.isEmpty {
+                composerAttachmentChips
             }
 
             HStack(spacing: 10) {
@@ -519,17 +526,15 @@ private struct MiniChatInputBar: View {
                     .foregroundStyle(theme.foreground)
                     .onSubmit { send() }
                     .onChange(of: text) { _, newVal in
-                        if AppBootstrap.shared?.ambientManifest != nil {
-                            if let atIdx = newVal.lastIndex(of: "@") {
-                                let afterAt = String(newVal[newVal.index(after: atIdx)...])
-                                if !afterAt.contains("]") {
-                                    mentionFilter = afterAt
-                                    if !showMentionDropdown { showMentionDropdown = true }
-                                    return
-                                }
+                        if let atIdx = newVal.lastIndex(of: "@") {
+                            let afterAt = String(newVal[newVal.index(after: atIdx)...])
+                            if !afterAt.contains("]") && !afterAt.contains(" ") {
+                                mentionFilter = afterAt
+                                if !showMentionDropdown { showMentionDropdown = true }
+                                return
                             }
-                            if showMentionDropdown { showMentionDropdown = false }
                         }
+                        if showMentionDropdown { showMentionDropdown = false }
                     }
 
                 AssistantSendButton(
@@ -552,15 +557,14 @@ private struct MiniChatInputBar: View {
             .assistantGlassInputChrome(
                 theme: theme,
                 cornerRadius: composerMetrics.cornerRadius,
-                isActive: isFocused || canSend || isProcessing
+                isActive: isFocused || canSend || isProcessing || !activeContextAttachments.isEmpty
             )
         }
         .overlay(alignment: .topLeading) {
-            if showMentionDropdown, let manifest = AppBootstrap.shared?.ambientManifest {
+            if showMentionDropdown {
                 NotesMentionDropdown(
-                    entries: manifest.entries,
-                    filter: mentionFilter,
-                    onSelect: insertMention
+                    results: mentionSearchResults,
+                    onSelect: attachMentionReference
                 )
                 .frame(maxWidth: 280)
                 .background {
@@ -572,6 +576,36 @@ private struct MiniChatInputBar: View {
                 .offset(y: -8)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
+        }
+    }
+
+    private var composerAttachmentChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(activeContextAttachments) { attachment in
+                    HStack(spacing: 4) {
+                        Image(systemName: iconForContextAttachment(attachment))
+                            .font(.epSmall)
+                        Text(attachment.title)
+                            .font(.epSmall)
+                            .lineLimit(1)
+                        Button {
+                            threadState.removeActiveThreadContextAttachment(attachment.id)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.epSmall)
+                                .foregroundStyle(theme.mutedForeground.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .foregroundStyle(theme.mutedForeground.opacity(0.7))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
         }
     }
 
@@ -601,7 +635,7 @@ private struct MiniChatInputBar: View {
     // MARK: - Active Page
 
     private func activePage() -> SDPage? {
-        guard let pageId = notesUI.activePageId else { return nil }
+        guard let pageId = explicitScopedPageID else { return nil }
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         return try? modelContext.fetch(descriptor).first
     }
@@ -619,7 +653,7 @@ private struct MiniChatInputBar: View {
         guard let pages = try? modelContext.fetch(descriptor) else { return [] }
         return MiniChatVaultSearch.snippets(
             query: query,
-            activeId: notesUI.activePageId,
+            activeId: explicitScopedPageID,
             pages: pages.map { page in
                 MiniChatSearchCandidate(
                     page: page,
@@ -807,28 +841,35 @@ private struct MiniChatInputBar: View {
                 let page = activePage()
                 let currentThread = threadState.activeThread()
 
-                let notesContext: ChatCoordinator.NotesContextResolution
-                if ChatCoordinator.queryContainsExplicitNoteContext(trimmed) {
-                    notesContext = await ChatCoordinator.resolveNotesContext(
-                        query: trimmed,
-                        manifest: AppBootstrap.shared?.ambientManifest,
-                        loadedNoteIds: Set(currentThread?.loadedNoteIds ?? []),
-                        loadedNoteTitles: currentThread?.loadedNoteTitles ?? [],
-                        findNotesByTitle: { title in
-                            await vaultSync.findNotesByTitle(title)
-                        },
-                        fetchNoteBodies: { ids in
-                            await vaultSync.fetchNoteBodies(ids: ids)
+                let notesContext = await ChatCoordinator.resolveAttachedContext(
+                    query: trimmed,
+                    attachments: currentThread?.contextAttachments ?? [],
+                    manifest: AppBootstrap.shared?.ambientManifest,
+                    loadedNoteIds: Set(currentThread?.loadedNoteIds ?? []),
+                    loadedNoteTitles: currentThread?.loadedNoteTitles ?? [],
+                    findNotesByTitle: { title in
+                        await vaultSync.findNotesByTitle(title)
+                    },
+                    fetchNoteBodies: { ids in
+                        await vaultSync.fetchNoteBodies(ids: ids)
+                    },
+                    fetchChatMessages: { [self] chatID in
+                        await MainActor.run {
+                            if let thread = threadState.chatThreads.first(where: { $0.id == chatID }) {
+                                return thread.messages
+                            }
+                            let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
+                            guard let chat = try? modelContext.fetch(descriptor).first else { return [] }
+                            return chat.sortedMessages.map { message in
+                                AssistantMessage(
+                                    role: message.role == "user" ? .user : .assistant,
+                                    content: message.content,
+                                    createdAt: message.createdAt
+                                )
+                            }
                         }
-                    )
-                } else {
-                    notesContext = ChatCoordinator.NotesContextResolution(
-                        context: nil,
-                        cleanedQuery: trimmed,
-                        loadedNoteIds: [],
-                        loadedNoteTitles: []
-                    )
-                }
+                    }
+                )
                 threadState.updateActiveThreadLoadedNotes(
                     ids: notesContext.loadedNoteIds,
                     titles: notesContext.loadedNoteTitles
@@ -879,7 +920,8 @@ private struct MiniChatInputBar: View {
                 threadState.addThreadMessage(AssistantMessage(
                     role: .assistant,
                     content: final.isEmpty ? "No response generated." : final,
-                    loadedNoteTitles: notesContext.loadedNoteTitles
+                    loadedNoteTitles: notesContext.loadedNoteTitles,
+                    contextAttachments: currentThread?.contextAttachments
                 ))
 
             } catch is CancellationError {
@@ -964,19 +1006,51 @@ private struct MiniChatInputBar: View {
         return cleaned
     }
 
-    private func insertMention(_ choice: NoteMentionChoice) {
-        let token: String
+    private func attachMentionReference(_ choice: ComposerReferenceChoice) {
         switch choice {
-        case .allNotes:
-            token = ChatCoordinator.allNotesMentionToken
-        case .entry(let entry):
-            token = entry.title
+        case .note(let noteChoice):
+            switch noteChoice {
+            case .allNotes:
+                threadState.addActiveThreadContextAttachment(
+                    ContextAttachment(
+                        kind: .allNotes,
+                        targetId: ChatCoordinator.allNotesMentionToken,
+                        title: "All Notes",
+                        subtitle: "Vault"
+                    )
+                )
+            case .entry(let entry):
+                threadState.addActiveThreadContextAttachment(
+                    ContextAttachment(
+                        kind: .note,
+                        targetId: entry.pageId,
+                        title: entry.title,
+                        subtitle: entry.folderName
+                    )
+                )
+            }
+        case .chat(let result):
+            threadState.addActiveThreadContextAttachment(result.attachment)
         }
         if let atIdx = text.lastIndex(of: "@") {
-            text = String(text[text.startIndex..<atIdx]) + "@[\(token)] "
+            text = String(text[text.startIndex..<atIdx])
         }
         showMentionDropdown = false
         mentionFilter = ""
+    }
+
+    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
+        switch attachment.kind {
+        case .note: "doc.text"
+        case .chat: "bubble.left.and.bubble.right"
+        case .allNotes: "books.vertical"
+        }
+    }
+
+    private func recentChats() -> [SDChat] {
+        var descriptor = SDChat.recentChatsDescriptor
+        descriptor.fetchLimit = 20
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
     private func cancelStream() {

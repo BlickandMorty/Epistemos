@@ -143,6 +143,8 @@ nonisolated struct LocalRuntimeConditions: Sendable, Equatable {
 
 nonisolated enum LocalModelSelectionSurface: String, Sendable, Equatable {
     case mainChat
+    case miniChat
+    case commandPalette
     case noteChat
     case graph
 }

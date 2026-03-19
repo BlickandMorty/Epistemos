@@ -22,6 +22,7 @@ struct ChatInputBar: View {
 
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
+    @Environment(\.modelContext) private var modelContext
 
     @State private var text = ""
     @State private var isFocused = false
@@ -35,14 +36,45 @@ struct ChatInputBar: View {
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private let composerMetrics = AssistantComposerMetrics.mainChat
     private let placeholderText = "Ask anything…"
+    private var mentionSearchResults: ChatCoordinator.ReferenceSearchResults {
+        ChatCoordinator.searchReferenceResults(
+            filter: mentionFilter,
+            manifest: AppBootstrap.shared?.ambientManifest,
+            chats: recentChats(),
+            threads: AppBootstrap.shared?.threadState.chatThreads ?? []
+        )
+    }
     private var composerIsActive: Bool {
-        isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty
+        isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty || !chat.pendingContextAttachments.isEmpty
     }
     var body: some View {
         VStack(spacing: 0) {
             // Pending attachments preview — collapsed to 0 height when empty
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
+                    ForEach(chat.pendingContextAttachments) { attachment in
+                        HStack(spacing: 4) {
+                            Image(systemName: iconForContextAttachment(attachment))
+                                .font(.epSmall)
+                            Text(attachment.title)
+                                .font(.epSmall)
+                                .lineLimit(1)
+                            Button {
+                                chat.removeContextAttachment(attachment.id)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.epSmall)
+                                    .foregroundStyle(theme.mutedForeground.opacity(0.5))
+                            }
+                            .buttonStyle(NativeToolbarButtonStyle())
+                            .accessibilityLabel("Remove context attachment")
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .glassEffect(.regular.interactive(), in: Capsule())
+                        .foregroundStyle(theme.mutedForeground.opacity(0.7))
+                    }
+
                     ForEach(chat.pendingAttachments) { att in
                         HStack(spacing: 4) {
                             Image(systemName: iconForType(att.type))
@@ -70,9 +102,9 @@ struct ChatInputBar: View {
                 .padding(.top, 6)
                 .padding(.bottom, 4)
             }
-            .frame(height: chat.pendingAttachments.isEmpty ? 0 : nil)
+            .frame(height: (chat.pendingAttachments.isEmpty && chat.pendingContextAttachments.isEmpty) ? 0 : nil)
             .clipped()
-            .animation(Motion.quick, value: chat.pendingAttachments.count)
+            .animation(Motion.quick, value: chat.pendingAttachments.count + chat.pendingContextAttachments.count)
 
             VStack(alignment: .leading, spacing: 0) {
                 composerTextArea
@@ -100,12 +132,10 @@ struct ChatInputBar: View {
             isActive: composerIsActive
         )
         .overlay(alignment: .topLeading) {
-            // Notes Mode @-mention dropdown — floats above the input bar
-            if showMentionDropdown, let manifest = AppBootstrap.shared?.ambientManifest {
+            if showMentionDropdown {
                 NotesMentionDropdown(
-                    entries: manifest.entries,
-                    filter: mentionFilter,
-                    onSelect: insertMention
+                    results: mentionSearchResults,
+                    onSelect: attachMentionReference
                 )
                 .frame(maxWidth: 320)
                 .background {
@@ -156,17 +186,15 @@ struct ChatInputBar: View {
         .frame(minHeight: ChatComposerInputMetrics.minHeight, alignment: .topLeading)
         .layoutPriority(1)
         .onChange(of: text) { _, newVal in
-            if AppBootstrap.shared?.ambientManifest != nil {
-                if let atIdx = newVal.lastIndex(of: "@") {
-                    let afterAt = String(newVal[newVal.index(after: atIdx)...])
-                    if !afterAt.contains("]") {
-                        mentionFilter = afterAt
-                        if !showMentionDropdown { showMentionDropdown = true }
-                        return
-                    }
+            if let atIdx = newVal.lastIndex(of: "@") {
+                let afterAt = String(newVal[newVal.index(after: atIdx)...])
+                if !afterAt.contains("]") && !afterAt.contains(" ") {
+                    mentionFilter = afterAt
+                    if !showMentionDropdown { showMentionDropdown = true }
+                    return
                 }
-                if showMentionDropdown { showMentionDropdown = false }
             }
+            if showMentionDropdown { showMentionDropdown = false }
         }
     }
 
@@ -244,6 +272,14 @@ struct ChatInputBar: View {
         }
     }
 
+    private func iconForContextAttachment(_ attachment: ContextAttachment) -> String {
+        switch attachment.kind {
+        case .note: "doc.text"
+        case .chat: "bubble.left.and.bubble.right"
+        case .allNotes: "books.vertical"
+        }
+    }
+
     private func submitCurrentText() {
         guard !trimmedText.isEmpty, !isProcessing else { return }
         onSubmit(trimmedText)
@@ -253,20 +289,43 @@ struct ChatInputBar: View {
         mentionFilter = ""
     }
 
-    private func insertMention(_ choice: NoteMentionChoice) {
-        let token: String
+    private func attachMentionReference(_ choice: ComposerReferenceChoice) {
         switch choice {
-        case .allNotes:
-            token = ChatCoordinator.allNotesMentionToken
-        case .entry(let entry):
-            token = entry.title
+        case .note(let noteChoice):
+            switch noteChoice {
+            case .allNotes:
+                chat.addContextAttachment(
+                    ContextAttachment(
+                        kind: .allNotes,
+                        targetId: ChatCoordinator.allNotesMentionToken,
+                        title: "All Notes",
+                        subtitle: "Vault"
+                    )
+                )
+            case .entry(let entry):
+                chat.addContextAttachment(
+                    ContextAttachment(
+                        kind: .note,
+                        targetId: entry.pageId,
+                        title: entry.title,
+                        subtitle: entry.folderName
+                    )
+                )
+            }
+        case .chat(let result):
+            chat.addContextAttachment(result.attachment)
         }
-        // Replace the @filter text with @[Title]
         if let atIdx = text.lastIndex(of: "@") {
-            text = String(text[text.startIndex..<atIdx]) + "@[\(token)] "
+            text = String(text[text.startIndex..<atIdx])
         }
         showMentionDropdown = false
         mentionFilter = ""
+    }
+
+    private func recentChats() -> [SDChat] {
+        var descriptor = SDChat.recentChatsDescriptor
+        descriptor.fetchLimit = 20
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 }
 

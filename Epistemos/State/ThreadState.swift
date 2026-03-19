@@ -58,4 +58,20 @@ final class ThreadState {
         chatThreads[idx].loadedNoteIds = Array(ids).sorted()
         chatThreads[idx].loadedNoteTitles = titles
     }
+
+    func updateActiveThreadContextAttachments(_ attachments: [ContextAttachment]) {
+        guard let idx = chatThreads.firstIndex(where: { $0.id == activeThreadId }) else { return }
+        chatThreads[idx].contextAttachments = attachments
+    }
+
+    func addActiveThreadContextAttachment(_ attachment: ContextAttachment) {
+        guard let idx = chatThreads.firstIndex(where: { $0.id == activeThreadId }) else { return }
+        if chatThreads[idx].contextAttachments.contains(attachment) { return }
+        chatThreads[idx].contextAttachments.append(attachment)
+    }
+
+    func removeActiveThreadContextAttachment(_ attachmentID: String) {
+        guard let idx = chatThreads.firstIndex(where: { $0.id == activeThreadId }) else { return }
+        chatThreads[idx].contextAttachments.removeAll { $0.id == attachmentID }
+    }
 }

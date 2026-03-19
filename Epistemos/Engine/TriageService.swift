@@ -535,6 +535,8 @@ nonisolated struct InferencePolicyEngine {
         switch profile.surface {
         case .mainChat:
             break
+        case .miniChat, .commandPalette:
+            score += 0.01
         case .noteChat:
             score += 0.03
         case .graph:
@@ -1238,7 +1240,7 @@ final class TriageService {
     ) -> Int {
         let divisor: Double
         switch surface {
-        case .mainChat:
+        case .mainChat, .miniChat, .commandPalette:
             divisor = 2_400
         case .noteChat:
             divisor = 1_800

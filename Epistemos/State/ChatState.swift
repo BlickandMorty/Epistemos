@@ -17,6 +17,7 @@ final class ChatState {
     var activeChatId: String?
     var chatTitle: String?
     var pendingAttachments: [FileAttachment] = []
+    var pendingContextAttachments: [ContextAttachment] = []
     var reasoningText = ""
     var reasoningDuration: Double?
     var isReasoning = false
@@ -101,6 +102,7 @@ final class ChatState {
         showLanding = false
         loadedNoteIds = []
         loadedNoteTitles = []
+        pendingContextAttachments = []
         vaultBriefingManifest = nil
     }
 
@@ -171,6 +173,7 @@ final class ChatState {
         // Capture Notes Mode flags for this message, then reset for next turn
         let briefing = isCurrentVaultBriefing
         let noteTitles = loadedNoteTitles.isEmpty ? nil : loadedNoteTitles
+        let contextAttachments = pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
         isCurrentVaultBriefing = false
         loadedNoteTitles = []
 
@@ -187,7 +190,8 @@ final class ChatState {
             reasoningText: reasoning,
             reasoningDuration: thinkDuration,
             isVaultBriefing: briefing,
-            loadedNoteTitles: noteTitles
+            loadedNoteTitles: noteTitles,
+            contextAttachments: contextAttachments
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id) rawAnalysisLen=\(dualMessage?.rawAnalysis.count ?? 0)")
         messages.append(assistantMessage)
@@ -322,6 +326,15 @@ final class ChatState {
         pendingAttachments.append(file)
     }
     func removeAttachment(_ id: String) { pendingAttachments.removeAll { $0.id == id } }
+
+    func addContextAttachment(_ attachment: ContextAttachment) {
+        guard !pendingContextAttachments.contains(attachment) else { return }
+        pendingContextAttachments.append(attachment)
+    }
+
+    func removeContextAttachment(_ id: String) {
+        pendingContextAttachments.removeAll { $0.id == id }
+    }
 
     // MARK: - Background Enrichment
 

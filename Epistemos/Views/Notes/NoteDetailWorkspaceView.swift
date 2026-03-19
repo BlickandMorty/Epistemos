@@ -1596,46 +1596,52 @@ struct NoteDetailWorkspaceView: View {
             Divider().opacity(0.3)
 
             // Follow-up + actions
-            HStack(spacing: 8) {
-                @Bindable var chat = noteChatState
-                TextField("Follow up\u{2026}", text: $chat.inputText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .onSubmit {
-                        noteChatState.submitQuery(
-                            noteChatState.inputText,
-                            triageService: triageService
-                        )
-                    }
-                    .disabled(noteChatState.isStreaming)
+            VStack(alignment: .leading, spacing: 8) {
+                if let attachment = noteChatContextAttachment {
+                    noteChatAttachmentChip(attachment)
+                }
 
-                if noteChatState.isStreaming {
-                    Button {
-                        noteChatState.stopStreaming()
-                    } label: {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(ui.theme.error)
-                    }
-                    .buttonStyle(.plain)
-                } else if !noteChatState.responseText.isEmpty {
-                    Button {
-                        noteChatState.acceptResponse()
-                    } label: {
-                        Label("Insert", systemImage: "text.insert")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(ui.theme.accent)
+                HStack(spacing: 8) {
+                    @Bindable var chat = noteChatState
+                    TextField("Follow up\u{2026}", text: $chat.inputText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .onSubmit {
+                            noteChatState.submitQuery(
+                                noteChatState.inputText,
+                                triageService: triageService
+                            )
+                        }
+                        .disabled(noteChatState.isStreaming)
 
-                    Button {
-                        noteChatState.discardResponse()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11))
+                    if noteChatState.isStreaming {
+                        Button {
+                            noteChatState.stopStreaming()
+                        } label: {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(ui.theme.error)
+                        }
+                        .buttonStyle(.plain)
+                    } else if !noteChatState.responseText.isEmpty {
+                        Button {
+                            noteChatState.acceptResponse()
+                        } label: {
+                            Label("Insert", systemImage: "text.insert")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(ui.theme.accent)
+
+                        Button {
+                            noteChatState.discardResponse()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(ui.theme.textTertiary)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(ui.theme.textTertiary)
                 }
             }
             .padding(.horizontal, 12)
@@ -1657,6 +1663,9 @@ struct NoteDetailWorkspaceView: View {
     private func toolbarChatField(width: CGFloat) -> some View {
         HStack(spacing: 6) {
             @Bindable var chat = noteChatState
+            if let attachment = noteChatContextAttachment {
+                noteChatAttachmentChip(attachment, compact: true)
+            }
             Menu {
                 Button {
                     inference.setRoutingMode(.auto)
@@ -1718,6 +1727,32 @@ struct NoteDetailWorkspaceView: View {
         ) {
             toolbarResponseDropdown
         }
+    }
+
+    private var noteChatContextAttachment: ContextAttachment? {
+        guard let page = pages.first else { return nil }
+        return ContextAttachment(
+            kind: .note,
+            targetId: page.id,
+            title: page.title.isEmpty ? "Untitled" : page.title
+        )
+    }
+
+    private func noteChatAttachmentChip(_ attachment: ContextAttachment, compact: Bool = false) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: compact ? "pin.fill" : "doc.text")
+                .font(.system(size: compact ? 8 : 10, weight: .medium))
+            Text(attachment.title)
+                .font(.system(size: compact ? 10 : 11, weight: .medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(ui.theme.accent)
+        .padding(.horizontal, compact ? 8 : 10)
+        .padding(.vertical, compact ? 4 : 5)
+        .background(
+            Capsule()
+                .fill(ui.theme.accent.opacity(0.1))
+        )
     }
 
     // MARK: - More Menu
