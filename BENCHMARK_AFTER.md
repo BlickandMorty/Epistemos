@@ -65,3 +65,54 @@ Measured result:
 ## Interpretation
 
 This validates the next consumer-side reduction after the summary accessor change. It reduces FFI chatter and repeated validation, but it still does not remove Swift-owned string/array materialization.
+
+## Staged outline watcher after incremental refresh
+
+Command:
+
+```bash
+cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml \
+  benchmark_knowledge_core_incremental_outline_refresh \
+  -- --ignored --nocapture
+```
+
+Improved path:
+
+- one resident staged Cozo `DbInstance`
+- staged mutations mirror into resident relations instead of rebuilding Cozo per query
+- matched outline subscriptions update only touched row identities
+
+Measured result:
+
+- incremental watcher refresh: `69896 ns/tx`
+- control full-rerun path: `6445119 ns/tx`
+- measured speedup vs full rerun: `92.21x`
+
+## Interpretation
+
+This is the biggest gain from the Phase 2/3 pass. It validates that the staged watcher hot path no longer pays the old “full Cozo rebuild + full query rerun” tax on matching updates.
+
+## Live BTK property watcher after incremental refresh
+
+Command:
+
+```bash
+cargo test --manifest-path /Users/jojo/Epistemos/graph-engine/Cargo.toml \
+  benchmark_property_subscription_incremental_refresh \
+  -- --ignored --nocapture
+```
+
+Improved path:
+
+- matched BTK property subscriptions now refresh directly from touched property facts
+- full Cozo reruns are skipped for those matched property updates
+
+Measured result:
+
+- incremental watcher refresh: `6828786 ns/tx`
+- control full-rerun path: `12790724 ns/tx`
+- measured speedup vs full rerun: `1.87x`
+
+## Interpretation
+
+This is a smaller but still real win in the live BTK helper path. It is intentionally narrower than the staged-store win because linked-reference traversal subscriptions still use the old full-rerun path.

@@ -711,8 +711,7 @@ impl Simulation {
         let alpha_target = self.effective_alpha_target_at(std::time::Instant::now());
 
         // 1. Alpha decay — converges toward alpha_target.
-        self.params.alpha +=
-            (alpha_target - self.params.alpha) * self.params.alpha_decay;
+        self.params.alpha += (alpha_target - self.params.alpha) * self.params.alpha_decay;
 
         // Clamp alpha to a small floor instead of letting it reach zero.
         const ALPHA_FLOOR: f32 = 0.0001;
@@ -1846,8 +1845,10 @@ mod tests {
         let hold_deadline = sim
             .interaction_motion_until
             .expect("interaction motion hold should set a deadline");
-        let active_target = sim.effective_alpha_target_at(hold_deadline - std::time::Duration::from_secs(1));
-        let expired_target = sim.effective_alpha_target_at(hold_deadline + std::time::Duration::from_secs(1));
+        let active_target =
+            sim.effective_alpha_target_at(hold_deadline - std::time::Duration::from_secs(1));
+        let expired_target =
+            sim.effective_alpha_target_at(hold_deadline + std::time::Duration::from_secs(1));
 
         assert!((active_target - 0.015).abs() < f32::EPSILON);
         assert_eq!(expired_target, 0.0);
@@ -1862,7 +1863,8 @@ mod tests {
         let hold_deadline = sim
             .interaction_motion_until
             .expect("interaction motion hold should set a deadline");
-        let effective = sim.effective_alpha_target_at(hold_deadline - std::time::Duration::from_secs(1));
+        let effective =
+            sim.effective_alpha_target_at(hold_deadline - std::time::Duration::from_secs(1));
 
         assert!((effective - 0.03).abs() < f32::EPSILON);
     }

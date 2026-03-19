@@ -31,6 +31,9 @@ What changed during this audit:
 - The staged Swift row drain path now uses one validated batched row accessor per section instead of one row accessor call per row.
 - The staged FFI now exposes explicit fail-fast backpressure policy and transport stats.
 - The app icon/build regression caused by project resource drift was fixed; `AppIcon.icon` is back in the asset pipeline and the macOS build emits `AppIcon.icns` again.
+- The staged knowledge-core store now keeps one resident in-memory Cozo instance instead of rebuilding Cozo on every query.
+- The staged knowledge-core watcher path now refreshes touched rows incrementally for outline/task/property/link subscriptions.
+- The live BTK query kernel now refreshes outline/property subscriptions incrementally instead of always rerunning full Cozo queries on matching updates.
 
 ## What is live today
 
@@ -190,7 +193,17 @@ Status:
    - staged batched row accessor path: `3807 ns/payload`
    - measured speedup: `3.28x`
 
-10. Full app test execution is still blocked by unrelated test-target compile debt:
+10. A third staged hot path improved materially:
+   - staged outline watcher incremental refresh: `69896 ns/tx`
+   - staged control full-rerun path: `6445119 ns/tx`
+   - measured speedup: `92.21x`
+
+11. One live BTK helper hot path improved measurably:
+   - BTK property watcher incremental refresh: `6828786 ns/tx`
+   - BTK control full-rerun path: `12790724 ns/tx`
+   - measured speedup: `1.87x`
+
+12. Full app test execution is still blocked by unrelated test-target compile debt:
    - `LandingExperienceSettingsTests.swift` is fixed now
    - broader Swift 6 migration failures remain in unrelated test files such as `ConcurrencyEdgeCaseTests.swift` and `ConcurrencyStressTests.swift`
    - the app build succeeds, but isolated `KnowledgeCoreBridgeTests` still cannot run under `xcodebuild test` until the broader test target compiles again

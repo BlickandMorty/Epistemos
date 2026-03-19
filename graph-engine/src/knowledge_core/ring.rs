@@ -256,12 +256,7 @@ impl SharedRingBuffer {
         self.header().tail.store(tail, Ordering::Release);
     }
 
-    pub fn write_frame(
-        &self,
-        kind: u16,
-        version: u64,
-        payload: &[u8],
-    ) -> Result<(), RingError> {
+    pub fn write_frame(&self, kind: u16, version: u64, payload: &[u8]) -> Result<(), RingError> {
         if payload.len() > self.slot_payload_bytes {
             return Err(RingError::PayloadTooLarge {
                 len: payload.len(),
@@ -370,7 +365,10 @@ impl SharedRingBuffer {
     }
 
     fn debug_assert_layout(&self) {
-        debug_assert_eq!(std::mem::align_of::<CachePaddedAtomicU64>(), CACHE_LINE_BYTES);
+        debug_assert_eq!(
+            std::mem::align_of::<CachePaddedAtomicU64>(),
+            CACHE_LINE_BYTES
+        );
         debug_assert_eq!(size_of::<CachePaddedAtomicU64>(), CACHE_LINE_BYTES);
         debug_assert_eq!(offset_of!(SharedRingHeader, head), 0);
         debug_assert_eq!(offset_of!(SharedRingHeader, tail), CACHE_LINE_BYTES);
@@ -379,7 +377,10 @@ impl SharedRingBuffer {
             self.layout().tail_offset,
             size_of::<CachePaddedAtomicU64>() as u64
         );
-        debug_assert_eq!(self.layout().slot_payload_offset, size_of::<SlotHeader>() as u64);
+        debug_assert_eq!(
+            self.layout().slot_payload_offset,
+            size_of::<SlotHeader>() as u64
+        );
         debug_assert_eq!(self.slots_offset % SLOT_ALIGNMENT, 0);
         debug_assert_eq!(self.slot_stride % SLOT_ALIGNMENT, 0);
     }
@@ -419,7 +420,8 @@ mod tests {
     #[test]
     fn slot_write_roundtrips() {
         let ring = SharedRingBuffer::new(4, 256).expect("ring should map");
-        ring.write_frame(7, 42, b"hello").expect("frame should write");
+        ring.write_frame(7, 42, b"hello")
+            .expect("frame should write");
 
         assert_eq!(ring.load_head(), 1);
         assert_eq!(ring.load_tail(), 0);
@@ -496,7 +498,10 @@ mod tests {
         };
 
         let result = ring.write_archived_frame(diff.kind.code(), diff.tx_id, &diff);
-        assert!(matches!(result, Err(super::RingError::PayloadTooLarge { .. })));
+        assert!(matches!(
+            result,
+            Err(super::RingError::PayloadTooLarge { .. })
+        ));
         assert_eq!(ring.load_head(), 0);
         assert_eq!(ring.load_tail(), 0);
     }
@@ -504,7 +509,8 @@ mod tests {
     #[test]
     fn full_ring_returns_error_without_overwrite() {
         let ring = SharedRingBuffer::new(1, 256).expect("ring should map");
-        ring.write_frame(1, 1, b"first").expect("first write should fit");
+        ring.write_frame(1, 1, b"first")
+            .expect("first write should fit");
         let result = ring.write_frame(2, 2, b"second");
         assert!(matches!(result, Err(super::RingError::Full)));
 
@@ -518,7 +524,8 @@ mod tests {
     #[test]
     fn advancing_tail_recovers_capacity_after_full() {
         let ring = SharedRingBuffer::new(1, 256).expect("ring should map");
-        ring.write_frame(1, 1, b"first").expect("first write should fit");
+        ring.write_frame(1, 1, b"first")
+            .expect("first write should fit");
         assert!(matches!(
             ring.write_frame(2, 2, b"second"),
             Err(super::RingError::Full)

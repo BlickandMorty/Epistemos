@@ -256,9 +256,11 @@ fn with_subscription_payload<T>(
     }
     // SAFETY: Caller provides a stable byte slice produced by graph_engine_btk_*_subscription().
     let bytes = unsafe { std::slice::from_raw_parts(data, len as usize) };
-    let payload =
-        rkyv::access::<crate::block_kernel::query_kernel::ArchivedSubscriptionPayload, rkyv::rancor::Error>(bytes)
-            .ok()?;
+    let payload = rkyv::access::<
+        crate::block_kernel::query_kernel::ArchivedSubscriptionPayload,
+        rkyv::rancor::Error,
+    >(bytes)
+    .ok()?;
     Some(f(payload))
 }
 
@@ -324,7 +326,10 @@ fn kc_finish_result(core: &mut KnowledgeCore, result: Result<(), KnowledgeCoreEr
     }
 }
 
-fn kc_finish_subscription(core: &mut KnowledgeCore, result: Result<u64, KnowledgeCoreError>) -> u64 {
+fn kc_finish_subscription(
+    core: &mut KnowledgeCore,
+    result: Result<u64, KnowledgeCoreError>,
+) -> u64 {
     match result {
         Ok(subscription_id) => {
             core.clear_last_error();
@@ -1738,11 +1743,7 @@ pub extern "C" fn graph_engine_free_bytes(buffer: GraphEngineByteBuffer) {
     }
     // SAFETY: Buffer originates from Vec::into_raw_parts-equivalent in byte_buffer_from_vec.
     unsafe {
-        let _ = Vec::from_raw_parts(
-            buffer.ptr,
-            buffer.len as usize,
-            buffer.capacity as usize,
-        );
+        let _ = Vec::from_raw_parts(buffer.ptr, buffer.len as usize, buffer.capacity as usize);
     }
 }
 
@@ -2000,7 +2001,13 @@ pub extern "C" fn graph_engine_kc_insert_block(
             "insert_block uses nil or a non-empty parent id",
         );
     }
-    let result = core.insert_block(page_id, block_id, parent, index as usize, ffi_cstr!(content));
+    let result = core.insert_block(
+        page_id,
+        block_id,
+        parent,
+        index as usize,
+        ffi_cstr!(content),
+    );
     kc_finish_result(core, result)
 }
 
@@ -2134,18 +2141,17 @@ pub extern "C" fn graph_engine_kc_payload_tx_id(data: *const u8, len: u64) -> u6
 
 /// Read the archived subscription id from a knowledge-core payload.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_kc_payload_subscription_id(
-    data: *const u8,
-    len: u64,
-) -> u64 {
+pub extern "C" fn graph_engine_kc_payload_subscription_id(data: *const u8, len: u64) -> u64 {
     with_knowledge_payload(data, len, |payload| payload.subscription_id.to_native()).unwrap_or(0)
 }
 
 /// Read the archived subscription kind code from a knowledge-core payload.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_kc_payload_kind(data: *const u8, len: u64) -> u16 {
-    with_knowledge_payload(data, len, |payload| archived_knowledge_kind_code(&payload.kind))
-        .unwrap_or(u16::MAX)
+    with_knowledge_payload(data, len, |payload| {
+        archived_knowledge_kind_code(&payload.kind)
+    })
+    .unwrap_or(u16::MAX)
 }
 
 /// Read all archived summary metadata in one validated pass.
@@ -2165,7 +2171,8 @@ pub extern "C" fn graph_engine_kc_payload_summary(
         reset_knowledge_summary(out_summary);
         out_summary.tx_id = payload.tx_id.to_native();
         out_summary.subscription_id = payload.subscription_id.to_native();
-        out_summary.kind = graph_engine_kc_subscription_kind(archived_knowledge_kind_code(&payload.kind));
+        out_summary.kind =
+            graph_engine_kc_subscription_kind(archived_knowledge_kind_code(&payload.kind));
         out_summary.added_count = payload.added.len() as u32;
         out_summary.updated_count = payload.updated.len() as u32;
         out_summary.removed_count = payload.removed.len() as u32;
@@ -2176,11 +2183,7 @@ pub extern "C" fn graph_engine_kc_payload_summary(
 
 /// Row count for section 0=added, 1=updated, 2=removed.
 #[unsafe(no_mangle)]
-pub extern "C" fn graph_engine_kc_payload_row_count(
-    data: *const u8,
-    len: u64,
-    section: u8,
-) -> u32 {
+pub extern "C" fn graph_engine_kc_payload_row_count(data: *const u8, len: u64, section: u8) -> u32 {
     with_knowledge_payload(data, len, |payload| match section {
         0 => payload.added.len(),
         1 => payload.updated.len(),
@@ -2364,15 +2367,13 @@ pub extern "C" fn graph_engine_btk_latest_subscription_seq(engine: *mut Engine) 
 /// Read the archived payload version from a BTK subscription buffer.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_payload_version(data: *const u8, len: u64) -> u64 {
-    with_subscription_payload(data, len, |payload| payload.version.to_native())
-        .unwrap_or(0)
+    with_subscription_payload(data, len, |payload| payload.version.to_native()).unwrap_or(0)
 }
 
 /// Read the archived payload kind from a BTK subscription buffer.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_btk_payload_kind(data: *const u8, len: u64) -> u8 {
-    with_subscription_payload(data, len, |payload| payload.kind)
-        .unwrap_or(0)
+    with_subscription_payload(data, len, |payload| payload.kind).unwrap_or(0)
 }
 
 /// Row count for section 0=added, 1=updated, 2=removed.
@@ -2383,12 +2384,12 @@ pub extern "C" fn graph_engine_btk_payload_row_count(
     section: u8,
 ) -> u32 {
     with_subscription_payload(data, len, |payload| match section {
-            0 => payload.added.len(),
-            1 => payload.updated.len(),
-            2 => payload.removed.len(),
-            _ => 0,
-        } as u32)
-        .unwrap_or(0)
+        0 => payload.added.len(),
+        1 => payload.updated.len(),
+        2 => payload.removed.len(),
+        _ => 0,
+    } as u32)
+    .unwrap_or(0)
 }
 
 /// Read one row from section 0=added, 1=updated, 2=removed.
@@ -2421,7 +2422,10 @@ pub extern "C" fn graph_engine_btk_payload_row(
         fill_string_slice(&mut out_row.parent_id, archived_row.parent_id.as_str());
         fill_string_slice(&mut out_row.target_id, archived_row.target_id.as_str());
         fill_string_slice(&mut out_row.content, archived_row.content.as_str());
-        fill_string_slice(&mut out_row.property_key, archived_row.property_key.as_str());
+        fill_string_slice(
+            &mut out_row.property_key,
+            archived_row.property_key.as_str(),
+        );
         fill_string_slice(
             &mut out_row.property_value,
             archived_row.property_value.as_str(),
@@ -2512,11 +2516,11 @@ mod knowledge_core_ffi_tests {
     use super::{
         GraphEngineRingLayout, GraphEngineSharedMemoryRegion, GraphEngineStringSlice,
         KnowledgePayloadSummaryFFI, KnowledgeQueryRowFFI, graph_engine_kc_backpressure_policy,
-        graph_engine_kc_create, graph_engine_kc_destroy,
-        graph_engine_kc_ingest_document, graph_engine_kc_last_error_code,
-        graph_engine_kc_last_error_message, graph_engine_kc_move_block, graph_engine_kc_payload_kind,
-        graph_engine_kc_payload_row, graph_engine_kc_payload_row_count, graph_engine_kc_payload_rows,
-        graph_engine_kc_payload_summary, graph_engine_kc_payload_subscription_id,
+        graph_engine_kc_create, graph_engine_kc_destroy, graph_engine_kc_ingest_document,
+        graph_engine_kc_last_error_code, graph_engine_kc_last_error_message,
+        graph_engine_kc_move_block, graph_engine_kc_payload_kind, graph_engine_kc_payload_row,
+        graph_engine_kc_payload_row_count, graph_engine_kc_payload_rows,
+        graph_engine_kc_payload_subscription_id, graph_engine_kc_payload_summary,
         graph_engine_kc_payload_tx_id, graph_engine_kc_ring_head, graph_engine_kc_ring_layout,
         graph_engine_kc_ring_region, graph_engine_kc_subscribe_outline,
         graph_engine_kc_subscription_kind, graph_engine_kc_transport_stats,
@@ -2549,7 +2553,10 @@ mod knowledge_core_ffi_tests {
         assert_eq!(graph_engine_kc_ring_head(core), 2);
 
         let (initial_ptr, initial_len) = slot_payload(&region, &layout, 0);
-        assert_eq!(graph_engine_kc_payload_row_count(initial_ptr, initial_len, 0), 0);
+        assert_eq!(
+            graph_engine_kc_payload_row_count(initial_ptr, initial_len, 0),
+            0
+        );
 
         let (payload_ptr, payload_len) = slot_payload(&region, &layout, 1);
         let mut summary = empty_summary();
@@ -2570,7 +2577,10 @@ mod knowledge_core_ffi_tests {
         );
         let raw_kind = graph_engine_kc_payload_kind(payload_ptr, payload_len);
         assert_eq!(graph_engine_kc_subscription_kind(raw_kind), 0);
-        assert_eq!(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 0), 2);
+        assert_eq!(
+            graph_engine_kc_payload_row_count(payload_ptr, payload_len, 0),
+            2
+        );
 
         let mut first_row = empty_row();
         let mut second_row = empty_row();
@@ -2608,7 +2618,10 @@ mod knowledge_core_ffi_tests {
             decode(batched_rows[1].content),
         ];
         batched_contents.sort();
-        assert_eq!(batched_contents, ["First".to_string(), "Second".to_string()]);
+        assert_eq!(
+            batched_contents,
+            ["First".to_string(), "Second".to_string()]
+        );
 
         graph_engine_kc_destroy(core);
     }
@@ -2672,8 +2685,7 @@ mod knowledge_core_ffi_tests {
         assert!(!core.is_null());
 
         let page = CString::new("page-bench").expect("page id should be valid");
-        let text =
-            CString::new("- Alpha\n- Beta\n- Gamma\n- Delta").expect("text should be valid");
+        let text = CString::new("- Alpha\n- Beta\n- Gamma\n- Delta").expect("text should be valid");
         let subscription_id = graph_engine_kc_subscribe_outline(core, page.as_ptr());
         assert_ne!(subscription_id, 0);
         assert_eq!(
@@ -2689,12 +2701,27 @@ mod knowledge_core_ffi_tests {
         let start_scalar = Instant::now();
         for _ in 0..iterations {
             black_box(graph_engine_kc_payload_tx_id(payload_ptr, payload_len));
-            black_box(graph_engine_kc_payload_subscription_id(payload_ptr, payload_len));
+            black_box(graph_engine_kc_payload_subscription_id(
+                payload_ptr,
+                payload_len,
+            ));
             let raw_kind = black_box(graph_engine_kc_payload_kind(payload_ptr, payload_len));
             black_box(graph_engine_kc_subscription_kind(raw_kind));
-            black_box(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 0));
-            black_box(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 1));
-            black_box(graph_engine_kc_payload_row_count(payload_ptr, payload_len, 2));
+            black_box(graph_engine_kc_payload_row_count(
+                payload_ptr,
+                payload_len,
+                0,
+            ));
+            black_box(graph_engine_kc_payload_row_count(
+                payload_ptr,
+                payload_len,
+                1,
+            ));
+            black_box(graph_engine_kc_payload_row_count(
+                payload_ptr,
+                payload_len,
+                2,
+            ));
         }
         let scalar_elapsed = start_scalar.elapsed();
 
@@ -2799,8 +2826,7 @@ mod knowledge_core_ffi_tests {
         sequence: u64,
     ) -> (*const u8, u64) {
         let slot_index = (sequence % u64::from(layout.slot_count)) as usize;
-        let slot_offset =
-            layout.slots_offset as usize + (slot_index * layout.slot_stride as usize);
+        let slot_offset = layout.slots_offset as usize + (slot_index * layout.slot_stride as usize);
         let payload_offset = layout.slot_payload_offset as usize;
         // SAFETY: The region and layout come from `graph_engine_kc_ring_region/layout`
         // for the same core, and the test only reads published slots below `head`.

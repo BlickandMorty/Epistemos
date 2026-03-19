@@ -174,8 +174,8 @@ mod tests {
             42,
         );
 
-        let roundtrip = FractionalIndex::from_sort_key(&index.as_sort_key())
-            .expect("sort key should parse");
+        let roundtrip =
+            FractionalIndex::from_sort_key(&index.as_sort_key()).expect("sort key should parse");
         assert_eq!(roundtrip, index);
     }
 }

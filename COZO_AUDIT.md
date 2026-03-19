@@ -2,7 +2,7 @@
 
 ## Verdict
 
-`PARTIAL`, leaning `FAIL` for the design brief.
+`PARTIAL`
 
 Cozo is embedded and used in both the staged knowledge-core store and the live BTK query kernel. It is not the authoritative transactional knowledge core in the current runtime.
 
@@ -32,12 +32,16 @@ Staged knowledge-core:
   - `move_block`
   - `delete_block`
 - `tx_id` is incremented manually
-- Cozo is only used during query execution
+- Cozo now stays resident inside `DatalogStore`
+- page/block/task/property/link mutations are mirrored incrementally into the resident Cozo relations
+- full query execution still uses Cozo, but it no longer recreates a fresh DB or re-imports all rows on each refresh
 
 Live BTK:
 
 - source of truth is `BlockTree` + `OpLog`
-- Cozo is only used as a query helper over re-materialized rows
+- Cozo is still only used as a query helper over re-materialized rows
+- outline/property watcher refresh is now incremental and skips full Cozo reruns for those matched updates
+- linked-reference subscriptions still rerun full Cozo queries
 
 ## Schema coverage
 
@@ -58,21 +62,24 @@ Missing or incomplete compared with the brief:
 
 ## Hot-path findings
 
-1. Every staged query rebuilds a fresh in-memory Cozo DB:
-   - `DbInstance::new("mem", "", "")`
-   - relation creation script
-   - full row import
-   - query script execution
+1. Staged knowledge-core no longer rebuilds Cozo per query:
+   - one resident in-memory `DbInstance`
+   - staged mutations mirror into Cozo relations with `import_relations(...)`
+   - watcher refresh no longer pays relation creation/import cost on matched updates
 
-2. Every live BTK reactive query does the same pattern:
+2. Live BTK linked-reference queries still rebuild a fresh in-memory Cozo DB:
    - full row materialization
    - fresh in-memory Cozo DB
    - query
 
-3. String-heavy row materialization is pervasive:
+3. Live BTK outline/property initial subscribe and snapshot paths still rebuild Cozo:
+   - initial subscription snapshots still materialize into fresh Cozo relations
+   - historical snapshots still execute full queries over replayed pages
+
+4. String-heavy row materialization is pervasive:
    - cloned `String` values for page ids, block ids, content, property keys, values
 
-4. Query scripts are rebuilt dynamically in some cases:
+5. Query scripts are rebuilt dynamically in some cases:
    - property and link filters concatenate strings in staged store
 
 ## Error propagation
@@ -83,4 +90,4 @@ Missing or incomplete compared with the brief:
 
 ## Conclusion
 
-Cozo is present, but it is being used as an embedded query engine over separately materialized in-memory facts. That is a legitimate staging technique. It is not the architecture described in the brief.
+Cozo is now materially more honest in the staged path: one resident DB, relation-level incremental mirroring, and no per-refresh database rebuild. It is still not the authoritative persisted transactional core from the brief, and the live BTK path still relies on partial Cozo helper usage rather than a full Cozo-owned runtime.

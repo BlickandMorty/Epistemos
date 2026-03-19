@@ -73,7 +73,9 @@ impl KnowledgeCoreError {
     fn message(&self) -> String {
         match self {
             Self::Ring(RingError::MapFailed) => "shared-memory map failed".to_string(),
-            Self::Ring(RingError::InvalidCapacity) => "invalid shared-memory ring capacity".to_string(),
+            Self::Ring(RingError::InvalidCapacity) => {
+                "invalid shared-memory ring capacity".to_string()
+            }
             Self::Ring(RingError::PayloadTooLarge { len, max }) => {
                 format!("archived payload of {len} bytes exceeds slot capacity {max}")
             }
@@ -188,11 +190,7 @@ impl KnowledgeCore {
         self.last_error_message.clear();
     }
 
-    pub fn set_last_error(
-        &mut self,
-        code: KnowledgeCoreErrorCode,
-        message: impl Into<String>,
-    ) {
+    pub fn set_last_error(&mut self, code: KnowledgeCoreErrorCode, message: impl Into<String>) {
         self.last_error_code = code;
         self.last_error_message = message.into();
     }
@@ -216,10 +214,7 @@ impl KnowledgeCore {
         })
     }
 
-    pub fn subscribe_tasks(
-        &mut self,
-        page_id: Option<&str>,
-    ) -> Result<u64, KnowledgeCoreError> {
+    pub fn subscribe_tasks(&mut self, page_id: Option<&str>) -> Result<u64, KnowledgeCoreError> {
         self.subscribe(SubscriptionSpec::Tasks {
             page_id: page_id.map(std::string::ToString::to_string),
         })
@@ -306,9 +301,12 @@ impl KnowledgeCore {
     ) -> Result<(), KnowledgeCoreError> {
         let outline = self.outline_mut(page_id)?;
         let placement = outline.move_block(block_id, parent_id, index)?;
-        let diffs = self
-            .store
-            .move_block(page_id, block_id, Some(&placement.parent_id), &placement.order_key)?;
+        let diffs = self.store.move_block(
+            page_id,
+            block_id,
+            Some(&placement.parent_id),
+            &placement.order_key,
+        )?;
         self.publish_diffs(diffs)
     }
 
@@ -361,10 +359,8 @@ impl KnowledgeCore {
 
     fn outline_mut(&mut self, page_id: &str) -> Result<&mut OutlineCrdt, KnowledgeCoreError> {
         if !self.outlines.contains_key(page_id) {
-            self.outlines.insert(
-                page_id.to_string(),
-                OutlineCrdt::new(self.peer_id, 1)?,
-            );
+            self.outlines
+                .insert(page_id.to_string(), OutlineCrdt::new(self.peer_id, 1)?);
         }
         Ok(self
             .outlines

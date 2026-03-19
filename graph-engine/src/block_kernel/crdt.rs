@@ -60,7 +60,8 @@ impl MovableTreeIndex {
                 if self.would_cycle(*block_id, *new_parent) {
                     return false;
                 }
-                let order = self.order_for(*new_parent, *position as usize, *block_id, peer_id, seq);
+                let order =
+                    self.order_for(*new_parent, *position as usize, *block_id, peer_id, seq);
                 self.nodes.insert(
                     *block_id,
                     NodeState {
@@ -76,11 +77,9 @@ impl MovableTreeIndex {
                 let Some(removed) = self.nodes.remove(block_id) else {
                     return false;
                 };
-                for child in self
-                    .nodes
-                    .iter_mut()
-                    .filter_map(|(id, node)| (node.parent == Some(*block_id)).then_some((*id, node)))
-                {
+                for child in self.nodes.iter_mut().filter_map(|(id, node)| {
+                    (node.parent == Some(*block_id)).then_some((*id, node))
+                }) {
                     child.1.parent = removed.parent;
                 }
                 true
@@ -209,11 +208,9 @@ mod tests {
         let parent_b = BlockId::new();
 
         let mut index = MovableTreeIndex::default();
-        for (seq, block_id, parent) in [
-            (1, root, None),
-            (2, child, Some(root)),
-            (3, parent_b, None),
-        ] {
+        for (seq, block_id, parent) in
+            [(1, root, None), (2, child, Some(root)), (3, parent_b, None)]
+        {
             index.apply(
                 seq,
                 1,

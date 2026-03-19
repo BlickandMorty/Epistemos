@@ -1700,9 +1700,9 @@ fn physics_loop(sim: Arc<Mutex<Simulation>>, stop: Arc<AtomicBool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::Graph;
     use metal::foreign_types::ForeignType;
     use metal::{Device, MetalLayer};
-    use crate::types::Graph;
 
     fn make_graph() -> Graph {
         let mut g = Graph::new();

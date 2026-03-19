@@ -266,7 +266,9 @@ mod tests {
             .expect("root should insert");
         let snapshot = crdt.snapshot().expect("snapshot should export");
         let restored = OutlineCrdt::restore(&snapshot, 7, 1).expect("snapshot should restore");
-        let snapshot_again = restored.snapshot().expect("restored snapshot should export");
+        let snapshot_again = restored
+            .snapshot()
+            .expect("restored snapshot should export");
         assert!(!snapshot_again.is_empty());
     }
 

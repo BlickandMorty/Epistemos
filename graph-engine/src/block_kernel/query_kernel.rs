@@ -65,8 +65,10 @@ impl MaterializedPage {
             );
 
             for (key, value) in &block.properties {
-                page.properties
-                    .insert((block_id.clone(), key.clone()), property_value_string(value));
+                page.properties.insert(
+                    (block_id.clone(), key.clone()),
+                    property_value_string(value),
+                );
             }
 
             for target_id in parse_inline_links(&block.content) {
@@ -106,7 +108,9 @@ struct ChangedFacts {
     content: bool,
     links: bool,
     tasks: bool,
+    block_ids: HashSet<String>,
     property_keys: HashSet<String>,
+    property_rows: HashSet<(String, String)>,
 }
 
 impl ChangedFacts {
@@ -122,7 +126,13 @@ impl ChangedFacts {
                     .blocks
                     .values()
                     .any(|block| !block.task_marker.is_empty() || block.task_done),
+                block_ids: new.blocks.keys().cloned().collect(),
                 property_keys,
+                property_rows: new
+                    .properties
+                    .keys()
+                    .map(|(block_id, key)| (block_id.clone(), key.clone()))
+                    .collect(),
             };
         };
 
@@ -141,19 +151,24 @@ impl ChangedFacts {
                         || before.order_key != after.order_key
                     {
                         changed.structure = true;
+                        changed.block_ids.insert(block_id.clone());
                     }
                     if before.content != after.content {
                         changed.content = true;
+                        changed.block_ids.insert(block_id.clone());
                     }
-                    if before.task_marker != after.task_marker || before.task_done != after.task_done
+                    if before.task_marker != after.task_marker
+                        || before.task_done != after.task_done
                     {
                         changed.tasks = true;
+                        changed.block_ids.insert(block_id.clone());
                     }
                 }
                 _ => {
                     changed.structure = true;
                     changed.content = true;
                     changed.tasks = true;
+                    changed.block_ids.insert(block_id.clone());
                 }
             }
         }
@@ -180,7 +195,17 @@ impl ChangedFacts {
                 })
                 .collect();
             if before != after {
-                changed.property_keys.insert(key);
+                changed.property_keys.insert(key.clone());
+                changed.property_rows.extend(
+                    before
+                        .iter()
+                        .map(|(block_id, _)| (block_id.clone(), key.clone()))
+                        .chain(
+                            after
+                                .iter()
+                                .map(|(block_id, _)| (block_id.clone(), key.clone())),
+                        ),
+                );
             }
         }
 
@@ -334,6 +359,7 @@ pub struct BtkQueryKernel {
     tx_boundaries: Vec<TxBoundary>,
     next_subscription_id: u64,
     global_seq: u64,
+    query_runs: u64,
 }
 
 impl Default for BtkQueryKernel {
@@ -351,6 +377,7 @@ impl BtkQueryKernel {
             tx_boundaries: Vec::new(),
             next_subscription_id: 1,
             global_seq: 0,
+            query_runs: 0,
         }
     }
 
@@ -374,27 +401,56 @@ impl BtkQueryKernel {
             page_log_seq: log.latest_seq(),
         });
 
-        let current_pages = &self.pages;
-        for subscription in self.subscriptions.values_mut() {
-            if !subscription.dependencies.matches(page_id, &changed) {
-                continue;
-            }
+        let scheduled = self
+            .subscriptions
+            .iter()
+            .filter_map(|(subscription_id, subscription)| {
+                subscription
+                    .dependencies
+                    .matches(page_id, &changed)
+                    .then_some(*subscription_id)
+            })
+            .collect::<Vec<_>>();
+        let current_page = self
+            .pages
+            .get(page_id)
+            .expect("synced page should remain materialized");
 
-            let next_rows = execute_query(&subscription.spec, current_pages);
-            let next_map = next_rows
-                .into_iter()
-                .map(|row| (row.identity(), row))
-                .collect::<HashMap<_, _>>();
-            let payload = diff_rows(
+        for subscription_id in scheduled {
+            let Some(mut subscription) = self.subscriptions.remove(&subscription_id) else {
+                continue;
+            };
+
+            let payload = if let Some(payload) = refresh_subscription_incrementally(
                 self.global_seq,
-                subscription.spec.kind(),
-                &subscription.last_rows,
-                &next_map,
-            );
-            subscription.last_rows = next_map;
+                page_id,
+                current_page,
+                &subscription.spec,
+                &changed,
+                &mut subscription.last_rows,
+            ) {
+                payload
+            } else {
+                self.query_runs += 1;
+                let next_rows = execute_query(&subscription.spec, &self.pages);
+                let next_map = next_rows
+                    .into_iter()
+                    .map(|row| (row.identity(), row))
+                    .collect::<HashMap<_, _>>();
+                let payload = diff_rows(
+                    self.global_seq,
+                    subscription.spec.kind(),
+                    &subscription.last_rows,
+                    &next_map,
+                );
+                subscription.last_rows = next_map;
+                payload
+            };
+
             if let Some(bytes) = serialize_payload(&payload) {
                 subscription.pending_update = Some(bytes);
             }
+            self.subscriptions.insert(subscription_id, subscription);
         }
     }
 
@@ -467,6 +523,7 @@ impl BtkQueryKernel {
     }
 
     fn register_subscription(&mut self, spec: ReactiveQuerySpec) -> u64 {
+        self.query_runs += 1;
         let rows = execute_query(&spec, &self.pages);
         let last_rows = rows
             .iter()
@@ -492,6 +549,11 @@ impl BtkQueryKernel {
             },
         );
         subscription_id
+    }
+
+    #[cfg(test)]
+    fn query_runs(&self) -> u64 {
+        self.query_runs
     }
 
     fn replay_pages_at(
@@ -540,9 +602,10 @@ fn execute_query(
         ReactiveQuerySpec::PropertyEquals { key, value } => {
             execute_property_query(key, value.as_deref(), pages)
         }
-        ReactiveQuerySpec::LinkedReferences { block_id, max_depth } => {
-            execute_links_query(block_id, *max_depth, pages)
-        }
+        ReactiveQuerySpec::LinkedReferences {
+            block_id,
+            max_depth,
+        } => execute_links_query(block_id, *max_depth, pages),
     }
 }
 
@@ -586,23 +649,22 @@ fn execute_property_query(
     let rows = pages
         .values()
         .flat_map(|page| {
-            page.properties.iter().map(|((block_id, property_key), property_value)| {
-                vec![
-                    DataValue::from(page.blocks[block_id].page_id.clone()),
-                    DataValue::from(block_id.clone()),
-                    DataValue::from(property_key.clone()),
-                    DataValue::from(property_value.clone()),
-                ]
-            })
+            page.properties
+                .iter()
+                .map(|((block_id, property_key), property_value)| {
+                    vec![
+                        DataValue::from(page.blocks[block_id].page_id.clone()),
+                        DataValue::from(block_id.clone()),
+                        DataValue::from(property_key.clone()),
+                        DataValue::from(property_value.clone()),
+                    ]
+                })
         })
         .collect::<Vec<_>>();
     let db = property_db(rows);
     let mut params = BTreeMap::from([("prop_key".to_string(), DataValue::from(key.to_string()))]);
     let script = if let Some(value) = value {
-        params.insert(
-            "prop_value".to_string(),
-            DataValue::from(value.to_string()),
-        );
+        params.insert("prop_value".to_string(), DataValue::from(value.to_string()));
         "?[page, block, prop_key, prop_value] := *prop{page, block, prop_key, prop_value}, prop_key = $prop_key, prop_value = $prop_value"
     } else {
         "?[page, block, prop_key, prop_value] := *prop{page, block, prop_key, prop_value}, prop_key = $prop_key"
@@ -694,7 +756,7 @@ fn property_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
     db.run_default(
         ":create prop {page: String, block: String, prop_key: String => prop_value: String}",
     )
-        .expect("property relation should create");
+    .expect("property relation should create");
     if !rows.is_empty() {
         let mut to_import = BTreeMap::new();
         to_import.insert(
@@ -718,10 +780,8 @@ fn property_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
 
 fn links_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
     let db = DbInstance::new("mem", "", "").expect("Cozo mem DB should initialize");
-    db.run_default(
-        ":create link {page: String, block: String, target: String => ref_type: Int}",
-    )
-    .expect("link relation should create");
+    db.run_default(":create link {page: String, block: String, target: String, ref_type: Int}")
+        .expect("link relation should create");
     if !rows.is_empty() {
         let mut to_import = BTreeMap::new();
         to_import.insert(
@@ -741,6 +801,190 @@ fn links_db(rows: Vec<Vec<DataValue>>) -> DbInstance {
             .expect("link relation should import");
     }
     db
+}
+
+fn refresh_subscription_incrementally(
+    version: u64,
+    page_id: &str,
+    current_page: &MaterializedPage,
+    spec: &ReactiveQuerySpec,
+    changed: &ChangedFacts,
+    last_rows: &mut HashMap<String, QueryResultRow>,
+) -> Option<SubscriptionPayload> {
+    match spec {
+        ReactiveQuerySpec::Outline {
+            page_id: filter_page_id,
+        } => (filter_page_id == page_id).then(|| {
+            let mut added = Vec::new();
+            let mut updated = Vec::new();
+            let mut removed = Vec::new();
+            for block_id in &changed.block_ids {
+                let previous_identity = last_rows.iter().find_map(|(identity, row)| {
+                    (row.block_id == *block_id).then_some(identity.clone())
+                });
+                let previous = previous_identity
+                    .as_ref()
+                    .and_then(|identity| last_rows.remove(identity));
+                let next = current_page.blocks.get(block_id).map(outline_result_row);
+                apply_incremental_query_row_change(
+                    last_rows,
+                    previous,
+                    next,
+                    &mut added,
+                    &mut updated,
+                    &mut removed,
+                );
+            }
+            Some(payload_from_delta(
+                version,
+                spec.kind(),
+                added,
+                updated,
+                removed,
+            ))
+        })?,
+        ReactiveQuerySpec::PropertyEquals { key, value } => {
+            let mut added = Vec::new();
+            let mut updated = Vec::new();
+            let mut removed = Vec::new();
+            for (block_id, property_key) in &changed.property_rows {
+                if property_key != key {
+                    continue;
+                }
+                let identity = property_identity(page_id, block_id, property_key);
+                let previous = last_rows.remove(&identity);
+                let next = current_page
+                    .properties
+                    .get(&(block_id.clone(), property_key.clone()))
+                    .and_then(|property_value| {
+                        value.as_deref().map_or(
+                            Some(property_result_row(
+                                page_id,
+                                block_id,
+                                property_key,
+                                property_value,
+                            )),
+                            |filter_value| {
+                                (property_value == filter_value).then(|| {
+                                    property_result_row(
+                                        page_id,
+                                        block_id,
+                                        property_key,
+                                        property_value,
+                                    )
+                                })
+                            },
+                        )
+                    });
+                apply_incremental_query_row_change(
+                    last_rows,
+                    previous,
+                    next,
+                    &mut added,
+                    &mut updated,
+                    &mut removed,
+                );
+            }
+            Some(payload_from_delta(
+                version,
+                spec.kind(),
+                added,
+                updated,
+                removed,
+            ))
+        }
+        ReactiveQuerySpec::LinkedReferences { .. } => None,
+    }
+}
+
+fn payload_from_delta(
+    version: u64,
+    kind: u8,
+    mut added: Vec<QueryResultRow>,
+    mut updated: Vec<QueryResultRow>,
+    mut removed: Vec<QueryResultRow>,
+) -> SubscriptionPayload {
+    added.sort_by_key(QueryResultRow::identity);
+    updated.sort_by_key(QueryResultRow::identity);
+    removed.sort_by_key(QueryResultRow::identity);
+    SubscriptionPayload {
+        version,
+        kind,
+        added,
+        updated,
+        removed,
+    }
+}
+
+fn apply_incremental_query_row_change(
+    last_rows: &mut HashMap<String, QueryResultRow>,
+    previous: Option<QueryResultRow>,
+    next: Option<QueryResultRow>,
+    added: &mut Vec<QueryResultRow>,
+    updated: &mut Vec<QueryResultRow>,
+    removed: &mut Vec<QueryResultRow>,
+) {
+    match (previous, next) {
+        (None, None) => {}
+        (None, Some(next_row)) => {
+            last_rows.insert(next_row.identity(), next_row.clone());
+            added.push(next_row);
+        }
+        (Some(previous_row), None) => {
+            removed.push(previous_row);
+        }
+        (Some(previous_row), Some(next_row)) => {
+            if previous_row != next_row {
+                updated.push(next_row.clone());
+            }
+            last_rows.insert(next_row.identity(), next_row);
+        }
+    }
+}
+
+fn outline_result_row(block: &MaterializedBlock) -> QueryResultRow {
+    QueryResultRow {
+        page_id: block.page_id.clone(),
+        block_id: block.block_id.clone(),
+        parent_id: block.parent_id.clone(),
+        target_id: String::new(),
+        content: block.content.clone(),
+        property_key: String::new(),
+        property_value: String::new(),
+        task_marker: block.task_marker.clone(),
+        order_key: block.order_key.clone(),
+        depth: block.depth,
+        ref_type: 0,
+        task_done: block.task_done,
+        hop_count: 0,
+    }
+}
+
+fn property_identity(page_id: &str, block_id: &str, property_key: &str) -> String {
+    format!("{page_id}|{block_id}|||{property_key}|0")
+}
+
+fn property_result_row(
+    page_id: &str,
+    block_id: &str,
+    property_key: &str,
+    property_value: &str,
+) -> QueryResultRow {
+    QueryResultRow {
+        page_id: page_id.to_string(),
+        block_id: block_id.to_string(),
+        parent_id: String::new(),
+        target_id: String::new(),
+        content: String::new(),
+        property_key: property_key.to_string(),
+        property_value: property_value.to_string(),
+        task_marker: String::new(),
+        order_key: String::new(),
+        depth: 0,
+        ref_type: 0,
+        task_done: false,
+        hop_count: 0,
+    }
 }
 
 fn rows_from_outline(result: Option<NamedRows>) -> Vec<QueryResultRow> {
@@ -914,8 +1158,9 @@ fn property_value_string(value: &PropertyValue) -> String {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::time::Instant;
 
-    use super::{BtkQueryKernel, SubscriptionPayload};
+    use super::{BtkQueryKernel, QueryResultRow, ReactiveQuerySpec, SubscriptionPayload};
     use crate::block_kernel::op::{BlockId, Op, PropertyValue};
     use crate::block_kernel::{BlockTree, OpLog};
 
@@ -966,6 +1211,46 @@ mod tests {
             .expect("payload should deserialize")
     }
 
+    fn seed_large_page(block_count: usize) -> (BlockTree, OpLog, BlockId, BlockId) {
+        let page = BlockId::new();
+        let target = BlockId::new();
+        let mut tree = BlockTree::new();
+        let mut log = OpLog::new();
+
+        let root = Op::InsertBlock {
+            block_id: page,
+            parent_id: None,
+            position: 0,
+            content: "Root".into(),
+            depth: 0,
+        };
+        tree.apply(&root);
+        log.append(root);
+
+        for idx in 0..block_count {
+            let block_id = if idx == 0 { target } else { BlockId::new() };
+            let insert = Op::InsertBlock {
+                block_id,
+                parent_id: Some(page),
+                position: idx as u32,
+                content: format!("Child {idx}"),
+                depth: 1,
+            };
+            tree.apply(&insert);
+            log.append(insert);
+
+            let property = Op::SetProperty {
+                block_id,
+                key: "priority".into(),
+                value: PropertyValue::String(if idx % 2 == 0 { "high" } else { "low" }.into()),
+            };
+            tree.apply(&property);
+            log.append(property);
+        }
+
+        (tree, log, page, target)
+    }
+
     #[test]
     fn property_subscription_only_reruns_for_matching_keys() {
         let (mut tree, mut log, _, child) = seed_page();
@@ -1004,6 +1289,32 @@ mod tests {
     }
 
     #[test]
+    fn matching_property_updates_do_not_reexecute_full_query() {
+        let (mut tree, mut log, _, child) = seed_page();
+        let mut kernel = BtkQueryKernel::new();
+        kernel.sync_page("page-a", &tree, &log);
+        let sub_id = kernel.subscribe_property_equals("priority", Some("high"));
+        let _ = kernel.take_update(sub_id);
+        let query_runs_before = kernel.query_runs();
+
+        let related = Op::SetProperty {
+            block_id: child,
+            key: "priority".into(),
+            value: PropertyValue::String("low".into()),
+        };
+        tree.apply(&related);
+        log.append(related);
+        kernel.sync_page("page-a", &tree, &log);
+
+        assert_eq!(kernel.query_runs(), query_runs_before);
+        let updated = kernel
+            .take_update(sub_id)
+            .expect("matching property update should still emit diff");
+        let updated_payload = decode(&updated);
+        assert_eq!(updated_payload.removed.len(), 1);
+    }
+
+    #[test]
     fn snapshot_replays_historical_property_state() {
         let (mut tree, mut log, _, child) = seed_page();
         let mut kernel = BtkQueryKernel::new();
@@ -1022,7 +1333,11 @@ mod tests {
         kernel.sync_page("page-a", &tree, &log);
 
         let snapshot = kernel
-            .snapshot_bytes(sub_id, version_one, &HashMap::from([("page-a".into(), log)]))
+            .snapshot_bytes(
+                sub_id,
+                version_one,
+                &HashMap::from([("page-a".into(), log)]),
+            )
             .expect("snapshot bytes should exist");
         let payload = decode(&snapshot);
         assert_eq!(payload.added.len(), 1);
@@ -1055,6 +1370,82 @@ mod tests {
             .take_update(sub_id)
             .expect("link update should rerun subscription");
         let payload = decode(&updated);
-        assert!(payload.added.iter().any(|row| row.target_id == new_target.to_uuid_string()));
+        assert!(
+            payload
+                .added
+                .iter()
+                .any(|row| row.target_id == new_target.to_uuid_string())
+        );
+    }
+
+    #[test]
+    #[ignore = "benchmark"]
+    fn benchmark_property_subscription_incremental_refresh() {
+        const BLOCK_COUNT: usize = 400;
+        const ITERATIONS: usize = 300;
+
+        let (mut tree, mut log, _, target) = seed_large_page(BLOCK_COUNT);
+        let mut kernel = BtkQueryKernel::new();
+        kernel.sync_page("page-a", &tree, &log);
+        let sub_id = kernel.subscribe_property_equals("priority", Some("high"));
+        let _ = kernel.take_update(sub_id);
+
+        let incremental_start = Instant::now();
+        for idx in 0..ITERATIONS {
+            let value = if idx % 2 == 0 { "low" } else { "high" };
+            let op = Op::SetProperty {
+                block_id: target,
+                key: "priority".into(),
+                value: PropertyValue::String(value.into()),
+            };
+            tree.apply(&op);
+            log.append(op);
+            kernel.sync_page("page-a", &tree, &log);
+            let _ = kernel.take_update(sub_id);
+        }
+        let incremental_elapsed = incremental_start.elapsed();
+
+        let (mut tree, mut log, _, target) = seed_large_page(BLOCK_COUNT);
+        let mut control = BtkQueryKernel::new();
+        control.sync_page("page-a", &tree, &log);
+        let spec = ReactiveQuerySpec::PropertyEquals {
+            key: "priority".to_string(),
+            value: Some("high".to_string()),
+        };
+        let initial_rows = super::execute_query(&spec, &control.pages);
+        let mut last_rows = initial_rows
+            .into_iter()
+            .map(|row| (row.identity(), row))
+            .collect::<HashMap<String, QueryResultRow>>();
+
+        let full_rerun_start = Instant::now();
+        for idx in 0..ITERATIONS {
+            let value = if idx % 2 == 0 { "low" } else { "high" };
+            let op = Op::SetProperty {
+                block_id: target,
+                key: "priority".into(),
+                value: PropertyValue::String(value.into()),
+            };
+            tree.apply(&op);
+            log.append(op);
+            control.sync_page("page-a", &tree, &log);
+            let next_rows = super::execute_query(&spec, &control.pages);
+            let next_map = next_rows
+                .into_iter()
+                .map(|row| (row.identity(), row))
+                .collect::<HashMap<_, _>>();
+            let _ = super::diff_rows(control.global_seq, spec.kind(), &last_rows, &next_map);
+            last_rows = next_map;
+        }
+        let full_rerun_elapsed = full_rerun_start.elapsed();
+
+        let incremental_ns = incremental_elapsed.as_nanos() as f64 / ITERATIONS as f64;
+        let full_rerun_ns = full_rerun_elapsed.as_nanos() as f64 / ITERATIONS as f64;
+        println!(
+            "btk_property_watcher incremental_ns_per_tx={} full_rerun_ns_per_tx={} speedup_x={:.2}",
+            incremental_ns.round() as u64,
+            full_rerun_ns.round() as u64,
+            full_rerun_ns / incremental_ns
+        );
     }
 }

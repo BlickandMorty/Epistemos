@@ -103,9 +103,9 @@ impl SearchIndex {
         let start = self
             .sorted_label_indices
             .partition_point(|&entry_index| self.entries[entry_index].label_lower.as_str() < label);
-        let end = self
-            .sorted_label_indices
-            .partition_point(|&entry_index| self.entries[entry_index].label_lower.as_str() <= label);
+        let end = self.sorted_label_indices.partition_point(|&entry_index| {
+            self.entries[entry_index].label_lower.as_str() <= label
+        });
         start..end
     }
 
@@ -443,7 +443,10 @@ mod tests {
         ]);
 
         let results = idx.search("shared label", 10);
-        let uuids: Vec<&str> = results.iter().map(|(uuid, _, _, _)| uuid.as_str()).collect();
+        let uuids: Vec<&str> = results
+            .iter()
+            .map(|(uuid, _, _, _)| uuid.as_str())
+            .collect();
 
         assert_eq!(results.len(), 2);
         assert!(uuids.contains(&"a"));
@@ -460,7 +463,10 @@ mod tests {
         ]);
 
         let results = idx.search("quantm note", 10);
-        let uuids: Vec<&str> = results.iter().map(|(uuid, _, _, _)| uuid.as_str()).collect();
+        let uuids: Vec<&str> = results
+            .iter()
+            .map(|(uuid, _, _, _)| uuid.as_str())
+            .collect();
 
         assert_eq!(results.len(), 2);
         assert!(uuids.contains(&"a"));

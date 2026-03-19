@@ -66,15 +66,9 @@ pub enum QueryRow {
 impl QueryRow {
     pub fn identity(&self) -> String {
         match self {
-            Self::Block(row) => format!(
-                "block|{}|{}|{}",
-                row.page_id, row.block_id, row.parent_id
-            ),
+            Self::Block(row) => format!("block|{}|{}|{}", row.page_id, row.block_id, row.parent_id),
             Self::Task(row) => format!("task|{}|{}", row.page_id, row.block_id),
-            Self::Property(row) => format!(
-                "prop|{}|{}|{}",
-                row.page_id, row.block_id, row.key
-            ),
+            Self::Property(row) => format!("prop|{}|{}|{}", row.page_id, row.block_id, row.key),
             Self::Link(row) => format!(
                 "link|{}|{}|{}|{}",
                 row.page_id, row.block_id, row.target_id, row.ref_type

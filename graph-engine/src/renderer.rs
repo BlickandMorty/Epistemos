@@ -23,7 +23,7 @@ struct NodeInstance {
     radius: f32,        // offset 8
     z: f32,             // offset 12 — depth for perspective/parallax
     color: [f32; 4],    // offset 16
-    face_type: f32,     // offset 32 — 0=none, 1=note..8=block, -1=face feature, -2/-3=highlight rings
+    face_type: f32, // offset 32 — 0=none, 1=note..8=block, -1=face feature, -2/-3=highlight rings
     _pad: [f32; 3], // offset 36 — alignment padding to 48 bytes (Metal float4 → 16-byte struct stride)
 }
 
@@ -1967,10 +1967,7 @@ impl Renderer {
     }
 
     #[inline]
-    fn classic_edge_instance_color(
-        &self,
-        edge: &crate::ecs::EdgeComponent,
-    ) -> [f32; 4] {
+    fn classic_edge_instance_color(&self, edge: &crate::ecs::EdgeComponent) -> [f32; 4] {
         let mut color = self.edge_color(edge.edge_type);
         color[3] *= BASE_NODE_ALPHA;
         color
@@ -2454,8 +2451,14 @@ impl Renderer {
                 match edge_geometry_kind {
                     EdgeGeometryKind::Curve => {
                         let ideal_length = self.link_distance / edge.weight.max(0.01);
-                        let (c0, c1) =
-                            string_edge_control_points(p0, p1, [0.0, 0.0], [0.0, 0.0], ideal_length, curvature);
+                        let (c0, c1) = string_edge_control_points(
+                            p0,
+                            p1,
+                            [0.0, 0.0],
+                            [0.0, 0.0],
+                            ideal_length,
+                            curvature,
+                        );
                         if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
                             continue;
                         }
@@ -2905,7 +2908,8 @@ impl Renderer {
         }
 
         self.edge_highlight_flag_scratch.clear();
-        self.edge_highlight_flag_scratch.reserve(self.edge_instance_count);
+        self.edge_highlight_flag_scratch
+            .reserve(self.edge_instance_count);
 
         if self.highlight.active {
             for pair in &self.edge_highlight_pairs {
@@ -3387,8 +3391,12 @@ impl Renderer {
             if self.impact_intensity > 0.0 {
                 self.impact_intensity = (self.impact_intensity - dt * 3.0).max(0.0);
             }
-            let uniforms =
-                self.uniforms_for_draw(viewport_width as f32, viewport_height as f32, elapsed, pulse_t);
+            let uniforms = self.uniforms_for_draw(
+                viewport_width as f32,
+                viewport_height as f32,
+                elapsed,
+                pulse_t,
+            );
             unsafe {
                 let ptr = self.uniform_buf.contents() as *mut Uniforms;
                 *ptr = uniforms;
@@ -3602,9 +3610,11 @@ mod tests {
 
         renderer.prev_camera_offset = [-48.0, 24.0];
         renderer.prev_camera_zoom = 0.88;
-        assert!(renderer
-            .current_view_bounds(Renderer::CLASSIC_CULL_PADDING_PIXELS)
-            .is_none());
+        assert!(
+            renderer
+                .current_view_bounds(Renderer::CLASSIC_CULL_PADDING_PIXELS)
+                .is_none()
+        );
 
         renderer.prev_camera_offset = renderer.camera_offset;
         renderer.prev_camera_zoom = renderer.camera_zoom;
@@ -3879,7 +3889,14 @@ mod tests {
         let mut graph = crate::types::Graph::new();
         let center_x = 160.0;
         let center_y = 120.0;
-        graph.add_node("hub".to_string(), center_x, center_y, 0, 6, "Hub".to_string());
+        graph.add_node(
+            "hub".to_string(),
+            center_x,
+            center_y,
+            0,
+            6,
+            "Hub".to_string(),
+        );
         for index in 0..leaf_count {
             let angle = std::f32::consts::TAU * index as f32 / leaf_count as f32;
             let x = center_x + radius * angle.cos();
@@ -3913,7 +3930,10 @@ mod tests {
         renderer.rebuild_highlight_flags(&world);
         renderer.rebuild_edge_highlight_flags();
 
-        assert_eq!(renderer.debug_counters.classic_buffer_rebuilds, baseline_rebuilds);
+        assert_eq!(
+            renderer.debug_counters.classic_buffer_rebuilds,
+            baseline_rebuilds
+        );
         assert_eq!(renderer.debug_counters.upload_graph_calls, baseline_uploads);
         assert_eq!(renderer.debug_counters.node_highlight_uploads, 1);
         assert_eq!(renderer.debug_counters.edge_highlight_uploads, 1);
@@ -4026,10 +4046,12 @@ mod tests {
         renderer.set_viewport_size(1280, 720);
         renderer.update_positions(&world);
 
-        assert!(renderer
-            .classic_velocity_scratch
-            .iter()
-            .all(|velocity| *velocity == [0.0, 0.0]));
+        assert!(
+            renderer
+                .classic_velocity_scratch
+                .iter()
+                .all(|velocity| *velocity == [0.0, 0.0])
+        );
     }
 
     #[test]
@@ -4070,7 +4092,8 @@ mod tests {
             &world,
         );
 
-        let highlight_start = renderer.glow_count + renderer.node_count + renderer.face_feature_count;
+        let highlight_start =
+            renderer.glow_count + renderer.node_count + renderer.face_feature_count;
         let ptr = renderer
             .node_instance_buf
             .as_ref()
@@ -4122,6 +4145,8 @@ mod tests {
 
         assert_eq!(renderer.debug_counters.last_total_nodes, 8);
         assert!(renderer.debug_counters.last_visible_nodes < 8);
-        assert!(renderer.debug_counters.last_visible_edges < renderer.debug_counters.last_total_edges);
+        assert!(
+            renderer.debug_counters.last_visible_edges < renderer.debug_counters.last_total_edges
+        );
     }
 }

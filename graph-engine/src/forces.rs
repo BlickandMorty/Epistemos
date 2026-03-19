@@ -1673,9 +1673,7 @@ mod tests {
         let mut grid = rustc_hash::FxHashMap::default();
         let mut keys = Vec::new();
 
-        force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys,
-        );
+        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
 
         // Grid should be reusable
         assert!(grid.is_empty() || grid.values().all(|v| v.is_empty()));
@@ -1691,14 +1689,10 @@ mod tests {
         let mut grid = rustc_hash::FxHashMap::default();
         let mut keys = Vec::new();
 
-        force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys,
-        );
+        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
         let first_capacity = keys.capacity();
 
-        force_collide_with_full_scratch(
-            &mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys,
-        );
+        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
 
         assert!(first_capacity > 0);
         assert_eq!(keys.capacity(), first_capacity);

@@ -1,10 +1,10 @@
 pub mod block_tree;
 pub mod crdt;
-pub mod query_kernel;
 pub mod fractional_index;
 pub mod op;
 pub mod op_log;
 pub mod projection;
+pub mod query_kernel;
 pub mod translator;
 
 pub use block_tree::BlockTree;

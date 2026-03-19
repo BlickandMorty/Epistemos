@@ -1014,7 +1014,11 @@ mod tests {
                 t,
                 c
             );
-            assert!(c[3] >= 0.82, "Light mode alpha should stay high for type {}", t);
+            assert!(
+                c[3] >= 0.82,
+                "Light mode alpha should stay high for type {}",
+                t
+            );
         }
     }
 
