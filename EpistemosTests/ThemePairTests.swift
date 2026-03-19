@@ -616,6 +616,26 @@ struct ThemePairTests {
         )
     }
 
+    @Test("Composer height scaling respects larger landing search typography")
+    func composerHeightScalingRespectsLargerLandingSearchTypography() {
+        let standardMin = ChatComposerInputMetrics.minHeight(for: ChatComposerInputMetrics.fontSize)
+        let landingMin = ChatComposerInputMetrics.minHeight(for: LandingSearchLayout.inputFontSize)
+        let landingMax = ChatComposerInputMetrics.maxHeight(for: LandingSearchLayout.inputFontSize)
+
+        #expect(landingMin > standardMin)
+        #expect(LandingSearchLayout.inputMinHeight == landingMin)
+        #expect(
+            ChatComposerInputMetrics.clampedHeight(for: 0, fontSize: LandingSearchLayout.inputFontSize)
+                == landingMin
+        )
+        #expect(
+            ChatComposerInputMetrics.clampedHeight(
+                for: landingMax + 40,
+                fontSize: LandingSearchLayout.inputFontSize
+            ) == landingMax
+        )
+    }
+
     @Test("Assistant input chrome stays glass-first with restored depth")
     func assistantInputChromePrefersNativeGlass() {
         let input = AssistantGlassInputMetrics.default

@@ -347,14 +347,29 @@ enum ChatComposerInputMetrics {
     static let maxVisibleLines = 8
     static let verticalInset: CGFloat = 4
     static let placeholderTopPadding: CGFloat = 4
-    static let lineHeight = ceil(
-        NSLayoutManager().defaultLineHeight(for: NSFont.systemFont(ofSize: fontSize))
-    )
-    static let minHeight = lineHeight + (verticalInset * 2)
-    static let maxHeight = (lineHeight * CGFloat(maxVisibleLines)) + (verticalInset * 2)
+    static let minimumHeightPadding: CGFloat = 4
+    static let lineHeight = lineHeight(for: fontSize)
+    static let minHeight = minHeight(for: fontSize)
+    static let maxHeight = maxHeight(for: fontSize)
+
+    static func lineHeight(for fontSize: CGFloat) -> CGFloat {
+        ceil(NSLayoutManager().defaultLineHeight(for: NSFont.systemFont(ofSize: fontSize)))
+    }
+
+    static func minHeight(for fontSize: CGFloat) -> CGFloat {
+        lineHeight(for: fontSize) + (verticalInset * 2) + minimumHeightPadding
+    }
+
+    static func maxHeight(for fontSize: CGFloat) -> CGFloat {
+        (lineHeight(for: fontSize) * CGFloat(maxVisibleLines)) + (verticalInset * 2)
+    }
 
     static func clampedHeight(for contentHeight: CGFloat) -> CGFloat {
-        min(max(contentHeight, minHeight), maxHeight)
+        clampedHeight(for: contentHeight, fontSize: fontSize)
+    }
+
+    static func clampedHeight(for contentHeight: CGFloat, fontSize: CGFloat) -> CGFloat {
+        min(max(contentHeight, minHeight(for: fontSize)), maxHeight(for: fontSize))
     }
 }
 
@@ -408,7 +423,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         textView.importsGraphics = false
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
-        textView.minSize = NSSize(width: 0, height: fontSize + (ChatComposerInputMetrics.verticalInset * 2))
+        textView.minSize = NSSize(width: 0, height: ChatComposerInputMetrics.minHeight(for: fontSize))
         textView.maxSize = NSSize(
             width: CGFloat.greatestFiniteMagnitude,
             height: CGFloat.greatestFiniteMagnitude
@@ -511,14 +526,17 @@ struct ChatComposerTextEditor: NSViewRepresentable {
             layoutManager.ensureLayout(for: textContainer)
             let usedRect = layoutManager.usedRect(for: textContainer)
             let contentHeight = ceil(usedRect.height + (textView.textContainerInset.height * 2))
-            let clampedHeight = ChatComposerInputMetrics.clampedHeight(for: contentHeight)
+            let clampedHeight = ChatComposerInputMetrics.clampedHeight(
+                for: contentHeight,
+                fontSize: parent.fontSize
+            )
 
             if parent.height != clampedHeight {
                 parent.height = clampedHeight
             }
 
             textView.enclosingScrollView?.hasVerticalScroller =
-                contentHeight > (ChatComposerInputMetrics.maxHeight + 0.5)
+                contentHeight > (ChatComposerInputMetrics.maxHeight(for: parent.fontSize) + 0.5)
         }
     }
 }

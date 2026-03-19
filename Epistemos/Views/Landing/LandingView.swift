@@ -28,14 +28,16 @@ enum LandingShortcutDisplay {
 }
 
 enum LandingSearchLayout {
-    static let maxWidth: CGFloat = 640
+    static let maxWidth: CGFloat = 720
     static let topRowSpacing: CGFloat = 12
     static let controlRowSpacing: CGFloat = 8
     static let controlRowTopPadding: CGFloat = 10
-    static let horizontalPadding: CGFloat = 20
-    static let topPadding: CGFloat = 18
-    static let bottomPadding: CGFloat = 14
+    static let horizontalPadding: CGFloat = 22
+    static let topPadding: CGFloat = 20
+    static let bottomPadding: CGFloat = 18
     static let cornerRadius: CGFloat = 24
+    static let inputFontSize: CGFloat = 22
+    static let inputMinHeight: CGFloat = ChatComposerInputMetrics.minHeight(for: inputFontSize)
 }
 
 enum LandingCoordinateSpace {
@@ -74,7 +76,7 @@ struct LandingView: View {
     // Inline search state
     @State private var showingSearch = false
     @State private var landingSearchText = ""
-    @State private var landingComposerHeight: CGFloat = 32 // Better initial height for 22px font
+    @State private var landingComposerHeight: CGFloat = LandingSearchLayout.inputMinHeight
     @State private var isLandingSearchFocused = false
     @State private var showLandingMentionDropdown = false
     @State private var landingMentionFilter = ""
@@ -303,7 +305,7 @@ struct LandingView: View {
                  .allowsHitTesting(false)
 
             VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     ComposerContextShortcutBar(
                         noteLabel: "Chat with Note",
                         vaultLabel: "Chat with Vault",
@@ -363,13 +365,14 @@ struct LandingView: View {
                                     height: $landingComposerHeight,
                                     isFocused: $isLandingSearchFocused,
                                     theme: theme,
-                                    fontSize: 22,
+                                    fontSize: LandingSearchLayout.inputFontSize,
                                     isProcessing: false
                                 ) {
                                     submitLandingSearch()
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(height: landingComposerHeight)
+                                .frame(minHeight: LandingSearchLayout.inputMinHeight, alignment: .topLeading)
                                 .onChange(of: landingSearchText) { _, newValue in
                                     if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
                                         landingMentionFilter = filter
@@ -383,7 +386,7 @@ struct LandingView: View {
 
                                 if landingSearchText.isEmpty {
                                     Text("Ask Epistemos\u{2026}")
-                                        .font(.system(size: 22, weight: .regular))
+                                        .font(.system(size: LandingSearchLayout.inputFontSize, weight: .regular))
                                         .foregroundStyle(theme.mutedForeground.opacity(0.55))
                                         .padding(.top, ChatComposerInputMetrics.verticalInset)
                                         .allowsHitTesting(false)
@@ -397,7 +400,7 @@ struct LandingView: View {
                             if !landingSearchText.isEmpty {
                                 Button {
                                     landingSearchText = ""
-                                    landingComposerHeight = ChatComposerInputMetrics.minHeight
+                                    landingComposerHeight = LandingSearchLayout.inputMinHeight
                                     showLandingMentionDropdown = false
                                     landingMentionFilter = ""
                                 } label: {
@@ -522,7 +525,7 @@ struct LandingView: View {
     private func dismissLandingSearch() {
         showingSearch = false
         landingSearchText = ""
-        landingComposerHeight = ChatComposerInputMetrics.minHeight
+        landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
         showLandingMentionDropdown = false
         landingMentionFilter = ""

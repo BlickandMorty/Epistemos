@@ -473,7 +473,7 @@ struct AssistantComposerMetrics: Equatable {
         cornerRadius: 22,
         borderWidth: 0.62,
         horizontalPadding: 14,
-        verticalPadding: 10,
+        verticalPadding: 12,
         shadowRadius: 20,
         shadowYOffset: 9,
         sendButtonSize: 36,
