@@ -18,6 +18,10 @@ final class ChatCoordinator {
     struct ReferenceSearchResults: Sendable {
         let notes: [NoteMentionChoice]
         let chats: [ChatReferenceResult]
+        let vaultTitle: String?
+        let vaultNoteCount: Int
+        let isInventoryComplete: Bool
+        let query: String
     }
 
     struct NotesContextResolution: Sendable {
@@ -344,24 +348,41 @@ final class ChatCoordinator {
         threads: [ChatThread],
         limitPerSection: Int = 6
     ) -> ReferenceSearchResults {
-        let normalizedFilter = filter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedFilter = normalizedSearchField(
+            filter.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
 
         let noteChoices: [NoteMentionChoice] = {
             guard let manifest else { return [] }
             var results: [NoteMentionChoice] = []
-            if normalizedFilter.isEmpty || "all notes".contains(normalizedFilter) || "all".contains(normalizedFilter) {
+            if shouldOfferAllNotesChoice(for: normalizedFilter) {
                 results.append(.allNotes)
             }
-            let entries = manifest.entries
             if normalizedFilter.isEmpty {
-                results.append(contentsOf: entries.prefix(limitPerSection).map(NoteMentionChoice.entry))
+                let recentEntries = manifest.entries
+                    .sorted {
+                        if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
+                        return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                    }
+                    .prefix(limitPerSection)
+                results.append(contentsOf: recentEntries.map(NoteMentionChoice.entry))
                 return results
             }
-            let matched = entries.filter {
-                let title = $0.title.lowercased()
-                return title.hasPrefix(normalizedFilter) || title.contains(normalizedFilter)
-            }
-            results.append(contentsOf: matched.prefix(limitPerSection).map(NoteMentionChoice.entry))
+
+            let terms = searchTerms(from: normalizedFilter)
+            let matched = manifest.entries
+                .compactMap { entry -> (entry: VaultManifest.ManifestEntry, score: Int)? in
+                    let score = noteSearchScore(for: entry, normalizedFilter: normalizedFilter, terms: terms)
+                    return score > 0 ? (entry, score) : nil
+                }
+                .sorted {
+                    if $0.score != $1.score { return $0.score > $1.score }
+                    if $0.entry.updatedAt != $1.entry.updatedAt {
+                        return $0.entry.updatedAt > $1.entry.updatedAt
+                    }
+                    return $0.entry.title.localizedCaseInsensitiveCompare($1.entry.title) == .orderedAscending
+                }
+            results.append(contentsOf: matched.prefix(limitPerSection).map { .entry($0.entry) })
             return results
         }()
 
@@ -405,8 +426,110 @@ final class ChatCoordinator {
 
         return ReferenceSearchResults(
             notes: noteChoices,
-            chats: Array(filteredChats.prefix(limitPerSection))
+            chats: Array(filteredChats.prefix(limitPerSection)),
+            vaultTitle: manifest?.vaultTitle,
+            vaultNoteCount: manifest?.totalNoteCount ?? 0,
+            isInventoryComplete: manifest?.isInventoryComplete ?? false,
+            query: normalizedFilter
         )
+    }
+
+    private static func shouldOfferAllNotesChoice(for normalizedFilter: String) -> Bool {
+        normalizedFilter.isEmpty
+            || "all notes".contains(normalizedFilter)
+            || "all".contains(normalizedFilter)
+            || "vault".contains(normalizedFilter)
+            || "everything".contains(normalizedFilter)
+    }
+
+    private static func searchTerms(from normalizedFilter: String) -> [String] {
+        normalizedFilter
+            .split(whereSeparator: \.isWhitespace)
+            .map(String.init)
+            .filter { !$0.isEmpty }
+    }
+
+    private static func noteSearchScore(
+        for entry: VaultManifest.ManifestEntry,
+        normalizedFilter: String,
+        terms: [String]
+    ) -> Int {
+        let normalizedTitle = normalizedSearchField(entry.title)
+        let normalizedFolder = entry.folderName.map { normalizedSearchField($0) } ?? ""
+        let normalizedSnippet = normalizedSearchField(entry.snippet)
+        let normalizedTags = entry.tags.map(normalizedSearchField)
+
+        guard !terms.isEmpty else { return 0 }
+
+        var score = 0
+        for term in terms {
+            var matchedCurrentTerm = false
+
+            if normalizedTitle == term {
+                score += 160
+                matchedCurrentTerm = true
+            } else if normalizedTitle.hasPrefix(term) {
+                score += 120
+                matchedCurrentTerm = true
+            } else if normalizedTitle.contains(term) {
+                score += 80
+                matchedCurrentTerm = true
+            }
+
+            if normalizedFolder.hasPrefix(term) {
+                score += 32
+                matchedCurrentTerm = true
+            } else if normalizedFolder.contains(term) {
+                score += 24
+                matchedCurrentTerm = true
+            }
+
+            var matchedTag = false
+            for tag in normalizedTags {
+                if tag == term {
+                    score += 48
+                    matchedCurrentTerm = true
+                    matchedTag = true
+                    break
+                }
+                if tag.hasPrefix(term) {
+                    score += 38
+                    matchedCurrentTerm = true
+                    matchedTag = true
+                    break
+                }
+                if tag.contains(term) {
+                    score += 26
+                    matchedCurrentTerm = true
+                    matchedTag = true
+                    break
+                }
+            }
+
+            if !matchedTag {
+                if normalizedSnippet.hasPrefix(term) {
+                    score += 22
+                    matchedCurrentTerm = true
+                } else if normalizedSnippet.contains(term) {
+                    score += 16
+                    matchedCurrentTerm = true
+                }
+            }
+
+            if !matchedCurrentTerm {
+                return 0
+            }
+        }
+
+        let ageInDays = max(0, Date().timeIntervalSince(entry.updatedAt) / 86_400)
+        score += max(0, 14 - Int(min(ageInDays, 14)))
+        return score
+    }
+
+    private static func normalizedSearchField(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
     }
 
     func buildNotesContext(query: String, chatState: ChatState) async -> (String?, String) {

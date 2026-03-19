@@ -43,4 +43,149 @@ struct ComposerReferenceHelpersTests {
         )
         #expect(vaultAttachment == ComposerReferenceHelpers.allNotesAttachment)
     }
+
+    @Test("reference search ranks title matches ahead of secondary metadata")
+    func referenceSearchRanksTitleMatchesAheadOfSecondaryMetadata() {
+        let manifest = makeManifest(entries: [
+            .init(
+                pageId: "title",
+                title: "Atlas Project",
+                tags: ["research"],
+                folderName: "Projects",
+                wordCount: 400,
+                snippet: "Primary atlas design notes",
+                updatedAt: Date(timeIntervalSince1970: 300),
+                createdAt: .distantPast
+            ),
+            .init(
+                pageId: "tag",
+                title: "Weekly Review",
+                tags: ["atlas"],
+                folderName: "Journal",
+                wordCount: 220,
+                snippet: "Retrospective entry",
+                updatedAt: Date(timeIntervalSince1970: 200),
+                createdAt: .distantPast
+            ),
+            .init(
+                pageId: "snippet",
+                title: "Ideas",
+                tags: ["brainstorm"],
+                folderName: "Inbox",
+                wordCount: 180,
+                snippet: "Atlas launch checklist and notes",
+                updatedAt: Date(timeIntervalSince1970: 100),
+                createdAt: .distantPast
+            ),
+        ])
+
+        let results = ChatCoordinator.searchReferenceResults(
+            filter: "atlas",
+            manifest: manifest,
+            chats: [],
+            threads: []
+        )
+
+        #expect(notePageIDs(results.notes) == ["title", "tag", "snippet"])
+    }
+
+    @Test("reference search matches folder and snippet metadata, not only titles")
+    func referenceSearchMatchesFolderAndSnippetMetadata() {
+        let manifest = makeManifest(entries: [
+            .init(
+                pageId: "folder",
+                title: "Orbitals",
+                tags: ["chemistry"],
+                folderName: "Lab Notes",
+                wordCount: 320,
+                snippet: "Electron shell observations",
+                updatedAt: Date(timeIntervalSince1970: 200),
+                createdAt: .distantPast
+            ),
+            .init(
+                pageId: "snippet",
+                title: "Meeting",
+                tags: ["planning"],
+                folderName: "Ops",
+                wordCount: 210,
+                snippet: "Lab calibration schedule and supply list",
+                updatedAt: Date(timeIntervalSince1970: 100),
+                createdAt: .distantPast
+            ),
+        ])
+
+        let results = ChatCoordinator.searchReferenceResults(
+            filter: "lab",
+            manifest: manifest,
+            chats: [],
+            threads: []
+        )
+
+        #expect(notePageIDs(results.notes) == ["folder", "snippet"])
+    }
+
+    @Test("empty note search surfaces all notes first and then recent notes")
+    func emptyNoteSearchSurfacesAllNotesFirstAndThenRecentNotes() {
+        let manifest = makeManifest(entries: [
+            .init(
+                pageId: "older",
+                title: "Older Note",
+                tags: [],
+                folderName: nil,
+                wordCount: 50,
+                snippet: "",
+                updatedAt: Date(timeIntervalSince1970: 100),
+                createdAt: .distantPast
+            ),
+            .init(
+                pageId: "newer",
+                title: "Newer Note",
+                tags: [],
+                folderName: nil,
+                wordCount: 75,
+                snippet: "",
+                updatedAt: Date(timeIntervalSince1970: 200),
+                createdAt: .distantPast
+            ),
+        ])
+
+        let results = ChatCoordinator.searchReferenceResults(
+            filter: "",
+            manifest: manifest,
+            chats: [],
+            threads: [],
+            limitPerSection: 2
+        )
+
+        #expect(noteChoiceIDs(results.notes) == ["all-notes", "newer", "older"])
+    }
+
+    private func makeManifest(entries: [VaultManifest.ManifestEntry]) -> VaultManifest {
+        VaultManifest(
+            vaultTitle: "My Vault",
+            totalNoteCount: entries.count,
+            isInventoryComplete: true,
+            entries: entries,
+            recentBodies: [],
+            generatedAt: .distantPast
+        )
+    }
+
+    private func notePageIDs(_ notes: [NoteMentionChoice]) -> [String] {
+        notes.compactMap { choice in
+            guard case .entry(let entry) = choice else { return nil }
+            return entry.pageId
+        }
+    }
+
+    private func noteChoiceIDs(_ notes: [NoteMentionChoice]) -> [String] {
+        notes.map { choice in
+            switch choice {
+            case .allNotes:
+                "all-notes"
+            case .entry(let entry):
+                entry.pageId
+            }
+        }
+    }
 }

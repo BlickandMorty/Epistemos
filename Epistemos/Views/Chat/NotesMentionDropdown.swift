@@ -150,6 +150,10 @@ struct ComposerReferencePopover: View {
             .background {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(.white.opacity(0.08), lineWidth: 0.8)
+                    }
                     .shadow(color: .black.opacity(0.14), radius: 12, y: -2)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -174,12 +178,13 @@ struct NotesMentionDropdown: View {
 
     var body: some View {
         if results.notes.isEmpty && results.chats.isEmpty {
-            Text("No matching notes")
-                .font(.system(size: 11))
-                .foregroundStyle(theme.textTertiary)
-                .padding(8)
+            emptyState
         } else {
             VStack(alignment: .leading, spacing: 0) {
+                if results.vaultNoteCount > 0 {
+                    vaultSummaryHeader
+                }
+
                 if !results.notes.isEmpty {
                     sectionHeader("Notes")
                     ForEach(results.notes) { choice in
@@ -207,12 +212,73 @@ struct NotesMentionDropdown: View {
         }
     }
 
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("No matching notes or chats", systemImage: "sparkle.magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.foreground)
+            Text(results.vaultNoteCount > 0
+                 ? "Search checks note titles, folders, tags, and snippets across your vault."
+                 : "Attach a vault to browse notes here, or keep typing to search chats.")
+                .font(.system(size: 11))
+                .foregroundStyle(theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var vaultSummaryHeader: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "books.vertical.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.accent.opacity(0.9))
+                .frame(width: 24, height: 24)
+                .background(
+                    Circle()
+                        .fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.12))
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(results.vaultTitle ?? "Vault")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.foreground)
+                Text(vaultSummaryText)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+
+            if !results.isInventoryComplete {
+                Text("Partial")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(theme.foreground.opacity(0.06)))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+    }
+
+    private var vaultSummaryText: String {
+        if results.query.isEmpty {
+            return "Browse \(results.vaultNoteCount) notes or attach the whole vault as context."
+        }
+        return "Matching across titles, folders, tags, and snippets in \(results.vaultNoteCount) notes."
+    }
+
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(theme.textTertiary.opacity(0.75))
             .tracking(0.5)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .padding(.top, 6)
             .padding(.bottom, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -222,67 +288,119 @@ struct NotesMentionDropdown: View {
     private func noteRow(_ choice: NoteMentionChoice) -> some View {
         switch choice {
         case .allNotes:
-            VStack(alignment: .leading, spacing: 2) {
-                Text("All Notes")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(theme.foreground)
-                    .lineLimit(1)
-                Text("Use the full vault index for this message")
-                    .font(.system(size: 10))
-                    .foregroundStyle(theme.textTertiary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            rowChrome {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "books.vertical.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme.accent.opacity(0.9))
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(theme.accent.opacity(theme.isDark ? 0.18 : 0.12)))
 
-        case .entry(let entry):
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(theme.foreground)
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    if let folder = entry.folderName {
-                        Text(folder)
-                            .font(.system(size: 10))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("All Notes")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(theme.foreground)
+                            .lineLimit(1)
+                        Text("Use the full vault index for this message.")
+                            .font(.system(size: 10.5))
                             .foregroundStyle(theme.textTertiary)
+                        if results.vaultNoteCount > 0 {
+                            Text("\(results.vaultNoteCount) notes")
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(theme.textSecondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                        }
                     }
-                    Text(entry.updatedAt.formatted(.relative(presentation: .named)))
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.textTertiary.opacity(0.6))
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+
+        case .entry(let entry):
+            rowChrome {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(entry.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme.foreground)
+                        .lineLimit(1)
+
+                    HStack(spacing: 6) {
+                        if let folder = entry.folderName, !folder.isEmpty {
+                            Label(folder, systemImage: "folder")
+                                .labelStyle(.titleAndIcon)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(theme.textSecondary)
+                                .lineLimit(1)
+                        }
+                        Text(entry.updatedAt.formatted(.relative(presentation: .named)))
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.textTertiary.opacity(0.7))
+                    }
+
+                    if !entry.tags.isEmpty {
+                        HStack(spacing: 4) {
+                            ForEach(Array(entry.tags.prefix(3)), id: \.self) { tag in
+                                Text("#\(tag)")
+                                    .font(.system(size: 9.5, weight: .semibold))
+                                    .foregroundStyle(theme.textSecondary)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(Capsule().fill(theme.foreground.opacity(0.06)))
+                            }
+                        }
+                    }
+
+                    if !entry.snippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(entry.snippet)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(theme.textTertiary.opacity(0.88))
+                            .lineLimit(results.query.isEmpty ? 1 : 2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
         }
     }
 
     private func chatRow(_ result: ChatCoordinator.ChatReferenceResult) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(result.attachment.title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(theme.foreground)
-                .lineLimit(1)
-            HStack(spacing: 6) {
-                if let subtitle = result.attachment.subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.textTertiary)
-                }
-                if let preview = result.preview, !preview.isEmpty {
-                    Text(preview)
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.textTertiary.opacity(0.7))
-                        .lineLimit(1)
+        rowChrome {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(result.attachment.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.foreground)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    if let subtitle = result.attachment.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.textTertiary)
+                    }
+                    if let preview = result.preview, !preview.isEmpty {
+                        Text(preview)
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.textTertiary.opacity(0.7))
+                            .lineLimit(1)
+                    }
                 }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
+    }
+
+    private func rowChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(theme.foreground.opacity(theme.isDark ? 0.07 : 0.045))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(theme.glassBorder.opacity(theme.isDark ? 0.28 : 0.18), lineWidth: 0.8)
+                    }
+            )
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
